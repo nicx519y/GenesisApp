@@ -269,7 +269,7 @@ void main() {
         required event,
         required occurredAtSeconds,
         required parameters,
-        businessId,
+        transactionId,
       }) async {
         if (AppEventReporting.supportedEvents.contains(event)) {
           serverEvents.add(
@@ -277,7 +277,7 @@ void main() {
               event,
               occurredAtSeconds,
               Map.of(parameters),
-              businessId,
+              transactionId,
             ),
           );
         }
@@ -305,7 +305,7 @@ void main() {
         productId: 'gems-500',
         kind: FirebaseAnalyticsPurchaseKind.gems,
         purchaseIdentity: 'gems-proof',
-        businessIdentity: 'gems-order-1',
+        transactionIdentity: 'gems-order-1',
         priceAmountMicros: 4990000,
         priceCurrencyCode: 'usd',
       );
@@ -314,7 +314,7 @@ void main() {
         productId: 'subscription-year',
         kind: FirebaseAnalyticsPurchaseKind.subscription,
         purchaseIdentity: 'subscription-proof',
-        businessIdentity: 'subscription-period-1',
+        transactionIdentity: 'subscription-period-1',
         priceAmountMicros: 29990000,
         priceCurrencyCode: 'usd',
       );
@@ -349,7 +349,7 @@ void main() {
         );
       }
       for (final event in serverEvents.where(
-        (event) => event.businessId == 'gems:gems-order-1',
+        (event) => event.transactionId == 'gems-order-1',
       )) {
         expect(event.params, const <String, Object>{
           'provider': 'google',
@@ -358,10 +358,10 @@ void main() {
           'value': 4.99,
           'currency': 'USD',
         });
-        expect(event.businessId, 'gems:gems-order-1');
+        expect(event.transactionId, 'gems-order-1');
       }
       for (final event in serverEvents.where(
-        (event) => event.businessId == 'subscription:subscription-period-1',
+        (event) => event.transactionId == 'subscription-period-1',
       )) {
         expect(event.params, const <String, Object>{
           'provider': 'apple',
@@ -370,7 +370,7 @@ void main() {
           'value': 29.99,
           'currency': 'USD',
         });
-        expect(event.businessId, 'subscription:subscription-period-1');
+        expect(event.transactionId, 'subscription-period-1');
       }
       expect(
         serverEvents.any((event) => event.name == 'subscription_renew'),
@@ -392,7 +392,7 @@ void main() {
       required event,
       required occurredAtSeconds,
       required parameters,
-      businessId,
+      transactionId,
     }) async {
       if (AppEventReporting.supportedEvents.contains(event)) {
         serverEvents.add(
@@ -400,7 +400,7 @@ void main() {
             event,
             occurredAtSeconds,
             Map.of(parameters),
-            businessId,
+            transactionId,
           ),
         );
       }
@@ -423,7 +423,7 @@ void main() {
         required event,
         required occurredAtSeconds,
         required parameters,
-        businessId,
+        transactionId,
       }) async {
         if (AppEventReporting.supportedEvents.contains(event)) {
           serverEvents.add(
@@ -431,7 +431,7 @@ void main() {
               event,
               occurredAtSeconds,
               Map.of(parameters),
-              businessId,
+              transactionId,
             ),
           );
         }
@@ -442,7 +442,7 @@ void main() {
         productId: 'gems-500',
         kind: FirebaseAnalyticsPurchaseKind.gems,
         purchaseIdentity: 'new-proof',
-        businessIdentity: 'new-order',
+        transactionIdentity: 'new-order',
       );
 
       expect(client.events.map((event) => event.name).toSet(), <String>{
@@ -454,7 +454,7 @@ void main() {
         'gems',
       });
       expect(
-        serverEvents.every((event) => event.businessId == 'gems:new-order'),
+        serverEvents.every((event) => event.transactionId == 'new-order'),
         isTrue,
       );
     },
@@ -1324,13 +1324,13 @@ class _ServerRecordedEvent {
     this.name,
     this.occurredAtSeconds,
     this.params,
-    this.businessId,
+    this.transactionId,
   );
 
   final String name;
   final int occurredAtSeconds;
   final Map<String, Object> params;
-  final String? businessId;
+  final String? transactionId;
 }
 
 bool _mapsEqual(Map<String, Object> first, Map<String, Object> second) {

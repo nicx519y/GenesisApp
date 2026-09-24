@@ -2661,10 +2661,10 @@ World：
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 
-- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at`、可选 `business_id` 和字符串 map `params`。`occurred_at` 是事件进入 Firebase/S2S 共用上报入口时采集的 UTC Unix 微秒时间戳，与 Firebase BigQuery `event_timestamp` 使用相同单位；持久化重试保留原值。
+- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at`、购买类事件必填的 `transaction_id` 和字符串 map `params`。`occurred_at` 是事件进入 Firebase/S2S 共用上报入口时采集的 UTC Unix 秒时间戳；持久化重试保留原值。
 - 客户端同步 Firebase 当前实际触发的 16 个事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`、`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。本次不发送 `first_open` 和 `subscription_renew`。
 - 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`；购买事件参数为 `provider/product_id/device_id`，仅商店价格和 ISO 4217 币种同时有效时额外传 `value/currency`。S2S 的参数名和值与同次 Firebase 调用一致，值按接口要求转为字符串；不补造缺失参数。
-- `purchase`、`purchase_day0`、`gems`、`gems_day0`、`subscription`、`subscription_day0` 是逐笔事件，必须传 `business_id`。Gems 使用 `gems:<服务端交易号或商店交易号>`；订阅使用 `subscription:<当前付款周期商店交易号>`，交易号缺失时才回退本次购买凭据。其余 10 个事件为设备唯一事件，不传 `business_id`。
+- 12 个购买衍生事件必须传不带业务类型前缀的 `transaction_id`：`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。Gems 优先使用服务端交易号，其次使用商店交易号或本次购买凭据；订阅使用当前付款周期商店交易号，缺失时回退本次购买凭据。登录和消息四个设备唯一事件不传 `transaction_id`。
 - 设备唯一事件先检查现有 Firebase 本地一次性标记：已标记为上报的老用户不向 Firebase 或 S2S 补报；未标记时才同时进入 Firebase 与 S2S。逐笔购买事件继续按交易身份独立判断，不受其他历史交易影响。
 - 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
 

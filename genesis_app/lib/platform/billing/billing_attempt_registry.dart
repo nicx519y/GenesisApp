@@ -274,7 +274,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
             productId: record.storeProductId,
             kind: FirebaseAnalyticsPurchaseKind.gems,
             purchaseIdentity: record.purchaseToken,
-            businessIdentity: serverTransactionId.isNotEmpty
+            transactionIdentity: serverTransactionId.isNotEmpty
                 ? serverTransactionId
                 : record.transactionId.trim().isNotEmpty
                 ? record.transactionId

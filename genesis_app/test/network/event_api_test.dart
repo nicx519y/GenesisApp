@@ -28,7 +28,7 @@ void main() {
       event: 'gems',
       environment: 'sandbox',
       occurredAtSeconds: 1767225600,
-      businessId: 'gems:order-1',
+      transactionId: 'order-1',
       params: const <String, String>{
         'provider': 'google',
         'product_id': 'gems-500',
@@ -44,7 +44,7 @@ void main() {
       'event': 'gems',
       'environment': 'sandbox',
       'occurred_at': 1767225600,
-      'business_id': 'gems:order-1',
+      'transaction_id': 'order-1',
       'params': {
         'provider': 'google',
         'product_id': 'gems-500',
@@ -55,7 +55,7 @@ void main() {
     });
   });
 
-  test('device-once event omits an empty business id', () async {
+  test('device-once event omits an empty transaction id', () async {
     TransportRequest? captured;
     final api = EventV1Api(
       ApiClient(
@@ -76,7 +76,7 @@ void main() {
       event: 'login_first',
       environment: 'production',
       occurredAtSeconds: 1767225600,
-      businessId: ' ',
+      transactionId: ' ',
       params: const {'method': 'google', 'device_id': 'device-1'},
     );
 

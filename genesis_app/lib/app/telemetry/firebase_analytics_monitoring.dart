@@ -26,7 +26,7 @@ typedef FirebaseAnalyticsServerEventReporter =
       required String event,
       required int occurredAtSeconds,
       required Map<String, Object> parameters,
-      String? businessId,
+      String? transactionId,
     });
 
 enum FirebaseAnalyticsPurchaseKind { gems, subscription }
@@ -330,7 +330,7 @@ class FirebaseAnalyticsMonitoring {
     required String productId,
     required FirebaseAnalyticsPurchaseKind kind,
     required String purchaseIdentity,
-    String? businessIdentity,
+    String? transactionIdentity,
     bool requireEligibility = false,
     int? priceAmountMicros,
     String priceCurrencyCode = '',
@@ -357,11 +357,7 @@ class FirebaseAnalyticsMonitoring {
     // transaction ID, never the original subscription chain. Persist only a
     // digest, and keep this identity out of the Analytics parameters/logs.
     final identity = _purchaseIdentityDigest(provider, kind, purchaseIdentity);
-    final normalizedBusinessIdentity = (businessIdentity ?? purchaseIdentity)
-        .trim();
-    final serverBusinessId = normalizedBusinessIdentity.isEmpty
-        ? null
-        : '${kind.name}:$normalizedBusinessIdentity';
+    final transactionId = (transactionIdentity ?? purchaseIdentity).trim();
     var deviceId = 'unknown';
     try {
       final value = (await _deviceIdReader()).trim();
@@ -385,26 +381,26 @@ class FirebaseAnalyticsMonitoring {
         'purchase',
         parameters,
         storageKey: 'purchase_transaction_v1.$identity',
-        businessId: serverBusinessId,
+        transactionId: transactionId,
         occurredAtSeconds: occurredAtSeconds,
       ),
       _recordEventOnce(
         kindName,
         parameters,
         storageKey: '${kindName}_transaction_v1.$identity',
-        businessId: serverBusinessId,
+        transactionId: transactionId,
         occurredAtSeconds: occurredAtSeconds,
       ),
       _recordEventOnce(
         'purchase_first',
         parameters,
-        businessId: serverBusinessId,
+        transactionId: transactionId,
         occurredAtSeconds: occurredAtSeconds,
       ),
       _recordEventOnce(
         kindFirstEvent,
         parameters,
-        businessId: serverBusinessId,
+        transactionId: transactionId,
         occurredAtSeconds: occurredAtSeconds,
       ),
       if (day0) ...[
@@ -412,26 +408,26 @@ class FirebaseAnalyticsMonitoring {
           'purchase_day0',
           parameters,
           storageKey: 'purchase_day0_transaction_v1.$identity',
-          businessId: serverBusinessId,
+          transactionId: transactionId,
           occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           '${kindName}_day0',
           parameters,
           storageKey: '${kindName}_day0_transaction_v1.$identity',
-          businessId: serverBusinessId,
+          transactionId: transactionId,
           occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           'purchase_first_day0',
           parameters,
-          businessId: serverBusinessId,
+          transactionId: transactionId,
           occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           '${kindName}_first_day0',
           parameters,
-          businessId: serverBusinessId,
+          transactionId: transactionId,
           occurredAtSeconds: occurredAtSeconds,
         ),
       ],
@@ -552,7 +548,7 @@ class FirebaseAnalyticsMonitoring {
     Map<String, Object> parameters, {
     required int occurredAtSeconds,
     String? storageKey,
-    String? businessId,
+    String? transactionId,
   }) {
     if (!_isEnabled) return Future<void>.value();
     final key = storageKey ?? name;
@@ -566,7 +562,7 @@ class FirebaseAnalyticsMonitoring {
           parameters,
           key,
           occurredAtSeconds: occurredAtSeconds,
-          businessId: businessId,
+          transactionId: transactionId,
         ).whenComplete(() {
           if (identical(_onceEventRecordings[key], recording)) {
             _onceEventRecordings.remove(key);
@@ -581,7 +577,7 @@ class FirebaseAnalyticsMonitoring {
     Map<String, Object> parameters,
     String storageKey, {
     required int occurredAtSeconds,
-    String? businessId,
+    String? transactionId,
   }) async {
     try {
       if (await _onceEventStore.wasSent(storageKey)) return;
@@ -589,7 +585,7 @@ class FirebaseAnalyticsMonitoring {
         name,
         parameters,
         occurredAtSeconds: occurredAtSeconds,
-        businessId: businessId,
+        transactionId: transactionId,
       );
       try {
         await _readiness();
@@ -611,7 +607,7 @@ class FirebaseAnalyticsMonitoring {
     String name,
     Map<String, Object> parameters, {
     required int occurredAtSeconds,
-    String? businessId,
+    String? transactionId,
   }) async {
     final reporter = _serverEventReporter;
     if (reporter == null) return;
@@ -620,7 +616,7 @@ class FirebaseAnalyticsMonitoring {
         event: name,
         occurredAtSeconds: occurredAtSeconds,
         parameters: parameters,
-        businessId: businessId,
+        transactionId: transactionId,
       );
     } catch (e, st) {
       debugPrint('[Telemetry][EventReport] $name enqueue failed: $e');

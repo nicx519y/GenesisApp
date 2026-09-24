@@ -1133,7 +1133,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             purchaseIdentity: provider == MembershipProvider.google
                 ? record.purchaseToken
                 : record.transactionId,
-            businessIdentity: record.transactionId.trim().isNotEmpty
+            transactionIdentity: record.transactionId.trim().isNotEmpty
                 ? record.transactionId
                 : record.purchaseToken,
             priceAmountMicros: record.priceAmountMicros,

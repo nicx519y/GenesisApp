@@ -9,7 +9,7 @@ class EventV1Api extends V1ApiResource {
     required String environment,
     required int occurredAtSeconds,
     required Map<String, String> params,
-    String? businessId,
+    String? transactionId,
   }) async {
     final normalizedEvent = event.trim();
     if (normalizedEvent.isEmpty) {
@@ -31,15 +31,15 @@ class EventV1Api extends V1ApiResource {
         'must be a positive UTC Unix timestamp in seconds',
       );
     }
-    final normalizedBusinessId = businessId?.trim();
+    final normalizedTransactionId = transactionId?.trim();
     await postData(
       'event/report',
       v1Body(<String, Object?>{
         'event': normalizedEvent,
         'environment': normalizedEnvironment,
         'occurred_at': occurredAtSeconds,
-        if (normalizedBusinessId?.isNotEmpty == true)
-          'business_id': normalizedBusinessId,
+        if (normalizedTransactionId?.isNotEmpty == true)
+          'transaction_id': normalizedTransactionId,
         if (params.isNotEmpty) 'params': params,
       }),
     );

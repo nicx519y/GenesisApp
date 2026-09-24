@@ -411,7 +411,7 @@ class ServiceRegistry {
               environment: report.environment,
               occurredAtSeconds: report.occurredAtSeconds,
               params: report.params,
-              businessId: report.businessId,
+              transactionId: report.transactionId,
             ),
           )
         : null;

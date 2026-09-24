@@ -24,7 +24,7 @@ class AppEventReport {
     required this.occurredAtSeconds,
     required this.params,
     required this.reportKey,
-    this.businessId,
+    this.transactionId,
   });
 
   final String event;
@@ -32,7 +32,7 @@ class AppEventReport {
   final int occurredAtSeconds;
   final Map<String, String> params;
   final String reportKey;
-  final String? businessId;
+  final String? transactionId;
 }
 
 abstract interface class AppEventReportStore {
@@ -81,7 +81,7 @@ class SqfliteAppEventReportStore implements AppEventReportStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: (database, _) => database.execute('''
 CREATE TABLE app_event_reports (
   sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,7 +89,7 @@ CREATE TABLE app_event_reports (
   event_name TEXT NOT NULL,
   environment TEXT NOT NULL,
   occurred_at INTEGER NOT NULL,
-  business_id TEXT,
+  transaction_id TEXT,
   params_json TEXT NOT NULL,
   delivered INTEGER NOT NULL DEFAULT 0
 )
@@ -115,6 +115,21 @@ SET occurred_at = occurred_at / 1000000
 WHERE occurred_at >= 100000000000000
 ''');
           }
+          if (oldVersion < 4) {
+            await database.execute(
+              'ALTER TABLE app_event_reports '
+              'ADD COLUMN transaction_id TEXT',
+            );
+            await database.execute('''
+UPDATE app_event_reports
+SET transaction_id = CASE
+  WHEN business_id LIKE 'gems:%' THEN substr(business_id, 6)
+  WHEN business_id LIKE 'subscription:%' THEN substr(business_id, 14)
+  ELSE business_id
+END
+WHERE business_id IS NOT NULL
+''');
+          }
         },
       ),
     );
@@ -127,7 +142,7 @@ WHERE occurred_at >= 100000000000000
       'event_name': report.event,
       'environment': report.environment,
       'occurred_at': report.occurredAtSeconds,
-      'business_id': report.businessId,
+      'transaction_id': report.transactionId,
       'params_json': jsonEncode(report.params),
       'delivered': 0,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -176,7 +191,7 @@ WHERE occurred_at >= 100000000000000
           entry.key.toString(): entry.value.toString(),
       },
       reportKey: '${row['report_key']}',
-      businessId: row['business_id']?.toString(),
+      transactionId: row['transaction_id']?.toString(),
     );
   }
 }
@@ -248,7 +263,7 @@ class AppEventReporting {
     required String event,
     required int occurredAtSeconds,
     required Map<String, Object> parameters,
-    String? businessId,
+    String? transactionId,
   }) async {
     if (_disposed || !supportedEvents.contains(event)) return;
     if (occurredAtSeconds <= 0) {
@@ -258,15 +273,15 @@ class AppEventReporting {
         'must be a positive UTC Unix timestamp in seconds',
       );
     }
-    final normalizedBusinessId = businessId?.trim() ?? '';
-    if (transactionEvents.contains(event) && normalizedBusinessId.isEmpty) {
+    final normalizedTransactionId = transactionId?.trim() ?? '';
+    if (transactionEvents.contains(event) && normalizedTransactionId.isEmpty) {
       debugPrint(
-        '[Telemetry][EventReport] $event skipped: missing business_id',
+        '[Telemetry][EventReport] $event skipped: missing transaction_id',
       );
       return;
     }
-    final effectiveBusinessId = transactionEvents.contains(event)
-        ? normalizedBusinessId
+    final effectiveTransactionId = transactionEvents.contains(event)
+        ? normalizedTransactionId
         : null;
     final params = <String, String>{
       for (final entry in parameters.entries)
@@ -285,7 +300,7 @@ class AppEventReporting {
             jsonEncode(<Object?>[
               environment,
               event,
-              effectiveBusinessId ?? '',
+              effectiveTransactionId ?? '',
             ]),
           ),
         )
@@ -298,7 +313,7 @@ class AppEventReporting {
           occurredAtSeconds: occurredAtSeconds,
           params: params,
           reportKey: reportKey,
-          businessId: effectiveBusinessId,
+          transactionId: effectiveTransactionId,
         ),
       );
       unawaited(_flushAfterEnqueue());
