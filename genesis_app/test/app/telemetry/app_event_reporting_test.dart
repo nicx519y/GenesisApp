@@ -15,7 +15,7 @@ void main() {
     const report = AppEventReport(
       event: 'login_first',
       environment: 'sandbox',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
       params: <String, String>{'method': 'google', 'device_id': 'device-1'},
       reportKey: 'report-1',
     );
@@ -72,7 +72,56 @@ CREATE TABLE app_event_reports (
 
     expect(pending, hasLength(1));
     expect(pending.single.reportKey, 'legacy-report');
-    expect(pending.single.occurredAtMicros, greaterThan(0));
+    expect(pending.single.occurredAtSeconds, greaterThan(0));
+    await store.close();
+  });
+
+  test('sqflite v2 outbox converts occurred_at micros to seconds', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp(
+      'genesis-event-report-micros-migration-',
+    );
+    final databasePath = '${directory.path}/reports.db';
+    addTearDown(() async {
+      await databaseFactoryFfiNoIsolate.deleteDatabase(databasePath);
+      await directory.delete(recursive: true);
+    });
+    final legacyDatabase = await databaseFactoryFfiNoIsolate.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (database, _) => database.execute('''
+CREATE TABLE app_event_reports (
+  sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_key TEXT NOT NULL UNIQUE,
+  event_name TEXT NOT NULL,
+  environment TEXT NOT NULL,
+  occurred_at INTEGER NOT NULL,
+  business_id TEXT,
+  params_json TEXT NOT NULL,
+  delivered INTEGER NOT NULL DEFAULT 0
+)
+'''),
+      ),
+    );
+    await legacyDatabase.insert('app_event_reports', <String, Object?>{
+      'report_key': 'legacy-micros-report',
+      'event_name': 'login_first',
+      'environment': 'sandbox',
+      'occurred_at': 1767225600123456,
+      'params_json': '{"method":"google"}',
+      'delivered': 0,
+    });
+    await legacyDatabase.close();
+
+    final store = SqfliteAppEventReportStore(
+      databaseFactoryOverride: databaseFactoryFfiNoIsolate,
+      databasePath: databasePath,
+    );
+    final pending = await store.pending(limit: 20);
+
+    expect(pending, hasLength(1));
+    expect(pending.single.occurredAtSeconds, 1767225600);
     await store.close();
   });
 
@@ -91,7 +140,7 @@ CREATE TABLE app_event_reports (
 
       await reporting.report(
         event: 'gems',
-        occurredAtMicros: 1767225600123456,
+        occurredAtSeconds: 1767225600,
         businessId: 'gems:order-1',
         parameters: const <String, Object>{
           'provider': 'google',
@@ -103,7 +152,7 @@ CREATE TABLE app_event_reports (
       );
       await reporting.report(
         event: 'login_first',
-        occurredAtMicros: 1767225600123456,
+        occurredAtSeconds: 1767225600,
         businessId: 'must-be-ignored',
         parameters: const <String, Object>{
           'method': 'google',
@@ -112,7 +161,7 @@ CREATE TABLE app_event_reports (
       );
       await reporting.report(
         event: 'subscription_renew',
-        occurredAtMicros: 1767225600123456,
+        occurredAtSeconds: 1767225600,
         businessId: 'subscription:renewal-1',
         parameters: const <String, Object>{'device_id': 'device-1'},
       );
@@ -120,7 +169,7 @@ CREATE TABLE app_event_reports (
 
       expect(sent.map((report) => report.event), ['gems', 'login_first']);
       expect(sent.first.businessId, 'gems:order-1');
-      expect(sent.first.occurredAtMicros, 1767225600123456);
+      expect(sent.first.occurredAtSeconds, 1767225600);
       expect(sent.first.params, const <String, String>{
         'provider': 'google',
         'product_id': 'gems-500',
@@ -155,7 +204,7 @@ CREATE TABLE app_event_reports (
 
     await reporting.report(
       event: 'message_sent_first',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
       parameters: const <String, Object>{
         'world_id': 'world-1',
         'location_id': 'location-1',
@@ -172,7 +221,7 @@ CREATE TABLE app_event_reports (
 
     await reporting.report(
       event: 'message_sent_first',
-      occurredAtMicros: 1767225600999999,
+      occurredAtSeconds: 1767225600,
       parameters: const <String, Object>{
         'world_id': 'different',
         'location_id': 'different',
@@ -192,13 +241,37 @@ CREATE TABLE app_event_reports (
       sender: (_) async {},
     );
 
-    await reporting.report(
-      event: 'purchase',
-      occurredAtMicros: 1767225600123456,
-      parameters: const <String, Object>{'device_id': 'device-1'},
-    );
+    for (final event in AppEventReporting.transactionEvents) {
+      await reporting.report(
+        event: event,
+        occurredAtSeconds: 1767225600,
+        parameters: const <String, Object>{'device_id': 'device-1'},
+      );
+    }
 
     expect(store.reports, isEmpty);
+    await reporting.dispose();
+  });
+
+  test('transaction-derived events preserve their business id', () async {
+    final store = _MemoryAppEventReportStore();
+    final sent = <AppEventReport>[];
+    final reporting = AppEventReporting(
+      environmentProvider: () => 'sandbox',
+      store: store,
+      sender: (report) async => sent.add(report),
+    );
+
+    await reporting.report(
+      event: 'gems_first_day0',
+      occurredAtSeconds: 1767225600,
+      businessId: 'gems:order-1',
+      parameters: const <String, Object>{'device_id': 'device-1'},
+    );
+    await reporting.flush();
+
+    expect(sent, hasLength(1));
+    expect(sent.single.businessId, 'gems:order-1');
     await reporting.dispose();
   });
 
@@ -222,12 +295,13 @@ CREATE TABLE app_event_reports (
 
     await reporting.report(
       event: 'gems_first_day0',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
+      businessId: 'gems:order-1',
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
     await reporting.report(
       event: 'login_first',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
       parameters: const <String, Object>{
         'method': 'google',
         'device_id': 'device-1',
@@ -252,13 +326,13 @@ CREATE TABLE app_event_reports (
 
     await reporting.report(
       event: 'login_first',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
     firebaseEnvironment = 'production';
     await reporting.report(
       event: 'message_sent_first',
-      occurredAtMicros: 1767225600123457,
+      occurredAtSeconds: 1767225601,
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
     await reporting.flush();

@@ -28,8 +28,8 @@ void main() {
         return messageSentCount;
       },
     );
-    FirebaseAnalyticsMonitoring.setOccurredAtMicrosReaderForTesting(
-      () => 1767225600123456,
+    FirebaseAnalyticsMonitoring.setOccurredAtSecondsReaderForTesting(
+      () => 1767225600,
     );
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
@@ -267,7 +267,7 @@ void main() {
       final serverEvents = <_ServerRecordedEvent>[];
       FirebaseAnalyticsMonitoring.configureServerEventReporter(({
         required event,
-        required occurredAtMicros,
+        required occurredAtSeconds,
         required parameters,
         businessId,
       }) async {
@@ -275,7 +275,7 @@ void main() {
           serverEvents.add(
             _ServerRecordedEvent(
               event,
-              occurredAtMicros,
+              occurredAtSeconds,
               Map.of(parameters),
               businessId,
             ),
@@ -324,9 +324,7 @@ void main() {
         AppEventReporting.supportedEvents,
       );
       expect(
-        serverEvents.every(
-          (event) => event.occurredAtMicros == 1767225600123456,
-        ),
+        serverEvents.every((event) => event.occurredAtSeconds == 1767225600),
         isTrue,
       );
       expect(
@@ -392,7 +390,7 @@ void main() {
     final serverEvents = <_ServerRecordedEvent>[];
     FirebaseAnalyticsMonitoring.configureServerEventReporter(({
       required event,
-      required occurredAtMicros,
+      required occurredAtSeconds,
       required parameters,
       businessId,
     }) async {
@@ -400,7 +398,7 @@ void main() {
         serverEvents.add(
           _ServerRecordedEvent(
             event,
-            occurredAtMicros,
+            occurredAtSeconds,
             Map.of(parameters),
             businessId,
           ),
@@ -423,7 +421,7 @@ void main() {
       final serverEvents = <_ServerRecordedEvent>[];
       FirebaseAnalyticsMonitoring.configureServerEventReporter(({
         required event,
-        required occurredAtMicros,
+        required occurredAtSeconds,
         required parameters,
         businessId,
       }) async {
@@ -431,7 +429,7 @@ void main() {
           serverEvents.add(
             _ServerRecordedEvent(
               event,
-              occurredAtMicros,
+              occurredAtSeconds,
               Map.of(parameters),
               businessId,
             ),
@@ -1324,13 +1322,13 @@ class _RecordedEvent {
 class _ServerRecordedEvent {
   const _ServerRecordedEvent(
     this.name,
-    this.occurredAtMicros,
+    this.occurredAtSeconds,
     this.params,
     this.businessId,
   );
 
   final String name;
-  final int occurredAtMicros;
+  final int occurredAtSeconds;
   final Map<String, Object> params;
   final String? businessId;
 }

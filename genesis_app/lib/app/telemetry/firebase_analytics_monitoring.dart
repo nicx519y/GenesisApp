@@ -24,7 +24,7 @@ typedef FirebaseAnalyticsCollectionConfigurator =
 typedef FirebaseAnalyticsServerEventReporter =
     Future<void> Function({
       required String event,
-      required int occurredAtMicros,
+      required int occurredAtSeconds,
       required Map<String, Object> parameters,
       String? businessId,
     });
@@ -143,8 +143,9 @@ class FirebaseAnalyticsMonitoring {
   static FirebaseAnalyticsCollectionConfigurator _collectionConfigurator =
       _configureFirebaseAnalyticsCollection;
   static FirebaseAnalyticsServerEventReporter? _serverEventReporter;
-  static int Function() _occurredAtMicrosReader = () =>
-      DateTime.now().toUtc().microsecondsSinceEpoch;
+  static int Function() _occurredAtSecondsReader = () =>
+      DateTime.now().toUtc().millisecondsSinceEpoch ~/
+      Duration.millisecondsPerSecond;
 
   static Future<void> configureCollection({
     required bool enabled,
@@ -186,7 +187,7 @@ class FirebaseAnalyticsMonitoring {
     required String locationId,
   }) async {
     if (!_isEnabled) return;
-    final occurredAtMicros = _occurredAtMicrosReader();
+    final occurredAtSeconds = _occurredAtSecondsReader();
     try {
       final deviceId = (await _deviceIdReader()).trim();
       final parameters = <String, Object>{
@@ -208,24 +209,24 @@ class FirebaseAnalyticsMonitoring {
         _recordEvent(
           'message_sent',
           parameters,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           'message_sent_first',
           parameters,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         if (messageSentCount != null && messageSentCount >= 10)
           _recordEventOnce(
             'message_sent_10_first',
             parameters,
-            occurredAtMicros: occurredAtMicros,
+            occurredAtSeconds: occurredAtSeconds,
           ),
         if (messageSentCount != null && messageSentCount >= 20)
           _recordEventOnce(
             'message_sent_20_first',
             parameters,
-            occurredAtMicros: occurredAtMicros,
+            occurredAtSeconds: occurredAtSeconds,
           ),
       ]);
     } catch (e, st) {
@@ -335,7 +336,7 @@ class FirebaseAnalyticsMonitoring {
     String priceCurrencyCode = '',
   }) async {
     if (!_isEnabled || purchaseIdentity.trim().isEmpty) return;
-    final occurredAtMicros = _occurredAtMicrosReader();
+    final occurredAtSeconds = _occurredAtSecondsReader();
     if (requireEligibility) {
       final key = _purchaseEligibilityKey(provider, kind, purchaseIdentity);
       try {
@@ -385,26 +386,26 @@ class FirebaseAnalyticsMonitoring {
         parameters,
         storageKey: 'purchase_transaction_v1.$identity',
         businessId: serverBusinessId,
-        occurredAtMicros: occurredAtMicros,
+        occurredAtSeconds: occurredAtSeconds,
       ),
       _recordEventOnce(
         kindName,
         parameters,
         storageKey: '${kindName}_transaction_v1.$identity',
         businessId: serverBusinessId,
-        occurredAtMicros: occurredAtMicros,
+        occurredAtSeconds: occurredAtSeconds,
       ),
       _recordEventOnce(
         'purchase_first',
         parameters,
         businessId: serverBusinessId,
-        occurredAtMicros: occurredAtMicros,
+        occurredAtSeconds: occurredAtSeconds,
       ),
       _recordEventOnce(
         kindFirstEvent,
         parameters,
         businessId: serverBusinessId,
-        occurredAtMicros: occurredAtMicros,
+        occurredAtSeconds: occurredAtSeconds,
       ),
       if (day0) ...[
         _recordEventOnce(
@@ -412,26 +413,26 @@ class FirebaseAnalyticsMonitoring {
           parameters,
           storageKey: 'purchase_day0_transaction_v1.$identity',
           businessId: serverBusinessId,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           '${kindName}_day0',
           parameters,
           storageKey: '${kindName}_day0_transaction_v1.$identity',
           businessId: serverBusinessId,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           'purchase_first_day0',
           parameters,
           businessId: serverBusinessId,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           '${kindName}_first_day0',
           parameters,
           businessId: serverBusinessId,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
       ],
     ]);
@@ -485,19 +486,19 @@ class FirebaseAnalyticsMonitoring {
       'data_source': dataSource,
       if (errorType != null && errorType.trim().isNotEmpty)
         'error_type': errorType.trim(),
-    }, occurredAtMicros: _occurredAtMicrosReader());
+    }, occurredAtSeconds: _occurredAtSecondsReader());
   }
 
   static Future<void> _recordEvent(
     String name,
     Map<String, Object> parameters, {
-    required int occurredAtMicros,
+    required int occurredAtSeconds,
   }) async {
     if (!_isEnabled) return;
     final serverReport = _reportServerEvent(
       name,
       parameters,
-      occurredAtMicros: occurredAtMicros,
+      occurredAtSeconds: occurredAtSeconds,
     );
     try {
       await _readiness();
@@ -515,7 +516,7 @@ class FirebaseAnalyticsMonitoring {
     List<String> additionalOnceEventNames = const <String>[],
   }) async {
     if (!_isEnabled) return;
-    final occurredAtMicros = _occurredAtMicrosReader();
+    final occurredAtSeconds = _occurredAtSecondsReader();
     try {
       final deviceId = (await _deviceIdReader()).trim();
       final parametersWithDeviceId = <String, Object>{
@@ -526,18 +527,18 @@ class FirebaseAnalyticsMonitoring {
         _recordEvent(
           name,
           parametersWithDeviceId,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         _recordEventOnce(
           '${name}_first',
           parametersWithDeviceId,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
         ),
         for (final eventName in additionalOnceEventNames)
           _recordEventOnce(
             eventName,
             parametersWithDeviceId,
-            occurredAtMicros: occurredAtMicros,
+            occurredAtSeconds: occurredAtSeconds,
           ),
       ]);
     } catch (e, st) {
@@ -549,7 +550,7 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> _recordEventOnce(
     String name,
     Map<String, Object> parameters, {
-    required int occurredAtMicros,
+    required int occurredAtSeconds,
     String? storageKey,
     String? businessId,
   }) {
@@ -564,7 +565,7 @@ class FirebaseAnalyticsMonitoring {
           name,
           parameters,
           key,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
           businessId: businessId,
         ).whenComplete(() {
           if (identical(_onceEventRecordings[key], recording)) {
@@ -579,7 +580,7 @@ class FirebaseAnalyticsMonitoring {
     String name,
     Map<String, Object> parameters,
     String storageKey, {
-    required int occurredAtMicros,
+    required int occurredAtSeconds,
     String? businessId,
   }) async {
     try {
@@ -587,7 +588,7 @@ class FirebaseAnalyticsMonitoring {
       final serverReport = _reportServerEvent(
         name,
         parameters,
-        occurredAtMicros: occurredAtMicros,
+        occurredAtSeconds: occurredAtSeconds,
         businessId: businessId,
       );
       try {
@@ -609,7 +610,7 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> _reportServerEvent(
     String name,
     Map<String, Object> parameters, {
-    required int occurredAtMicros,
+    required int occurredAtSeconds,
     String? businessId,
   }) async {
     final reporter = _serverEventReporter;
@@ -617,7 +618,7 @@ class FirebaseAnalyticsMonitoring {
     try {
       await reporter(
         event: name,
-        occurredAtMicros: occurredAtMicros,
+        occurredAtSeconds: occurredAtSeconds,
         parameters: parameters,
         businessId: businessId,
       );
@@ -699,8 +700,8 @@ class FirebaseAnalyticsMonitoring {
   }
 
   @visibleForTesting
-  static void setOccurredAtMicrosReaderForTesting(int Function() value) {
-    _occurredAtMicrosReader = value;
+  static void setOccurredAtSecondsReaderForTesting(int Function() value) {
+    _occurredAtSecondsReader = value;
   }
 
   @visibleForTesting
@@ -723,8 +724,9 @@ class FirebaseAnalyticsMonitoring {
     _enabledOverride = null;
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;
     _serverEventReporter = null;
-    _occurredAtMicrosReader = () =>
-        DateTime.now().toUtc().microsecondsSinceEpoch;
+    _occurredAtSecondsReader = () =>
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/
+        Duration.millisecondsPerSecond;
   }
 
   static Future<String> _readNativeDeviceId() {

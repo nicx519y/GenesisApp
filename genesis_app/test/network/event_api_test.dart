@@ -27,7 +27,7 @@ void main() {
     await api.report(
       event: 'gems',
       environment: 'sandbox',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
       businessId: 'gems:order-1',
       params: const <String, String>{
         'provider': 'google',
@@ -43,7 +43,7 @@ void main() {
     expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
       'event': 'gems',
       'environment': 'sandbox',
-      'occurred_at': 1767225600123456,
+      'occurred_at': 1767225600,
       'business_id': 'gems:order-1',
       'params': {
         'provider': 'google',
@@ -75,7 +75,7 @@ void main() {
     await api.report(
       event: 'login_first',
       environment: 'production',
-      occurredAtMicros: 1767225600123456,
+      occurredAtSeconds: 1767225600,
       businessId: ' ',
       params: const {'method': 'google', 'device_id': 'device-1'},
     );
@@ -83,7 +83,7 @@ void main() {
     expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
       'event': 'login_first',
       'environment': 'production',
-      'occurred_at': 1767225600123456,
+      'occurred_at': 1767225600,
       'params': {'method': 'google', 'device_id': 'device-1'},
     });
   });
@@ -102,7 +102,7 @@ void main() {
       api.report(
         event: 'login_first',
         environment: 'test',
-        occurredAtMicros: 1767225600123456,
+        occurredAtSeconds: 1767225600,
         params: const {},
       ),
       throwsArgumentError,
@@ -123,7 +123,7 @@ void main() {
       api.report(
         event: 'login_first',
         environment: 'sandbox',
-        occurredAtMicros: 0,
+        occurredAtSeconds: 0,
         params: const {},
       ),
       throwsArgumentError,

@@ -21,7 +21,7 @@ class AppEventReport {
   const AppEventReport({
     required this.event,
     required this.environment,
-    required this.occurredAtMicros,
+    required this.occurredAtSeconds,
     required this.params,
     required this.reportKey,
     this.businessId,
@@ -29,7 +29,7 @@ class AppEventReport {
 
   final String event;
   final String environment;
-  final int occurredAtMicros;
+  final int occurredAtSeconds;
   final Map<String, String> params;
   final String reportKey;
   final String? businessId;
@@ -81,7 +81,7 @@ class SqfliteAppEventReportStore implements AppEventReportStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: (database, _) => database.execute('''
 CREATE TABLE app_event_reports (
   sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,8 +101,19 @@ CREATE TABLE app_event_reports (
               'ADD COLUMN occurred_at INTEGER NOT NULL DEFAULT 0',
             );
             await database.update('app_event_reports', <String, Object?>{
-              'occurred_at': DateTime.now().toUtc().microsecondsSinceEpoch,
+              'occurred_at':
+                  DateTime.now().toUtc().millisecondsSinceEpoch ~/
+                  Duration.millisecondsPerSecond,
             }, where: 'occurred_at = 0');
+          }
+          if (oldVersion < 3) {
+            // Version 2 stored UTC Unix microseconds. Preserve queued event
+            // occurrence times while migrating the API contract to seconds.
+            await database.execute('''
+UPDATE app_event_reports
+SET occurred_at = occurred_at / 1000000
+WHERE occurred_at >= 100000000000000
+''');
           }
         },
       ),
@@ -115,7 +126,7 @@ CREATE TABLE app_event_reports (
       'report_key': report.reportKey,
       'event_name': report.event,
       'environment': report.environment,
-      'occurred_at': report.occurredAtMicros,
+      'occurred_at': report.occurredAtSeconds,
       'business_id': report.businessId,
       'params_json': jsonEncode(report.params),
       'delivered': 0,
@@ -159,7 +170,7 @@ CREATE TABLE app_event_reports (
     return AppEventReport(
       event: '${row['event_name']}',
       environment: '${row['environment']}',
-      occurredAtMicros: row['occurred_at'] as int,
+      occurredAtSeconds: row['occurred_at'] as int,
       params: <String, String>{
         for (final entry in decoded.entries)
           entry.key.toString(): entry.value.toString(),
@@ -210,11 +221,17 @@ class AppEventReporting {
 
   static const Set<String> transactionEvents = <String>{
     'purchase',
+    'purchase_first',
     'purchase_day0',
+    'purchase_first_day0',
     'gems',
+    'gems_first',
     'gems_day0',
+    'gems_first_day0',
     'subscription',
+    'subscription_first',
     'subscription_day0',
+    'subscription_first_day0',
   };
 
   final AppEventReportSender _sender;
@@ -229,16 +246,16 @@ class AppEventReporting {
 
   Future<void> report({
     required String event,
-    required int occurredAtMicros,
+    required int occurredAtSeconds,
     required Map<String, Object> parameters,
     String? businessId,
   }) async {
     if (_disposed || !supportedEvents.contains(event)) return;
-    if (occurredAtMicros <= 0) {
+    if (occurredAtSeconds <= 0) {
       throw ArgumentError.value(
-        occurredAtMicros,
-        'occurredAtMicros',
-        'must be a positive UTC Unix timestamp in microseconds',
+        occurredAtSeconds,
+        'occurredAtSeconds',
+        'must be a positive UTC Unix timestamp in seconds',
       );
     }
     final normalizedBusinessId = businessId?.trim() ?? '';
@@ -278,7 +295,7 @@ class AppEventReporting {
         AppEventReport(
           event: event,
           environment: environment,
-          occurredAtMicros: occurredAtMicros,
+          occurredAtSeconds: occurredAtSeconds,
           params: params,
           reportKey: reportKey,
           businessId: effectiveBusinessId,
