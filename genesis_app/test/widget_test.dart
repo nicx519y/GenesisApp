@@ -461,8 +461,10 @@ class _FakeDeviceIdDiagnosticsService
   Future<DeviceIdDiagnostics> getDeviceIdDiagnostics() async {
     return const DeviceIdDiagnostics(
       androidId: 'android-id',
-      aaid: '38400000-8cf0-11bd-b23e-10b96e40000d',
       deviceId: 'resolved-device-id',
+      gaid: 'gaid-1',
+      idfa: 'idfa-1',
+      idfv: 'idfv-1',
     );
   }
 }
@@ -28709,15 +28711,7 @@ void main() {
     expect(find.text('20,925.0'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
     expect(find.text('android-id'), findsOneWidget);
-    expect(find.text('AAID:'), findsOneWidget);
-    final aaid = find.text('38400000-8cf0-11bd-b23e-10b96e40000d');
-    expect(aaid, findsOneWidget);
-    expect(tester.widget<Text>(aaid).softWrap, isFalse);
-    expect(tester.widget<Text>(aaid).maxLines, 1);
-    expect(
-      tester.getTopLeft(aaid).dy,
-      tester.getTopLeft(find.text('AAID:')).dy,
-    );
+    expect(find.text('AAID:'), findsNothing);
     expect(find.text('Device ID:'), findsOneWidget);
     final deviceId = find.text('resolved-device-id');
     expect(deviceId, findsOneWidget);
@@ -28727,6 +28721,12 @@ void main() {
       find.ancestor(of: deviceId, matching: find.byType(FittedBox)),
       findsOneWidget,
     );
+    expect(find.text('GAID:'), findsOneWidget);
+    expect(find.text('gaid-1'), findsOneWidget);
+    expect(find.text('IDFA:'), findsOneWidget);
+    expect(find.text('idfa-1'), findsOneWidget);
+    expect(find.text('IDFV:'), findsOneWidget);
+    expect(find.text('idfv-1'), findsOneWidget);
     expect(find.text('0.2.2/2022'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('android-id')).dy,
@@ -28741,8 +28741,16 @@ void main() {
       tester.getTopLeft(find.text('Device ID:')).dy,
     );
     expect(
-      tester.getTopLeft(find.text('AAID:')).dy,
-      isNot(tester.getTopLeft(find.text('ANDROID_ID:')).dy),
+      tester.getTopLeft(find.text('GAID:')).dy,
+      greaterThan(tester.getTopLeft(find.text('Device ID:')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('IDFA:')).dy,
+      greaterThan(tester.getTopLeft(find.text('GAID:')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('IDFV:')).dy,
+      greaterThan(tester.getTopLeft(find.text('IDFA:')).dy),
     );
   });
 

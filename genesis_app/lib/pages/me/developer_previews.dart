@@ -289,24 +289,33 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
 
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
     final deviceId = _infoValue(diagnostics?.deviceId);
-    if (diagnostics?.hasAndroidBreakdown != true) {
-      return _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId);
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _DeveloperInfoSingleLineRow(
-          title: 'ANDROID_ID',
-          content: _infoValue(diagnostics?.androidId),
-        ),
-        const SizedBox(height: _DeveloperPageContentState._itemGap),
-        _DeveloperInfoSingleLineRow(
-          title: 'AAID',
-          content: _infoValue(diagnostics?.aaid),
-        ),
-        const SizedBox(height: _DeveloperPageContentState._itemGap),
+        if (diagnostics?.androidId != null) ...[
+          _DeveloperInfoSingleLineRow(
+            title: 'ANDROID_ID',
+            content: _infoValue(diagnostics?.androidId),
+          ),
+          const SizedBox(height: _DeveloperPageContentState._itemGap),
+        ],
         _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId),
+        const SizedBox(height: _DeveloperPageContentState._itemGap),
+        _DeveloperInfoSingleLineRow(
+          title: 'GAID',
+          content: _infoValue(diagnostics?.gaid),
+        ),
+        const SizedBox(height: _DeveloperPageContentState._itemGap),
+        _DeveloperInfoSingleLineRow(
+          title: 'IDFA',
+          content: _infoValue(diagnostics?.idfa),
+        ),
+        const SizedBox(height: _DeveloperPageContentState._itemGap),
+        _DeveloperInfoSingleLineRow(
+          title: 'IDFV',
+          content: _infoValue(diagnostics?.idfv),
+        ),
       ],
     );
   }

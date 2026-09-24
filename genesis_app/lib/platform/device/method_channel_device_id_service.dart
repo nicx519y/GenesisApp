@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:adjust_sdk/adjust.dart';
+
 import '../channels/genesis_method_channels.dart';
 import 'device_id_service.dart';
 
@@ -23,20 +25,32 @@ class NativeDeviceIdService
   @override
   Future<DeviceIdDiagnostics> getDeviceIdDiagnostics() async {
     if (!Platform.isAndroid) {
-      return DeviceIdDiagnostics(deviceId: await getDeviceId());
+      final identifiers = await Future.wait<String?>([
+        _readAdjustIdentifier(Adjust.getIdfa),
+        _readAdjustIdentifier(Adjust.getIdfv),
+      ]);
+      return DeviceIdDiagnostics(
+        deviceId: await getDeviceId(),
+        idfa: identifiers[0],
+        idfv: identifiers[1],
+      );
     }
 
-    final details = await GenesisMethodChannels.device
-        .invokeMapMethod<String, String>(
-          GenesisMethodChannels.getAndroidDeviceIdDiagnostics,
-        );
+    final results = await Future.wait<Object?>([
+      GenesisMethodChannels.device.invokeMapMethod<String, String>(
+        GenesisMethodChannels.getAndroidDeviceIdDiagnostics,
+      ),
+      _readAdjustIdentifier(Adjust.getGoogleAdId),
+    ]);
+    final details = results[0] as Map<String, String>?;
+    final gaid = results[1] as String?;
     if (details == null) {
-      return DeviceIdDiagnostics(deviceId: await getDeviceId());
+      return DeviceIdDiagnostics(deviceId: await getDeviceId(), gaid: gaid);
     }
 
     return DeviceIdDiagnostics(
       androidId: _displayValue(details['android_id']),
-      aaid: _displayValue(details['aaid']),
+      gaid: gaid,
       deviceId: _displayValue(details['device_id']) ?? 'unknown',
     );
   }
@@ -72,5 +86,15 @@ class NativeDeviceIdService
   String? _displayValue(String? value) {
     final trimmed = (value ?? '').trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  Future<String?> _readAdjustIdentifier(
+    Future<String?> Function() reader,
+  ) async {
+    try {
+      return _displayValue(await reader());
+    } catch (_) {
+      return null;
+    }
   }
 }

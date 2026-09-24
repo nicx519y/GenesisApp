@@ -6,14 +6,16 @@ class DeviceIdDiagnostics {
   const DeviceIdDiagnostics({
     required this.deviceId,
     this.androidId,
-    this.aaid,
+    this.gaid,
+    this.idfa,
+    this.idfv,
   });
 
   final String deviceId;
   final String? androidId;
-  final String? aaid;
-
-  bool get hasAndroidBreakdown => androidId != null || aaid != null;
+  final String? gaid;
+  final String? idfa;
+  final String? idfv;
 }
 
 abstract interface class DeviceIdDiagnosticsService {
