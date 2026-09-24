@@ -303,6 +303,11 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
         _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId),
         const SizedBox(height: _DeveloperPageContentState._itemGap),
         _DeveloperInfoSingleLineRow(
+          title: 'Adjust ADID',
+          content: _infoValue(diagnostics?.adjustAdid),
+        ),
+        const SizedBox(height: _DeveloperPageContentState._itemGap),
+        _DeveloperInfoSingleLineRow(
           title: 'GAID',
           content: _infoValue(diagnostics?.gaid),
         ),

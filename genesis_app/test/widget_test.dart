@@ -462,6 +462,7 @@ class _FakeDeviceIdDiagnosticsService
     return const DeviceIdDiagnostics(
       androidId: 'android-id',
       deviceId: 'resolved-device-id',
+      adjustAdid: 'adjust-adid-1',
       gaid: 'gaid-1',
       idfa: 'idfa-1',
       idfv: 'idfv-1',
@@ -28721,6 +28722,8 @@ void main() {
       find.ancestor(of: deviceId, matching: find.byType(FittedBox)),
       findsOneWidget,
     );
+    expect(find.text('Adjust ADID:'), findsOneWidget);
+    expect(find.text('adjust-adid-1'), findsOneWidget);
     expect(find.text('GAID:'), findsOneWidget);
     expect(find.text('gaid-1'), findsOneWidget);
     expect(find.text('IDFA:'), findsOneWidget);
@@ -28741,8 +28744,12 @@ void main() {
       tester.getTopLeft(find.text('Device ID:')).dy,
     );
     expect(
-      tester.getTopLeft(find.text('GAID:')).dy,
+      tester.getTopLeft(find.text('Adjust ADID:')).dy,
       greaterThan(tester.getTopLeft(find.text('Device ID:')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('GAID:')).dy,
+      greaterThan(tester.getTopLeft(find.text('Adjust ADID:')).dy),
     );
     expect(
       tester.getTopLeft(find.text('IDFA:')).dy,

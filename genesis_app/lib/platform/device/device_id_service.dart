@@ -6,6 +6,7 @@ class DeviceIdDiagnostics {
   const DeviceIdDiagnostics({
     required this.deviceId,
     this.androidId,
+    this.adjustAdid,
     this.gaid,
     this.idfa,
     this.idfv,
@@ -13,6 +14,7 @@ class DeviceIdDiagnostics {
 
   final String deviceId;
   final String? androidId;
+  final String? adjustAdid;
   final String? gaid;
   final String? idfa;
   final String? idfv;
