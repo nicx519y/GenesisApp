@@ -391,6 +391,9 @@ class ServiceRegistry {
     final adjustDeviceRegistration = switch (defaultTargetPlatform) {
       TargetPlatform.android || TargetPlatform.iOS => AdjustDeviceRegistration(
         platform: defaultTargetPlatform,
+        environmentProvider: () => eventReportEnvironmentForFirebase(
+          TelemetryUploadPolicy.state.value.appEnvironment,
+        ),
         registerDevice: api.v1.device.registerAttribution,
       ),
       _ => null,

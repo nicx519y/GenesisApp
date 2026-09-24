@@ -12,6 +12,7 @@ class DeviceV1Api extends V1ApiResource {
   /// corresponding value according to the API contract.
   Future<void> registerAttribution({
     required String adid,
+    required String environment,
     String? gpsAdid,
     String? idfa,
     String? idfv,
@@ -20,10 +21,20 @@ class DeviceV1Api extends V1ApiResource {
     if (normalizedAdid.isEmpty) {
       throw ArgumentError.value(adid, 'adid', 'must not be empty');
     }
+    final normalizedEnvironment = environment.trim().toLowerCase();
+    if (normalizedEnvironment != 'sandbox' &&
+        normalizedEnvironment != 'production') {
+      throw ArgumentError.value(
+        environment,
+        'environment',
+        'must be sandbox or production',
+      );
+    }
     await postData(
       'device/register',
       v1Body({
         'adid': normalizedAdid,
+        'environment': normalizedEnvironment,
         'gps_adid': gpsAdid?.trim(),
         'idfa': idfa?.trim(),
         'idfv': idfv?.trim(),

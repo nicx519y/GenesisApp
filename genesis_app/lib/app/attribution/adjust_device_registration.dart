@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart';
 
 typedef AdjustAdidReader = Future<String?> Function(int timeoutMilliseconds);
 typedef AdjustOptionalIdReader = Future<String?> Function();
+typedef AdjustRegistrationEnvironmentProvider = String Function();
 typedef AdjustDeviceRegistrationRequest =
     Future<void> Function({
       required String adid,
+      required String environment,
       String? gpsAdid,
       String? idfa,
       String? idfv,
@@ -22,6 +24,7 @@ class AdjustDeviceRegistration {
   AdjustDeviceRegistration({
     required this.platform,
     required this.registerDevice,
+    required this.environmentProvider,
     this.readAdid = Adjust.getAdidWithTimeout,
     this.readGoogleAdId = Adjust.getGoogleAdId,
     this.readIdfa = Adjust.getIdfa,
@@ -31,6 +34,7 @@ class AdjustDeviceRegistration {
 
   final TargetPlatform platform;
   final AdjustDeviceRegistrationRequest registerDevice;
+  final AdjustRegistrationEnvironmentProvider environmentProvider;
   final AdjustAdidReader readAdid;
   final AdjustOptionalIdReader readGoogleAdId;
   final AdjustOptionalIdReader readIdfa;
@@ -81,10 +85,12 @@ class AdjustDeviceRegistration {
       final identifiers = platform == TargetPlatform.android
           ? _AdjustDeviceIdentifiers(
               adid: adid,
+              environment: environmentProvider(),
               gpsAdid: await _readOptional(readGoogleAdId, 'GPS ADID'),
             )
           : _AdjustDeviceIdentifiers(
               adid: adid,
+              environment: environmentProvider(),
               idfa: await _readOptional(readIdfa, 'IDFA'),
               idfv: await _readOptional(readIdfv, 'IDFV'),
             );
@@ -92,6 +98,7 @@ class AdjustDeviceRegistration {
 
       await registerDevice(
         adid: identifiers.adid,
+        environment: identifiers.environment,
         gpsAdid: identifiers.gpsAdid,
         idfa: identifiers.idfa,
         idfv: identifiers.idfv,
@@ -127,12 +134,14 @@ class AdjustDeviceRegistration {
 class _AdjustDeviceIdentifiers {
   const _AdjustDeviceIdentifiers({
     required this.adid,
+    required this.environment,
     this.gpsAdid,
     this.idfa,
     this.idfv,
   });
 
   final String adid;
+  final String environment;
   final String? gpsAdid;
   final String? idfa;
   final String? idfv;
@@ -141,11 +150,12 @@ class _AdjustDeviceIdentifiers {
   bool operator ==(Object other) {
     return other is _AdjustDeviceIdentifiers &&
         other.adid == adid &&
+        other.environment == environment &&
         other.gpsAdid == gpsAdid &&
         other.idfa == idfa &&
         other.idfv == idfv;
   }
 
   @override
-  int get hashCode => Object.hash(adid, gpsAdid, idfa, idfv);
+  int get hashCode => Object.hash(adid, environment, gpsAdid, idfa, idfv);
 }

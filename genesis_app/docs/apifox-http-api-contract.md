@@ -2655,7 +2655,7 @@ World：
 ## Adjust 设备标识注册（2026-09-23 核对）
 
 - `POST /api/v1/device/register`：游客与登录用户均可调用。当前 Gateway 请求链提供必填 `X-Device-ID`、`X-App-ID`、`X-Platform`；UID 由服务端 session 读取，不在 body 中传递。
-- body 必填 `adid`；Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`。可选字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。客户端只在 Adjust 已取得非空 ADID 后调用。
+- body 必填 `adid`、`environment`；`environment` 与事件 S2S 使用同一规则，Firebase `app_environment=production` 时传 `production`，Firebase `app_environment=test` 时传 `sandbox`。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`。可选字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。客户端只在 Adjust 已取得非空 ADID 后调用。
 - 启动后注册为 best effort，不阻塞首帧。ADID 尚未取得或请求失败时，在下一次前台恢复重试；登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册。
 - 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
 

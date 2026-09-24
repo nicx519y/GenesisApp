@@ -9,18 +9,21 @@ void main() {
     final requests = <Map<String, String?>>[];
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
       readAdid: (_) async => ' adid-ios ',
       readIdfa: () async => ' idfa-ios ',
       readIdfv: () async => ' idfv-ios ',
       readGoogleAdId: () async => throw StateError('must not be read'),
-      registerDevice: ({required adid, gpsAdid, idfa, idfv}) async {
-        requests.add({
-          'adid': adid,
-          'gps_adid': gpsAdid,
-          'idfa': idfa,
-          'idfv': idfv,
-        });
-      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({
+              'adid': adid,
+              'environment': environment,
+              'gps_adid': gpsAdid,
+              'idfa': idfa,
+              'idfv': idfv,
+            });
+          },
     );
 
     await registration.register();
@@ -28,6 +31,7 @@ void main() {
     expect(requests, [
       {
         'adid': 'adid-ios',
+        'environment': 'sandbox',
         'gps_adid': null,
         'idfa': 'idfa-ios',
         'idfv': 'idfv-ios',
@@ -39,18 +43,21 @@ void main() {
     final requests = <Map<String, String?>>[];
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.android,
+      environmentProvider: () => 'production',
       readAdid: (_) async => 'adid-android',
       readGoogleAdId: () async => 'gps-adid',
       readIdfa: () async => throw StateError('must not be read'),
       readIdfv: () async => throw StateError('must not be read'),
-      registerDevice: ({required adid, gpsAdid, idfa, idfv}) async {
-        requests.add({
-          'adid': adid,
-          'gps_adid': gpsAdid,
-          'idfa': idfa,
-          'idfv': idfv,
-        });
-      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({
+              'adid': adid,
+              'environment': environment,
+              'gps_adid': gpsAdid,
+              'idfa': idfa,
+              'idfv': idfv,
+            });
+          },
     );
 
     await registration.register();
@@ -58,6 +65,7 @@ void main() {
     expect(requests, [
       {
         'adid': 'adid-android',
+        'environment': 'production',
         'gps_adid': 'gps-adid',
         'idfa': null,
         'idfv': null,
@@ -70,12 +78,14 @@ void main() {
     var requestCount = 0;
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
       readAdid: (_) async => ++readCount == 1 ? null : 'adid-ready',
       readIdfa: () async => null,
       readIdfv: () async => 'idfv',
-      registerDevice: ({required adid, gpsAdid, idfa, idfv}) async {
-        requestCount++;
-      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requestCount++;
+          },
     );
 
     await registration.register();
@@ -91,11 +101,13 @@ void main() {
       var requestCount = 0;
       final registration = AdjustDeviceRegistration(
         platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
         readAdid: (_) async => 'adid',
         readGoogleAdId: () async => 'gps-adid',
-        registerDevice: ({required adid, gpsAdid, idfa, idfv}) async {
-          requestCount++;
-        },
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requestCount++;
+            },
       );
 
       await registration.register();
@@ -113,12 +125,14 @@ void main() {
       var requestCount = 0;
       final registration = AdjustDeviceRegistration(
         platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
         readAdid: (_) async => 'adid',
         readGoogleAdId: () async => 'gps-adid',
-        registerDevice: ({required adid, gpsAdid, idfa, idfv}) async {
-          requestCount++;
-          if (requestCount == 1) await firstRequest.future;
-        },
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requestCount++;
+              if (requestCount == 1) await firstRequest.future;
+            },
       );
 
       final initial = registration.register();
@@ -129,4 +143,26 @@ void main() {
       expect(requestCount, 2);
     },
   );
+
+  test('an environment change triggers a new registration', () async {
+    var environment = 'sandbox';
+    final requests = <String>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => environment,
+      readAdid: (_) async => 'adid',
+      readGoogleAdId: () async => 'gps-adid',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(environment);
+          },
+    );
+
+    await registration.register();
+    await registration.register();
+    environment = 'production';
+    await registration.register();
+
+    expect(requests, ['sandbox', 'production']);
+  });
 }

@@ -26,12 +26,18 @@ void main() {
         ),
       );
 
-      await api.registerAttribution(adid: ' adid-1 ', idfa: '', idfv: 'idfv-1');
+      await api.registerAttribution(
+        adid: ' adid-1 ',
+        environment: ' Production ',
+        idfa: '',
+        idfv: 'idfv-1',
+      );
 
       expect(captured?.method, 'POST');
       expect(captured?.uri.path, '/api/v1/device/register');
       expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
         'adid': 'adid-1',
+        'environment': 'production',
         'idfa': '',
         'idfv': 'idfv-1',
       });
@@ -49,10 +55,29 @@ void main() {
     );
 
     await expectLater(
-      api.registerAttribution(adid: '   '),
+      api.registerAttribution(adid: '   ', environment: 'sandbox'),
       throwsArgumentError,
     );
   });
+
+  test(
+    'device attribution registration rejects an invalid environment',
+    () async {
+      final api = DeviceV1Api(
+        ApiClient(
+          baseUrl: 'https://example.test/api/',
+          transport: _CallbackTransport((_) {
+            throw StateError('request must not be sent');
+          }),
+        ),
+      );
+
+      await expectLater(
+        api.registerAttribution(adid: 'adid-1', environment: 'test'),
+        throwsArgumentError,
+      );
+    },
+  );
 }
 
 class _CallbackTransport implements HttpTransport {
