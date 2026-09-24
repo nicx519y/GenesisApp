@@ -37,6 +37,7 @@ import '../telemetry/device_info_telemetry.dart';
 import '../telemetry/app_event_reporting.dart';
 import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
+import '../telemetry/telemetry_upload_policy.dart';
 import '../version/app_version_check_service.dart';
 import '../../platform/billing/app_store_billing_platform.dart';
 import '../../platform/billing/billing_service.dart';
@@ -399,7 +400,9 @@ class ServiceRegistry {
             (defaultTargetPlatform == TargetPlatform.android ||
                 defaultTargetPlatform == TargetPlatform.iOS)
         ? AppEventReporting(
-            environment: kReleaseMode ? 'production' : 'sandbox',
+            environmentProvider: () => eventReportEnvironmentForFirebase(
+              TelemetryUploadPolicy.state.value.appEnvironment,
+            ),
             sender: (report) => api.v1.event.report(
               event: report.event,
               environment: report.environment,

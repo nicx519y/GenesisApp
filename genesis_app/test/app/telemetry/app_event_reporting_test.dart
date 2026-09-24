@@ -82,7 +82,7 @@ CREATE TABLE app_event_reports (
       final store = _MemoryAppEventReportStore();
       final sent = <AppEventReport>[];
       final reporting = AppEventReporting(
-        environment: 'sandbox',
+        environmentProvider: () => 'sandbox',
         store: store,
         sender: (report) async => sent.add(report),
         initialRetryDelay: const Duration(hours: 1),
@@ -142,7 +142,7 @@ CREATE TABLE app_event_reports (
     var attempts = 0;
     final sent = <AppEventReport>[];
     final reporting = AppEventReporting(
-      environment: 'production',
+      environmentProvider: () => 'production',
       store: store,
       sender: (report) async {
         attempts += 1;
@@ -187,7 +187,7 @@ CREATE TABLE app_event_reports (
   test('transaction events without a business id are not enqueued', () async {
     final store = _MemoryAppEventReportStore();
     final reporting = AppEventReporting(
-      environment: 'sandbox',
+      environmentProvider: () => 'sandbox',
       store: store,
       sender: (_) async {},
     );
@@ -206,7 +206,7 @@ CREATE TABLE app_event_reports (
     final store = _MemoryAppEventReportStore();
     final sent = <String>[];
     final reporting = AppEventReporting(
-      environment: 'sandbox',
+      environmentProvider: () => 'sandbox',
       store: store,
       sender: (report) async {
         if (report.event == 'gems_first_day0') {
@@ -237,6 +237,36 @@ CREATE TABLE app_event_reports (
 
     expect(sent, ['login_first']);
     expect(store.pendingReports, isEmpty);
+    await reporting.dispose();
+  });
+
+  test('event environment follows the current Firebase environment', () async {
+    var firebaseEnvironment = 'test';
+    final sent = <AppEventReport>[];
+    final reporting = AppEventReporting(
+      environmentProvider: () =>
+          eventReportEnvironmentForFirebase(firebaseEnvironment),
+      store: _MemoryAppEventReportStore(),
+      sender: (report) async => sent.add(report),
+    );
+
+    await reporting.report(
+      event: 'login_first',
+      occurredAtMicros: 1767225600123456,
+      parameters: const <String, Object>{'device_id': 'device-1'},
+    );
+    firebaseEnvironment = 'production';
+    await reporting.report(
+      event: 'message_sent_first',
+      occurredAtMicros: 1767225600123457,
+      parameters: const <String, Object>{'device_id': 'device-1'},
+    );
+    await reporting.flush();
+
+    expect(sent.map((report) => report.environment), <String>[
+      'sandbox',
+      'production',
+    ]);
     await reporting.dispose();
   });
 }

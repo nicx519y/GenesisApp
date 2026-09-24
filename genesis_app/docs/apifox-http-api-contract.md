@@ -2666,7 +2666,7 @@ World：
 - 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`；购买事件参数为 `provider/product_id/device_id`，仅商店价格和 ISO 4217 币种同时有效时额外传 `value/currency`。S2S 的参数名和值与同次 Firebase 调用一致，值按接口要求转为字符串；不补造缺失参数。
 - `purchase`、`purchase_day0`、`gems`、`gems_day0`、`subscription`、`subscription_day0` 是逐笔事件，必须传 `business_id`。Gems 使用 `gems:<服务端交易号或商店交易号>`；订阅使用 `subscription:<当前付款周期商店交易号>`，交易号缺失时才回退本次购买凭据。其余 10 个事件为设备唯一事件，不传 `business_id`。
 - 设备唯一事件先检查现有 Firebase 本地一次性标记：已标记为上报的老用户不向 Firebase 或 S2S 补报；未标记时才同时进入 Firebase 与 S2S。逐笔购买事件继续按交易身份独立判断，不受其他历史交易影响。
-- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。Release 使用 `production`，非 Release 使用 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
+- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
 
 ## Pro 会员购买与上报（2026-09-16 更新）
 

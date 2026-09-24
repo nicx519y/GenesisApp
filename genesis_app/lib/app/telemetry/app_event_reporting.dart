@@ -8,6 +8,13 @@ import 'package:sqflite/sqflite.dart';
 import '../../network/api_exception.dart';
 
 typedef AppEventReportSender = Future<void> Function(AppEventReport report);
+typedef AppEventReportEnvironmentProvider = String Function();
+
+String eventReportEnvironmentForFirebase(String firebaseEnvironment) {
+  return firebaseEnvironment.trim().toLowerCase() == 'production'
+      ? 'production'
+      : 'sandbox';
+}
 
 @immutable
 class AppEventReport {
@@ -171,11 +178,12 @@ CREATE TABLE app_event_reports (
 class AppEventReporting {
   AppEventReporting({
     required AppEventReportSender sender,
-    required this.environment,
+    required AppEventReportEnvironmentProvider environmentProvider,
     AppEventReportStore? store,
     Duration initialRetryDelay = const Duration(seconds: 2),
     Duration maximumRetryDelay = const Duration(minutes: 1),
   }) : _sender = sender,
+       _environmentProvider = environmentProvider,
        _store = store ?? SqfliteAppEventReportStore(),
        _initialRetryDelay = initialRetryDelay,
        _maximumRetryDelay = maximumRetryDelay,
@@ -210,8 +218,8 @@ class AppEventReporting {
   };
 
   final AppEventReportSender _sender;
+  final AppEventReportEnvironmentProvider _environmentProvider;
   final AppEventReportStore _store;
-  final String environment;
   final Duration _initialRetryDelay;
   final Duration _maximumRetryDelay;
   Duration _retryDelay;
@@ -247,6 +255,13 @@ class AppEventReporting {
       for (final entry in parameters.entries)
         entry.key: _parameterValue(entry.value),
     };
+    final environment = _environmentProvider();
+    if (environment != 'sandbox' && environment != 'production') {
+      throw StateError(
+        'Event report environment must be sandbox or production, got: '
+        '$environment',
+      );
+    }
     final reportKey = sha256
         .convert(
           utf8.encode(
