@@ -272,6 +272,7 @@ class AppServices {
     personalization.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
+    adjustDeviceRegistration?.dispose();
     unawaited(eventReporting?.dispose());
   }
 }

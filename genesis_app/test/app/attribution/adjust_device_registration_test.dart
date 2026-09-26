@@ -82,6 +82,7 @@ void main() {
       readAdid: (_) async => ++readCount == 1 ? null : 'adid-ready',
       readIdfa: () async => null,
       readIdfv: () async => 'idfv',
+      retryDelays: const [],
       registerDevice:
           ({required adid, required environment, gpsAdid, idfa, idfv}) async {
             requestCount++;
@@ -89,10 +90,152 @@ void main() {
     );
 
     await registration.register();
+    expect(
+      registration.lastResult,
+      AdjustDeviceRegistrationResult.deferredNoAdid,
+    );
     await registration.register();
 
     expect(readCount, 2);
     expect(requestCount, 1);
+    expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
+  });
+
+  test('missing ADID retries automatically and stops after success', () async {
+    var readCount = 0;
+    var requestCount = 0;
+    final scheduledDelays = <Duration>[];
+    final scheduledCallbacks = <AdjustDeviceRegistrationRetryCallback>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => ++readCount == 1 ? null : 'adid-ready',
+      readIdfa: () async => null,
+      readIdfv: () async => 'idfv',
+      retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
+      retryScheduler: (delay, callback) {
+        scheduledDelays.add(delay);
+        scheduledCallbacks.add(callback);
+        return () {};
+      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requestCount++;
+          },
+    );
+
+    await registration.register();
+
+    expect(requestCount, 0);
+    expect(scheduledDelays, const [Duration(seconds: 1)]);
+    expect(
+      registration.lastResult,
+      AdjustDeviceRegistrationResult.deferredNoAdid,
+    );
+
+    await scheduledCallbacks.single();
+
+    expect(readCount, 2);
+    expect(requestCount, 1);
+    expect(scheduledDelays, const [Duration(seconds: 1)]);
+    expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
+  });
+
+  test('network failure uses bounded automatic retries', () async {
+    var requestCount = 0;
+    final scheduledCallbacks = <AdjustDeviceRegistrationRetryCallback>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'adid',
+      readIdfa: () async => null,
+      readIdfv: () async => 'idfv',
+      retryDelays: const [Duration(seconds: 1)],
+      retryScheduler: (_, callback) {
+        scheduledCallbacks.add(callback);
+        return () {};
+      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requestCount++;
+            if (requestCount == 1) throw StateError('offline');
+          },
+    );
+
+    await registration.register();
+
+    expect(requestCount, 1);
+    expect(registration.lastResult, AdjustDeviceRegistrationResult.failed);
+    expect(scheduledCallbacks, hasLength(1));
+
+    await scheduledCallbacks.single();
+
+    expect(requestCount, 2);
+    expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
+    expect(scheduledCallbacks, hasLength(1));
+  });
+
+  test('automatic retry stops after the configured budget', () async {
+    var readCount = 0;
+    final scheduledCallbacks = <AdjustDeviceRegistrationRetryCallback>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async {
+        readCount++;
+        return null;
+      },
+      retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
+      retryScheduler: (_, callback) {
+        scheduledCallbacks.add(callback);
+        return () {};
+      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            fail('request must not be sent without an ADID');
+          },
+    );
+
+    await registration.register();
+    await scheduledCallbacks[0]();
+    await scheduledCallbacks[1]();
+
+    expect(readCount, 3);
+    expect(scheduledCallbacks, hasLength(2));
+    expect(
+      registration.lastResult,
+      AdjustDeviceRegistrationResult.deferredNoAdid,
+    );
+  });
+
+  test('dispose cancels a pending automatic retry', () async {
+    var readCount = 0;
+    var retryCancelled = false;
+    late AdjustDeviceRegistrationRetryCallback scheduledCallback;
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async {
+        readCount++;
+        return null;
+      },
+      retryDelays: const [Duration(seconds: 1)],
+      retryScheduler: (_, callback) {
+        scheduledCallback = callback;
+        return () => retryCancelled = true;
+      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            fail('request must not be sent without an ADID');
+          },
+    );
+
+    await registration.register();
+    registration.dispose();
+    await scheduledCallback();
+
+    expect(retryCancelled, isTrue);
+    expect(readCount, 1);
   });
 
   test(

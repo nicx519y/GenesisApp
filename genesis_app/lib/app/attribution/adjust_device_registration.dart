@@ -14,12 +14,42 @@ typedef AdjustDeviceRegistrationRequest =
       String? idfa,
       String? idfv,
     });
+typedef AdjustDeviceRegistrationRetryCallback = Future<void> Function();
+typedef AdjustDeviceRegistrationRetryScheduler =
+    VoidCallback Function(
+      Duration delay,
+      AdjustDeviceRegistrationRetryCallback callback,
+    );
+
+enum AdjustDeviceRegistrationResult {
+  registered,
+  alreadyRegistered,
+  deferredNoAdid,
+  failed,
+}
+
+const _defaultRetryDelays = <Duration>[
+  Duration(seconds: 1),
+  Duration(seconds: 2),
+  Duration(seconds: 4),
+  Duration(seconds: 8),
+  Duration(seconds: 16),
+];
+
+VoidCallback _scheduleRetryWithTimer(
+  Duration delay,
+  AdjustDeviceRegistrationRetryCallback callback,
+) {
+  final timer = Timer(delay, () => unawaited(callback()));
+  return timer.cancel;
+}
 
 /// Best-effort bridge between the Adjust SDK identity and Worldo's device
 /// registration endpoint.
 ///
 /// Registration never gates app startup. A missing ADID or a network failure
-/// is retried by the next explicit trigger (login or foreground resume).
+/// starts a bounded automatic retry sequence. Explicit triggers such as login
+/// or foreground resume reset that retry budget and try immediately.
 class AdjustDeviceRegistration {
   AdjustDeviceRegistration({
     required this.platform,
@@ -30,7 +60,10 @@ class AdjustDeviceRegistration {
     this.readIdfa = Adjust.getIdfa,
     this.readIdfv = Adjust.getIdfv,
     this.adidTimeout = const Duration(seconds: 5),
-  });
+    this.retryDelays = _defaultRetryDelays,
+    AdjustDeviceRegistrationRetryScheduler retryScheduler =
+        _scheduleRetryWithTimer,
+  }) : _retryScheduler = retryScheduler;
 
   final TargetPlatform platform;
   final AdjustDeviceRegistrationRequest registerDevice;
@@ -40,17 +73,37 @@ class AdjustDeviceRegistration {
   final AdjustOptionalIdReader readIdfa;
   final AdjustOptionalIdReader readIdfv;
   final Duration adidTimeout;
+  final List<Duration> retryDelays;
+  final AdjustDeviceRegistrationRetryScheduler _retryScheduler;
 
   Future<void>? _inFlight;
   bool _forceRerunRequested = false;
   _AdjustDeviceIdentifiers? _lastRegistered;
+  VoidCallback? _cancelScheduledRetry;
+  int _nextRetryDelayIndex = 0;
+  int _retryGeneration = 0;
+  bool _disposed = false;
+  AdjustDeviceRegistrationResult? _lastResult;
+
+  AdjustDeviceRegistrationResult? get lastResult => _lastResult;
 
   Future<void> register({bool force = false}) {
+    if (_disposed) return Future<void>.value();
+
+    // An explicit lifecycle or session trigger should try immediately and get
+    // a fresh bounded retry budget, even if an automatic attempt is in flight.
+    _cancelRetry(resetBudget: true);
     final current = _inFlight;
     if (current != null) {
       if (force) _forceRerunRequested = true;
       return current;
     }
+
+    return _startRegistration(force: force);
+  }
+
+  Future<void> _startRegistration({required bool force}) {
+    if (_disposed) return Future<void>.value();
 
     late final Future<void> operation;
     operation = _registerAndDrain(force: force).whenComplete(() {
@@ -61,16 +114,20 @@ class AdjustDeviceRegistration {
   }
 
   Future<void> _registerAndDrain({required bool force}) async {
-    await _registerOnce(force: force);
+    var result = await _registerOnce(force: force);
     while (_forceRerunRequested) {
       _forceRerunRequested = false;
-      await _registerOnce(force: true);
+      result = await _registerOnce(force: true);
     }
+    _lastResult = result;
+    _handleResult(result);
   }
 
-  Future<void> _registerOnce({required bool force}) async {
+  Future<AdjustDeviceRegistrationResult> _registerOnce({
+    required bool force,
+  }) async {
     if (platform != TargetPlatform.android && platform != TargetPlatform.iOS) {
-      return;
+      return AdjustDeviceRegistrationResult.failed;
     }
 
     try {
@@ -79,7 +136,7 @@ class AdjustDeviceRegistration {
         debugPrint(
           '[Adjust][DeviceRegister] ADID unavailable; registration deferred',
         );
-        return;
+        return AdjustDeviceRegistrationResult.deferredNoAdid;
       }
 
       final identifiers = platform == TargetPlatform.android
@@ -94,7 +151,9 @@ class AdjustDeviceRegistration {
               idfa: await _readOptional(readIdfa, 'IDFA'),
               idfv: await _readOptional(readIdfv, 'IDFV'),
             );
-      if (!force && identifiers == _lastRegistered) return;
+      if (!force && identifiers == _lastRegistered) {
+        return AdjustDeviceRegistrationResult.alreadyRegistered;
+      }
 
       await registerDevice(
         adid: identifiers.adid,
@@ -108,10 +167,67 @@ class AdjustDeviceRegistration {
         '[Adjust][DeviceRegister] registration succeeded; '
         'platform=${platform.name}',
       );
+      return AdjustDeviceRegistrationResult.registered;
     } catch (error, stackTrace) {
       debugPrint('[Adjust][DeviceRegister] registration failed: $error');
       debugPrint('[Adjust][DeviceRegister] stacktrace:\n$stackTrace');
+      return AdjustDeviceRegistrationResult.failed;
     }
+  }
+
+  void _handleResult(AdjustDeviceRegistrationResult result) {
+    switch (result) {
+      case AdjustDeviceRegistrationResult.registered:
+      case AdjustDeviceRegistrationResult.alreadyRegistered:
+        _cancelRetry(resetBudget: true);
+        return;
+      case AdjustDeviceRegistrationResult.deferredNoAdid:
+      case AdjustDeviceRegistrationResult.failed:
+        _scheduleRetry();
+        return;
+    }
+  }
+
+  void _scheduleRetry() {
+    if (_disposed ||
+        _cancelScheduledRetry != null ||
+        _nextRetryDelayIndex >= retryDelays.length) {
+      if (!_disposed &&
+          _cancelScheduledRetry == null &&
+          _nextRetryDelayIndex >= retryDelays.length) {
+        debugPrint(
+          '[Adjust][DeviceRegister] automatic retry budget exhausted; '
+          'waiting for the next startup, foreground, or session trigger',
+        );
+      }
+      return;
+    }
+
+    final delay = retryDelays[_nextRetryDelayIndex++];
+    final generation = ++_retryGeneration;
+    debugPrint(
+      '[Adjust][DeviceRegister] retry scheduled in '
+      '${delay.inMilliseconds}ms '
+      '($_nextRetryDelayIndex/${retryDelays.length})',
+    );
+    _cancelScheduledRetry = _retryScheduler(delay, () async {
+      if (_disposed || generation != _retryGeneration) return;
+      _cancelScheduledRetry = null;
+      await _startRegistration(force: false);
+    });
+  }
+
+  void _cancelRetry({required bool resetBudget}) {
+    _retryGeneration++;
+    _cancelScheduledRetry?.call();
+    _cancelScheduledRetry = null;
+    if (resetBudget) _nextRetryDelayIndex = 0;
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _cancelRetry(resetBudget: true);
   }
 
   Future<String?> _readOptional(
