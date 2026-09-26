@@ -18,13 +18,22 @@ class _MemoryStateStore implements DeviceInfoTelemetryStateStore {
 }
 
 class _SnapshotDeviceIdService
-    implements DeviceIdService, DeviceIdentitySnapshotService {
+    implements
+        DeviceIdService,
+        DeviceIdDiagnosticsService,
+        DeviceIdentitySnapshotService {
   _SnapshotDeviceIdService(this.snapshot);
 
   DeviceIdentitySnapshot snapshot;
+  DeviceIdDiagnostics? diagnostics;
 
   @override
   Future<String> getDeviceId() async => snapshot.deviceId;
+
+  @override
+  Future<DeviceIdDiagnostics> getDeviceIdDiagnostics() async {
+    return diagnostics ?? DeviceIdDiagnostics(deviceId: snapshot.deviceId);
+  }
 
   @override
   Future<DeviceIdentitySnapshot> getDeviceIdentitySnapshot() async => snapshot;
@@ -89,6 +98,92 @@ void main() {
     expect(payloads.single, isNot(contains('unexpected_field')));
     expect(store.state?.deviceId, 'android-id-1');
     expect(store.state?.uid, 'u_1');
+  });
+
+  test('Android snapshot includes Adjust ADID and GAID only', () async {
+    deviceId.diagnostics = const DeviceIdDiagnostics(
+      deviceId: 'android-id-1',
+      adjustAdid: ' adjust-adid-1 ',
+      gaid: ' gaid-1 ',
+      idfa: 'must-not-upload',
+      idfv: 'must-not-upload',
+    );
+    final reporter = buildReporter();
+
+    await reporter.reportStartup();
+
+    expect(payloads.single['adjust_adid'], 'adjust-adid-1');
+    expect(payloads.single['gaid'], 'gaid-1');
+    expect(payloads.single, isNot(contains('idfa')));
+    expect(payloads.single, isNot(contains('idfv')));
+  });
+
+  test('iOS snapshot includes Adjust ADID, IDFA, and IDFV only', () async {
+    deviceId.snapshot = const DeviceIdentitySnapshot(
+      platform: 'ios',
+      deviceId: 'ios-id-1',
+      fields: <String, Object?>{
+        'device_id_source': 'keychain_existing',
+        'keychain_read_status': 0,
+        'bundle_id': 'com.worldo.ai',
+      },
+    );
+    deviceId.diagnostics = const DeviceIdDiagnostics(
+      deviceId: 'ios-id-1',
+      adjustAdid: 'adjust-adid-ios',
+      gaid: 'must-not-upload',
+      idfa: 'idfa-1',
+      idfv: 'idfv-1',
+    );
+    final reporter = buildReporter();
+
+    await reporter.reportStartup();
+
+    expect(payloads.single['adjust_adid'], 'adjust-adid-ios');
+    expect(payloads.single['idfa'], 'idfa-1');
+    expect(payloads.single['idfv'], 'idfv-1');
+    expect(payloads.single, isNot(contains('gaid')));
+  });
+
+  test('all-zero advertising identifiers are preserved', () async {
+    deviceId.snapshot = const DeviceIdentitySnapshot(
+      platform: 'ios',
+      deviceId: 'ios-id-1',
+      fields: <String, Object?>{
+        'device_id_source': 'keychain_existing',
+        'keychain_read_status': 0,
+      },
+    );
+    deviceId.diagnostics = const DeviceIdDiagnostics(
+      deviceId: 'ios-id-1',
+      adjustAdid: 'adjust-adid-ios',
+      idfa: '00000000-0000-0000-0000-000000000000',
+      idfv: '00000000-0000-0000-0000-000000000000',
+    );
+    final reporter = buildReporter();
+
+    await reporter.reportStartup();
+
+    expect(payloads.single['adjust_adid'], 'adjust-adid-ios');
+    expect(payloads.single['idfa'], '00000000-0000-0000-0000-000000000000');
+    expect(payloads.single['idfv'], '00000000-0000-0000-0000-000000000000');
+  });
+
+  test('newly available attribution id reports context change', () async {
+    final reporter = buildReporter();
+    await reporter.reportStartup();
+    deviceId.diagnostics = const DeviceIdDiagnostics(
+      deviceId: 'android-id-1',
+      adjustAdid: 'adjust-adid-1',
+      gaid: 'gaid-1',
+    );
+
+    await reporter.reportStartup();
+
+    expect(payloads.map((payload) => payload['trigger']), <Object?>[
+      'first_install',
+      'device_context_changed',
+    ]);
   });
 
   test(

@@ -115,7 +115,10 @@ class DeviceInfoTelemetryReporter {
     final appVersion = await _appVersionReader();
     final version = appVersion.displayVersion;
     final normalizedUid = uid?.trim() ?? '';
-    final context = _normalizedContext(snapshot);
+    final context = <String, Object?>{
+      ..._normalizedContext(snapshot),
+      ...await _attributionContext(service, snapshot.platform),
+    };
     final contextJson = jsonEncode(SplayTreeMap<String, Object?>.of(context));
     final previous = await _stateStore.read();
     final trigger =
@@ -177,6 +180,49 @@ class DeviceInfoTelemetryReporter {
                 snapshot.fields.containsKey(key)))
           key: snapshot.fields[key],
     };
+  }
+
+  Future<Map<String, Object?>> _attributionContext(
+    DeviceIdService service,
+    String platform,
+  ) async {
+    if (service is! DeviceIdDiagnosticsService) {
+      return const <String, Object?>{};
+    }
+    try {
+      final diagnostics = await (service as DeviceIdDiagnosticsService)
+          .getDeviceIdDiagnostics();
+      final identifiers = platform == 'android'
+          ? <String, String?>{
+              'adjust_adid': diagnostics.adjustAdid,
+              'gaid': diagnostics.gaid,
+            }
+          : <String, String?>{
+              'adjust_adid': diagnostics.adjustAdid,
+              'idfa': diagnostics.idfa,
+              'idfv': diagnostics.idfv,
+            };
+      final context = <String, Object?>{};
+      for (final entry in identifiers.entries) {
+        final value = _normalizedAttributionIdentifier(entry.value);
+        if (value != null) context[entry.key] = value;
+      }
+      return context;
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Telemetry][DeviceInfo] attribution identifiers unavailable: $error',
+      );
+      debugPrint(
+        '[Telemetry][DeviceInfo] attribution stacktrace:\n$stackTrace',
+      );
+      return const <String, Object?>{};
+    }
+  }
+
+  String? _normalizedAttributionIdentifier(String? value) {
+    final normalized = (value ?? '').trim();
+    if (normalized.isEmpty) return null;
+    return normalized;
   }
 
   bool _hasIdentityError(Map<String, Object?> fields) {
