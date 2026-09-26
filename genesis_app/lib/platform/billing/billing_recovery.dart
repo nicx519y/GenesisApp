@@ -375,6 +375,13 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           storeProductId: purchase.productId,
           status: 'canceled',
           source: source,
+          failureReason: _storeFailureReason(
+            code: purchase.rawErrorCode ?? purchase.errorCode,
+            source: purchase.errorSource,
+            details: purchase.errorDetails,
+            stage: 'callback',
+            status: 'canceled',
+          ),
         );
         return;
       case BillingPurchaseStatus.error:
@@ -400,6 +407,13 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           errorCode: purchase.errorCode?.trim().isNotEmpty == true
               ? purchase.errorCode!.trim()
               : 'store_error',
+          failureReason: _storeFailureReason(
+            code: purchase.rawErrorCode ?? purchase.errorCode,
+            source: purchase.errorSource,
+            details: purchase.errorDetails,
+            stage: 'callback',
+            status: 'error',
+          ),
         );
         return;
       case BillingPurchaseStatus.purchased:
@@ -427,6 +441,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         errorCode: purchase.provider == BillingProvider.appStore
             ? 'store_error'
             : 'purchase_token_missing',
+        failureReason: 'receipt_missing',
       );
       return;
     }

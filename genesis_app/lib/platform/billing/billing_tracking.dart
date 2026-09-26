@@ -81,20 +81,13 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     return 'Purchase failed.';
   }
 
-  String _queryFailureErrorCode(Object error) {
-    if (error is BillingPlatformException && error.code.trim().isNotEmpty) {
-      return error.code.trim();
-    }
-    return 'unknown';
-  }
-
-  String? _purchaseLaunchErrorCode(Object error) {
+  String _platformFailureErrorCode(Object error) {
     final code = switch (error) {
       PlatformException(:final code) => code,
       BillingPlatformException(:final code) => code,
       _ => '',
     }.trim();
-    return code.isEmpty ? null : code;
+    return code.isEmpty ? 'unknown' : code;
   }
 
   String _productQueryFailureMessage(String? errorCode) {
@@ -165,6 +158,13 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       attemptId,
       'precheck_failed',
       errorCode: errorCode,
+      failureReason: switch (errorCode) {
+        'gp_unavailable' => 'service_unavailable',
+        'product_not_purchasable' ||
+        'store_product_id_missing' ||
+        'unsupported_product_type' => 'catalog_unavailable',
+        _ => errorCode,
+      },
     );
   }
 
@@ -173,6 +173,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     String attemptId,
     String status, {
     String? errorCode,
+    String? failureReason,
   }) {
     _trackFlowResultById(
       attemptId: attemptId,
@@ -181,6 +182,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       status: status,
       source: BillingRecoverySource.direct,
       errorCode: errorCode,
+      failureReason: failureReason,
     );
   }
 
@@ -191,6 +193,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     required String status,
     required BillingRecoverySource source,
     String? errorCode,
+    String? failureReason,
   }) {
     final failedReason = _failedReasonForFlowResult(
       status: status,
@@ -210,6 +213,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
                 failedReason == 'report_rejected'
             ? errorCode
             : null,
+        failureReason: failureReason,
       );
     }
   }
@@ -220,6 +224,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     required String storeProductId,
     required String reason,
     String? errorCode,
+    String? failureReason,
   }) {
     final normalizedReason = reason.trim();
     if (normalizedReason.isEmpty) return;
@@ -232,6 +237,43 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       data: <String, Object?>{
         'reason': normalizedReason,
         if (normalizedErrorCode.isNotEmpty) 'error_code': normalizedErrorCode,
+        if (failureReason?.trim().isNotEmpty == true)
+          'failure_reason': failureReason!.trim(),
+      },
+    );
+  }
+
+  String? _storeFailureReason({
+    Object? error,
+    String? code,
+    String? source,
+    Object? details,
+    required String stage,
+    String? status,
+  }) {
+    return billingStoreFailureReason(
+      _platform.provider,
+      error: error,
+      code: code,
+      source: source,
+      details: details,
+      stage: stage,
+      status: status,
+      sdkFailureReason: (sdkCode, _, sdkStage) {
+        switch (sdkCode) {
+          case 'platform_unavailable':
+            return 'service_unavailable';
+          case 'product_not_found':
+          case 'product_not_purchasable':
+          case 'store_product_id_missing':
+          case 'invalid_google_product':
+          case 'invalid_app_store_product':
+          case 'unsupported_product_type':
+            return 'catalog_unavailable';
+          case 'purchase_rejected':
+            return 'store_failure[stage=$sdkStage]';
+        }
+        return null;
       },
     );
   }
@@ -276,7 +318,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       'canceled' => 'canceled',
       'store_failed' =>
         errorCode == 'purchase_token_missing'
-            ? 'purchase_token_missing'
+            ? 'receipt_missing'
             : 'purchase_callback_error',
       _ => 'report_rejected',
     };

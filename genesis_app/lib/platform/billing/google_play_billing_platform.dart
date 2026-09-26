@@ -117,7 +117,14 @@ class GooglePlayBillingPlatform implements BillingPlatform {
           'response=${response.billingResult.responseCode.name} '
           'code=$errorCode message=${response.billingResult.debugMessage}',
         );
-        return BillingProductQueryResult.failure(errorCode);
+        return BillingProductQueryResult.failure(
+          errorCode,
+          errorSource: 'google_play',
+          errorDetails: {
+            'responseCode': response.billingResult.responseCode.name,
+            'subResponseCode': response.billingResult.subResponseCode,
+          },
+        );
       }
       final products = response.productDetailsList.expand(
         GooglePlayProductDetails.fromProductDetails,
@@ -184,7 +191,10 @@ class GooglePlayBillingPlatform implements BillingPlatform {
           '[Billing] product not fetched id=$storeProductId '
           'status=${unfetched.statusCode} code=$errorCode',
         );
-        return BillingProductQueryResult.failure(errorCode);
+        return BillingProductQueryResult.failure(
+          errorCode,
+          errorSource: 'google_play',
+        );
       }
       return const BillingProductQueryResult.failure('unknown');
     } on Object catch (error) {
@@ -227,6 +237,10 @@ class GooglePlayBillingPlatform implements BillingPlatform {
         throw BillingPlatformException(
           'purchase_${result.responseCode.name}',
           result.debugMessage ?? '',
+          {
+            'responseCode': result.responseCode.name,
+            'subResponseCode': result.subResponseCode,
+          },
         );
       }
       onStoreHandoff?.call();

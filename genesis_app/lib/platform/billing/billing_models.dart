@@ -82,12 +82,21 @@ class BillingStoreProduct {
 
 @immutable
 class BillingProductQueryResult {
-  const BillingProductQueryResult.success(this.product) : errorCode = null;
+  const BillingProductQueryResult.success(this.product)
+    : errorCode = null,
+      errorSource = null,
+      errorDetails = null;
 
-  const BillingProductQueryResult.failure(this.errorCode) : product = null;
+  const BillingProductQueryResult.failure(
+    this.errorCode, {
+    this.errorSource,
+    this.errorDetails,
+  }) : product = null;
 
   final BillingStoreProduct? product;
   final String? errorCode;
+  final String? errorSource;
+  final Object? errorDetails;
 
   bool get isSuccess => product != null;
 }

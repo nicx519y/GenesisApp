@@ -10,6 +10,7 @@ import '../../network/models/gem_purchase_report.dart';
 import 'billing_analytics.dart';
 import 'billing_contract.dart';
 import 'billing_models.dart';
+import 'billing_store_failure_reason.dart';
 import 'purchase_toast_diagnostics.dart';
 import 'google_play_billing_platform.dart';
 import 'pending_purchase_store.dart';
@@ -364,7 +365,8 @@ class GooglePlayBillingService implements BillingService {
             activeProduct,
             attemptId,
             'query_failed',
-            errorCode: _queryFailureErrorCode(error),
+            errorCode: _platformFailureErrorCode(error),
+            failureReason: _storeFailureReason(error: error, stage: 'query'),
           );
           return;
         }
@@ -387,6 +389,12 @@ class GooglePlayBillingService implements BillingService {
             attemptId,
             'query_failed',
             errorCode: errorCode,
+            failureReason: _storeFailureReason(
+              code: queryResult.errorCode,
+              source: queryResult.errorSource,
+              details: queryResult.errorDetails,
+              stage: 'query',
+            ),
           );
           return;
         }
@@ -423,7 +431,12 @@ class GooglePlayBillingService implements BillingService {
                 reason: 'launch_rejected',
               ),
             );
-            _trackFlowResult(activeProduct, attemptId, 'launch_rejected');
+            _trackFlowResult(
+              activeProduct,
+              attemptId,
+              'launch_rejected',
+              failureReason: 'store_failure[stage=launch]',
+            );
           }
         } catch (error) {
           if (_attemptByStoreProductId[storeProductId]?.id != attemptId ||
@@ -442,7 +455,8 @@ class GooglePlayBillingService implements BillingService {
             activeProduct,
             attemptId,
             'launch_failed',
-            errorCode: _purchaseLaunchErrorCode(error),
+            errorCode: _platformFailureErrorCode(error),
+            failureReason: _storeFailureReason(error: error, stage: 'launch'),
           );
         }
       } catch (_) {

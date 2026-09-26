@@ -1377,6 +1377,33 @@ void main() {
     );
     expect(failed.properties['reason'], 'purchase_callback_error');
     expect(failed.properties['error_code'], 'network_error');
+    expect(failed.properties['failure_reason'], 'sdk[code=network_error]');
+  });
+
+  test('error callback keeps the structured Google store response', () async {
+    await service.purchaseGem(_product);
+    platform.emit(
+      _purchase(
+        BillingPurchaseStatus.error,
+        errorCode: 'billing_error',
+        rawErrorCode: 'purchase_error',
+        errorSource: 'google_play',
+        errorDetails: const {
+          'responseCode': 'billingUnavailable',
+          'subResponseCode': 2,
+          'debugMessage': 'must not be uploaded',
+        },
+      ),
+    );
+    await _settle();
+
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_failed',
+    );
+    expect(
+      failed.properties['failure_reason'],
+      'google[response_code=billingUnavailable;sub_response_code=2]',
+    );
   });
 
   test('paid callback defers when persisted context cannot be read', () async {
@@ -1421,8 +1448,31 @@ void main() {
       expect(failed.properties['product_id'], 'gem_pack_500');
       expect(failed.properties['reason'], 'query_failed');
       expect(failed.properties['error_code'], 'product_not_found');
+      expect(failed.properties['failure_reason'], 'catalog_unavailable');
     },
   );
+
+  test('product query keeps the structured Google store response', () async {
+    platform.queryResult = const BillingProductQueryResult.failure(
+      'billing_unavailable',
+      errorSource: 'google_play',
+      errorDetails: {
+        'responseCode': 'billingUnavailable',
+        'subResponseCode': 2,
+      },
+    );
+
+    await service.purchaseGem(_product);
+    await _settle();
+
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_failed',
+    );
+    expect(
+      failed.properties['failure_reason'],
+      'google[response_code=billingUnavailable;sub_response_code=2]',
+    );
+  });
 
   test(
     'product not found reloads catalog and retries with the latest id',
@@ -1528,6 +1578,10 @@ void main() {
     expect(
       failed.properties['error_code'],
       'storekit_duplicate_product_object',
+    );
+    expect(
+      failed.properties['failure_reason'],
+      'sdk[code=storekit_duplicate_product_object]',
     );
   });
 
@@ -2565,6 +2619,9 @@ BillingPurchase _purchase(
   String? obfuscatedAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811',
   String? errorCode,
   String? errorMessage,
+  String? rawErrorCode,
+  String? errorSource,
+  Object? errorDetails,
 }) {
   return BillingPurchase(
     provider: provider,
@@ -2578,6 +2635,9 @@ BillingPurchase _purchase(
     obfuscatedAccountId: obfuscatedAccountId,
     errorCode: errorCode,
     errorMessage: errorMessage,
+    rawErrorCode: rawErrorCode,
+    errorSource: errorSource,
+    errorDetails: errorDetails,
   );
 }
 

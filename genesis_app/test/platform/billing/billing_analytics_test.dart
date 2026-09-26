@@ -182,6 +182,31 @@ void main() {
   });
 
   test(
+    'formatted store failure takes precedence as purchase object3',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'query_failed',
+          'error_code': 'billing_unavailable',
+          'failure_reason': 'google[response_code=billingUnavailable]',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        'google[response_code=billingUnavailable]',
+      );
+    },
+  );
+
+  test(
     'query failure collect projection uses unknown without a code',
     () async {
       final sink = _CapturingTelemetrySink();

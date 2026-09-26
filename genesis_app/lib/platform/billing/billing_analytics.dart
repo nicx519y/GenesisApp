@@ -89,6 +89,8 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
 }
 
 String? _purchaseFailureReason(Map<String, Object?> data) {
+  final formatted = data['failure_reason'];
+  if (formatted is String && formatted.isNotEmpty) return formatted;
   final reason = data['reason'];
   if (reason is! String || reason.isEmpty) return null;
   final appendsErrorCode =
@@ -130,6 +132,7 @@ const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'timeout_type',
   'duration_ms',
   'error_code',
+  'failure_reason',
   'can_purchase',
   'billing_type',
   'product_type',
