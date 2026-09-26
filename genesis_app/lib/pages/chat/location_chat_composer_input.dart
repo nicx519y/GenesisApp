@@ -140,7 +140,7 @@ class _SpeakerToggle extends StatelessWidget {
   /// The input's single-line height, so the mark centres on that line and the
   /// whole slot is a comfortable tap target.
   static const double _slot = 40;
-  static const double _mark = 24;
+  static const double _mark = 26;
   static const double _radius = 6;
 
   @override
@@ -192,15 +192,13 @@ class _SpeakerToggle extends StatelessWidget {
                               color: plateColor,
                               borderRadius: BorderRadius.circular(_radius),
                             ),
-                            // The user's own red: narration they send reads
-                            // as theirs, the same as it will in the room.
                             child: SvgPicture.asset(
                               paragraphIconAsset,
                               excludeFromSemantics: true,
                               width: 14,
                               height: 14,
                               colorFilter: const ColorFilter.mode(
-                                kChatSelfAccentColor,
+                                GenesisColors.darkTextPrimary,
                                 BlendMode.srcIn,
                               ),
                             ),

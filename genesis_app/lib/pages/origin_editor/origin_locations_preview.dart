@@ -165,7 +165,7 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
           key: const ValueKey<String>('locations-statistics-note'),
           text: _OriginLocationsEditorPageState._statisticsNote,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: GenesisSpacing.section),
       ],
     );
   }

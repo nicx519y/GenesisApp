@@ -74,6 +74,7 @@ class ChatComposer extends StatelessWidget {
     this.composerHeader,
     this.leadingAction,
     this.inputLeading,
+    this.inputLeadingWidth = 40,
     this.sendIcon = ChatComposerSendIcon.send,
     this.animateSendButton = true,
     this.pinActionsToBottom = false,
@@ -102,8 +103,9 @@ class ChatComposer extends StatelessWidget {
 
   /// Sits inside the input box, left of the text and pinned to its first line,
   /// so it stays beside the start of a long message as the box grows.
-  /// It brings its own spacing, so the text starts flush against it.
+  /// Text and shortcuts share the same inset after this slot.
   final Widget? inputLeading;
+  final double inputLeadingWidth;
   final ChatComposerSendIcon sendIcon;
   final bool animateSendButton;
   final bool pinActionsToBottom;
@@ -252,6 +254,7 @@ class ChatComposer extends StatelessWidget {
                                               CrossAxisAlignment.start,
                                           children: [
                                             SizedBox(
+                                              width: inputLeadingWidth,
                                               height:
                                                   lineHeight +
                                                   verticalPadding * 2,
@@ -267,9 +270,11 @@ class ChatComposer extends StatelessWidget {
                                     secondaryLeadingShortcutLabel != null)
                                   _ComposerKeyboardAccessory(
                                     child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        8,
-                                        0,
+                                      padding: EdgeInsets.fromLTRB(
+                                        inputLeading == null
+                                            ? 8
+                                            : inputLeadingWidth,
+                                        4,
                                         0,
                                         8,
                                       ),

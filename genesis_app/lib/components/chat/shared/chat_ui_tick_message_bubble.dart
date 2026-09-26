@@ -3,7 +3,6 @@ part of 'chat_ui_library.dart';
 const Color _tickMessageBackgroundColor = Color(0x99151517);
 const Color _tickMessageAccentColor = GenesisColors.redPrimary;
 const Color _tickMessageHeaderColor = GenesisColors.darkTextPrimary;
-const Color _tickMessageBorderColor = Color(0x33FFFFFF);
 const Color _tickMessageDividerColor = Color(0x29FFFFFF);
 const double _tickMessageBlurSigma = GenesisBlur.strong;
 
@@ -174,15 +173,12 @@ class _ChatTickSurface extends StatelessWidget {
         decoration: BoxDecoration(
           color: _tickMessageBackgroundColor,
           borderRadius: borderRadius,
-          border: usesScenePlate
-              ? Border.all(color: _tickMessageBorderColor)
-              : null,
         ),
         child: usesScenePlate
             ? Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 13,
+                  horizontal: 15,
+                  vertical: 14,
                 ),
                 child: ChatStreamingBody(child: child),
               )
