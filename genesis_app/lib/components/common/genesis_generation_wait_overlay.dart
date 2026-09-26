@@ -109,7 +109,7 @@ class _GenesisGenerationWaitOverlayState
       bodyChildren.add(
         Text(
           widget.message,
-          textAlign: TextAlign.left,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
             height: 1.4,
@@ -184,7 +184,7 @@ class _GenesisGenerationWaitOverlayState
                                         children: [
                                           Text(
                                             title,
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.center,
                                             style: TextStyle(
                                               fontSize: 16,
                                               height: 1.2,
