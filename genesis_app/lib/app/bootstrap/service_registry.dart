@@ -44,6 +44,7 @@ import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/pending_purchase_store.dart';
 import '../attribution/adjust_device_registration.dart';
+import '../attribution/adjust_attribution_runtime.dart';
 
 class AppServices {
   AppServices({
@@ -72,7 +73,9 @@ class AppServices {
     PersonalizationStore? personalization,
     this.adjustDeviceRegistration,
     this.eventReporting,
-  }) : membershipCatalog =
+    VoidCallback? removeAdjustSessionListener,
+  }) : _removeAdjustSessionListener = removeAdjustSessionListener,
+       membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
              loadProducts: (provider) async => api.v1.membership.products(
@@ -165,6 +168,7 @@ class AppServices {
   final ValueNotifier<int> sessionRevision;
   final AdjustDeviceRegistration? adjustDeviceRegistration;
   final AppEventReporting? eventReporting;
+  final VoidCallback? _removeAdjustSessionListener;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
   (String?, int, String, DateTime?)? _quotaMembershipSignature;
   Future<void> _originFeedGenderUpdate = Future.value();
@@ -272,6 +276,7 @@ class AppServices {
     personalization.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
+    _removeAdjustSessionListener?.call();
     adjustDeviceRegistration?.dispose();
     unawaited(eventReporting?.dispose());
   }
@@ -419,6 +424,32 @@ class ServiceRegistry {
     FirebaseAnalyticsMonitoring.configureServerEventReporter(
       eventReporting?.report,
     );
+    VoidCallback? removeAdjustSessionListener;
+    if (adjustDeviceRegistration != null) {
+      final removeSuccess = AdjustAttributionRuntime.addSessionListener((adid) {
+        unawaited(
+          (adid == null
+                  ? adjustDeviceRegistration.registerAfterSessionWithoutAdid()
+                  : adjustDeviceRegistration.registerKnownAdid(adid))
+              .whenComplete(() => eventReporting?.flush()),
+        );
+      });
+      final removeFailure = AdjustAttributionRuntime.addSessionFailureListener((
+        failure,
+      ) {
+        final adid = failure.adid?.trim() ?? '';
+        unawaited(
+          (adid.isEmpty
+                  ? adjustDeviceRegistration.registerAfterSessionWithoutAdid()
+                  : adjustDeviceRegistration.registerKnownAdid(adid))
+              .whenComplete(() => eventReporting?.flush()),
+        );
+      });
+      removeAdjustSessionListener = () {
+        removeSuccess();
+        removeFailure();
+      };
+    }
     final chatroom = ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,
       sessionStore: sessionStore,
@@ -563,6 +594,7 @@ class ServiceRegistry {
       sessionRevision: sessionRevision,
       adjustDeviceRegistration: adjustDeviceRegistration,
       eventReporting: eventReporting,
+      removeAdjustSessionListener: removeAdjustSessionListener,
     );
   }
 

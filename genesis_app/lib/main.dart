@@ -33,7 +33,6 @@ const _startupSystemUiTimeout = Duration(seconds: 2);
 Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
-  AdjustAttributionRuntime.initialize();
   final appConfigLoad = loadStartupEndpointConfig();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),
@@ -82,13 +81,15 @@ Future<void> main() async {
   if (kDebugMode) unawaited(purchaseToastDebugSettings.load());
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
+  var adjustNetworkAvailable = true;
   if (appConfig.useMock != true) {
     // Keep the iOS permission flow ahead of service creation (image warm-up,
-    // billing and Gateway requests).
-    await waitForIosStartupNetwork(
+    // billing and Gateway requests) and Adjust's first session.
+    adjustNetworkAvailable = await waitForIosStartupNetwork(
       probeUri: Uri.parse(appConfig.gatewayApiBaseUrl).resolve('v1/time'),
     );
   }
+  if (adjustNetworkAvailable) AdjustAttributionRuntime.initialize();
   final collectReady = Completer<void>();
   // Prepare the durable Collect queue as soon as the runtime endpoints are
   // known. The two launch sentinels intentionally do not wait for UID,

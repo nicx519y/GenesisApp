@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app/attribution/adjust_attribution_runtime.dart';
+import '../app/attribution/adjust_device_registration.dart';
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
+import '../app/startup/ios_startup_network.dart';
 import '../app/gems/daily_check_in_coordinator.dart';
 import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
@@ -85,6 +88,10 @@ class _AppShellPageState extends State<AppShellPage>
   static const _messagesPollInterval = Duration(seconds: 30);
   late final GenesisPollingScheduler _messagesPoller;
   Timer? _attDelayTimer;
+  Timer? _startupAdidCheckTimer;
+  bool _firstFrameShown = false;
+  bool _startupAdidCheckScheduled = false;
+  bool _startupAdidCheckDue = false;
   var _attWaitingForResume = false;
   var _attScheduleStarted = false;
   var _attRequestInFlight = false;
@@ -93,6 +100,7 @@ class _AppShellPageState extends State<AppShellPage>
   late bool _hasSeenResumed;
   String? _lastBillingRecoveryUid;
   AppLifecycleState? _lifecycleState;
+  Future<void>? _adjustInitializationAttempt;
 
   @override
   void initState() {
@@ -121,12 +129,15 @@ class _AppShellPageState extends State<AppShellPage>
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _firstFrameShown = true;
       AppStartupCoordinator.recordLaunchFirstFrame();
       // The final tab was selected before runApp. Keep route_ready_ms only as
       // a schema-v1 first-frame confirmation for existing dashboard data.
       AppStartupCoordinator.recordLaunchRouteReady();
       AppStartupCoordinator.recordLaunchPage();
       _startAppRuntime();
+      _scheduleStartupAdidCheck();
       _startPostLaunchWorkIfAllowed();
       _startInitialBillingRecoveryIfReady();
       _scheduleAttRequest();
@@ -143,6 +154,7 @@ class _AppShellPageState extends State<AppShellPage>
   @override
   void dispose() {
     _attDelayTimer?.cancel();
+    _startupAdidCheckTimer?.cancel();
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     _pendingLoginCheckInUid?.removeListener(_schedulePendingDailyCheckIn);
     _personalizationBlocker?.removeListener(_schedulePendingDailyCheckIn);
@@ -172,10 +184,21 @@ class _AppShellPageState extends State<AppShellPage>
     final isFirstObservedResume = !_hasSeenResumed;
     _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
+      _startDeferredAdjustInitialization();
+      _runStartupAdidCheckIfDue();
       final adjustDeviceRegistration = mounted
           ? AppServicesScope.read(context).adjustDeviceRegistration
           : null;
-      if (adjustDeviceRegistration != null) {
+      final registrationAlreadyHandled =
+          isFirstObservedResume &&
+          (AdjustAttributionRuntime.hasSuccessfulSession ||
+              adjustDeviceRegistration?.lastResult ==
+                  AdjustDeviceRegistrationResult.registered ||
+              adjustDeviceRegistration?.lastResult ==
+                  AdjustDeviceRegistrationResult.alreadyRegistered);
+      if (adjustDeviceRegistration != null &&
+          AdjustAttributionRuntime.isInitialized &&
+          !registrationAlreadyHandled) {
         unawaited(
           adjustDeviceRegistration.register().whenComplete(
             () => mounted
@@ -205,6 +228,95 @@ class _AppShellPageState extends State<AppShellPage>
       }
     } else {
       _stopMessagesPolling();
+    }
+  }
+
+  void _startDeferredAdjustInitialization() {
+    if (!mounted ||
+        AdjustAttributionRuntime.hasSuccessfulSession ||
+        AdjustAttributionRuntime.hasAttemptedInitialization ||
+        _adjustInitializationAttempt != null) {
+      return;
+    }
+    late final Future<void> attempt;
+    attempt = _initializeAdjustAfterNetwork().whenComplete(() {
+      if (identical(_adjustInitializationAttempt, attempt)) {
+        _adjustInitializationAttempt = null;
+      }
+    });
+    _adjustInitializationAttempt = attempt;
+    unawaited(attempt);
+  }
+
+  Future<void> _initializeAdjustAfterNetwork() async {
+    try {
+      final config = AppServicesScope.read(context).config;
+      if ((widget.startupPlatform ?? defaultTargetPlatform) ==
+              TargetPlatform.iOS &&
+          config.useMock != true) {
+        final available = await waitForIosStartupNetwork(
+          probeUri: Uri.parse(config.gatewayApiBaseUrl).resolve('v1/time'),
+          platform: TargetPlatform.iOS,
+        );
+        if (!available || !mounted) return;
+      }
+      if (AdjustAttributionRuntime.hasSuccessfulSession ||
+          AdjustAttributionRuntime.hasAttemptedInitialization) {
+        return;
+      }
+      AdjustAttributionRuntime.initialize();
+      if (AdjustAttributionRuntime.isInitialized && mounted) {
+        _scheduleStartupAdidCheck();
+        final registration = AppServicesScope.read(
+          context,
+        ).adjustDeviceRegistration;
+        if (registration != null &&
+            !AdjustAttributionRuntime.hasSuccessfulSession &&
+            registration.lastResult !=
+                AdjustDeviceRegistrationResult.registered &&
+            registration.lastResult !=
+                AdjustDeviceRegistrationResult.alreadyRegistered) {
+          await registration.register();
+        }
+      }
+    } catch (error) {
+      debugPrint('[Adjust] network preparation or registration failed: $error');
+    }
+  }
+
+  void _scheduleStartupAdidCheck() {
+    if (!mounted ||
+        !_firstFrameShown ||
+        _startupAdidCheckScheduled ||
+        !AdjustAttributionRuntime.isInitialized) {
+      return;
+    }
+    final registration = AppServicesScope.read(
+      context,
+    ).adjustDeviceRegistration;
+    if (registration == null) return;
+    _startupAdidCheckScheduled = true;
+    _startupAdidCheckTimer = Timer(const Duration(seconds: 10), () {
+      _startupAdidCheckTimer = null;
+      _startupAdidCheckDue = true;
+      _runStartupAdidCheckIfDue();
+    });
+  }
+
+  void _runStartupAdidCheckIfDue() {
+    if (!mounted ||
+        !_startupAdidCheckDue ||
+        !AdjustAttributionRuntime.isInitialized ||
+        (_lifecycleState != null &&
+            _lifecycleState != AppLifecycleState.resumed)) {
+      return;
+    }
+    _startupAdidCheckDue = false;
+    final registration = AppServicesScope.read(
+      context,
+    ).adjustDeviceRegistration;
+    if (registration != null) {
+      unawaited(registration.checkAdidAfterStartup());
     }
   }
 
@@ -376,6 +488,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _startAppRuntime() {
     if (!mounted) return;
+    _startDeferredAdjustInitialization();
     final services = AppServicesScope.read(context);
     AppStartupCoordinator.startFirebasePerformance();
     AppStartupCoordinator.startWarmUp(services);

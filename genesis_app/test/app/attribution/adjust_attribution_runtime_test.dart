@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:adjust_sdk/adjust_config.dart';
+import 'package:adjust_sdk/adjust_session_failure.dart';
+import 'package:adjust_sdk/adjust_session_success.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_attribution_runtime.dart';
@@ -42,19 +44,88 @@ void main() {
     expect(config.toMap, isNot(contains('fbAppId')));
   });
 
+  test('release config keeps session callbacks for device registration', () {
+    final config = AdjustAttributionRuntime.createConfig(
+      releaseMode: true,
+      platform: TargetPlatform.iOS,
+    );
+
+    expect(config.toMap['environment'], 'production');
+    expect(config.toMap['logLevel'], 'suppress');
+    expect(config.attributionCallback, isNull);
+    expect(config.sessionSuccessCallback, isNotNull);
+    expect(config.sessionFailureCallback, isNotNull);
+  });
+
+  test('release session success publishes and replays the confirmed ADID', () {
+    expect(AdjustAttributionRuntime.hasSuccessfulSession, isFalse);
+    final config = AdjustAttributionRuntime.createConfig(
+      releaseMode: true,
+      platform: TargetPlatform.iOS,
+    );
+    final received = <String?>[];
+    final removeFirst = AdjustAttributionRuntime.addSessionListener(
+      received.add,
+    );
+
+    config.sessionSuccessCallback!(AdjustSessionSuccess(adid: ' adid-ready '));
+    expect(AdjustAttributionRuntime.hasSuccessfulSession, isTrue);
+    final removeSecond = AdjustAttributionRuntime.addSessionListener(
+      received.add,
+    );
+
+    expect(received, ['adid-ready', 'adid-ready']);
+    removeFirst();
+    removeSecond();
+  });
+
+  test('session failure is published and replayed until a success', () {
+    final config = AdjustAttributionRuntime.createConfig(
+      releaseMode: true,
+      platform: TargetPlatform.iOS,
+    );
+    final received = <AdjustSessionFailure>[];
+    final removeFirst = AdjustAttributionRuntime.addSessionFailureListener(
+      received.add,
+    );
+    final failure = AdjustSessionFailure(willRetry: true);
+
+    config.sessionFailureCallback!(failure);
+    final removeSecond = AdjustAttributionRuntime.addSessionFailureListener(
+      received.add,
+    );
+    expect(received, [failure, failure]);
+
+    config.sessionSuccessCallback!(AdjustSessionSuccess(adid: 'adid-ready'));
+    final removeThird = AdjustAttributionRuntime.addSessionFailureListener(
+      received.add,
+    );
+    expect(received, [failure, failure]);
+    removeFirst();
+    removeSecond();
+    removeThird();
+  });
+
   test(
-    'release config uses production and suppresses diagnostic callbacks',
+    'successful session with no ADID publishes a one-time fallback signal',
     () {
       final config = AdjustAttributionRuntime.createConfig(
         releaseMode: true,
         platform: TargetPlatform.iOS,
       );
+      final received = <String?>[];
+      final removeFirst = AdjustAttributionRuntime.addSessionListener(
+        received.add,
+      );
 
-      expect(config.toMap['environment'], 'production');
-      expect(config.toMap['logLevel'], 'suppress');
-      expect(config.attributionCallback, isNull);
-      expect(config.sessionSuccessCallback, isNull);
-      expect(config.sessionFailureCallback, isNull);
+      config.sessionSuccessCallback!(AdjustSessionSuccess());
+      final removeSecond = AdjustAttributionRuntime.addSessionListener(
+        received.add,
+      );
+
+      expect(received, [null, null]);
+      removeFirst();
+      removeSecond();
     },
   );
 
@@ -109,14 +180,37 @@ void main() {
     expect(idfvRequested, isFalse);
   });
 
-  test('a synchronous SDK initialization failure does not fail startup', () {
+  test('a synchronous SDK initialization failure is not retried', () {
+    var attempts = 0;
+
+    expect(AdjustAttributionRuntime.hasAttemptedInitialization, isFalse);
+
     expect(
       () => AdjustAttributionRuntime.initialize(
         releaseMode: false,
         platform: TargetPlatform.android,
-        initializeSdk: (_) => throw StateError('test failure'),
+        initializeSdk: (_) {
+          attempts++;
+          if (attempts == 1) throw StateError('test failure');
+        },
       ),
       returnsNormally,
     );
+
+    expect(AdjustAttributionRuntime.hasAttemptedInitialization, isTrue);
+    expect(AdjustAttributionRuntime.isInitialized, isFalse);
+
+    AdjustAttributionRuntime.initialize(
+      releaseMode: false,
+      platform: TargetPlatform.android,
+      initializeSdk: (_) => attempts++,
+    );
+    AdjustAttributionRuntime.initialize(
+      releaseMode: false,
+      platform: TargetPlatform.android,
+      initializeSdk: (_) => attempts++,
+    );
+
+    expect(attempts, 1);
   });
 }

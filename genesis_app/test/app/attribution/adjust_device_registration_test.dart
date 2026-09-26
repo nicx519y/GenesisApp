@@ -3,8 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
+import 'package:genesis_flutter_android/app/attribution/adjust_local_adid_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+
+  test('saved ADID survives a new local-store instance', () async {
+    const first = SharedPreferencesAdjustLocalAdidStore();
+    await first.write('saved-adid');
+    const second = SharedPreferencesAdjustLocalAdidStore();
+
+    expect(await second.read(), 'saved-adid');
+  });
+
   test('iOS registration sends ADID, IDFA, and IDFV', () async {
     final requests = <Map<String, String?>>[];
     final registration = AdjustDeviceRegistration(
@@ -101,23 +113,18 @@ void main() {
     expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
   });
 
-  test('missing ADID retries automatically and stops after success', () async {
+  test('reports ADID failure only after the delayed startup check', () async {
     var readCount = 0;
     var requestCount = 0;
-    final scheduledDelays = <Duration>[];
-    final scheduledCallbacks = <AdjustDeviceRegistrationRetryCallback>[];
+    final reports = <String>[];
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.iOS,
       environmentProvider: () => 'sandbox',
-      readAdid: (_) async => ++readCount == 1 ? null : 'adid-ready',
-      readIdfa: () async => null,
-      readIdfv: () async => 'idfv',
-      retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
-      retryScheduler: (delay, callback) {
-        scheduledDelays.add(delay);
-        scheduledCallbacks.add(callback);
-        return () {};
+      readAdid: (_) async {
+        readCount++;
+        return null;
       },
+      reportAdidFailure: (source, platform) => reports.add(source),
       registerDevice:
           ({required adid, required environment, gpsAdid, idfa, idfv}) async {
             requestCount++;
@@ -125,29 +132,298 @@ void main() {
     );
 
     await registration.register();
+    expect(reports, isEmpty);
 
+    await registration.registerAfterSessionWithoutAdid();
+    expect(reports, isEmpty);
+    await registration.checkAdidAfterStartup();
+    await registration.checkAdidAfterStartup();
+
+    expect(readCount, 4);
     expect(requestCount, 0);
-    expect(scheduledDelays, const [Duration(seconds: 1)]);
+    expect(reports, ['startup_delayed_check']);
+  });
+
+  test('delayed check uses the saved ADID before calling Adjust', () async {
+    final localStore = _MemoryAdjustLocalAdidStore(value: 'saved-adid');
+    final requests = <String>[];
+    final reports = <String>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      localAdidStore: localStore,
+      readAdid: (_) async => throw StateError('Adjust must not be read'),
+      readIdfa: () async => null,
+      readIdfv: () async => null,
+      reportAdidFailure: (source, platform) => reports.add(source),
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(adid);
+          },
+    );
+
+    await registration.checkAdidAfterStartup();
+
+    expect(localStore.readCount, 1);
+    expect(requests, ['saved-adid']);
+    expect(reports, isEmpty);
+  });
+
+  test('ADID returned by Adjust is saved for the next app run', () async {
+    final localStore = _MemoryAdjustLocalAdidStore();
+    final first = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      localAdidStore: localStore,
+      readAdid: (_) async => 'sdk-adid',
+      readIdfa: () async => null,
+      readIdfv: () async => null,
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {},
+    );
+    await first.register();
+
+    final secondRequests = <String>[];
+    final second = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      localAdidStore: localStore,
+      readAdid: (_) async => throw StateError('Adjust must not be read'),
+      readIdfa: () async => null,
+      readIdfv: () async => null,
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            secondRequests.add(adid);
+          },
+    );
+    await second.checkAdidAfterStartup();
+
+    expect(localStore.value, 'sdk-adid');
+    expect(secondRequests, ['sdk-adid']);
+  });
+
+  test('unreadable local cache does not produce an ADID failure', () async {
+    final reports = <String>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      localAdidStore: _MemoryAdjustLocalAdidStore(failRead: true),
+      readAdid: (_) async => null,
+      reportAdidFailure: (source, platform) => reports.add(source),
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {},
+    );
+
+    await registration.checkAdidAfterStartup();
+
     expect(
       registration.lastResult,
       AdjustDeviceRegistrationResult.deferredNoAdid,
     );
+    expect(reports, isEmpty);
+  });
 
-    await scheduledCallbacks.single();
+  test(
+    'session failure fallback registers when the ADID becomes available',
+    () async {
+      final reports = <String>[];
+      final requests = <String>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.iOS,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) async => 'adid-after-session-failure',
+        readIdfa: () async => null,
+        readIdfv: () async => null,
+        reportAdidFailure: (source, platform) => reports.add(source),
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requests.add(adid);
+            },
+      );
 
-    expect(readCount, 2);
-    expect(requestCount, 1);
-    expect(scheduledDelays, const [Duration(seconds: 1)]);
+      await registration.registerAfterSessionWithoutAdid();
+      await registration.checkAdidAfterStartup();
+
+      expect(requests, ['adid-after-session-failure']);
+      expect(reports, isEmpty);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.registered,
+      );
+    },
+  );
+
+  test(
+    'delayed check registers a newly available ADID without failure',
+    () async {
+      var readCount = 0;
+      final requests = <String>[];
+      final reports = <String>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.iOS,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) async => ++readCount == 1 ? null : 'adid-later',
+        readIdfa: () async => null,
+        readIdfv: () async => null,
+        reportAdidFailure: (source, platform) => reports.add(source),
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requests.add(adid);
+            },
+      );
+
+      await registration.registerAfterSessionWithoutAdid();
+      expect(reports, isEmpty);
+      await registration.checkAdidAfterStartup();
+
+      expect(readCount, 2);
+      expect(requests, ['adid-later']);
+      expect(reports, isEmpty);
+    },
+  );
+
+  test(
+    'session failure reads again after an earlier cached read finishes',
+    () async {
+      final firstRead = Completer<String?>();
+      var readCount = 0;
+      final requests = <String>[];
+      final reports = <String>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.iOS,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) => ++readCount == 1
+            ? firstRead.future
+            : Future<String?>.value('adid-after-failure'),
+        readIdfa: () async => null,
+        readIdfv: () async => null,
+        reportAdidFailure: (source, platform) => reports.add(source),
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requests.add(adid);
+            },
+      );
+
+      final startupAttempt = registration.register();
+      final failureAttempt = registration.registerAfterSessionWithoutAdid();
+      firstRead.complete(null);
+      await Future.wait([startupAttempt, failureAttempt]);
+
+      expect(readCount, 2);
+      expect(requests, ['adid-after-failure']);
+      expect(reports, isEmpty);
+    },
+  );
+
+  test(
+    'missing ADID waits for a later explicit trigger without polling',
+    () async {
+      var readCount = 0;
+      var requestCount = 0;
+      final scheduledDelays = <Duration>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.iOS,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) async => ++readCount == 1 ? null : 'adid-ready',
+        readIdfa: () async => null,
+        readIdfv: () async => 'idfv',
+        retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
+        retryScheduler: (delay, callback) {
+          scheduledDelays.add(delay);
+          return () {};
+        },
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requestCount++;
+            },
+      );
+
+      await registration.register();
+
+      expect(requestCount, 0);
+      expect(readCount, 1);
+      expect(scheduledDelays, isEmpty);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.deferredNoAdid,
+      );
+
+      await registration.register();
+
+      expect(readCount, 2);
+      expect(requestCount, 1);
+      expect(scheduledDelays, isEmpty);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.registered,
+      );
+    },
+  );
+
+  test('session callback ADID registers without another SDK read', () async {
+    final requests = <String>[];
+    final localStore = _MemoryAdjustLocalAdidStore();
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'production',
+      localAdidStore: localStore,
+      readAdid: (_) async => throw StateError('must not be read'),
+      readIdfa: () async => null,
+      readIdfv: () async => 'idfv',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(adid);
+          },
+    );
+
+    await registration.registerKnownAdid(' adid-from-session ');
+
+    expect(requests, ['adid-from-session']);
+    expect(localStore.value, 'adid-from-session');
     expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
   });
 
+  test(
+    'session callback during cached read does not repeat registration',
+    () async {
+      final cachedRead = Completer<String?>();
+      var requestCount = 0;
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.iOS,
+        environmentProvider: () => 'production',
+        readAdid: (_) => cachedRead.future,
+        readIdfa: () async => null,
+        readIdfv: () async => 'idfv',
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requestCount++;
+            },
+      );
+
+      final startupAttempt = registration.register();
+      final sessionAttempt = registration.registerKnownAdid('adid-ready');
+      cachedRead.complete('adid-ready');
+      await Future.wait([startupAttempt, sessionAttempt]);
+
+      expect(requestCount, 1);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.alreadyRegistered,
+      );
+    },
+  );
+
   test('network failure uses bounded automatic retries', () async {
+    var readCount = 0;
     var requestCount = 0;
     final scheduledCallbacks = <AdjustDeviceRegistrationRetryCallback>[];
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.iOS,
       environmentProvider: () => 'sandbox',
-      readAdid: (_) async => 'adid',
+      readAdid: (_) async {
+        readCount++;
+        return 'adid';
+      },
       readIdfa: () async => null,
       readIdfv: () async => 'idfv',
       retryDelays: const [Duration(seconds: 1)],
@@ -170,6 +446,7 @@ void main() {
 
     await scheduledCallbacks.single();
 
+    expect(readCount, 1);
     expect(requestCount, 2);
     expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
     expect(scheduledCallbacks, hasLength(1));
@@ -177,14 +454,17 @@ void main() {
 
   test('automatic retry stops after the configured budget', () async {
     var readCount = 0;
+    var requestCount = 0;
     final scheduledCallbacks = <AdjustDeviceRegistrationRetryCallback>[];
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.iOS,
       environmentProvider: () => 'sandbox',
       readAdid: (_) async {
         readCount++;
-        return null;
+        return 'adid';
       },
+      readIdfa: () async => null,
+      readIdfv: () async => 'idfv',
       retryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
       retryScheduler: (_, callback) {
         scheduledCallbacks.add(callback);
@@ -192,7 +472,8 @@ void main() {
       },
       registerDevice:
           ({required adid, required environment, gpsAdid, idfa, idfv}) async {
-            fail('request must not be sent without an ADID');
+            requestCount++;
+            throw StateError('offline');
           },
     );
 
@@ -200,16 +481,15 @@ void main() {
     await scheduledCallbacks[0]();
     await scheduledCallbacks[1]();
 
-    expect(readCount, 3);
+    expect(readCount, 1);
+    expect(requestCount, 3);
     expect(scheduledCallbacks, hasLength(2));
-    expect(
-      registration.lastResult,
-      AdjustDeviceRegistrationResult.deferredNoAdid,
-    );
+    expect(registration.lastResult, AdjustDeviceRegistrationResult.failed);
   });
 
   test('dispose cancels a pending automatic retry', () async {
     var readCount = 0;
+    var requestCount = 0;
     var retryCancelled = false;
     late AdjustDeviceRegistrationRetryCallback scheduledCallback;
     final registration = AdjustDeviceRegistration(
@@ -217,8 +497,10 @@ void main() {
       environmentProvider: () => 'sandbox',
       readAdid: (_) async {
         readCount++;
-        return null;
+        return 'adid';
       },
+      readIdfa: () async => null,
+      readIdfv: () async => 'idfv',
       retryDelays: const [Duration(seconds: 1)],
       retryScheduler: (_, callback) {
         scheduledCallback = callback;
@@ -226,7 +508,8 @@ void main() {
       },
       registerDevice:
           ({required adid, required environment, gpsAdid, idfa, idfv}) async {
-            fail('request must not be sent without an ADID');
+            requestCount++;
+            throw StateError('offline');
           },
     );
 
@@ -236,6 +519,7 @@ void main() {
 
     expect(retryCancelled, isTrue);
     expect(readCount, 1);
+    expect(requestCount, 1);
   });
 
   test(
@@ -308,4 +592,24 @@ void main() {
 
     expect(requests, ['sandbox', 'production']);
   });
+}
+
+class _MemoryAdjustLocalAdidStore implements AdjustLocalAdidStore {
+  _MemoryAdjustLocalAdidStore({this.value, this.failRead = false});
+
+  String? value;
+  final bool failRead;
+  int readCount = 0;
+
+  @override
+  Future<String?> read() async {
+    readCount++;
+    if (failRead) throw StateError('local storage unavailable');
+    return value;
+  }
+
+  @override
+  Future<void> write(String adid) async {
+    value = adid;
+  }
 }
