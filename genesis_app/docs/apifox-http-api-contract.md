@@ -66,6 +66,7 @@ Origin detail 增量核对时间：2026-08-05
 | 用户 | DELETE | `/api/v1/user/world-history-settings` | 重置当前用户 World History 水位设置 |
 | world | GET | `/api/v1/world/list` | World 列表 |
 | world | GET | `/api/v1/world/detail` | World 详情 |
+| world | GET | `/api/v1/world/recent_summary` | Recap 近期摘要，固定 10 段游标分页 |
 | world | GET | `/api/v1/world/map` | 读取 World 2.5D 地图 |
 | world | GET | `/api/v1/world/tick/list` | 分页获取 world 下的 tick 列表 |
 | world | GET | `/api/v1/world/origin_progress` | 用户在某 origin 下的最大 world tick 进度 |
@@ -699,6 +700,19 @@ Query：
 - `relation_status*`: string，当前登录用户与该 world 的关系状态；可为 `anonymous` / `owner` / `joined` / `pending` / `approved` / `rejected`
 - `characters*`: `Character[]`
 - `locations*`: `Location[]`
+
+### GET `/api/v1/world/recent_summary`
+
+读取 P5 生成的近期摘要，沿用登录凭据和 Gateway 签名。
+
+- Query：`world_id` 必填且去除首尾空白后非空；`cursor` 首次不传，翻页原样传回，不传 `pn/rn`。
+- 成功 data：`items: [{body: string, tick_no: integer}]`、`has_more: boolean`、`cursor: string`；无下一页时 cursor 为空串。
+- 每页固定 10 段，直接使用接口顺序：主 tick 倒序，同 tick 内生成顺序正序。最新 tick 超过 10 段时，首页从该 tick 的第 1 段开始。客户端追加分页，不重新排序、反转或按正文去重。
+- 每个 body 完整展示，不二次切分。相同 tick 共用 `Tick N` 标题，跨页不重复；tick 0 不挂标题。
+- 需已登录、为房主或有效房间成员且有有效会员；房主也需会员。无资格或无摘要均成功返回空列表、`has_more=false`、`cursor=""`，每次分页重新校验资格。
+- `err_no != 0` 为请求失败，不能当空列表：4004 参数或游标无效，20201 世界不存在或已删除，3103 数据库查询失败，5000 服务调用或解析失败。
+- Flutter：真实 World 页独立 Recap Sheet，位于 Events 后、Status 前；Origin 预览不显示，不依赖 `last_launched_at`。进入时无游标刷新，优先显示 WorldPage 内存缓存，无缓存用墓碑骨架；失败保留已有内容，无缓存失败保留骨架及 Retry。触底分页，不支持下拉刷新；退出 World 清缓存。
+- 发布前提：Gateway 新排序及三字段游标先部署，再部署 API 和客户端；不复用旧游标。此契约覆盖早期需求稿中的 generation 倒序平铺与客户端排序方案。
 
 ### GET `/api/v1/world/map`
 
@@ -2751,3 +2765,12 @@ World：
 - 覆盖 Me / Profile、关注/粉丝、黑名单、搜索、私信列表、通知、Worldo Creator、评论作者/回复者和 Profile Playing Owner。World 和 Chat（含 Location Chat）不显示用户名会员徽章。
 - 回复目标只有 `reply_to_uid` / `reply_to_username` 时没有足够状态，不补查、不借用作者状态；有目标用户对象或点击回复时已有该作者数据才显示对应徽章。
 - 名字徽章仅用于展示。购买、钱包、会员卡及权限校验继续使用各自现有状态服务，不改授权或计费逻辑。
+
+
+### P1 / P1i Tick 展示字段扩展（2026-09-23）
+
+`world/tick/list` 的 `list[].tick_result`、`origin/detail` 的 `ticks[].tick_result` 保持 `current_time/narrator/paragraphs`，新增 `global_status[]`。`paragraphs[]` 增加 `cast[{id,name}]` 和 `status[{owner,icon,form,content}]`，继续使用 `location_id/text/clue`。新结构无需 `visibility/visible_to/character_deltas`；客户端保留这些历史字段的读取。
+
+对应聊天消息采用既有映射 `narrator → global`、`paragraphs → story_events`；客户端不使用模型原始的 `when/global对象/locations` 作为 HTTP 别名。支持全局 2 条状态、每地点 6 条状态、P1/P1i 10/6 个地点；空数组和空 clue 合法，客户端不再次按原提示词目标截断。World/Origin 映射完整保留新增字段，World Events 和聊天共用章节内容组件。请求、分页、错误、计价及 Tick 异步触发形状不变。该扩展需以服务端实际返回完成联调确认。
+
+章节的 `global_status`，以及每个地点项（HTTP `paragraphs[]` / 聊天 `story_events[]`）的 `cast`、`status` 均为独立可选数组，可分别省略或同时省略；模型层统一按空数组处理，保留章节旁白、地点叙述和线索，不因此把整条 Tick 判为损坏。字段存在时仍校验数组类型及元素结构（`null` 不视为空数组）。适用于实时 Tick、历史消息、缓存恢复以及 World / Origin 地点段落；旧结构识别和可见性规则不变。

@@ -143,8 +143,11 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     required List<WorldChatroomMessage> nextSource,
   }) {
     if (!progressing) {
-      _tickProgressSessionActive = false;
-      return false;
+      // Completion is authoritative even when the Tick produced no message.
+      // A late canonical Tick is rendered normally without keeping this wait.
+      final wasAwaitingMessage = _awaitingTickProgressMessage;
+      _cancelTickProgressMessage();
+      return wasAwaitingMessage;
     }
     if (_tickProgressSessionActive) return false;
     _tickProgressSessionActive = true;

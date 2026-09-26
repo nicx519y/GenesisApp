@@ -112,6 +112,281 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  void narrationVersion(String version) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(GenesisMethodChannels.device, (call) async {
+          if (call.method == GenesisMethodChannels.getAppVersion) {
+            return {'versionName': version, 'versionCode': '999'};
+          }
+          return null;
+        });
+  }
+
+  testWidgets(
+    'narration send resets mode and preserves type through retry and echo',
+    (tester) async {
+      narrationVersion('0.5.2');
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: _LocationChatReplyHttpTransport(),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+      });
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.service.state.joinedLocationId == 'location-current' &&
+            find
+                .byKey(const ValueKey('location-chat-message-type-toggle'))
+                .evaluate()
+                .isNotEmpty,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('location-chat-message-type-toggle')),
+      );
+      await tester.pump();
+      final composer = find.byType(ChatComposer);
+      // Empty submission must retain the selected mode for the next draft.
+      await tester.widget<ChatComposer>(composer).onSend();
+      await tester.pump();
+      expect(harness.socket.sendMessageCount, 0);
+      expect(find.byKey(const ValueKey('speaker-narrator')), findsOneWidget);
+      expect(
+        tester.widget<ChatComposer>(composer).hintText,
+        'Message as the Narrator',
+      );
+      tester.widget<ChatComposer>(composer).controller.text = '门外下起了雨。';
+      await tester.pump();
+      unawaited(tester.widget<ChatComposer>(composer).onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 1,
+      );
+      expect(
+        harness.socket.replyActionFrames('send_message').single['message_type'],
+        'narration',
+      );
+      expect(
+        tester
+            .widget<LocationChatComposerInput>(
+              find.byType(LocationChatComposerInput),
+            )
+            .messageType,
+        'text',
+      );
+      expect(find.byKey(const ValueKey('speaker-character')), findsOneWidget);
+      expect(
+        tester.widget<ChatComposer>(composer).hintText,
+        isNot('Message as the Narrator'),
+      );
+      harness.socket.serverV2AckForLatestSend(errNo: 3001);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.byType(ChatFailedBadge).evaluate().isNotEmpty,
+      );
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      final failed = list.messages.singleWhere((m) => m.text == '门外下起了雨。');
+      expect(failed.isUserNarration, isTrue);
+      expect(failed.senderType, 'user');
+      expect(failed.isSystem, isFalse);
+      await tester.tap(
+        find.byKey(ValueKey('chat-message-retry-${failed.localId}')),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 2,
+      );
+      final retry = harness.socket.replyActionFrames('send_message').last;
+      expect(retry['message_type'], 'narration');
+      expect(retry['payload'], {'content': '门外下起了雨。'});
+      harness.socket.serverV2AckForLatestSend(errNo: 0);
+      harness.socket.serverV2UserMessage(
+        messageId: 501,
+        clientMsgId: retry['client_msg_id'] as String,
+        content: '门外下起了雨。',
+        messageType: 'narration',
+        minAppVersion: 5002,
+      );
+      harness.socket.serverEndConversationRound(roundId: 501);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => failed.locationMessageId == 501,
+      );
+      final echoed = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages
+          .where((m) => m.text == '门外下起了雨。')
+          .toList();
+      expect(echoed, hasLength(1));
+      expect(echoed.single.locationMessageId, 501);
+      expect(echoed.single.messageType, 'narration');
+      tester.widget<ChatComposer>(composer).controller.text =
+          'Next normal message';
+      await tester.pump();
+      unawaited(tester.widget<ChatComposer>(composer).onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 3,
+      );
+      expect(
+        harness.socket.replyActionFrames('send_message').last['message_type'],
+        'text',
+      );
+      harness.socket.serverV2AckForLatestSend(errNo: 3001);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'narration hidden initial pages continue using complete batch cursors',
+    (tester) async {
+      narrationVersion('0.5.1');
+      final backend = _NarrationHistoryHttpTransport();
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: backend,
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+      });
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => backend.cursors.contains(2),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .messages
+            .any((m) => m.text == 'Visible older text'),
+      );
+      expect(backend.cursors, containsAllInOrder([0, 22, 2]));
+      final queue =
+          harness.service.state.messagesByLocation['location-current']!;
+      expect(
+        queue.map((m) => m.locationMessageId).toSet(),
+        containsAll(List.generate(41, (i) => i + 1)),
+      );
+      final visible = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages;
+      expect(visible.where((m) => m.messageType == 'narration'), isEmpty);
+      expect(
+        find.byKey(const ValueKey('location-chat-message-type-toggle')),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'narration visibility uses semantic version and preserves 101 102 103 continuity',
+    (tester) async {
+      narrationVersion('0.5.1');
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: _LocationChatReplyHttpTransport(),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+      });
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.joinedLocationId == 'location-current',
+      );
+      harness.socket.serverV2UserMessage(messageId: 101);
+      harness.socket.serverV2UserMessage(
+        messageId: 102,
+        messageType: 'narration',
+        minAppVersion: 5002,
+      );
+      harness.socket.serverV2UserMessage(messageId: 103);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .messages
+            .any((m) => m.locationMessageId == 103),
+      );
+      final visible = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages;
+      expect(visible.map((m) => m.locationMessageId), containsAll([101, 103]));
+      expect(visible.map((m) => m.locationMessageId), isNot(contains(102)));
+      expect(
+        harness.service.state.messagesByLocation['location-current']!.map(
+          (m) => m.locationMessageId,
+        ),
+        containsAll([101, 102, 103]),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
+
   testWidgets('Edit analytics pairs open and unchanged Save outcomes', (
     tester,
   ) async {
@@ -3285,7 +3560,7 @@ void main() {
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
     expect(
       tester.widget<ChatComposer>(find.byType(ChatComposer)).hintText,
-      'Text...',
+      'Message as Player One',
     );
     expect(
       tester
@@ -4215,7 +4490,7 @@ void main() {
   );
 
   testWidgets(
-    'tick progress keeps its row and height until the canonical tick expands it',
+    'tick progress keeps its row and height when the canonical tick arrives before unlock',
     (tester) async {
       final sessionStore = MemoryUserSessionStore();
       await sessionStore.saveUid('user-1');
@@ -4293,10 +4568,6 @@ void main() {
       final progressSurfaceElement = tester.element(tickSurface);
       final progressSurfaceHeight = tester.getSize(tickSurface).height;
 
-      service.setInputBlocked(false);
-      await tester.pump();
-      expect(progressTitle, findsOneWidget);
-
       socket.serverV2Tick(
         messageId: 1,
         locationMessageId: 1,
@@ -4335,6 +4606,11 @@ void main() {
       expect(completedTick.isTick, isTrue);
       expect(completedList.messageLayoutId!(completedTick), progressSlotId);
 
+      service.setInputBlocked(false);
+      await tester.pump();
+      expect(progressTitle, findsNothing);
+      expect(tester.element(tickSurface), same(progressSurfaceElement));
+
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       unawaited(service.dispose());
@@ -4343,7 +4619,7 @@ void main() {
 
   for (final fromWorldPage in [false, true]) {
     testWidgets(
-      'Tick progress hides all reply controls in its first frame, world=$fromWorldPage',
+      'Tick progress ends without a message and accepts a late Tick, world=$fromWorldPage',
       (tester) async {
         final backend = _LocationChatReplyHttpTransport();
         final harness = await _mountCompletedReplyActionPanel(
@@ -4351,6 +4627,30 @@ void main() {
           backend: backend,
           usePreparedEntry: true,
         );
+        final worldDetailBarrier = Completer<void>();
+        backend.worldDetailBarrier = worldDetailBarrier;
+        addTearDown(() {
+          if (!worldDetailBarrier.isCompleted) worldDetailBarrier.complete();
+        });
+        LocationChatAnchoredMessageList messageList() =>
+            tester.widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            );
+        List<LocationChatReplyActionState> actionStates() {
+          final list = messageList();
+          return [
+            list.regenerateFeature.state,
+            list.goOnFeature.state,
+            list.editFeature.state,
+            list.inspirationFeature.state,
+          ];
+        }
+
+        final initialActionStates = actionStates();
+        final initialCardSwitchEnabled = messageList().replyCardSwitchEnabled;
+        final initialMessageIds = messageList().messages
+            .map((message) => message.localId)
+            .toList();
         Future<void> setProgress(bool progressing) async {
           if (fromWorldPage) {
             await tester.pumpWidget(
@@ -4372,7 +4672,18 @@ void main() {
               ),
             );
           } else {
-            harness.service.setInputBlocked(progressing);
+            harness.socket
+                ._serverFrame(progressing ? 'tick_start' : 'tick_done', {
+                  'world_id': 'world-current',
+                  'stream_type': '',
+                  'payload': <String, Object?>{},
+                  'err_no': 0,
+                  'err_msg': '',
+                });
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.service.state.inputBlocked == progressing,
+            );
             await tester.pump();
           }
         }
@@ -4387,9 +4698,6 @@ void main() {
             list.editFeature.state,
             list.inspirationFeature.state,
           ], everyElement(LocationChatReplyActionState.none));
-          for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
-            expect(find.bySemanticsLabel(label), findsNothing);
-          }
         }
 
         await setProgress(true);
@@ -4401,11 +4709,64 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expectHidden();
         await setProgress(false);
-        // Unlock can precede the formal Tick. Do not flash the old toolbar.
-        expectHidden();
+        // Completion must release only the Tick wait, even if no message was
+        // generated and the world detail refresh is still pending.
+        expect(
+          find.byKey(const ValueKey('chat-tick-progress-content')),
+          findsNothing,
+        );
+        await tester.pumpAndSettle();
+        expect(actionStates(), initialActionStates);
+        expect(messageList().replyCardSwitchEnabled, initialCardSwitchEnabled);
+        expect(
+          messageList().messages.map((message) => message.localId).toList(),
+          initialMessageIds,
+        );
+        expect(worldDetailBarrier.isCompleted, isFalse);
+        await setProgress(false);
+        await tester.pump(const Duration(seconds: 1));
+        expect(
+          find.byKey(const ValueKey('chat-tick-progress-content')),
+          findsNothing,
+        );
+        expect(actionStates(), initialActionStates);
+
+        // A separate conversation wait must survive this Tick ending.
+        harness.socket.serverWaitingConversationRound(roundId: 401);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.service.state.conversationRoundStatesByLocation
+              .containsKey('location-current'),
+        );
+        final pendingRound = harness
+            .service
+            .state
+            .conversationRoundStatesByLocation['location-current'];
+        await setProgress(true);
+        await setProgress(false);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-tick-progress-content')),
+          findsNothing,
+        );
+        expect(
+          harness
+              .service
+              .state
+              .conversationRoundStatesByLocation['location-current'],
+          same(pendingRound),
+        );
+        expect(messageList().goOnFeature.enabled, isFalse);
+        expect(messageList().replyCardSwitchEnabled, isFalse);
+        harness.socket.serverEndConversationRound(roundId: 401);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => !harness.service.state.conversationRoundStatesByLocation
+              .containsKey('location-current'),
+        );
         harness.socket.serverV2Tick(
           messageId: 901,
-          locationMessageId: 304,
+          locationMessageId: 303,
           globalText: 'Completed Tick.',
           conversationType: 'tick',
         );
@@ -4424,6 +4785,8 @@ void main() {
         expect(find.bySemanticsLabel('Regenerate'), findsNothing);
         expect(find.bySemanticsLabel('Edit'), findsNothing);
         expect(tester.takeException(), isNull);
+        worldDetailBarrier.complete();
+        await tester.pumpAndSettle();
         await tester.pumpWidget(const SizedBox.shrink());
         unawaited(harness.service.dispose());
         await tester.pump();
@@ -13626,7 +13989,11 @@ class _ThrowingLocationChatService extends WorldChatroomService {
   }) async => const <WorldChatroomMessage>[];
 
   @override
-  ChatroomSendHandle sendMessage(String text, {String? clientMsgId}) {
+  ChatroomSendHandle sendMessage(
+    String text, {
+    String? clientMsgId,
+    String messageType = 'text',
+  }) {
     sendAttempts += 1;
     throw StateError('synchronous send failure');
   }
@@ -14203,6 +14570,8 @@ class _LocationChatTestSocket implements ChatroomSocket {
 
   void serverV2UserMessage({
     required int messageId,
+    String messageType = 'text',
+    int minAppVersion = 0,
     String clientMsgId = '',
     String? content,
     String conversationType = '',
@@ -14225,8 +14594,8 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'sender_name': 'Player One',
       'user_id': 'user-1',
       'client_msg_id': clientMsgId,
-      'message_type': 'text',
-      'min_app_version': 0,
+      'message_type': messageType,
+      'min_app_version': minAppVersion,
       'created_at': '2026-08-10 10:00:00',
       'payload': <String, Object?>{'content': content ?? 'message $messageId'},
       'err_no': 0,
@@ -14435,5 +14804,53 @@ class _LocationChatTestSocket implements ChatroomSocket {
 
   void _serverFrame(String type, Map<String, Object?> fields) {
     _messages.add(jsonEncode(<String, Object?>{'type': type, ...fields}));
+  }
+}
+
+class _NarrationHistoryHttpTransport extends _LocationChatReplyHttpTransport {
+  final cursors = <int>[];
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (!request.uri.path.endsWith('/api/v2/messages')) {
+      return super.send(request);
+    }
+    final since = int.tryParse(request.uri.queryParameters['since'] ?? '') ?? 0;
+    final limit =
+        int.tryParse(request.uri.queryParameters['limit'] ?? '') ?? 20;
+    cursors.add(since);
+    final ids = List.generate(
+      41,
+      (i) => 41 - i,
+    ).where((id) => since == 0 || id < since).toList();
+    final page = ids.take(math.min(limit, 20)).toList();
+    return _ok({
+      'messages': [
+        for (final id in page)
+          {
+            'type': 'user',
+            'world_id': 'world-current',
+            'location_id': 'location-current',
+            'global_message_id': 90000 + id,
+            'message_id': id,
+            'location_message_id': id,
+            'conversation_round_id': 1,
+            'sender_type': 'user',
+            'sender_id': 'other-role',
+            'sender_name': 'Another player',
+            'user_id': 'other-user',
+            'message_type': id == 1 ? 'text' : 'narration',
+            'min_app_version': id == 1 ? 0 : 5002,
+            'payload': {
+              'content': id == 1
+                  ? 'Visible older text'
+                  : 'Hidden narration $id',
+            },
+            'err_no': 0,
+            'err_msg': '',
+          },
+      ],
+      'has_more': ids.length > page.length,
+      'newest_message_id': 41,
+    });
   }
 }

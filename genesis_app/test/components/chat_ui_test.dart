@@ -3605,7 +3605,7 @@ void main() {
     final narratorText = tester.getRect(
       find.text('A full width narrator bar.'),
     );
-    final tickText = tester.getRect(find.text('Tick 7 · Day 45, 19:34'));
+    final tickText = tester.getRect(find.text('Day 45, 19:34'));
 
     expect(meAvatar.right, closeTo(400 - expectedOuterPadding, 1));
     expect(otherAvatar.left, closeTo(expectedOuterPadding, 1));
@@ -3846,11 +3846,12 @@ void main() {
       find.byKey(const ValueKey('chat-tick-message-bubble')),
     );
 
-    expect(find.text('Tick 7-1 · Day 45, 19:34'), findsOneWidget);
-    final text = tester.widget<Text>(find.text('Tick 7-1 · Day 45, 19:34'));
-    expect(text.maxLines, 1);
-    expect(text.overflow, TextOverflow.ellipsis);
-    expect(text.textAlign, TextAlign.left);
+    expect(find.text('Tick 7-1'), findsOneWidget);
+    expect(find.text('Day 45, 19:34'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Tick 7-1')).dy,
+      lessThan(tester.getTopLeft(find.text('Day 45, 19:34')).dy),
+    );
     expect(bubbleBox.left, closeTo(rowBox.left, 1));
     expect(bubbleBox.right, closeTo(rowBox.right, 1));
   });
@@ -3879,7 +3880,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Tick 0-1 · Day 1, 20:25'), findsOneWidget);
+    expect(find.text('Tick 0-1'), findsOneWidget);
+    expect(find.text('Day 1, 20:25'), findsOneWidget);
   });
 
   testWidgets(
@@ -4102,16 +4104,10 @@ void main() {
         findsNothing,
       );
       expect(find.text('Event'), findsNothing);
-      expect(find.text('Vault'), findsNothing);
+      expect(find.text('Vault'), findsOneWidget);
       expect(find.text('public'), findsNothing);
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is SvgPicture &&
-              widget.bytesLoader.toString().contains(eventsIconAsset),
-        ),
-        findsOneWidget,
-      );
+      expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+      expect(find.text('Day 1, 13:50'), findsOneWidget);
       final movementSection = tester.widget<Container>(
         find.byKey(const ValueKey<String>('chat-tick-movement-section')),
       );
@@ -4167,7 +4163,7 @@ void main() {
         'Tick 1-2 · Day 1, 13:50\n'
         'Global\n'
         'The promise-shaped key pulses.\n'
-        'Event\n'
+        'Vault\n'
         'Day 1, 13:30 · public\n'
         'Frost creeps toward Room 0.\n'
         'It spells Elara.\n'

@@ -72,6 +72,8 @@ class ChatComposer extends StatelessWidget {
     this.secondaryLeadingShortcutLabel,
     this.onSecondaryLeadingShortcutPressed,
     this.composerHeader,
+    this.leadingAction,
+    this.inputLeading,
     this.sendIcon = ChatComposerSendIcon.send,
     this.animateSendButton = true,
     this.pinActionsToBottom = false,
@@ -96,6 +98,12 @@ class ChatComposer extends StatelessWidget {
   final String? secondaryLeadingShortcutLabel;
   final VoidCallback? onSecondaryLeadingShortcutPressed;
   final Widget? composerHeader;
+  final Widget? leadingAction;
+
+  /// Sits inside the input box, left of the text and pinned to its first line,
+  /// so it stays beside the start of a long message as the box grows.
+  /// It brings its own spacing, so the text starts flush against it.
+  final Widget? inputLeading;
   final ChatComposerSendIcon sendIcon;
   final bool animateSendButton;
   final bool pinActionsToBottom;
@@ -111,6 +119,67 @@ class ChatComposer extends StatelessWidget {
     final submitFromKeyboard = !style.showComposerSendButton;
     final bottomInset =
         bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
+    final inputTextStyle = GenesisTypography.withFallback(style.inputTextStyle);
+    final lineHeight = inputLeading == null
+        ? 0.0
+        : (TextPainter(
+            text: TextSpan(text: ' ', style: inputTextStyle),
+            textScaler: MediaQuery.textScalerOf(context),
+            textDirection: TextDirection.ltr,
+          )..layout()).preferredLineHeight;
+    // A small text scale would leave one line short of the minimum height and
+    // riding high in it; padding it out keeps that line centred in the box.
+    final verticalPadding = inputLeading == null
+        ? style.inputVerticalPadding
+        : math.max(
+            style.inputVerticalPadding,
+            (style.inputMinHeight - lineHeight) / 2,
+          );
+    final textField = TextField(
+      key: const ValueKey<String>('chat-composer-input'),
+      controller: controller,
+      focusNode: focusNode,
+      cursorColor: style.inputTextStyle.color ?? GenesisColors.textPrimary,
+      enabled: inputEnabled,
+      minLines: style.inputMinLines,
+      maxLines: style.inputMaxLines,
+      keyboardType: submitFromKeyboard
+          ? TextInputType.text
+          : TextInputType.multiline,
+      textInputAction: submitFromKeyboard
+          ? TextInputAction.send
+          : TextInputAction.newline,
+      onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+      onTap: onInputTap,
+      onTapAlwaysCalled: onInputTapAlwaysCalled,
+      onSubmitted: submitFromKeyboard
+          ? (_) {
+              if (sendEnabled) {
+                unawaited(onSend());
+              }
+            }
+          : null,
+      style: inputTextStyle,
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        hintText: hintText,
+        // A long name ellipsizes rather than
+        // wrapping the empty box to two lines.
+        hintMaxLines: 1,
+        // Beside a leading mark the field keeps the style's own min height.
+        // Material's 48 would centre a lone line 4px below the mark, then drop
+        // that centring once the text wrapped, so no fixed mark could sit on
+        // the first line in both.
+        isDense: inputLeading != null,
+        hintStyle: style.inputHintStyle,
+        contentPadding: EdgeInsets.fromLTRB(
+          inputLeading == null ? style.inputHorizontalPadding : 0,
+          verticalPadding,
+          style.inputHorizontalPadding,
+          verticalPadding,
+        ),
+      ),
+    );
     return _ChatComposerHeightObserver(
       onHeightChanged: onHeightChanged,
       child: ClipRect(
@@ -141,6 +210,10 @@ class ChatComposer extends StatelessWidget {
                         ? CrossAxisAlignment.center
                         : CrossAxisAlignment.start,
                     children: [
+                      if (leadingAction != null) ...[
+                        leadingAction!,
+                        SizedBox(width: style.composerActionGap),
+                      ],
                       if (style.showComposerVoiceButton) ...[
                         _ComposerIconButton(
                           icon: MyFlutterApp.voice,
@@ -172,51 +245,23 @@ class ChatComposer extends StatelessWidget {
                                     minHeight: style.inputMinHeight,
                                     maxHeight: style.inputMaxHeight,
                                   ),
-                                  child: TextField(
-                                    key: const ValueKey<String>(
-                                      'chat-composer-input',
-                                    ),
-                                    controller: controller,
-                                    focusNode: focusNode,
-                                    cursorColor:
-                                        style.inputTextStyle.color ??
-                                        GenesisColors.textPrimary,
-                                    enabled: inputEnabled,
-                                    minLines: style.inputMinLines,
-                                    maxLines: style.inputMaxLines,
-                                    keyboardType: submitFromKeyboard
-                                        ? TextInputType.text
-                                        : TextInputType.multiline,
-                                    textInputAction: submitFromKeyboard
-                                        ? TextInputAction.send
-                                        : TextInputAction.newline,
-                                    onTapOutside: (_) => FocusManager
-                                        .instance
-                                        .primaryFocus
-                                        ?.unfocus(),
-                                    onTap: onInputTap,
-                                    onTapAlwaysCalled: onInputTapAlwaysCalled,
-                                    onSubmitted: submitFromKeyboard
-                                        ? (_) {
-                                            if (sendEnabled) {
-                                              unawaited(onSend());
-                                            }
-                                          }
-                                        : null,
-                                    style: GenesisTypography.withFallback(
-                                      style.inputTextStyle,
-                                    ),
-                                    decoration: InputDecoration(
-                                      border: InputBorder.none,
-                                      hintText: hintText,
-                                      hintStyle: style.inputHintStyle,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal:
-                                            style.inputHorizontalPadding,
-                                        vertical: style.inputVerticalPadding,
-                                      ),
-                                    ),
-                                  ),
+                                  child: inputLeading == null
+                                      ? textField
+                                      : Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(
+                                              height:
+                                                  lineHeight +
+                                                  verticalPadding * 2,
+                                              child: Center(
+                                                child: inputLeading,
+                                              ),
+                                            ),
+                                            Expanded(child: textField),
+                                          ],
+                                        ),
                                 ),
                                 if (leadingShortcutLabel != null ||
                                     secondaryLeadingShortcutLabel != null)
@@ -523,11 +568,65 @@ class _ComposerSendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !sending;
-    final background = enabled || sending
+    return ChatComposerActionButton(
+      key: const ValueKey('chat-composer-send-button'),
+      active: enabled || sending,
+      onPressed: onPressed,
+      loading: sending,
+      animate: animate,
+      style: style,
+      icon: label == null
+          ? icon == ChatComposerSendIcon.arrowUp
+                ? CustomPaint(
+                    size: Size.square(style.composerSendButtonIconSize),
+                    painter: _ComposerUpArrowPainter(
+                      color: style.composerSendButtonIconColor,
+                    ),
+                  )
+                : Icon(
+                    Icons.send,
+                    color: style.composerSendButtonIconColor,
+                    size: style.composerSendButtonIconSize,
+                  )
+          : Text(
+              genesisDisplaySafeText(label!),
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: TextStyle(
+                color: style.composerSendButtonIconColor,
+                fontSize: 14,
+              ),
+            ),
+    );
+  }
+}
+
+/// Shared surface and interaction for send and composer mode buttons.
+/// Selection controls the background independently of whether taps are enabled.
+class ChatComposerActionButton extends StatelessWidget {
+  const ChatComposerActionButton({
+    super.key,
+    required this.icon,
+    required this.active,
+    required this.onPressed,
+    required this.style,
+    this.loading = false,
+    this.animate = true,
+  });
+
+  final Widget icon;
+  final bool active;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+  final bool loading;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = active
         ? style.composerSendButtonColor
         : style.composerSendButtonDisabledColor;
     return SizedBox(
-      key: const ValueKey('chat-composer-send-button'),
       width: style.composerSendButtonWidth,
       height: style.composerSendButtonHeight,
       child: ChatComposerSendButtonSurface(
@@ -566,8 +665,8 @@ class _ComposerSendButton extends StatelessWidget {
                       ? null
                       : const WidgetStatePropertyAll(Colors.transparent),
                 ),
-            onPressed: enabled ? onPressed : null,
-            child: sending && animate
+            onPressed: loading ? null : onPressed,
+            child: loading && animate
                 ? SizedBox(
                     width: style.composerSendButtonLoadingSize,
                     height: style.composerSendButtonLoadingSize,
@@ -578,28 +677,7 @@ class _ComposerSendButton extends StatelessWidget {
                       ),
                     ),
                   )
-                : label == null
-                ? icon == ChatComposerSendIcon.arrowUp
-                      ? CustomPaint(
-                          size: Size.square(style.composerSendButtonIconSize),
-                          painter: _ComposerUpArrowPainter(
-                            color: style.composerSendButtonIconColor,
-                          ),
-                        )
-                      : Icon(
-                          Icons.send,
-                          color: style.composerSendButtonIconColor,
-                          size: style.composerSendButtonIconSize,
-                        )
-                : Text(
-                    genesisDisplaySafeText(label!),
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: style.composerSendButtonIconColor,
-                      fontSize: 14,
-                    ),
-                  ),
+                : icon,
           ),
         ),
       ),

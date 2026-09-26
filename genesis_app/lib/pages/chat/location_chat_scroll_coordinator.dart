@@ -2591,6 +2591,7 @@ class _LocationChatAnchoredMessageListState
                           _renderedMessages[entry].senderName,
                           _renderedMessages[entry].avatarUrl,
                           _renderedMessages[entry].senderType,
+                          _renderedMessages[entry].messageType,
                           _renderedMessages[entry].status,
                           _renderedMessages[entry].isMe,
                           _renderedMessages[entry].timelinePayload,

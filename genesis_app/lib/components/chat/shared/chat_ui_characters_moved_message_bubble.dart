@@ -181,13 +181,13 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor = _tickMessageHeaderColor.withValues(alpha: 0.56);
+    const mutedColor = GenesisColors.darkTextSecondary;
     return Row(
       key: ValueKey<String>('chat-character-movement-$messageLocalId-$index'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 3),
+        _ChatTickFirstLineIcon(
+          textStyle: GenesisTypography.bodyStrong,
           child: _ChatMovementIcon(
             color: _tickMessageHeaderColor.withValues(alpha: 0.60),
           ),
@@ -202,23 +202,15 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
               ChatStreamingText(
                 child: Text(
                   genesisDisplaySafeText(movement.characterName),
-                  style: const TextStyle(
-                    color: _tickMessageHeaderColor,
-                    fontSize: 14,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
+                  style: GenesisTypography.bodyStrong.copyWith(
+                    color: GenesisColors.darkTextPrimary,
                   ),
                 ),
               ),
               ChatStreamingText(
                 child: Text(
                   directionText,
-                  style: TextStyle(
-                    color: mutedColor,
-                    fontSize: 14,
-                    height: 1.3,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  style: GenesisTypography.body.copyWith(color: mutedColor),
                 ),
               ),
               Semantics(
@@ -238,13 +230,10 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                       ChatStreamingText(
                         child: Text(
                           locationName,
-                          style: TextStyle(
+                          style: GenesisTypography.bodyStrong.copyWith(
                             color: canOpenLocation
                                 ? GenesisColors.redSecondary
                                 : _tickMessageHeaderColor,
-                            fontSize: 14,
-                            height: 1.3,
-                            fontWeight: FontWeight.w600,
                             decoration: canOpenLocation
                                 ? TextDecoration.underline
                                 : TextDecoration.none,

@@ -232,95 +232,77 @@ class _LocationEditorNote extends StatelessWidget {
       }
     }
     if (levels.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.zero,
-        child: CreateFormNote(note: value),
-      );
+      return CreateFormNote(note: value);
     }
-    return Padding(
-      padding: EdgeInsets.zero,
+    final descriptionStyle = GenesisTypography.supporting.copyWith(
+      color: GenesisColors.darkTextSecondary,
+    );
+    final titleStyle = GenesisTypography.supporting.copyWith(
+      color: GenesisColors.darkTextPrimary,
+      fontWeight: GenesisTypography.bodyStrong.fontWeight,
+    );
+    return GenesisInfoCard(
+      padding: const EdgeInsets.all(GenesisSpacing.xxl),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (heading.isNotEmpty)
             Text(
               heading,
-              style: TextStyle(
-                color: GenesisColors.darkTextTertiary,
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
+              style: descriptionStyle.copyWith(
+                fontWeight: GenesisTypography.bodyStrong.fontWeight,
               ),
             ),
           for (final (index, level) in levels.indexed) ...[
-            SizedBox(height: index == 0 ? 11 : 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            SizedBox(
+              height: index == 0 ? GenesisSpacing.xl : GenesisSpacing.lg,
+            ),
+            Row(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 26,
-                      height: 19,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: GenesisColors.darkFaintFill,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        level.badge,
-                        style: TextStyle(
-                          color: GenesisColors.darkTextTertiary,
-                          fontSize: 10,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Flexible(
-                      child: Text(
-                        level.name,
-                        style: TextStyle(
-                          color: GenesisColors.darkTextTertiary,
-                          fontSize: 12,
-                          height: 1.2,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(GenesisSpacing.xs),
+                  decoration: const BoxDecoration(
+                    color: GenesisColors.darkFaintFill,
+                    borderRadius: GenesisRadii.input,
+                  ),
+                  child: SvgPicture.asset(
+                    level.iconAsset,
+                    excludeFromSemantics: true,
+                  ),
                 ),
-                const SizedBox(height: 3),
-                Padding(
-                  padding: const EdgeInsets.only(left: 33),
-                  child: Text(
-                    level.description,
-                    style: TextStyle(
-                      color: GenesisColors.darkTextTertiary,
-                      fontSize: 12,
-                      height: 1.2,
-                      fontWeight: FontWeight.w400,
-                    ),
+                const SizedBox(width: GenesisSpacing.lg),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(child: Text(level.name, style: titleStyle)),
+                          const SizedBox(width: GenesisSpacing.sm),
+                          Text(
+                            level.badge,
+                            style: GenesisTypography.tabLabel.copyWith(
+                              color: GenesisColors.darkTextTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: GenesisSpacing.xxs),
+                      Text(level.description, style: descriptionStyle),
+                    ],
                   ),
                 ),
               ],
             ),
           ],
-          for (final line in rest) ...[
-            const SizedBox(height: 8),
-            Text(
-              line,
-              style: TextStyle(
-                color: GenesisColors.darkTextTertiary,
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w400,
-              ),
+          if (rest.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: GenesisSpacing.lg),
+              child: Divider(height: 1, color: GenesisColors.darkFaintFill),
             ),
+            Text(rest.join('\n'), style: descriptionStyle),
           ],
         ],
       ),
@@ -338,6 +320,12 @@ class _LocationEditorNoteLevel {
   final String badge;
   final String name;
   final String description;
+
+  String get iconAsset => switch (badge) {
+    'L1' => locationLevelRegionIconAsset,
+    'L2' => locationLevelBuildingIconAsset,
+    _ => locationLevelRoomIconAsset,
+  };
 }
 
 class _InlineTreeLocationPreviewHeader extends StatelessWidget {

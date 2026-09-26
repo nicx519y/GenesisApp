@@ -329,6 +329,14 @@ Map<String, dynamic> _worldTickFromV1(Map<String, dynamic> raw, int index) {
       ? asJsonMap(raw['tick_result'])
       : const <String, dynamic>{};
   final paragraphsRaw = result['paragraphs'];
+  final hasTickStatuses =
+      result.containsKey('global_status') ||
+      (paragraphsRaw is List &&
+          paragraphsRaw.any(
+            (item) =>
+                item is Map &&
+                (item.containsKey('cast') || item.containsKey('status')),
+          ));
   final paragraphs = paragraphsRaw is List
       ? asJsonList(
           paragraphsRaw,
@@ -348,9 +356,15 @@ Map<String, dynamic> _worldTickFromV1(Map<String, dynamic> raw, int index) {
     'status': asInt(raw['status']),
     'created_at': createdAt,
     'tick_result': {
-      'current_time': asString(result['current_time']),
-      'narrator': asString(result['narrator']),
-      'paragraphs': paragraphs,
+      'current_time': hasTickStatuses
+          ? result['current_time']
+          : asString(result['current_time']),
+      'narrator': hasTickStatuses
+          ? result['narrator']
+          : asString(result['narrator']),
+      'paragraphs': hasTickStatuses ? paragraphsRaw : paragraphs,
+      if (result.containsKey('global_status'))
+        'global_status': result['global_status'],
       'location_groups': locationGroups,
     },
   };

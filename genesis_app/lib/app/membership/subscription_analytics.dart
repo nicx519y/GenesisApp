@@ -13,6 +13,7 @@ enum SubscriptionSource {
   chatFeatureQuota('from_chat_feature_quota'),
   onboarding('from_onboarding'),
   buyGemsTab('from_buy_gems_tab'),
+  worldRecap('from_world_recap'),
   unknown('from_unknown');
 
   const SubscriptionSource(this.value);

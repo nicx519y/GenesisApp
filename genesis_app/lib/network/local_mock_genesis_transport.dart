@@ -840,6 +840,34 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
     }
 
+    if (method == 'GET' && path == 'world/recent_summary') {
+      final worldId = (query['world_id'] ?? '').trim();
+      if (worldId.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.hasV1World(worldId)) {
+        return _v1BusinessError(20201, 'ErrorWorldNotExist');
+      }
+      // UI fixtures only; live membership and room eligibility are server-owned.
+      final cursor = query['cursor'];
+      if (cursor != null && cursor != 'mock-recap-next:$worldId') {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      final items = <Map<String, Object>>[
+        for (var i = 1; i <= 12; i++)
+          {'body': 'Recent story recap $i.', 'tick_no': 9},
+        {'body': 'A quiet interval between chapters.', 'tick_no': 0},
+        {'body': 'An earlier chapter of the story.', 'tick_no': 7},
+      ];
+      return _v1Ok({
+        'items': cursor == null
+            ? items.take(10).toList()
+            : items.skip(10).toList(),
+        'has_more': cursor == null,
+        'cursor': cursor == null ? 'mock-recap-next:$worldId' : '',
+      });
+    }
+
     if (method == 'GET' && path == 'world/map') {
       final worldId = (query['world_id'] ?? '').trim();
       final locationId = (query['location_id'] ?? '').trim();
@@ -5247,6 +5275,9 @@ class _MockState {
                   'visibility': paragraph['visibility'] ?? 'public',
                   'visible_to': paragraph['visible_to'] ?? const <String>[],
                   'clue': paragraph['clue'] ?? '',
+                  if (paragraph.containsKey('cast')) 'cast': paragraph['cast'],
+                  if (paragraph.containsKey('status'))
+                    'status': paragraph['status'],
                   'character_deltas':
                       paragraph['character_deltas'] ??
                       const <Map<String, dynamic>>[],
@@ -5274,6 +5305,8 @@ class _MockState {
         'current_time':
             tick['current_time'] ?? 'Day ${tick['tick_no'] ?? 1}, 09:00',
         'narrator': tick['summary'] ?? '',
+        if (tick.containsKey('global_status'))
+          'global_status': tick['global_status'],
         'paragraphs': paragraphs,
         'location_groups': const <Map<String, dynamic>>[],
       },

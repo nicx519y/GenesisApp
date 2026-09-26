@@ -18,6 +18,12 @@ const String createOriginOpeningIconAsset =
     'assets/custom-icons/svg/create_origin_opening.svg';
 const String createOriginLocationsIconAsset =
     'assets/custom-icons/svg/create_origin_locations.svg';
+const String locationLevelRegionIconAsset =
+    'assets/custom-icons/svg/level-region-dark.svg';
+const String locationLevelBuildingIconAsset =
+    'assets/custom-icons/svg/level-building-dark.svg';
+const String locationLevelRoomIconAsset =
+    'assets/custom-icons/svg/level-room-dark.svg';
 const String createOriginStoryEventsIconAsset =
     'assets/custom-icons/svg/create_origin_story_events.svg';
 const String refreshModifiedIconAsset = 'assets/custom-icons/svg/refresh_2.svg';

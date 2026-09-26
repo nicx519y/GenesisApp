@@ -14,6 +14,7 @@ import 'chatroom_models.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_socket_transport.dart';
 import 'chatroom_timeline_payload.dart';
+import 'chatroom_message_type.dart';
 
 part '../../features/location_chat_reply/regenerate/src/chatroom_regenerate_protocol.dart';
 part '../../features/location_chat_reply/go_on/src/chatroom_go_on_protocol.dart';
@@ -386,15 +387,28 @@ class ChatroomSession {
     });
   }
 
-  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
+  Future<ChatroomAck> sendMessage(
+    String text, {
+    String? clientMsgId,
+    String messageType = chatroomTextMessageType,
+  }) async {
     _throwIfClosed();
     final content = normalizeGenesisUgcTextForSubmission(text);
     if (isGenesisUgcTextBlank(content)) {
       throw const ChatroomProtocolException('Message text is required');
     }
+    final outgoingType = normalizeOutgoingChatroomMessageType(messageType);
+    if (outgoingType == chatroomNarrationMessageType &&
+        protocolVersion != ChatroomProtocolVersion.v2) {
+      throw const ChatroomProtocolException('Narration requires V2 chat');
+    }
     return _sendAckedClientMessage(
       'send_message',
-      <String, Object?>{'content': content},
+      <String, Object?>{
+        'content': content,
+        if (protocolVersion == ChatroomProtocolVersion.v2)
+          'message_type': outgoingType,
+      },
       clientMsgId: clientMsgId,
       requestType: 'send_message',
     );
@@ -657,6 +671,11 @@ class ChatroomSession {
               ? worldId
               : '',
           clientMsgId: clientMsgId,
+          messageType: type == 'send_message'
+              ? normalizeOutgoingChatroomMessageType(
+                  '${fields['message_type'] ?? ''}',
+                )
+              : '',
           payload: Map<String, dynamic>.from(payload),
         ).toJson(),
       );

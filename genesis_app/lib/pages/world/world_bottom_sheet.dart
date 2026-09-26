@@ -24,6 +24,9 @@ import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
+import '../../app/debug/world_recap_debug_preview.dart';
+import 'world_recap_cache.dart';
+import 'world_recap_section.dart';
 import 'world_sections.dart';
 
 class WorldBottomTags extends StatelessWidget {
@@ -175,6 +178,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.worldListenable,
     required this.newUserJoinNoticesListenable,
     required this.eventsCache,
+    required this.recapCache,
     required this.currentUid,
     required this.recentChatLocationIds,
     required this.onLocationTap,
@@ -188,6 +192,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final ValueListenable<List<WorldNewUserJoinNotice>>
   newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
+  final WorldRecapCache recapCache;
   final String currentUid;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint> onLocationTap;
@@ -225,6 +230,14 @@ class WorldSingleSectionBottomSheetState
   List<Map<String, dynamic>>? _cachedCharacterPositions;
   List<Map<String, dynamic>>? _cachedUserPositions;
   String _cachedLocationListCurrentUid = '';
+  WorldBottomSheetKind? _lastSelectedKind;
+
+  /// Made once, so the recap sees one steady source rather than a new one on
+  /// every rebuild of the sheet.
+  late final Listenable _recapMembershipChanges = Listenable.merge([
+    widget.services.membership.state,
+    worldRecapDebugPreview,
+  ]);
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -252,6 +265,7 @@ class WorldSingleSectionBottomSheetState
     worldNewContentDebugSettings.listenable.addListener(
       _handleWorldNewContentDebugSettingsChanged,
     );
+    _refreshRecapOnEntry();
   }
 
   @override
@@ -332,11 +346,42 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _handleSelectionChanged() {
+    _refreshRecapOnEntry();
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
     _animateToSelectionPage();
     if (mounted) setState(() {});
+  }
+
+  void _refreshRecapOnEntry() {
+    final kind = _selection.kind;
+    final entered =
+        kind == WorldBottomSheetKind.recap && _lastSelectedKind != kind;
+    _lastSelectedKind = kind;
+    if (!entered) return;
+    final worldId = _currentWorld.worldId;
+    // Recap is a Worldo Premium feature: nothing is fetched for anyone else.
+    _checkRecapMembership((isVip) {
+      if (isVip != true || !mounted) return;
+      unawaited(
+        widget.recapCache.refresh(
+          worldId,
+          widget.services.api.getWorldRecentSummary,
+        ),
+      );
+    });
+  }
+
+  /// Membership as the recap sees it: a developer preview may stand in for
+  /// the real answer in debug builds.
+  void _checkRecapMembership(ValueChanged<bool?> callback) {
+    final forced = worldRecapForcedMembership;
+    if (forced != null) {
+      scheduleMicrotask(() => callback(forced));
+      return;
+    }
+    widget.services.membership.checkVip(callback);
   }
 
   int _pageForKind(WorldBottomSheetKind kind) {
@@ -626,6 +671,15 @@ class WorldSingleSectionBottomSheetState
         scrollController,
       ),
       WorldBottomSheetKind.events => _buildEventsSectionPage(scrollController),
+      WorldBottomSheetKind.recap => WorldRecapSection(
+        cache: widget.recapCache,
+        load: widget.services.api.getWorldRecentSummary,
+        scrollController: scrollController,
+        active: _selection.kind == WorldBottomSheetKind.recap,
+        checkVip: _checkRecapMembership,
+        membershipChanges: _recapMembershipChanges,
+        worldId: _currentWorld.worldId,
+      ),
       WorldBottomSheetKind.status => _buildStatusSectionPage(scrollController),
       WorldBottomSheetKind.cast => _buildCastSectionPage(scrollController),
     };

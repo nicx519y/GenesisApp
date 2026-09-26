@@ -48,6 +48,7 @@ import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_page_result.dart';
+import 'world_recap_cache.dart';
 import '../chat/location_chat_page.dart' show LocationChatOpeningPreview;
 import 'world_sections.dart';
 import 'world_update_push_banner.dart';
@@ -214,6 +215,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     const <WorldNewUserJoinNotice>[],
   );
   final _sectionsEventsCache = WorldSectionsEventsCache();
+  final _recapCache = WorldRecapCache();
   static const _worldTickLockPollInterval = Duration(seconds: 10);
 
   void _setWorldPageState(VoidCallback callback) {
@@ -524,6 +526,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
     _mainTabController.dispose();
     _sectionsEventsCache.clear();
+    _recapCache.dispose();
     _locationChatPageCache.dispose();
     _tilemapRestorationController.dispose();
     _sectionsWorldNotifier.dispose();

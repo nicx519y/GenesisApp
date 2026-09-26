@@ -74,6 +74,39 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     await showDeveloperForcedLoginPreview(navigator.context);
   }
 
+  /// Picks which recap state the World sheet shows, until the app restarts.
+  Future<void> _chooseWorldRecapPreview() async {
+    final chosen = await showDialog<WorldRecapDebugPreview>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('World recap preview'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text(
+              'Stands in for membership and recap content on the World '
+              'sheet. Resets when the app restarts.',
+            ),
+          ),
+          for (final option in WorldRecapDebugPreview.values)
+            SimpleDialogOption(
+              key: ValueKey('world-recap-preview-${option.name}'),
+              onPressed: () => Navigator.of(context).pop(option),
+              child: Text(
+                option.label,
+                style: TextStyle(
+                  fontWeight: option == worldRecapDebugPreview.value
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (chosen != null) worldRecapDebugPreview.value = chosen;
+  }
+
   Future<void> _showPersonalizationPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     final scenario = await selectPersonalizationPreviewScenario(context);

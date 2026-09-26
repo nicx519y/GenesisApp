@@ -394,7 +394,7 @@ void main() {
     expect(response.messages.single.currentTime, 'Day 1, 08:09');
   });
 
-  test('invalid V2 tick arrays fall back to payload content', () {
+  test('invalid V2 tick arrays retain identity for a content placeholder', () {
     final response = ChatroomMessageListResponse.fromV2Json({
       'messages': [
         {
@@ -414,7 +414,8 @@ void main() {
 
     final message = response.messages.single;
     expect(message.content, 'legacy tick content');
-    expect(message.v2TickPayload?.isFallback, isTrue);
+    expect(message.v2TickPayload?.isMalformed, isTrue);
+    expect(message.v2TickPayload?.fallbackContent, isEmpty);
     expect(message.locationMessageId, 7);
   });
 

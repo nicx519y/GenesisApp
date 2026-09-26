@@ -116,6 +116,7 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   late ScrollController _scrollController;
   late bool _ownsScrollController;
   final GlobalKey _lastItemCenterKey = GlobalKey();
+  var _startAligned = false;
   var _dragDeltaY = 0.0;
   var _dragStartedAtTop = true;
   var _dragStartedAtBottom = true;
@@ -125,21 +126,64 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   @override
   void initState() {
     super.initState();
-    _setScrollController(widget.scrollController);
+    _setScrollController(_effectiveExternalController);
   }
 
   @override
   void didUpdateWidget(covariant WorldTickEventCardPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollController != widget.scrollController) {
-      final oldController = _scrollController;
-      final ownedOldController = _ownsScrollController;
-      _setScrollController(widget.scrollController);
-      if (ownedOldController) oldController.dispose();
-    }
     if (oldWidget.resetRevision != widget.resetRevision) {
+      _startAligned = false;
+      _syncScrollController();
       _jumpScrollToTop();
+    } else {
+      _syncScrollController();
     }
+  }
+
+  bool get _alignLastItemToTop =>
+      !_startAligned &&
+      widget.alignLastItemToTop &&
+      widget.itemBuilder != null &&
+      (widget.itemCount ?? 0) > 0;
+
+  ScrollController? get _effectiveExternalController {
+    // A centered viewport puts earlier sub-ticks at negative offsets. The
+    // sheet controller treats pixels <= 0 as a request to resize the sheet,
+    // so keep those offsets on a regular controller until the actual start.
+    if (_alignLastItemToTop && (widget.itemCount ?? 0) > 1) return null;
+    return widget.scrollController;
+  }
+
+  void _syncScrollController() {
+    final next = _effectiveExternalController;
+    if (next == _scrollController || (next == null && _ownsScrollController)) {
+      return;
+    }
+    final previous = _scrollController;
+    final ownedPrevious = _ownsScrollController;
+    _setScrollController(next);
+    if (ownedPrevious) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    }
+  }
+
+  bool _handleScrollEnd(ScrollEndNotification notification) {
+    if (notification.depth != 0 ||
+        widget.scrollController == null ||
+        !_alignLastItemToTop ||
+        !_ownsScrollController ||
+        notification.metrics.extentBefore > 0) {
+      return false;
+    }
+    // Rebase at the real beginning: offset zero now means the first item,
+    // allowing the next downward drag to collapse the sheet normally.
+    setState(() {
+      _startAligned = true;
+      _syncScrollController();
+    });
+    _jumpScrollToTop();
+    return false;
   }
 
   @override
@@ -150,13 +194,27 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
 
   void _setScrollController(ScrollController? controller) {
     _ownsScrollController = controller == null;
-    _scrollController = controller ?? ScrollController(keepScrollOffset: false);
+    _scrollController =
+        controller ??
+        _WorldTickScrollController(
+          trailingExtent: () {
+            if (!_alignLastItemToTop) return null;
+            final sliver = _lastItemCenterKey.currentContext
+                ?.findRenderObject();
+            return sliver is RenderSliver
+                ? sliver.geometry?.scrollExtent
+                : null;
+          },
+        );
   }
 
   void _jumpScrollToTop() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      _scrollController.jumpTo(0);
+      final position = _scrollController.position;
+      _scrollController.jumpTo(
+        0.0.clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
     });
   }
 
@@ -262,57 +320,57 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final alignLastItemToTop =
-        widget.alignLastItemToTop &&
-        widget.itemBuilder != null &&
-        (widget.itemCount ?? 0) > 0;
-    return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerCancel,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: CustomScrollView(
-              controller: _scrollController,
-              center: alignLastItemToTop ? _lastItemCenterKey : null,
-              physics: WorldTickCardScrollPhysics(
-                allowLeadingOverscroll: widget.hasTopEdgePage,
-                allowTrailingOverscroll: widget.hasBottomEdgePage,
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: alignLastItemToTop
-                  ? _buildLastItemCenteredSlivers(context)
-                  : [
-                      SliverPadding(
-                        padding: widget.padding,
-                        sliver: widget.itemBuilder == null
-                            ? SliverToBoxAdapter(child: widget.child)
-                            : SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  widget.itemBuilder!,
-                                  childCount: widget.itemCount,
+    final alignLastItemToTop = _alignLastItemToTop;
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: _handleScrollEnd,
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: CustomScrollView(
+                controller: _scrollController,
+                center: alignLastItemToTop ? _lastItemCenterKey : null,
+                physics: WorldTickCardScrollPhysics(
+                  allowLeadingOverscroll: widget.hasTopEdgePage,
+                  allowTrailingOverscroll: widget.hasBottomEdgePage,
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: alignLastItemToTop
+                    ? _buildLastItemCenteredSlivers(context)
+                    : [
+                        SliverPadding(
+                          padding: widget.padding,
+                          sliver: widget.itemBuilder == null
+                              ? SliverToBoxAdapter(child: widget.child)
+                              : SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    widget.itemBuilder!,
+                                    childCount: widget.itemCount,
+                                  ),
                                 ),
-                              ),
-                      ),
-                    ],
+                        ),
+                      ],
+              ),
             ),
-          ),
-          _buildEdgeArrow(
-            top: true,
-            pullDistance: _topPullDistance,
-            icon: Icons.keyboard_arrow_down_rounded,
-            key: const ValueKey<String>('world-event-top-edge-arrow'),
-          ),
-          _buildEdgeArrow(
-            top: false,
-            pullDistance: _bottomPullDistance,
-            icon: Icons.keyboard_arrow_up_rounded,
-            key: const ValueKey<String>('world-event-bottom-edge-arrow'),
-          ),
-        ],
+            _buildEdgeArrow(
+              top: true,
+              pullDistance: _topPullDistance,
+              icon: Icons.keyboard_arrow_down_rounded,
+              key: const ValueKey<String>('world-event-top-edge-arrow'),
+            ),
+            _buildEdgeArrow(
+              top: false,
+              pullDistance: _bottomPullDistance,
+              icon: Icons.keyboard_arrow_up_rounded,
+              key: const ValueKey<String>('world-event-bottom-edge-arrow'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -348,6 +406,53 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
         sliver: SliverToBoxAdapter(child: itemBuilder(context, itemCount - 1)),
       ),
     ];
+  }
+}
+
+// The centered sliver keeps the latest item cheap to locate in long histories.
+// Its default maximum offset is at least zero, even when that would leave a
+// viewport-sized gap after a short last item. Bound scrolling by real content.
+class _WorldTickScrollController extends ScrollController {
+  _WorldTickScrollController({required this.trailingExtent})
+    : super(keepScrollOffset: false);
+
+  final double? Function() trailingExtent;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _WorldTickScrollPosition(
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+    trailingExtent: trailingExtent,
+  );
+}
+
+class _WorldTickScrollPosition extends ScrollPositionWithSingleContext {
+  _WorldTickScrollPosition({
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+    required this.trailingExtent,
+  }) : super(keepScrollOffset: false);
+
+  final double? Function() trailingExtent;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
+    final trailing = trailingExtent();
+    return super.applyContentDimensions(
+      minScrollExtent,
+      trailing == null
+          ? maxScrollExtent
+          : math.max(
+              minScrollExtent,
+              math.min(maxScrollExtent, trailing - viewportDimension),
+            ),
+    );
   }
 }
 

@@ -23,6 +23,79 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 
 void main() {
   test(
+    'user narration remains in history, pagination and cache with its version',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          for (var id = 101; id <= 103; id++)
+            {
+              ..._httpMessageJson(
+                messageId: id,
+                locationId: 'loc-1',
+                content: 'message $id',
+                messageType: id == 102 ? 'narration' : 'text',
+              ),
+              'min_app_version': id == 102 ? 5002 : 0,
+            },
+        ]
+        ..messagesByLocation['loc-2'] = [];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        messageStorage: storage,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final page = await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: 103,
+        limit: 1,
+      );
+      expect(page.hasMore, isTrue);
+      expect(page.nextLocationMessageId, 102);
+      expect(page.messages.single.messageType, 'narration');
+      expect(page.messages.single.senderType, 'user');
+      expect(page.messages.single.minAppVersion, 5002);
+      await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: page.nextLocationMessageId,
+      );
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(
+        cached.singleWhere(
+          (m) => m['location_message_id'] == 102,
+        )['min_app_version'],
+        5002,
+      );
+      await service.dispose();
+      final restored = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        messageStorage: storage,
+      );
+      addTearDown(restored.dispose);
+      await restored.hydrateLocalMessages(
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        ownerUid: 'user-1',
+      );
+      final narration = restored.state.messagesByLocation['loc-1']!.singleWhere(
+        (m) => m.locationMessageId == 102,
+      );
+      expect(narration.messageType, 'narration');
+      expect(narration.senderType, 'user');
+      expect(narration.minAppVersion, 5002);
+      expect(narration.content, 'message 102');
+    },
+  );
+
+  test(
     'retention protects viewport, exposes eviction gaps and prunes duplicate index',
     () async {
       final socket = _FakeChatroomSocket();

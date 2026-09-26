@@ -19,6 +19,7 @@ import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
+import '../../app/debug/world_recap_debug_preview.dart';
 import '../../app/debug/purchase_toast_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
@@ -1152,6 +1153,19 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           disabledBackgroundColor: GenesisColors.darkFaintFill,
           disabledForegroundColor: GenesisColors.darkTextTertiary,
           foregroundColor: GenesisColors.darkTextPrimary,
+        ),
+        const SizedBox(height: _itemGap),
+        ValueListenableBuilder<WorldRecapDebugPreview>(
+          valueListenable: worldRecapDebugPreview,
+          builder: (context, preview, _) => GenesisPrimaryButton(
+            key: const ValueKey<String>('developer-world-recap-preview'),
+            label: 'World recap: ${preview.label}',
+            onPressed: _chooseWorldRecapPreview,
+            backgroundColor: GenesisColors.darkFaintFill,
+            disabledBackgroundColor: GenesisColors.darkFaintFill,
+            disabledForegroundColor: GenesisColors.darkTextTertiary,
+            foregroundColor: GenesisColors.darkTextPrimary,
+          ),
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(

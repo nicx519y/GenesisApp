@@ -34,11 +34,13 @@ class ChatNarratorMessageBubble extends StatelessWidget {
     required this.message,
     required this.style,
     this.onLongPressStart,
+    this.onFailedMessageTap,
   });
 
   final ChatMessageVm message;
   final ChatUiStyleConfig style;
   final GestureLongPressStartCallback? onLongPressStart;
+  final ChatMessageTap? onFailedMessageTap;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +50,7 @@ class ChatNarratorMessageBubble extends StatelessWidget {
       context,
       message.localId,
     );
-    return ChatSystemMessage(
+    final bubble = ChatSystemMessage(
       content: editor == null
           ? null
           : _ChatMessageTextEditor(
@@ -68,11 +70,42 @@ class ChatNarratorMessageBubble extends StatelessWidget {
       backgroundColor: chatNarratorMessageBackgroundColor(style),
       border: editor == null ? null : chatNarratorEditorBorder,
       textStyle: narratorTextStyle,
-      leadingIconColor: chatNarratorMessageIconColor(style),
-      softItalic: usesScenePlate,
+      // Narration a player sent carries the red of player bubbles, so it
+      // reads apart from the story's own narrator, which stays white.
+      leadingIconColor: message.isUserNarration
+          ? kChatSelfAccentColor
+          : chatNarratorMessageIconColor(style),
+      softItalic: usesScenePlate || message.isUserNarration,
       markdownEmphasisColor: narratorTextStyle.color ?? Colors.white,
       style: style,
       onLongPressStart: onLongPressStart,
+    );
+    if (!message.isUserNarration || !message.isMe) return bubble;
+    final failed = message.status == 'failed';
+    final sending = message.status == 'sending';
+    if (!failed && !sending) return bubble;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        bubble,
+        Align(
+          alignment: Alignment.centerRight,
+          child: failed
+              ? Semantics(
+                  button: true,
+                  label: 'Retry message',
+                  child: GestureDetector(
+                    key: ValueKey('chat-message-retry-${message.localId}'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onFailedMessageTap == null
+                        ? null
+                        : () => onFailedMessageTap!(message),
+                    child: ChatFailedBadge(style: style),
+                  ),
+                )
+              : ChatSendingBadge(style: style),
+        ),
+      ],
     );
   }
 }

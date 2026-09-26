@@ -15,6 +15,7 @@ import 'models/paged_response.dart';
 import 'models/tilemap_definition.dart';
 import 'models/user.dart';
 import 'models/world.dart';
+import 'models/world_recent_summary.dart';
 import 'models/world_message.dart';
 import 'http_transport.dart';
 import 'v1/genesis_v1_api.dart';

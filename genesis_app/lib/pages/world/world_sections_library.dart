@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderSliver;
 
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
