@@ -49,7 +49,7 @@ void main() {
               body: SingleChildScrollView(
                 child: Column(
                   children: [
-                    WorldBottomTags(onTap: (_) {}),
+                    WorldBottomTags(relationStatus: 'owner', onTap: (_) {}),
                     WorldDetailSection(
                       world: WorldDetail.fromJson({'name': 'Font audit world'}),
                       currentUid: '',

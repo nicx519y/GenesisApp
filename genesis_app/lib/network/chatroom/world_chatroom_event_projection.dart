@@ -21,6 +21,12 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         }
       case ChatroomWorldNotification e:
         await _handleWorldNotification(e);
+      case ChatroomWorldSummaryUpdated e:
+        if (e.worldId == _worldId &&
+            e.userId == _identity?.userId &&
+            _seenSummaryUpdates.add((e.worldId, e.generation))) {
+          _summaryUpdates.add(e);
+        }
       case ChatroomNewUserJoinEvent e:
         _handleNewUserJoin(e);
       case ChatroomStoryEventsMessage e:

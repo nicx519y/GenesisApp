@@ -197,6 +197,28 @@ V2 只把地点级 `type=tick` 当作 canonical Tick：
 - `location_message_id`：地点分页游标
 - `conversation_round_id`：本次 Tick/P1I 对话轮次
 
+## V2 `world_summary_updated` 摘要通知
+
+P5 成功保存世界摘要后，服务端只向当时具有有效会员资格的世界 owner 在线连接发送世界级通知；同一 owner 在其他地点的连接也可能收到。通知不是聊天消息，没有消息序号、正文或 ACK。
+
+```json
+{
+  "type": "world_summary_updated",
+  "stream_type": "",
+  "ts": 1790380800000,
+  "world_id": "world_001",
+  "user_id": "owner_001",
+  "trigger_uid": "",
+  "payload": {"generation": 3, "tick_no": 0},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+`world_id` 是摘要所属世界，`user_id` 是接收通知的 owner，`generation` 是该世界摘要代次，`tick_no` 允许为 0 且不是地点消息序号。客户端按 `world_id + generation` 去重，对当前世界和账号调用 `GET /api/v1/world/recent_summary` 无游标刷新 Recap 首屏，保留原缓存直到新响应到达。若通知发生在请求进行中，请求完成后再刷新一次。重新连接或进入 Recap 时仍按原逻辑主动查询；HTTP 会员与访问权限检查不变。
+
+生成或保存失败、重复触发不会发送通知；通知没有离线补发或重试。滚动发布期间连在旧服务实例上的客户端可能暂时收不到该提醒。
+
 ## V2 LLM 流与错误隔离
 
 LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_type`。例如 `type=character, stream_type=llm_chunk` 必须解析为 chunk，而不是完整 character message。

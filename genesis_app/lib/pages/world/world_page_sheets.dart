@@ -17,6 +17,10 @@ extension _WorldPageSheets on _WorldPageState {
   }) {
     final world = _world;
     if (world == null) return;
+    if (kind == WorldBottomSheetKind.recap &&
+        !shouldConnectWorldChatroom(world.relationStatus)) {
+      return;
+    }
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: worldBottomSheetPageName(kind),

@@ -51,6 +51,11 @@ class ProSubscriptionContent extends StatefulWidget {
     this.headingTopSpacing = 22,
     this.topSpacing = 10,
     this.horizontalInset = 20,
+    this.tagline,
+    this.sheetScrollController,
+    this.sheetExpandedContentHeight = 0,
+    this.includeBottomSafeArea = false,
+    this.onBenefitsPullDown,
   });
 
   final MembershipCatalogLoader? productsLoader;
@@ -79,12 +84,30 @@ class ProSubscriptionContent extends StatefulWidget {
   /// Set to zero when GenesisActionSheetBody owns the outer spacing.
   final double horizontalInset;
 
+  /// Optional copy below the Premium heading for a specific host.
+  final String? tagline;
+
+  /// When set, the entire subscription content scrolls with the host sheet.
+  final ScrollController? sheetScrollController;
+
+  /// Keeps the purchase area at the expanded sheet's bottom while it closes.
+  final double sheetExpandedContentHeight;
+
+  /// Adds the device's bottom inset below the legal links.
+  final bool includeBottomSafeArea;
+
+  /// Passes a downward pull at the top of the benefits to the host sheet.
+  final ValueChanged<double>? onBenefitsPullDown;
+
   @override
   State<ProSubscriptionContent> createState() => _ProSubscriptionContentState();
 }
 
 class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     with WidgetsBindingObserver {
+  // Leaves room for the heading and purchase controls on short sheet hosts.
+  static const double _minimumSheetContentHeight = 430;
+
   _ProPlan _plan = _ProPlan.yearly;
   AppServices? _services;
   List<MembershipOffer> _offers = [];
@@ -411,8 +434,154 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final selectedProduct = _offerFor(_plan)?.product;
     if (_loading) {
       // Match Buy Gems' initial loading indicator in the same tab content area.
-      return const GemPurchaseLoading();
+      if (widget.sheetScrollController == null) {
+        return const GemPurchaseLoading();
+      }
+      return ListView(
+        controller: widget.sheetScrollController,
+        children: [
+          SizedBox(
+            height: widget.sheetExpandedContentHeight > 0
+                ? widget.sheetExpandedContentHeight
+                : 160,
+            child: const GemPurchaseLoading(),
+          ),
+        ],
+      );
     }
+
+    final rows = _buildBenefitRows(selectedProduct);
+    final footer = _buildPurchaseFooter(context, selectedProduct);
+    if (widget.sheetScrollController != null) {
+      final minimumHeight =
+          _minimumSheetContentHeight +
+          (widget.includeBottomSafeArea
+              ? MediaQuery.viewPaddingOf(context).bottom
+              : 0);
+      final expandedHeight = widget.sheetExpandedContentHeight < minimumHeight
+          ? minimumHeight
+          : widget.sheetExpandedContentHeight;
+      return ListView(
+        key: const PageStorageKey('pro-whole-content-scroll'),
+        controller: widget.sheetScrollController,
+        padding: EdgeInsets.zero,
+        children: [
+          SizedBox(
+            height: expandedHeight,
+            child: Column(
+              children: [
+                SizedBox(height: widget.topSpacing),
+                Expanded(
+                  child: KeyedSubtree(
+                    key: const ValueKey('pro-benefits-card'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.showHeading) _buildHeading(),
+                        Expanded(
+                          child: NotificationListener<OverscrollNotification>(
+                            onNotification: (notification) {
+                              if (notification.depth == 0 &&
+                                  notification.overscroll < 0 &&
+                                  notification.dragDetails != null) {
+                                widget.onBenefitsPullDown?.call(
+                                  -notification.overscroll,
+                                );
+                              }
+                              return false;
+                            },
+                            child: ListView(
+                              key: const PageStorageKey('pro-benefits-scroll'),
+                              physics: const ClampingScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(
+                                widget.horizontalInset,
+                                widget.showHeading ? 0 : 8,
+                                widget.horizontalInset,
+                                26,
+                              ),
+                              children: rows,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                footer,
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(height: widget.topSpacing),
+        Expanded(
+          child: KeyedSubtree(
+            key: const ValueKey('pro-benefits-card'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The heading is fixed and only the benefits scroll in the
+                // standalone subscription view.
+                if (widget.showHeading) _buildHeading(),
+                Expanded(
+                  child: ListView(
+                    key: const PageStorageKey('pro-benefits-scroll'),
+                    padding: EdgeInsets.fromLTRB(
+                      widget.horizontalInset,
+                      widget.showHeading ? 0 : 8,
+                      widget.horizontalInset,
+                      26,
+                    ),
+                    children: rows,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        footer,
+      ],
+    );
+  }
+
+  Widget _buildHeading() => Padding(
+    padding: EdgeInsets.fromLTRB(
+      widget.horizontalInset,
+      widget.headingTopSpacing,
+      widget.horizontalInset,
+      22,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          key: const ValueKey('pro-tier-title'),
+          children: [
+            SvgPicture.asset(proCrownGoldIconAsset, width: 26, height: 18),
+            const SizedBox(width: 5),
+            const Flexible(child: PremiumWordmark()),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          widget.tagline ?? _tagline,
+          key: const ValueKey('pro-tagline'),
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1.35,
+            fontWeight: FontWeight.w400,
+            color: GenesisColors.darkTextTertiary,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  List<Widget> _buildBenefitRows(MembershipProduct? selectedProduct) {
     final benefits = selectedProduct?.benefits ?? const <MembershipBenefit>[];
     // The gem grants read as one module: the first line heads it and the rest
     // become the cards under it, instead of repeating it as their own rows.
@@ -426,165 +595,100 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         if (benefit.iconKey != _gemIconKey || benefit.code == gemHeadCode)
           benefit,
     ];
-    return Column(
+    return [
+      for (final (index, benefit) in rows.indexed) ...[
+        if (index > 0) const SizedBox(height: 20),
+        if (gemHeadCode != null && index == 1) ...[
+          const Text(
+            _restLabel,
+            key: ValueKey('pro-benefits-rest-label'),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1,
+              fontWeight: FontWeight.w400,
+              color: GenesisColors.darkTextTertiary,
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+        _ProBenefit(
+          key: ValueKey('pro-benefit-${benefit.code}'),
+          benefit: benefit,
+          grants: benefit.code == gemHeadCode
+              ? gemGrants.skip(1).toList()
+              : const <MembershipBenefit>[],
+        ),
+      ],
+    ];
+  }
+
+  Widget _buildPurchaseFooter(
+    BuildContext context,
+    MembershipProduct? selectedProduct,
+  ) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      widget.horizontalInset,
+      26,
+      widget.horizontalInset,
+      0,
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: widget.topSpacing),
-        Expanded(
-          child: KeyedSubtree(
-            key: const ValueKey('pro-benefits-card'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // The heading is fixed and only the benefits scroll, as the
-                // design lays it out.
-                if (widget.showHeading)
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      widget.horizontalInset,
-                      widget.headingTopSpacing,
-                      widget.horizontalInset,
-                      // Reads as wide as the hairline the design once ruled
-                      // here, now that the tagline sits above the list.
-                      22,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          key: const ValueKey('pro-tier-title'),
-                          children: [
-                            SvgPicture.asset(
-                              proCrownGoldIconAsset,
-                              width: 26,
-                              height: 18,
-                            ),
-                            // 26 + 5 matches the benefit rows' 20 + 11, so the
-                            // wordmark starts on the copy's own column.
-                            const SizedBox(width: 5),
-                            const Flexible(child: PremiumWordmark()),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          _tagline,
-                          key: ValueKey('pro-tagline'),
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.35,
-                            fontWeight: FontWeight.w400,
-                            color: GenesisColors.darkTextTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+        // Equal height: the yearly card carries a billing line the
+        // monthly one does not, and the pair must still sit level.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final plan in _ProPlan.values) ...[
+                if (plan != _ProPlan.values.first) const SizedBox(width: 12),
                 Expanded(
-                  child: ListView(
-                    key: const PageStorageKey('pro-benefits-scroll'),
-                    padding: EdgeInsets.fromLTRB(
-                      widget.horizontalInset,
-                      // A host that titles itself already sits below a header's
-                      // own bottom half, so the list needs little of its own.
-                      widget.showHeading ? 0 : 8,
-                      widget.horizontalInset,
-                      26,
-                    ),
-                    children: [
-                      for (final (index, benefit) in rows.indexed) ...[
-                        if (index > 0) const SizedBox(height: 20),
-                        // Everything the gem module did not cover sits under a label.
-                        if (gemHeadCode != null && index == 1) ...[
-                          const Text(
-                            _restLabel,
-                            key: ValueKey('pro-benefits-rest-label'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1,
-                              fontWeight: FontWeight.w400,
-                              color: GenesisColors.darkTextTertiary,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        _ProBenefit(
-                          key: ValueKey('pro-benefit-${benefit.code}'),
-                          benefit: benefit,
-                          grants: benefit.code == gemHeadCode
-                              ? gemGrants.skip(1).toList()
-                              : const <MembershipBenefit>[],
-                        ),
-                      ],
-                    ],
+                  child: _ProPlanCard(
+                    plan: plan,
+                    offer: _offerFor(plan),
+                    savings: _offerFor(plan) == null
+                        ? null
+                        : membershipYearlySavings(_offerFor(plan)!, _offers),
+                    selected: _plan == plan,
+                    onTap: () {
+                      if (_plan == plan) return;
+                      setState(() => _plan = plan);
+                      _prepareSelectedCheckout();
+                    },
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            widget.horizontalInset,
-            26,
-            widget.horizontalInset,
-            0,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Equal height: the yearly card carries a billing line the
-              // monthly one does not, and the pair must still sit level.
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final plan in _ProPlan.values) ...[
-                      if (plan != _ProPlan.values.first)
-                        const SizedBox(width: 12),
-                      Expanded(
-                        child: _ProPlanCard(
-                          plan: plan,
-                          offer: _offerFor(plan),
-                          savings: _offerFor(plan) == null
-                              ? null
-                              : membershipYearlySavings(
-                                  _offerFor(plan)!,
-                                  _offers,
-                                ),
-                          selected: _plan == plan,
-                          onTap: () {
-                            if (_plan == plan) return;
-                            setState(() => _plan = plan);
-                            _prepareSelectedCheckout();
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(
-                height: 35,
-                child: Center(
-                  child: Text(
-                    'Auto-renews. Cancel anytime.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: GenesisColors.darkTextTertiary,
-                    ),
-                  ),
-                ),
-              ),
-              _buildSubscribeButton(selectedProduct),
-              const SizedBox(height: 24),
-              _buildLegalRow(context),
-              const SizedBox(height: 10),
             ],
           ),
         ),
+        const SizedBox(
+          height: 35,
+          child: Center(
+            child: Text(
+              'Auto-renews. Cancel anytime.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: GenesisColors.darkTextTertiary,
+              ),
+            ),
+          ),
+        ),
+        _buildSubscribeButton(selectedProduct),
+        const SizedBox(height: 24),
+        _buildLegalRow(context),
+        SizedBox(
+          key: const ValueKey('pro-bottom-safe-space'),
+          height:
+              10 +
+              (widget.includeBottomSafeArea
+                  ? MediaQuery.viewPaddingOf(context).bottom
+                  : 0),
+        ),
       ],
-    );
-  }
+    ),
+  );
 
   Widget _buildSubscribeButton(MembershipProduct? product) {
     final access = _membership?.state.value ?? const MembershipAccessState();

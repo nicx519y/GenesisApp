@@ -1907,6 +1907,48 @@ void main() {
       );
     });
 
+    test('world summary update is a typed control event with tick zero', () {
+      final event = chatroomEventFromV2Message(
+        ChatroomV2Message.fromJson(<String, dynamic>{
+          'type': 'world_summary_updated',
+          'stream_type': '',
+          'ts': 1790380800000,
+          'world_id': 'world-1',
+          'user_id': 'owner-1',
+          'trigger_uid': '',
+          'payload': <String, dynamic>{'generation': 3, 'tick_no': 0},
+          'err_no': 0,
+          'err_msg': '',
+        }),
+      );
+      expect(event, isA<ChatroomWorldSummaryUpdated>());
+      final update = event as ChatroomWorldSummaryUpdated;
+      expect((update.worldId, update.userId), ('world-1', 'owner-1'));
+      expect((update.generation, update.tickNo), (3, 0));
+      expect(chatroomEventType(update), 'world_summary_updated');
+
+      for (final payload in [
+        <String, dynamic>{'generation': '3', 'tick_no': 0},
+        <String, dynamic>{'generation': 3, 'tick_no': '0'},
+        <String, dynamic>{'generation': 3},
+      ]) {
+        expect(
+          () => chatroomEventFromV2Message(
+            ChatroomV2Message.fromJson(<String, dynamic>{
+              'type': 'world_summary_updated',
+              'stream_type': '',
+              'world_id': 'world-1',
+              'user_id': 'owner-1',
+              'payload': payload,
+              'err_no': 0,
+              'err_msg': '',
+            }),
+          ),
+          throwsA(isA<ChatroomProtocolException>()),
+        );
+      }
+    });
+
     test('routes stream_type before business type and decodes typed tick', () {
       final chunk = chatroomEventFromV2Message(
         ChatroomV2Message.fromJson(<String, dynamic>{

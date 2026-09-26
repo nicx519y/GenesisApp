@@ -32,16 +32,21 @@ import 'world_sections.dart';
 class WorldBottomTags extends StatelessWidget {
   const WorldBottomTags({
     required this.onTap,
+    required this.relationStatus,
     this.eventsUnread = false,
+    this.recapUnread = false,
     this.showDetailUnreadDot = false,
   });
 
   final ValueChanged<WorldBottomSheetKind> onTap;
+  final String relationStatus;
   final bool eventsUnread;
+  final bool recapUnread;
   final bool showDetailUnreadDot;
 
   @override
   Widget build(BuildContext context) {
+    final items = worldBottomTagItemsForRelationStatus(relationStatus);
     return Container(
       height: worldMainTabsHeight,
       color: GenesisColors.darkBackground,
@@ -65,18 +70,19 @@ class WorldBottomTags extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final entry in worldBottomTagItems.indexed) ...[
+                for (final entry in items.indexed) ...[
                   WorldBottomTagContent(
                     item: entry.$2,
                     showUnreadDot:
                         eventsUnread &&
                             entry.$2.kind == WorldBottomSheetKind.events ||
+                        recapUnread &&
+                            entry.$2.kind == WorldBottomSheetKind.recap ||
                         showDetailUnreadDot &&
                             entry.$2.kind == WorldBottomSheetKind.detail,
                     onTap: () => onTap(entry.$2.kind),
                   ),
-                  if (entry.$1 != worldBottomTagItems.length - 1)
-                    const SizedBox(width: 8),
+                  if (entry.$1 != items.length - 1) const SizedBox(width: 8),
                 ],
               ],
             ),
@@ -150,9 +156,15 @@ class WorldBottomTagContent extends StatelessWidget {
           ),
           if (showUnreadDot)
             Positioned(
-              key: item.kind == WorldBottomSheetKind.events
-                  ? const ValueKey('world-events-unread-dot')
-                  : null,
+              key: switch (item.kind) {
+                WorldBottomSheetKind.events => const ValueKey(
+                  'world-events-unread-dot',
+                ),
+                WorldBottomSheetKind.recap => const ValueKey(
+                  'world-recap-unread-dot',
+                ),
+                _ => null,
+              },
               top: 2,
               right: 2,
               child: Container(
@@ -242,6 +254,9 @@ class WorldSingleSectionBottomSheetState
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
 
+  List<WorldBottomTagItem> get _tabItems =>
+      worldBottomTagItemsForRelationStatus(_currentWorld.relationStatus);
+
   WorldBottomSheetSelection get _selection => widget.selectionListenable.value;
 
   WorldSectionsEventsCache get _eventsCache => widget.eventsCache;
@@ -324,6 +339,20 @@ class WorldSingleSectionBottomSheetState
   bool get _isEventsSheet => _selection.kind == WorldBottomSheetKind.events;
 
   void _handleWorldDetailChanged() {
+    if (!_tabItems.any((item) => item.kind == _selection.kind)) {
+      widget.selectionListenable.value = WorldBottomSheetSelection(
+        kind: WorldBottomSheetKind.detail,
+        eventsLatestRevision: _selection.eventsLatestRevision,
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final targetPage = _pageForKind(_selection.kind);
+      if ((_pageController.page?.round() ?? _pageController.initialPage) !=
+          targetPage) {
+        _pageController.jumpToPage(targetPage);
+      }
+    });
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
     }
@@ -360,6 +389,7 @@ class WorldSingleSectionBottomSheetState
         kind == WorldBottomSheetKind.recap && _lastSelectedKind != kind;
     _lastSelectedKind = kind;
     if (!entered) return;
+    if (!shouldConnectWorldChatroom(_currentWorld.relationStatus)) return;
     final worldId = _currentWorld.worldId;
     // Recap is a Worldo Premium feature: nothing is fetched for anyone else.
     _checkRecapMembership((isVip) {
@@ -385,15 +415,16 @@ class WorldSingleSectionBottomSheetState
   }
 
   int _pageForKind(WorldBottomSheetKind kind) {
-    final index = worldBottomTagItems.indexWhere((item) => item.kind == kind);
+    final index = _tabItems.indexWhere((item) => item.kind == kind);
     return index < 0 ? 0 : index;
   }
 
   WorldBottomSheetKind _kindForPage(int page) {
-    if (page < 0 || page >= worldBottomTagItems.length) {
+    final items = _tabItems;
+    if (page < 0 || page >= items.length) {
       return WorldBottomSheetKind.detail;
     }
-    return worldBottomTagItems[page].kind;
+    return items[page].kind;
   }
 
   void _animateToSelectionPage() {
@@ -675,6 +706,10 @@ class WorldSingleSectionBottomSheetState
         cache: widget.recapCache,
         load: widget.services.api.getWorldRecentSummary,
         scrollController: scrollController,
+        expandedContentHeight:
+            (_sheetHostHeight * _sheetMaxChildSize - worldSheetHeaderHeight)
+                .clamp(0.0, double.infinity),
+        onBenefitsPullDown: _handleSheetDragDelta,
         active: _selection.kind == WorldBottomSheetKind.recap,
         checkVip: _checkRecapMembership,
         membershipChanges: _recapMembershipChanges,
@@ -686,9 +721,7 @@ class WorldSingleSectionBottomSheetState
   }
 
   WorldBottomTagItem get _headerItem {
-    return worldBottomTagItems.firstWhere(
-      (item) => item.kind == _selection.kind,
-    );
+    return _tabItems.firstWhere((item) => item.kind == _selection.kind);
   }
 
   Widget _buildSheetContent(ScrollController sheetScrollController) {
@@ -696,7 +729,7 @@ class WorldSingleSectionBottomSheetState
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: PageView.builder(
         controller: _pageController,
-        itemCount: worldBottomTagItems.length,
+        itemCount: _tabItems.length,
         onPageChanged: _handleSheetPageChanged,
         itemBuilder: (context, index) {
           final kind = _kindForPage(index);
@@ -710,11 +743,14 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _handleHeaderDragUpdate(DragUpdateDetails details) {
+    _handleSheetDragDelta(details.delta.dy);
+  }
+
+  void _handleSheetDragDelta(double deltaDy) {
     if (!_sheetController.isAttached || _sheetHostHeight <= 0) return;
-    final nextExtent =
-        (_sheetController.size - details.delta.dy / _sheetHostHeight)
-            .clamp(_sheetMinChildSize, _sheetMaxChildSize)
-            .toDouble();
+    final nextExtent = (_sheetController.size - deltaDy / _sheetHostHeight)
+        .clamp(_sheetMinChildSize, _sheetMaxChildSize)
+        .toDouble();
     _sheetController.jumpTo(nextExtent);
   }
 
@@ -885,7 +921,7 @@ class WorldSingleSectionBottomSheetState
                           child: WorldSingleSectionSheetHeader(
                             item: _headerItem,
                             pageController: _pageController,
-                            pageCount: worldBottomTagItems.length,
+                            pageCount: _tabItems.length,
                             onClose: _collapseSheet,
                           ),
                         ),
@@ -919,7 +955,7 @@ class WorldSingleSectionSheetHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: worldSheetHeaderHeight,
       child: Stack(
         children: [
           Positioned(

@@ -129,6 +129,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
   StreamSubscription<GemBalanceAlert>? _worldChatroomBalanceSub;
+  StreamSubscription<ChatroomWorldSummaryUpdated>? _worldSummaryUpdateSub;
   Future<void>? _worldChatroomAuthRecovery;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
@@ -158,6 +159,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _worldTickWaitOverlayRequested = false;
   bool _openEventsAfterTickDone = false;
   bool _eventsUnread = false;
+  bool _recapUnread = false;
   bool _worldBottomSheetOpen = false;
   bool _hasUnreadNewUserJoin = false;
   bool _openEventsAfterCurrentBottomSheetClosed = false;
@@ -519,6 +521,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldChatroomBalanceSub?.cancel());
+    unawaited(_worldSummaryUpdateSub?.cancel());
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -709,6 +712,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           recentChatLocationIds: recentMapLocationIds,
           eventLocationIds: eventMapLocationIds,
           animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,
+          keepProgressiveTileMountingWhilePaused:
+              _worldBottomSheetOpen && !mapPausedForLocationChat,
           reloadRevision: _tilemapReloadRevision,
           visualModeToggleTop:
               topPadding + worldMapBackButtonTop + worldMapTabsHeight + 8,

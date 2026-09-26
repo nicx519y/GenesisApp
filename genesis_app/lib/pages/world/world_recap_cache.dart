@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../network/models/world_recent_summary.dart';
@@ -21,6 +23,18 @@ class WorldRecapCache extends ChangeNotifier {
   Object? loadMoreError;
   int _revision = 0;
   bool _disposed = false;
+  bool _refreshAfterCurrent = false;
+
+  /// A push can arrive while the entry refresh is still in flight. Fetch once
+  /// more afterward so that response cannot hide the newly saved summary.
+  Future<void> refreshOnUpdate(String id, WorldRecapLoader load) {
+    if (_disposed) return Future<void>.value();
+    if (id == worldId && refreshing) {
+      _refreshAfterCurrent = true;
+      return Future<void>.value();
+    }
+    return refresh(id, load);
+  }
 
   Future<void> refresh(String id, WorldRecapLoader load) async {
     if (_disposed) return;
@@ -49,6 +63,10 @@ class WorldRecapCache extends ChangeNotifier {
       if (_isCurrent(revision)) {
         refreshing = false;
         notifyListeners();
+        if (_refreshAfterCurrent) {
+          _refreshAfterCurrent = false;
+          unawaited(refreshOnUpdate(id, load));
+        }
       }
     }
   }
@@ -100,6 +118,7 @@ class WorldRecapCache extends ChangeNotifier {
     loadingMore = false;
     refreshError = null;
     loadMoreError = null;
+    _refreshAfterCurrent = false;
   }
 
   @override
