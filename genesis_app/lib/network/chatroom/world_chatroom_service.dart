@@ -408,6 +408,9 @@ class WorldChatroomService {
   final _states = StreamController<WorldChatroomState>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _balanceAlerts = StreamController<GemBalanceAlert>.broadcast();
+  final _summaryUpdates =
+      StreamController<ChatroomWorldSummaryUpdated>.broadcast();
+  final Set<(String, int)> _seenSummaryUpdates = <(String, int)>{};
   final _reportedFailureOccurrences = <Object>{};
   final _latestFetchedMessages =
       StreamController<List<WorldChatroomMessage>>.broadcast();
@@ -482,6 +485,9 @@ class WorldChatroomService {
   Stream<ChatroomFailureEvent> get failures => _failures.stream;
 
   Stream<GemBalanceAlert> get balanceAlerts => _balanceAlerts.stream;
+
+  Stream<ChatroomWorldSummaryUpdated> get summaryUpdates =>
+      _summaryUpdates.stream;
 
   Stream<List<WorldChatroomMessage>> get latestFetchedMessages =>
       _latestFetchedMessages.stream;
@@ -838,6 +844,7 @@ class WorldChatroomService {
       _retentionLeases.clear();
       _cacheEvictedRanges.clear();
       _publishedContentUpdateOccurrences.clear();
+      _seenSummaryUpdates.clear();
       _reportedFailureOccurrences.clear();
     }
     _worldId = nextWorldId;
@@ -1563,6 +1570,7 @@ class WorldChatroomService {
     await _states.close();
     await _failures.close();
     await _balanceAlerts.close();
+    await _summaryUpdates.close();
     await _latestFetchedMessages.close();
     for (final notifier in _locationMessageChanges.values) {
       notifier.dispose();

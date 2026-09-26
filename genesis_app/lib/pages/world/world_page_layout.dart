@@ -108,7 +108,9 @@ extension _WorldPageLayout on _WorldPageState {
         key: const ValueKey<String>('world-bottom-tags-overlay'),
         ignoring: !interactive,
         child: WorldBottomTags(
+          relationStatus: _world?.relationStatus ?? '',
           eventsUnread: _eventsUnread,
+          recapUnread: _recapUnread,
           showDetailUnreadDot: _hasUnreadNewUserJoin,
           onTap: _openWorldBottomSheet,
         ),

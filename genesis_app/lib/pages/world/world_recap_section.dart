@@ -5,9 +5,8 @@ import 'package:flutter/material.dart';
 import '../../app/debug/world_recap_debug_preview.dart';
 import '../../app/membership/subscription_analytics.dart';
 import '../../components/chat/shared/chat_ui.dart';
-import '../../components/gems/gem_purchase_bottom_sheet.dart';
-import '../../components/gems/pro_colors.dart';
-import '../../components/gems/pro_membership_badge.dart';
+import '../../components/gems/pro_subscription_content.dart';
+import '../../components/gems/subscription_tracking_scope.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import 'world_constants.dart';
@@ -15,15 +14,16 @@ import 'world_recap_cache.dart';
 import 'world_sections.dart';
 
 /// Story recap is a Worldo Premium feature. Members read the recap; everyone
-/// else sees what it offers and a way to subscribe, and nothing is fetched for
-/// them. Until membership is confirmed the section shows only a skeleton, so
-/// neither side glimpses the other's view.
+/// else sees the subscription content, and nothing is fetched for them. Until
+/// membership is confirmed the section shows only a skeleton.
 class WorldRecapSection extends StatefulWidget {
   const WorldRecapSection({
     super.key,
     required this.cache,
     required this.load,
     required this.scrollController,
+    required this.expandedContentHeight,
+    this.onBenefitsPullDown,
     required this.active,
     required this.checkVip,
     required this.membershipChanges,
@@ -33,6 +33,8 @@ class WorldRecapSection extends StatefulWidget {
   final WorldRecapCache cache;
   final WorldRecapLoader load;
   final ScrollController scrollController;
+  final double expandedContentHeight;
+  final ValueChanged<double>? onBenefitsPullDown;
   final bool active;
 
   /// Answers, once and asynchronously, whether the user is a member: true,
@@ -48,6 +50,10 @@ class WorldRecapSection extends StatefulWidget {
 }
 
 class _WorldRecapSectionState extends State<WorldRecapSection> {
+  final _subscriptionTracking = SubscriptionPageTracking(
+    source: SubscriptionSource.worldRecap,
+  );
+
   /// The recap reads oldest first while the server pages newest first, so
   /// every page is fetched before it is shown: an older page arriving later
   /// would otherwise land above whatever the reader had reached. A cap keeps
@@ -159,14 +165,26 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
       _ => widget.cache,
     };
     if (isVip != true) {
-      // Still a list on the sheet's controller, so dragging the sheet feels
-      // the same whichever view is showing.
-      return _list([
-        if (isVip == null)
-          const _RecapSkeleton()
-        else
-          const _RecapLockedNotice(),
-      ]);
+      if (isVip == null) return _list(const [_RecapSkeleton()]);
+      return KeyedSubtree(
+        key: const ValueKey<String>('world-recap-locked'),
+        child: SubscriptionTrackingScope(
+          page: _subscriptionTracking,
+          child: ProSubscriptionContent(
+            refreshMembershipOnOpen: false,
+            tagline:
+                'Catch up on your story with a full recap of every twist, '
+                'choice, and character along the way. Subcribe to Unlock.',
+            sheetScrollController: widget.scrollController,
+            sheetExpandedContentHeight: widget.expandedContentHeight,
+            includeBottomSafeArea: true,
+            onBenefitsPullDown: widget.onBenefitsPullDown,
+            topSpacing: worldSheetVisibleContentTopGap,
+            headingTopSpacing: 0,
+            horizontalInset: 12,
+          ),
+        ),
+      );
     }
     return ListenableBuilder(
       listenable: shown,
@@ -392,105 +410,6 @@ const TextStyle _recapNoteStyle = TextStyle(
   height: 1.5,
   color: GenesisColors.darkTextSecondary,
 );
-
-/// What the recap offers, for anyone without Worldo Premium, and the way in.
-class _RecapLockedNotice extends StatelessWidget {
-  const _RecapLockedNotice();
-
-  void _subscribe(BuildContext context) => unawaited(
-    showSubscriptionPurchaseBottomSheet(
-      context,
-      source: SubscriptionSource.worldRecap,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      key: const ValueKey<String>('world-recap-locked'),
-      children: [
-        const Text(
-          'Catch up on your story with a full recap of every twist, '
-          'choice, and character along the way.',
-          textAlign: TextAlign.center,
-          style: _recapNoteStyle,
-        ),
-        const SizedBox(height: 12),
-        Text.rich(
-          TextSpan(
-            children: [
-              const TextSpan(text: 'Available with '),
-              // The plan's name in the crown and gold it carries on the
-              // profile's membership card.
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: ProMembershipBadge.beside(
-                    fontSize: _recapNoteStyle.fontSize!,
-                  ),
-                ),
-              ),
-              const WidgetSpan(
-                alignment: PlaceholderAlignment.baseline,
-                baseline: TextBaseline.alphabetic,
-                child: _PremiumName(),
-              ),
-              const TextSpan(text: '.'),
-            ],
-          ),
-          textAlign: TextAlign.center,
-          style: _recapNoteStyle,
-        ),
-        const SizedBox(height: 4),
-        Semantics(
-          button: true,
-          child: GestureDetector(
-            key: const ValueKey<String>('world-recap-subscribe'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _subscribe(context),
-            // Padding widens the tap target beyond the words themselves.
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Text(
-                'Subscribe to Unlock',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: GenesisColors.redSecondary,
-                  decoration: TextDecoration.underline,
-                  decorationColor: GenesisColors.redSecondary,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// "Worldo Premium" under the gold sweep of the membership card's wordmark,
-/// at the size of the sentence it sits in.
-class _PremiumName extends StatelessWidget {
-  const _PremiumName();
-
-  @override
-  Widget build(BuildContext context) {
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => proTitleGradient.createShader(bounds),
-      child: Text(
-        'Worldo Premium',
-        style: _recapNoteStyle.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.07,
-        ),
-      ),
-    );
-  }
-}
 
 class _RecapSkeleton extends StatelessWidget {
   const _RecapSkeleton();

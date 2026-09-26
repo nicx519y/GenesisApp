@@ -41,6 +41,25 @@ extension _WorldPageChatroomSession on _WorldPageState {
       context,
       service.balanceAlerts,
     );
+    _worldSummaryUpdateSub = service.summaryUpdates.listen((event) {
+      if (!mounted ||
+          !identical(_worldChatroom, service) ||
+          event.worldId != widget.wid) {
+        return;
+      }
+      if (shouldConnectWorldChatroom(_world?.relationStatus ?? '') &&
+          !(_worldBottomSheetOpen &&
+              _worldBottomSheetSelection.value.kind ==
+                  WorldBottomSheetKind.recap)) {
+        _markRecapUnread();
+      }
+      unawaited(
+        _recapCache.refreshOnUpdate(
+          event.worldId,
+          AppServicesScope.read(context).api.getWorldRecentSummary,
+        ),
+      );
+    });
   }
 
   void _handleWorldChatroomFailure(ChatroomFailureEvent failure) {
@@ -150,9 +169,11 @@ extension _WorldPageChatroomSession on _WorldPageState {
     await _worldChatroomSub?.cancel();
     await _worldChatroomFailureSub?.cancel();
     await _worldChatroomBalanceSub?.cancel();
+    await _worldSummaryUpdateSub?.cancel();
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
     _worldChatroomBalanceSub = null;
+    _worldSummaryUpdateSub = null;
     if (service != null) await service.dispose();
   }
 
@@ -395,6 +416,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       _startWorldChatroom();
       return;
     }
+    _clearRecapUnread();
     _stopWorldChatroom();
   }
 
@@ -447,9 +469,11 @@ extension _WorldPageChatroomSession on _WorldPageState {
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldChatroomBalanceSub?.cancel());
+    unawaited(_worldSummaryUpdateSub?.cancel());
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
     _worldChatroomBalanceSub = null;
+    _worldSummaryUpdateSub = null;
     _worldChatroom = null;
     _deferredBottomSheetMapChatroomState = null;
     _preloadedLocationMessageIds.clear();

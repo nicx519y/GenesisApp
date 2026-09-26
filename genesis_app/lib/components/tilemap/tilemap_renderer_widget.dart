@@ -29,6 +29,7 @@ class TilemapRenderer extends StatefulWidget {
     this.waitForVisibleTileImageFrames = true,
     this.isForeground = true,
     this.animationsPaused = false,
+    this.keepProgressiveTileMountingWhilePaused = false,
     this.locationImageFlowPaused = false,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
@@ -69,6 +70,7 @@ class TilemapRenderer extends StatefulWidget {
   final bool waitForVisibleTileImageFrames;
   final bool isForeground;
   final bool animationsPaused;
+  final bool keepProgressiveTileMountingWhilePaused;
   final bool locationImageFlowPaused;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
@@ -180,7 +182,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
     final locationImageFlowPausedChanged =
         oldWidget.locationImageFlowPaused != widget.locationImageFlowPaused;
     if (oldWidget.isForeground != widget.isForeground ||
-        animationsPausedChanged) {
+        (oldWidget.animationsPaused &&
+                !oldWidget.keepProgressiveTileMountingWhilePaused) !=
+            _progressiveTileMountPaused) {
       _restartProgressiveTileMountSchedule();
     }
     if (oldWidget.showLocationImageFlow != widget.showLocationImageFlow ||
@@ -977,6 +981,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
     _progressiveMountCallbackScheduled = false;
   }
 
+  bool get _progressiveTileMountPaused =>
+      widget.animationsPaused && !widget.keepProgressiveTileMountingWhilePaused;
+
   void _syncProgressiveTileMount({
     required List<_TilemapRenderRecord> records,
     required Rect visibleSceneBounds,
@@ -1042,7 +1049,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
     _pendingVisibleRecords = visibleRecords;
     _pendingRetainedRecords = retainedRecords;
 
-    if (!_hasStartedProgressiveMount && !widget.animationsPaused) {
+    if (!_hasStartedProgressiveMount && !_progressiveTileMountPaused) {
       _hasStartedProgressiveMount = true;
       final visibleBatchSize = _visibleTileMountBatchSize;
       final initialVisibleRecords = _selectProgressiveMountBatch(
@@ -1101,7 +1108,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
   }
 
   void _scheduleProgressiveTileMount() {
-    if (widget.animationsPaused ||
+    if (_progressiveTileMountPaused ||
         _progressiveMountCallbackScheduled ||
         (_pendingVisibleRecords.isEmpty && _pendingRetainedRecords.isEmpty)) {
       return;
@@ -1113,7 +1120,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
         return;
       }
       _progressiveMountCallbackScheduled = false;
-      if (widget.animationsPaused) return;
+      if (_progressiveTileMountPaused) return;
 
       final hasVisibleRecords = _pendingVisibleRecords.isNotEmpty;
       final pendingRecords = hasVisibleRecords

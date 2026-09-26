@@ -3,11 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/debug/world_recap_debug_preview.dart';
+import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
+import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
+import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
 import 'package:genesis_flutter_android/network/models/world_recent_summary.dart';
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/pages/world/world_recap_cache.dart';
 import 'package:genesis_flutter_android/pages/world/world_recap_section.dart';
+
+import '../../support/membership_fixtures.dart';
 
 const _emptyNote = 'Story recap will appear here as the story moves forward.';
 
@@ -33,20 +38,36 @@ void main() {
     WorldRecapLoader load, {
     bool active = true,
     bool? Function()? member,
-  }) => MaterialApp(
-    home: Scaffold(
-      body: WorldRecapSection(
-        cache: cache,
-        load: load,
-        scrollController: scroll,
-        active: active,
-        checkVip: (callback) =>
-            scheduleMicrotask(() => callback((member ?? () => true)())),
-        membershipChanges: membershipChanges,
-        worldId: 'w1',
+    double bottomSafeInset = 0,
+    double? viewportHeight,
+  }) {
+    final section = WorldRecapSection(
+      cache: cache,
+      load: load,
+      scrollController: scroll,
+      expandedContentHeight: 500,
+      active: active,
+      checkVip: (callback) =>
+          scheduleMicrotask(() => callback((member ?? () => true)())),
+      membershipChanges: membershipChanges,
+      worldId: 'w1',
+    );
+    return MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(
+          viewPadding: EdgeInsets.only(bottom: bottomSafeInset),
+        ),
+        child: Scaffold(
+          body: viewportHeight == null
+              ? section
+              : Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SizedBox(height: viewportHeight, child: section),
+                ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   testWidgets(
     'cold loading and failure use skeleton; success empty uses empty state',
@@ -173,30 +194,160 @@ void main() {
     },
   );
 
-  testWidgets('non-members see what the recap offers and nothing is fetched', (
-    tester,
-  ) async {
-    var calls = 0;
-    Future<WorldRecentSummaryPage> load({
-      required String worldId,
-      String? cursor,
-    }) async {
-      calls++;
-      return const WorldRecentSummaryPage(
-        items: [WorldRecentSummary(body: 'secret', tickNo: 1)],
-        hasMore: false,
-        cursor: '',
-      );
-    }
+  testWidgets(
+    'non-members see the subscription content and no recap is fetched',
+    (tester) async {
+      var calls = 0;
+      Future<WorldRecentSummaryPage> load({
+        required String worldId,
+        String? cursor,
+      }) async {
+        calls++;
+        return const WorldRecentSummaryPage(
+          items: [WorldRecentSummary(body: 'secret', tickNo: 1)],
+          hasMore: false,
+          cursor: '',
+        );
+      }
 
-    await tester.pumpWidget(view(load, member: () => false));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('world-recap-locked')), findsOneWidget);
-    expect(find.text('Subscribe to Unlock'), findsOneWidget);
-    expect(find.byKey(const ValueKey('world-recap-skeleton')), findsNothing);
-    expect(find.text('secret'), findsNothing);
-    expect(calls, 0);
-  });
+      await tester.pumpWidget(
+        view(load, member: () => false, bottomSafeInset: 34),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('world-recap-locked')), findsOneWidget);
+      expect(find.byType(ProSubscriptionContent), findsOneWidget);
+      expect(
+        find.text(
+          'Catch up on your story with a full recap of every twist, '
+          'choice, and character along the way. Subcribe to Unlock.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Go deeper into every Worldo you play.'), findsNothing);
+      expect(
+        tester
+            .widget<ListView>(
+              find.byKey(const PageStorageKey('pro-whole-content-scroll')),
+            )
+            .controller,
+        same(scroll),
+      );
+      expect(
+        find.byKey(const PageStorageKey('pro-benefits-scroll')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<SizedBox>(
+              find.byKey(const ValueKey('pro-bottom-safe-space')),
+            )
+            .height,
+        44,
+      );
+      expect(
+        find.byKey(const ValueKey('pro-subscribe-button')),
+        findsOneWidget,
+      );
+      expect(find.text('Subscribe to Unlock'), findsNothing);
+      expect(
+        tester
+            .widget<SubscriptionTrackingScope>(
+              find.byType(SubscriptionTrackingScope),
+            )
+            .page
+            .source,
+        SubscriptionSource.worldRecap,
+      );
+      expect(find.byKey(const ValueKey('world-recap-skeleton')), findsNothing);
+      expect(find.text('secret'), findsNothing);
+      expect(calls, 0);
+    },
+  );
+
+  testWidgets(
+    'subscription heading and purchase area move together as sheet shrinks',
+    (tester) async {
+      Future<WorldRecentSummaryPage> load({
+        required String worldId,
+        String? cursor,
+      }) async =>
+          const WorldRecentSummaryPage(items: [], hasMore: false, cursor: '');
+
+      await tester.pumpWidget(
+        view(load, member: () => false, viewportHeight: 500),
+      );
+      await tester.pumpAndSettle();
+      final headingBefore = tester
+          .getTopLeft(find.byKey(const ValueKey('pro-tier-title')))
+          .dy;
+      final planBefore = tester
+          .getTopLeft(find.byKey(const ValueKey('pro-plan-yearly')))
+          .dy;
+
+      await tester.pumpWidget(
+        view(load, member: () => false, viewportHeight: 350),
+      );
+      await tester.pumpAndSettle();
+      final headingAfter = tester
+          .getTopLeft(find.byKey(const ValueKey('pro-tier-title')))
+          .dy;
+      final planAfter = tester
+          .getTopLeft(find.byKey(const ValueKey('pro-plan-yearly')))
+          .dy;
+      expect(headingAfter - headingBefore, closeTo(150, 0.01));
+      expect(planAfter - planBefore, closeTo(150, 0.01));
+    },
+  );
+
+  testWidgets(
+    'short sheet scrolls benefits while keeping purchase area in place',
+    (tester) async {
+      final sheetScroll = ScrollController();
+      addTearDown(sheetScroll.dispose);
+      var pullDown = 0.0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 500,
+              child: SubscriptionTrackingScope(
+                page: SubscriptionPageTracking(),
+                child: ProSubscriptionContent(
+                  productsLoader: loadTestMembershipOffers,
+                  sheetScrollController: sheetScroll,
+                  sheetExpandedContentHeight: 500,
+                  onBenefitsPullDown: (delta) => pullDown += delta,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final benefits = find.byKey(const PageStorageKey('pro-benefits-scroll'));
+      final benefitScrollable = find.descendant(
+        of: benefits,
+        matching: find.byType(Scrollable),
+      );
+      final benefitPosition = tester
+          .state<ScrollableState>(benefitScrollable)
+          .position;
+      final planTop = tester
+          .getTopLeft(find.byKey(const ValueKey('pro-plan-yearly')))
+          .dy;
+
+      await tester.drag(benefits, const Offset(0, -180));
+      await tester.pumpAndSettle();
+      expect(benefitPosition.pixels, greaterThan(0));
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('pro-plan-yearly'))).dy,
+        planTop,
+      );
+      await tester.drag(benefits, const Offset(0, 1000));
+      await tester.pumpAndSettle();
+      expect(pullDown, greaterThan(0));
+    },
+  );
 
   testWidgets('until membership is known only a skeleton shows', (
     tester,
@@ -244,6 +395,7 @@ void main() {
     expect(requestedWorld, 'w1');
     expect(find.text('After subscribing'), findsOneWidget);
     expect(find.byKey(const ValueKey('world-recap-locked')), findsNothing);
+    expect(find.byType(ProSubscriptionContent), findsNothing);
   });
 
   testWidgets(
@@ -257,7 +409,10 @@ void main() {
           home: Scaffold(
             body: Align(
               alignment: Alignment.bottomLeft,
-              child: WorldBottomTags(onTap: (value) => selected = value),
+              child: WorldBottomTags(
+                relationStatus: 'owner',
+                onTap: (value) => selected = value,
+              ),
             ),
           ),
         ),
@@ -283,4 +438,46 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Recap tab is available only to world participants', (
+    tester,
+  ) async {
+    Widget tags(String relationStatus, {bool recapUnread = true}) =>
+        MaterialApp(
+          home: Scaffold(
+            body: WorldBottomTags(
+              relationStatus: relationStatus,
+              recapUnread: recapUnread,
+              onTap: (_) {},
+            ),
+          ),
+        );
+
+    for (final status in ['none', 'pending', 'approved', '']) {
+      await tester.pumpWidget(tags(status));
+      expect(find.text('Recap'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('world-recap-unread-dot')),
+        findsNothing,
+      );
+      expect(
+        worldBottomTagItemsForRelationStatus(status).map((e) => e.kind),
+        isNot(contains(WorldBottomSheetKind.recap)),
+      );
+    }
+    for (final status in ['owner', 'joined']) {
+      await tester.pumpWidget(tags(status));
+      expect(find.text('Recap'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('world-recap-unread-dot')),
+        findsOneWidget,
+      );
+      expect(
+        worldBottomTagItemsForRelationStatus(status).map((e) => e.kind),
+        contains(WorldBottomSheetKind.recap),
+      );
+    }
+    await tester.pumpWidget(tags('owner', recapUnread: false));
+    expect(find.byKey(const ValueKey('world-recap-unread-dot')), findsNothing);
+  });
 }

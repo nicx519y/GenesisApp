@@ -4511,6 +4511,51 @@ void main() {
     expect(service.state.conversationRoundStatesByLocation, isEmpty);
   });
 
+  test(
+    'summary updates reach only the matching owner once per generation',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      final updates = <ChatroomWorldSummaryUpdated>[];
+      final subscription = service.summaryUpdates.listen(updates.add);
+      addTearDown(subscription.cancel);
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      void send({
+        String worldId = 'world-1',
+        String userId = 'user-1',
+        int generation = 3,
+        int tickNo = 0,
+      }) {
+        socket.serverFrame('world_summary_updated', {
+          'stream_type': '',
+          'world_id': worldId,
+          'user_id': userId,
+          'trigger_uid': '',
+          'payload': {'generation': generation, 'tick_no': tickNo},
+          'err_no': 0,
+          'err_msg': '',
+        });
+      }
+
+      send();
+      send();
+      send(userId: 'another-user');
+      send(worldId: 'another-world');
+      send(generation: 4, tickNo: 2);
+      await _waitFor(() => updates.length == 2);
+      expect(updates.map((e) => e.generation), [3, 4]);
+      expect(updates.first.tickNo, 0);
+      expect(service.state.messagesByLocation.values.expand((e) => e), isEmpty);
+      expect(socket.sentTypes, isNot(contains('ack')));
+    },
+  );
+
   test('world-level Tick end only clears matching round waits', () async {
     final socket = _FakeChatroomSocket();
     final service = await _service(

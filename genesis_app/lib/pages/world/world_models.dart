@@ -129,7 +129,7 @@ const worldBottomTagItems = <WorldBottomTagItem>[
   WorldBottomTagItem(
     label: 'Recap',
     kind: WorldBottomSheetKind.recap,
-    icon: Icons.menu_book_outlined,
+    icon: Icons.auto_stories_outlined,
   ),
   WorldBottomTagItem(
     label: 'Status',
@@ -137,6 +137,15 @@ const worldBottomTagItems = <WorldBottomTagItem>[
     asset: worldSectionStatusIconAsset,
   ),
 ];
+
+List<WorldBottomTagItem> worldBottomTagItemsForRelationStatus(
+  String relationStatus,
+) {
+  if (shouldConnectWorldChatroom(relationStatus)) return worldBottomTagItems;
+  return worldBottomTagItems
+      .where((item) => item.kind != WorldBottomSheetKind.recap)
+      .toList(growable: false);
+}
 
 enum WorldHeaderActionKind { request, pending, launch, progress, unavailable }
 

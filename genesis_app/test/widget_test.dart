@@ -36112,6 +36112,99 @@ void main() {
     },
   );
 
+  testWidgets(
+    'world recap unread follows summary updates and sheet selection',
+    (WidgetTester tester) async {
+      final transport = _RecapUnreadTransport();
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dot = find.byKey(const ValueKey('world-recap-unread-dot'));
+      final tabs = find.byKey(
+        const ValueKey<String>('world-bottom-tags-overlay'),
+      );
+      Finder tag(String label) =>
+          find.descendant(of: tabs, matching: find.text(label));
+      final sheet = find.byKey(
+        const ValueKey<String>('world-single-section-bottom-sheet'),
+      );
+      Finder sheetPager() =>
+          find.descendant(of: sheet, matching: find.byType(PageView)).first;
+      void emitSummary(int generation) => chatroom.session.emit(
+        ChatroomWorldSummaryUpdated(
+          worldId: 'w_test_1',
+          userId: chatroom.userId!,
+          generation: generation,
+          tickNo: 1,
+          ts: null,
+        ),
+      );
+
+      expect(chatroom.connectCount, greaterThan(0));
+      expect(dot, findsNothing);
+      emitSummary(1);
+      await tester.pumpAndSettle();
+      expect(dot, findsOneWidget);
+      expect(transport.recapRequests, hasLength(1));
+
+      await tester.tap(tag('Recap'));
+      await tester.pumpAndSettle();
+      expect(dot, findsNothing);
+      final requestsWhileReading = transport.recapRequests.length;
+      transport.failNextRecap = true;
+      emitSummary(2);
+      await tester.pumpAndSettle();
+      expect(dot, findsNothing);
+      expect(transport.recapRequests.length, requestsWhileReading + 1);
+
+      Navigator.of(tester.element(sheet)).pop();
+      await tester.pumpAndSettle();
+      emitSummary(3);
+      await tester.pumpAndSettle();
+      expect(dot, findsOneWidget);
+
+      await tester.tap(tag('Events'));
+      await tester.pumpAndSettle();
+      expect(dot, findsOneWidget);
+      await tester.drag(sheetPager(), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      expect(dot, findsNothing);
+
+      Navigator.of(tester.element(sheet)).pop();
+      await tester.pumpAndSettle();
+      emitSummary(4);
+      await tester.pumpAndSettle();
+      expect(dot, findsOneWidget);
+      transport.worldRelationStatus = 'none';
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'world_change',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tag('Recap'), findsNothing);
+      expect(dot, findsNothing);
+    },
+  );
+
   testWidgets('joined world completes progress when tick lock poll unlocks', (
     WidgetTester tester,
   ) async {
@@ -38729,4 +38822,26 @@ class _RecapLifecycleTransport extends _RecordingV1ListTransport {
       'cursor': '',
     }),
   );
+}
+
+class _RecapUnreadTransport extends _RecordingV1ListTransport {
+  _RecapUnreadTransport() : super(worldRelationStatus: 'joined');
+
+  final recapRequests = <TransportRequest>[];
+  bool failNextRecap = false;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    if (request.uri.path == '/api/v1/world/recent_summary') {
+      recapRequests.add(request);
+      if (failNextRecap) {
+        failNextRecap = false;
+        return Future.error(StateError('recap refresh failed'));
+      }
+      return Future.value(
+        _v1Response({'items': <Object?>[], 'has_more': false, 'cursor': ''}),
+      );
+    }
+    return super.send(request);
+  }
 }

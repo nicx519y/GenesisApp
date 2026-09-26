@@ -81,6 +81,24 @@ void main() {
     }
   });
 
+  test(
+    'summary push after an in-flight refresh reloads the first page',
+    () async {
+      final first = cache.refresh('w1', loader.call);
+      await cache.refreshOnUpdate('w1', loader.call);
+      await cache.refreshOnUpdate('w1', loader.call);
+      expect(loader.requests.length, 1);
+      loader.pending[0].complete(page('before save', cursor: 'old-cursor'));
+      await first;
+      expect(loader.requests.length, 2);
+      expect(loader.requests[1].cursor, isNull);
+      loader.pending[1].complete(page('after save'));
+      await Future<void>.delayed(Duration.zero);
+      expect(cache.items.single.body, 'after save');
+      expect(cache.cursor, isEmpty);
+    },
+  );
+
   test('failed first request is not a loaded empty response', () async {
     final first = cache.refresh('w1', loader.call);
     loader.pending.single.completeError(TimeoutException('timeout'));

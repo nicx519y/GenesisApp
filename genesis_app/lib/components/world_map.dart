@@ -39,6 +39,7 @@ class WorldMapTilemapOptions {
     this.recentChatLocationIds = const <String>{},
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.keepProgressiveTileMountingWhilePaused = false,
     this.locationImageFlowPaused = false,
     this.overlayOcclusionController,
     this.bottomEdgeFadeExtent = 0,
@@ -64,6 +65,7 @@ class WorldMapTilemapOptions {
   final Set<String> recentChatLocationIds;
   final Set<String> eventLocationIds;
   final bool animationsPaused;
+  final bool keepProgressiveTileMountingWhilePaused;
   final bool locationImageFlowPaused;
   final TilemapOverlayOcclusionController? overlayOcclusionController;
   final double bottomEdgeFadeExtent;
@@ -132,6 +134,8 @@ class WorldMap extends StatelessWidget {
         recentChatLocationIds: tilemap.recentChatLocationIds,
         eventLocationIds: tilemap.eventLocationIds,
         animationsPaused: tilemap.animationsPaused,
+        keepProgressiveTileMountingWhilePaused:
+            tilemap.keepProgressiveTileMountingWhilePaused,
         locationImageFlowPaused: tilemap.locationImageFlowPaused,
         overlayOcclusionController: tilemap.overlayOcclusionController,
         bottomEdgeFadeExtent: tilemap.bottomEdgeFadeExtent,
@@ -162,6 +166,8 @@ class WorldMap extends StatelessWidget {
         recentChatLocationIds: tilemap.recentChatLocationIds,
         eventLocationIds: tilemap.eventLocationIds,
         animationsPaused: tilemap.animationsPaused,
+        keepProgressiveTileMountingWhilePaused:
+            tilemap.keepProgressiveTileMountingWhilePaused,
         locationImageFlowPaused: tilemap.locationImageFlowPaused,
         overlayOcclusionController: tilemap.overlayOcclusionController,
         bottomEdgeFadeExtent: tilemap.bottomEdgeFadeExtent,

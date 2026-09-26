@@ -128,6 +128,48 @@ void main() {
     expect(_mountedTileKeys(tester).length, greaterThan(pausedCount));
   });
 
+  testWidgets('progressive tiles keep mounting while animations are paused', (
+    tester,
+  ) async {
+    final sheetRaised = ValueNotifier<bool>(false);
+    addTearDown(sheetRaised.dispose);
+    final config = _denseConfig(id: 'sheet-raised', offset: 0);
+
+    await tester.pumpWidget(
+      ValueListenableBuilder<bool>(
+        valueListenable: sheetRaised,
+        builder: (context, raised, _) => TickerMode(
+          enabled: !raised,
+          child: _rendererHarness(
+            config: config,
+            animationsPaused: raised,
+            keepProgressiveTileMountingWhilePaused: raised,
+          ),
+        ),
+      ),
+    );
+    expect(_mountedTileKeys(tester), hasLength(1));
+
+    sheetRaised.value = true;
+    await tester.pump();
+    expect(_mountedTileKeys(tester), hasLength(1));
+
+    final tileImage = await _createImage();
+    pendingImages.values.single.complete(tileImage);
+    for (var frame = 0; frame < 8; frame += 1) {
+      await tester.pump();
+      if (_mountedTileKeys(tester).length > 1) break;
+    }
+
+    expect(_mountedTileKeys(tester).length, greaterThan(1));
+    expect(
+      tester
+          .widget<TilemapRenderer>(find.byType(TilemapRenderer))
+          .animationsPaused,
+      isTrue,
+    );
+  });
+
   testWidgets('starts at most two new tile assets in each mount frame', (
     tester,
   ) async {
@@ -396,6 +438,7 @@ Widget _rendererHarness({
   required TilemapConfig config,
   VoidCallback? onViewportReady,
   bool animationsPaused = false,
+  bool keepProgressiveTileMountingWhilePaused = false,
   bool locationImageFlowPaused = false,
   bool isForeground = true,
   String preferredFocusLocationId = '',
@@ -422,6 +465,8 @@ Widget _rendererHarness({
             blendFogWithShadowTiles: false,
             onViewportReady: onViewportReady,
             animationsPaused: animationsPaused,
+            keepProgressiveTileMountingWhilePaused:
+                keepProgressiveTileMountingWhilePaused,
             locationImageFlowPaused: locationImageFlowPaused,
             isForeground: isForeground,
             preferredFocusLocationId: preferredFocusLocationId,

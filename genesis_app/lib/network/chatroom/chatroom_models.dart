@@ -2197,6 +2197,47 @@ class ChatroomWorldNotification extends ChatroomEvent {
   }
 }
 
+/// A world-scoped hint that the owner can reload the saved recent summaries.
+/// It has no chat message ID and never enters a location timeline.
+class ChatroomWorldSummaryUpdated extends ChatroomEvent {
+  const ChatroomWorldSummaryUpdated({
+    required this.worldId,
+    required this.userId,
+    required this.generation,
+    required this.tickNo,
+    required this.ts,
+  });
+
+  final String worldId;
+  final String userId;
+  final int generation;
+  final int tickNo;
+  final DateTime? ts;
+
+  factory ChatroomWorldSummaryUpdated.fromV2Message(ChatroomV2Message message) {
+    final generation = message.payload['generation'];
+    final tickNo = message.payload['tick_no'];
+    if (message.worldId.trim().isEmpty ||
+        message.userId.trim().isEmpty ||
+        message.errNo != 0 ||
+        generation is! int ||
+        generation < 0 ||
+        tickNo is! int ||
+        tickNo < 0) {
+      throw const ChatroomProtocolException(
+        'Invalid world_summary_updated notification',
+      );
+    }
+    return ChatroomWorldSummaryUpdated(
+      worldId: message.worldId,
+      userId: message.userId,
+      generation: generation,
+      tickNo: tickNo,
+      ts: asDateTime(message.ts),
+    );
+  }
+}
+
 class ChatroomStoryEventsMessage extends ChatroomMessageEvent {
   const ChatroomStoryEventsMessage({
     required super.sessionId,
@@ -2502,6 +2543,7 @@ class ChatroomMessageHandlers {
     this.onLlmCardGenerationEnd,
     this.onConversationRangeUpdated,
     this.onWorldNotification,
+    this.onWorldSummaryUpdated,
     this.onStoryEventsMessage,
     this.onCharactersMovedMessage,
     this.onUserEnterLocationMessage,
@@ -2531,6 +2573,7 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomEndConversationRound event)?
   onEndConversationRound;
   final void Function(ChatroomWorldNotification event)? onWorldNotification;
+  final void Function(ChatroomWorldSummaryUpdated event)? onWorldSummaryUpdated;
   final void Function(ChatroomStoryEventsMessage event)? onStoryEventsMessage;
   final void Function(ChatroomCharactersMovedMessage event)?
   onCharactersMovedMessage;
@@ -2572,6 +2615,8 @@ class ChatroomMessageHandlers {
         onEndConversationRound?.call(e);
       case ChatroomWorldNotification e:
         onWorldNotification?.call(e);
+      case ChatroomWorldSummaryUpdated e:
+        onWorldSummaryUpdated?.call(e);
       case ChatroomStoryEventsMessage e:
         onStoryEventsMessage?.call(e);
       case ChatroomCharactersMovedMessage e:
@@ -2652,9 +2697,10 @@ ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
     return ChatroomLlmCardGenerationEnd.fromV2Message(message);
   }
   if ((message.type == 'llm_message_updated' ||
-          message.type == 'conversation_range_updated') &&
+          message.type == 'conversation_range_updated' ||
+          message.type == 'world_summary_updated') &&
       message.streamType.isNotEmpty) {
-    throw const ChatroomProtocolException('Mutation events cannot be streamed');
+    throw const ChatroomProtocolException('Control events cannot be streamed');
   }
   switch (message.streamType) {
     case 'llm_stream_start':
@@ -2674,6 +2720,8 @@ ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
   }
 
   switch (message.type) {
+    case 'world_summary_updated':
+      return ChatroomWorldSummaryUpdated.fromV2Message(message);
     case 'llm_message_updated':
       return ChatroomLlmMessageUpdated.fromV2Message(message);
     case 'conversation_range_updated':
@@ -2754,6 +2802,8 @@ String chatroomEventType(ChatroomEvent event) {
       return 'end_conversation_round';
     case ChatroomWorldNotification e:
       return e.eventType;
+    case ChatroomWorldSummaryUpdated():
+      return 'world_summary_updated';
     case ChatroomStoryEventsMessage():
       return 'story_events';
     case ChatroomCharactersMovedMessage():

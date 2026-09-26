@@ -1012,6 +1012,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 centerContentInitially: true,
                 showVisualModeToggle: true,
                 animationsPaused: detailSheetRaised,
+                keepProgressiveTileMountingWhilePaused: detailSheetRaised,
                 locationImageFlowPaused: detailSheetRaised,
                 visualModeToggleTop:
                     topPadding + 8 + genesisSearchFieldHeight + 8,
