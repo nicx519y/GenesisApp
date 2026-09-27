@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../app/config/genesis_image_config.dart';
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
@@ -84,6 +85,7 @@ class WorldLocationList extends StatefulWidget {
     this.nodeFooterBuilder,
     this.header,
     this.footer,
+    this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final List<WorldPoint> points;
@@ -100,6 +102,7 @@ class WorldLocationList extends StatefulWidget {
   final WorldLocationNodeFooterBuilder? nodeFooterBuilder;
   final Widget? header;
   final Widget? footer;
+  final double maxDevicePixelRatio;
 
   @override
   State<WorldLocationList> createState() => _WorldLocationListState();
@@ -287,6 +290,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
             points[index],
             widget.recentChatLocationIds,
           ),
+          maxDevicePixelRatio: widget.maxDevicePixelRatio,
           onTap: widget.onPointTap,
         ),
         if (index < points.length - 1) const Divider(height: 1),
@@ -336,6 +340,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
             ),
             level: level,
             indent: level * 15.0,
+            maxDevicePixelRatio: widget.maxDevicePixelRatio,
             onTap: widget.onPointTap,
           ),
         );
@@ -422,6 +427,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
               row.point,
               widget.recentChatLocationIds,
             ),
+            maxDevicePixelRatio: widget.maxDevicePixelRatio,
             onTap: widget.onPointTap,
           ),
           if (row.showDivider) const Divider(height: 1),
@@ -462,6 +468,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
         ),
         level: row.level,
         indent: row.level * 15.0,
+        maxDevicePixelRatio: widget.maxDevicePixelRatio,
         onTap: widget.onPointTap,
       );
     }
@@ -604,12 +611,14 @@ class _PointListItem extends StatelessWidget {
     required this.point,
     required this.level,
     required this.showRecentChatIcon,
+    required this.maxDevicePixelRatio,
     required this.onTap,
   });
 
   final WorldPoint point;
   final int level;
   final bool showRecentChatIcon;
+  final double maxDevicePixelRatio;
   final ValueChanged<WorldPoint>? onTap;
 
   @override
@@ -623,7 +632,10 @@ class _PointListItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PointListCover(point: point),
+            _PointListCover(
+              point: point,
+              maxDevicePixelRatio: maxDevicePixelRatio,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -737,6 +749,7 @@ class _LocationCard extends StatelessWidget {
     required this.showRecentChatIcon,
     required this.level,
     required this.indent,
+    required this.maxDevicePixelRatio,
     required this.onTap,
   });
 
@@ -745,6 +758,7 @@ class _LocationCard extends StatelessWidget {
   final bool showRecentChatIcon;
   final int level;
   final double indent;
+  final double maxDevicePixelRatio;
   final ValueChanged<WorldPoint>? onTap;
 
   @override
@@ -758,7 +772,10 @@ class _LocationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _LocationCardCover(point: point),
+            _LocationCardCover(
+              point: point,
+              maxDevicePixelRatio: maxDevicePixelRatio,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -989,39 +1006,57 @@ class _PointSummaryRow extends StatelessWidget {
 }
 
 class _PointListCover extends StatelessWidget {
-  const _PointListCover({required this.point});
+  const _PointListCover({
+    required this.point,
+    required this.maxDevicePixelRatio,
+  });
 
   final WorldPoint point;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: worldLocationCoverLogicalSize,
       height: worldLocationCoverLogicalSize,
-      child: _LocationCoverImage(point: point),
+      child: _LocationCoverImage(
+        point: point,
+        maxDevicePixelRatio: maxDevicePixelRatio,
+      ),
     );
   }
 }
 
 class _LocationCardCover extends StatelessWidget {
-  const _LocationCardCover({required this.point});
+  const _LocationCardCover({
+    required this.point,
+    required this.maxDevicePixelRatio,
+  });
 
   final WorldPoint point;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: worldLocationCoverLogicalSize,
       height: worldLocationCoverLogicalSize,
-      child: _LocationCoverImage(point: point),
+      child: _LocationCoverImage(
+        point: point,
+        maxDevicePixelRatio: maxDevicePixelRatio,
+      ),
     );
   }
 }
 
 class _LocationCoverImage extends StatelessWidget {
-  const _LocationCoverImage({required this.point});
+  const _LocationCoverImage({
+    required this.point,
+    required this.maxDevicePixelRatio,
+  });
 
   final WorldPoint point;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1055,6 +1090,7 @@ class _LocationCoverImage extends StatelessWidget {
           rawUrl,
           logicalWidth: logicalWidth,
           devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          maxDevicePixelRatio: maxDevicePixelRatio,
         );
         final imageUrl = rawUrl.isEmpty
             ? _locationDefaultImageAsset
@@ -1065,6 +1101,7 @@ class _LocationCoverImage extends StatelessWidget {
           width: logicalWidth,
           height: logicalHeight,
           placeholderAsset: _locationDefaultImageAsset,
+          maxDevicePixelRatio: maxDevicePixelRatio,
           placeholder: dark
               ? const ColoredBox(color: GenesisColors.darkFaintFill)
               : null,

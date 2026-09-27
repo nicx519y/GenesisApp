@@ -61,6 +61,10 @@ class AppEndpointOverrideStore {
   static Future<AppConfig> loadConfig({
     AppConfig baseConfig = const AppConfig(),
   }) async {
+    // A QA build pins all API endpoints to the reviewed Case domain.
+    if (const String.fromEnvironment('GENESIS_QA_API_BASE_URL').isNotEmpty) {
+      return baseConfig;
+    }
     final overrides = await load();
     return overrides.applyTo(baseConfig);
   }

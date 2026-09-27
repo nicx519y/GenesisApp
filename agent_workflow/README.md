@@ -1,5 +1,9 @@
 # GenesisApp Agent 工作流
 
+> **Legacy / 已废弃：** 新的长期 Case 库、脚本生成、版本比较和手动执行入口已经迁移到
+> 同级独立仓库 `/Users/ionix/Works/GenesisAppAutomationTest/`。本目录仅保留历史工作流和兼容脚本；不要再向
+> `agent_workflow/module_cases/` 双写 Case。迁移后的 YAML Case 是唯一维护源。
+
 这个目录是一套项目内的 agent 工作流，用来把需求转成代码改动，并完成模拟器或真机 UI 校验。
 
 这套工作流刻意拆成两层：

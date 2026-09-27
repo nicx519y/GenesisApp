@@ -471,3 +471,21 @@ dart tools/agent_cli/genesisctl.dart app ping
 ```
 
 正常开发只需要用 `./tools/agent_cli/run` 和 `./tools/agent_cli/ctl`。
+
+## Worldo Creator Desktop 代理
+
+内部 production bridge build 还会复用同一个本地服务，向 Worldo Creator
+Electron 客户端提供一组严格白名单接口：
+
+- `worldo.capabilities`：协议版本、App 版本、API 环境和能力列表
+- `auth.profile`：只返回 uid、昵称、头像和登录状态；不返回 token
+- `worldo.list`：固定使用 `scene=mine`
+- `worldo.for_edit`：读取 `/api/v2/origin/foredit`
+- `worldo.info`：读取异步处理状态
+- `worldo.create`：复用 `GenesisApi.createOriginV2`
+- `worldo.update`：复用 `GenesisApi.updateOriginV2`
+- `POST /worldo/assets`：上传单张 PNG、JPEG 或 WebP，最大 25 MB
+
+这些接口仍然只监听真机 `127.0.0.1`，必须携带随机 control token，并通过
+`adb forward` 连接。它们不提供任意 HTTP、任意文件读取、bearer token 或
+Gateway 私钥导出能力。Create/Update 的重试策略由桌面端控制；代理自身不会重试。

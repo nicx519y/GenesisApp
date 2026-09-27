@@ -22,11 +22,16 @@ class AgentControlServer {
   bool _tokenConfigured = false;
   AppServices? _services;
   final List<String> _recentEvents = <String>[];
+  Future<void> _lifecycle = Future<void>.value();
 
   bool get isRunning => _server != null;
 
-  Future<void> start(AppServices services) async {
-    await stop(updateStatus: false);
+  Future<void> start(AppServices services) {
+    return _scheduleLifecycle(() => _startNow(services));
+  }
+
+  Future<void> _startNow(AppServices services) async {
+    await _stopNow(updateStatus: false);
     _services = services;
     final config = services.config;
     if (!config.agentControlEnabled) {
@@ -41,7 +46,11 @@ class AgentControlServer {
         ? config.agentControlToken.trim()
         : _generateToken();
     try {
-      _server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+      _server = await HttpServer.bind(
+        InternetAddress.loopbackIPv4,
+        port,
+        shared: true,
+      );
       _publishStatus(running: true, port: port);
       unawaited(_serve(_server!));
       _addEvent('listening $_host:$port');
@@ -53,7 +62,13 @@ class AgentControlServer {
     }
   }
 
-  Future<void> stop({bool updateStatus = true, bool force = false}) async {
+  Future<void> stop({bool updateStatus = true, bool force = false}) {
+    return _scheduleLifecycle(
+      () => _stopNow(updateStatus: updateStatus, force: force),
+    );
+  }
+
+  Future<void> _stopNow({bool updateStatus = true, bool force = false}) async {
     final server = _server;
     _server = null;
     if (server != null) {
@@ -62,6 +77,15 @@ class AgentControlServer {
     if (updateStatus) {
       agentControlStatus.value = const AgentControlStatus.disabled();
     }
+  }
+
+  Future<void> _scheduleLifecycle(Future<void> Function() operation) {
+    final scheduled = _lifecycle.then((_) => operation());
+    _lifecycle = scheduled.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return scheduled;
   }
 
   Future<void> _serve(HttpServer server) async {
@@ -87,6 +111,10 @@ class AgentControlServer {
           'ok': true,
           'status': agentControlStatus.value.label,
         });
+        return;
+      }
+      if (request.uri.path == '/worldo/assets') {
+        await _handleWorldoAsset(request);
         return;
       }
       if (request.uri.path != '/rpc') {
@@ -137,6 +165,67 @@ class AgentControlServer {
         'error': {'code': 'bad_request', 'message': error.toString()},
       }, statusCode: HttpStatus.badRequest);
     }
+  }
+
+  Future<void> _handleWorldoAsset(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _writeJson(request.response, {
+        'ok': false,
+        'error': 'method_not_allowed',
+      }, statusCode: HttpStatus.methodNotAllowed);
+      return;
+    }
+    if (!_isAuthorized(request)) {
+      await _writeJson(request.response, {
+        'ok': false,
+        'error': 'unauthorized',
+      }, statusCode: HttpStatus.unauthorized);
+      return;
+    }
+    final services = _services;
+    if (services == null) {
+      throw const AgentControlException(
+        code: 'services_unavailable',
+        message: 'App services are not available.',
+      );
+    }
+    final contentType =
+        request.headers.contentType?.mimeType.toLowerCase() ?? '';
+    if (!_worldoAssetContentTypes.contains(contentType)) {
+      throw const AgentControlException(
+        code: 'unsupported_media_type',
+        message: 'Only PNG, JPEG, and WebP images are allowed.',
+      );
+    }
+    if (request.contentLength > _maxWorldoAssetBytes) {
+      throw const AgentControlException(
+        code: 'asset_too_large',
+        message: 'Image exceeds the 25 MB upload limit.',
+      );
+    }
+    final bytes = <int>[];
+    await for (final chunk in request) {
+      if (bytes.length + chunk.length > _maxWorldoAssetBytes) {
+        throw const AgentControlException(
+          code: 'asset_too_large',
+          message: 'Image exceeds the 25 MB upload limit.',
+        );
+      }
+      bytes.addAll(chunk);
+    }
+    final validation = validateWorldoAssetForTesting(bytes, contentType);
+    if (validation != null) {
+      throw AgentControlException(code: 'invalid_asset', message: validation);
+    }
+    final requestedName = request.headers.value('x-worldo-filename') ?? '';
+    final filename = _safeWorldoAssetFilename(requestedName, contentType);
+    final uploaded = await services.api.v1.upload.image(
+      bytes: bytes,
+      filename: filename,
+      contentType: contentType,
+    );
+    _addEvent('worldo.assets ok');
+    await _writeJson(request.response, {'ok': true, 'result': uploaded});
   }
 
   bool _isAuthorized(HttpRequest request) {
@@ -203,4 +292,57 @@ String? _previewToken(String? token) {
   if (value.isEmpty) return null;
   if (value.length <= 8) return '****';
   return '${value.substring(0, 4)}...${value.substring(value.length - 4)}';
+}
+
+const int _maxWorldoAssetBytes = 25 * 1024 * 1024;
+const Set<String> _worldoAssetContentTypes = {
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+};
+
+@visibleForTesting
+String? validateWorldoAssetForTesting(List<int> bytes, String contentType) {
+  if (bytes.isEmpty) return 'Image body is empty.';
+  final isPng =
+      bytes.length >= 8 &&
+      bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4e &&
+      bytes[3] == 0x47 &&
+      bytes[4] == 0x0d &&
+      bytes[5] == 0x0a &&
+      bytes[6] == 0x1a &&
+      bytes[7] == 0x0a;
+  final isJpeg =
+      bytes.length >= 3 &&
+      bytes[0] == 0xff &&
+      bytes[1] == 0xd8 &&
+      bytes[2] == 0xff;
+  final isWebp =
+      bytes.length >= 12 &&
+      ascii.decode(bytes.sublist(0, 4), allowInvalid: true) == 'RIFF' &&
+      ascii.decode(bytes.sublist(8, 12), allowInvalid: true) == 'WEBP';
+  final valid = switch (contentType) {
+    'image/png' => isPng,
+    'image/jpeg' => isJpeg,
+    'image/webp' => isWebp,
+    _ => false,
+  };
+  return valid ? null : 'Image bytes do not match the declared content type.';
+}
+
+String _safeWorldoAssetFilename(String input, String contentType) {
+  final basename = input
+      .trim()
+      .split(RegExp(r'[/\\]'))
+      .last
+      .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  final stem = basename.replaceFirst(RegExp(r'\.[^.]*$'), '').trim();
+  final extension = switch (contentType) {
+    'image/png' => '.png',
+    'image/webp' => '.webp',
+    _ => '.jpg',
+  };
+  return '${stem.isEmpty ? 'worldo-asset' : stem}$extension';
 }

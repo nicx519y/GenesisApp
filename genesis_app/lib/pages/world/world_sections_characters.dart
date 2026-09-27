@@ -152,6 +152,7 @@ class WorldCharacterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final name = worldMapString(character, const [
       'name',
     ], fallback: 'Character');
@@ -195,6 +196,7 @@ class WorldCharacterRow extends StatelessWidget {
                   width: 2,
                 ),
           showFallbackWhileLoading: false,
+          maxDevicePixelRatio: devicePixelRatio,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -329,10 +331,12 @@ String worldResizedCharacterAvatarUrl(
   Map<String, dynamic> character,
 ) {
   final rawUrl = worldMapString(character, const ['avatar']).trim();
+  final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
   final resizedUrl = resizeGenesisImageUrl(
     rawUrl,
     logicalWidth: worldCharacterAvatarLogicalSize,
-    devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    devicePixelRatio: devicePixelRatio,
+    maxDevicePixelRatio: devicePixelRatio,
   );
   return resizedUrl.isNotEmpty ? resizedUrl : rawUrl;
 }

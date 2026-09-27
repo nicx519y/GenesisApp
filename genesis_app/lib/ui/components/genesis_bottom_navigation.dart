@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../app/qa/qa_ids.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_unread_badge.dart';
 import '../tokens/genesis_spacing.dart';
@@ -11,6 +12,7 @@ import '../theme/genesis_ui_theme.dart';
 class GenesisBottomNavigationItem {
   const GenesisBottomNavigationItem({
     required this.label,
+    this.qaId,
     this.icon,
     this.iconAsset,
     this.selectedIconAsset,
@@ -23,6 +25,7 @@ class GenesisBottomNavigationItem {
   }) : assert(icon != null || iconAsset != null);
 
   final String label;
+  final String? qaId;
   final IconData? icon;
   final String? iconAsset;
   final String? selectedIconAsset;
@@ -132,6 +135,7 @@ class GenesisBottomNavigationTile extends StatelessWidget {
             : null,
         child: Semantics(
           key: ValueKey<String>('bottom-nav-${item.label}'),
+          identifier: item.qaId ?? QaIds.bottomNavigation(item.label),
           button: true,
           enabled: item.enabled,
           selected: selected,

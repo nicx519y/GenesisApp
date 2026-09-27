@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/agent_control/agent_control_models.dart';
 import 'package:genesis_flutter_android/app/agent_control/agent_control_registry.dart';
+import 'package:genesis_flutter_android/app/agent_control/agent_control_server.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -84,6 +85,90 @@ void main() {
     expect(response.ok, true);
     expect(await sessionStore.readUid(), isNull);
     expect(await sessionStore.readAuthToken(), isNull);
+  });
+
+  test('auth profile exposes only allowlisted account fields', () async {
+    await sessionStore.saveUid('user-123456');
+    await sessionStore.saveAuthToken('secret-bearer-token');
+    await sessionStore.saveUserInfo({
+      'nickname': 'Worldo Builder',
+      'avatar_url': 'https://cdn.example/avatar.png',
+      'auth_token': 'must-not-leak',
+    });
+
+    final response = await registry.execute(
+      const AgentControlRequest(
+        id: 'profile',
+        method: 'auth.profile',
+        params: {},
+        timeoutMs: 1000,
+        dryRun: false,
+      ),
+      context,
+    );
+
+    expect(response.ok, true);
+    final result = response.result as Map<String, Object?>;
+    expect(result['uid'], 'user-123456');
+    expect(result['name'], 'Worldo Builder');
+    expect(result['hasAuthToken'], true);
+    expect(result.containsValue('secret-bearer-token'), false);
+    expect(result.containsValue('must-not-leak'), false);
+  });
+
+  test('worldo capabilities advertise bounded bridge methods', () async {
+    final response = await registry.execute(
+      const AgentControlRequest(
+        id: 'capabilities',
+        method: 'worldo.capabilities',
+        params: {},
+        timeoutMs: 1000,
+        dryRun: false,
+      ),
+      context,
+    );
+
+    expect(response.ok, true);
+    final result = response.result as Map<String, Object?>;
+    expect(result['protocolVersion'], 1);
+    expect(result['methods'], contains('worldo.create'));
+    expect(result['methods'], isNot(contains('http.request')));
+  });
+
+  test('worldo methods require the phone login session', () async {
+    final response = await registry.execute(
+      const AgentControlRequest(
+        id: 'mine',
+        method: 'worldo.list',
+        params: {},
+        timeoutMs: 1000,
+        dryRun: false,
+      ),
+      context,
+    );
+
+    expect(response.ok, false);
+    expect(response.error?['code'], 'login_required');
+  });
+
+  test('asset validation checks bytes against declared image type', () {
+    expect(
+      validateWorldoAssetForTesting(const [
+        0x89,
+        0x50,
+        0x4e,
+        0x47,
+        0x0d,
+        0x0a,
+        0x1a,
+        0x0a,
+      ], 'image/png'),
+      isNull,
+    );
+    expect(
+      validateWorldoAssetForTesting(const [0xff, 0xd8, 0xff], 'image/png'),
+      isNotNull,
+    );
   });
 
   test('lists world locations by wid', () async {

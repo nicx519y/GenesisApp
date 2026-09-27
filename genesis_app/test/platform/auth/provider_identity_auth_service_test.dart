@@ -36,7 +36,6 @@ void main() {
     });
     final service = ProviderIdentityAuthService(
       sessionStore: sessionStore,
-      appleSignInEnabled: true,
       appleSignIn: () async => const AppleIdentitySession(
         appleIdentityToken: 'apple-token',
         displayName: '',

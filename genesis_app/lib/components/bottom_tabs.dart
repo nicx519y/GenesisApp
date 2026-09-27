@@ -1,3 +1,4 @@
+import '../app/qa/qa_ids.dart';
 import 'package:flutter/material.dart';
 
 import '../icons/custom_icon_assets.dart';
@@ -23,16 +24,19 @@ class BottomTabs extends StatelessWidget {
       items: [
         const GenesisBottomNavigationItem(
           label: 'Home',
+          qaId: QaIds.homeTab,
           iconAsset: bottomNavHomeIconAsset,
           selectedIconAsset: bottomNavHomePressIconAsset,
         ),
         const GenesisBottomNavigationItem(
           label: 'Worldo',
+          qaId: QaIds.worldoTab,
           iconAsset: bottomNavOriginIconAsset,
           selectedIconAsset: bottomNavOriginPressIconAsset,
         ),
         const GenesisBottomNavigationItem(
           label: 'Create',
+          qaId: QaIds.createTab,
           icon: Icons.add_rounded,
           prominent: true,
           showLabel: false,
@@ -58,12 +62,14 @@ class BottomTabs extends StatelessWidget {
         ),
         GenesisBottomNavigationItem(
           label: 'Inbox',
+          qaId: QaIds.inboxTab,
           iconAsset: bottomNavInboxIconAsset,
           selectedIconAsset: bottomNavInboxPressIconAsset,
           badgeCount: messagesUnreadCount,
         ),
         const GenesisBottomNavigationItem(
           label: 'Me',
+          qaId: QaIds.meTab,
           iconAsset: bottomNavMeIconAsset,
           selectedIconAsset: bottomNavMePressIconAsset,
         ),

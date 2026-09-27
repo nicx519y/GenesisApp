@@ -16,11 +16,12 @@ class AppFlavorConfig {
   );
   static const internal = AppFlavorConfig._(
     name: 'internal',
-    supportsAppleSignIn: false,
+    supportsAppleSignIn: true,
   );
 
   static const currentIsInternal = appFlavor == 'internal';
-  static const currentSupportsAppleSignIn = appFlavor != 'internal';
+  // Both installed flavors expose the same supported login providers.
+  static const currentSupportsAppleSignIn = true;
   static const current = currentIsInternal ? internal : production;
 
   factory AppFlavorConfig.forName(String? name) {

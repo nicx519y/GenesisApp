@@ -537,6 +537,7 @@ class WorldSingleSectionBottomSheetState
         points: locationData.points,
         locationNodes: locationData.locationNodes,
         recentChatLocationIds: widget.recentChatLocationIds,
+        maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         enableOuterScrollHandoff: false,
         lazyBuildRows: true,
         // Location rows provide their own 5px top inset. Subtract it here so

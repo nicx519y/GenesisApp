@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_flavor_config.dart';
+import 'package:genesis_flutter_android/app/qa/qa_ids.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
@@ -22,12 +23,8 @@ void main() {
     );
 
     expect(find.text('Continue with Google'), findsOneWidget);
-    expect(
-      find.text('Continue with Apple'),
-      AppFlavorConfig.currentSupportsAppleSignIn
-          ? findsOneWidget
-          : findsNothing,
-    );
+    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(AppFlavorConfig.internal.supportsAppleSignIn, isTrue);
   });
 
   testWidgets('provider buttons can expose Google only', (tester) async {
@@ -107,6 +104,23 @@ void main() {
     expect(
       tester.getCenter(promoFinder).dx,
       closeTo(tester.getCenter(find.byType(LoginSheet)).dx, 0.01),
+    );
+  });
+
+  testWidgets('login controls expose stable QA semantics identifiers', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LoginSheet(onLogin: (_) async => false)),
+      ),
+    );
+
+    expect(find.bySemanticsIdentifier(QaIds.loginSheet), findsOneWidget);
+    expect(find.bySemanticsIdentifier(QaIds.loginClose), findsOneWidget);
+    expect(
+      find.bySemanticsIdentifier(QaIds.loginProvider('google')),
+      findsOneWidget,
     );
   });
 

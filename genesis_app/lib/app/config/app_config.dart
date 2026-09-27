@@ -7,20 +7,32 @@ class AppConfig {
       '${GenesisApi.defaultBaseHost}/callbacks/signinwithapple';
 
   const AppConfig({
-    this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
-    this.gatewayApiBaseUrl = GenesisApi.defaultGatewayApiBaseUrl,
+    this.apiBaseUrl = const String.fromEnvironment(
+      'GENESIS_QA_API_BASE_URL',
+      defaultValue: GenesisApi.defaultApiBaseUrl,
+    ),
+    this.gatewayApiBaseUrl = const String.fromEnvironment(
+      'GENESIS_QA_GATEWAY_API_BASE_URL',
+      defaultValue: GenesisApi.defaultGatewayApiBaseUrl,
+    ),
     this.assetBaseUrl = GenesisApi.defaultAssetBaseUrl,
     this.apiEnvironment = const String.fromEnvironment(
       'GENESIS_API_ENV',
       defaultValue: 'real',
     ),
     this.chatroomWsBaseUrl = const String.fromEnvironment(
-      'GENESIS_CHATROOM_WS_URL',
-      defaultValue: GenesisApi.defaultChatroomWsBaseUrl,
+      'GENESIS_QA_CHATROOM_WS_URL',
+      defaultValue: String.fromEnvironment(
+        'GENESIS_CHATROOM_WS_URL',
+        defaultValue: GenesisApi.defaultChatroomWsBaseUrl,
+      ),
     ),
     this.chatroomHttpBaseUrl = const String.fromEnvironment(
-      'GENESIS_CHATROOM_HTTP_URL',
-      defaultValue: GenesisApi.defaultChatroomHttpBaseUrl,
+      'GENESIS_QA_CHATROOM_HTTP_BASE_URL',
+      defaultValue: String.fromEnvironment(
+        'GENESIS_CHATROOM_HTTP_URL',
+        defaultValue: GenesisApi.defaultChatroomHttpBaseUrl,
+      ),
     ),
     this.debugProxy = const String.fromEnvironment(
       'GENESIS_DEBUG_PROXY',

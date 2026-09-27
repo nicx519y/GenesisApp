@@ -563,6 +563,7 @@ class WorldDetailCoverImage extends StatelessWidget {
 
   static const double width = 120;
   static const double height = 180;
+  static const double maxDevicePixelRatio = 2;
 
   final String url;
 
@@ -583,6 +584,7 @@ class WorldDetailCoverImage extends StatelessWidget {
       logicalWidth: width,
       logicalHeight: height,
       devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+      maxDevicePixelRatio: maxDevicePixelRatio,
     );
     final preview = Align(
       alignment: Alignment.centerLeft,
@@ -603,6 +605,7 @@ class WorldDetailCoverImage extends StatelessWidget {
               : GenesisStaticNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.cover,
+                  maxDevicePixelRatio: maxDevicePixelRatio,
                   placeholder: (_) => fallback,
                   errorWidget: (_, _) => fallback,
                 ),
@@ -616,6 +619,7 @@ class WorldDetailCoverImage extends StatelessWidget {
       onTap: () => showGenesisImageViewer(
         context,
         imageUrls: [viewerUrl],
+        maxDevicePixelRatio: maxDevicePixelRatio,
         previewImageProviders: [
           genesisImageViewerPreviewProvider(
             context,
@@ -623,6 +627,7 @@ class WorldDetailCoverImage extends StatelessWidget {
             logicalWidth: width,
             logicalHeight: height,
             fit: BoxFit.cover,
+            maxDevicePixelRatio: maxDevicePixelRatio,
           ),
         ],
       ),

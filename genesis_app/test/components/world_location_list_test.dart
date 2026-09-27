@@ -95,6 +95,33 @@ void main() {
     );
   }
 
+  testWidgets('location cover supports the full screen DPR', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 3),
+          child: const Scaffold(
+            body: WorldLocationList(
+              points: <WorldPoint>[networkPoint],
+              enableOuterScrollHandoff: false,
+              maxDevicePixelRatio: 3,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage),
+    );
+    expect(
+      image.imageUrl,
+      'https://cdn.example.com/location.png'
+      '?x-oss-process=image/resize,w_360,image/format,webp',
+    );
+    expect(image.maxDevicePixelRatio, 3);
+  });
+
   testWidgets('location cover preserves local assets', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -135,7 +162,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(devicePixelRatio: 2),
+          data: const MediaQueryData(devicePixelRatio: 3),
           child: Scaffold(
             body: WorldLocationList(
               points: <WorldPoint>[
@@ -164,7 +191,7 @@ void main() {
     expect(memoryImage, findsOneWidget);
     final image = tester.widget<Image>(memoryImage);
     expect(image.image, isA<ResizeImage>());
-    expect((image.image as ResizeImage).width, 128);
+    expect((image.image as ResizeImage).width, 192);
     expect(find.byType(GenesisStaticNetworkImage), findsNothing);
   });
 

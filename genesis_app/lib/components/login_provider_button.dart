@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/tokens/genesis_colors.dart';
 import '../app/config/app_flavor_config.dart';
+import '../app/qa/qa_ids.dart';
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../routers/app_router.dart';
@@ -193,57 +194,60 @@ class LoginProviderButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: FilledButton(
-        onPressed: isLoading ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: backgroundColor,
-          disabledBackgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
-          disabledForegroundColor: dark
-              ? GenesisColors.darkTextTertiary
-              : foregroundColor.withValues(alpha: 0.55),
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 22),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
+      child: Semantics(
+        identifier: provider == IdentityProvider.apple ? QaIds.appleLogin : QaIds.googleLogin,
+        child: FilledButton(
+          onPressed: isLoading ? null : onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: backgroundColor,
+            disabledBackgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
+            disabledForegroundColor: dark
+                ? GenesisColors.darkTextTertiary
+                : foregroundColor.withValues(alpha: 0.55),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(borderRadius),
+            ),
+            alignment: Alignment.center,
           ),
-          alignment: Alignment.center,
-        ),
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox.square(
-                  dimension: _loginProviderIconSlotSize,
-                  child: Center(
-                    child: isLoading
-                        ? SizedBox.square(
-                            dimension: _loginProviderSpinnerSize,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: dark
-                                  ? GenesisColors.darkTextSecondary
-                                  : foregroundColor.withValues(alpha: 0.75),
-                            ),
-                          )
-                        : LoginProviderIcon(provider: provider),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: _loginProviderIconSlotSize,
+                    child: Center(
+                      child: isLoading
+                          ? SizedBox.square(
+                              dimension: _loginProviderSpinnerSize,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: dark
+                                    ? GenesisColors.darkTextSecondary
+                                    : foregroundColor.withValues(alpha: 0.75),
+                              ),
+                            )
+                          : LoginProviderIcon(provider: provider),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  label,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    height: 1.1,
-                    color: foregroundColor,
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      height: 1.1,
+                      color: foregroundColor,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

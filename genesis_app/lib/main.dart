@@ -1,3 +1,4 @@
+import 'app/qa/qa_bridge.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -107,6 +108,7 @@ Future<void> main() async {
     }),
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
+  await QaBridge.beforeStartup(services.sessionStore);
   final startupUidResolution = _resolveStartupUid(services.sessionStore);
   final initialLandingPageFuture = resolveInitialLandingPage(
     uidReadAlreadyBounded: true,
@@ -146,6 +148,10 @@ Future<void> main() async {
   runApp(
     GenesisApp(services: services, initialIndex: initialLandingPage.index),
   );
+  if (QaBridge.current != null) {
+    await WidgetsBinding.instance.endOfFrame;
+    QaBridge.current!.started = true;
+  }
 }
 
 Future<StartupUidResolution> _resolveStartupUid(UserSessionStore sessionStore) {

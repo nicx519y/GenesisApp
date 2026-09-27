@@ -8,6 +8,7 @@ import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_http_cache_manager.dart';
+import '../../network/json_utils.dart';
 import '../../network/models/world.dart';
 import '../../pages/world/world_navigation.dart';
 import '../../platform/app/app_metadata_service.dart';
@@ -27,6 +28,7 @@ part 'agent_control_world_chat_jobs.dart';
 part 'agent_control_navigation.dart';
 part 'agent_control_reply.dart';
 part 'agent_control_params.dart';
+part 'agent_control_worldo.dart';
 
 typedef AgentControlHandler =
     FutureOr<Object?> Function(
@@ -134,6 +136,13 @@ final Map<String, AgentControlHandler> _defaultHandlers = {
   'app.back': _back,
   'auth.state': _authState,
   'auth.clear': _authClear,
+  'auth.profile': _authProfile,
+  'worldo.capabilities': _worldoCapabilities,
+  'worldo.list': _worldoList,
+  'worldo.for_edit': _worldoForEdit,
+  'worldo.info': _worldoInfo,
+  'worldo.create': _worldoCreate,
+  'worldo.update': _worldoUpdate,
   'world.locations': _worldLocations,
   'agent.world_chat': _agentWorldChat,
   'agent.world_chat.open': _agentWorldChatOpen,

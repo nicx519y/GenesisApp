@@ -6,6 +6,7 @@ import 'common/genesis_center_toast.dart';
 import 'common/genesis_modal_routes.dart';
 import 'login_provider_button.dart';
 import 'gems/pro_membership_badge.dart';
+import '../app/qa/qa_ids.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
@@ -93,53 +94,60 @@ class _LoginSheetState extends State<LoginSheet> {
             value: const SystemUiOverlayStyle(
               systemNavigationBarIconBrightness: Brightness.light,
             ),
-            child: GenesisBottomSheetPanel(
-              title: widget.linkPurchasedMembership
-                  ? 'Sign up to claim Premium'
-                  : 'Sign up to continue',
-              height: targetHeight,
-              header: widget.linkPurchasedMembership
-                  ? const GenesisActionSheetHeader(
-                      title: 'Sign up to claim Premium',
-                      leading: ProMembershipBadge.beside(fontSize: 18),
-                    )
-                  : null,
-              trailing: widget.isDismissible
-                  ? GenesisDarkCloseButton(
-                      onPressed: _submittingProvider != null
-                          ? null
-                          : () {
-                              GenesisTelemetry.event(
-                                'login_cancel',
-                                category: 'auth',
-                                data: const <String, Object?>{
-                                  'source': 'close_button',
+            child: Semantics(
+              identifier: QaIds.loginSheet,
+              container: true,
+              child: GenesisBottomSheetPanel(
+                title: widget.linkPurchasedMembership
+                    ? 'Sign up to claim Premium'
+                    : 'Sign up to continue',
+                height: targetHeight,
+                header: widget.linkPurchasedMembership
+                    ? const GenesisActionSheetHeader(
+                        title: 'Sign up to claim Premium',
+                        leading: ProMembershipBadge.beside(fontSize: 18),
+                      )
+                    : null,
+                trailing: widget.isDismissible
+                    ? Semantics(
+                        identifier: QaIds.loginClose,
+                        child: GenesisDarkCloseButton(
+                          onPressed: _submittingProvider != null
+                              ? null
+                              : () {
+                                  GenesisTelemetry.event(
+                                    'login_cancel',
+                                    category: 'auth',
+                                    data: const <String, Object?>{
+                                      'source': 'close_button',
+                                    },
+                                  );
+                                  Navigator.of(context).pop(false);
                                 },
-                              );
-                              Navigator.of(context).pop(false);
-                            },
-                    )
-                  : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!widget.linkPurchasedMembership) ...[
-                    const LoginSignupRewardText(),
-                    const SizedBox(height: 12),
-                  ],
-                  LoginProviderButtons(
-                    loggingInProvider: _submittingProvider,
-                    onLogin: _submit,
-                    spacing: 12,
-                  ),
-                  const SizedBox(height: 14),
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 22),
-                      child: LoginLegalText(),
+                        ),
+                      )
+                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!widget.linkPurchasedMembership) ...[
+                      const LoginSignupRewardText(),
+                      const SizedBox(height: 12),
+                    ],
+                    LoginProviderButtons(
+                      loggingInProvider: _submittingProvider,
+                      onLogin: _submit,
+                      spacing: 12,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 22),
+                        child: LoginLegalText(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

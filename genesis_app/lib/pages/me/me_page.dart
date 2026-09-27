@@ -1,3 +1,4 @@
+import '../../app/qa/qa_ids.dart';
 import '../../components/gems/pro_membership_badge.dart';
 import 'dart:async';
 
@@ -233,11 +234,15 @@ class _MePageState extends State<MePage> with RouteAware {
               return const SizedBox.shrink();
             }
             if (!content.isSignedIn) {
-              return SignedOutMeView(
-                loggingInProvider: _loggingInProvider,
-                onLogin: _login,
-                reselectionListenable: widget.reselectionListenable,
-                isActiveListenable: widget.isActiveListenable,
+              return Semantics(
+                identifier: QaIds.signedOutMe,
+                container: true,
+                child: SignedOutMeView(
+                  loggingInProvider: _loggingInProvider,
+                  onLogin: _login,
+                  reselectionListenable: widget.reselectionListenable,
+                  isActiveListenable: widget.isActiveListenable,
+                ),
               );
             }
             final data = content.data!;
