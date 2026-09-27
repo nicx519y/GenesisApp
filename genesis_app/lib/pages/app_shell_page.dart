@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app/attribution/adjust_attribution_runtime.dart';
 import '../app/attribution/adjust_device_registration.dart';
+import '../app/attribution/adjust_network_recovery.dart';
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
 import '../app/startup/ios_startup_network.dart';
@@ -101,6 +102,7 @@ class _AppShellPageState extends State<AppShellPage>
   String? _lastBillingRecoveryUid;
   AppLifecycleState? _lifecycleState;
   Future<void>? _adjustInitializationAttempt;
+  AdjustNetworkRecoveryTrigger? _adjustNetworkRecovery;
 
   @override
   void initState() {
@@ -137,6 +139,14 @@ class _AppShellPageState extends State<AppShellPage>
       AppStartupCoordinator.recordLaunchRouteReady();
       AppStartupCoordinator.recordLaunchPage();
       _startAppRuntime();
+      _adjustNetworkRecovery =
+          AdjustNetworkRecoveryTrigger(
+            availability: NetworkAvailabilityEvents.changes,
+            recover: _recoverAdjustAfterNetworkRestored,
+          )..setForeground(
+            _lifecycleState == null ||
+                _lifecycleState == AppLifecycleState.resumed,
+          );
       _scheduleStartupAdidCheck();
       _startPostLaunchWorkIfAllowed();
       _startInitialBillingRecoveryIfReady();
@@ -155,6 +165,10 @@ class _AppShellPageState extends State<AppShellPage>
   void dispose() {
     _attDelayTimer?.cancel();
     _startupAdidCheckTimer?.cancel();
+    final adjustNetworkRecovery = _adjustNetworkRecovery;
+    if (adjustNetworkRecovery != null) {
+      unawaited(adjustNetworkRecovery.dispose());
+    }
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     _pendingLoginCheckInUid?.removeListener(_schedulePendingDailyCheckIn);
     _personalizationBlocker?.removeListener(_schedulePendingDailyCheckIn);
@@ -183,6 +197,7 @@ class _AppShellPageState extends State<AppShellPage>
     final previousState = _lifecycleState;
     final isFirstObservedResume = !_hasSeenResumed;
     _lifecycleState = state;
+    _adjustNetworkRecovery?.setForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
       _startDeferredAdjustInitialization();
       _runStartupAdidCheckIfDue();
@@ -232,11 +247,16 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _startDeferredAdjustInitialization() {
+    unawaited(_ensureDeferredAdjustInitialization());
+  }
+
+  Future<void> _ensureDeferredAdjustInitialization() {
+    final current = _adjustInitializationAttempt;
+    if (current != null) return current;
     if (!mounted ||
         AdjustAttributionRuntime.hasSuccessfulSession ||
-        AdjustAttributionRuntime.hasAttemptedInitialization ||
-        _adjustInitializationAttempt != null) {
-      return;
+        AdjustAttributionRuntime.hasAttemptedInitialization) {
+      return Future<void>.value();
     }
     late final Future<void> attempt;
     attempt = _initializeAdjustAfterNetwork().whenComplete(() {
@@ -245,7 +265,20 @@ class _AppShellPageState extends State<AppShellPage>
       }
     });
     _adjustInitializationAttempt = attempt;
-    unawaited(attempt);
+    return attempt;
+  }
+
+  Future<void> _recoverAdjustAfterNetworkRestored() async {
+    if (!mounted) return;
+    if (!AdjustAttributionRuntime.hasAttemptedInitialization) {
+      await _ensureDeferredAdjustInitialization();
+      return;
+    }
+    if (!mounted || !AdjustAttributionRuntime.isInitialized) return;
+    final registration = AppServicesScope.read(
+      context,
+    ).adjustDeviceRegistration;
+    if (registration != null) await registration.retryAfterNetworkRestored();
   }
 
   Future<void> _initializeAdjustAfterNetwork() async {
@@ -276,7 +309,7 @@ class _AppShellPageState extends State<AppShellPage>
                 AdjustDeviceRegistrationResult.registered &&
             registration.lastResult !=
                 AdjustDeviceRegistrationResult.alreadyRegistered) {
-          await registration.register();
+          await registration.retryAfterNetworkRestored();
         }
       }
     } catch (error) {

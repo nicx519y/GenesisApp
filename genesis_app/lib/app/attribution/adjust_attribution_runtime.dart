@@ -7,6 +7,8 @@ import 'package:adjust_sdk/adjust_session_failure.dart';
 import 'package:adjust_sdk/adjust_session_success.dart';
 import 'package:flutter/foundation.dart';
 
+import '../config/app_config.dart';
+
 typedef AdjustSdkInitializer = void Function(AdjustConfig config);
 typedef AdjustIdfvGetter = Future<String?> Function();
 typedef AdjustSessionListener = void Function(String? adid);
@@ -22,6 +24,7 @@ class AdjustAttributionRuntime {
   static bool _initialized = false;
   static bool _initializing = false;
   static bool _initializationAttempted = false;
+  static AdjustEnvironment? _selectedEnvironment;
   static bool _hasSuccessfulSession = false;
   static final Set<AdjustSessionListener> _sessionListeners =
       <AdjustSessionListener>{};
@@ -33,6 +36,37 @@ class AdjustAttributionRuntime {
   static bool get isInitialized => _initialized;
   static bool get hasAttemptedInitialization => _initializationAttempted;
   static bool get hasSuccessfulSession => _hasSuccessfulSession;
+  static AdjustEnvironment get environment =>
+      _selectedEnvironment ??
+      (kReleaseMode ? AdjustEnvironment.production : AdjustEnvironment.sandbox);
+
+  /// Resolve the SDK environment from the actual API endpoint used at launch.
+  static AdjustEnvironment resolveEnvironment({
+    required AppConfig config,
+    bool releaseMode = kReleaseMode,
+  }) {
+    final apiUri = Uri.tryParse(config.apiBaseUrl.trim());
+    return releaseMode &&
+            config.useMock != true &&
+            apiUri?.scheme.toLowerCase() == 'https' &&
+            apiUri?.host.toLowerCase() == 'api.worldo.ai' &&
+            apiUri?.hasPort == false
+        ? AdjustEnvironment.production
+        : AdjustEnvironment.sandbox;
+  }
+
+  /// Freeze the environment before Adjust starts. Endpoint changes require a
+  /// new process because the SDK is initialized only once per process.
+  static void configureEnvironment(
+    AppConfig config, {
+    bool releaseMode = kReleaseMode,
+  }) {
+    if (_initializationAttempted) return;
+    _selectedEnvironment = resolveEnvironment(
+      config: config,
+      releaseMode: releaseMode,
+    );
+  }
 
   /// Observes successful Adjust sessions and their ADID when available.
   ///
@@ -62,13 +96,20 @@ class AdjustAttributionRuntime {
     AdjustIdfvGetter getIdfv = Adjust.getIdfv,
   }) {
     if (_initializationAttempted || _initializing) return;
+    _selectedEnvironment ??= releaseMode
+        ? AdjustEnvironment.production
+        : AdjustEnvironment.sandbox;
     _initializing = true;
     _initializationAttempted = true;
 
     try {
       final resolvedPlatform = platform ?? defaultTargetPlatform;
       initializeSdk(
-        createConfig(releaseMode: releaseMode, platform: resolvedPlatform),
+        createConfig(
+          releaseMode: releaseMode,
+          environment: environment,
+          platform: resolvedPlatform,
+        ),
       );
       _initialized = true;
 
@@ -86,19 +127,19 @@ class AdjustAttributionRuntime {
   @visibleForTesting
   static AdjustConfig createConfig({
     required bool releaseMode,
+    AdjustEnvironment? environment,
     TargetPlatform? platform,
   }) {
     final resolvedPlatform = platform ?? defaultTargetPlatform;
-    final config =
-        AdjustConfig(
-            appToken,
-            releaseMode
-                ? AdjustEnvironment.production
-                : AdjustEnvironment.sandbox,
-          )
-          ..logLevel = releaseMode
-              ? AdjustLogLevel.suppress
-              : AdjustLogLevel.verbose;
+    final selectedEnvironment =
+        environment ??
+        (releaseMode
+            ? AdjustEnvironment.production
+            : AdjustEnvironment.sandbox);
+    final config = AdjustConfig(appToken, selectedEnvironment)
+      ..logLevel = selectedEnvironment == AdjustEnvironment.production
+          ? AdjustLogLevel.suppress
+          : AdjustLogLevel.verbose;
 
     if (resolvedPlatform == TargetPlatform.android) {
       config.fbAppId = metaAppId;
@@ -129,6 +170,7 @@ class AdjustAttributionRuntime {
     _initialized = false;
     _initializing = false;
     _initializationAttempted = false;
+    _selectedEnvironment = null;
     _hasSuccessfulSession = false;
     _latestSessionAdid = null;
     _latestSessionFailure = null;

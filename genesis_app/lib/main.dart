@@ -81,6 +81,7 @@ Future<void> main() async {
   if (kDebugMode) unawaited(purchaseToastDebugSettings.load());
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
+  AdjustAttributionRuntime.configureEnvironment(appConfig);
   var adjustNetworkAvailable = true;
   if (appConfig.useMock != true) {
     // Keep the iOS permission flow ahead of service creation (image warm-up,

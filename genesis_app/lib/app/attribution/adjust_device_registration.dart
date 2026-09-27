@@ -30,6 +30,7 @@ enum AdjustDeviceRegistrationResult {
   registered,
   alreadyRegistered,
   deferredNoAdid,
+  deferredAdidReadError,
   failed,
 }
 
@@ -76,6 +77,7 @@ class AdjustDeviceRegistration {
     this.readIdfv = Adjust.getIdfv,
     this.localAdidStore = const SharedPreferencesAdjustLocalAdidStore(),
     this.adidTimeout = const Duration(seconds: 5),
+    this.optionalIdTimeout = const Duration(seconds: 3),
     this.retryDelays = _defaultRetryDelays,
     this.reportAdidFailure = _reportAdidFailure,
     AdjustDeviceRegistrationRetryScheduler retryScheduler =
@@ -91,6 +93,7 @@ class AdjustDeviceRegistration {
   final AdjustOptionalIdReader readIdfv;
   final AdjustLocalAdidStore localAdidStore;
   final Duration adidTimeout;
+  final Duration optionalIdTimeout;
   final List<Duration> retryDelays;
   final AdjustAdidFailureReporter reportAdidFailure;
   final AdjustDeviceRegistrationRetryScheduler _retryScheduler;
@@ -108,6 +111,34 @@ class AdjustDeviceRegistration {
   String? _knownAdid;
 
   AdjustDeviceRegistrationResult? get lastResult => _lastResult;
+
+  /// A network event retries only unfinished registration. A previous SDK read
+  /// may have missed an ADID already persisted in this Adjust environment.
+  Future<void> retryAfterNetworkRestored() async {
+    if (_disposed ||
+        _lastResult == AdjustDeviceRegistrationResult.registered ||
+        _lastResult == AdjustDeviceRegistrationResult.alreadyRegistered) {
+      return;
+    }
+    await register();
+    if (_disposed ||
+        (_knownAdid?.isNotEmpty ?? false) ||
+        (_lastResult != AdjustDeviceRegistrationResult.deferredNoAdid &&
+            _lastResult !=
+                AdjustDeviceRegistrationResult.deferredAdidReadError)) {
+      return;
+    }
+    try {
+      final cached = (await localAdidStore.read().timeout(
+        const Duration(seconds: 2),
+      ))?.trim();
+      if (cached?.isNotEmpty == true) await registerKnownAdid(cached!);
+    } catch (error) {
+      debugPrint(
+        '[Adjust][DeviceRegister] recovery ADID cache read failed: $error',
+      );
+    }
+  }
 
   /// After a session outcome without an ADID, try one bounded SDK read.
   Future<void> registerAfterSessionWithoutAdid() async {
@@ -230,14 +261,22 @@ class AdjustDeviceRegistration {
     }
 
     var adid = _knownAdid ?? '';
+    var adidReadFailed = false;
     if (adid.isEmpty && readCachedAdid) {
       try {
-        adid = (await readAdid(adidTimeout.inMilliseconds))?.trim() ?? '';
+        // The SDK timeout covers ADID availability. The Dart deadline also
+        // releases this registration if the platform channel never replies.
+        adid =
+            (await readAdid(
+              adidTimeout.inMilliseconds,
+            ).timeout(adidTimeout + const Duration(seconds: 1)))?.trim() ??
+            '';
         if (adid.isNotEmpty) {
           _knownAdid = adid;
           unawaited(_persistAdid(adid));
         }
       } catch (error, stackTrace) {
+        adidReadFailed = true;
         debugPrint('[Adjust][DeviceRegister] cached ADID read failed: $error');
         debugPrint('[Adjust][DeviceRegister] stacktrace:\n$stackTrace');
       }
@@ -246,7 +285,9 @@ class AdjustDeviceRegistration {
       debugPrint(
         '[Adjust][DeviceRegister] ADID unavailable; waiting for session callback',
       );
-      return AdjustDeviceRegistrationResult.deferredNoAdid;
+      return adidReadFailed
+          ? AdjustDeviceRegistrationResult.deferredAdidReadError
+          : AdjustDeviceRegistrationResult.deferredNoAdid;
     }
 
     try {
@@ -293,6 +334,7 @@ class AdjustDeviceRegistration {
         _cancelRetry(resetBudget: true);
         return;
       case AdjustDeviceRegistrationResult.deferredNoAdid:
+      case AdjustDeviceRegistrationResult.deferredAdidReadError:
         _cancelRetry(resetBudget: true);
         return;
       case AdjustDeviceRegistrationResult.failed:
@@ -356,7 +398,7 @@ class AdjustDeviceRegistration {
     String name,
   ) async {
     try {
-      final value = await reader();
+      final value = await reader().timeout(optionalIdTimeout);
       return value?.trim();
     } catch (error) {
       // Omit an unreadable optional value so the server preserves the last

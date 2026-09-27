@@ -158,9 +158,13 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
           AppEndpointOverrideStore.displayDomain(overrides.gatewayApiBaseUrl);
       _chatroomWsBaseUrlController.text =
           AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
+      final restartNeeded =
+          AdjustAttributionRuntime.resolveEnvironment(config: config) !=
+          AdjustAttributionRuntime.environment;
       showGenesisToast(
         context,
-        successMessage ?? 'Saved. New requests use endpoints.',
+        '${successMessage ?? 'Saved. New requests use endpoints.'}'
+        '${restartNeeded ? ' Restart app to apply Adjust environment.' : ''}',
       );
       return true;
     } on FormatException catch (error) {

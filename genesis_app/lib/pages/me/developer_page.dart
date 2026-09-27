@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/network/genesis_http_cache_manager.dart'
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 
 import '../../app/agent_control/agent_control_status.dart';
+import '../../app/attribution/adjust_attribution_runtime.dart';
 import '../../app/config/app_endpoint_overrides.dart';
 import '../../app/config/app_config.dart';
 import '../../app/config/app_global_config.dart';

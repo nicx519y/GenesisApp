@@ -1,13 +1,17 @@
 import 'dart:async';
 
+import 'package:adjust_sdk/adjust_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/attribution/adjust_attribution_runtime.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_local_adid_store.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+  tearDown(AdjustAttributionRuntime.resetForTesting);
 
   test('saved ADID survives a new local-store instance', () async {
     const first = SharedPreferencesAdjustLocalAdidStore();
@@ -15,6 +19,49 @@ void main() {
     const second = SharedPreferencesAdjustLocalAdidStore();
 
     expect(await second.read(), 'saved-adid');
+  });
+
+  test(
+    'cached ADIDs are separated by the selected Adjust environment',
+    () async {
+      const production = SharedPreferencesAdjustLocalAdidStore(
+        environment: AdjustEnvironment.production,
+      );
+      const sandbox = SharedPreferencesAdjustLocalAdidStore(
+        environment: AdjustEnvironment.sandbox,
+      );
+
+      await production.write('production-adid');
+      expect(await sandbox.read(), isNull);
+      await sandbox.write('sandbox-adid');
+      expect(await production.read(), 'production-adid');
+      expect(await sandbox.read(), 'sandbox-adid');
+    },
+  );
+
+  test('first registration uses the selected Adjust SDK environment', () async {
+    AdjustAttributionRuntime.configureEnvironment(
+      const AppConfig(apiBaseUrl: 'https://dev.hushie.ai/api/'),
+      releaseMode: true,
+    );
+    final environments = <String>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => AdjustAttributionRuntime.environment.name,
+      localAdidStore: SharedPreferencesAdjustLocalAdidStore(
+        environment: AdjustAttributionRuntime.environment,
+      ),
+      readGoogleAdId: () async => null,
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            environments.add(environment);
+          },
+    );
+
+    await registration.registerKnownAdid('sandbox-adid');
+
+    expect(environments, ['sandbox']);
+    registration.dispose();
   });
 
   test('iOS registration sends ADID, IDFA, and IDFV', () async {
@@ -111,6 +158,90 @@ void main() {
     expect(readCount, 2);
     expect(requestCount, 1);
     expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
+  });
+
+  test(
+    'unanswered ADID read releases registration for a later retry',
+    () async {
+      final unansweredRead = Completer<String?>();
+      final reports = <String>[];
+      final requests = <String>[];
+      var readCount = 0;
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
+        adidTimeout: const Duration(milliseconds: 10),
+        readAdid: (_) => ++readCount == 1
+            ? unansweredRead.future
+            : Future<String?>.value('later-adid'),
+        readGoogleAdId: () async => null,
+        reportAdidFailure: (source, platform) => reports.add(source),
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requests.add(adid);
+            },
+      );
+
+      await registration.checkAdidAfterStartup();
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.deferredAdidReadError,
+      );
+      expect(reports, isEmpty);
+
+      await registration.register();
+      expect(requests, ['later-adid']);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.registered,
+      );
+      registration.dispose();
+    },
+  );
+
+  test('unanswered optional ID does not block ADID registration', () async {
+    final unansweredRead = Completer<String?>();
+    final requests = <String?>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      optionalIdTimeout: const Duration(milliseconds: 10),
+      readGoogleAdId: () => unansweredRead.future,
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(gpsAdid);
+          },
+    );
+
+    await registration.registerKnownAdid('ready-adid');
+    await registration.register(force: true);
+
+    expect(requests, [null, null]);
+    expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
+    registration.dispose();
+  });
+
+  test('unanswered iOS identifiers are omitted from registration', () async {
+    final unansweredRead = Completer<String?>();
+    final requests = <Map<String, String?>>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      optionalIdTimeout: const Duration(milliseconds: 10),
+      readIdfa: () => unansweredRead.future,
+      readIdfv: () => unansweredRead.future,
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({'adid': adid, 'idfa': idfa, 'idfv': idfv});
+          },
+    );
+
+    await registration.registerKnownAdid('ready-adid');
+
+    expect(requests, [
+      {'adid': 'ready-adid', 'idfa': null, 'idfv': null},
+    ]);
+    registration.dispose();
   });
 
   test('reports ADID failure only after the delayed startup check', () async {
@@ -592,6 +723,70 @@ void main() {
 
     expect(requests, ['sandbox', 'production']);
   });
+
+  test(
+    'network recovery uses saved ADID after an unavailable SDK read',
+    () async {
+      final localStore = _MemoryAdjustLocalAdidStore(value: 'saved-adid');
+      final requests = <String>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.iOS,
+        environmentProvider: () => 'production',
+        localAdidStore: localStore,
+        readAdid: (_) async => null,
+        readIdfa: () async => null,
+        readIdfv: () async => null,
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requests.add('$environment:$adid');
+            },
+      );
+
+      await registration.retryAfterNetworkRestored();
+      await registration.retryAfterNetworkRestored();
+
+      expect(requests, ['production:saved-adid']);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.registered,
+      );
+      registration.dispose();
+    },
+  );
+
+  test(
+    'network recovery retries a failed report and skips after success',
+    () async {
+      var requestCount = 0;
+      var canceledRetries = 0;
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.android,
+        environmentProvider: () => 'production',
+        readGoogleAdId: () async => null,
+        retryScheduler: (delay, callback) =>
+            () => canceledRetries++,
+        registerDevice:
+            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+              requestCount++;
+              if (requestCount == 1) throw StateError('offline');
+            },
+      );
+
+      await registration.registerKnownAdid('adid');
+      expect(registration.lastResult, AdjustDeviceRegistrationResult.failed);
+
+      await registration.retryAfterNetworkRestored();
+      await registration.retryAfterNetworkRestored();
+
+      expect(requestCount, 2);
+      expect(canceledRetries, 1);
+      expect(
+        registration.lastResult,
+        AdjustDeviceRegistrationResult.registered,
+      );
+      registration.dispose();
+    },
+  );
 }
 
 class _MemoryAdjustLocalAdidStore implements AdjustLocalAdidStore {

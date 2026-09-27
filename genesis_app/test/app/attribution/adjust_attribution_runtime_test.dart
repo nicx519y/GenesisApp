@@ -6,9 +6,68 @@ import 'package:adjust_sdk/adjust_session_success.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_attribution_runtime.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 
 void main() {
   tearDown(AdjustAttributionRuntime.resetForTesting);
+
+  test('Adjust uses release mode and the selected API environment', () {
+    const production = AppConfig(apiBaseUrl: 'https://api.worldo.ai/api/');
+    const testApi = AppConfig(apiBaseUrl: 'https://dev.hushie.ai/api/');
+
+    expect(
+      AdjustAttributionRuntime.resolveEnvironment(
+        config: production,
+        releaseMode: true,
+      ),
+      AdjustEnvironment.production,
+    );
+    expect(
+      AdjustAttributionRuntime.resolveEnvironment(
+        config: production,
+        releaseMode: false,
+      ),
+      AdjustEnvironment.sandbox,
+    );
+    expect(
+      AdjustAttributionRuntime.resolveEnvironment(
+        config: testApi,
+        releaseMode: true,
+      ),
+      AdjustEnvironment.sandbox,
+    );
+    expect(
+      AdjustAttributionRuntime.resolveEnvironment(
+        config: const AppConfig(
+          apiBaseUrl: 'https://api.worldo.ai.evil.example/api/',
+        ),
+        releaseMode: true,
+      ),
+      AdjustEnvironment.sandbox,
+    );
+  });
+
+  test('configured environment is used for the first Adjust session', () {
+    AdjustAttributionRuntime.configureEnvironment(
+      const AppConfig(apiBaseUrl: 'https://dev.hushie.ai/api/'),
+      releaseMode: true,
+    );
+    final configs = <AdjustConfig>[];
+
+    AdjustAttributionRuntime.initialize(
+      releaseMode: true,
+      platform: TargetPlatform.android,
+      initializeSdk: configs.add,
+    );
+
+    expect(configs.single.toMap['environment'], 'sandbox');
+    expect(AdjustAttributionRuntime.environment.name, 'sandbox');
+    AdjustAttributionRuntime.configureEnvironment(
+      const AppConfig(apiBaseUrl: 'https://api.worldo.ai/api/'),
+      releaseMode: true,
+    );
+    expect(AdjustAttributionRuntime.environment.name, 'sandbox');
+  });
 
   test('debug iOS config sends immediately without waiting for ATT', () {
     final config = AdjustAttributionRuntime.createConfig(

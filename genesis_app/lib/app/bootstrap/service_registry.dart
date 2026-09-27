@@ -45,6 +45,7 @@ import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/pending_purchase_store.dart';
 import '../attribution/adjust_device_registration.dart';
 import '../attribution/adjust_attribution_runtime.dart';
+import '../attribution/adjust_local_adid_store.dart';
 
 class AppServices {
   AppServices({
@@ -397,8 +398,9 @@ class ServiceRegistry {
     final adjustDeviceRegistration = switch (defaultTargetPlatform) {
       TargetPlatform.android || TargetPlatform.iOS => AdjustDeviceRegistration(
         platform: defaultTargetPlatform,
-        environmentProvider: () => eventReportEnvironmentForFirebase(
-          TelemetryUploadPolicy.state.value.appEnvironment,
+        environmentProvider: () => AdjustAttributionRuntime.environment.name,
+        localAdidStore: SharedPreferencesAdjustLocalAdidStore(
+          environment: AdjustAttributionRuntime.environment,
         ),
         registerDevice: api.v1.device.registerAttribution,
       ),
