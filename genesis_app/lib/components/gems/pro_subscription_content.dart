@@ -52,6 +52,7 @@ class ProSubscriptionContent extends StatefulWidget {
     this.topSpacing = 10,
     this.horizontalInset = 20,
     this.tagline,
+    this.headingSuffix,
     this.sheetScrollController,
     this.sheetExpandedContentHeight = 0,
     this.includeBottomSafeArea = false,
@@ -86,6 +87,9 @@ class ProSubscriptionContent extends StatefulWidget {
 
   /// Optional copy below the Premium heading for a specific host.
   final String? tagline;
+
+  /// Optional context displayed after the Premium wordmark.
+  final String? headingSuffix;
 
   /// When set, the entire subscription content scrolls with the host sheet.
   final ScrollController? sheetScrollController;
@@ -591,7 +595,28 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
           children: [
             SvgPicture.asset(proCrownGoldIconAsset, width: 26, height: 18),
             const SizedBox(width: 5),
-            const Flexible(child: PremiumWordmark()),
+            Flexible(
+              child: widget.headingSuffix == null
+                  ? const PremiumWordmark()
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        const Flexible(child: PremiumWordmark()),
+                        const SizedBox(width: 8),
+                        Text(
+                          widget.headingSuffix!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.4,
+                            fontWeight: FontWeight.w400,
+                            color: GenesisColors.darkTextPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ],
         ),
         const SizedBox(height: 6),

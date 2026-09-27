@@ -219,7 +219,7 @@ void main() {
       expect(
         find.text(
           'Catch up on your story with a full recap of every twist, '
-          'choice, and character along the way. Subcribe to Unlock.',
+          'choice, and character along the way.',
         ),
         findsOneWidget,
       );

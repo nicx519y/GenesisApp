@@ -172,9 +172,10 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
           page: _subscriptionTracking,
           child: ProSubscriptionContent(
             refreshMembershipOnOpen: false,
+            headingSuffix: 'Unlocks Recap',
             tagline:
                 'Catch up on your story with a full recap of every twist, '
-                'choice, and character along the way. Subcribe to Unlock.',
+                'choice, and character along the way.',
             sheetScrollController: widget.scrollController,
             sheetExpandedContentHeight: widget.expandedContentHeight,
             includeBottomSafeArea: true,
