@@ -16,6 +16,7 @@ import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/world_map.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -46,7 +47,7 @@ class WorldBottomTags extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = worldBottomTagItemsForRelationStatus(relationStatus);
+    const items = worldBottomTagItems;
     return Container(
       height: worldMainTabsHeight,
       color: GenesisColors.darkBackground,
@@ -243,6 +244,7 @@ class WorldSingleSectionBottomSheetState
   List<Map<String, dynamic>>? _cachedUserPositions;
   String _cachedLocationListCurrentUid = '';
   WorldBottomSheetKind? _lastSelectedKind;
+  bool _accessDismissalScheduled = false;
 
   /// Made once, so the recap sees one steady source rather than a new one on
   /// every rebuild of the sheet.
@@ -254,8 +256,26 @@ class WorldSingleSectionBottomSheetState
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
 
-  List<WorldBottomTagItem> get _tabItems =>
-      worldBottomTagItemsForRelationStatus(_currentWorld.relationStatus);
+  List<WorldBottomTagItem> get _tabItems => worldBottomTagItems;
+
+  bool _canAccess(WorldBottomSheetKind kind) =>
+      canAccessWorldSection(kind, _currentWorld.relationStatus);
+
+  void _dismissForRestrictedSection() {
+    if (_accessDismissalScheduled) return;
+    _accessDismissalScheduled = true;
+    // Page changes may arrive during layout. Close after the frame, while
+    // restricted pages render only a blank placeholder.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      showGenesisToast(
+        context,
+        worldParticipationRequiredMessage,
+        brightness: Brightness.dark,
+      );
+      Navigator.of(context).pop();
+    });
+  }
 
   WorldBottomSheetSelection get _selection => widget.selectionListenable.value;
 
@@ -281,6 +301,7 @@ class WorldSingleSectionBottomSheetState
       _handleWorldNewContentDebugSettingsChanged,
     );
     _refreshRecapOnEntry();
+    if (!_canAccess(_selection.kind)) _dismissForRestrictedSection();
   }
 
   @override
@@ -339,12 +360,7 @@ class WorldSingleSectionBottomSheetState
   bool get _isEventsSheet => _selection.kind == WorldBottomSheetKind.events;
 
   void _handleWorldDetailChanged() {
-    if (!_tabItems.any((item) => item.kind == _selection.kind)) {
-      widget.selectionListenable.value = WorldBottomSheetSelection(
-        kind: WorldBottomSheetKind.detail,
-        eventsLatestRevision: _selection.eventsLatestRevision,
-      );
-    }
+    if (!_canAccess(_selection.kind)) _dismissForRestrictedSection();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_pageController.hasClients) return;
       final targetPage = _pageForKind(_selection.kind);
@@ -375,6 +391,11 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _handleSelectionChanged() {
+    if (!_canAccess(_selection.kind)) {
+      _dismissForRestrictedSection();
+      if (mounted) setState(() {});
+      return;
+    }
     _refreshRecapOnEntry();
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
@@ -448,6 +469,10 @@ class WorldSingleSectionBottomSheetState
   void _handleSheetPageChanged(int page) {
     if (_changingPageFromSelection) return;
     final kind = _kindForPage(page);
+    if (!_canAccess(kind)) {
+      _dismissForRestrictedSection();
+      return;
+    }
     if (_selection.kind == kind) return;
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
@@ -461,6 +486,7 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _ensureEventsForCurrentWorld({bool forceFirstPageRefresh = false}) {
+    if (!_canAccess(WorldBottomSheetKind.events)) return;
     final worldId = _currentWorld.worldId;
     if (_eventsCache.worldId != worldId) {
       _eventsCache.reset(worldId);
@@ -501,6 +527,7 @@ class WorldSingleSectionBottomSheetState
   }
 
   Future<void> _loadEventsPage(int page, {bool force = false}) async {
+    if (!_canAccess(WorldBottomSheetKind.events)) return;
     if (page <= 0) return;
     if (page == 1) {
       if (_eventsCache.initialLoading && !force) return;
@@ -696,6 +723,7 @@ class WorldSingleSectionBottomSheetState
     WorldBottomSheetKind kind,
     ScrollController scrollController,
   ) {
+    if (!_canAccess(kind)) return const SizedBox.expand();
     return switch (kind) {
       WorldBottomSheetKind.detail => _buildDetailSectionPage(scrollController),
       WorldBottomSheetKind.locations => _buildLocationsSectionPage(

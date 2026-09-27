@@ -96,7 +96,7 @@ class ProSubscriptionContent extends StatefulWidget {
   /// Adds the device's bottom inset below the legal links.
   final bool includeBottomSafeArea;
 
-  /// Passes a downward pull at the top of the benefits to the host sheet.
+  /// Passes a downward pull to the host only when that drag began at the top.
   final ValueChanged<double>? onBenefitsPullDown;
 
   @override
@@ -113,6 +113,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   List<MembershipOffer> _offers = [];
   MembershipAccessStore? _membership;
   bool _submitting = false;
+  bool _benefitsDragCanMoveSheet = false;
   bool _hasFreshCatalog = false;
   MembershipCheckoutPreparation? _checkoutPreparation;
   bool _loading = false;
@@ -479,25 +480,20 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
                       children: [
                         if (widget.showHeading) _buildHeading(),
                         Expanded(
-                          child: NotificationListener<OverscrollNotification>(
-                            onNotification: (notification) {
-                              if (notification.depth == 0 &&
-                                  notification.overscroll < 0 &&
-                                  notification.dragDetails != null) {
-                                widget.onBenefitsPullDown?.call(
-                                  -notification.overscroll,
-                                );
-                              }
-                              return false;
-                            },
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: _handleBenefitsScroll,
                             child: ListView(
                               key: const PageStorageKey('pro-benefits-scroll'),
-                              physics: const ClampingScrollPhysics(),
+                              primary: false,
+                              physics: const ClampingScrollPhysics(
+                                parent: AlwaysScrollableScrollPhysics(),
+                              ),
                               padding: EdgeInsets.fromLTRB(
                                 widget.horizontalInset,
                                 widget.showHeading ? 0 : 8,
                                 widget.horizontalInset,
-                                26,
+                                // The purchase footer already supplies the gap.
+                                0,
                               ),
                               children: rows,
                             ),
@@ -534,7 +530,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
                       widget.horizontalInset,
                       widget.showHeading ? 0 : 8,
                       widget.horizontalInset,
-                      26,
+                      // The purchase footer already supplies the gap.
+                      0,
                     ),
                     children: rows,
                   ),
@@ -546,6 +543,37 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         footer,
       ],
     );
+  }
+
+  bool _handleBenefitsScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is ScrollStartNotification) {
+      // A drag that starts in the list belongs to the list until release,
+      // even if it reaches the top with distance left in the same gesture.
+      _benefitsDragCanMoveSheet =
+          notification.dragDetails != null &&
+          notification.metrics.extentBefore <= 0;
+    } else if (notification is ScrollEndNotification) {
+      _benefitsDragCanMoveSheet = false;
+    } else if (notification is OverscrollNotification &&
+        notification.overscroll < 0 &&
+        notification.dragDetails != null &&
+        _benefitsDragCanMoveSheet) {
+      var remaining = -notification.overscroll;
+      final controller = widget.sheetScrollController;
+      if (controller != null && controller.hasClients) {
+        final position = controller.position;
+        final consumed = remaining.clamp(0.0, position.extentBefore);
+        if (consumed > 0) {
+          controller.jumpTo(position.pixels - consumed);
+          remaining -= consumed;
+        }
+      }
+      if (remaining > 0) widget.onBenefitsPullDown?.call(remaining);
+    }
+    return true;
   }
 
   Widget _buildHeading() => Padding(

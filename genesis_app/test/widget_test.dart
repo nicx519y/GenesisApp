@@ -1,5 +1,6 @@
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
+import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
 import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
@@ -2771,6 +2772,79 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  for (final status in ['none', 'pending', 'approved']) {
+    testWidgets('world restricted tabs show join toast for $status', (
+      tester,
+    ) async {
+      final transport = _RecordingV1ListTransport(worldRelationStatus: status);
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final label in ['Events', 'Recap', 'Status']) {
+        final tag = find.descendant(
+          of: find.byKey(const ValueKey('world-bottom-tags-overlay')),
+          matching: find.text(label),
+        );
+        await tester.ensureVisible(tag);
+        await tester.tap(tag);
+        await tester.pumpAndSettle();
+        expect(find.byType(WorldSingleSectionBottomSheet), findsNothing);
+        expect(find.text(worldParticipationRequiredMessage), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+      }
+      expect(transport.requestsFor('/api/v1/world/tick/list'), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('world restricted swipe closes sheet without exposing content', (
+    tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'none');
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('world-bottom-tags-overlay')),
+        matching: find.text('Locations'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final sheet = find.byType(WorldSingleSectionBottomSheet);
+    expect(sheet, findsOneWidget);
+    final pager = find
+        .descendant(of: sheet, matching: find.byType(PageView))
+        .first;
+    final gesture = await tester.startGesture(tester.getCenter(pager));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-130, 0));
+    await tester.pump();
+    expect(find.byType(WorldEventsSection), findsNothing);
+    expect(transport.requestsFor('/api/v1/world/tick/list'), isEmpty);
+    await gesture.moveBy(const Offset(-500, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    expect(find.text(worldParticipationRequiredMessage), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/tick/list'), isEmpty);
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'world recap shares sheet navigation and session cache lifecycle',
     (tester) async {
@@ -2876,7 +2950,8 @@ void main() {
   testWidgets('loaded empty events survive reopening during refresh', (
     tester,
   ) async {
-    final transport = _EmptyListRefreshTransport('/api/v1/world/tick/list');
+    final transport = _EmptyListRefreshTransport('/api/v1/world/tick/list')
+      ..worldRelationStatus = 'joined';
     final services = await _testServices(transport: transport, useMock: false);
     final world = await services.api.getWorld('w_test_1');
     final worldState = ValueNotifier<WorldDetail?>(world);
@@ -38798,7 +38873,7 @@ class _EmptyListRefreshTransport extends _RecordingV1ListTransport {
 }
 
 class _RecapLifecycleTransport extends _RecordingV1ListTransport {
-  _RecapLifecycleTransport() : super(worldRelationStatus: 'approved');
+  _RecapLifecycleTransport() : super(worldRelationStatus: 'joined');
   final recapRequests = <TransportRequest>[];
   final pendingRecaps = <Completer<TransportResponse>>[];
 

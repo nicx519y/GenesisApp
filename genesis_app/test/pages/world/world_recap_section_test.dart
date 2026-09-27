@@ -345,9 +345,73 @@ void main() {
       );
       await tester.drag(benefits, const Offset(0, 1000));
       await tester.pumpAndSettle();
+      expect(benefitPosition.pixels, 0);
+      expect(pullDown, 0);
+      await tester.drag(benefits, const Offset(0, 80));
+      await tester.pumpAndSettle();
       expect(pullDown, greaterThan(0));
     },
   );
+
+  testWidgets('benefits return to top before a new drag collapses the sheet', (
+    tester,
+  ) async {
+    final sheet = DraggableScrollableController();
+    addTearDown(sheet.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LayoutBuilder(
+            builder: (context, constraints) => DraggableScrollableSheet(
+              controller: sheet,
+              initialChildSize: 0.9,
+              minChildSize: 0.25,
+              maxChildSize: 0.9,
+              builder: (context, controller) => ProSubscriptionContent(
+                productsLoader: loadTestMembershipOffers,
+                sheetScrollController: controller,
+                sheetExpandedContentHeight: constraints.maxHeight * 0.9,
+                onBenefitsPullDown: (delta) => sheet.jumpTo(
+                  (sheet.size - delta / constraints.maxHeight).clamp(0.25, 0.9),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final benefits = find.byKey(const PageStorageKey('pro-benefits-scroll'));
+    final position = tester
+        .state<ScrollableState>(
+          find.descendant(of: benefits, matching: find.byType(Scrollable)),
+        )
+        .position;
+    await tester.drag(benefits, const Offset(0, -140));
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+    expect(sheet.size, closeTo(0.9, 0.001));
+
+    final gesture = await tester.startGesture(tester.getCenter(benefits));
+    await gesture.moveBy(const Offset(0, 24));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 1000));
+    await tester.pump();
+    expect(position.pixels, 0);
+    expect(sheet.size, closeTo(0.9, 0.001));
+    // Even another move in the same held gesture still belongs to the list.
+    await gesture.moveBy(const Offset(0, 60));
+    await tester.pump();
+    expect(sheet.size, closeTo(0.9, 0.001));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    await tester.drag(benefits, const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(sheet.size, lessThan(0.9));
+    expect(position.pixels, 0);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('until membership is known only a skeleton shows', (
     tester,
@@ -439,45 +503,63 @@ void main() {
     },
   );
 
-  testWidgets('Recap tab is available only to world participants', (
+  testWidgets('world tabs remain visible for every relation status', (
     tester,
   ) async {
-    Widget tags(String relationStatus, {bool recapUnread = true}) =>
+    for (final status in [
+      '',
+      'none',
+      'pending',
+      'approved',
+      'owner',
+      'joined',
+    ]) {
+      await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: WorldBottomTags(
-              relationStatus: relationStatus,
-              recapUnread: recapUnread,
-              onTap: (_) {},
-            ),
+            body: WorldBottomTags(relationStatus: status, onTap: (_) {}),
           ),
-        );
+        ),
+      );
+      for (final label in [
+        'Detail',
+        'Locations',
+        'Events',
+        'Recap',
+        'Status',
+      ]) {
+        expect(find.text(label), findsOneWidget, reason: status);
+      }
+    }
+  });
 
-    for (final status in ['none', 'pending', 'approved', '']) {
-      await tester.pumpWidget(tags(status));
-      expect(find.text('Recap'), findsNothing);
+  test('only participants can access events, recap and status content', () {
+    for (final status in [
+      '',
+      'none',
+      'pending',
+      'approved',
+      'owner',
+      'joined',
+    ]) {
+      for (final kind in [
+        WorldBottomSheetKind.events,
+        WorldBottomSheetKind.recap,
+        WorldBottomSheetKind.status,
+      ]) {
+        expect(
+          canAccessWorldSection(kind, status),
+          status == 'owner' || status == 'joined',
+        );
+      }
       expect(
-        find.byKey(const ValueKey('world-recap-unread-dot')),
-        findsNothing,
+        canAccessWorldSection(WorldBottomSheetKind.detail, status),
+        isTrue,
       );
       expect(
-        worldBottomTagItemsForRelationStatus(status).map((e) => e.kind),
-        isNot(contains(WorldBottomSheetKind.recap)),
+        canAccessWorldSection(WorldBottomSheetKind.locations, status),
+        isTrue,
       );
     }
-    for (final status in ['owner', 'joined']) {
-      await tester.pumpWidget(tags(status));
-      expect(find.text('Recap'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('world-recap-unread-dot')),
-        findsOneWidget,
-      );
-      expect(
-        worldBottomTagItemsForRelationStatus(status).map((e) => e.kind),
-        contains(WorldBottomSheetKind.recap),
-      );
-    }
-    await tester.pumpWidget(tags('owner', recapUnread: false));
-    expect(find.byKey(const ValueKey('world-recap-unread-dot')), findsNothing);
   });
 }

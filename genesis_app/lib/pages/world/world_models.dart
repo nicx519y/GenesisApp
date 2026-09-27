@@ -138,13 +138,17 @@ const worldBottomTagItems = <WorldBottomTagItem>[
   ),
 ];
 
-List<WorldBottomTagItem> worldBottomTagItemsForRelationStatus(
-  String relationStatus,
-) {
-  if (shouldConnectWorldChatroom(relationStatus)) return worldBottomTagItems;
-  return worldBottomTagItems
-      .where((item) => item.kind != WorldBottomSheetKind.recap)
-      .toList(growable: false);
+const worldParticipationRequiredMessage = 'Request approval to launch';
+
+bool canAccessWorldSection(WorldBottomSheetKind kind, String relationStatus) {
+  switch (kind) {
+    case WorldBottomSheetKind.events:
+    case WorldBottomSheetKind.recap:
+    case WorldBottomSheetKind.status:
+      return shouldConnectWorldChatroom(relationStatus);
+    default:
+      return true;
+  }
 }
 
 enum WorldHeaderActionKind { request, pending, launch, progress, unavailable }

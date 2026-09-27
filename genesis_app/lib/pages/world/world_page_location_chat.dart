@@ -63,7 +63,7 @@ extension _WorldPageLocationChat on _WorldPageState {
       } else if (mounted) {
         showGenesisToast(
           context,
-          'Request approval to launch',
+          worldParticipationRequiredMessage,
           brightness: Brightness.dark,
         );
       }

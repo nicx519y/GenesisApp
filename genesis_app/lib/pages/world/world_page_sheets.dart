@@ -17,8 +17,12 @@ extension _WorldPageSheets on _WorldPageState {
   }) {
     final world = _world;
     if (world == null) return;
-    if (kind == WorldBottomSheetKind.recap &&
-        !shouldConnectWorldChatroom(world.relationStatus)) {
+    if (!canAccessWorldSection(kind, world.relationStatus)) {
+      showGenesisToast(
+        context,
+        worldParticipationRequiredMessage,
+        brightness: Brightness.dark,
+      );
       return;
     }
     GenesisTelemetry.collectLog(
