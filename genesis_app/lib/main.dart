@@ -1,4 +1,5 @@
 import 'app/qa/qa_bridge.dart';
+import 'app/qa/environment_preparation.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -108,7 +109,13 @@ Future<void> main() async {
     }),
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
-  await QaBridge.beforeStartup(services.sessionStore);
+  await QaBridge.beforeStartup(
+    services.sessionStore,
+    operations: createQaEnvironmentOperations(
+      services,
+      enabled: appConfig.useMock == true,
+    ),
+  );
   final startupUidResolution = _resolveStartupUid(services.sessionStore);
   final initialLandingPageFuture = resolveInitialLandingPage(
     uidReadAlreadyBounded: true,

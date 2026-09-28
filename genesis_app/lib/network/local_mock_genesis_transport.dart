@@ -6,6 +6,7 @@ import 'chatroom/chatroom_timeline_payload.dart';
 import 'http_transport.dart';
 import 'json_utils.dart';
 import 'mock_data/mock_message_data.dart';
+import 'mock_data/mock_personalization_profile.dart';
 import 'mock_data/mock_origin_data.dart';
 import 'mock_data/mock_profile_data.dart';
 import 'mock_data/mock_v1_data.dart';
@@ -19,6 +20,25 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   final _state = _MockState();
   final _personalizationProfiles = <String, Map<String, Object?>>{};
+
+  String personalizationOwner(String deviceId, {required bool authenticated}) =>
+      _state.isAuthenticated || authenticated
+      ? 'uid:${_state.me['uid']}'
+      : 'device:$deviceId';
+  Map<String, Object?>? personalizationSnapshot(String owner) =>
+      _personalizationProfiles[owner] == null
+      ? null
+      : Map.of(_personalizationProfiles[owner]!);
+  void restorePersonalizationSnapshot(
+    String owner,
+    Map<String, Object?>? snapshot,
+  ) {
+    if (snapshot == null) {
+      _personalizationProfiles.remove(owner);
+    } else {
+      _personalizationProfiles[owner] = Map.of(snapshot);
+    }
+  }
 
   @visibleForTesting
   void resetFeatureQuotaUsage() {
@@ -713,19 +733,11 @@ class LocalMockGenesisTransport implements HttpTransport {
             !choices['age']!.contains(body['age'])) {
           return _v1BusinessError(4004, 'ErrorParamInvalid');
         }
-        final profile = <String, Object?>{
-          'gender': body['gender'],
-          'age': body['age'],
-          'origin_feed_gender':
-              (existing?['origin_feed_gender'] as String?)?.isNotEmpty == true
-              ? existing!['origin_feed_gender']
-              : switch (body['gender']) {
-                  'Male' => 'Female',
-                  'Female' => 'Male',
-                  _ => 'Non_binary',
-                },
-          'completed': true,
-        };
+        final profile = completedMockPersonalization(
+          body['gender'] as String,
+          body['age'] as String,
+          existing,
+        );
         _personalizationProfiles[owner] = profile;
         return _v1Ok(profile);
       }

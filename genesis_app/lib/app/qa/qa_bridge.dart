@@ -15,7 +15,14 @@ bool qaBridgeAllowed({
 /// Only the internal debug test installation exposes this interface. Observations
 /// come from the same service instance handed to GenesisApp.
 class QaBridge {
-  QaBridge(this.store, {required this.token, required this.buildId});
+  QaBridge(
+    this.store, {
+    required this.token,
+    required this.buildId,
+    this.operations = const {},
+  });
+  final Map<String, Future<Object?> Function(Map<String, dynamic>, bool)>
+  operations;
   final UserSessionStore store;
   final String token;
   final String buildId;
@@ -32,10 +39,16 @@ class QaBridge {
     'session.local.read',
     'session.local.cleanup',
     'app.startup.resume',
+    'app.startup.continue',
     'app.started.read',
   ];
 
-  static Future<void> beforeStartup(UserSessionStore store) async {
+  static Future<void> beforeStartup(
+    UserSessionStore store, {
+    Map<String, Future<Object?> Function(Map<String, dynamic>, bool)>
+        operations =
+        const {},
+  }) async {
     if (!qaBridgeAllowed(
       debug: kDebugMode,
       flavor: appFlavor,
@@ -48,11 +61,21 @@ class QaBridge {
     if (token.length < 32 || build.isEmpty) {
       throw StateError('QA bridge requires a run token and build identity');
     }
-    final bridge = QaBridge(store, token: token, buildId: build);
+    final bridge = QaBridge(
+      store,
+      token: token,
+      buildId: build,
+      operations: operations,
+    );
     current = bridge;
     await bridge.listen();
     try {
-      await bridge.waitForStartup(hold: const bool.fromEnvironment('GENESIS_QA_HOLD_STARTUP', defaultValue: true));
+      await bridge.waitForStartup(
+        hold: const bool.fromEnvironment(
+          'GENESIS_QA_HOLD_STARTUP',
+          defaultValue: true,
+        ),
+      );
     } catch (_) {
       await bridge.close();
       rethrow; // Never continue a test whose preparation was not completed.
@@ -124,7 +147,8 @@ class QaBridge {
               throw StateError('State preparation requires mock environment');
             }
             final uid = parameters['uid'];
-            if (uid != null && (uid is! String || !uid.startsWith('qa_test_'))) {
+            if (uid != null &&
+                (uid is! String || !uid.startsWith('qa_test_'))) {
               throw ArgumentError('Only QA test identities are accepted');
             }
             await store.clearUid();
@@ -147,19 +171,35 @@ class QaBridge {
             if (!_resume.isCompleted) _resume.complete();
             actual = true;
             break;
+          case 'app.startup.continue':
+            // Release the instrumentation barrier for a fresh Case session.
+            // Contract fixtures must not be carried into a business run.
+            if (_prepared) {
+              throw StateError('Case startup cannot reuse prepared fixtures');
+            }
+            if (!_resume.isCompleted) _resume.complete();
+            actual = true;
+            break;
           case 'app.started.read':
             actual = started;
             break;
           case 'manifest':
             actual = {
               'version': interfaceVersion,
-              'interfaces': interfaces,
+              'interfaces': [...interfaces, ...operations.keys],
               'prepared': _prepared,
               'started': started,
             };
             break;
           default:
-            throw ArgumentError('Unknown QA interface');
+            final handler = operations[id];
+            if (handler == null) throw ArgumentError('Unknown QA interface');
+            if (_prepared) {
+              throw StateError(
+                'Case fixture cannot reuse contract preparation',
+              );
+            }
+            actual = await handler(parameters, _resume.isCompleted || started);
         }
         response.write(
           jsonEncode({
