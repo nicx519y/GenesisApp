@@ -143,6 +143,20 @@ extension _WorldPageLayout on _WorldPageState {
                   .toDouble();
           return Stack(
             children: [
+              if (kDebugMode && world != null && _worldMainTabIndex == 0)
+                Positioned(
+                  right:
+                      legacyWorldMapZoomControlRightGap +
+                      (legacyWorldMapZoomControlWidth - 34) / 2,
+                  bottom:
+                      worldCollapsedPanelHeightFor(context, world: world) +
+                      legacyWorldMapZoomControlBottomGap +
+                      legacyWorldMapZoomControlHeight +
+                      12,
+                  child: MiniPhoneDemoEntry(
+                    onPressed: () => showMiniPhoneDemo(context),
+                  ),
+                ),
               if (_worldMainTabIndex == 0)
                 Positioned(
                   left: worldMapBackButtonLeft,

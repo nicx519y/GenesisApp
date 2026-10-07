@@ -1,0 +1,5 @@
+Heroicons 24px solid · https://github.com/tailwindlabs/heroicons
+flat-messages.svg = optimized/24/solid/chat-bubble-left-right.svg
+flat-posts.svg = optimized/24/solid/rectangle-stack.svg
+flat-photos.svg = optimized/24/solid/photo.svg
+flat-settings.svg = optimized/24/solid/cog-6-tooth.svg

@@ -26,6 +26,12 @@ import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
+import '../../components/legacy_world_map/legacy_world_map_gesture.dart'
+    show
+        legacyWorldMapZoomControlRightGap,
+        legacyWorldMapZoomControlWidth,
+        legacyWorldMapZoomControlBottomGap,
+        legacyWorldMapZoomControlHeight;
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/api_client.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
@@ -40,6 +46,8 @@ import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'world_bottom_sheet.dart';
+import '../mini_phone/mini_phone_page.dart';
+import '../mini_phone/mini_phone_ui.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_location_chat_host.dart';

@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../mini_phone/mini_phone_page.dart';
+import '../mini_phone/mini_phone_ui.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -24,7 +26,6 @@ import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
-import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -1447,6 +1448,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   ),
                 ),
               ),
+              if (kDebugMode && widget.active)
+                Positioned(
+                  right: 16,
+                  top: headerHeight + 16,
+                  child: MiniPhoneDemoEntry(
+                    onPressed: () => showMiniPhoneDemo(context),
+                  ),
+                ),
               if (_supportsEdgeSwipeBack)
                 PositionedDirectional(
                   start: 0,

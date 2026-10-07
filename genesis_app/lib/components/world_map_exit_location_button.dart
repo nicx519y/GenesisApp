@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 
 const double worldMapExitLocationButtonSize = 30;
+const double worldMapControlRadius = 8;
+const Color worldMapControlBackground = Color(0x99151517);
+const BorderSide worldMapControlBorder = BorderSide(
+  color: Color(0x29FFFFFF),
+  width: .5,
+);
 const double worldMapExitLocationLabelGap = 9;
 const String worldMapExitLocationIconFrameKey =
     'world-map-exit-location-icon-frame';
@@ -32,13 +38,10 @@ class WorldMapExitLocationButton extends StatelessWidget {
                 width: worldMapExitLocationButtonSize,
                 height: worldMapExitLocationButtonSize,
                 child: Material(
-                  color: const Color(0x99151517),
+                  color: worldMapControlBackground,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(
-                      color: Color(0x29FFFFFF),
-                      width: 0.5,
-                    ),
+                    borderRadius: BorderRadius.circular(worldMapControlRadius),
+                    side: worldMapControlBorder,
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: const Center(
