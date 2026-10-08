@@ -330,7 +330,7 @@ void main() {
   }
 
   test(
-    'Firebase purchase starts at purchased callback and deduplicates recovery',
+    'removed Firebase purchase events stay absent through recovery',
     () async {
       final client = enableFirebaseAnalytics();
       reportError = true;
@@ -338,51 +338,39 @@ void main() {
       final purchase = _purchase(BillingPurchaseStatus.purchased);
       platform.emit(purchase);
       await _settle();
-      expect(client.events.map((e) => e.name), [
-        'purchase',
-        'gems',
-        'purchase_first',
-        'gems_first',
-      ]);
+      expect(client.events, isEmpty);
       reportError = false;
       await service.recover(BillingRecoverySource.foreground);
       await _settle();
-      expect(client.events.map((e) => e.name), [
-        'purchase',
-        'gems',
-        'purchase_first',
-        'gems_first',
-      ]);
+      expect(client.events, isEmpty);
       platform.emit(purchase);
       await _settle();
       platform.recoverablePurchases = [purchase];
       await service.recoverStorePurchases(productCatalog: [_product]);
       await _settle();
-      expect(client.events, hasLength(4));
+      expect(client.events, isEmpty);
       expect(reports, hasLength(1));
     },
   );
 
-  test('Firebase purchase waits for pending to become purchased', () async {
-    final client = enableFirebaseAnalytics();
-    await service.purchaseGem(_product);
-    platform.emit(_purchase(BillingPurchaseStatus.pending));
-    await _settle();
-    expect(client.events, isEmpty);
-    expect(reports, isEmpty);
-    await service.recover(BillingRecoverySource.foreground);
-    await _settle();
-    expect(client.events, isEmpty);
-    expect(reports, isEmpty);
-    platform.emit(_purchase(BillingPurchaseStatus.purchased));
-    await _settle();
-    expect(client.events.map((e) => e.name), [
-      'purchase',
-      'gems',
-      'purchase_first',
-      'gems_first',
-    ]);
-  });
+  test(
+    'pending and purchased callbacks emit no removed Firebase events',
+    () async {
+      final client = enableFirebaseAnalytics();
+      await service.purchaseGem(_product);
+      platform.emit(_purchase(BillingPurchaseStatus.pending));
+      await _settle();
+      expect(client.events, isEmpty);
+      expect(reports, isEmpty);
+      await service.recover(BillingRecoverySource.foreground);
+      await _settle();
+      expect(client.events, isEmpty);
+      expect(reports, isEmpty);
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+      expect(client.events, isEmpty);
+    },
+  );
 
   test('pending callback does not persist a Gems order', () async {
     await service.purchaseGem(_product);
@@ -400,7 +388,7 @@ void main() {
     'restored',
     'unowned_history',
   ]) {
-    test('Firebase purchase follows store callback for $outcome', () async {
+    test('removed Firebase purchase events stay absent for $outcome', () async {
       final client = enableFirebaseAnalytics();
       if (outcome == 'rejected') {
         reportStatus = GemPurchaseReportStatus.rejected;
@@ -422,14 +410,7 @@ void main() {
         ),
       );
       await _settle();
-      expect(
-        client.events.map((e) => e.name),
-        outcome == 'rejected' ||
-                outcome == 'offline' ||
-                outcome == 'unowned_history'
-            ? containsAll(['purchase', 'gems'])
-            : isEmpty,
-      );
+      expect(client.events, isEmpty);
       if (outcome == 'foreign_account') {
         expect(reports, isEmpty);
       } else if (outcome == 'restored') {
@@ -450,7 +431,7 @@ void main() {
     expect(reports, isEmpty);
   });
 
-  test('Firebase initialization does not block Gems completion', () async {
+  test('Gems completion is independent of Firebase readiness', () async {
     final client = enableFirebaseAnalytics();
     final ready = Completer<void>();
     FirebaseAnalyticsMonitoring.setReadinessForTesting(ready.future);
@@ -462,7 +443,7 @@ void main() {
     expect(client.events, isEmpty);
     ready.complete();
     await _settle();
-    expect(client.events, hasLength(4));
+    expect(client.events, isEmpty);
   });
 
   test(
@@ -522,82 +503,37 @@ void main() {
     },
   );
 
-  test(
-    'completed purchases record purchase per receipt and first events once',
-    () async {
-      final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
-      FirebaseAnalyticsMonitoring.resetForTesting();
-      FirebaseAnalyticsMonitoring.setClientForTesting(firebaseAnalytics);
-      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-        _MemoryFirebaseAnalyticsOnceEventStore(),
-      );
-      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
-      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
-        () async => 'test-device-id',
-      );
-      addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+  test('completed purchases do not emit removed Firebase events', () async {
+    final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebaseAnalyticsMonitoring.setClientForTesting(firebaseAnalytics);
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      _MemoryFirebaseAnalyticsOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+      () async => 'test-device-id',
+    );
+    addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
-      await service.purchaseGem(_product);
-      platform.emit(_purchase(BillingPurchaseStatus.purchased));
-      await _settle();
-      await service.purchaseGem(_product);
-      platform.emit(
-        _purchase(
-          BillingPurchaseStatus.purchased,
-          purchaseToken: 'purchase-token-2',
-          transactionId: 'GPA.2',
-          originalJson: '{"purchaseToken":"purchase-token-2"}',
-        ),
-      );
-      await _settle();
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    await service.purchaseGem(_product);
+    platform.emit(
+      _purchase(
+        BillingPurchaseStatus.purchased,
+        purchaseToken: 'purchase-token-2',
+        transactionId: 'GPA.2',
+        originalJson: '{"purchaseToken":"purchase-token-2"}',
+      ),
+    );
+    await _settle();
 
-      expect(firebaseAnalytics.events, <_FirebaseAnalyticsRecord>[
-        const _FirebaseAnalyticsRecord('purchase', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 1.49,
-          'currency': 'USD',
-        }),
-        const _FirebaseAnalyticsRecord('gems', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 1.49,
-          'currency': 'USD',
-        }),
-        const _FirebaseAnalyticsRecord('purchase_first', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 1.49,
-          'currency': 'USD',
-        }),
-        const _FirebaseAnalyticsRecord('gems_first', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 1.49,
-          'currency': 'USD',
-        }),
-        const _FirebaseAnalyticsRecord('purchase', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 1.49,
-          'currency': 'USD',
-        }),
-        const _FirebaseAnalyticsRecord('gems', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 1.49,
-          'currency': 'USD',
-        }),
-      ]);
-    },
-  );
+    expect(firebaseAnalytics.events, isEmpty);
+    expect(reports, hasLength(2));
+  });
 
   test(
     'start and recovery discard legacy report rows without resending',
@@ -844,11 +780,6 @@ void main() {
 
   test('store recovery ignores a current account legacy local order', () async {
     final firebase = enableFirebaseAnalytics();
-    await FirebaseAnalyticsMonitoring.markPurchaseEligible(
-      provider: 'google',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'purchase-token-1',
-    );
     await pendingStore.upsert(
       _localPurchase(
         attemptId: 'track_id_original',
@@ -1434,7 +1365,7 @@ void main() {
         ),
         hasLength(1),
       );
-      expect(firebase.events.map((event) => event.name), contains('purchase'));
+      expect(firebase.events, isEmpty);
 
       platform.emit(purchase);
       await _settle();
@@ -2062,7 +1993,7 @@ void main() {
       analytics.records.where((record) => record.action == 'purchase_success'),
       hasLength(1),
     );
-    expect(firebase.events.map((event) => event.name), contains('purchase'));
+    expect(firebase.events, isEmpty);
   });
 
   for (final status in [

@@ -125,7 +125,7 @@ CREATE TABLE app_event_reports (
     await store.close();
   });
 
-  test('sqflite v3 outbox migrates prefixed business id', () async {
+  test('sqflite upgrade purges an old purchase report', () async {
     sqfliteFfiInit();
     final directory = await Directory.systemTemp.createTemp(
       'genesis-event-report-transaction-migration-',
@@ -170,71 +170,119 @@ CREATE TABLE app_event_reports (
     );
     final pending = await store.pending(limit: 20);
 
-    expect(pending, hasLength(1));
-    expect(pending.single.transactionId, '2000000123456789');
+    expect(pending, isEmpty);
     await store.close();
   });
 
-  test(
-    'reports only the selected events with Firebase-equivalent params',
-    () async {
-      final store = _MemoryAppEventReportStore();
-      final sent = <AppEventReport>[];
-      final reporting = AppEventReporting(
-        environmentProvider: () => 'sandbox',
-        store: store,
-        sender: (report) async => sent.add(report),
-        initialRetryDelay: const Duration(hours: 1),
-        maximumRetryDelay: const Duration(hours: 1),
-      );
+  test('sqflite v4 upgrade keeps login and deletes purchase rows', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp(
+      'genesis-event-report-purchase-removal-',
+    );
+    final databasePath = '${directory.path}/reports.db';
+    addTearDown(() async {
+      await databaseFactoryFfiNoIsolate.deleteDatabase(databasePath);
+      await directory.delete(recursive: true);
+    });
+    final oldDatabase = await databaseFactoryFfiNoIsolate.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (database, _) => database.execute('''
+CREATE TABLE app_event_reports (
+  sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_key TEXT NOT NULL UNIQUE,
+  event_name TEXT NOT NULL,
+  environment TEXT NOT NULL,
+  occurred_at INTEGER NOT NULL,
+  transaction_id TEXT,
+  params_json TEXT NOT NULL,
+  delivered INTEGER NOT NULL DEFAULT 0
+)
+'''),
+      ),
+    );
+    for (final event in [
+      'purchase',
+      'gems_first',
+      'subscription_day0',
+      'login_first',
+    ]) {
+      await oldDatabase.insert('app_event_reports', <String, Object?>{
+        'report_key': event,
+        'event_name': event,
+        'environment': 'sandbox',
+        'occurred_at': 1767225600,
+        'transaction_id': event == 'login_first' ? null : 'old-order',
+        'params_json': '{}',
+        'delivered': 0,
+      });
+    }
+    await oldDatabase.close();
 
+    final store = SqfliteAppEventReportStore(
+      databaseFactoryOverride: databaseFactoryFfiNoIsolate,
+      databasePath: databasePath,
+    );
+    expect((await store.pending(limit: 20)).map((report) => report.event), [
+      'login_first',
+    ]);
+    await store.close();
+  });
+
+  test('removed purchase events are neither enqueued nor delivered', () async {
+    const removedEvents = <String>[
+      'purchase',
+      'purchase_first',
+      'purchase_day0',
+      'purchase_first_day0',
+      'gems',
+      'gems_first',
+      'gems_day0',
+      'gems_first_day0',
+      'subscription',
+      'subscription_first',
+      'subscription_day0',
+      'subscription_first_day0',
+    ];
+    final store = _MemoryAppEventReportStore();
+    final sent = <AppEventReport>[];
+    final reporting = AppEventReporting(
+      environmentProvider: () => 'sandbox',
+      store: store,
+      sender: (report) async => sent.add(report),
+    );
+    for (final event in removedEvents) {
       await reporting.report(
-        event: 'gems',
+        event: event,
         occurredAtSeconds: 1767225600,
-        transactionId: 'order-1',
-        parameters: const <String, Object>{
-          'provider': 'google',
-          'product_id': 'gems-500',
-          'device_id': 'device-1',
-          'value': 4.99,
-          'currency': 'USD',
-        },
-      );
-      await reporting.report(
-        event: 'login_first',
-        occurredAtSeconds: 1767225600,
-        transactionId: 'must-be-ignored',
-        parameters: const <String, Object>{
-          'method': 'google',
-          'device_id': 'device-1',
-        },
-      );
-      await reporting.report(
-        event: 'subscription_renew',
-        occurredAtSeconds: 1767225600,
-        transactionId: 'renewal-1',
         parameters: const <String, Object>{'device_id': 'device-1'},
       );
-      await reporting.flush();
+    }
+    expect(store.reports, isEmpty);
 
-      expect(sent.map((report) => report.event), ['gems', 'login_first']);
-      expect(sent.first.transactionId, 'order-1');
-      expect(sent.first.occurredAtSeconds, 1767225600);
-      expect(sent.first.params, const <String, String>{
-        'provider': 'google',
-        'product_id': 'gems-500',
-        'device_id': 'device-1',
-        'value': '4.99',
-        'currency': 'USD',
-      });
-      expect(sent.last.transactionId, isNull);
-      expect(sent.last.params, const <String, String>{
-        'method': 'google',
-        'device_id': 'device-1',
-      });
-      await reporting.dispose();
-    },
-  );
+    for (final event in removedEvents) {
+      await store.enqueue(
+        AppEventReport(
+          event: event,
+          environment: 'sandbox',
+          occurredAtSeconds: 1767225600,
+          params: const <String, String>{'device_id': 'device-1'},
+          reportKey: 'legacy-$event',
+        ),
+      );
+    }
+    await reporting.report(
+      event: 'login_first',
+      occurredAtSeconds: 1767225601,
+      parameters: const <String, Object>{'method': 'google'},
+    );
+    await reporting.flush();
+
+    expect(sent.map((report) => report.event), ['login_first']);
+    expect(store.pendingReports, isEmpty);
+    await reporting.dispose();
+  });
 
   test('failed reports stay queued and later flush exactly once', () async {
     final store = _MemoryAppEventReportStore();
@@ -283,51 +331,6 @@ CREATE TABLE app_event_reports (
     await reporting.dispose();
   });
 
-  test(
-    'transaction events without a transaction id are not enqueued',
-    () async {
-      final store = _MemoryAppEventReportStore();
-      final reporting = AppEventReporting(
-        environmentProvider: () => 'sandbox',
-        store: store,
-        sender: (_) async {},
-      );
-
-      for (final event in AppEventReporting.transactionEvents) {
-        await reporting.report(
-          event: event,
-          occurredAtSeconds: 1767225600,
-          parameters: const <String, Object>{'device_id': 'device-1'},
-        );
-      }
-
-      expect(store.reports, isEmpty);
-      await reporting.dispose();
-    },
-  );
-
-  test('transaction-derived events preserve their transaction id', () async {
-    final store = _MemoryAppEventReportStore();
-    final sent = <AppEventReport>[];
-    final reporting = AppEventReporting(
-      environmentProvider: () => 'sandbox',
-      store: store,
-      sender: (report) async => sent.add(report),
-    );
-
-    await reporting.report(
-      event: 'gems_first_day0',
-      occurredAtSeconds: 1767225600,
-      transactionId: 'order-1',
-      parameters: const <String, Object>{'device_id': 'device-1'},
-    );
-    await reporting.flush();
-
-    expect(sent, hasLength(1));
-    expect(sent.single.transactionId, 'order-1');
-    await reporting.dispose();
-  });
-
   test('permanent rejection does not block a later queued event', () async {
     final store = _MemoryAppEventReportStore();
     final sent = <String>[];
@@ -335,7 +338,7 @@ CREATE TABLE app_event_reports (
       environmentProvider: () => 'sandbox',
       store: store,
       sender: (report) async {
-        if (report.event == 'gems_first_day0') {
+        if (report.event == 'login_first') {
           throw ApiException(
             message: 'invalid event',
             code: 4004,
@@ -347,22 +350,21 @@ CREATE TABLE app_event_reports (
     );
 
     await reporting.report(
-      event: 'gems_first_day0',
+      event: 'login_first',
       occurredAtSeconds: 1767225600,
-      transactionId: 'order-1',
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
     await reporting.report(
-      event: 'login_first',
+      event: 'message_sent_first',
       occurredAtSeconds: 1767225600,
       parameters: const <String, Object>{
-        'method': 'google',
+        'world_id': 'world-1',
         'device_id': 'device-1',
       },
     );
     await reporting.flush();
 
-    expect(sent, ['login_first']);
+    expect(sent, ['message_sent_first']);
     expect(store.pendingReports, isEmpty);
     await reporting.dispose();
   });

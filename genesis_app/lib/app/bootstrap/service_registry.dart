@@ -368,8 +368,6 @@ class ServiceRegistry {
         deviceIdService: deviceId,
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
-        onServerTimeSynchronized:
-            FirebaseAnalyticsMonitoring.recordServerTimeSynchronized,
       );
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,

@@ -295,8 +295,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   void _trackPurchasedCallback(
     BillingPurchase purchase, {
     required String productId,
-    int? priceAmountMicros,
-    String priceCurrencyCode = '',
   }) {
     if (purchase.status != BillingPurchaseStatus.purchased) return;
     final receipt = purchase.provider == BillingProvider.googlePlay
@@ -319,17 +317,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
           'worldo:gems:${purchase.provider.apiValue}:$receipt',
         ),
       },
-    );
-    unawaited(
-      FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: purchase.provider.apiValue,
-        productId: purchase.productId,
-        kind: FirebaseAnalyticsPurchaseKind.gems,
-        purchaseIdentity: purchase.purchaseToken,
-        transactionIdentity: receipt,
-        priceAmountMicros: priceAmountMicros,
-        priceCurrencyCode: priceCurrencyCode,
-      ),
     );
   }
 

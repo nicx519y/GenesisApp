@@ -81,7 +81,7 @@ class SqfliteAppEventReportStore implements AppEventReportStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: (database, _) => database.execute('''
 CREATE TABLE app_event_reports (
   sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +129,16 @@ SET transaction_id = CASE
 END
 WHERE business_id IS NOT NULL
 ''');
+          }
+          if (oldVersion < 5) {
+            final retainedEvents = AppEventReporting.supportedEvents.toList();
+            await database.delete(
+              'app_event_reports',
+              where:
+                  'event_name NOT IN '
+                  '(${List.filled(retainedEvents.length, '?').join(', ')})',
+              whereArgs: retainedEvents,
+            );
           }
         },
       ),
@@ -220,33 +230,6 @@ class AppEventReporting {
     'message_sent_first',
     'message_sent_10_first',
     'message_sent_20_first',
-    'purchase',
-    'purchase_first',
-    'purchase_day0',
-    'purchase_first_day0',
-    'gems',
-    'gems_first',
-    'gems_day0',
-    'gems_first_day0',
-    'subscription',
-    'subscription_first',
-    'subscription_day0',
-    'subscription_first_day0',
-  };
-
-  static const Set<String> transactionEvents = <String>{
-    'purchase',
-    'purchase_first',
-    'purchase_day0',
-    'purchase_first_day0',
-    'gems',
-    'gems_first',
-    'gems_day0',
-    'gems_first_day0',
-    'subscription',
-    'subscription_first',
-    'subscription_day0',
-    'subscription_first_day0',
   };
 
   final AppEventReportSender _sender;
@@ -263,7 +246,6 @@ class AppEventReporting {
     required String event,
     required int occurredAtSeconds,
     required Map<String, Object> parameters,
-    String? transactionId,
   }) async {
     if (_disposed || !supportedEvents.contains(event)) return;
     if (occurredAtSeconds <= 0) {
@@ -273,16 +255,6 @@ class AppEventReporting {
         'must be a positive UTC Unix timestamp in seconds',
       );
     }
-    final normalizedTransactionId = transactionId?.trim() ?? '';
-    if (transactionEvents.contains(event) && normalizedTransactionId.isEmpty) {
-      debugPrint(
-        '[Telemetry][EventReport] $event skipped: missing transaction_id',
-      );
-      return;
-    }
-    final effectiveTransactionId = transactionEvents.contains(event)
-        ? normalizedTransactionId
-        : null;
     final params = <String, String>{
       for (final entry in parameters.entries)
         entry.key: _parameterValue(entry.value),
@@ -295,15 +267,7 @@ class AppEventReporting {
       );
     }
     final reportKey = sha256
-        .convert(
-          utf8.encode(
-            jsonEncode(<Object?>[
-              environment,
-              event,
-              effectiveTransactionId ?? '',
-            ]),
-          ),
-        )
+        .convert(utf8.encode(jsonEncode(<Object?>[environment, event, ''])))
         .toString();
     try {
       await _store.enqueue(
@@ -313,7 +277,6 @@ class AppEventReporting {
           occurredAtSeconds: occurredAtSeconds,
           params: params,
           reportKey: reportKey,
-          transactionId: effectiveTransactionId,
         ),
       );
       unawaited(_flushAfterEnqueue());
@@ -363,6 +326,10 @@ class AppEventReporting {
       }
       for (final report in pending) {
         try {
+          if (!supportedEvents.contains(report.event)) {
+            await _store.markDelivered(report.reportKey);
+            continue;
+          }
           await _sender(report);
           await _store.markDelivered(report.reportKey);
           _retryDelay = _initialRetryDelay;

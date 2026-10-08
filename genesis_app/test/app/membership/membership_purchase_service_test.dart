@@ -405,7 +405,7 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider prewarmed checkout retains Firebase price and deduplicates callbacks',
+      '$provider prewarmed checkout deduplicates callbacks without Firebase purchase events',
       () async {
         final client = enableFirebaseAnalytics();
         final product = membershipProduct(provider: provider);
@@ -425,21 +425,14 @@ void main() {
         await h.service.recover();
         await h.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events.map((e) => e.name), [
-          'purchase',
-          'subscription',
-          'purchase_first',
-          'subscription_first',
-        ]);
+        expect(client.events, isEmpty);
         expect(h.reports, hasLength(1));
-        expect(client.events.first.parameters['value'], 89.99);
-        expect(client.events.first.parameters['currency'], 'EUR');
         expect(h.service.state.value, MembershipCheckoutState.completed);
       },
     );
 
     test(
-      '$provider Firebase purchased callback records success before report rejection',
+      '$provider report rejection leaves Firebase purchase events disabled',
       () async {
         final client = enableFirebaseAnalytics();
         final h = Harness(provider: provider);
@@ -449,45 +442,40 @@ void main() {
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events.map((e) => e.name), [
-          'purchase',
-          'subscription',
-          'purchase_first',
-          'subscription_first',
-        ]);
+        expect(client.events, isEmpty);
         final restarted = Harness(provider: provider, storage: h.store);
         await restarted.service.recover();
         await _settleAnalytics();
-        expect(client.events, hasLength(4));
+        expect(client.events, isEmpty);
         expect(restarted.reports, isEmpty);
         await restarted.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events, hasLength(4));
+        expect(client.events, isEmpty);
       },
     );
   }
 
   for (final outcome in ['rejected', 'offline']) {
-    test('subscription Firebase follows store callback for $outcome', () async {
-      final client = enableFirebaseAnalytics();
-      final h = Harness();
-      if (outcome == 'rejected') {
-        h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.rejected,
-        );
-      }
-      if (outcome == 'offline') {
-        h.reportHandler = (_) async => throw StateError('offline');
-      }
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      await _settleAnalytics();
-      expect(h.reports, hasLength(1));
-      expect(
-        client.events.map((e) => e.name),
-        containsAll(['purchase', 'subscription']),
-      );
-    });
+    test(
+      'subscription Firebase purchase events stay disabled for $outcome',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final h = Harness();
+        if (outcome == 'rejected') {
+          h.reportHandler = (_) async => const MembershipPurchaseReport(
+            status: MembershipReportStatus.rejected,
+          );
+        }
+        if (outcome == 'offline') {
+          h.reportHandler = (_) async => throw StateError('offline');
+        }
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(h.purchase());
+        await _settleAnalytics();
+        expect(h.reports, hasLength(1));
+        expect(client.events, isEmpty);
+      },
+    );
   }
   for (final provider in MembershipProvider.values) {
     test('$provider ignores a purchased callback for another UUID', () async {
@@ -588,7 +576,7 @@ void main() {
   }
 
   test(
-    'subscription purchases record independent first analytics events',
+    'subscription callbacks do not emit removed Firebase purchase events',
     () async {
       final analytics = _RecordingAnalyticsClient();
       FirebaseAnalyticsMonitoring.resetForTesting();
@@ -634,35 +622,7 @@ void main() {
       );
       await _settleAnalytics();
 
-      expect(analytics.events.map((event) => event.name), <String>[
-        'purchase',
-        'subscription',
-        'purchase_first',
-        'subscription_first',
-        'purchase',
-        'subscription',
-        'purchase',
-        'subscription',
-      ]);
-      expect(analytics.events.first.parameters, <String, Object>{
-        'provider': 'google',
-        'product_id': google.product().storeProductId,
-        'device_id': 'test-device-id',
-        'value': 9.99,
-        'currency': 'USD',
-      });
-      expect(analytics.events[4].parameters, <String, Object>{
-        'provider': 'apple',
-        'product_id': apple.product(yearly: true).storeProductId,
-        'device_id': 'test-device-id',
-        'value': 9.99,
-        'currency': 'USD',
-      });
-      expect(analytics.events[6].parameters, <String, Object>{
-        'provider': 'google',
-        'product_id': recovered.product().storeProductId,
-        'device_id': 'test-device-id',
-      });
+      expect(analytics.events, isEmpty);
     },
   );
 

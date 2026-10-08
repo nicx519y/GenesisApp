@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../telemetry/firebase_analytics_monitoring.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_purchase.dart';
 import '../../network/models/membership_claim.dart';
@@ -1162,21 +1161,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _attemptTracking[record.requestId] = tracking;
     record = record.copyWith(tracking: tracking);
     await _save(record);
-    unawaited(
-      FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: provider.name,
-        productId: record.product.storeProductId,
-        kind: FirebaseAnalyticsPurchaseKind.subscription,
-        purchaseIdentity: provider == MembershipProvider.google
-            ? record.purchaseToken
-            : record.transactionId,
-        transactionIdentity: record.transactionId.trim().isNotEmpty
-            ? record.transactionId
-            : record.purchaseToken,
-        priceAmountMicros: record.priceAmountMicros,
-        priceCurrencyCode: record.priceCurrencyCode,
-      ),
-    );
     await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
     await _report(record);
     await _claimPendingGuests();
