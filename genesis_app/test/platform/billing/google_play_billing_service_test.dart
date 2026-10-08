@@ -210,6 +210,7 @@ class _ControllablePendingPurchaseStore
     extends MemoryBillingPendingPurchaseStore {
   bool failNextUpsert = false;
   bool failNextFind = false;
+  bool failNextRemove = false;
   int findCount = 0;
 
   @override
@@ -232,6 +233,18 @@ class _ControllablePendingPurchaseStore
       throw StateError('local write failed');
     }
     await super.upsert(purchase);
+  }
+
+  @override
+  Future<void> remove({
+    required BillingProvider provider,
+    required String purchaseToken,
+  }) async {
+    if (failNextRemove) {
+      failNextRemove = false;
+      throw StateError('local cleanup failed');
+    }
+    await super.remove(provider: provider, purchaseToken: purchaseToken);
   }
 }
 
@@ -1475,6 +1488,37 @@ void main() {
   });
 
   test(
+    'missing receipt tracks failure and a later valid callback can succeed',
+    () async {
+      await service.purchaseGem(_product);
+      platform.emit(
+        _purchase(BillingPurchaseStatus.purchased, purchaseToken: ''),
+      );
+      await _settle();
+
+      expect(reports, isEmpty);
+      expect(uiEvents.last.kind, BillingUiEventKind.failure);
+      expect(
+        analytics.records.where((record) => record.action == 'purchase_failed'),
+        hasLength(1),
+      );
+      expect(analytics.records.last.properties['reason'], 'receipt_missing');
+
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+
+      expect(reports, hasLength(1));
+      expect(uiEvents.last.kind, BillingUiEventKind.success);
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_success',
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
     'product query failure is tracked and does not launch billing',
     () async {
       platform.queryResult = const BillingProductQueryResult.failure(
@@ -2032,6 +2076,45 @@ void main() {
     );
     expect(firebase.events.map((event) => event.name), contains('purchase'));
   });
+
+  for (final status in [
+    GemPurchaseReportStatus.completed,
+    GemPurchaseReportStatus.rejected,
+  ]) {
+    test(
+      '$status local cleanup failure does not override report result',
+      () async {
+        reportStatus = status;
+        pendingStore.failNextRemove = true;
+
+        await service.purchaseGem(_product);
+        platform.emit(_purchase(BillingPurchaseStatus.purchased));
+        await _settle();
+
+        expect(reports, hasLength(1));
+        expect(
+          uiEvents.last.kind,
+          status == GemPurchaseReportStatus.completed
+              ? BillingUiEventKind.success
+              : BillingUiEventKind.failure,
+        );
+        expect(
+          refreshCount,
+          status == GemPurchaseReportStatus.completed ? 1 : 0,
+        );
+        expect(
+          analytics.records.where(
+            (record) => record.action == 'purchase_failed',
+          ),
+          isEmpty,
+        );
+
+        platform.emit(_purchase(BillingPurchaseStatus.purchased));
+        await _settle();
+        expect(reports, hasLength(1));
+      },
+    );
+  }
 
   test(
     'pending order update failure does not block purchased report',

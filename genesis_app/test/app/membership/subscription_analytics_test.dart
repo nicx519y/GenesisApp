@@ -446,7 +446,7 @@ void main() {
   );
 
   test(
-    'purchase stream preserves the native failure and deduplicates its callback',
+    'purchase stream reports failure immediately and deduplicates its callback',
     () async {
       final h = support.Harness(analytics: analytics);
       await h.service.purchase(
@@ -457,14 +457,36 @@ void main() {
       h.service.handleStreamError(
         PlatformException(code: 'wrapper', details: {'responseCode': -1}),
       );
+      expect(events, hasLength(1));
+      expect(events.single.action, 'subscription_failed');
+      expect(events.single.object3, 'google[response_code=-1]');
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.error),
       );
       expect(events, hasLength(1));
-      expect(
-        events.single.object3,
-        'store_failure[stage=callback;status=error]',
+    },
+  );
+
+  test(
+    'a purchased callback after stream failure still reports success',
+    () async {
+      final h = support.Harness(analytics: analytics);
+      await h.service.purchase(
+        h.product(),
+        attemptId: tracking.id,
+        tracking: tracking,
       );
+      h.service.handleStreamError();
+      expect(events.single.action, 'subscription_failed');
+      expect(events.single.object3, 'store_failure[stage=stream;status=error]');
+
+      await h.service.interceptPurchase(h.purchase());
+
+      expect(events.map((event) => event.action), [
+        'subscription_failed',
+        'subscription_success',
+      ]);
+      expect(h.reports, hasLength(1));
     },
   );
 

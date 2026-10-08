@@ -1415,12 +1415,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         subscriptionStoreFailureReason(
           provider,
           error: error,
-          stage: 'callback',
+          stage: 'stream',
+          status: 'error',
         ) ??
-        'unknown_error';
+        'store_failure[stage=stream;status=error]';
     for (final entry in _checkoutWaits.entries) {
       if (!entry.value.storeCallbackReceived) {
-        _checkoutFailure(entry.key, reason);
+        _checkoutFailure(entry.key, reason, fromStoreStream: true);
       }
     }
     _endCheckoutWaits(

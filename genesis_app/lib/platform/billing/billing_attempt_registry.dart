@@ -199,7 +199,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     BillingPurchase? purchase,
     required BillingRecoverySource source,
     bool silent = false,
-    bool requireLocalCleanup = true,
   }) async {
     String accountId;
     try {
@@ -230,9 +229,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
 
     if (report.status == GemPurchaseReportStatus.completed) {
-      if (!await _deletePurchaseRecord(record) && requireLocalCleanup) {
-        await _handleLocalOrderMutationFailure(record, silent: silent);
-        return;
+      if (!await _deletePurchaseRecord(record)) {
+        debugPrint('[Billing] failed to clean up completed local order');
       }
       _finishPurchaseAttempt(record, purchase);
       if (!silent) {
@@ -248,9 +246,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       }
       _refreshWalletInBackground();
     } else {
-      if (!await _deletePurchaseRecord(record) && requireLocalCleanup) {
-        await _handleLocalOrderMutationFailure(record, silent: silent);
-        return;
+      if (!await _deletePurchaseRecord(record)) {
+        debugPrint('[Billing] failed to clean up rejected local order');
       }
       _finishPurchaseAttempt(record, purchase);
       if (!silent) {
@@ -361,24 +358,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     } catch (_) {
       return false;
     }
-  }
-
-  Future<void> _handleLocalOrderMutationFailure(
-    BillingPendingPurchase record, {
-    bool silent = false,
-  }) async {
-    _completedPurchaseKeys.add(record.key);
-    if (!silent) {
-      _emitDeferred(
-        record.productId,
-        record.attemptId,
-        debugInfo: purchaseDebugInfo(
-          'gems.update_order',
-          reason: 'local_order_mutation_failed',
-        ),
-      );
-    }
-    _setBusy(record.productId, false);
   }
 
   void _finishPurchaseAttempt(

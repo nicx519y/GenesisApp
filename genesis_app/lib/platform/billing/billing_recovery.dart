@@ -408,6 +408,18 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
 
     if (token.isEmpty) {
       _clearAttempt(purchase, attempt);
+      if (attempt != null) {
+        // Keep this attempt available if the store later supplies the receipt.
+        _interruptedAttemptByStoreProductId[purchase.productId] = attempt;
+      }
+      _trackFlowResultById(
+        attemptId: attemptId,
+        productId: productId,
+        storeProductId: purchase.productId,
+        status: 'store_failed',
+        source: source,
+        errorCode: 'purchase_token_missing',
+      );
       _emitFailure(
         productId,
         attemptId,
@@ -448,7 +460,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     );
     try {
       var record = persistedRecord;
-      var requireLocalCleanup = persistedRecordLookupSucceeded;
       if (record == null) {
         final resolvedAttempt =
             attempt ??
@@ -477,7 +488,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             await _pendingPurchaseStore.upsert(record);
           } catch (error) {
             debugPrint('[Billing] failed to save purchased order: $error');
-            requireLocalCleanup = false;
           }
         }
       } else if (record.status != BillingPendingPurchaseStatus.received) {
@@ -498,15 +508,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           await _pendingPurchaseStore.upsert(record);
         } catch (error) {
           debugPrint('[Billing] failed to update purchased order: $error');
-          requireLocalCleanup = false;
         }
       }
-      await _processRecord(
-        record,
-        purchase: purchase,
-        source: source,
-        requireLocalCleanup: requireLocalCleanup,
-      );
+      await _processRecord(record, purchase: purchase, source: source);
     } finally {
       _endExclusivePurchase(processingKey);
     }

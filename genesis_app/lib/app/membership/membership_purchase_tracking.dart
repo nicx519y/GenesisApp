@@ -22,8 +22,9 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
     String id,
     String reason, {
     bool fromStoreCallback = false,
+    bool fromStoreStream = false,
   }) {
-    if (!fromStoreCallback) return;
+    if (!fromStoreCallback && !fromStoreStream) return;
     final tracking = _attemptTracking[id];
     if (tracking != null) analytics.failed(tracking, reason, once: true);
   }
