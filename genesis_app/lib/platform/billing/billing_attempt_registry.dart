@@ -460,13 +460,17 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   }) {
     final token = purchase.purchaseToken.trim();
     final tokenAttempt = _attemptByPurchaseToken[token];
+    final interruptedAttempt =
+        _interruptedAttemptByStoreProductId[purchase.productId];
     if (persistedRecord != null) {
-      return tokenAttempt?.id == persistedRecord.attemptId
-          ? tokenAttempt
+      if (tokenAttempt?.id == persistedRecord.attemptId) return tokenAttempt;
+      return interruptedAttempt?.id == persistedRecord.attemptId
+          ? interruptedAttempt
           : null;
     }
     return tokenAttempt ??
         _attemptByStoreProductId[purchase.productId] ??
+        interruptedAttempt ??
         _onlyActiveAttemptForStoreError(purchase);
   }
 
@@ -518,6 +522,9 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     final current = _attemptByStoreProductId[storeProductId];
     if (current?.id == attempt.id) {
       _attemptByStoreProductId.remove(storeProductId);
+    }
+    if (_interruptedAttemptByStoreProductId[storeProductId]?.id == attempt.id) {
+      _interruptedAttemptByStoreProductId.remove(storeProductId);
     }
     _cancelAttemptTimeout(storeProductId);
     _attemptByPurchaseToken.removeWhere(

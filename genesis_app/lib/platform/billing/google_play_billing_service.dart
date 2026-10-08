@@ -66,6 +66,8 @@ class GooglePlayBillingService implements BillingService {
       StreamController<BillingUiEvent>.broadcast();
   final Map<String, BillingPurchaseAttempt> _attemptByStoreProductId =
       <String, BillingPurchaseAttempt>{};
+  final Map<String, BillingPurchaseAttempt>
+  _interruptedAttemptByStoreProductId = <String, BillingPurchaseAttempt>{};
   final Map<String, BillingPurchaseAttempt> _attemptByPurchaseToken =
       <String, BillingPurchaseAttempt>{};
   final Set<String> _processingPurchaseKeys = <String>{};
@@ -526,6 +528,7 @@ class GooglePlayBillingService implements BillingService {
     _cachedBillingAccountId = null;
     _cachedBillingAccountOwnerUid = null;
     _attemptByStoreProductId.clear();
+    _interruptedAttemptByStoreProductId.clear();
     _attemptByPurchaseToken.clear();
     _completedPurchaseKeys.clear();
     _trackedPurchasedKeys.clear();

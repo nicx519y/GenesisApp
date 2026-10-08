@@ -9,6 +9,7 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
     if (intercept == null) return false;
     // Known Gems attempts/receipts keep their existing path without another SKU query.
     if (_attemptByStoreProductId.containsKey(purchase.productId) ||
+        _interruptedAttemptByStoreProductId.containsKey(purchase.productId) ||
         productCatalog?.any(
               (p) =>
                   _storeProductIdFor(p, purchase.provider) ==
@@ -51,7 +52,31 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
     );
     for (final entry in activeAttempts.entries) {
       final attempt = entry.value;
+      final alreadyPurchased = _attemptByPurchaseToken.entries.any(
+        (tokenEntry) =>
+            tokenEntry.value.id == attempt.id &&
+            _trackedPurchasedKeys.contains(
+              '${_platform.provider.name}:${tokenEntry.key}',
+            ),
+      );
+      if (alreadyPurchased) continue;
+      _trackFlowResultById(
+        attemptId: attempt.id,
+        productId: attempt.product.productId,
+        storeProductId: entry.key,
+        status: 'stream_failed',
+        source: BillingRecoverySource.direct,
+        failureReason:
+            _storeFailureReason(
+              error: error,
+              stage: 'stream',
+              status: 'error',
+            ) ??
+            'store_failure[stage=stream;status=error]',
+      );
       _clearActiveAttempt(entry.key, attempt);
+      // The stream may deliver a purchased callback after its error event.
+      _interruptedAttemptByStoreProductId[entry.key] = attempt;
       _emitFailure(
         attempt.product.productId,
         attempt.id,

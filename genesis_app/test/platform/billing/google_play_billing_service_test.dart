@@ -1559,8 +1559,98 @@ void main() {
       expect(uiEvents.last.kind, BillingUiEventKind.failure);
       expect(uiEvents.last.attemptId, 'track_id_stream_error');
       expect(uiEvents.last.message, 'Payment service is unavailable.');
+      expect(
+        analytics.records.where((r) => r.action == 'purchase_failed'),
+        hasLength(1),
+      );
+      expect(
+        analytics.records.last.properties['failure_reason'],
+        'store_failure[stage=stream;status=error]',
+      );
     },
   );
+
+  test(
+    'a purchased callback after a stream error still tracks success',
+    () async {
+      await service.purchaseGem(
+        _product,
+        operationId: 'stream_error_late_purchase',
+      );
+
+      platform.emitError(StateError('store stream failed'));
+      await _settle();
+      expect(await pendingStore.loadAll(), isEmpty);
+
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+
+      expect(reports, hasLength(1));
+      expect(
+        analytics.records
+            .where(
+              (r) =>
+                  r.action == 'purchase_failed' ||
+                  r.action == 'purchase_success',
+            )
+            .map((r) => r.action),
+        ['purchase_failed', 'purchase_success'],
+      );
+      expect(
+        analytics.records.where((r) => r.action == 'purchase_failed'),
+        hasLength(1),
+      );
+      expect(
+        analytics.records.where((r) => r.action == 'purchase_success'),
+        hasLength(1),
+      );
+    },
+  );
+
+  test('stream errors after purchased do not change its analytics', () async {
+    service.dispose();
+    final reportResult = Completer<GemPurchaseReport>();
+    service = GooglePlayBillingService(
+      platform: platform,
+      pendingPurchaseStore: pendingStore,
+      loadBillingAccountId: () async => billingAccountId,
+      loadProductCatalog: () async => [_product],
+      reportPurchase: (request) {
+        reports.add(request);
+        return reportResult.future;
+      },
+      refreshWallet: () async => refreshCount += 1,
+      readUid: () async => currentUid,
+      analytics: analytics,
+    );
+    service.events.listen(uiEvents.add);
+
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    expect(reports, hasLength(1));
+
+    platform.emitError(StateError('store stream failed'));
+    await _settle();
+
+    expect(
+      analytics.records.where((r) => r.action == 'purchase_success'),
+      hasLength(1),
+    );
+    expect(
+      analytics.records.where((r) => r.action == 'purchase_failed'),
+      isEmpty,
+    );
+    reportResult.complete(
+      const GemPurchaseReport(
+        status: GemPurchaseReportStatus.completed,
+        grantedGemsCent: 55000,
+      ),
+    );
+    await _settle();
+  });
 
   test('billing launch failure tracks the platform error code', () async {
     platform.buyHandler = () {

@@ -360,6 +360,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         _precheckFailedReason(errorCode) == null ? null : 'precheck_failed',
       'query_failed' => 'query_failed',
       'launch_rejected' || 'launch_failed' => 'launch_failed',
+      'stream_failed' => 'stream_failed',
       'canceled' => 'canceled',
       'store_failed' =>
         errorCode == 'purchase_token_missing'

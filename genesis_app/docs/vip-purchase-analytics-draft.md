@@ -20,7 +20,7 @@
 
 ## Gems 事件
 
-`buy_page_show`、`product_click`、`purchase_pending`、`purchase_timeout`、`purchase_success` 和 `purchase_failed` 的购买关联字段不再写入 `object2`。`purchase_success` 在当前购买的商店 purchased 回调后触发；`purchase_failed` 对应点击后的前置检查、商店商品查询、商店拉起失败，或商店 canceled / error 回调。前三类失败的 `object3` 分别为 `precheck_failed[错误码]`、`query_failed[错误码]`、`launch_failed[错误码]`；拉起失败没有错误码时为 `launch_failed`。report 的 completed、rejected、网络错误和超时都不生成购买结果事件。`purchase_success.object3` 使用商店本笔交易号，缺失时留空，不发送 purchase token。
+`buy_page_show`、`product_click`、`purchase_pending`、`purchase_timeout`、`purchase_success` 和 `purchase_failed` 的购买关联字段不再写入 `object2`。`purchase_success` 在当前购买的商店 purchased 回调后触发；`purchase_failed` 对应点击后的前置检查、商店商品查询、商店拉起失败、购买流 onError，或商店 canceled / error 回调。前三类失败的 `object3` 分别为 `precheck_failed[错误码]`、`query_failed[错误码]`、`launch_failed[错误码]`；拉起失败没有错误码时为 `launch_failed`。购买流 onError 的 `object3` 优先保留结构化平台错误码，否则为 `store_failure[stage=stream;status=error]`。流错误后如仍收到本笔 purchased 回调，可在 `purchase_failed` 之后再记录 `purchase_success`；两条事件都只按各自的回调事实计入。report 的 completed、rejected、网络错误和超时都不生成购买结果事件。`purchase_success.object3` 使用商店本笔交易号，缺失时留空，不发送 purchase token。
 
 ## report 与 Firebase
 
