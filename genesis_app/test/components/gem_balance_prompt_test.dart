@@ -182,17 +182,8 @@ void main() {
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',
     );
-    expect(fixture.billing.purchaseTrackIds, hasLength(1));
-    final showMatch = RegExp(
-      r'^track_id_([^_]+)$',
-    ).firstMatch('${showEvent.data['object2']}');
-    final purchaseMatch = RegExp(
-      r'^track_id_([^_]+)_([^_]+)$',
-    ).firstMatch(fixture.billing.purchaseTrackIds.single);
-    expect(showMatch, isNotNull);
-    expect(purchaseMatch, isNotNull);
-    expect(purchaseMatch!.group(1), showMatch!.group(1));
-    expect(purchaseMatch.group(2), isNotEmpty);
+    expect(fixture.billing.purchaseTrackIds, ['']);
+    expect(showEvent.data.containsKey('object2'), isFalse);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -287,10 +278,7 @@ void _expectSheetShowEvent(_CapturingTelemetrySink telemetry, String trigger) {
   expect(events.single.data['action_type'], 'pay_event');
   expect(events.single.data['action'], 'buy_page_show');
   expect(events.single.data['object1'], 'buy_gems_sheet');
-  expect(events.single.data['object2'], isA<String>());
-  final trackId = '${events.single.data['object2']}';
-  final match = RegExp(r'^track_id_([^_]+)$').firstMatch(trackId);
-  expect(match, isNotNull);
+  expect(events.single.data.containsKey('object2'), isFalse);
   expect(events.single.data['object3'], trigger);
 }
 
@@ -350,12 +338,12 @@ class _FakeBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {
     if (_state.value.hasBusyPurchase) return;
     purchasedProducts.add(product);
     purchaseSources.add(source);
-    purchaseTrackIds.add(payTrackId);
+    purchaseTrackIds.add(operationId);
     _state.value = BillingState(
       storeAvailable: true,
       busyProductIds: <String>{product.productId},

@@ -184,7 +184,7 @@ void main() {
           final h = Harness(provider: provider);
           if (outcome == BillingPurchaseStatus.pending) {
             h.reportHandler = (_) async => const MembershipPurchaseReport(
-              status: MembershipReportStatus.accepted,
+              status: MembershipReportStatus.completed,
             );
           }
           final result = Completer<void>();

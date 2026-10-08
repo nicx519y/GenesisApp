@@ -56,8 +56,8 @@ Future<void> showGemPurchaseBottomSheet(
     return;
   }
 
-  final payTrackPageId = newBillingTrackPageId();
-  _trackGemPurchaseSheetShow(analyticsTrigger, payTrackPageId);
+  final analyticsPageId = newBillingPageId();
+  _trackGemPurchaseSheetShow(analyticsTrigger);
 
   await showGenesisModalBottomSheet<void>(
     context: context,
@@ -71,12 +71,11 @@ Future<void> showGemPurchaseBottomSheet(
       heightFactor: 0.8,
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
-        analyticsPageId: payTrackPageId,
+        analyticsPageId: analyticsPageId,
         gemsBuilder: (_) => GemPurchaseBottomSheet(
           productsLoader: resolvedProductsLoader,
           walletStore: resolvedWalletStore,
           billingService: resolvedBillingService,
-          payTrackPageId: payTrackPageId,
         ),
       ),
     ),
@@ -89,9 +88,9 @@ Future<void> showSubscriptionPurchaseBottomSheet(
 }) async {
   final services = AppServicesScope.maybeRead(context);
   final billingService = services?.billing;
-  final payTrackPageId = newBillingTrackPageId();
+  final analyticsPageId = newBillingPageId();
   final subscriptionTracking = SubscriptionPageTracking(
-    pageId: payTrackPageId,
+    pageId: analyticsPageId,
     source: source,
   );
   await showGenesisModalBottomSheet<void>(
@@ -109,11 +108,10 @@ Future<void> showSubscriptionPurchaseBottomSheet(
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
           initialTab: PurchaseSheetTab.subscription,
-          analyticsPageId: payTrackPageId,
+          analyticsPageId: analyticsPageId,
           subscriptionSource: source,
           subscriptionTracking: subscriptionTracking,
-          onFirstBuyGems: () =>
-              _trackGemPurchaseSheetShow('subscription_tab', payTrackPageId),
+          onFirstBuyGems: () => _trackGemPurchaseSheetShow('subscription_tab'),
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
@@ -121,7 +119,6 @@ Future<void> showSubscriptionPurchaseBottomSheet(
                       (await services.api.v1.gem.products()).products,
                   walletStore: services.gemWallet,
                   billingService: billingService,
-                  payTrackPageId: payTrackPageId,
                 ),
         ),
       ),
@@ -129,16 +126,12 @@ Future<void> showSubscriptionPurchaseBottomSheet(
   );
 }
 
-void _trackGemPurchaseSheetShow(
-  String? analyticsTrigger,
-  String payTrackPageId,
-) {
+void _trackGemPurchaseSheetShow(String? analyticsTrigger) {
   final trigger = analyticsTrigger?.trim() ?? '';
   GenesisTelemetry.collectLog(
     actionType: 'pay_event',
     action: 'buy_page_show',
     object1: BillingPurchaseSource.buyGemsSheet.value,
-    object2: billingPageTrackId(payTrackPageId),
     object3: trigger.isEmpty ? null : trigger,
   );
 }
@@ -150,13 +143,11 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.productsLoader,
     required this.walletStore,
     required this.billingService,
-    required this.payTrackPageId,
   });
 
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
-  final String payTrackPageId;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -221,7 +212,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       await widget.billingService.purchaseGem(
         product,
         source: BillingPurchaseSource.buyGemsSheet,
-        payTrackId: billingPurchaseTrackId(widget.payTrackPageId),
       );
     } catch (error) {
       if (!mounted) return;
@@ -253,7 +243,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       case BillingUiEventKind.success:
         _showPurchaseSuccess(event);
         return;
-      case BillingUiEventKind.accepted:
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
       case BillingUiEventKind.deferred:

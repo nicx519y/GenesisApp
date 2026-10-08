@@ -506,10 +506,47 @@ void main() {
     expect(events.single.data['action_type'], 'pay_event');
     expect(events.single.data['action'], 'buy_page_show');
     expect(events.single.data['object1'], 'buy_gems_page');
-    expect(events.single.data['object2'], isA<String>());
-    final trackId = '${events.single.data['object2']}';
-    final match = RegExp(r'^track_id_([^_]+)$').firstMatch(trackId);
-    expect(match, isNotNull);
+    expect(events.single.data.containsKey('object2'), isFalse);
+  });
+
+  testWidgets('purchase service unavailable records click and precheck failure', (
+    tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+    );
+    await tester.pump();
+
+    final purchaseEvents = telemetry.events
+        .where((event) => event.name == 'pay_event')
+        .toList();
+    expect(purchaseEvents.map((event) => event.data['action']), [
+      'product_click',
+      'purchase_failed',
+    ]);
+    expect(
+      purchaseEvents.last.collectPayload?['object3'],
+      'precheck_failed[service_unavailable]',
+    );
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
@@ -1141,21 +1178,12 @@ void main() {
       _products().map((product) => product.productId),
     );
     expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
-    expect(billing.purchaseTrackIds, hasLength(1));
+    expect(billing.purchaseTrackIds, ['']);
     final showEvent = telemetry.events.singleWhere(
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',
     );
-    final showMatch = RegExp(
-      r'^track_id_([^_]+)$',
-    ).firstMatch('${showEvent.data['object2']}');
-    final purchaseMatch = RegExp(
-      r'^track_id_([^_]+)_([^_]+)$',
-    ).firstMatch(billing.purchaseTrackIds.single);
-    expect(showMatch, isNotNull);
-    expect(purchaseMatch, isNotNull);
-    expect(purchaseMatch!.group(1), showMatch!.group(1));
-    expect(purchaseMatch.group(2), isNotEmpty);
+    expect(showEvent.data.containsKey('object2'), isFalse);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -1525,7 +1553,7 @@ void main() {
     expect(find.text('Go Chat Now.'), findsNothing);
   });
 
-  testWidgets('billing accepted closes processing and shows its message', (
+  testWidgets('billing deferred closes processing and shows its message', (
     tester,
   ) async {
     final walletStore = GemWalletStore(
@@ -1553,15 +1581,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
-    billing.emitAccepted();
+    billing.emitDeferred();
     await tester.pump();
 
-    expect(
-      find.text(
-        'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Payment is being confirmed.'), findsOneWidget);
     expect(find.textContaining('Purchasing Gems'), findsNothing);
 
     await tester.pump(const Duration(seconds: 2));
@@ -2440,11 +2463,11 @@ class _FakeBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {
     purchasedProducts.add(product);
     purchaseSources.add(source);
-    purchaseTrackIds.add(payTrackId);
+    purchaseTrackIds.add(operationId);
     final completer = purchaseCompleter;
     if (completer != null) await completer.future;
     _state.value = BillingState(
@@ -2498,14 +2521,13 @@ class _FakeBillingService implements BillingService {
     );
   }
 
-  void emitAccepted() {
+  void emitDeferred() {
     _events.add(
       const BillingUiEvent(
-        kind: BillingUiEventKind.accepted,
+        kind: BillingUiEventKind.deferred,
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
-        message:
-            'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+        message: 'Payment is being confirmed.',
       ),
     );
   }

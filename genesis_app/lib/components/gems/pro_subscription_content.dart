@@ -359,7 +359,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final tracking = _tracking.click(isYearly: offer.product.isYearly);
     final access = _membership?.state.value ?? const MembershipAccessState();
     if (membershipIsSubscribedToSelectedPlan(offer.product, access)) {
-      _tracking.analytics.failed(tracking, 'already_subscribed', once: true);
+      _tracking.analytics.failed(
+        tracking,
+        'precheck_failed[already_subscribed]',
+        once: true,
+      );
       await showMembershipPurchaseFailure(
         context,
         'already_subscribed',
@@ -374,7 +378,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     }
     final service = widget.purchaseService ?? _services?.membershipPurchases;
     if (service == null) {
-      _tracking.analytics.failed(tracking, 'service_unavailable', once: true);
+      _tracking.analytics.failed(
+        tracking,
+        'precheck_failed[service_unavailable]',
+        once: true,
+      );
       showGenesisToast(
         context,
         purchaseToastMessage(

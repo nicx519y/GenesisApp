@@ -38,9 +38,9 @@ class MembershipGuestClaimRecord {
       recoveredProof != null;
 
   bool get requiresLogin =>
-      status != 'completed' && (purchaseConfirmed || loginRequired);
+      status == null && (purchaseConfirmed || loginRequired);
 
-  bool get needsRetry => status == null || status == 'accepted';
+  bool get needsRetry => status == null;
 
   MembershipGuestClaimRecord copyWith({
     String? ownerUid,
@@ -85,7 +85,13 @@ class MembershipGuestClaimRecord {
           Map<String, dynamic>.from(json['guest'] as Map),
         ),
         ownerUid: json['owner_uid'] as String?,
-        status: json['status'] as String?,
+        // Previous clients could persist a nonterminal claim status. Keep its
+        // owner and proof, but treat it as unresolved under the current API.
+        status: switch (json['status']) {
+          'completed' => 'completed',
+          'rejected' => 'rejected',
+          _ => null,
+        },
         loginRequired: json['login_required'] as bool? ?? false,
         purchaseRequestId: json['purchase_request_id'] as String?,
         purchaseConfirmed: json['purchase_confirmed'] as bool? ?? false,

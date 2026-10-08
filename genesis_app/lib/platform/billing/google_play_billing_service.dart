@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app/telemetry/firebase_analytics_monitoring.dart';
-import '../../network/api_exception.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_purchase_report.dart';
 import 'billing_analytics.dart';
@@ -70,7 +70,9 @@ class GooglePlayBillingService implements BillingService {
       <String, BillingPurchaseAttempt>{};
   final Set<String> _processingPurchaseKeys = <String>{};
   final Set<String> _completedPurchaseKeys = <String>{};
+  final Set<String> _trackedPurchasedKeys = <String>{};
   final Set<String> _trackedPendingAttemptIds = <String>{};
+  final Set<String> _trackedFailedAttemptIds = <String>{};
   final Map<String, Timer> _attemptTimeouts = <String, Timer>{};
 
   StreamSubscription<List<BillingPurchase>>? _purchaseSubscription;
@@ -107,11 +109,11 @@ class GooglePlayBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {
     final startedAt = DateTime.now();
-    final attemptId = payTrackId.trim().isNotEmpty
-        ? payTrackId.trim()
+    final attemptId = operationId.trim().isNotEmpty
+        ? operationId.trim()
         : newBillingAttemptId();
     var activeProduct = product;
     var storeProductId = _storeProductIdFor(product, _platform.provider);
@@ -435,6 +437,7 @@ class GooglePlayBillingService implements BillingService {
               activeProduct,
               attemptId,
               'launch_rejected',
+              errorCode: 'launch_rejected',
               failureReason: 'store_failure[stage=launch]',
             );
           }
@@ -525,6 +528,7 @@ class GooglePlayBillingService implements BillingService {
     _attemptByStoreProductId.clear();
     _attemptByPurchaseToken.clear();
     _completedPurchaseKeys.clear();
+    _trackedPurchasedKeys.clear();
     _trackedPendingAttemptIds.clear();
     for (final timeout in _attemptTimeouts.values) {
       timeout.cancel();

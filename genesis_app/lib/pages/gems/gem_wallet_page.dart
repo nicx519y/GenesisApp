@@ -29,6 +29,7 @@ import '../../network/models/gem_product.dart';
 import '../../network/models/gem_task.dart';
 import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../platform/billing/billing_analytics.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import '../../routers/app_router.dart';
@@ -133,8 +134,8 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
-  late final String _payTrackPageId =
-      widget.subscriptionTracking?.pageId ?? newBillingTrackPageId();
+  late final String _analyticsPageId =
+      widget.subscriptionTracking?.pageId ?? newBillingPageId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
@@ -153,7 +154,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     _subscriptionTracking =
         widget.subscriptionTracking ??
         SubscriptionPageTracking(
-          pageId: _payTrackPageId,
+          pageId: _analyticsPageId,
           surface: SubscriptionSurface.page,
           source: _subscriptionVisited
               ? widget.subscriptionSource
@@ -260,7 +261,6 @@ class _GemWalletPageState extends State<GemWalletPage>
       actionType: 'pay_event',
       action: 'buy_page_show',
       object1: BillingPurchaseSource.buyGemsPage.value,
-      object2: billingPageTrackId(_payTrackPageId),
       object3: widget.showSubscriptionInitially || !widget.showBuyGems
           ? 'subscription_tab'
           : widget.gemsSource,

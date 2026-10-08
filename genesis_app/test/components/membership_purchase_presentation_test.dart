@@ -317,7 +317,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 250));
         expect(find.text('Purchasing Premium'), findsNothing);
         expect(
-          find.text('You already have an active Premium subscription.'),
+          find.textContaining('You’re already subscribed to Premium'),
           findsOneWidget,
         );
         expect(h.platform.launches, launchesBefore);
@@ -673,7 +673,6 @@ void main() {
   for (final outcome in [
     'cancelled',
     'pending',
-    'accepted',
     'rejected',
     'failed',
     'query failure',
@@ -699,11 +698,9 @@ void main() {
         if (outcome == 'report failure') {
           h.reportHandler = (_) async => throw StateError('offline');
         }
-        if (outcome == 'accepted' || outcome == 'rejected') {
-          h.reportHandler = (_) async => MembershipPurchaseReport(
-            status: outcome == 'accepted'
-                ? MembershipReportStatus.accepted
-                : MembershipReportStatus.rejected,
+        if (outcome == 'rejected') {
+          h.reportHandler = (_) async => const MembershipPurchaseReport(
+            status: MembershipReportStatus.rejected,
           );
         }
         await open(tester, h);
@@ -730,7 +727,6 @@ void main() {
         final message = switch (outcome) {
           'cancelled' => 'Purchase canceled.',
           'pending' => 'Your purchase is pending.',
-          'accepted' => 'Your purchase is being confirmed.',
           'rejected' =>
             'We couldn’t verify your subscription. Please contact support.',
           'report failure' => 'Report failed.',
@@ -749,7 +745,6 @@ void main() {
         final detail = switch (outcome) {
           'cancelled' => 'store_callback; status=canceled',
           'pending' => 'store_callback; status=pending',
-          'accepted' => 'report; status=accepted',
           'rejected' => 'report; status=rejected',
           'failed' => 'membership_launch_rejected',
           'query failure' => 'code=membership_product_not_found',

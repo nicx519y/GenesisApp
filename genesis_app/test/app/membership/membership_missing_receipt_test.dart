@@ -15,7 +15,7 @@ void main() {
       'error',
     ]) {
       test(
-        '$provider legacy $state without proof is removed without a store query',
+        '$provider legacy $state without proof does not trigger a store query',
         () async {
           final h = support.Harness(provider: provider, restoreEnabled: true);
           await h.store.save(
@@ -28,7 +28,11 @@ void main() {
             ),
           );
           await h.service.recover();
-          expect(h.store.records, isEmpty);
+          if (state == 'pending') {
+            expect(h.store.records.values.single.state, 'pending');
+          } else {
+            expect(h.store.records, isEmpty);
+          }
           expect(h.store.confirmed, isEmpty);
           expect(h.recoverQueries + h.restoreQueries, 0);
           expect(h.reports, isEmpty);

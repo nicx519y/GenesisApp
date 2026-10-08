@@ -362,7 +362,7 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 
 `purchase`、`purchase_day0`、`gems_day0`、`subscription_day0` 是按购买凭据去重的交易级事件，不同有效交易可以重复发送；`*_first` 事件是在本地 SharedPreferences 中记录的安装级一次性事件。这里的“一次”是本地安装数据生命周期内的一次，不代表整个账号在所有设备上的全局第一次。
 
-购买事件以后端 `completed` 为触发边界，`purchased` 回调本身、`accepted`、`rejected` 和上报异常均不触发；已知 pending 订单通过现有补报链路变为 `completed` 时也可发送。Gems 仅为通过账号校验且匹配当前下单的 pending/purchased 凭据保存埋点资格标记，后续恢复沿用该标记；无关联历史和单独 restored 回调不建立资格。订阅复用已有订单归属判断，restored 记录不发送。升级前没有 Gems 埋点资格的旧记录不追溯补记。金额只来自商店商品查询并随待处理订单持久化，不用后端目录价补齐；旧订单缺少金额时仍发送事件，但不发送 `value/currency`。原生 `in_app_purchase` 保持 Firebase SDK 自身参数，不注入这些业务自定义参数。
+购买事件以匹配本次购买或本地 pending 订单的商店 `purchased` 回调为触发边界，发生在购买 report 之前；report 的 `completed`、`rejected` 或请求异常均不改变这次商店成功事件。Gems 仅为通过账号校验且匹配当前下单的 pending/purchased 凭据保存埋点资格标记，后续恢复沿用该标记；无关联历史和单独 restored 回调不建立资格。订阅复用已有订单归属判断，restored 记录不发送。升级前没有 Gems 埋点资格的旧记录不追溯补记。金额只来自商店商品查询并随待处理订单持久化，不用后端目录价补齐；旧订单缺少金额时仍发送事件，但不发送 `value/currency`。原生 `in_app_purchase` 保持 Firebase SDK 自身参数，不注入这些业务自定义参数。
 
 Day0 锚点是当前安装第一次成功取得的 Gateway 服务器 UTC 时间，持久化后不再被后续校时覆盖。判断时使用同步后的单调服务器时间，把锚点和支付完成时间固定换算为 UTC+8；仅当支付时间不早于锚点且两者属于同一个北京时间年月日，才发送 Day0 事件。它不是连续 24 小时窗口，也不使用设备时区。存量安装升级后从首次成功校时开始，离线首启则从以后第一次成功校时开始。Day0 首次标记与旧 `purchase_first`、`gems_first`、`subscription_first` 标记相互独立。
 

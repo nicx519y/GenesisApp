@@ -314,7 +314,7 @@ void main() {
         purchaseToken: 'google-token',
         guest: identity,
       );
-      for (final status in ['completed', 'accepted', 'rejected']) {
+      for (final status in ['completed', 'rejected']) {
         transport.response = {
           'err_no': 0,
           'data': {
@@ -323,7 +323,6 @@ void main() {
             'membership': status == 'completed'
                 ? {'is_active': false, 'subscriptions': []}
                 : null,
-            if (status == 'accepted') 'reason': 'processing',
             if (status == 'rejected') 'reason': 'invalid_purchase',
           },
         };
@@ -340,7 +339,7 @@ void main() {
           'purchase_token': 'google-token',
         });
       }
-      for (final status in ['completed', 'accepted', 'rejected']) {
+      for (final status in ['completed', 'rejected']) {
         transport.response = {
           'err_no': 0,
           'data': {'status': status},
@@ -370,6 +369,7 @@ void main() {
       for (final data in [
         {},
         {'status': null},
+        {'status': 'accepted'},
         {'status': 'unknown'},
         {'status': 1},
       ]) {
@@ -489,7 +489,7 @@ void main() {
       });
       transport.response = {
         'err_no': 0,
-        'data': {'status': 'accepted'},
+        'data': {'status': 'completed'},
       };
       final result = await api.reportPurchase(
         MembershipPurchaseRequest(
@@ -498,7 +498,7 @@ void main() {
           guest: identity,
         ),
       );
-      expect(result.status, MembershipReportStatus.accepted);
+      expect(result.status, MembershipReportStatus.completed);
       expect(
         transport.last!.uri.path,
         '/api/v1/membership/guest/purchase/report',
@@ -542,7 +542,10 @@ void main() {
       );
     }
   });
-  for (final status in MembershipReportStatus.values) {
+  for (final status in [
+    MembershipReportStatus.completed,
+    MembershipReportStatus.rejected,
+  ]) {
     test(
       'report accepts status-only ${status.name} for guest and user',
       () async {

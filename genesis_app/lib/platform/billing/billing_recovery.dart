@@ -48,6 +48,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     required String billingAccountId,
     List<GemProduct>? productCatalog,
   }) async {
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
     final token = purchase.purchaseToken.trim();
     if (token.isEmpty) {
       debugPrint('[Billing] skipped store recovery without purchase identity');
@@ -108,8 +109,16 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       billingAccountId,
       persistedRecord: persistedRecord,
     );
+    _trackPurchasedCallback(
+      purchase,
+      productId: productId,
+      eligible:
+          belongsToCurrentAccount &&
+          persistedRecord?.status == BillingPendingPurchaseStatus.pending,
+      priceAmountMicros: record.priceAmountMicros,
+      priceCurrencyCode: record.priceCurrencyCode,
+    );
     final processingKey = record.key;
-    _completedPurchaseKeys.remove(processingKey);
     await _runExclusivePurchase(processingKey, () async {
       if (persistedRecord != null && belongsToCurrentAccount) {
         await _processRecord(
@@ -165,10 +174,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           record.billingAccountId != billingAccountId) {
         continue;
       }
-      await _runExclusivePurchase(
-        record.key,
-        () => _processRecord(record, source: source),
-      );
+      if (record.status != BillingPendingPurchaseStatus.pending) {
+        await _deletePurchaseRecord(record);
+      }
     }
   }
 
@@ -300,9 +308,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         if (token.isNotEmpty && attempt != null) {
           _attemptByPurchaseToken[token] = attempt;
         }
-        var pendingPersisted = false;
         if (token.isNotEmpty) {
-          pendingPersisted = await _persistPendingPurchase(
+          await _persistPendingPurchase(
             purchase: purchase,
             attempt: attempt,
             existing: persistedRecord,
@@ -333,26 +340,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             ),
           ),
         );
-        BillingPendingPurchase? pendingRecord = persistedRecord;
-        if (pendingRecord == null && pendingPersisted) {
-          try {
-            pendingRecord = await _findPendingPurchase(
-              provider: purchase.provider,
-              purchaseToken: token,
-            );
-          } catch (_) {}
-        }
-        if (pendingRecord != null) {
-          final recordToReport = pendingRecord;
-          await _runExclusivePurchase(
-            recordToReport.key,
-            () => _processRecord(
-              recordToReport,
-              purchase: purchase,
-              source: source,
-            ),
-          );
-        }
         return;
       case BillingPurchaseStatus.canceled:
         await _removePendingPurchase(purchase);
@@ -421,6 +408,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         break;
     }
 
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
+
     if (token.isEmpty) {
       _clearAttempt(purchase, attempt);
       _emitFailure(
@@ -432,20 +421,23 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           reason: 'receipt_missing',
         ),
       );
-      _trackFlowResultById(
-        attemptId: attemptId,
-        productId: productId,
-        storeProductId: purchase.productId,
-        status: 'store_failed',
-        source: source,
-        errorCode: purchase.provider == BillingProvider.appStore
-            ? 'store_error'
-            : 'purchase_token_missing',
-        failureReason: 'receipt_missing',
-      );
       return;
     }
     if (attempt != null) _attemptByPurchaseToken[token] = attempt;
+
+    _trackPurchasedCallback(
+      purchase,
+      productId: productId,
+      eligible:
+          attempt != null ||
+          persistedRecord?.status == BillingPendingPurchaseStatus.pending,
+      priceAmountMicros:
+          attempt?.priceAmountMicros ?? persistedRecord?.priceAmountMicros,
+      priceCurrencyCode:
+          attempt?.priceCurrencyCode ??
+          persistedRecord?.priceCurrencyCode ??
+          '',
+    );
 
     final processingKey = '${purchase.provider.name}:$token';
     if (_disposed || _completedPurchaseKeys.contains(processingKey)) return;
@@ -502,9 +494,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           attemptId: record.attemptId,
           billingAccountId: record.billingAccountId,
           productId: record.productId,
-          status: record.status == BillingPendingPurchaseStatus.accepted
-              ? BillingPendingPurchaseStatus.accepted
-              : BillingPendingPurchaseStatus.received,
+          status: BillingPendingPurchaseStatus.received,
           createdAt: record.createdAt,
           updatedAt: DateTime.now(),
           retryCount: record.retryCount,

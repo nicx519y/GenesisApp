@@ -12,7 +12,6 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/models/gem_task.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
-import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/v1/gem_api.dart';
 import 'package:genesis_flutter_android/network/v1/genesis_v1_api.dart';
 import 'package:genesis_flutter_android/platform/session/user_session_store.dart';
@@ -38,7 +37,7 @@ void main() {
       final refresh = Completer<void>();
       h.claimHandler = (_) async {
         final result = await claim.future;
-        bound = result.status == MembershipReportStatus.completed;
+        bound = result.status == MembershipClaimStatus.completed;
         return result;
       };
       final wallet = GemWalletStore(
@@ -106,8 +105,8 @@ void main() {
         claim.complete(
           MembershipClaimResult(
             status: outcome == 'accepted'
-                ? MembershipReportStatus.accepted
-                : MembershipReportStatus.completed,
+                ? MembershipClaimStatus.accepted
+                : MembershipClaimStatus.completed,
           ),
         );
         await tester.pumpAndSettle();

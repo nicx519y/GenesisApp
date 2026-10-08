@@ -1,5 +1,7 @@
 # VIP 游客购买、恢复与账号绑定实施方案
 
+> 历史实施方案。当前 report 与 claim 的业务状态均只有 `completed`／`rejected`；下文关于 `accepted`、report 补报及本地队列的早期设计已失效，现行行为以 `apifox-http-api-contract.md` 为准。
+
 更新：2026-09-10 已接入 Android/iOS 无缓存的商店查询 → check → 登录 → claim，以及凭据持久化、固定账号的重试和完成清理。Android / iOS 登录 report、游客 report 和 claim 均按用户最新要求去掉 plan_code、request_id；本地记录编号保留用于回调、弹窗和队列关联，不上送接口。Apple 携带原交易与 JWS，不再查询目录解析套餐。本文第 2～8 节保留早期设计背景，涉及购买尝试持久化、商店历史补报或旧订单阻塞的内容已由第 9 节当前实现取代；测试不代表真机验单和会员到账已验证。
 
 ## 1. 接口基线与需要先对齐的事项

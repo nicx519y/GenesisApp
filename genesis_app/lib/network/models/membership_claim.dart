@@ -73,15 +73,16 @@ class MembershipClaimRequest {
 class MembershipClaimResult {
   const MembershipClaimResult({required this.status});
 
-  final MembershipReportStatus status;
+  final MembershipClaimStatus status;
 
   factory MembershipClaimResult.fromJson(Map<String, dynamic> json) {
     final status = switch (json['status']) {
-      'completed' => MembershipReportStatus.completed,
-      'accepted' => MembershipReportStatus.accepted,
-      'rejected' => MembershipReportStatus.rejected,
+      'completed' => MembershipClaimStatus.completed,
+      'rejected' => MembershipClaimStatus.rejected,
       _ => throw const FormatException('Invalid membership claim status'),
     };
     return MembershipClaimResult(status: status);
   }
 }
+
+enum MembershipClaimStatus { completed, rejected }

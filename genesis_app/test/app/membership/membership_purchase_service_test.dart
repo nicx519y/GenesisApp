@@ -265,7 +265,7 @@ class Harness {
               );
               return claimHandler == null
                   ? MembershipClaimResult(
-                      status: MembershipReportStatus.completed,
+                      status: MembershipClaimStatus.completed,
                     )
                   : await claimHandler!(request);
             }
@@ -437,31 +437,36 @@ void main() {
     );
 
     test(
-      '$provider Firebase accepted does not become success after restart',
+      '$provider Firebase purchased callback records success before report rejection',
       () async {
         final client = enableFirebaseAnalytics();
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.accepted,
+          status: MembershipReportStatus.rejected,
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events, isEmpty);
+        expect(client.events.map((e) => e.name), [
+          'purchase',
+          'subscription',
+          'purchase_first',
+          'subscription_first',
+        ]);
         final restarted = Harness(provider: provider, storage: h.store);
         await restarted.service.recover();
         await _settleAnalytics();
-        expect(client.events, isEmpty);
+        expect(client.events, hasLength(4));
         expect(restarted.reports, isEmpty);
         await restarted.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events, isEmpty);
+        expect(client.events, hasLength(4));
       },
     );
   }
 
   for (final outcome in ['rejected', 'offline', 'foreign_account']) {
-    test('subscription Firebase purchase excludes $outcome', () async {
+    test('subscription Firebase follows store callback for $outcome', () async {
       final client = enableFirebaseAnalytics();
       final h = Harness();
       if (outcome == 'rejected' || outcome == 'foreign_account') {
@@ -478,7 +483,10 @@ void main() {
       );
       await _settleAnalytics();
       expect(h.reports, hasLength(1));
-      expect(client.events, isEmpty);
+      expect(
+        client.events.map((e) => e.name),
+        containsAll(['purchase', 'subscription']),
+      );
     });
   }
   for (final provider in MembershipProvider.values) {
@@ -499,7 +507,12 @@ void main() {
             attemptId: 'local-first-attempt',
           );
           expect(h.service.debugStoreOrderId.value, isNull);
-          await h.service.interceptPurchase(h.purchase(transaction: firstId));
+          await h.service.interceptPurchase(
+            h.purchase(
+              transaction: firstId,
+              checkoutAttemptId: 'local-first-attempt',
+            ),
+          );
           expect(h.service.debugStoreOrderId.value, firstId);
           expect(h.store.records, isEmpty);
           await h.service.purchase(
@@ -508,7 +521,12 @@ void main() {
           );
           expect(h.service.debugStoreOrderId.value, isNull);
           // A late callback from the previous receipt must not replace this order.
-          await h.service.interceptPurchase(h.purchase(transaction: firstId));
+          await h.service.interceptPurchase(
+            h.purchase(
+              transaction: firstId,
+              checkoutAttemptId: 'local-first-attempt',
+            ),
+          );
           expect(h.service.debugStoreOrderId.value, isNull);
           await h.service.interceptPurchase(
             h.purchase(
@@ -626,11 +644,11 @@ void main() {
   });
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider accepted ends report without persistence or later retry',
+      '$provider rejected ends report without persistence or later retry',
       () async {
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.accepted,
+          status: MembershipReportStatus.rejected,
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
@@ -640,7 +658,7 @@ void main() {
         h.reportHandler = null;
         await h.service.recover();
         expect(h.reports, hasLength(1));
-        expect(h.service.state.value, MembershipCheckoutState.accepted);
+        expect(h.service.state.value, MembershipCheckoutState.rejected);
         expect(h.store.records, isEmpty);
         expect(h.refreshes, 0);
       },
@@ -833,24 +851,18 @@ void main() {
       );
     }
   }
-  test(
-    'accepted and rejected both end reporting without a durable queue',
-    () async {
-      for (final status in [
-        MembershipReportStatus.accepted,
-        MembershipReportStatus.rejected,
-      ]) {
-        final h = Harness();
-        h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
-        await h.service.purchase(h.product());
-        await h.service.interceptPurchase(h.purchase());
-        await h.service.recover();
-        expect(h.reports, hasLength(1));
-        expect(h.store.records.length, 0);
-        expect(h.refreshes, 0);
-      }
-    },
-  );
+  test('rejected ends reporting without a durable queue', () async {
+    for (final status in [MembershipReportStatus.rejected]) {
+      final h = Harness();
+      h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(h.purchase());
+      await h.service.recover();
+      expect(h.reports, hasLength(1));
+      expect(h.store.records.length, 0);
+      expect(h.refreshes, 0);
+    }
+  });
   test(
     'pending Apple payment is not completed or reported without a transaction',
     () async {
@@ -870,6 +882,37 @@ void main() {
       expect(h.service.state.value, MembershipCheckoutState.completed);
     },
   );
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider pending purchase resumes only on purchased after restart',
+      () async {
+        final storage = PendingStore();
+        final first = Harness(provider: provider, storage: storage);
+        await first.service.purchase(first.product());
+        await first.service.interceptPurchase(
+          first.purchase(
+            status: BillingPurchaseStatus.pending,
+            transaction: '',
+            token: '',
+          ),
+        );
+        expect(first.reports, isEmpty);
+        expect(storage.records.values.single.state, 'pending');
+        first.service.dispose();
+
+        final restarted = Harness(provider: provider, storage: storage);
+        await restarted.service.start();
+        expect(restarted.reports, isEmpty);
+        await restarted.service.interceptPurchase(
+          restarted.purchase(directResult: false),
+        );
+        expect(restarted.reports, hasLength(1));
+        expect(storage.records, isEmpty);
+        await restarted.service.recover();
+        expect(restarted.reports, hasLength(1));
+      },
+    );
+  }
   test(
     'session changes during preparation cannot launch for the new user',
     () async {

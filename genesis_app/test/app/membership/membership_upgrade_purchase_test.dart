@@ -60,7 +60,7 @@ void main() {
         addTearDown(h.service.dispose);
         h.lastAccountUuid = support.guest.accountUuid;
         h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.accepted,
+          status: MembershipReportStatus.completed,
         );
         await h.service.purchase(h.product(yearly: true));
         await h.service.interceptPurchase(h.purchase(yearly: true));

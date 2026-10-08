@@ -28,8 +28,6 @@ class MembershipRestoreRecord {
       purchase.status == BillingPurchaseStatus.purchased ||
       purchase.status == BillingPurchaseStatus.restored;
   String get receiptKey => membershipReceiptKey(purchase);
-  bool get needsRetry => reportStatus == null || reportStatus == 'accepted';
-
   MembershipPurchaseRequest get request => MembershipPurchaseRequest(
     product:
         product ?? (throw StateError('membership_restore_plan_unresolved')),

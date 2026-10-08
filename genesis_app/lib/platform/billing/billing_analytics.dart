@@ -26,6 +26,7 @@ class GenesisBillingAnalytics implements BillingAnalytics {
         category: 'billing.purchase',
         data: data,
         collectPayload: _billingCollectPayload(data),
+        eventId: data['event_id'] as String?,
       );
     } catch (_) {
       // Analytics must never interrupt billing.
@@ -43,7 +44,6 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
-      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
       if (data['source'] != null) 'object3': data['source'],
     };
   }
@@ -52,7 +52,6 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
-      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
       if (data['transaction_id'] != null) 'object3': data['transaction_id'],
     };
   }
@@ -61,7 +60,6 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
-      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
       'object3': 'store_callback_pending',
     };
   }
@@ -70,7 +68,6 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
-      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
       if (data['timeout_type'] != null) 'object3': data['timeout_type'],
     };
   }
@@ -80,7 +77,6 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
-      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
       if (reason != null) 'object3': reason,
     };
   }
@@ -89,14 +85,19 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
 }
 
 String? _purchaseFailureReason(Map<String, Object?> data) {
-  final formatted = data['failure_reason'];
-  if (formatted is String && formatted.isNotEmpty) return formatted;
   final reason = data['reason'];
   if (reason is! String || reason.isEmpty) return null;
-  final appendsErrorCode =
-      reason == 'purchase_callback_error' ||
+  final stagedFailure =
+      reason == 'precheck_failed' ||
       reason == 'query_failed' ||
-      reason == 'launch_failed' ||
+      reason == 'launch_failed';
+  final formatted = data['failure_reason'];
+  if (!stagedFailure && formatted is String && formatted.isNotEmpty) {
+    return formatted;
+  }
+  final appendsErrorCode =
+      stagedFailure ||
+      reason == 'purchase_callback_error' ||
       reason == 'report_failed' ||
       reason == 'report_rejected';
   if (!appendsErrorCode) {
@@ -120,7 +121,7 @@ String? _purchaseFailureReason(Map<String, Object?> data) {
 // through this boundary even if a caller adds them by mistake.
 const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'action',
-  'attempt_id',
+  'event_id',
   'source',
   'provider',
   'product_id',

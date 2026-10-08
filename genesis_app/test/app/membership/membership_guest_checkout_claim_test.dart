@@ -50,7 +50,7 @@ void main() {
         // Reproduce the persisted state left by the previous client: both paid
         // receipts exist, but claim still references the first one and has no JWS.
         h.store.claims[support.guest.accountUuid] = pinned
-            ? staleClaim.copyWith(ownerUid: 'first-login', status: 'accepted')
+            ? staleClaim.copyWith(ownerUid: 'first-login')
             : staleClaim;
         for (final saved in h.store.confirmed.values.toList()) {
           h.store.confirmed[saved.requestId] =

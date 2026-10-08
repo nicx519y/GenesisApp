@@ -323,7 +323,7 @@ class FirebaseAnalyticsMonitoring {
   ) =>
       'purchase_eligible_v1.${_purchaseIdentityDigest(provider, kind, purchaseIdentity)}';
 
-  /// Called only after backend completion. The optional eligibility marker
+  /// Called after a successful store callback. The optional eligibility marker
   /// distinguishes Gems checkout receipts from arbitrary recovered history.
   static Future<void> recordPurchase({
     required String provider,

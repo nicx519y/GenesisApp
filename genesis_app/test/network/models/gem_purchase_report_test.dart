@@ -2,7 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 
 void main() {
-  for (final status in GemPurchaseReportStatus.values) {
+  for (final status in [
+    GemPurchaseReportStatus.completed,
+    GemPurchaseReportStatus.rejected,
+  ]) {
     test('parses ${status.name} as a terminal report status', () {
       final report = GemPurchaseReport.fromJson(<String, dynamic>{
         'status': status.name,
@@ -35,11 +38,11 @@ void main() {
   });
 
   test('rejects an unsupported report status', () {
-    expect(
-      () => GemPurchaseReport.fromJson(const <String, dynamic>{
-        'status': 'processing',
-      }),
-      throwsFormatException,
-    );
+    for (final status in ['processing', 'accepted']) {
+      expect(
+        () => GemPurchaseReport.fromJson(<String, dynamic>{'status': status}),
+        throwsFormatException,
+      );
+    }
   });
 }

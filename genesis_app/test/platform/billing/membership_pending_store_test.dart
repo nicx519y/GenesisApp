@@ -346,7 +346,8 @@ void main() {
             'transaction_id': 'original-transaction',
         });
         expect(saved.ownerUid, 'first-login');
-        expect(saved.status, 'accepted');
+        expect(saved.status, isNull);
+        expect(saved.needsRetry, isTrue);
       },
     );
     test(
@@ -375,10 +376,7 @@ void main() {
         expect(await restarted.loadAll(), isEmpty);
         expect(await restarted.loadRestores(), isEmpty);
         expect(await restarted.loadConfirmedReceipts(), isEmpty);
-        final saved = restored.copyWith(
-          ownerUid: 'first-login',
-          status: 'accepted',
-        );
+        final saved = restored.copyWith(ownerUid: 'first-login');
         await restarted.saveGuestClaim(saved);
         final retry =
             (await SecureMembershipPendingStore().loadGuestClaims()).single;
@@ -435,7 +433,7 @@ void main() {
       });
       final store = SecureMembershipPendingStore();
       final restored = (await store.loadGuestClaims()).single;
-      expect(restored.toJson(), claim.toJson());
+      expect(restored.toJson(), {...claim.toJson(), 'status': null});
       expect((await store.loadAll()).single.toJson(), purchase.toJson());
       expect(
         (await store.loadConfirmedReceipts()).single.toJson(),
@@ -548,7 +546,7 @@ void main() {
       const claim = MembershipGuestClaimRecord(
         guest: support.guest,
         ownerUid: 'first-login',
-        status: 'accepted',
+        status: null,
         purchaseConfirmed: true,
       );
       const other = MembershipGuestClaimRecord(
@@ -595,9 +593,7 @@ void main() {
       expect(first.purchaseRequestId, 'paid-order');
       expect(first.purchaseConfirmed, isTrue);
       expect(first.ownerUid, isNull);
-      await store.saveGuestClaim(
-        first.copyWith(ownerUid: 'first-login', status: 'accepted'),
-      );
+      await store.saveGuestClaim(first.copyWith(ownerUid: 'first-login'));
       final claimed =
           (await SecureMembershipPendingStore().loadGuestClaims()).single;
       expect(claimed.guest.accountUuid, support.guest.accountUuid);

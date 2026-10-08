@@ -19,7 +19,7 @@ void main() {
   late List<SubscriptionAnalyticsEvent> events;
   late SubscriptionAnalytics analytics;
   const tracking = SubscriptionTracking(
-    id: 'track_id_page_click',
+    id: 'checkout_page_click',
     source: SubscriptionSource.meMembership,
   );
   setUp(() {
@@ -28,7 +28,7 @@ void main() {
   });
 
   test(
-    'only seven events and exact document projection; page and click IDs',
+    'purchase events omit object2 and clicks keep private operation IDs',
     () {
       analytics.pageShow(
         'page',
@@ -52,11 +52,11 @@ void main() {
         SubscriptionSource.dailyCheckIn,
         isYearly: false,
       );
-      expect(first.id, startsWith('track_id_page_'));
+      expect(first.id, isNotEmpty);
       expect(first.id, isNot(second.id));
       expect(events.first.action, 'subscription_page_show');
       expect(events.first.object1, 'from_daily_check_in');
-      expect(events.first.object2, 'track_id_page');
+      expect(events.every((event) => event.object2.isEmpty), isTrue);
       expect(events.first.object3, 'subscription_sheet');
       expect(events[1].action, 'subscription_purchase_click');
       expect(events[1].object1, 'from_daily_check_in');
@@ -70,7 +70,7 @@ void main() {
 
   test('every purchase result keeps the original source in object1', () {
     const purchase = SubscriptionTracking(
-      id: 'track_id_result',
+      id: 'checkout_result',
       source: SubscriptionSource.chatFeatureQuota,
     );
     analytics.pending(purchase, 'store_callback_pending');
@@ -102,6 +102,39 @@ void main() {
     analytics.failed(recovered, 'report_rejected');
     expect(events.last.object1, 'from_unknown');
   });
+
+  for (final stage in ['precheck', 'query', 'launch']) {
+    test('purchase $stage failure emits one staged result', () async {
+      final h = support.Harness(analytics: analytics);
+      if (stage == 'precheck') h.gemsBusy = true;
+      if (stage == 'query') {
+        h.platform.onPrepare = () async => throw const BillingPlatformException(
+          'membership_product_not_found',
+        );
+      }
+      if (stage == 'launch') h.platform.launchResult = false;
+      final tracking = SubscriptionTracking(
+        id: 'failed-$stage',
+        source: SubscriptionSource.meMembership,
+      );
+
+      await h.service.purchase(
+        h.product(),
+        attemptId: tracking.id,
+        tracking: tracking,
+      );
+      await pumpEventQueue();
+
+      final failed = events.where(
+        (event) => event.action == 'subscription_failed',
+      );
+      expect(failed, hasLength(1));
+      expect(failed.single.object1, 'from_me_membership');
+      expect(failed.single.object2, isEmpty);
+      expect(failed.single.object3, startsWith('${stage}_failed['));
+      expect(h.reports, isEmpty);
+    });
+  }
 
   test(
     'native errors keep primary and optional subcode, never inspect messages',
@@ -171,7 +204,7 @@ void main() {
   );
 
   test(
-    'report technical failure emits one correlated failure without retry',
+    'report technical failure emits store success only without business retry',
     () async {
       final h = support.Harness(analytics: analytics);
       var requests = 0;
@@ -197,9 +230,9 @@ void main() {
       await h.service.recover();
       await h.service.interceptPurchase(h.purchase(transaction: 'GPA.actual'));
       expect(requests, 1);
-      expect(events.map((e) => e.action), ['subscription_failed']);
-      expect(events.single.object3, startsWith('report_failed'));
-      expect(events.every((e) => e.object2 == tracking.id), isTrue);
+      expect(events.map((e) => e.action), ['subscription_success']);
+      expect(events.single.object3, 'GPA.actual');
+      expect(events.every((e) => e.object2.isEmpty), isTrue);
       expect(events.last.object1, 'from_me_membership');
       expect(
         h.reports.every((r) => !r.toJson().containsKey('request_id')),
@@ -208,43 +241,44 @@ void main() {
     },
   );
 
-  test('pending and accepted dedupe without reporting after restart', () async {
-    final h = support.Harness(analytics: analytics);
-    h.reportHandler = (_) async =>
-        const MembershipPurchaseReport(status: MembershipReportStatus.accepted);
-    await h.service.purchase(
-      h.product(),
-      attemptId: tracking.id,
-      tracking: tracking,
-    );
-    await h.service.interceptPurchase(
-      h.purchase(status: BillingPurchaseStatus.pending),
-    );
-    await h.service.interceptPurchase(
-      h.purchase(status: BillingPurchaseStatus.pending),
-    );
-    expect(h.reports, isEmpty);
-    await h.service.interceptPurchase(h.purchase());
-    expect(events.map((e) => e.object3), [
-      'store_callback_pending',
-      'report_accepted',
-    ]);
-    expect(h.reports, hasLength(1));
-    expect(h.store.records, isEmpty);
-    h.service.dispose();
-    final restarted = support.Harness(
-      storage: h.store,
-      analytics: SubscriptionAnalytics(sink: events.add),
-    );
-    await restarted.service.recover();
-    await restarted.service.recover();
-    expect(events.map((e) => e.action), [
-      'subscription_pending',
-      'subscription_pending',
-    ]);
-    expect(events.last.object2, tracking.id);
-    expect(events.last.object1, 'from_me_membership');
-  });
+  test(
+    'pending and purchased report once without retry after restart',
+    () async {
+      final h = support.Harness(analytics: analytics);
+      h.reportHandler = (_) async => const MembershipPurchaseReport(
+        status: MembershipReportStatus.completed,
+      );
+      await h.service.purchase(
+        h.product(),
+        attemptId: tracking.id,
+        tracking: tracking,
+      );
+      await h.service.interceptPurchase(
+        h.purchase(status: BillingPurchaseStatus.pending),
+      );
+      await h.service.interceptPurchase(
+        h.purchase(status: BillingPurchaseStatus.pending),
+      );
+      expect(h.reports, isEmpty);
+      await h.service.interceptPurchase(h.purchase());
+      expect(events.map((e) => e.object3), ['store_callback_pending', '100']);
+      expect(h.reports, hasLength(1));
+      expect(h.store.records, isEmpty);
+      h.service.dispose();
+      final restarted = support.Harness(
+        storage: h.store,
+        analytics: SubscriptionAnalytics(sink: events.add),
+      );
+      await restarted.service.recover();
+      await restarted.service.recover();
+      expect(events.map((e) => e.action), [
+        'subscription_pending',
+        'subscription_success',
+      ]);
+      expect(events.last.object2, isEmpty);
+      expect(events.last.object1, 'from_me_membership');
+    },
+  );
 
   test(
     'success precedes wallet/cache cleanup; cleanup failure is not failed',
@@ -301,7 +335,7 @@ void main() {
         'subscription_success',
         'subscription_claim_result',
       ]);
-      expect(events.last.object2, tracking.id);
+      expect(events.last.object2, isEmpty);
       expect(events.last.object1, 'from_me_membership');
       expect(events.last.object3, 'completed');
     },
@@ -427,7 +461,10 @@ void main() {
         h.purchase(status: BillingPurchaseStatus.error),
       );
       expect(events, hasLength(1));
-      expect(events.single.object3, 'google[response_code=-1]');
+      expect(
+        events.single.object3,
+        'store_failure[stage=callback;status=error]',
+      );
     },
   );
 
@@ -443,14 +480,9 @@ void main() {
       if (stage == 'catalog') h.productsHandler = () async => [];
       await h.service.purchase(h.product(), tracking: tracking);
       expect(h.platform.launches, 0);
-      expect(
-        events.single.object3,
-        {
-          'uuid': 'uuid_unavailable',
-          'guest': 'guest_prepare_failed[1404]',
-          'catalog': 'catalog_unavailable',
-        }[stage],
-      );
+      expect(events, hasLength(1));
+      expect(events.single.action, 'subscription_failed');
+      expect(events.single.object3, startsWith('precheck_failed['));
     });
   }
 
@@ -461,18 +493,20 @@ void main() {
       details: {'responseCode': -3},
     );
     await h.service.purchase(h.product(), tracking: tracking);
+    expect(events, hasLength(1));
     expect(events.single.action, 'subscription_failed');
-    expect(events.single.object3, 'google[response_code=-3]');
+    expect(events.single.object3, startsWith('query_failed['));
   });
 
   test(
-    'storage failure before checkout prevents launch but analytics cannot',
+    'storage failure before checkout is tracked without blocking billing',
     () async {
       final h = support.Harness(analytics: analytics)..uid = null;
       h.store.failClaim = true;
       await h.service.purchase(h.product(), tracking: tracking);
       expect(h.platform.launches, 0);
-      expect(events.single.object3, 'local_storage_failed');
+      expect(events, hasLength(1));
+      expect(events.single.object3, 'precheck_failed[local_storage_failed]');
       final failingAnalytics = SubscriptionAnalytics(
         sink: (_) => throw StateError('telemetry broken'),
       );

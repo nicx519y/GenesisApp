@@ -39,7 +39,7 @@ services.membership.checkVip((isVip) {
 - 点击月会员时使用全局 `checkVip` 的缓存/在途钱包请求确认状态；只有当前账号 `membership_status=1`、`expires_at` 未过期且 `plan_code=pro_yearly` 才拦截，沿用不能降级的 Toast。年会员购买不读取会员状态，其余状态不作资格拦截，交给平台回调。不会每次点击强制刷新 wallet。
 - 页面打开时的展示刷新及 report/claim 成功后的钱包刷新保持原有流程。同套餐有效会员仅在 `auto_renew=true` 时显示 `Subscribed`；`auto_renew=false` 时恢复 `Monthly: 价格`／`Yearly: 价格`。该字段只影响按钮文案，不作为购买拦截条件，也不改变尚未到期的会员权益。
 - 全屏购买页和购买 sheet 在选中 Subscription 时，每次 App `resumed` 都调用 `membership.refresh()` 请求最新 wallet，不受全局 30 秒回前台缓存限制；复用正在进行的钱包请求。刷新后更新按钮，失败保留仍有效的旧展示，下次回前台继续刷新。未登录继续跳过需要登录态的钱包接口，月会员点击复用全局会员查询。
-- report 响应仅解析 `data.status`，删除 report_id/membership_id/reason 依赖。网络失败／超时保存原凭据重试，`accepted` 继续补报，`completed`／`rejected` 为终态；补报不重新调起平台购买。
+- report 响应仅解析 `data.status`，删除 report_id/membership_id/reason 依赖。report 只接受 `completed`／`rejected`；网络失败、超时或无效状态结束本次上报，不保存补报任务。游客购买证明仅供独立 claim 使用。
 
 ### 商品预加载
 
