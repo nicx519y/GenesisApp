@@ -625,9 +625,12 @@ void main() {
         canceled.purchase(status: BillingPurchaseStatus.canceled),
       );
 
-      final unowned = Harness();
-      await unowned.service.interceptPurchase(
-        unowned.purchase(token: 'unowned-token', transaction: 'unowned-order'),
+      final recovered = Harness();
+      await recovered.service.interceptPurchase(
+        recovered.purchase(
+          token: 'unowned-token',
+          transaction: 'unowned-order',
+        ),
       );
       await _settleAnalytics();
 
@@ -638,6 +641,8 @@ void main() {
         'subscription_first',
         'purchase',
         'subscription',
+        'purchase',
+        'subscription',
       ]);
       expect(analytics.events.first.parameters, <String, Object>{
         'provider': 'google',
@@ -646,12 +651,17 @@ void main() {
         'value': 9.99,
         'currency': 'USD',
       });
-      expect(analytics.events.last.parameters, <String, Object>{
+      expect(analytics.events[4].parameters, <String, Object>{
         'provider': 'apple',
         'product_id': apple.product(yearly: true).storeProductId,
         'device_id': 'test-device-id',
         'value': 9.99,
         'currency': 'USD',
+      });
+      expect(analytics.events[6].parameters, <String, Object>{
+        'provider': 'google',
+        'product_id': recovered.product().storeProductId,
+        'device_id': 'test-device-id',
       });
     },
   );
@@ -931,15 +941,57 @@ void main() {
         ),
       );
       expect(h.reports, isEmpty);
+      expect(h.store.records, isEmpty);
       await h.service.interceptPurchase(h.purchase());
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
       expect(h.service.state.value, MembershipCheckoutState.completed);
     },
   );
+  test('guest pending callback keeps only guest identity proof', () async {
+    final h = Harness()..uid = null;
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(
+      h.purchase(status: BillingPurchaseStatus.pending),
+    );
+    expect(h.store.records, isEmpty);
+    expect(h.store.confirmed, isEmpty);
+    expect(h.store.claims.values.single.hasPurchase, isFalse);
+    expect(h.reports, isEmpty);
+
+    await h.service.interceptPurchase(h.purchase());
+    expect(h.reports, hasLength(1));
+    expect(h.store.confirmed, hasLength(1));
+  });
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider pending purchase resumes only on purchased after restart',
+      '$provider guest pending purchase reports after a matching restart',
+      () async {
+        final storage = PendingStore();
+        final first = Harness(provider: provider, storage: storage)..uid = null;
+        await first.service.purchase(first.product());
+        await first.service.interceptPurchase(
+          first.purchase(status: BillingPurchaseStatus.pending),
+        );
+        expect(storage.records, isEmpty);
+        first.service.dispose();
+
+        final restarted = Harness(provider: provider, storage: storage)
+          ..uid = null
+          ..lastAccountUuid = guest.accountUuid;
+        await restarted.service.start();
+        await restarted.service.interceptPurchase(
+          restarted.purchase(directResult: false),
+        );
+        expect(restarted.reports, hasLength(1));
+        expect(restarted.reports.single.guest?.accountUuid, guest.accountUuid);
+        expect(storage.confirmed, hasLength(1));
+      },
+    );
+  }
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider pending purchase reports a matching purchased callback after restart',
       () async {
         final storage = PendingStore();
         final first = Harness(provider: provider, storage: storage);
@@ -952,22 +1004,107 @@ void main() {
           ),
         );
         expect(first.reports, isEmpty);
-        expect(storage.records.values.single.state, 'pending');
+        expect(storage.records, isEmpty);
         first.service.dispose();
 
-        final restarted = Harness(provider: provider, storage: storage);
+        final events = <SubscriptionAnalyticsEvent>[];
+        final restarted = Harness(
+          provider: provider,
+          storage: storage,
+          analytics: SubscriptionAnalytics(sink: events.add),
+        );
         await restarted.service.start();
         expect(restarted.reports, isEmpty);
         await restarted.service.interceptPurchase(
           restarted.purchase(directResult: false),
         );
         expect(restarted.reports, hasLength(1));
+        expect(events.map((event) => event.action), ['subscription_success']);
         expect(storage.records, isEmpty);
+        await restarted.service.interceptPurchase(
+          restarted.purchase(directResult: false),
+        );
         await restarted.service.recover();
         expect(restarted.reports, hasLength(1));
+        expect(events.map((event) => event.action), ['subscription_success']);
+      },
+    );
+    test(
+      '$provider ignores an unmatched purchased callback after restart',
+      () async {
+        final events = <SubscriptionAnalyticsEvent>[];
+        final h = Harness(
+          provider: provider,
+          analytics: SubscriptionAnalytics(sink: events.add),
+        );
+        await h.service.start();
+        await h.service.interceptPurchase(
+          h.purchase(
+            uuid: 'f66ced12-80d3-4f1e-9cf6-bec56dbaf453',
+            directResult: false,
+          ),
+        );
+        expect(h.reports, isEmpty);
+        expect(h.store.records, isEmpty);
+        expect(events, isEmpty);
+      },
+    );
+    test(
+      '$provider ignores a purchased callback without an account UUID',
+      () async {
+        final events = <SubscriptionAnalyticsEvent>[];
+        final h = Harness(
+          provider: provider,
+          analytics: SubscriptionAnalytics(sink: events.add),
+        );
+        await h.service.start();
+        await h.service.interceptPurchase(
+          h.purchase(omitUuid: true, directResult: false),
+        );
+        expect(h.reports, isEmpty);
+        expect(events, isEmpty);
+      },
+    );
+    test(
+      '$provider reports a matching callback when catalog lookup fails',
+      () async {
+        final h = Harness(provider: provider);
+        h.productsHandler = () async => throw StateError('catalog unavailable');
+        await h.service.start();
+        await h.service.interceptPurchase(h.purchase(directResult: false));
+        expect(h.reports, hasLength(1));
+        expect(h.reports.single.product.planCode, 'unknown');
+      },
+    );
+    test(
+      '$provider reports a matching callback when local cache read fails',
+      () async {
+        final h = Harness(provider: provider);
+        h.store.onLoad = () async => throw StateError('cache unavailable');
+        await h.service.interceptPurchase(h.purchase(directResult: false));
+        expect(h.reports, hasLength(1));
       },
     );
   }
+  test(
+    'guest callback without a listed product keeps recoverable claim proof',
+    () async {
+      final storage = PendingStore();
+      final h = Harness(storage: storage)
+        ..uid = null
+        ..lastAccountUuid = guest.accountUuid
+        ..productsHandler = (() async => <MembershipProduct>[]);
+      await h.service.interceptPurchase(h.purchase(directResult: false));
+      expect(h.reports, hasLength(1));
+      expect(storage.confirmed.values.single.product.planCode, 'unknown');
+      expect(
+        MembershipPurchaseRecord.fromJson(
+          storage.confirmed.values.single.toJson(),
+        ).product.planCode,
+        'unknown',
+      );
+    },
+  );
   test(
     'session changes during preparation cannot launch for the new user',
     () async {
@@ -995,11 +1132,11 @@ void main() {
     },
   );
   test(
-    'unknown subscription never becomes a Gems purchase or guessed base plan',
+    'matching subscription callback reports without a local attempt; Gems stays separate',
     () async {
       final h = Harness();
       expect(await h.service.interceptPurchase(h.purchase()), isTrue);
-      expect(h.reports, isEmpty);
+      expect(h.reports, hasLength(1));
       final gem = BillingPurchase(
         provider: BillingProvider.googlePlay,
         productId: 'gem-test',

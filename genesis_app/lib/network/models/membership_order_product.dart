@@ -20,7 +20,7 @@ class MembershipOrderProduct {
     final storeId = json['store_product_id'];
     final basePlan = json['base_plan_id'] ?? '';
     final offer = json['offer_id'] ?? '';
-    if (!const {'pro_monthly', 'pro_yearly'}.contains(plan) ||
+    if (!const {'pro_monthly', 'pro_yearly', 'unknown'}.contains(plan) ||
         storeId is! String ||
         storeId.trim().isEmpty ||
         basePlan is! String ||

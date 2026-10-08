@@ -28,11 +28,7 @@ void main() {
             ),
           );
           await h.service.recover();
-          if (state == 'pending') {
-            expect(h.store.records.values.single.state, 'pending');
-          } else {
-            expect(h.store.records, isEmpty);
-          }
+          expect(h.store.records, isEmpty);
           expect(h.store.confirmed, isEmpty);
           expect(h.recoverQueries + h.restoreQueries, 0);
           expect(h.reports, isEmpty);

@@ -290,14 +290,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           await store.complete(record);
         }
       }
-      // Retire legacy report queues without issuing any network report. Keep
-      // only unresolved store-pending attempts for a later purchased callback.
-      // Guest receipts remain separate proof for login/claim.
+      // Retire legacy purchase attempts, including store-pending records,
+      // without reporting them. Guest receipts remain separate proof for
+      // login/claim.
       for (final record in await store.loadAll()) {
-        if (record.state == 'pending' && record.reportStatus == null) {
-          _records[record.requestId] = record;
-          continue;
-        }
         if (record.guest != null && record.paid && record.hasReceipt) {
           _records[record.requestId] = record;
           _reportedRequestIds.add(record.requestId);
@@ -734,7 +730,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   Future<bool> interceptPurchase(BillingPurchase purchase) async {
     return _serialize(() async {
       try {
-        await _load();
+        try {
+          await _load();
+        } catch (error) {
+          if (purchase.status != BillingPurchaseStatus.purchased) rethrow;
+          _log('purchase cache load deferred', error);
+        }
         if (kDebugMode && provider == MembershipProvider.apple) {
           final active = _records[_activeRequestId];
           final transaction = purchase.transactionId;
@@ -794,9 +795,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         ? purchase.checkoutAttemptId
         : null;
     final sourceAttempt = sourceId == null ? null : _records[sourceId];
-    // A direct StoreKit result belongs only to its original call, including
-    // when it arrives after timeout. Never attach it to a newer checkout.
-    if (sourceId != null && sourceAttempt == null) return;
+    // Keep direct StoreKit errors with their original attempt. A purchased
+    // result without that attempt may still be recovered by account UUID.
+    if (sourceId != null &&
+        sourceAttempt == null &&
+        purchase.status != BillingPurchaseStatus.purchased) {
+      return;
+    }
     MembershipPurchaseRecord? record = sourceAttempt;
     if (provider == MembershipProvider.apple) {
       // Product.purchase results belong to their checkout, regardless of the
@@ -874,10 +879,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (pending.length == 1) record = pending.single;
       }
     }
+    if (record == null && purchase.status == BillingPurchaseStatus.purchased) {
+      record = await _recordForCurrentAccountPurchase(purchase);
+    }
     if (record == null) {
-      // Unsolicited store history is not a failed report from this client.
-      if (purchase.status == BillingPurchaseStatus.purchased ||
-          purchase.status == BillingPurchaseStatus.restored) {
+      // An unmatched purchased callback must not report, track, or initiate
+      // guest recovery for another account. Restore history has its own path.
+      if (purchase.status == BillingPurchaseStatus.restored) {
         if (_guestStoreEvents.add(_guestStoreEventKey(purchase))) {
           _invalidateGuestStartupCheck();
           if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
@@ -926,11 +934,80 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
+  Future<MembershipPurchaseRecord?> _recordForCurrentAccountPurchase(
+    BillingPurchase purchase,
+  ) async {
+    final callbackUuid =
+        purchase.obfuscatedAccountId?.trim().toLowerCase() ?? '';
+    final credential = provider == MembershipProvider.google
+        ? purchase.purchaseToken.trim()
+        : purchase.transactionId.trim();
+    if (!isMembershipAccountUuid(callbackUuid) ||
+        credential.isEmpty ||
+        purchase.productId.trim().isEmpty) {
+      return null;
+    }
+    final session = _session;
+    try {
+      final uid = await readLoginUid();
+      MembershipProductList? products;
+      String currentUuid;
+      if (uid == null) {
+        products = await readCheckoutProducts();
+        currentUuid = products.lastAccountUuid ?? '';
+      } else {
+        currentUuid = await loadAccountUuid();
+      }
+      currentUuid = currentUuid.trim().toLowerCase();
+      if (_disposed ||
+          session != _session ||
+          await readLoginUid() != uid ||
+          currentUuid != callbackUuid) {
+        return null;
+      }
+      // A live catalog is not needed to report a verified store product. Guest
+      // checkouts already read it to resolve their current account UUID.
+      final matches = products?.products.where(
+        (product) =>
+            product.provider == provider &&
+            product.storeProductId == purchase.productId,
+      );
+      final product = matches?.isNotEmpty == true
+          ? matches!.first
+          : MembershipOrderProduct(
+              planCode: 'unknown',
+              provider: provider,
+              storeProductId: purchase.productId,
+            );
+      if (_disposed || session != _session || await readLoginUid() != uid) {
+        return null;
+      }
+      final identity = purchase.transactionId.trim().isNotEmpty
+          ? purchase.transactionId.trim()
+          : credential;
+      final tracking = SubscriptionTracking.recovery(
+        '${provider.name}:purchase:$identity',
+      );
+      return MembershipPurchaseRecord(
+        requestId: tracking.id,
+        tracking: tracking,
+        product: product,
+        accountUuid: callbackUuid,
+        ownerUid: uid,
+        guest: uid == null
+            ? MembershipGuestIdentity(accountUuid: callbackUuid)
+            : null,
+      );
+    } catch (error) {
+      _log('purchase ownership check deferred', error);
+      return null;
+    }
+  }
+
   Future<void> _handleCheckoutRecord(
     MembershipPurchaseRecord record,
     BillingPurchase purchase,
   ) async {
-    final storedPending = record.state == 'pending' ? record : null;
     if (provider == MembershipProvider.apple &&
         record.guest != null &&
         purchase.transactionId.isNotEmpty &&
@@ -988,7 +1065,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           failure?.canceled == true;
       if (!record.paid) {
         await _save(record.copyWith(state: canceled ? 'canceled' : 'error'));
-        if (storedPending != null) await _clearStoredPending(storedPending);
         if (canceled && record.guest != null) {
           await _discardUnpurchasedGuestIdentity(record.accountUuid);
         }
@@ -1056,12 +1132,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     if (purchase.status == BillingPurchaseStatus.pending) {
       record = _trackPending(record, 'store_callback_pending');
       await _save(record);
-      try {
-        await store.save(record);
-      } catch (error) {
-        _log('store pending persistence deferred', error);
-      }
-      await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
       _setState(
         MembershipCheckoutState.pending,
         attemptId: record.requestId,
@@ -1107,7 +1177,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         priceCurrencyCode: record.priceCurrencyCode,
       ),
     );
-    if (storedPending != null) await _clearStoredPending(storedPending);
     await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
     await _report(record);
     await _claimPendingGuests();
@@ -1126,14 +1195,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     } catch (error) {
       _scheduleGuestMaintenance();
       _log('guest proof persistence deferred', error);
-    }
-  }
-
-  Future<void> _clearStoredPending(MembershipPurchaseRecord record) async {
-    try {
-      await store.complete(record);
-    } catch (error) {
-      _log('store pending cleanup deferred', error);
     }
   }
 

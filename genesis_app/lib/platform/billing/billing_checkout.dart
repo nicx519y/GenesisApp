@@ -7,7 +7,7 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
   }) async {
     final intercept = _interceptPurchase;
     if (intercept == null) return false;
-    // Known Gems attempts/receipts keep their existing path without another SKU query.
+    // Known Gems attempts keep their existing path without another SKU query.
     if (_attemptByStoreProductId.containsKey(purchase.productId) ||
         _interruptedAttemptByStoreProductId.containsKey(purchase.productId) ||
         productCatalog?.any(
@@ -18,16 +18,6 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
             true) {
       return false;
     }
-    try {
-      if (purchase.purchaseToken.isNotEmpty &&
-          await _findPendingPurchase(
-                provider: purchase.provider,
-                purchaseToken: purchase.purchaseToken,
-              ) !=
-              null) {
-        return false;
-      }
-    } catch (_) {}
     return intercept(purchase);
   }
 

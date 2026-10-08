@@ -295,11 +295,10 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   void _trackPurchasedCallback(
     BillingPurchase purchase, {
     required String productId,
-    required bool eligible,
     int? priceAmountMicros,
     String priceCurrencyCode = '',
   }) {
-    if (!eligible || purchase.status != BillingPurchaseStatus.purchased) return;
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
     final receipt = purchase.provider == BillingProvider.googlePlay
         ? purchase.purchaseToken.trim()
         : purchase.transactionId.trim().isNotEmpty
@@ -328,7 +327,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         kind: FirebaseAnalyticsPurchaseKind.gems,
         purchaseIdentity: purchase.purchaseToken,
         transactionIdentity: receipt,
-        requireEligibility: true,
         priceAmountMicros: priceAmountMicros,
         priceCurrencyCode: priceCurrencyCode,
       ),

@@ -63,83 +63,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
   }
 
-  Future<BillingPendingPurchase?> _findPendingPurchase({
-    required BillingProvider provider,
-    required String purchaseToken,
-  }) async {
-    return _pendingPurchaseStore.find(
-      provider: provider,
-      purchaseToken: purchaseToken,
-    );
-  }
-
-  Future<bool> _persistPendingPurchase({
-    required BillingPurchase purchase,
-    required BillingPurchaseAttempt? attempt,
-    required BillingPendingPurchase? existing,
-    required String attemptId,
-    required String productId,
-    required String billingAccountId,
-    required bool existingLookupSucceeded,
-  }) async {
-    if (!existingLookupSucceeded) return false;
-    if (existing != null &&
-        existing.status != BillingPendingPurchaseStatus.pending) {
-      return false;
-    }
-    final token = purchase.purchaseToken.trim();
-    final ownerId =
-        attempt?.billingAccountId.trim() ??
-        existing?.billingAccountId.trim() ??
-        billingAccountId.trim();
-    if (token.isEmpty ||
-        ownerId.isEmpty ||
-        ownerId != billingAccountId.trim()) {
-      return false;
-    }
-    final now = DateTime.now();
-    final record = BillingPendingPurchase(
-      provider: purchase.provider,
-      purchaseToken: token,
-      attemptId: existing?.attemptId.trim().isNotEmpty == true
-          ? existing!.attemptId.trim()
-          : attemptId,
-      billingAccountId: ownerId,
-      productId: existing?.productId.trim().isNotEmpty == true
-          ? existing!.productId.trim()
-          : productId,
-      storeProductId: purchase.productId.trim().isNotEmpty
-          ? purchase.productId.trim()
-          : existing?.storeProductId ?? '',
-      transactionId: purchase.transactionId.trim().isNotEmpty
-          ? purchase.transactionId.trim()
-          : existing?.transactionId ?? '',
-      originalJson: purchase.originalJson.trim().isNotEmpty
-          ? purchase.originalJson
-          : existing?.originalJson ?? '',
-      purchaseTime: purchase.purchaseTime.trim().isNotEmpty
-          ? purchase.purchaseTime
-          : existing?.purchaseTime ?? '',
-      status: BillingPendingPurchaseStatus.pending,
-      retryCount: existing?.retryCount ?? 0,
-      reportTimeoutTracked: existing?.reportTimeoutTracked ?? false,
-      priceAmountMicros:
-          attempt?.priceAmountMicros ?? existing?.priceAmountMicros,
-      priceCurrencyCode: attempt?.priceCurrencyCode.trim().isNotEmpty == true
-          ? attempt!.priceCurrencyCode.trim()
-          : existing?.priceCurrencyCode ?? '',
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    );
-    try {
-      await _pendingPurchaseStore.upsert(record);
-      return true;
-    } catch (error) {
-      debugPrint('[Billing] failed to persist pending checkout: $error');
-      return false;
-    }
-  }
-
   BillingPendingPurchase _purchaseRecord({
     required BillingPurchase purchase,
     required String attemptId,
@@ -173,27 +96,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     );
   }
 
-  Future<void> _removePendingPurchase(BillingPurchase purchase) async {
-    final token = purchase.purchaseToken.trim();
-    if (token.isEmpty) return;
-    BillingPendingPurchase? existing;
-    try {
-      existing = await _findPendingPurchase(
-        provider: purchase.provider,
-        purchaseToken: token,
-      );
-    } catch (_) {
-      return;
-    }
-    if (existing?.status != BillingPendingPurchaseStatus.pending) return;
-    try {
-      await _pendingPurchaseStore.remove(
-        provider: purchase.provider,
-        purchaseToken: token,
-      );
-    } catch (_) {}
-  }
-
   Future<void> _processRecord(
     BillingPendingPurchase record, {
     BillingPurchase? purchase,
@@ -215,7 +117,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     try {
       report = await _sendPurchaseReport(record, purchase: purchase);
     } catch (error) {
-      await _deletePurchaseRecord(record);
       _completedPurchaseKeys.add(record.key);
       if (!silent) {
         _emitDeferred(
@@ -229,9 +130,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
 
     if (report.status == GemPurchaseReportStatus.completed) {
-      if (!await _deletePurchaseRecord(record)) {
-        debugPrint('[Billing] failed to clean up completed local order');
-      }
       _finishPurchaseAttempt(record, purchase);
       if (!silent) {
         _emitUiEvent(
@@ -246,9 +144,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       }
       _refreshWalletInBackground();
     } else {
-      if (!await _deletePurchaseRecord(record)) {
-        debugPrint('[Billing] failed to clean up rejected local order');
-      }
       _finishPurchaseAttempt(record, purchase);
       if (!silent) {
         _emitFailure(
@@ -348,18 +243,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     _completedPurchaseKeys.add(record.key);
   }
 
-  Future<bool> _deletePurchaseRecord(BillingPendingPurchase record) async {
-    try {
-      await _pendingPurchaseStore.remove(
-        provider: record.provider,
-        purchaseToken: record.purchaseToken,
-      );
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   void _finishPurchaseAttempt(
     BillingPendingPurchase record,
     BillingPurchase? purchase,
@@ -437,20 +320,11 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     return _attemptByStoreProductId.values.single;
   }
 
-  BillingPurchaseAttempt? _attemptForPurchase(
-    BillingPurchase purchase, {
-    BillingPendingPurchase? persistedRecord,
-  }) {
+  BillingPurchaseAttempt? _attemptForPurchase(BillingPurchase purchase) {
     final token = purchase.purchaseToken.trim();
     final tokenAttempt = _attemptByPurchaseToken[token];
     final interruptedAttempt =
         _interruptedAttemptByStoreProductId[purchase.productId];
-    if (persistedRecord != null) {
-      if (tokenAttempt?.id == persistedRecord.attemptId) return tokenAttempt;
-      return interruptedAttempt?.id == persistedRecord.attemptId
-          ? interruptedAttempt
-          : null;
-    }
     return tokenAttempt ??
         _attemptByStoreProductId[purchase.productId] ??
         interruptedAttempt ??
@@ -460,52 +334,31 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   bool _purchaseBelongsToBillingAccount(
     BillingPurchase purchase,
     BillingPurchaseAttempt? attempt,
-    String billingAccountId, {
-    BillingPendingPurchase? persistedRecord,
-  }) {
+    String billingAccountId,
+  ) {
     final currentAccountId = billingAccountId.trim();
     if (currentAccountId.isEmpty) return false;
     if (attempt != null &&
         !_sameBillingAccount(attempt.billingAccountId, currentAccountId)) {
       return false;
     }
-    if (persistedRecord != null &&
-        !_sameBillingAccount(
-          persistedRecord.billingAccountId,
-          currentAccountId,
-        )) {
-      return false;
-    }
     final purchaseAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
     if (purchaseAccountId.isNotEmpty) {
       return _sameBillingAccount(purchaseAccountId, currentAccountId);
     }
-    return (attempt != null &&
-            _sameBillingAccount(attempt.billingAccountId, currentAccountId)) ||
-        persistedRecord != null;
+    return attempt != null &&
+        _sameBillingAccount(attempt.billingAccountId, currentAccountId);
   }
 
   bool _storePurchaseBelongsToCurrentAccount(
     BillingPurchase purchase,
-    String billingAccountId, {
-    BillingPendingPurchase? persistedRecord,
-  }) {
+    String billingAccountId,
+  ) {
     final currentAccountId = billingAccountId.trim();
     if (currentAccountId.isEmpty) return false;
-    if (persistedRecord != null &&
-        !_sameBillingAccount(
-          persistedRecord.billingAccountId,
-          currentAccountId,
-        )) {
-      return false;
-    }
     final platformAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
-    if (platformAccountId.isNotEmpty) {
-      return _sameBillingAccount(platformAccountId, currentAccountId);
-    }
-    final persistedAccountId = persistedRecord?.billingAccountId.trim() ?? '';
-    return persistedAccountId.isNotEmpty &&
-        _sameBillingAccount(persistedAccountId, currentAccountId);
+    return platformAccountId.isNotEmpty &&
+        _sameBillingAccount(platformAccountId, currentAccountId);
   }
 
   bool _sameBillingAccount(String first, String second) {
