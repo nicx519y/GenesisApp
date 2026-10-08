@@ -33,7 +33,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       if (purchaseIdentity.isNotEmpty && !seenPurchaseKeys.add(purchaseKey)) {
         continue;
       }
-      _recordVerifiedPurchaseForAnalytics(purchase);
       await _recoverStorePurchase(
         purchase,
         billingAccountId: billingAccountId,
@@ -109,31 +108,29 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       billingAccountId,
       persistedRecord: persistedRecord,
     );
+    if (!belongsToCurrentAccount) {
+      debugPrint('[Billing] skipped store recovery for another account');
+      return;
+    }
+    _recordVerifiedPurchaseForAnalytics(purchase);
     _trackPurchasedCallback(
       purchase,
       productId: productId,
-      eligible:
-          belongsToCurrentAccount &&
-          persistedRecord?.status == BillingPendingPurchaseStatus.pending,
+      eligible: persistedRecord?.status == BillingPendingPurchaseStatus.pending,
       priceAmountMicros: record.priceAmountMicros,
       priceCurrencyCode: record.priceCurrencyCode,
     );
     final processingKey = record.key;
     await _runExclusivePurchase(processingKey, () async {
-      if (persistedRecord != null && belongsToCurrentAccount) {
+      if (persistedRecord != null) {
         await _processRecord(
           record,
           purchase: purchase,
           source: BillingRecoverySource.foreground,
-          allowAnyAccount: true,
         );
         return;
       }
-      await _processTransientStoreRecovery(
-        record,
-        purchase: purchase,
-        handleResult: belongsToCurrentAccount,
-      );
+      await _processTransientStoreRecovery(record, purchase: purchase);
     });
   }
 
@@ -192,9 +189,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     }
     purchases = gemPurchases;
     if (purchases.isEmpty) return;
-    for (final purchase in purchases) {
-      _recordVerifiedPurchaseForAnalytics(purchase);
-    }
     var currentBillingAccountId = billingAccountId?.trim() ?? '';
     if (purchases.isNotEmpty && currentBillingAccountId.isEmpty) {
       try {
@@ -261,6 +255,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       );
       return;
     }
+    _recordVerifiedPurchaseForAnalytics(purchase);
     if (attempt != null &&
         (purchase.status == BillingPurchaseStatus.purchased ||
             purchase.status == BillingPurchaseStatus.pending)) {
@@ -290,8 +285,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           : _storeProductIdFor(attempt.product, purchase.provider),
     );
     if (!persistedRecordLookupSucceeded &&
-        (purchase.status == BillingPurchaseStatus.purchased ||
-            purchase.status == BillingPurchaseStatus.restored)) {
+        (purchase.status == BillingPurchaseStatus.restored ||
+            (purchase.status == BillingPurchaseStatus.purchased &&
+                attempt == null))) {
       _emitDeferred(
         productId,
         attemptId,
@@ -452,6 +448,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     );
     try {
       var record = persistedRecord;
+      var requireLocalCleanup = persistedRecordLookupSucceeded;
       if (record == null) {
         final resolvedAttempt =
             attempt ??
@@ -475,18 +472,13 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           priceAmountMicros: resolvedAttempt.priceAmountMicros,
           priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
         );
-        try {
-          await _pendingPurchaseStore.upsert(record);
-        } catch (_) {
-          _emitDeferred(
-            resolvedAttempt.product.productId,
-            resolvedAttempt.id,
-            debugInfo: purchaseDebugInfo(
-              'gems.save_order',
-              reason: 'receipt_persistence_failed',
-            ),
-          );
-          return;
+        if (persistedRecordLookupSucceeded) {
+          try {
+            await _pendingPurchaseStore.upsert(record);
+          } catch (error) {
+            debugPrint('[Billing] failed to save purchased order: $error');
+            requireLocalCleanup = false;
+          }
         }
       } else if (record.status != BillingPendingPurchaseStatus.received) {
         record = _purchaseRecord(
@@ -504,19 +496,17 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         );
         try {
           await _pendingPurchaseStore.upsert(record);
-        } catch (_) {
-          _emitDeferred(
-            record.productId,
-            record.attemptId,
-            debugInfo: purchaseDebugInfo(
-              'gems.save_order',
-              reason: 'receipt_persistence_failed',
-            ),
-          );
-          return;
+        } catch (error) {
+          debugPrint('[Billing] failed to update purchased order: $error');
+          requireLocalCleanup = false;
         }
       }
-      await _processRecord(record, purchase: purchase, source: source);
+      await _processRecord(
+        record,
+        purchase: purchase,
+        source: source,
+        requireLocalCleanup: requireLocalCleanup,
+      );
     } finally {
       _endExclusivePurchase(processingKey);
     }

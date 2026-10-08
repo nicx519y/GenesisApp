@@ -885,6 +885,29 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       }
       return;
     }
+    if (purchase.status == BillingPurchaseStatus.purchased ||
+        purchase.status == BillingPurchaseStatus.pending ||
+        purchase.status == BillingPurchaseStatus.restored) {
+      final storeAccountUuid = purchase.obfuscatedAccountId?.trim() ?? '';
+      final hasMatchingStoreAccount =
+          storeAccountUuid.isNotEmpty &&
+          storeAccountUuid.toLowerCase() ==
+              record.accountUuid.trim().toLowerCase();
+      final hasMatchingPurchaseIdentity =
+          sourceAttempt?.requestId == record.requestId ||
+          (purchase.purchaseToken.isNotEmpty &&
+              purchase.purchaseToken == record.purchaseToken) ||
+          (purchase.transactionId.isNotEmpty &&
+              purchase.transactionId == record.transactionId);
+      if ((storeAccountUuid.isNotEmpty && !hasMatchingStoreAccount) ||
+          (storeAccountUuid.isEmpty && !hasMatchingPurchaseIdentity) ||
+          (record.guest == null && await readLoginUid() != record.ownerUid)) {
+        debugPrint(
+          '[Membership] ignored store callback without matching account ownership',
+        );
+        return;
+      }
+    }
     _trackingFor(record);
     // Only this order's callback ends its store deadline. Reporting has its own
     // HTTP timeout; keep the wait registered so session/stream resets close UI.
@@ -1060,6 +1083,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       );
       return;
     }
+    if (record.guest == null && await readLoginUid() != record.ownerUid) return;
     final tracking = analytics.success(
       _trackingFor(record),
       provider.name,

@@ -198,8 +198,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     BillingPendingPurchase record, {
     BillingPurchase? purchase,
     required BillingRecoverySource source,
-    bool allowAnyAccount = false,
     bool silent = false,
+    bool requireLocalCleanup = true,
   }) async {
     String accountId;
     try {
@@ -208,7 +208,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       return;
     }
     if (accountId.isEmpty ||
-        (!allowAnyAccount && accountId != record.billingAccountId)) {
+        !_sameBillingAccount(accountId, record.billingAccountId)) {
       return;
     }
 
@@ -230,7 +230,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
 
     if (report.status == GemPurchaseReportStatus.completed) {
-      if (!await _deletePurchaseRecord(record)) {
+      if (!await _deletePurchaseRecord(record) && requireLocalCleanup) {
         await _handleLocalOrderMutationFailure(record, silent: silent);
         return;
       }
@@ -248,7 +248,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       }
       _refreshWalletInBackground();
     } else {
-      if (!await _deletePurchaseRecord(record)) {
+      if (!await _deletePurchaseRecord(record) && requireLocalCleanup) {
         await _handleLocalOrderMutationFailure(record, silent: silent);
         return;
       }
@@ -299,26 +299,30 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   Future<void> _processTransientStoreRecovery(
     BillingPendingPurchase record, {
     required BillingPurchase purchase,
-    required bool handleResult,
   }) async {
+    String currentAccountId;
+    try {
+      currentAccountId = await _resolveBillingAccountId();
+    } catch (_) {
+      return;
+    }
+    if (!_sameBillingAccount(currentAccountId, record.billingAccountId)) {
+      return;
+    }
     late final GemPurchaseReport report;
     try {
       report = await _sendPurchaseReport(record, purchase: purchase);
     } catch (error) {
       debugPrint('[Billing] transient store recovery report failed: $error');
       _completedPurchaseKeys.add(record.key);
-      if (handleResult) {
-        _emitDeferred(
-          record.productId,
-          record.attemptId,
-          debugInfo: purchaseDebugInfo('gems.restore_report', error: error),
-        );
-        _setBusy(record.productId, false);
-      }
+      _emitDeferred(
+        record.productId,
+        record.attemptId,
+        debugInfo: purchaseDebugInfo('gems.restore_report', error: error),
+      );
+      _setBusy(record.productId, false);
       return;
     }
-
-    if (!handleResult) return;
 
     if (report.status == GemPurchaseReportStatus.completed) {
       _emitUiEvent(
@@ -482,17 +486,24 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   }) {
     final currentAccountId = billingAccountId.trim();
     if (currentAccountId.isEmpty) return false;
+    if (attempt != null &&
+        !_sameBillingAccount(attempt.billingAccountId, currentAccountId)) {
+      return false;
+    }
+    if (persistedRecord != null &&
+        !_sameBillingAccount(
+          persistedRecord.billingAccountId,
+          currentAccountId,
+        )) {
+      return false;
+    }
     final purchaseAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
     if (purchaseAccountId.isNotEmpty) {
       return _sameBillingAccount(purchaseAccountId, currentAccountId);
     }
-    if (purchase.provider == BillingProvider.appStore) return true;
-    if (persistedRecord != null &&
-        persistedRecord.billingAccountId != currentAccountId) {
-      return false;
-    }
-    return attempt?.billingAccountId == currentAccountId ||
-        persistedRecord?.billingAccountId == currentAccountId;
+    return (attempt != null &&
+            _sameBillingAccount(attempt.billingAccountId, currentAccountId)) ||
+        persistedRecord != null;
   }
 
   bool _storePurchaseBelongsToCurrentAccount(
@@ -502,6 +513,13 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   }) {
     final currentAccountId = billingAccountId.trim();
     if (currentAccountId.isEmpty) return false;
+    if (persistedRecord != null &&
+        !_sameBillingAccount(
+          persistedRecord.billingAccountId,
+          currentAccountId,
+        )) {
+      return false;
+    }
     final platformAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
     if (platformAccountId.isNotEmpty) {
       return _sameBillingAccount(platformAccountId, currentAccountId);

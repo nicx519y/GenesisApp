@@ -707,73 +707,80 @@ void main() {
     expect(analytics.records.last.properties['error_code'], 'gp_unavailable');
   });
 
+  test('store recovery skips another account local order', () async {
+    await pendingStore.upsert(
+      _localPurchase(
+        attemptId: 'track_id_original',
+        billingAccountId: 'another-user-uuid',
+        status: BillingPendingPurchaseStatus.received,
+      ),
+    );
+    platform.recoverablePurchases = <BillingPurchase>[
+      _purchase(
+        BillingPurchaseStatus.purchased,
+        obfuscatedAccountId: 'another-user-uuid',
+      ),
+    ];
+
+    final recovered = await service.recoverStorePurchases();
+    await _settle();
+
+    expect(recovered, isTrue);
+    expect(platform.recoverableQueryCount, 1);
+    expect(pendingStore.findCount, 1);
+    expect(reports, isEmpty);
+    expect(await pendingStore.loadAll(), hasLength(1));
+    expect(uiEvents, isEmpty);
+    expect(refreshCount, 0);
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_success'),
+      isEmpty,
+    );
+  });
+
+  test('store recovery skips another account without local order', () async {
+    platform.recoverablePurchases = <BillingPurchase>[
+      _purchase(
+        BillingPurchaseStatus.purchased,
+        obfuscatedAccountId: 'another-user-uuid',
+      ),
+    ];
+
+    final recovered = await service.recoverStorePurchases();
+    await _settle();
+
+    expect(recovered, isTrue);
+    expect(pendingStore.findCount, 1);
+    expect(reports, isEmpty);
+    expect(await pendingStore.loadAll(), isEmpty);
+    expect(uiEvents, isEmpty);
+    expect(refreshCount, 0);
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_success'),
+      isEmpty,
+    );
+  });
+
   test(
-    'store recovery reports another account local order without side effects',
+    'store recovery rejects a local owner conflicting with the callback',
     () async {
       await pendingStore.upsert(
         _localPurchase(
-          attemptId: 'track_id_original',
+          attemptId: 'foreign-local-order',
           billingAccountId: 'another-user-uuid',
           status: BillingPendingPurchaseStatus.received,
         ),
       );
       platform.recoverablePurchases = <BillingPurchase>[
-        _purchase(
-          BillingPurchaseStatus.purchased,
-          obfuscatedAccountId: 'another-user-uuid',
-        ),
+        _purchase(BillingPurchaseStatus.purchased),
       ];
 
-      final recovered = await service.recoverStorePurchases();
+      await service.recoverStorePurchases();
       await _settle();
 
-      expect(recovered, isTrue);
-      expect(platform.recoverableQueryCount, 1);
-      expect(pendingStore.findCount, 1);
-      expect(reports, hasLength(1));
-      expect(reports.single.requestId, 'track_id_original');
-      expect(reports.single.productId, _product.productId);
+      expect(reports, isEmpty);
       expect(await pendingStore.loadAll(), hasLength(1));
       expect(uiEvents, isEmpty);
-      expect(refreshCount, 0);
-      expect(
-        analytics.records.where(
-          (record) => record.action == 'purchase_success',
-        ),
-        isEmpty,
-      );
-    },
-  );
-
-  test(
-    'store recovery reports another account missing local order silently',
-    () async {
-      platform.recoverablePurchases = <BillingPurchase>[
-        _purchase(
-          BillingPurchaseStatus.purchased,
-          obfuscatedAccountId: 'another-user-uuid',
-        ),
-      ];
-
-      final recovered = await service.recoverStorePurchases();
-      await _settle();
-
-      expect(recovered, isTrue);
-      expect(pendingStore.findCount, 1);
-      expect(reports, hasLength(1));
-      expect(reports.single.productId, _product.productId);
-      expect(reports.single.storeProductId, _product.googleProductId);
-      expect(reports.single.purchaseToken, 'purchase-token-1');
-      expect(reports.single.requestId, isNotEmpty);
-      expect(await pendingStore.loadAll(), isEmpty);
-      expect(uiEvents, isEmpty);
-      expect(refreshCount, 0);
-      expect(
-        analytics.records.where(
-          (record) => record.action == 'purchase_success',
-        ),
-        isEmpty,
-      );
     },
   );
 
@@ -794,14 +801,15 @@ void main() {
   });
 
   test(
-    'store recovery ignores every report result for another account',
+    'store recovery never reports another account across report states',
     () async {
+      var index = 0;
       for (final status in <GemPurchaseReportStatus>[
         GemPurchaseReportStatus.completed,
         GemPurchaseReportStatus.rejected,
       ]) {
         reportStatus = status;
-        final index = reports.length + 1;
+        index++;
         platform.recoverablePurchases = <BillingPurchase>[
           _purchase(
             BillingPurchaseStatus.purchased,
@@ -815,7 +823,7 @@ void main() {
         await _settle();
       }
 
-      expect(reports, hasLength(2));
+      expect(reports, isEmpty);
       expect(await pendingStore.loadAll(), isEmpty);
       expect(uiEvents, isEmpty);
       expect(refreshCount, 0);
@@ -1399,18 +1407,60 @@ void main() {
     );
   });
 
-  test('paid callback defers when persisted context cannot be read', () async {
-    await service.purchaseGem(_product, operationId: 'track_id_original');
-    pendingStore.failNextFind = true;
+  test(
+    'paid callback reports and tracks when local order cannot be read',
+    () async {
+      final firebase = enableFirebaseAnalytics();
+      await service.purchaseGem(_product, operationId: 'track_id_original');
+      pendingStore.failNextFind = true;
 
-    platform.emit(_purchase(BillingPurchaseStatus.purchased));
-    await _settle();
+      final purchase = _purchase(BillingPurchaseStatus.purchased);
+      platform.emit(purchase);
+      await _settle();
 
-    expect(reports, isEmpty);
-    expect(await pendingStore.loadAll(), isEmpty);
-    expect(uiEvents.single.kind, BillingUiEventKind.deferred);
-    expect(uiEvents.single.attemptId, 'track_id_original');
-  });
+      expect(reports, hasLength(1));
+      expect(await pendingStore.loadAll(), isEmpty);
+      expect(uiEvents.last.kind, BillingUiEventKind.success);
+      expect(uiEvents.last.attemptId, 'track_id_original');
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_success',
+        ),
+        hasLength(1),
+      );
+      expect(firebase.events.map((event) => event.name), contains('purchase'));
+
+      platform.emit(purchase);
+      await _settle();
+      expect(reports, hasLength(1));
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_success',
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'local lookup failure without a matching attempt does not report',
+    () async {
+      await service.start();
+      pendingStore.failNextFind = true;
+
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+
+      expect(reports, isEmpty);
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_success',
+        ),
+        isEmpty,
+      );
+      expect(uiEvents.last.kind, BillingUiEventKind.deferred);
+    },
+  );
 
   test('error callback falls back to store_error without a code', () async {
     await service.purchaseGem(_product);
@@ -1965,17 +2015,53 @@ void main() {
     },
   );
 
-  test('local order write failure is tracked and blocks report', () async {
+  test('local order write failure does not block report', () async {
+    final firebase = enableFirebaseAnalytics();
     pendingStore.failNextUpsert = true;
 
     await service.purchaseGem(_product);
     platform.emit(_purchase(BillingPurchaseStatus.purchased));
     await _settle();
 
-    expect(reports, isEmpty);
+    expect(reports, hasLength(1));
     expect(await pendingStore.loadAll(), isEmpty);
-    expect(uiEvents.last.kind, BillingUiEventKind.deferred);
+    expect(uiEvents.last.kind, BillingUiEventKind.success);
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_success'),
+      hasLength(1),
+    );
+    expect(firebase.events.map((event) => event.name), contains('purchase'));
   });
+
+  test(
+    'pending order update failure does not block purchased report',
+    () async {
+      await service.purchaseGem(_product);
+      platform.emit(_purchase(BillingPurchaseStatus.pending));
+      await _settle();
+      expect(await pendingStore.loadAll(), hasLength(1));
+
+      pendingStore.failNextUpsert = true;
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+
+      expect(reports, hasLength(1));
+      expect(await pendingStore.loadAll(), isEmpty);
+      expect(uiEvents.last.kind, BillingUiEventKind.success);
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_pending',
+        ),
+        hasLength(1),
+      );
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_success',
+        ),
+        hasLength(1),
+      );
+    },
+  );
 
   test(
     'server report failure clears the local order without later retry',
@@ -2428,6 +2514,26 @@ void main() {
       );
       expect(success.properties['transaction_id'], '2000000123456789');
       expect(platform.analyticsTransactionIds, {'2000000123456789'});
+
+      platform.emit(
+        _purchase(
+          BillingPurchaseStatus.purchased,
+          provider: BillingProvider.appStore,
+          storeProductId: 'com.worldo.gems.500',
+          purchaseToken: '2000000123456791',
+          transactionId: '2000000123456791',
+          obfuscatedAccountId: null,
+        ),
+      );
+      await _settle();
+      expect(reports, hasLength(1));
+      expect(platform.analyticsTransactionIds, {'2000000123456789'});
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_success',
+        ),
+        hasLength(1),
+      );
     },
   );
 

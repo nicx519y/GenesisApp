@@ -351,6 +351,7 @@ class Harness {
     String token = 'test-token',
     String transaction = '100',
     String? uuid,
+    bool omitUuid = false,
     String purchaseTime = '',
     String? checkoutAttemptId,
     bool directResult = true,
@@ -377,8 +378,9 @@ class Harness {
                 status != BillingPurchaseStatus.restored
             ? platform.checkoutAttemptId
             : null),
-    obfuscatedAccountId:
-        uuid ?? (uid == null ? guest.accountUuid : accountUuid),
+    obfuscatedAccountId: omitUuid
+        ? null
+        : uuid ?? (uid == null ? guest.accountUuid : accountUuid),
   );
 }
 
@@ -465,11 +467,11 @@ void main() {
     );
   }
 
-  for (final outcome in ['rejected', 'offline', 'foreign_account']) {
+  for (final outcome in ['rejected', 'offline']) {
     test('subscription Firebase follows store callback for $outcome', () async {
       final client = enableFirebaseAnalytics();
       final h = Harness();
-      if (outcome == 'rejected' || outcome == 'foreign_account') {
+      if (outcome == 'rejected') {
         h.reportHandler = (_) async => const MembershipPurchaseReport(
           status: MembershipReportStatus.rejected,
         );
@@ -478,15 +480,53 @@ void main() {
         h.reportHandler = (_) async => throw StateError('offline');
       }
       await h.service.purchase(h.product());
-      await h.service.interceptPurchase(
-        h.purchase(uuid: outcome == 'foreign_account' ? 'other-account' : null),
-      );
+      await h.service.interceptPurchase(h.purchase());
       await _settleAnalytics();
       expect(h.reports, hasLength(1));
       expect(
         client.events.map((e) => e.name),
         containsAll(['purchase', 'subscription']),
       );
+    });
+  }
+  for (final provider in MembershipProvider.values) {
+    test('$provider ignores a purchased callback for another UUID', () async {
+      final client = enableFirebaseAnalytics();
+      final h = Harness(provider: provider);
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(h.purchase(uuid: 'other-account'));
+      await _settleAnalytics();
+
+      expect(h.reports, isEmpty);
+      expect(client.events, isEmpty);
+    });
+
+    test(
+      '$provider ignores a purchased callback after account switch',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final h = Harness(provider: provider);
+        await h.service.purchase(h.product());
+        h.uid = 'another-user';
+        await h.service.interceptPurchase(h.purchase(uuid: accountUuid));
+        await _settleAnalytics();
+
+        expect(h.reports, isEmpty);
+        expect(client.events, isEmpty);
+      },
+    );
+
+    test('$provider does not attach an unmarked unrelated purchase', () async {
+      final client = enableFirebaseAnalytics();
+      final h = Harness(provider: provider);
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(
+        h.purchase(omitUuid: true, directResult: false),
+      );
+      await _settleAnalytics();
+
+      expect(h.reports, isEmpty);
+      expect(client.events, isEmpty);
     });
   }
   for (final provider in MembershipProvider.values) {
@@ -741,6 +781,21 @@ void main() {
         h.store.confirmed.values.single.guest?.accountUuid,
         guest.accountUuid,
       );
+    },
+  );
+
+  test(
+    'guest purchase keeps its guest UUID if login changes before callback',
+    () async {
+      final h = Harness()..uid = null;
+      await h.service.purchase(h.product());
+      h.uid = 'signed-in-user';
+
+      await h.service.interceptPurchase(h.purchase(uuid: guest.accountUuid));
+
+      expect(h.reports, hasLength(1));
+      expect(h.reports.single.guest?.accountUuid, guest.accountUuid);
+      expect(h.refreshes, 0);
     },
   );
   test(
