@@ -75,10 +75,12 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   }
 
   String _purchaseFailureMessage(Object error) {
-    if (error is BillingPlatformException && error.code.isNotEmpty) {
-      return 'Purchase failed (${error.code}).';
-    }
-    return 'Purchase failed.';
+    final code = switch (error) {
+      BillingPlatformException(:final code) => code,
+      PlatformException(:final code) => code,
+      _ => null,
+    };
+    return _storeFailureMessage(code, fallback: 'Purchase failed.');
   }
 
   String _platformFailureErrorCode(Object error) {
@@ -91,20 +93,49 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   }
 
   String _productQueryFailureMessage(String? errorCode) {
-    final code = errorCode?.trim() ?? '';
-    if (code.isNotEmpty) return 'Purchase failed ($code).';
-    return 'This product is currently unavailable.';
+    return _storeFailureMessage(
+      errorCode,
+      fallback: errorCode?.trim().isEmpty != false
+          ? 'This product is currently unavailable.'
+          : 'Purchase failed.',
+    );
   }
 
   String _purchaseDetailsFailureMessage(BillingPurchase purchase) {
-    final code = purchase.errorCode?.trim() ?? '';
-    final detail = purchase.errorMessage?.trim() ?? '';
-    if (detail.isNotEmpty && code.isNotEmpty) {
-      return 'Purchase failed ($code: $detail).';
+    return _storeFailureMessage(
+      purchase.errorCode ?? purchase.rawErrorCode,
+      fallback: 'Purchase failed.',
+    );
+  }
+
+  String _storeFailureMessage(String? code, {required String fallback}) {
+    final normalized = code?.trim().toLowerCase() ?? '';
+    if (normalized.contains('user_canceled') ||
+        normalized.contains('user_cancelled') ||
+        normalized.contains('usercanceled') ||
+        normalized.contains('payment_cancelled')) {
+      return 'Purchase canceled.';
     }
-    if (detail.isNotEmpty) return 'Purchase failed ($detail).';
-    if (code.isNotEmpty) return 'Purchase failed ($code).';
-    return 'Purchase failed.';
+    if (normalized.contains('network') ||
+        normalized.contains('service_disconnected') ||
+        normalized.contains('servicedisconnected') ||
+        normalized.contains('service_unavailable') ||
+        normalized.contains('serviceunavailable') ||
+        normalized.contains('service_timeout')) {
+      return 'Unable to connect to the store. Please try again.';
+    }
+    if (normalized.contains('product_not_found') ||
+        normalized.contains('product_not_purchasable') ||
+        normalized.contains('item_unavailable') ||
+        normalized.contains('itemunavailable') ||
+        normalized.contains('store_product_id_missing')) {
+      return 'This product is currently unavailable.';
+    }
+    if (normalized.contains('billing_unavailable') ||
+        normalized.contains('billingunavailable')) {
+      return 'Purchases are unavailable on this device.';
+    }
+    return fallback;
   }
 
   void _track(

@@ -56,6 +56,7 @@ enum ApiClientFailureCode {
 class ApiException implements Exception {
   ApiException({
     required this.message,
+    this.serverErrMsg,
     this.code,
     this.statusCode,
     this.error,
@@ -69,6 +70,9 @@ class ApiException implements Exception {
   });
 
   final String message;
+
+  /// User-facing text supplied by the response, never a local diagnostic.
+  final String? serverErrMsg;
   final int? code;
   final int? statusCode;
   final Object? error;
@@ -95,6 +99,15 @@ class ApiException implements Exception {
     final u = uri == null ? '' : ' (uri=${_diagnosticUri(uri!)})';
     return 'ApiException$message$c$sc$k$tk$cc$cause$u';
   }
+}
+
+String? serverErrorMessageFromResponse(Object? data) {
+  if (data is! Map) return null;
+  for (final key in const ['err_msg', 'err_str', 'errStr', 'error']) {
+    final value = data[key];
+    if (value is String && value.trim().isNotEmpty) return value;
+  }
+  return null;
 }
 
 String _diagnosticUri(Uri uri) {

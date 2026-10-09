@@ -50,6 +50,7 @@ import '../../platform/billing/billing_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../utils/gem_amount.dart';
+import '../../utils/api_error_message.dart';
 import '../gems/gem_wallet_page.dart';
 import '../world/world_update_push_banner.dart';
 import '../origin_editor/origin_debug_tools.dart';
@@ -70,6 +71,15 @@ part 'developer_capture_components.dart';
 part 'developer_network_tab.dart';
 part 'developer_websocket_tab.dart';
 part 'developer_world_history_actions.dart';
+
+void _showDeveloperTabFailure(
+  BuildContext context,
+  String message,
+  Object error,
+) {
+  debugPrint('[Developer] $message: $error');
+  if (context.mounted) showGenesisToast(context, message);
+}
 
 const String _buildModeLabel = kReleaseMode
     ? 'release'
@@ -324,6 +334,11 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
 
   void _updateState(VoidCallback callback) => setState(callback);
 
+  void _showDeveloperFailure(String message, Object error) {
+    debugPrint('[Developer] $message: $error');
+    if (mounted) showGenesisToast(context, message);
+  }
+
   Future<void> _loadTilemapSettingsButtonVisibility() async {
     final visible = await tilemapSettingsButtonVisibility.load();
     if (!mounted) return;
@@ -348,7 +363,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } catch (error) {
       if (!mounted) return;
       _updateState(() => _showTilemapSettingsButton = previousValue);
-      showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _savingTilemapSettingsButtonVisibility = false);
@@ -380,7 +395,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } catch (error) {
       if (!mounted) return;
       _updateState(() => _expandOriginWorldSheetOnEntry = previousValue);
-      showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _savingOriginWorldSheetDebugSettings = false);
@@ -412,7 +427,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } catch (error) {
       if (!mounted) return;
       _updateState(() => _forceWorldNewBadges = previousValue);
-      showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _savingWorldNewContentDebugSettings = false);
@@ -444,7 +459,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } catch (error) {
       if (!mounted) return;
       _updateState(() => _showPurchaseToastDebug = previousValue);
-      showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _savingPurchaseToastDebugSettings = false);
@@ -465,7 +480,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         enabled: enabled,
       );
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _savingTelemetryChannels.remove(channel));
@@ -477,7 +492,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     try {
       await locationChatHeaderEffectSettings.save();
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     }
   }
 
@@ -485,7 +500,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     try {
       await locationChatBubbleLayoutSettings.save();
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure('Save failed', error);
     }
   }
 

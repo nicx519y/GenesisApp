@@ -339,9 +339,13 @@ extension _WorldPageTickFlow on _WorldPageState {
         showGenesisToast(context, message, brightness: Brightness.dark);
       }
       await _fetchWorld();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: 'Launch failed'),
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _setWorldPageState(() => _worldActionRunning = false);
     }

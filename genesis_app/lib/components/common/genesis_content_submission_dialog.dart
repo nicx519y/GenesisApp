@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_colors.dart';
+import '../../utils/api_error_message.dart';
 
 import 'genesis_action_box.dart';
 import 'genesis_center_toast.dart';
@@ -88,12 +89,12 @@ class _GenesisContentSubmissionDialogState
           brightness: widget.toastBrightness,
         );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _submitting = false);
       showGenesisToast(
         context,
-        widget.failureMessage,
+        apiErrorMessage(error, fallback: widget.failureMessage),
         brightness: Brightness.dark,
       );
     }

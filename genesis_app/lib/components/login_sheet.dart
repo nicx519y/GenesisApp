@@ -12,6 +12,7 @@ import '../platform/auth/auth_session.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../ui/components/genesis_dark_close_button.dart';
 import '../ui/components/genesis_safe_area.dart';
+import '../utils/api_error_message.dart';
 import '../ui/theme/genesis_dark_theme.dart';
 
 class LoginSheet extends StatefulWidget {
@@ -49,7 +50,7 @@ class _LoginSheetState extends State<LoginSheet> {
         debugPrint('[Auth][LoginSheet] login failed: onLogin returned false');
         showGenesisToast(
           context,
-          'Sign-in failed',
+          'Sign-in failed. Please try again.',
           brightness: Brightness.dark,
         );
       }
@@ -64,10 +65,9 @@ class _LoginSheetState extends State<LoginSheet> {
       debugPrint('[Auth][LoginSheet] login exception: $e');
       debugPrint('[Auth][LoginSheet] stacktrace:\n$st');
       if (!mounted) return;
-      final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty ? 'Sign-in failed' : message,
+        loginErrorMessage(e),
         brightness: Brightness.dark,
       );
     } finally {

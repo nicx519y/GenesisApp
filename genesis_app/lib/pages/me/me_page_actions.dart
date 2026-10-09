@@ -30,7 +30,7 @@ extension _MePageActions on _MePageState {
       } else {
         showGenesisToast(
           context,
-          'Sign-in failed',
+          'Sign-in failed. Please try again.',
           brightness: Brightness.dark,
         );
       }
@@ -40,10 +40,9 @@ extension _MePageActions on _MePageState {
       debugPrint('[Auth][MePage] login failed: $e');
       debugPrint('[Auth][MePage] stacktrace:\n$st');
       if (!mounted) return;
-      final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty ? 'Sign-in failed' : message,
+        loginErrorMessage(e),
         brightness: Brightness.dark,
       );
     } finally {
@@ -196,9 +195,13 @@ extension _MePageActions on _MePageState {
       final updatedDisplayName = apply(updatedUser);
       if (!mounted) return;
       _displayName.value = updatedDisplayName;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Update failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: 'Update failed'),
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _isUpdatingProfile.value = false;
     }
@@ -218,9 +221,13 @@ extension _MePageActions on _MePageState {
       final updatedAvatarUrl = apply(updatedUser);
       if (!mounted) return;
       _avatarUrl.value = updatedAvatarUrl;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Update failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: 'Update failed'),
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _isUpdatingProfile.value = false;
     }

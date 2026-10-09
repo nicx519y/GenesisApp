@@ -9,6 +9,8 @@ import '../gems/subscription_tracking_scope.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/personalization.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/auth/auth_cancelled_exception.dart';
+import '../../utils/api_error_message.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
@@ -250,11 +252,13 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
         // An unfilled account has neither field. Keep the local form draft.
         _step = PersonalizationStep.form;
       });
-    } catch (_) {
+    } on AuthCancelledException {
+      // Closing the provider UI is not a failed sign-in.
+    } catch (error) {
       if (mounted) {
         showGenesisToast(
           context,
-          'Sign-in failed. Please try again.',
+          loginErrorMessage(error),
           brightness: Brightness.dark,
         );
       }

@@ -21,6 +21,7 @@ import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 
 class UserInfoPage extends StatefulWidget {
@@ -317,18 +318,36 @@ class _UserInfoPageState extends State<UserInfoPage> {
     try {
       final api = AppServicesScope.read(context).api;
       await api.v1.user.block(targetUid: targetUid);
-      await api.v1.report.create(
-        targetType: 'user',
-        targetId: targetUid,
-        content: 'User blocked from profile.',
-      );
       BlockedUserReviewReturn.markPendingHomeRefresh();
+      if (mounted) {
+        _clearProfileCollections();
+        setState(() {
+          _isBlockingUser = false;
+          _profileBlocked = true;
+        });
+      }
+      try {
+        await api.v1.report.create(
+          targetType: 'user',
+          targetId: targetUid,
+          content: 'User blocked from profile.',
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[UserInfo][BlockReport] failed: $error');
+        debugPrint('[UserInfo][BlockReport] stacktrace:\n$stackTrace');
+        if (mounted) {
+          showGenesisToast(
+            context,
+            apiErrorMessage(
+              error,
+              fallback: 'User blocked, but reporting failed.',
+            ),
+            brightness: Brightness.dark,
+          );
+        }
+        return;
+      }
       if (!mounted) return;
-      _clearProfileCollections();
-      setState(() {
-        _isBlockingUser = false;
-        _profileBlocked = true;
-      });
       showGenesisToast(
         context,
         'User blocked. This content has been reported to Worldo team.',
@@ -341,7 +360,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       setState(() => _isBlockingUser = false);
       showGenesisToast(
         context,
-        _blockActionFailureMessage(error, 'Block failed'),
+        apiErrorMessage(error, fallback: 'Block failed. Please try again.'),
         brightness: Brightness.dark,
       );
     }
@@ -387,7 +406,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       setState(() => _isBlockingUser = false);
       showGenesisToast(
         context,
-        _blockActionFailureMessage(error, 'Unblock failed'),
+        apiErrorMessage(error, fallback: 'Unblock failed. Please try again.'),
         brightness: Brightness.dark,
       );
     }
@@ -422,13 +441,6 @@ class _UserInfoPageState extends State<UserInfoPage> {
       isLoading: true,
       hasLoaded: worlds.hasLoaded,
     );
-  }
-
-  String _blockActionFailureMessage(Object error, String fallback) {
-    if (error is ApiException && error.code != null) {
-      return '${error.message}[${error.code}]';
-    }
-    return fallback;
   }
 
   void _handleBack() {

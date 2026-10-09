@@ -10,6 +10,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';
@@ -415,13 +416,18 @@ class _DiscussPageActions extends StatelessWidget {
       } else {
         await api.unlike(discussId: discussId);
       }
-    } catch (_) {
+    } catch (error) {
       controller.applyLikeState(
         discussId: discussId,
         isLiked: previousLiked,
         likeCount: previousCount,
       );
-      if (context.mounted) showGenesisToast(context, 'Like failed');
+      if (context.mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(error, fallback: 'Like failed'),
+        );
+      }
     } finally {
       controller.setLikePending(discussId, false);
     }
@@ -559,8 +565,13 @@ class _DiscussPageReplyPreview extends StatelessWidget {
           return OriginDiscussRepliesPage.fromJson(data);
         },
       );
-    } catch (_) {
-      if (context.mounted) showGenesisToast(context, 'Load replies failed');
+    } catch (error) {
+      if (context.mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(error, fallback: 'Load replies failed'),
+        );
+      }
     }
   }
 }

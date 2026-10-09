@@ -291,7 +291,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     if (!mounted) return;
     final applyId = item.applyId.trim();
     if (applyId.isEmpty) {
-      showGenesisToast(context, 'Review failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        'Missing join request ID',
+        brightness: Brightness.dark,
+      );
       return;
     }
 
@@ -313,9 +317,13 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         action.successText,
         brightness: Brightness.dark,
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Review failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: 'Review failed'),
+        brightness: Brightness.dark,
+      );
     }
   }
 

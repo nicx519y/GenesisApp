@@ -1316,6 +1316,10 @@ void main() {
     expect(failed.properties['reason'], 'purchase_callback_error');
     expect(failed.properties['error_code'], 'network_error');
     expect(failed.properties['failure_reason'], 'sdk[code=network_error]');
+    expect(
+      uiEvents.last.message,
+      'Unable to connect to the store. Please try again.',
+    );
   });
 
   test('error callback keeps the structured Google store response', () async {
@@ -1457,6 +1461,7 @@ void main() {
         analytics.records.last.properties['error_code'],
         'product_not_found',
       );
+      expect(uiEvents.last.message, 'This product is currently unavailable.');
     },
   );
 
@@ -1682,6 +1687,7 @@ void main() {
       analytics.records.last.properties['error_code'],
       'storekit_duplicate_product_object',
     );
+    expect(uiEvents.last.message, 'Purchase failed.');
   });
 
   for (final stage in ['initialization', 'account', 'query', 'catalog']) {

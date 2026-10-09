@@ -65,7 +65,11 @@ extension _DeveloperWorldHistoryActions on _DeveloperPageContentState {
       showGenesisToast(context, successMessage);
     } catch (error) {
       if (mounted) {
-        showGenesisToast(context, 'World History request failed: $error');
+        debugPrint('[Developer][WorldHistory] request failed: $error');
+        showGenesisToast(
+          context,
+          apiErrorMessage(error, fallback: 'World History request failed'),
+        );
       }
     } finally {
       if (mounted) _updateState(() => _worldHistoryBusyAction = null);

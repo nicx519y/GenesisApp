@@ -297,9 +297,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     } on UnsupportedGifImageException {
       if (!context.mounted) return;
       _showMessage(unsupportedGifImageMessage);
-    } catch (_) {
+    } catch (error) {
       if (!context.mounted) return;
-      _showMessage('Image upload failed.');
+      _showMessage(apiErrorMessage(error, fallback: 'Image upload failed.'));
     } finally {
       widget.onInteractionActiveChanged?.call(false);
     }
@@ -354,7 +354,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.onPreviewBytesChanged?.call(image.bytes);
       widget.onChanged();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isUploading = false;
@@ -366,7 +366,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
-      _showMessage('Image upload failed.');
+      _showMessage(apiErrorMessage(error, fallback: 'Image upload failed.'));
     }
   }
 
@@ -405,7 +405,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.onPreviewBytesChanged?.call(crop.bytes);
       widget.onChanged();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isUploading = false;
@@ -417,7 +417,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
-      _showMessage('Image upload failed.');
+      _showMessage(apiErrorMessage(error, fallback: 'Image upload failed.'));
     }
   }
 

@@ -239,6 +239,7 @@ void main() {
     for (final code in [2012, 3001, 10001]) {
       final http = ApiException(
         message: 'server $code',
+        serverErrMsg: 'server $code',
         code: code,
         kind: ApiExceptionKind.business,
       );
@@ -257,6 +258,15 @@ void main() {
     );
     expect(isChatroomErrorPresentedGlobally(local), isFalse);
     expect(chatroomOperationErrorMessage(local), isEmpty);
+    expect(
+      chatroomOperationErrorMessage(
+        ApiException(
+          message: 'local business fallback',
+          kind: ApiExceptionKind.business,
+        ),
+      ),
+      isEmpty,
+    );
     expect(
       chatroomOperationErrorMessage(
         ApiException(message: 'Request failed', kind: ApiExceptionKind.timeout),

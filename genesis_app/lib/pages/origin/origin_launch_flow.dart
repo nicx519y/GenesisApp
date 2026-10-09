@@ -5,6 +5,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../network/models/origin.dart';
+import '../../utils/api_error_message.dart';
 
 enum OriginLaunchSource {
   openingMessage(
@@ -51,9 +52,13 @@ Future<String?> startOriginLaunch({
       object3: launchSource.telemetryValue,
     );
     return wid;
-  } catch (_) {
+  } catch (error) {
     if (context.mounted && shouldHandleResult?.call() != false) {
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: 'Launch failed'),
+        brightness: Brightness.dark,
+      );
     }
     return null;
   }

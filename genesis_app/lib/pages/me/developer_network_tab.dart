@@ -41,7 +41,7 @@ class _DeveloperNetworkTabState extends State<_DeveloperNetworkTab> {
     try {
       await networkCaptureController.setEnabled(value);
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      if (mounted) _showDeveloperTabFailure(context, 'Save failed', error);
     } finally {
       if (mounted) setState(() => _savingEnabled = false);
     }

@@ -22,6 +22,7 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/genesis_ugc_text.dart';
 
 const String _privateChatReplyGateHint = 'Wait for a reply to send more';
@@ -410,10 +411,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('[ChatPage][DM] send failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
       if (mounted) {
-        final message = error.message.trim();
         setState(() {
           _latestSendFailureLocalMessageId = localMessageId;
-          _latestSendFailureMessage = message.isEmpty ? 'Send failed' : message;
+          _latestSendFailureMessage = apiErrorMessage(
+            error,
+            fallback: 'Send failed',
+          );
         });
       }
       await _markLocalMessageSendFailed(localMessageId);

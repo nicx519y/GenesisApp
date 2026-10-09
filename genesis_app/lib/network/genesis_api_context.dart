@@ -195,6 +195,7 @@ abstract class _GenesisApiContext {
     if (handler != null) unawaited(handler(message));
     throw ApiException(
       message: message,
+      serverErrMsg: serverErrorMessageFromResponse(map),
       code: errNo,
       statusCode: response.statusCode,
       responseBody: response.body,
