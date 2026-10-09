@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 
 import '../components/developer_debug_floating_button.dart';
 import '../components/internal_build_indicator.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/genesis_l10n.dart';
+import '../l10n/genesis_localizations.dart';
 import 'agent_control/agent_control_host.dart';
 import 'debug_page_tracker.dart';
 import 'genesis_navigator.dart';
@@ -29,6 +32,8 @@ class GenesisApp extends StatelessWidget {
       child: AgentControlHost(
         child: MaterialApp(
           title: 'Worldo',
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: GenesisTheme.dark(),
           scrollBehavior: const GenesisScrollBehavior(),
@@ -55,6 +60,7 @@ class GenesisApp extends StatelessWidget {
             return AppRouter.onGenerateRoute(settings);
           },
           builder: (context, child) {
+            GenesisL10n.bind(context.l10n);
             final services = AppServicesScope.read(context);
             // Root overlays and builder decorations sit outside page Material
             // widgets, so they also need the application's default font.

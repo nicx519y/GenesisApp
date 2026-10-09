@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -46,7 +47,11 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
       button: true,
       expanded: expanded,
       liveRegion: loading,
-      value: loading ? 'Loading' : null,
+      value: loading
+          ? GenesisL10n
+                .current
+                .chatLoading
+          : null,
       child: Tooltip(
         message: label,
         excludeFromSemantics: true,

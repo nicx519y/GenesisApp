@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -45,7 +46,9 @@ Future<void> showGemPurchaseBottomSheet(
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Unable to load gem packs.',
+          GenesisL10n
+              .current
+              .gemsUnableLoadGemPacks,
           debugInfo: purchaseDebugInfo(
             'gems.precheck',
             reason: 'service_unavailable',
@@ -230,7 +233,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Purchase failed.',
+          GenesisL10n.current.mePurchaseFailed,
           debugInfo: purchaseDebugInfo('gems.checkout_exception', error: error),
         ),
       );
@@ -387,12 +390,18 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     }
     if (_productsError != null && products == null) {
       return GemPurchaseState(
-        message: 'Unable to load gem packs.',
+        message: GenesisL10n
+            .current
+            .gemsUnableLoadGemPacks,
         onRetry: () => unawaited(_loadProducts()),
       );
     }
     if (products == null || products.isEmpty) {
-      return const GemPurchaseState(message: 'No gem packs available.');
+      return GemPurchaseState(
+        message: GenesisL10n
+            .current
+            .gemsNoGemPacksAvailable,
+      );
     }
     return GemProductGrid(
       products: products,

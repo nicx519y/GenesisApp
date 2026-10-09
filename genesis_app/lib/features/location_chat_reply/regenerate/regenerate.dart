@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../../icons/custom_icon_assets.dart';
@@ -33,7 +34,9 @@ class LocationChatRegenerateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
-    label: 'Regenerate',
+    label: GenesisL10n
+        .current
+        .chatRegenerate,
     iconAsset: regenerateIconAsset,
     state: feature.state,
     onDisabledTap: feature.onLimitReached,

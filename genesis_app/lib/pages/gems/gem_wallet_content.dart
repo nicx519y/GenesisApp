@@ -1,12 +1,14 @@
 part of 'gem_wallet_page.dart';
 
 String _gemTaskTitle(GemTask task) {
-  return task.taskCode.trim() == 'progress_world' ? 'Run a Tick' : task.title;
+  return task.taskCode.trim() == 'progress_world'
+      ? GenesisL10n.current.runATickTask
+      : task.title;
 }
 
 String _gemTaskDescription(GemTask task) {
   return task.taskCode.trim() == 'progress_world'
-      ? 'Open one of your playing Worlds and tap Tick Now.'
+      ? GenesisL10n.current.runATickTaskDescription
       : task.description;
 }
 
@@ -60,12 +62,16 @@ class _GemWalletContent extends StatelessWidget {
                   ? productsLoading || productsError == null
                         ? const GemProductGridSkeleton()
                         : GemPurchaseState(
-                            message: 'Unable to load gem packs.',
+                            message: GenesisL10n
+                                .current
+                                .gemsUnableLoadGemPacks,
                             onRetry: onRetryProducts,
                           )
                   : products!.isEmpty
-                  ? const GemPurchaseState(
-                      message: 'No gem packs available.',
+                  ? GemPurchaseState(
+                      message: GenesisL10n
+                          .current
+                          .gemsNoGemPacksAvailable,
                       height: 96,
                     )
                   : GemProductGrid(
@@ -81,7 +87,9 @@ class _GemWalletContent extends StatelessWidget {
           _GemSectionStatePanel(
             isLoading: tasksLoading,
             hasError: tasksError != null,
-            errorMessage: 'Unable to load gem tasks.',
+            errorMessage: GenesisL10n
+                .current
+                .gemsUnableLoadGemTasks,
             onRetry: onRetryTasks,
           )
         else
@@ -120,7 +128,8 @@ class _TaskGroupSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isJoinUs =
         group.groupCode == 'join_us' ||
-        group.groupTitle.trim().toLowerCase() == 'join us';
+        group.groupTitle.trim().toLowerCase() ==
+            GenesisL10n.current.gemsJoinUs;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

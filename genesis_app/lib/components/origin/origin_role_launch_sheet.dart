@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -302,12 +303,14 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   }
 
   String get _launchValidationMessage {
-    if (_tabIndex == 0) return 'Please select a preset role';
-    if (_customForm.name.text.trim().isEmpty) return 'Please enter a name';
-    if (_customForm.identity.text.trim().isEmpty) {
-      return 'Please enter an identity';
+    if (_tabIndex == 0) return GenesisL10n.current.selectPresetRoleValidation;
+    if (_customForm.name.text.trim().isEmpty) {
+      return GenesisL10n.current.enterNameValidation;
     }
-    return 'Please wait for the profile to finish loading.';
+    if (_customForm.identity.text.trim().isEmpty) {
+      return GenesisL10n.current.enterIdentityValidation;
+    }
+    return GenesisL10n.current.waitForProfileLoading;
   }
 
   void _dismiss() {
@@ -355,7 +358,9 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                     onTap: () {},
                     child: GenesisBottomSheetPanel(
                       key: const ValueKey('origin-role-sheet'),
-                      title: 'Setup Your Role',
+                      title: GenesisL10n
+                          .current
+                          .worldoLaunchSetupRole,
                       height: targetHeight,
                       trailing: GenesisBottomSheetCloseButton(
                         buttonKey: const ValueKey('origin-role-sheet-close'),
@@ -457,12 +462,16 @@ class _RoleSegmentedControl extends StatelessWidget {
           Row(
             children: [
               _SegmentButton(
-                label: 'Preset',
+                label: GenesisL10n
+                    .current
+                    .worldoLaunchPreset,
                 selected: index == 0,
                 onTap: () => onChanged(0),
               ),
               _SegmentButton(
-                label: 'Custom',
+                label: GenesisL10n
+                    .current
+                    .worldoLaunchCustom,
                 selected: index == 1,
                 onTap: () => onChanged(1),
               ),
@@ -531,9 +540,11 @@ class _PresetRoleGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (characters.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No preset role',
+          GenesisL10n
+              .current
+              .worldoLaunchNoPresetRole,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -714,7 +725,13 @@ class OriginCustomRoleForm extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
                 child: Text(
-                  fillingProfile ? 'Filling...' : 'Fill from my profile',
+                  fillingProfile
+                      ? GenesisL10n
+                            .current
+                            .worldoLaunchFilling
+                      : GenesisL10n
+                            .current
+                            .worldoLaunchFillMyProfile,
                   style: const TextStyle(
                     fontSize: 14,
                     height: 1.1,
@@ -758,7 +775,7 @@ class _SheetActions extends StatelessWidget {
         Expanded(
           child: GenesisPrimaryButton(
             key: const ValueKey('origin-role-cancel'),
-            label: 'Cancel',
+            label: GenesisL10n.current.searchCancel,
             backgroundColor: GenesisColors.darkFaintFill,
             foregroundColor: GenesisColors.darkTextPrimary,
             disabledBackgroundColor: GenesisColors.darkFaintFill,
@@ -772,7 +789,9 @@ class _SheetActions extends StatelessWidget {
         Expanded(
           child: GenesisPrimaryButton(
             key: const ValueKey('origin-role-launch'),
-            label: 'Launch',
+            label: GenesisL10n
+                .current
+                .worldoLaunchLaunch,
             onPressed: canLaunch ? onLaunch : null,
             onDisabledPressed: launching ? null : onLaunch,
             isLoading: launching,

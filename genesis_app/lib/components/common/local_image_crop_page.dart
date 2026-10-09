@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -239,7 +240,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Image load failed';
+        _error = GenesisL10n.current.commonImageLoadFailed;
         _isLoading = false;
       });
     }
@@ -305,7 +306,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     if (_error != null || image == null) {
       return Center(
         child: Text(
-          _error ?? 'Image load failed',
+          _error ?? GenesisL10n.current.commonImageLoadFailed,
           style: const TextStyle(color: Colors.white),
         ),
       );
@@ -479,7 +480,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       Navigator.of(context).pop(url);
     } catch (_) {
       if (!mounted) return;
-      showGenesisToast(context, 'Upload failed');
+      showGenesisToast(context, GenesisL10n.current.imageCropUploadFailed);
       setState(() {
         _isSubmitting = false;
       });

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../pages/create/create_form_widgets.dart';
@@ -208,7 +209,9 @@ class OriginCharacterFormFields extends StatelessWidget {
           children: [
             CreateUploadBox(
               controller: form.avatarUrl,
-              label: 'AVATAR\n(Optional)',
+              label: GenesisL10n
+                  .current
+                  .createCharacterAvatarOptional,
               emptyBackgroundColor: CreateFormTheme.colorOf(
                 context,
                 const Color(0x6BF4F4F6),
@@ -243,9 +246,15 @@ class OriginCharacterFormFields extends StatelessWidget {
               child: Column(
                 children: [
                   CreateTextFieldBlock(
-                    label: 'Name *',
+                    label: GenesisL10n
+                        .current
+                        .createCharacterName,
                     controller: form.name,
-                    hintText: _placeholder('Enter name...'),
+                    hintText: _placeholder(
+                      GenesisL10n
+                          .current
+                          .createCharacterEnterName,
+                    ),
                     maxLength: originCharacterNameMaxLength,
                     labelSize: labelSize,
                     labelFontWeight: labelFontWeight,
@@ -263,14 +272,20 @@ class OriginCharacterFormFields extends StatelessWidget {
                   if (!identityBelowAvatarRow) ...[
                     SizedBox(height: fieldGap),
                     CreateTextFieldBlock(
-                      label: 'Identity *',
+                      label: GenesisL10n
+                          .current
+                          .createCharacterIdentity,
                       controller: form.identity,
                       hintText: _placeholder(
-                        'eg. A hometown kid back for one real shot',
+                        GenesisL10n
+                            .current
+                            .createCharacterEgHometownKidBack,
                       ),
                       maxLength: originCharacterIdentityMaxLength,
                       note: showFieldNotes
-                          ? "The character's role in the worldo."
+                          ? GenesisL10n
+                                .current
+                                .createCharacterRoleHint
                           : null,
                       labelSize: labelSize,
                       labelFontWeight: labelFontWeight,
@@ -288,14 +303,20 @@ class OriginCharacterFormFields extends StatelessWidget {
                   if (showPersonality && !identityBelowAvatarRow) ...[
                     SizedBox(height: fieldGap),
                     CreateTextFieldBlock(
-                      label: 'Personality *',
+                      label: GenesisL10n
+                          .current
+                          .createCharacterPersonality,
                       controller: form.personality,
                       hintText: _placeholder(
-                        'eg. Underdog with goodwill but little capital',
+                        GenesisL10n
+                            .current
+                            .createCharacterEgUnderdog,
                       ),
                       maxLength: originCharacterPersonalityMaxLength,
                       note: showFieldNotes
-                          ? "The character's manner of speaking and behaving, which drives their dialogue."
+                          ? GenesisL10n
+                                .current
+                                .createCharacterMannerHint
                           : null,
                       labelSize: labelSize,
                       labelFontWeight: labelFontWeight,
@@ -318,11 +339,21 @@ class OriginCharacterFormFields extends StatelessWidget {
         SizedBox(height: sectionGap),
         if (identityBelowAvatarRow) ...[
           CreateTextFieldBlock(
-            label: 'Identity *',
+            label: GenesisL10n
+                .current
+                .createCharacterIdentity,
             controller: form.identity,
-            hintText: _placeholder('eg. A hometown kid back for one real shot'),
+            hintText: _placeholder(
+              GenesisL10n
+                  .current
+                  .createCharacterEgHometownKidBack,
+            ),
             maxLength: originCharacterIdentityMaxLength,
-            note: showFieldNotes ? "The character's role in the worldo." : null,
+            note: showFieldNotes
+                ? GenesisL10n
+                      .current
+                      .createCharacterRoleHint
+                : null,
             labelSize: labelSize,
             labelFontWeight: labelFontWeight,
             labelInputGap: labelInputGap,
@@ -338,14 +369,20 @@ class OriginCharacterFormFields extends StatelessWidget {
           if (showPersonality) ...[
             SizedBox(height: fieldGap),
             CreateTextFieldBlock(
-              label: 'Personality *',
+              label: GenesisL10n
+                  .current
+                  .createCharacterPersonality,
               controller: form.personality,
               hintText: _placeholder(
-                'eg. Underdog with goodwill but little capital',
+                GenesisL10n
+                    .current
+                    .createCharacterEgUnderdog,
               ),
               maxLength: originCharacterPersonalityMaxLength,
               note: showFieldNotes
-                  ? "The character's manner of speaking and behaving, which drives their dialogue."
+                  ? GenesisL10n
+                        .current
+                        .createCharacterMannerHint
                   : null,
               labelSize: labelSize,
               labelFontWeight: labelFontWeight,
@@ -364,14 +401,20 @@ class OriginCharacterFormFields extends StatelessWidget {
         ],
         if (showGoal) ...[
           CreateTextFieldBlock(
-            label: 'Goal (Optional)',
+            label: GenesisL10n
+                .current
+                .createCharacterGoalOptional,
             controller: form.goal,
             hintText: _placeholder(
-              'eg. Be the richest owner on Main Street by Labor Day',
+              GenesisL10n
+                  .current
+                  .createCharacterEgRichestOwner,
             ),
             maxLength: 100,
             note: showFieldNotes
-                ? "The character's goal or behavioral direction, which drives how they act."
+                ? GenesisL10n
+                      .current
+                      .createCharacterGoalHint
                 : null,
             minLines: 2,
             maxLines: 3,
@@ -389,14 +432,20 @@ class OriginCharacterFormFields extends StatelessWidget {
           SizedBox(height: sectionGap),
         ],
         CreateTextFieldBlock(
-          label: 'Background - Hidden (Optional)',
+          label: GenesisL10n
+              .current
+              .createCharacterBackgroundHidden,
           controller: form.bio,
           hintText: _placeholder(
-            'eg. Left town years ago; returned to a boarded-up Main Street for one chance.',
+            GenesisL10n
+                .current
+                .createCharacterEgLeftTownYears,
           ),
           maxLength: originCharacterBioMaxLength,
           note: showFieldNotes
-              ? "The character's background and relationships."
+              ? GenesisL10n
+                    .current
+                    .createCharacterBackgroundHint
               : null,
           minLines: 3,
           maxLines: bioMaxLines ?? 8,

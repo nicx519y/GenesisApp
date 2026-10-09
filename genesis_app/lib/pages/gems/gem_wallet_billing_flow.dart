@@ -41,7 +41,9 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Google Play is unavailable.',
+          GenesisL10n
+              .current
+              .meGooglePlayUnavailable,
           debugInfo: purchaseDebugInfo(
             'gems.precheck',
             reason: 'service_unavailable',
@@ -65,7 +67,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Purchase failed.',
+          GenesisL10n.current.mePurchaseFailed,
           debugInfo: purchaseDebugInfo('gems.checkout_exception', error: error),
         ),
       );

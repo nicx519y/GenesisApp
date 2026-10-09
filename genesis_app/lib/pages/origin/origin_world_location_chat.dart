@@ -16,13 +16,15 @@ class _OriginLocationChatEmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 360),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  'This location comes to life after launch.',
+                  GenesisL10n
+                      .current
+                      .worldoLaunchLocationComesLife,
                   maxLines: 1,
                   softWrap: false,
                   textAlign: TextAlign.center,
@@ -38,7 +40,9 @@ class _OriginLocationChatEmptyState extends StatelessWidget {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  'Launch this Worldo to explore and interact here.',
+                  GenesisL10n
+                      .current
+                      .worldoLaunchLaunchWorldoExplore,
                   maxLines: 1,
                   softWrap: false,
                   textAlign: TextAlign.center,
@@ -218,9 +222,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     }
     final profileRole = _openingProfileRole;
     if (profileRole == null) {
-      return const _OriginLocationChatRoleOption(
+      return _OriginLocationChatRoleOption(
         id: '',
-        name: 'Select a role',
+        name: GenesisL10n.current.selectARole,
         subtitle: '',
         avatarSnapshotSourceKey: '',
       );
@@ -228,7 +232,11 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     final profileName = profileRole.name.trim();
     return _OriginLocationChatRoleOption(
       id: _OriginWorldPageState._profileLocationChatRoleId,
-      name: profileName.isEmpty ? 'Your Profile' : profileName,
+      name: profileName.isEmpty
+          ? GenesisL10n
+                .current
+                .worldoLaunchProfile
+          : profileName,
       subtitle: profileRole.identity.trim(),
       avatarSnapshotSourceKey: _resolveAssetUrl(profileRole.avatarUrl).trim(),
     );
@@ -275,7 +283,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       if (character == null) {
         showGenesisToast(
           context,
-          'This role is no longer available',
+          GenesisL10n
+              .current
+              .worldoLaunchRoleUnavailable,
           brightness: Brightness.dark,
         );
         _setLocationChatRoleId(
@@ -313,7 +323,11 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
           telemetryRoleId: telemetryRoleId,
           location: WorldLocationChatPanelDescriptor(
             locationId: locationId,
-            locationName: location?.name ?? 'Location',
+            locationName:
+                location?.name ??
+                GenesisL10n
+                    .current
+                    .worldDetailLocation,
             parentLocationName: parentNode?.id == originSyntheticRootLocationId
                 ? ''
                 : parentNode?.value.name ?? '',
@@ -541,7 +555,8 @@ class _OriginLocationChatLaunchComposerState
     final composer = LocationChatComposerInput(
       controller: _controller,
       focusNode: _focusNode,
-      hintText: 'Text...',
+      hintText:
+          GenesisL10n.current.chatText,
       inputEnabled: !widget.launching,
       sendEnabled: sendEnabled,
       sending: widget.sending,
@@ -975,7 +990,7 @@ List<WorldChatroomMessage> originLocationOpeningPreviewMessagesForTesting(
             locationId: groupLocationId,
             senderType: 'tick',
             senderId: 'tick',
-            senderName: 'Time',
+            senderName: GenesisL10n.current.timeLabel,
             content: currentTime,
             createdAt: createdAt,
           ),

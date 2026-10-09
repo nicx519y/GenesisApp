@@ -140,7 +140,11 @@ class _DiscussComposerPanel extends StatelessWidget {
                                   color: GenesisColors.brand,
                                 ),
                               )
-                            : const Text('Send'),
+                            : Text(
+                                GenesisL10n
+                                    .current
+                                    .worldoSend,
+                              ),
                       ),
                     ],
                   ),

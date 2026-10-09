@@ -31,8 +31,8 @@ class UserProfileContent extends StatefulWidget {
     this.onCollapsedChanged,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
-    this.originTabLabel = '#Worldo',
-    this.worldTabLabel = 'World',
+    this.originTabLabel,
+    this.worldTabLabel,
     this.showCollectionCounts = false,
     this.isBlocking = false,
     this.isBlocked = false,
@@ -66,8 +66,8 @@ class UserProfileContent extends StatefulWidget {
   final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
   final double? tabLabelFontSize;
-  final String originTabLabel;
-  final String worldTabLabel;
+  final String? originTabLabel;
+  final String? worldTabLabel;
   final bool showCollectionCounts;
   final bool isBlocking;
   final bool isBlocked;
@@ -193,7 +193,11 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   Widget _buildCollectionTabs(UserProfileData data) {
     Widget buildTabs(int originCount, int worldCount) {
-      final labels = [widget.originTabLabel, widget.worldTabLabel];
+      final originTabLabel =
+          widget.originTabLabel ?? GenesisL10n.current.worldoHashtagLabel;
+      final worldTabLabel =
+          widget.worldTabLabel ?? GenesisL10n.current.worldLabel;
+      final labels = [originTabLabel, worldTabLabel];
       return GenesisTabBar(
         controller: _tabController,
         labelColor: Theme.of(context).brightness == Brightness.dark
@@ -210,13 +214,13 @@ class _UserProfileContentState extends State<UserProfileContent>
             ? [
                 _ProfileCollectionTabLabel(
                   key: const ValueKey<String>('profile-tab-origin'),
-                  label: widget.originTabLabel,
+                  label: originTabLabel,
                   count: originCount,
                   countKey: const ValueKey<String>('profile-tab-count-origin'),
                 ),
                 _ProfileCollectionTabLabel(
                   key: const ValueKey<String>('profile-tab-world'),
-                  label: widget.worldTabLabel,
+                  label: worldTabLabel,
                   count: worldCount,
                   countKey: const ValueKey<String>('profile-tab-count-world'),
                 ),
@@ -277,7 +281,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     if (widget.isBlocked) {
       return Center(
         child: Text(
-          'User blocked',
+          GenesisL10n.current.userBlocked,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Theme.of(context).brightness == Brightness.dark
@@ -304,8 +308,12 @@ class _UserProfileContentState extends State<UserProfileContent>
               child: _OriginProfileCollectionList(
                 items: data.origins,
                 emptyText: data.isSelf
-                    ? 'No Worldo you created yet.'
-                    : 'No Worldo yet.',
+                    ? GenesisL10n
+                          .current
+                          .meNoWorldoCreatedYet
+                    : GenesisL10n
+                          .current
+                          .meNoWorldoYet,
                 isLoading: widget.originsLoading,
                 listenable: widget.originsListenable,
                 onLoadMore: widget.onLoadMoreOrigins,
@@ -325,8 +333,12 @@ class _UserProfileContentState extends State<UserProfileContent>
                 items: data.worlds,
                 profileUid: data.uid,
                 emptyText: data.isSelf
-                    ? 'No Worlds you created yet.'
-                    : 'No Worlds yet.',
+                    ? GenesisL10n
+                          .current
+                          .meNoWorldsCreatedYet
+                    : GenesisL10n
+                          .current
+                          .meNoWorldsYet,
                 isLoading: widget.worldsLoading,
                 listenable: widget.worldsListenable,
                 onLoadMore: widget.onLoadMoreWorlds,
@@ -436,7 +448,9 @@ class _UserProfileContentState extends State<UserProfileContent>
                       if (widget.nameUidGap > 0)
                         SizedBox(height: widget.nameUidGap),
                       CopyableIdLabel(
-                        label: 'UID',
+                        label: GenesisL10n
+                            .current
+                            .profileUID,
                         customTextStyle:
                             Theme.of(context).brightness == Brightness.dark
                             ? CopyableIdLabel.textStyle.copyWith(
@@ -767,7 +781,9 @@ class _GemsBalanceEntry extends StatelessWidget {
                             child: _GemBalance(
                               key: redBoundsKey,
                               iconAsset: gemIconAsset,
-                              label: 'Red gems',
+                              label: GenesisL10n
+                                  .current
+                                  .gemsRed,
                               balanceCent: redCent,
                               valueKey: const ValueKey(
                                 'user-profile-gems-balance',
@@ -802,7 +818,9 @@ class _GemsBalanceEntry extends StatelessWidget {
                                 child: _GemBalance(
                                   key: pinkBoundsKey,
                                   iconAsset: roseGemIconAsset,
-                                  label: 'Pink gems',
+                                  label: GenesisL10n
+                                      .current
+                                      .gemsPink,
                                   balanceCent: roseCent,
                                   valueKey: const ValueKey(
                                     'user-profile-rose-gems-balance',
@@ -829,8 +847,10 @@ class _GemsBalanceEntry extends StatelessWidget {
                           color: GenesisColors.brand,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          'Top up',
+                        child: Text(
+                          GenesisL10n
+                              .current
+                              .gemsTop,
                           style: TextStyle(
                             color: GenesisColors.darkTextPrimary,
                             fontSize: 12,

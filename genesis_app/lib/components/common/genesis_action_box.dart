@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import '../../ui/tokens/genesis_blur.dart';
+import '../../l10n/genesis_l10n.dart';
 
 import 'package:flutter/material.dart';
 
@@ -40,7 +41,7 @@ Future<T?> showGenesisActionBox<T>({
   Widget? titleContent,
   double titleContentSpacing = 8,
   double titleHorizontalPadding = 18,
-  String cancelLabel = 'Cancel',
+  String? cancelLabel,
   bool showCancel = true,
   bool detachCancel = false,
   double? titleHeight = GenesisActionBox.defaultTitleHeight,
@@ -59,7 +60,7 @@ Future<T?> showGenesisActionBox<T>({
         titleContentSpacing: titleContentSpacing,
         titleHorizontalPadding: titleHorizontalPadding,
         actions: actions,
-        cancelLabel: cancelLabel,
+        cancelLabel: cancelLabel ?? GenesisL10n.current.cancelAction,
         showCancel: showCancel,
         detachCancel: detachCancel,
         titleHeight: titleHeight,
@@ -84,7 +85,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.titleContent,
     this.titleContentSpacing = 8,
     this.titleHorizontalPadding = 18,
-    this.cancelLabel = 'Cancel',
+    this.cancelLabel,
     this.showCancel = true,
     this.detachCancel = false,
     this.titleHeight = defaultTitleHeight,
@@ -111,7 +112,7 @@ class GenesisActionBox<T> extends StatelessWidget {
   final List<GenesisActionBoxAction<T>> actions;
   final ValueChanged<T> onActionSelected;
   final VoidCallback onCancel;
-  final String cancelLabel;
+  final String? cancelLabel;
   final bool showCancel;
   final bool detachCancel;
   final double? titleHeight;
@@ -175,7 +176,7 @@ class GenesisActionBox<T> extends StatelessWidget {
           ],
           if (showCancel)
             _CancelRow(
-              label: cancelLabel,
+              label: cancelLabel ?? GenesisL10n.current.cancelAction,
               height: cancelRowHeight,
               onCancel: onCancel,
             ),
@@ -227,7 +228,7 @@ class GenesisActionBox<T> extends StatelessWidget {
         const SizedBox(height: 14),
         GenesisActionBoxSurface(
           child: _CancelRow(
-            label: cancelLabel,
+            label: cancelLabel ?? GenesisL10n.current.cancelAction,
             height: cancelRowHeight,
             onCancel: onCancel,
           ),

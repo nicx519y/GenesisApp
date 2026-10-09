@@ -96,10 +96,12 @@ class _ChatCharacterMovementRow extends StatelessWidget {
         movement.toLocationId.trim().isNotEmpty &&
         !movement.isDestinationCurrentLocation;
     final directionText = usePastTenseDirection
-        ? (movement.isDestinationCurrentLocation ? 'came to' : 'went to')
+        ? (movement.isDestinationCurrentLocation
+              ? GenesisL10n.current.cameToDirection
+              : GenesisL10n.current.wentToDirection)
         : (movement.isDestinationCurrentLocation
-              ? 'has come to'
-              : 'has gone to');
+              ? GenesisL10n.current.hasComeToDirection
+              : GenesisL10n.current.hasGoneToDirection);
     if (scenePlate) {
       return _ChatTickSceneCharacterMovementRow(
         messageLocalId: messageLocalId,
@@ -111,11 +113,9 @@ class _ChatCharacterMovementRow extends StatelessWidget {
         directionText: directionText,
       );
     }
-    return Wrap(
+    return Row(
       key: ValueKey<String>('chat-character-movement-$messageLocalId-$index'),
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 5,
-      runSpacing: 3,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SvgPicture.asset(
           routeIconAsset,
@@ -123,35 +123,60 @@ class _ChatCharacterMovementRow extends StatelessWidget {
           height: 15,
           colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
         ),
-        ChatStreamingText(
-          child: Text(
-            genesisDisplaySafeText(movement.characterName),
-            style: style.systemMessageTextStyle.copyWith(
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ),
-        ChatStreamingText(child: Text(directionText, style: metadataStyle)),
-        Semantics(
-          button: canOpenLocation,
-          label: canOpenLocation ? 'Open $locationName' : locationName,
-          child: GestureDetector(
-            key: ValueKey<String>(
-              'chat-character-movement-location-$messageLocalId-$index',
-            ),
-            behavior: HitTestBehavior.opaque,
-            onTap: canOpenLocation ? () => onLocationTap!(movement) : null,
-            child: ChatStreamingText(
-              child: Text(
-                locationName,
-                style: style.systemMessageTextStyle.copyWith(
-                  fontWeight: FontWeight.w400,
-                  decoration: canOpenLocation
-                      ? TextDecoration.underline
-                      : TextDecoration.none,
-                  decorationColor: textColor,
+        const SizedBox(width: 5),
+        Expanded(
+          child: ChatStreamingText(
+            child: GenesisLocalizedRichText(
+              template: GenesisL10n.current.characterMovementSentence(
+                characterName: GenesisLocalizedRichText.placeholder(
+                  'characterName',
+                ),
+                direction: GenesisLocalizedRichText.placeholder('direction'),
+                locationName: GenesisLocalizedRichText.placeholder(
+                  'locationName',
                 ),
               ),
+              placeholders: {
+                'characterName': TextSpan(
+                  text: genesisDisplaySafeText(movement.characterName),
+                  style: style.systemMessageTextStyle.copyWith(
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                'direction': TextSpan(
+                  text: directionText,
+                  style: metadataStyle,
+                ),
+                'locationName': WidgetSpan(
+                  alignment: PlaceholderAlignment.baseline,
+                  baseline: TextBaseline.alphabetic,
+                  child: Semantics(
+                    button: canOpenLocation,
+                    label: canOpenLocation
+                        ? 'Open $locationName'
+                        : locationName,
+                    child: GestureDetector(
+                      key: ValueKey<String>(
+                        'chat-character-movement-location-$messageLocalId-$index',
+                      ),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: canOpenLocation
+                          ? () => onLocationTap!(movement)
+                          : null,
+                      child: Text(
+                        locationName,
+                        style: style.systemMessageTextStyle.copyWith(
+                          fontWeight: FontWeight.w400,
+                          decoration: canOpenLocation
+                              ? TextDecoration.underline
+                              : TextDecoration.none,
+                          decorationColor: textColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              },
             ),
           ),
         ),
@@ -194,14 +219,20 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
         ),
         const SizedBox(width: 9),
         Expanded(
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 5,
-            runSpacing: 3,
-            children: [
-              ChatStreamingText(
-                child: Text(
-                  genesisDisplaySafeText(movement.characterName),
+          child: ChatStreamingText(
+            child: GenesisLocalizedRichText(
+              template: GenesisL10n.current.characterMovementSentence(
+                characterName: GenesisLocalizedRichText.placeholder(
+                  'characterName',
+                ),
+                direction: GenesisLocalizedRichText.placeholder('direction'),
+                locationName: GenesisLocalizedRichText.placeholder(
+                  'locationName',
+                ),
+              ),
+              placeholders: {
+                'characterName': TextSpan(
+                  text: genesisDisplaySafeText(movement.characterName),
                   style: const TextStyle(
                     color: _tickMessageHeaderColor,
                     fontSize: 14,
@@ -209,10 +240,8 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              ChatStreamingText(
-                child: Text(
-                  directionText,
+                'direction': TextSpan(
+                  text: directionText,
                   style: TextStyle(
                     color: mutedColor,
                     fontSize: 14,
@@ -220,50 +249,56 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-              ),
-              Semantics(
-                button: canOpenLocation,
-                label: canOpenLocation ? 'Open $locationName' : locationName,
-                child: GestureDetector(
-                  key: ValueKey<String>(
-                    'chat-character-movement-location-$messageLocalId-$index',
-                  ),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: canOpenLocation
-                      ? () => onLocationTap!(movement)
-                      : null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ChatStreamingText(
-                        child: Text(
-                          locationName,
-                          style: TextStyle(
-                            color: canOpenLocation
-                                ? GenesisColors.redSecondary
-                                : _tickMessageHeaderColor,
-                            fontSize: 14,
-                            height: 1.3,
-                            fontWeight: FontWeight.w600,
-                            decoration: canOpenLocation
-                                ? TextDecoration.underline
-                                : TextDecoration.none,
-                            decorationColor: GenesisColors.redSecondary
-                                .withValues(alpha: 0.45),
-                          ),
-                        ),
+                'locationName': WidgetSpan(
+                  alignment: PlaceholderAlignment.baseline,
+                  baseline: TextBaseline.alphabetic,
+                  child: Semantics(
+                    button: canOpenLocation,
+                    label: canOpenLocation
+                        ? 'Open $locationName'
+                        : locationName,
+                    child: GestureDetector(
+                      key: ValueKey<String>(
+                        'chat-character-movement-location-$messageLocalId-$index',
                       ),
-                      if (canOpenLocation) ...[
-                        const SizedBox(width: 3),
-                        const _ChatLocationCaret(
-                          color: GenesisColors.redSecondary,
-                        ),
-                      ],
-                    ],
+                      behavior: HitTestBehavior.opaque,
+                      onTap: canOpenLocation
+                          ? () => onLocationTap!(movement)
+                          : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ChatStreamingText(
+                            child: Text(
+                              locationName,
+                              style: TextStyle(
+                                color: canOpenLocation
+                                    ? GenesisColors.redSecondary
+                                    : _tickMessageHeaderColor,
+                                fontSize: 14,
+                                height: 1.3,
+                                fontWeight: FontWeight.w600,
+                                decoration: canOpenLocation
+                                    ? TextDecoration.underline
+                                    : TextDecoration.none,
+                                decorationColor: GenesisColors.redSecondary
+                                    .withValues(alpha: 0.45),
+                              ),
+                            ),
+                          ),
+                          if (canOpenLocation) ...[
+                            const SizedBox(width: 3),
+                            const _ChatLocationCaret(
+                              color: GenesisColors.redSecondary,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              },
+            ),
           ),
         ),
       ],

@@ -138,12 +138,19 @@ class _TilemapError extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Map failed to load', style: TextStyle(color: textColor)),
+              Text(
+                GenesisL10n
+                    .current
+                    .worldMapLoadFailed,
+                style: TextStyle(color: textColor),
+              ),
               const SizedBox(height: 10),
               FilledButton(
                 key: const ValueKey<String>('tilemap-retry'),
                 onPressed: onRetry,
-                child: const Text('Retry'),
+                child: Text(
+                  GenesisL10n.current.homeRetry,
+                ),
               ),
             ],
           ),

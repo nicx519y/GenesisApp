@@ -1,3 +1,4 @@
+import '../../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -220,7 +221,9 @@ class ChatroomInspirationController extends ChangeNotifier {
     if (response.sourceCardId != source.sourceCardId &&
         !(source.cardId == null && source.sourceCardId == 0)) {
       throw StateError(
-        'The inspiration source changed. Please reopen inspiration.',
+        GenesisL10n
+            .current
+            .chatInspirationSourceChanged,
       );
     }
     await _serial(() async {

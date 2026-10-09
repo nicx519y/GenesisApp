@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -6,6 +7,9 @@ import 'package:flutter/material.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../../ui/system/genesis_system_ui.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -211,7 +215,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
 
     final action = await showGenesisActionBox<_JoinRequestAction>(
       context: context,
-      title: 'Join request',
+      title: GenesisL10n
+          .current
+          .inboxJoinRequest,
       content: _JoinRequestDialogContent(
         item: item,
         statusOnly: false,
@@ -222,13 +228,17 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
             ? null
             : () => unawaited(_openWorldFromDialog(item.bizId)),
       ),
-      actions: const [
+      actions: [
         GenesisActionBoxAction<_JoinRequestAction>(
-          label: 'Approve',
+          label: GenesisL10n
+              .current
+              .inboxApprove,
           value: _JoinRequestAction.approve,
         ),
         GenesisActionBoxAction<_JoinRequestAction>(
-          label: 'Reject',
+          label: GenesisL10n
+              .current
+              .inboxReject,
           value: _JoinRequestAction.reject,
           color: GenesisColors.darkTextPrimary,
         ),
@@ -241,7 +251,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   Future<void> _openJoinRequestView(_NotificationItem item) {
     return showGenesisActionBox<void>(
       context: context,
-      title: 'Join request',
+      title: GenesisL10n
+          .current
+          .inboxJoinRequest,
       content: _JoinRequestDialogContent(
         item: item,
         statusOnly: true,
@@ -253,7 +265,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
             : () => _openWorldFromDialog(item.bizId),
       ),
       actions: const <GenesisActionBoxAction<void>>[],
-      cancelLabel: 'OK',
+      cancelLabel: GenesisL10n
+          .current
+          .inboxOk,
       detachCancel: true,
     );
   }
@@ -291,7 +305,13 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     if (!mounted) return;
     final applyId = item.applyId.trim();
     if (applyId.isEmpty) {
-      showGenesisToast(context, 'Review failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n
+            .current
+            .inboxReviewFailed,
+        brightness: Brightness.dark,
+      );
       return;
     }
 
@@ -315,7 +335,13 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       );
     } catch (_) {
       if (!mounted) return;
-      showGenesisToast(context, 'Review failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n
+            .current
+            .inboxReviewFailed,
+        brightness: Brightness.dark,
+      );
     }
   }
 
@@ -422,9 +448,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           SizedBox(height: MediaQuery.sizeOf(context).height * 0.3),
-          const Center(
+          Center(
             child: Text(
-              'Failed to load messages.',
+              GenesisL10n
+                  .current
+                  .inboxLoadMessagesFailed,
               style: TextStyle(
                 color: GenesisColors.darkTextSecondary,
                 fontSize: 14,

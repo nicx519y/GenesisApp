@@ -161,7 +161,12 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     final uploadBox = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _isUploading
-          ? () => showGenesisToast(context, 'Image upload is in progress.')
+          ? () => showGenesisToast(
+              context,
+              GenesisL10n
+                  .current
+                  .createImageUploadProgress,
+            )
           : null,
       child: Material(
         color: Colors.transparent,
@@ -226,8 +231,12 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             decorationKey: const ValueKey('create-upload-remove-container'),
             onPressed: _removeImage,
             enabled: !_isUploading,
-            onDisabledPressed: () =>
-                showGenesisToast(context, 'Image upload is in progress.'),
+            onDisabledPressed: () => showGenesisToast(
+              context,
+              GenesisL10n
+                  .current
+                  .createImageUploadProgress,
+            ),
           ),
         ),
       ],
@@ -299,7 +308,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       _showMessage(unsupportedGifImageMessage);
     } catch (_) {
       if (!context.mounted) return;
-      _showMessage('Image upload failed.');
+      _showMessage(GenesisL10n.current.imageUploadFailed);
     } finally {
       widget.onInteractionActiveChanged?.call(false);
     }
@@ -366,7 +375,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
-      _showMessage('Image upload failed.');
+      _showMessage(GenesisL10n.current.imageUploadFailed);
     }
   }
 
@@ -417,7 +426,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
-      _showMessage('Image upload failed.');
+      _showMessage(GenesisL10n.current.imageUploadFailed);
     }
   }
 

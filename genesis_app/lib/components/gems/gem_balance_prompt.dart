@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,8 +8,9 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../platform/billing/billing_service.dart';
 import 'gem_purchase_bottom_sheet.dart';
 
-const String insufficientGemBalancePrompt = 'Insufficient Gems';
-const String lowGemBalancePrompt = 'Low Gems';
+String get insufficientGemBalancePrompt =>
+    GenesisL10n.current.gemBalancePromptInsufficientGems;
+String get lowGemBalancePrompt => GenesisL10n.current.gemBalancePromptLowGems;
 const String gemPurchaseSheetTriggerTick = 'tick_no_balance';
 const String gemPurchaseSheetTriggerMessageLowBalance = 'msg_low_balance';
 const String gemPurchaseSheetTriggerMessageNoBalance = 'msg_no_balance';

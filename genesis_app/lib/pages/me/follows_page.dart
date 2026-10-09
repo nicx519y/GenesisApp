@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -45,7 +46,7 @@ class _FollowsPageState extends State<FollowsPage>
   Future<List<_FollowUserItem>>? _followersFuture;
   final Set<String> _loadingUids = <String>{};
   final Map<String, bool> _followStateOverrides = <String, bool>{};
-  String _title = 'Follows';
+  String _title = GenesisL10n.current.meFollows;
   bool _canToggleFollow = false;
   bool _didLoad = false;
   int? _followingTotal;
@@ -88,7 +89,9 @@ class _FollowsPageState extends State<FollowsPage>
       _followingTotal = null;
       _followersTotal = null;
       _canToggleFollow = false;
-      _title = _cleanTitle(widget.initialTitle) ?? 'Follows';
+      _title =
+          _cleanTitle(widget.initialTitle) ??
+          GenesisL10n.current.meFollows;
       _followingFuture = following;
       _followersFuture = followers;
     });
@@ -278,8 +281,12 @@ class _FollowsPageState extends State<FollowsPage>
                 unselectedLabelColor: GenesisColors.darkTextSecondary,
                 indicatorColor: GenesisColors.redPrimary,
                 labels: [
-                  '$followingCount Following',
-                  '$followersCount Followers',
+                  GenesisL10n.current.meFollowingCount(
+                    followingCount: (followingCount).toString(),
+                  ),
+                  GenesisL10n.current.meFollowersCount(
+                    followersCount: (followersCount).toString(),
+                  ),
                 ],
                 // horizontalPadding: 28,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -293,7 +300,9 @@ class _FollowsPageState extends State<FollowsPage>
                       future:
                           _followingFuture ??
                           Future.value(const <_FollowUserItem>[]),
-                      emptyText: 'No following yet.',
+                      emptyText: GenesisL10n
+                          .current
+                          .meNoFollowingYet,
                       defaultFollowed: true,
                       loadingUids: _loadingUids,
                       followStateOverrides: _followStateOverrides,
@@ -305,7 +314,9 @@ class _FollowsPageState extends State<FollowsPage>
                       future:
                           _followersFuture ??
                           Future.value(const <_FollowUserItem>[]),
-                      emptyText: 'No followers yet.',
+                      emptyText: GenesisL10n
+                          .current
+                          .meNoFollowersYet,
                       defaultFollowed: false,
                       loadingUids: _loadingUids,
                       followStateOverrides: _followStateOverrides,
@@ -361,8 +372,10 @@ class _FollowUsersPane extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Load failed',
+                Text(
+                  GenesisL10n
+                      .current
+                      .homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -372,7 +385,11 @@ class _FollowUsersPane extends StatelessWidget {
                     backgroundColor: GenesisColors.darkFaintFill,
                     foregroundColor: GenesisColors.darkTextPrimary,
                   ),
-                  child: const Text('Retry'),
+                  child: Text(
+                    GenesisL10n
+                        .current
+                        .homeRetry,
+                  ),
                 ),
               ],
             ),
@@ -490,7 +507,12 @@ class _FollowUserItem {
       age: asString(user['age']),
       membershipStatus: asUserMembershipStatus(user['membership_status']),
       uid: uid,
-      displayName: formatUidForDisplay(displayName, fallback: 'User'),
+      displayName: formatUidForDisplay(
+        displayName,
+        fallback: GenesisL10n
+            .current
+            .worldoUser,
+      ),
       avatarUrl: avatar,
       deleted: entityDeleted(user['deleted']),
       isFollowed: isFollowed,

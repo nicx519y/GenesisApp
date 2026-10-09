@@ -39,7 +39,7 @@ class _SearchResultTile extends StatelessWidget {
             Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(text: 'UID: '),
+                  TextSpan(text: GenesisL10n.current.searchUID),
                   _highlightedSearchSpan(
                     formatCopyableIdValue(item.displaySubtitle),
                     _userIdRanges(item.userV2!, item.searchQuery),
@@ -158,7 +158,7 @@ class _OriginSearchMetadata extends StatelessWidget {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'OID: '),
+              TextSpan(text: GenesisL10n.current.searchOID),
               _highlightedSearchSpan(_dashOrValue(origin.originId), idRanges),
             ],
           ),
@@ -171,7 +171,12 @@ class _OriginSearchMetadata extends StatelessWidget {
         deleted: origin.owner.deleted,
         fontSize: 12,
         child: Text(
-          'Creator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
+          GenesisL10n.current.worldoDetailCreator(
+            creatorName: (formatUidForDisplay(
+              origin.owner.name,
+              fallback: '-',
+            )).toString(),
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: _searchMetadataStyle.copyWith(
@@ -210,7 +215,7 @@ class _WorldSearchMetadata extends StatelessWidget {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'WID: '),
+              TextSpan(text: GenesisL10n.current.searchWID),
               _highlightedSearchSpan(
                 _dashOrValue(world.worldId),
                 _worldIdRanges(world, item.searchQuery),
@@ -227,7 +232,7 @@ class _WorldSearchMetadata extends StatelessWidget {
           deleted: world.owner.deleted,
           fontSize: 12,
           child: Text(
-            'Owner: $owner',
+            GenesisL10n.current.searchOwner(owner: (owner).toString()),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: _worldSearchMetadataStyle.copyWith(

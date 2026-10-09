@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_refresh_indicator.dart';
@@ -79,7 +80,9 @@ class GemPurchaseState extends StatelessWidget {
               style: TextButton.styleFrom(
                 foregroundColor: GenesisColors.darkTextSecondary,
               ),
-              child: const Text('Retry'),
+              child: Text(
+                GenesisL10n.current.homeRetry,
+              ),
             ),
           ],
         ],

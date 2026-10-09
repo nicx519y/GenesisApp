@@ -381,7 +381,11 @@ class _DiscussActions extends StatelessWidget {
         isLiked: previousLiked,
         likeCount: previousCount,
       );
-      if (context.mounted) showGenesisToast(context, 'Like failed');
+      if (context.mounted)
+        showGenesisToast(
+          context,
+          GenesisL10n.current.worldoLikeFailed,
+        );
     } finally {
       controller.setLikePending(discussId, false);
     }
@@ -437,7 +441,13 @@ class _DiscussReplyPreview extends StatelessWidget {
         },
       );
     } catch (_) {
-      if (context.mounted) showGenesisToast(context, 'Load replies failed');
+      if (context.mounted)
+        showGenesisToast(
+          context,
+          GenesisL10n
+              .current
+              .worldoLoadRepliesFailed,
+        );
     }
   }
 }

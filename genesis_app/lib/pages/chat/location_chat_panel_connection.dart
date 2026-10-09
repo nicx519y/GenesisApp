@@ -351,7 +351,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _mapString(userInfo, 'nickname'),
         _mapString(userInfo, 'name'),
         formatUidForDisplay(uid),
-        'Me',
+        GenesisL10n.current.meLabel,
       ]);
       _rememberMyUserId(uid);
       _rememberMyUserId(cachedUid);
@@ -402,7 +402,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
         final senderId = firstNonEmpty([_mySenderId, 'local-user']);
         _rememberMySenderId(senderId);
-        _mySenderName = firstNonEmpty([_mySenderName, 'Me']);
+        _mySenderName = firstNonEmpty([
+          _mySenderName,
+          GenesisL10n.current.meLabel,
+        ]);
       }
       if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
       await service.join(

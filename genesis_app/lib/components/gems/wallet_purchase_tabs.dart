@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/components/secend_tabs.dart';
@@ -70,7 +71,15 @@ class WalletPurchaseTabs extends StatelessWidget {
               indicatorColor: _indicatorColor(),
               indicatorWidth: 24,
               indicatorHeight: 3,
-              labels: ['Subscription', if (controller.length > 1) 'Buy Gems'],
+              labels: [
+                GenesisL10n
+                    .current
+                    .premiumSubscription,
+                if (controller.length > 1)
+                  GenesisL10n
+                      .current
+                      .gemsBuy,
+              ],
               horizontalPadding: 0,
               labelPadding: const EdgeInsets.symmetric(horizontal: 4),
               verticalPadding: 0,
@@ -95,7 +104,13 @@ class WalletPurchaseTabs extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          index == 0 ? 'Subscription' : 'Buy Gems',
+                          index == 0
+                              ? GenesisL10n
+                                    .current
+                                    .premiumSubscription
+                              : GenesisL10n
+                                    .current
+                                    .gemsBuy,
                           maxLines: 1,
                           softWrap: false,
                           style: measureStyle.copyWith(

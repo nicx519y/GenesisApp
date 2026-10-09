@@ -1,7 +1,7 @@
 part of '../../../../pages/chat/location_chat_page.dart';
 
-const _locationChatEditMinimumMessageToast =
-    'At least one message must remain.';
+String get _locationChatEditMinimumMessageToast =>
+    GenesisL10n.current.chatLeastOneMessageMustRemain;
 
 bool _isEditableRoundMessage(ChatMessageVm message) =>
     !message.isMe &&
@@ -306,7 +306,9 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
         body: Column(
           children: [
             ChatHeader(
-              title: 'Edit Message',
+              title: GenesisL10n
+                  .current
+                  .chatEditMessage,
               subtitle: '',
               connected: false,
               connecting: false,
@@ -321,7 +323,9 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
                 padding: const EdgeInsets.only(right: 10),
                 child: GenesisPrimaryButton(
                   key: const ValueKey('location-chat-edit-done'),
-                  label: 'Save',
+                  label: GenesisL10n
+                      .current
+                      .chatSave,
                   onPressed: _inputEnabled ? _done : null,
                   isLoading: _saving,
                   width: 56,

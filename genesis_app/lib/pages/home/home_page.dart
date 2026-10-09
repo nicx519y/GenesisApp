@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,8 @@ import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -128,7 +131,7 @@ class _HomePageState extends State<HomePage> {
     if (login == null) {
       showGenesisToast(
         context,
-        'Sign-in unavailable',
+        GenesisL10n.current.homeSignInUnavailable,
         brightness: Brightness.dark,
       );
       return;
@@ -142,7 +145,7 @@ class _HomePageState extends State<HomePage> {
       } else if (mounted) {
         showGenesisToast(
           context,
-          'Sign-in failed',
+          GenesisL10n.current.homeSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -216,8 +219,10 @@ class _HomePageState extends State<HomePage> {
             isActiveListenable: widget.isActiveListenable,
             topSafeArea: false,
             showLogo: false,
-            title: 'Your worlds, all in one place',
-            description: 'Sign in to create worlds and continue your stories.',
+            title:
+                GenesisL10n.current.homeSignedOutTitle,
+            description:
+                GenesisL10n.current.homeSignedOutDescription,
             titleFontSize: 20,
             descriptionFontSize: 14,
             titleLetterSpacing: 0,

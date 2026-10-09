@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -155,8 +156,12 @@ Future<void> runDailyCheckInFlow(
       showGenesisToast(
         context,
         status == _DailyTaskStatus.claimable
-            ? 'Claim failed.'
-            : 'Check in failed.',
+            ? GenesisL10n
+                  .current
+                  .gemsClaimFailed
+            : GenesisL10n
+                  .current
+                  .gemsCheckFailed,
       );
       return;
     }

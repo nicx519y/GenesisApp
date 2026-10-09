@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -315,7 +316,9 @@ class ServiceRegistry {
 
         final navigator = genesisNavigatorKey.currentState;
         navigator?.pushNamedAndRemoveUntil(RouteNames.origin, (_) => false);
-        const toastMessage = 'Your account is logged in on another device.';
+        final toastMessage = GenesisL10n
+            .current
+            .meAccountLoggedAnotherDevice;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final overlay = genesisNavigatorKey.currentState?.overlay;
           if (overlay == null) return;

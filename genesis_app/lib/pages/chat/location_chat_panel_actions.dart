@@ -15,13 +15,17 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
   ) {
     final items = <GenesisActionMenuItem>[
       GenesisActionMenuItem(
-        label: 'Copy',
+        label: GenesisL10n
+            .current
+            .chatCopy,
         iconData: Icons.copy_outlined,
         onSelected: () => _copyMessageText(message),
       ),
       if (locationChatMessageCanReportForTesting(message))
         GenesisActionMenuItem(
-          label: 'Report',
+          label: GenesisL10n
+              .current
+              .chatReport,
           iconAsset: genesisReportIconAsset,
           onSelected: () {
             showGenesisReportDialog(
@@ -46,7 +50,11 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
         : message.text;
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    showGenesisToast(context, 'Copied', brightness: Brightness.dark);
+    showGenesisToast(
+      context,
+      GenesisL10n.current.chatCopied,
+      brightness: Brightness.dark,
+    );
   }
 
   String _messageReportTargetId(ChatMessageVm message) {

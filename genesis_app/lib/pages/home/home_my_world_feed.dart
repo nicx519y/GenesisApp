@@ -1135,12 +1135,19 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Load failed',
+            Text(
+              GenesisL10n
+                  .current
+                  .homeLoadFailed,
               style: TextStyle(color: GenesisColors.darkTextPrimary),
             ),
             const SizedBox(height: 10),
-            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
+            FilledButton(
+              onPressed: _refreshItems,
+              child: Text(
+                GenesisL10n.current.homeRetry,
+              ),
+            ),
           ],
         ),
       );

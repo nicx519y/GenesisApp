@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
@@ -45,39 +48,47 @@ class GemBillingPurchaseDialogState {
 }
 
 class GemBillingPurchaseDialog extends StatelessWidget {
-  const GemBillingPurchaseDialog.membership({
+  factory GemBillingPurchaseDialog.membership({
     Key? key,
     required ValueListenable<GemBillingPurchaseDialogState> state,
     required VoidCallback onConfirm,
-  }) : this(
-         key: key,
-         state: state,
-         onConfirm: onConfirm,
-         processingLabel: 'Purchasing Premium',
-         successTitle: 'Purchase successful!',
-         successMessage: 'Your Worldo Premium subscription is now active.',
-         successIconAsset: proCrownGoldIconAsset,
-         confirmLabel: 'Continue',
-       );
+  }) => GemBillingPurchaseDialog(
+    key: key,
+    state: state,
+    onConfirm: onConfirm,
+    processingLabel: GenesisL10n
+        .current
+        .mePurchasingPremium,
+    successTitle: GenesisL10n
+        .current
+        .mePurchaseSuccessful,
+    successMessage: GenesisL10n
+        .current
+        .meWorldoPremiumSubscription,
+    successIconAsset: proCrownGoldIconAsset,
+    confirmLabel: GenesisL10n
+        .current
+        .createOpeningContinue,
+  );
 
   const GemBillingPurchaseDialog({
     super.key,
     required this.state,
     required this.onConfirm,
-    this.processingLabel = 'Purchasing Gems',
-    this.successTitle = 'Purchase successful!',
+    this.processingLabel,
+    this.successTitle,
     this.successMessage,
     this.successIconAsset = gemStackIconAsset,
-    this.confirmLabel = 'OK',
+    this.confirmLabel,
   });
 
   final ValueListenable<GemBillingPurchaseDialogState> state;
   final VoidCallback onConfirm;
-  final String processingLabel;
-  final String successTitle;
+  final String? processingLabel;
+  final String? successTitle;
   final String? successMessage;
   final String successIconAsset;
-  final String confirmLabel;
+  final String? confirmLabel;
   static const double _processingHeight = 202;
   static const double _successContentHeight = 150;
   static const double _titleHorizontalPadding = 24;
@@ -120,17 +131,21 @@ class GemBillingPurchaseDialog extends StatelessWidget {
                 if (isSuccess)
                   _GemBillingPurchaseGrantedMessage(
                     grantedText: value.grantedText,
-                    title: successTitle,
+                    title:
+                        successTitle ?? GenesisL10n.current.purchaseSuccessful,
                     message: successMessage,
                   )
                 else
-                  _ProcessingPaymentText(label: processingLabel),
+                  _ProcessingPaymentText(
+                    label:
+                        processingLabel ?? GenesisL10n.current.purchasingGems,
+                  ),
               ],
             ),
             actions: isSuccess
                 ? [
                     GenesisActionBoxAction<bool>(
-                      label: confirmLabel,
+                      label: confirmLabel ?? GenesisL10n.current.okAction,
                       value: true,
                     ),
                   ]
@@ -199,31 +214,34 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
               key: const ValueKey<String>('billing-purchase-granted-fit'),
               fit: BoxFit.scaleDown,
               alignment: Alignment.center,
-              child: Text.rich(
+              child: GenesisLocalizedRichText(
                 key: const ValueKey<String>('billing-purchase-granted-line'),
-                TextSpan(
-                  children: [
-                    WidgetSpan(
-                      alignment: PlaceholderAlignment.middle,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 2),
-                        child: SvgPicture.asset(
-                          gemIconAsset,
-                          key: const ValueKey<String>(
-                            'billing-purchase-granted-icon',
-                          ),
-                          width: 12,
-                          height: 12,
+                template: context.l10n.gemsGranted(
+                  gemIcon: GenesisLocalizedRichText.placeholder('gemIcon'),
+                  grantedAmount: GenesisLocalizedRichText.placeholder(
+                    'grantedAmount',
+                  ),
+                ),
+                placeholders: {
+                  'gemIcon': WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: SvgPicture.asset(
+                        gemIconAsset,
+                        key: const ValueKey<String>(
+                          'billing-purchase-granted-icon',
                         ),
+                        width: 12,
+                        height: 12,
                       ),
                     ),
-                    TextSpan(
-                      text: grantedText,
-                      style: const TextStyle(color: GenesisColors.redSecondary),
-                    ),
-                    const TextSpan(text: ' Gems have been granted.'),
-                  ],
-                ),
+                  ),
+                  'grantedAmount': TextSpan(
+                    text: grantedText,
+                    style: const TextStyle(color: GenesisColors.redSecondary),
+                  ),
+                },
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 softWrap: false,

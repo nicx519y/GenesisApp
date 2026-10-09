@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -40,7 +41,11 @@ Future<String?> startOriginLaunch({
 
     final wid = '${result['world_id'] ?? result['wid'] ?? ''}'.trim();
     if (wid.isEmpty) {
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.worldDetailLaunchFailed,
+        brightness: Brightness.dark,
+      );
       return null;
     }
     GenesisTelemetry.collectLog(
@@ -53,7 +58,11 @@ Future<String?> startOriginLaunch({
     return wid;
   } catch (_) {
     if (context.mounted && shouldHandleResult?.call() != false) {
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.worldDetailLaunchFailed,
+        brightness: Brightness.dark,
+      );
     }
     return null;
   }

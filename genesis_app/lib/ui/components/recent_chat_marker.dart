@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -80,13 +81,13 @@ class RecentChatTag extends StatelessWidget {
           color: kRecentChatMarkerBackgroundColor,
           borderRadius: BorderRadius.all(Radius.circular(4)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             RecentChatIcon(size: 10),
             SizedBox(width: 3),
             Text(
-              'Recent',
+              GenesisL10n.current.homeRecent,
               maxLines: 1,
               overflow: TextOverflow.clip,
               style: TextStyle(

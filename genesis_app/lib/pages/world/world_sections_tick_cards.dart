@@ -12,7 +12,13 @@ class WorldTickPendingEventPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ChatTickHeader(label: 'Tick $tickNumber', style: kLocationChatStyle),
+        ChatTickHeader(
+          label: GenesisL10n.current
+              .worldDetailTickNumber(
+                tickNumber: (tickNumber).toString(),
+              ),
+          style: kLocationChatStyle,
+        ),
         const SizedBox(height: 12),
         Container(
           key: const ValueKey<String>('world-event-pending-tombstone'),

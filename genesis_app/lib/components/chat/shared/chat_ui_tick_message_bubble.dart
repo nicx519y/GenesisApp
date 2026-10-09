@@ -31,7 +31,7 @@ class ChatTickPayloadVm extends ChatTimelinePayloadVm {
 
   String get copyText {
     return [
-      if (hasGlobal) ...['Global', globalText.trim()],
+      if (hasGlobal) ...[GenesisL10n.current.globalLabel, globalText.trim()],
       if (hasStoryEvents) _storyEventsCopyText(storyEvents!),
       if (hasCharactersMoved) _charactersMovedCopyText(charactersMoved!),
       if (!hasStructuredSections && fallbackContent.trim().isNotEmpty)
@@ -548,7 +548,7 @@ String chatTickMessageCopyText(ChatMessageVm message) {
 String _storyEventsCopyText(ChatStoryEventsPayloadVm event) {
   return [
     for (final paragraph in event.paragraphs) ...[
-      'Event',
+      GenesisL10n.current.eventLabel,
       [
         if (paragraph.timestamp.trim().isNotEmpty) paragraph.timestamp.trim(),
         if (paragraph.visibilityLabel.trim().isNotEmpty)
@@ -562,11 +562,15 @@ String _storyEventsCopyText(ChatStoryEventsPayloadVm event) {
 
 String _charactersMovedCopyText(ChatCharactersMovedPayloadVm event) {
   return [
-    'Character destinations',
+    GenesisL10n.current.characterDestinations,
     for (final movement in _groupTickCharacterMovements(event.movements))
-      '${movement.characterName.trim()} '
-          '${movement.isDestinationCurrentLocation ? 'came to' : 'went to'} '
-          '${movement.toLocationName.trim()}',
+      GenesisL10n.current.characterMovementSentence(
+        characterName: movement.characterName.trim(),
+        direction: movement.isDestinationCurrentLocation
+            ? GenesisL10n.current.cameToDirection
+            : GenesisL10n.current.wentToDirection,
+        locationName: movement.toLocationName.trim(),
+      ),
   ].join('\n');
 }
 

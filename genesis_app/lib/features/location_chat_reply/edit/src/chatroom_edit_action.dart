@@ -1,15 +1,22 @@
 part of '../../../../network/chatroom/chatroom_reply_actions_controller.dart';
 
-const _minimumReplyMessageError = 'At least one message must remain.';
+String get _minimumReplyMessageError =>
+    GenesisL10n.current.chatLeastOneMessageMustRemain;
 
 /// Internal implementation. Callers only see the edit feature contract.
 extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
   Future<ChatroomReplyEditorTarget> prepareEditor(String locationId) async {
     await restore(locationId);
     final state = await _target(locationId);
-    if (!state.canEdit) throw StateError('This reply is not editable');
+    if (!state.canEdit)
+      throw StateError(
+        GenesisL10n.current.chatReplyNotEditable,
+      );
     _checkCurrent();
-    if (state.frozen) throw StateError('This reply has been fixed');
+    if (state.frozen)
+      throw StateError(
+        GenesisL10n.current.chatReplyAlreadyFixed,
+      );
     ++state._generation;
     return _editor(state);
   }
@@ -39,9 +46,14 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     List<ChatroomLlmMessageOperation> operations,
   ) async {
     final state = _validateTarget(target);
-    if (state.frozen || state.busy) throw StateError('Reply editor is frozen');
+    if (state.frozen || state.busy)
+      throw StateError(
+        GenesisL10n.current.chatReplyEditorFrozen,
+      );
     if (state._uncertainBatches.contains(target.cardId ?? 0)) {
-      throw StateError('Resolve the previous save before changing its draft');
+      throw StateError(
+        GenesisL10n.current.chatResolvePreviousSaveBefore,
+      );
     }
     _validateOperations(target, operations, allowBlankDraft: true);
     _storeDraft(state, target, operations);
@@ -121,7 +133,9 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     List<ChatroomLlmMessageOperation> operations,
   ) async {
     if (target.worldId != worldId || target._state._controller != this) {
-      throw StateError('Stale reply editor');
+      throw StateError(
+        GenesisL10n.current.chatStaleReplyEditor,
+      );
     }
     _validateOperations(target, operations);
     if (operations.isEmpty) return;
@@ -194,7 +208,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         current,
       )) {
         throw StateError(
-          'The previous save result is uncertain; reload before editing again',
+          GenesisL10n.current.chatPreviousSaveResultUncertain,
         );
       }
       state._uncertainBatches.remove(key);
@@ -262,7 +276,12 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
   ) async {
     await _loadCards(state, force: true);
     final card = state._card(cardId);
-    if (card == null) throw StateError('The candidate no longer exists');
+    if (card == null)
+      throw StateError(
+        GenesisL10n
+            .current
+            .chatCandidateMissing,
+      );
     return card.messages.map(_candidateToWorld).toList();
   }
 
@@ -280,7 +299,11 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     bool allowBlankDraft = false,
   }) {
     if (operations.length > 100) {
-      throw ArgumentError('A batch supports at most 100 changes');
+      throw ArgumentError(
+        GenesisL10n
+            .current
+            .chatBatchSupportsMost100Changes,
+      );
     }
     final ids = <int>{};
     final messages = {
@@ -290,16 +313,28 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     for (final operation in operations) {
       if (!allowBlankDraft) operation.toJson();
       if (operation.globalMessageId <= 0) {
-        throw ArgumentError('Missing stable message identity');
+        throw ArgumentError(
+          GenesisL10n
+              .current
+              .chatMissingStableMessageIdentity,
+        );
       }
       if (!ids.add(operation.globalMessageId) ||
           !messages.containsKey(operation.globalMessageId)) {
-        throw ArgumentError('The edit target has changed');
+        throw ArgumentError(
+          GenesisL10n
+              .current
+              .chatEditTargetHasChanged,
+        );
       }
       if (operation.action == ChatroomLlmMessageAction.delete) {
         deletes++;
       } else if (messages[operation.globalMessageId]!.messageType == 'image') {
-        throw StateError('This message cannot be edited');
+        throw StateError(
+          GenesisL10n
+              .current
+              .chatMessageNotEditable,
+        );
       }
     }
     if (messages.isNotEmpty && deletes == messages.length) {

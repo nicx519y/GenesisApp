@@ -133,11 +133,13 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     _inlineNameFocusNode.unfocus();
     final displayName = name.trim().isEmpty ? 'location' : name.trim();
     final subtitle = level == 1
-        ? 'Every L2 and L3 locations inside it will be removed too.'
-        : 'Every L3 locations inside it will be removed too.';
+        ? GenesisL10n.current.createLocationEveryL2L3Locations
+        : GenesisL10n.current.createLocationEveryL3Locations;
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Delete "$displayName"',
+      title: GenesisL10n.current.createLocationDeleteDisplayName(
+        displayName: (displayName).toString(),
+      ),
       titleContent: Text(
         subtitle,
         maxLines: 2,
@@ -151,10 +153,13 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         ),
       ),
       titleHeight: 104,
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Delete', value: true),
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.worldDetailDelete,
+          value: true,
+        ),
       ],
-      cancelLabel: 'Cancel',
+      cancelLabel: GenesisL10n.current.searchCancel,
     );
     if (confirmed != true || !mounted) return;
     remove();
@@ -168,9 +173,11 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     final displayName = name.trim().isEmpty ? 'location' : name.trim();
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Delete "$displayName"',
-      titleContent: const Text(
-        'This is the Opening location. Deleting it will also clear the Opening.',
+      title: GenesisL10n.current.createLocationDeleteDisplayName(
+        displayName: (displayName).toString(),
+      ),
+      titleContent: Text(
+        GenesisL10n.current.createLocationOpeningLocation,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: GenesisColors.darkTextSecondary,
@@ -180,10 +187,13 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         ),
       ),
       titleHeight: 120,
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Delete', value: true),
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.worldDetailDelete,
+          value: true,
+        ),
       ],
-      cancelLabel: 'Cancel',
+      cancelLabel: GenesisL10n.current.searchCancel,
     );
     return confirmed == true;
   }
@@ -281,7 +291,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           controller: _inlineNameController,
           focusNode: _inlineNameFocusNode,
           level: level,
-          hintText: 'L1 Location · Region *',
+          hintText: GenesisL10n.current.createLocationL1LocationRegion,
           note: _OriginLocationsEditorPageState._l1NameNote,
           onChanged: _onFormChanged,
           onEditingComplete: _finishInlineNameEdit,
@@ -297,7 +307,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           ),
           deleteEnabled: _treeForms.length > 1,
           onDeleteDisabled: () =>
-              _showError('At least one L1 location is required.'),
+              _showError(GenesisL10n.current.createLocationAtLeastOneL1),
         );
       }
       for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
@@ -315,7 +325,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           controller: _inlineNameController,
           focusNode: _inlineNameFocusNode,
           level: level,
-          hintText: 'L2 Location · Building *',
+          hintText: GenesisL10n.current.createLocationL2LocationBuilding,
           note: _OriginLocationsEditorPageState._l2NameNote,
           onChanged: _onFormChanged,
           onEditingComplete: _finishInlineNameEdit,
@@ -333,7 +343,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           ),
           deleteEnabled: !deleteWholeL1 || _treeForms.length > 1,
           onDeleteDisabled: () =>
-              _showError('At least one L1 location is required.'),
+              _showError(GenesisL10n.current.createLocationAtLeastOneL1),
         );
       }
     }
@@ -471,7 +481,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                         .toList(growable: false);
                     return GenesisBottomSheetPanel(
                       key: const ValueKey<String>('locations-l3-editor-sheet'),
-                      title: isNew ? 'Add L3 Location' : 'Edit L3 Location',
+                      title: isNew
+                          ? GenesisL10n.current.createLocationAddL3Location
+                          : GenesisL10n.current.createLocationEditL3Location,
                       height: sheetHeight,
                       maintainBottomViewPadding: true,
                       trailing: GenesisBottomSheetCloseButton(
@@ -490,7 +502,8 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                 key: ValueKey<String>(
                                   'locations-l3-sheet-${target.form.locationId}',
                                 ),
-                                nameFieldLabel: 'Name *',
+                                nameFieldLabel:
+                                    GenesisL10n.current.createLocationName,
                                 nameFieldHintText: '',
                                 nameFieldNote:
                                     _OriginLocationsEditorPageState._l3NameNote,
@@ -581,7 +594,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                       key: const ValueKey<String>(
                                         'locations-l3-editor-save',
                                       ),
-                                      label: 'Save',
+                                      label: GenesisL10n.current.chatSave,
                                       backgroundColor: GenesisColors.redPrimary,
                                       foregroundColor:
                                           GenesisColors.darkTextPrimary,
@@ -593,7 +606,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                               context,
                                             ).pop(_L3EditorSheetAction.save),
                                       onDisabledPressed: () => _showError(
-                                        'L3 location name is required.',
+                                        GenesisL10n
+                                            .current
+                                            .createLocationL3NameRequired,
                                       ),
                                     ),
                                   ],

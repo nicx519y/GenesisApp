@@ -32,7 +32,11 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         _replyEditorOpen) {
       _finishEditAnalyticsFromError(
         attempt,
-        StateError('This reply is no longer editable'),
+        StateError(
+          GenesisL10n
+              .current
+              .chatReplyNoLongerEditable,
+        ),
       );
       return;
     }
@@ -59,7 +63,11 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
           !currentEditor()) {
         _finishEditAnalyticsFromError(
           attempt,
-          StateError('This reply is no longer editable'),
+          StateError(
+            GenesisL10n
+                .current
+                .chatReplyNoLongerEditable,
+          ),
         );
         return;
       }
@@ -73,7 +81,11 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
       if (!currentEditor()) {
         _finishEditAnalyticsFromError(
           attempt,
-          StateError('This reply is no longer editable'),
+          StateError(
+            GenesisL10n
+                .current
+                .chatReplyNoLongerEditable,
+          ),
         );
         return;
       }
@@ -118,11 +130,19 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
           onOpened: () => attempt.finish('edit_opened|${attempt.roundId}'),
           onOpenFailed: () => _finishEditAnalyticsFromError(
             attempt,
-            StateError('The editor could not be opened'),
+            StateError(
+              GenesisL10n
+                  .current
+                  .chatEditorOpenFailed,
+            ),
           ),
           onSave: (result) async {
             if (!currentEditor()) {
-              throw StateError('This chat is no longer active.');
+              throw StateError(
+                GenesisL10n
+                    .current
+                    .chatInactiveDuringEdit,
+              );
             }
             try {
               await controller.submitEdit(target, operations(result));

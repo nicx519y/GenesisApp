@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -35,6 +36,8 @@ import '../../network/api_exception.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
@@ -104,12 +107,11 @@ enum _WorldPageRenderStage { framework, detailShell, content }
 
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const double _progressWaitAvatarSize = 88;
-  static const String _progressWaitTitle = 'Progressing the World';
-  static const String _progressWaitMessage =
-      'Compressing recent memories\n'
-      'Advancing the world timeline\n'
-      'Generating the next story beat\n'
-      'Updating character locations';
+  String get _progressWaitTitle =>
+      GenesisL10n.current.worldDetailProgressingWorld;
+  String get _progressWaitMessage => GenesisL10n
+      .current
+      .worldDetailCompressingRecent;
   static const double _worldMainSwipeSystemGestureEdgeWidth = 24;
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
@@ -449,7 +451,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           widget.initialLocationDescriptor ??
           WorldLocationChatPanelDescriptor(
             locationId: _pendingInitialLocationId,
-            locationName: 'Location',
+            locationName: GenesisL10n.current.locationLabel,
             backgroundImageUrl: '',
             backgroundPreviewImageUrl: '',
             isLeafLocation: true,
@@ -554,14 +556,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Load failed',
+                Text(
+                  GenesisL10n
+                      .current
+                      .homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 10),
                 FilledButton(
                   onPressed: () => _fetchWorld(isInitial: true),
-                  child: const Text('Retry'),
+                  child: Text(
+                    GenesisL10n
+                        .current
+                        .homeRetry,
+                  ),
                 ),
               ],
             ),

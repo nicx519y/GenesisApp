@@ -34,7 +34,8 @@ class _FollowStats extends StatelessWidget {
         _FollowStatButton(
           onTap: onFollowingTap,
           count: formatStatCount(followingCount),
-          label: 'Following',
+          label:
+              GenesisL10n.current.meFollowing,
           countStyle: style,
           labelStyle: labelStyle,
         ),
@@ -42,7 +43,8 @@ class _FollowStats extends StatelessWidget {
         _FollowStatButton(
           onTap: onFollowersTap,
           count: formatStatCount(followerCount),
-          label: 'Followers',
+          label:
+              GenesisL10n.current.inboxFollowers,
           countStyle: style,
           labelStyle: labelStyle,
         ),
@@ -147,7 +149,13 @@ class _ProfileActionButtons extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      isFollowed ? 'Following' : 'Follow',
+                      isFollowed
+                          ? GenesisL10n
+                                .current
+                                .meFollowing
+                          : GenesisL10n
+                                .current
+                                .meFollow,
                       style: actionTextStyle,
                     ),
             ),
@@ -171,7 +179,12 @@ class _ProfileActionButtons extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Message', style: actionTextStyle),
+              child: Text(
+                GenesisL10n
+                    .current
+                    .meMessage,
+                style: actionTextStyle,
+              ),
             ),
           ),
         ),

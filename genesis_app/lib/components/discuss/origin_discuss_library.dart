@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../gems/pro_user_name.dart';
 import 'dart:async';
 import 'dart:math' as math;

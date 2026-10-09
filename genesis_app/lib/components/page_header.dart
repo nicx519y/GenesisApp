@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -136,7 +137,9 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: IconButton(
-            tooltip: 'Back',
+            tooltip: GenesisL10n
+                .current
+                .meBack,
             constraints: const BoxConstraints.tightFor(width: 17, height: 17),
             padding: EdgeInsets.zero,
             icon: Icon(

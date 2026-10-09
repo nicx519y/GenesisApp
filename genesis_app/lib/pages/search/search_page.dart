@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -43,14 +44,19 @@ part 'search_result_models.dart';
 part 'search_tab_label.dart';
 
 enum _SearchTab {
-  origin('origin', 'Worldo'),
-  world('world', 'World'),
-  user('user', 'User');
+  origin('origin'),
+  world('world'),
+  user('user');
 
-  const _SearchTab(this.apiType, this.label);
+  const _SearchTab(this.apiType);
 
   final String apiType;
-  final String label;
+
+  String get label => switch (this) {
+    _SearchTab.origin => GenesisL10n.current.worldoLabel,
+    _SearchTab.world => GenesisL10n.current.worldLabel,
+    _SearchTab.user => GenesisL10n.current.userLabel,
+  };
 }
 
 class SearchPage extends StatefulWidget {
@@ -437,11 +443,13 @@ class _SearchPageState extends State<SearchPage>
                             GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => Navigator.of(context).pop(),
-                              child: const SizedBox(
+                              child: SizedBox(
                                 height: 28,
                                 child: Center(
                                   child: Text(
-                                    'Cancel',
+                                    GenesisL10n
+                                        .current
+                                        .searchCancel,
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: GenesisColors.darkTextPrimary,

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import '../../components/page_header.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../legal/legal_document_page.dart';
 
@@ -14,14 +16,6 @@ class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
 
   static const _fallbackAppVersion = 'v1.0.0';
-  static const _descriptionBeforeEmail =
-      'Worldo lets you create, discover, and enter AI-powered worlds filled '
-      'with characters, stories, and evolving events. Chat with AI characters, '
-      'play with friends, and progress each world through immersive scenes and '
-      'choices.\n\n'
-      'Our app offers a new way to experience interactive stories — not just '
-      'as a reader, but as someone inside the world. If you have any questions, '
-      'please contact us at ';
   static const _contactEmail = 'worldodeveloper@gmail.com';
 
   static String versionLabel(String versionName) {
@@ -40,11 +34,11 @@ class AboutUsPage extends StatelessWidget {
           value: kGenesisLightSystemUiOverlayStyle,
           child: Scaffold(
             backgroundColor: GenesisColors.darkBackground,
-            appBar: const GenesisBackAppBar(
+            appBar: GenesisBackAppBar(
               backgroundColor: GenesisColors.darkBackground,
               foregroundColor: GenesisColors.darkTextPrimary,
               systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
-              pageName: 'About',
+              pageName: GenesisL10n.current.meAbout,
             ),
             body: SafeArea(
               child: Column(
@@ -127,7 +121,13 @@ class _AboutDescriptionState extends State<_AboutDescription> {
     await Clipboard.setData(
       const ClipboardData(text: AboutUsPage._contactEmail),
     );
-    if (mounted) showGenesisToast(context, 'Email copied');
+    if (mounted)
+      showGenesisToast(
+        context,
+        GenesisL10n
+            .current
+            .meEmailCopied,
+      );
   }
 
   @override
@@ -143,19 +143,18 @@ class _AboutDescriptionState extends State<_AboutDescription> {
       fontWeight: FontWeight.w600,
     );
 
-    return Text.rich(
-      TextSpan(
-        style: bodyStyle,
-        children: [
-          const TextSpan(text: AboutUsPage._descriptionBeforeEmail),
-          TextSpan(
-            text: AboutUsPage._contactEmail,
-            style: emailStyle,
-            recognizer: _emailRecognizer,
-          ),
-          const TextSpan(text: '.'),
-        ],
+    return GenesisLocalizedRichText(
+      template: context.l10n.aboutDescription(
+        contactEmail: GenesisLocalizedRichText.placeholder('contactEmail'),
       ),
+      placeholders: {
+        'contactEmail': TextSpan(
+          text: AboutUsPage._contactEmail,
+          style: emailStyle,
+          recognizer: _emailRecognizer,
+        ),
+      },
+      style: bodyStyle,
       textAlign: TextAlign.left,
     );
   }
@@ -237,29 +236,32 @@ class _AboutLegalLinksState extends State<_AboutLegalLinks> {
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
-      child: Text.rich(
-        TextSpan(
-          style: bodyStyle,
-          children: [
-            TextSpan(
-              text: 'Privacy Policy',
-              style: linkStyle,
-              recognizer: _privacyRecognizer,
-            ),
-            const TextSpan(text: ' , '),
-            TextSpan(
-              text: 'Terms of Use',
-              style: linkStyle,
-              recognizer: _termsRecognizer,
-            ),
-            const TextSpan(text: ' and '),
-            TextSpan(
-              text: 'End User License Agreement',
-              style: linkStyle,
-              recognizer: _eulaRecognizer,
-            ),
-          ],
+      child: GenesisLocalizedRichText(
+        template: context.l10n.legalLinksSentence(
+          privacyPolicy: GenesisLocalizedRichText.placeholder('privacyPolicy'),
+          termsOfUse: GenesisLocalizedRichText.placeholder('termsOfUse'),
+          endUserLicenseAgreement: GenesisLocalizedRichText.placeholder(
+            'endUserLicenseAgreement',
+          ),
         ),
+        placeholders: {
+          'privacyPolicy': TextSpan(
+            text: context.l10n.privacyPolicy,
+            style: linkStyle,
+            recognizer: _privacyRecognizer,
+          ),
+          'termsOfUse': TextSpan(
+            text: context.l10n.termsOfUse,
+            style: linkStyle,
+            recognizer: _termsRecognizer,
+          ),
+          'endUserLicenseAgreement': TextSpan(
+            text: context.l10n.endUserLicenseAgreement,
+            style: linkStyle,
+            recognizer: _eulaRecognizer,
+          ),
+        },
+        style: bodyStyle,
         maxLines: 1,
         softWrap: false,
         textAlign: TextAlign.left,

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_membership_badge.dart';
 import 'dart:async';
 
@@ -214,14 +215,20 @@ class _MePageState extends State<MePage> with RouteAware {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Load failed',
+                    Text(
+                      GenesisL10n
+                          .current
+                          .homeLoadFailed,
                       style: TextStyle(color: GenesisColors.darkTextSecondary),
                     ),
                     const SizedBox(height: 8),
                     FilledButton(
                       onPressed: _refresh,
-                      child: const Text('Retry'),
+                      child: Text(
+                        GenesisL10n
+                            .current
+                            .homeRetry,
+                      ),
                     ),
                   ],
                 ),
@@ -254,11 +261,15 @@ class _MePageState extends State<MePage> with RouteAware {
                       children: [
                         ValueListenableBuilder<bool>(
                           valueListenable: _profileCollapsed,
-                          child: const Align(
+                          child: Align(
                             alignment: Alignment.centerLeft,
                             child: Padding(
                               padding: EdgeInsets.only(left: 16, right: 112),
-                              child: PageTitleText(pageName: 'Me'),
+                              child: PageTitleText(
+                                pageName: GenesisL10n
+                                    .current
+                                    .navMe,
+                              ),
                             ),
                           ),
                           builder: (context, collapsed, child) =>
@@ -349,8 +360,11 @@ class _MePageState extends State<MePage> with RouteAware {
                           onWorldDeleted: _handleWorldDeleted,
                           onCollectionTabChanged: _handleCollectionTabChanged,
                           onCollapsedChanged: _handleProfileCollapsedChanged,
-                          originTabLabel: 'Worldo',
-                          worldTabLabel: 'Playing',
+                          originTabLabel: GenesisL10n
+                              .current
+                              .navWorldo,
+                          worldTabLabel:
+                              GenesisL10n.current.mePlaying,
                           showCollectionCounts: true,
                           tabLabelFontSize: 14,
                         );

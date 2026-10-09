@@ -5,7 +5,10 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
   Future<ChatroomGoOnReceipt> goOn(String locationId) async {
     await restore(locationId);
     final state = await _target(locationId);
-    if (!state.canGoOn) throw StateError('This round cannot continue');
+    if (!state.canGoOn)
+      throw StateError(
+        GenesisL10n.current.chatRoundCannotContinue,
+      );
     final dispatchGeneration = ++state._goOnDispatchGeneration;
     final requestId = _request('go-on');
     // Block a second tap synchronously, before any save/select awaits.
@@ -16,7 +19,9 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
     try {
       await finalizeBeforeSend(locationId);
       if (!state._eligible || _isTickLocked()) {
-        throw StateError('The source round changed');
+        throw StateError(
+          GenesisL10n.current.chatSourceRoundChanged,
+        );
       }
       state._busy = true;
       await _persist(state);

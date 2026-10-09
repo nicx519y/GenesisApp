@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -46,7 +47,9 @@ class DiscussPageCommentList extends StatelessWidget {
         if (controller.error != null && comments.isEmpty) {
           return TextButton(
             onPressed: controller.retryInitial,
-            child: const Text('Retry'),
+            child: Text(
+              GenesisL10n.current.homeRetry,
+            ),
           );
         }
         if (comments.isEmpty) return const SizedBox.shrink();
@@ -421,7 +424,11 @@ class _DiscussPageActions extends StatelessWidget {
         isLiked: previousLiked,
         likeCount: previousCount,
       );
-      if (context.mounted) showGenesisToast(context, 'Like failed');
+      if (context.mounted)
+        showGenesisToast(
+          context,
+          GenesisL10n.current.worldoLikeFailed,
+        );
     } finally {
       controller.setLikePending(discussId, false);
     }
@@ -530,7 +537,10 @@ class _DiscussPageReplyPreview extends StatelessWidget {
                     if (showViewAll) ...[
                       if (visibleReplies.isNotEmpty) const SizedBox(height: 6),
                       Text(
-                        'View all ${item.replyCount} replies',
+                        GenesisL10n.current
+                            .worldoViewAllReplyCountReplies(
+                              replyCount: (item.replyCount).toString(),
+                            ),
                         style: const TextStyle(
                           fontSize: 12,
                           height: 1.25,
@@ -560,7 +570,13 @@ class _DiscussPageReplyPreview extends StatelessWidget {
         },
       );
     } catch (_) {
-      if (context.mounted) showGenesisToast(context, 'Load replies failed');
+      if (context.mounted)
+        showGenesisToast(
+          context,
+          GenesisL10n
+              .current
+              .worldoLoadRepliesFailed,
+        );
     }
   }
 }
@@ -581,9 +597,19 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
           author?['display_name'] ??
           reply['author_name'] ??
           reply['user_name'],
-      fallback: formatUidForDisplay(uid, fallback: 'User'),
+      fallback: formatUidForDisplay(
+        uid,
+        fallback: GenesisL10n
+            .current
+            .worldoUser,
+      ),
     );
-    final authorName = formatUidForDisplay(name, fallback: 'User');
+    final authorName = formatUidForDisplay(
+      name,
+      fallback: GenesisL10n
+          .current
+          .worldoUser,
+    );
     final content = asString(reply['content']);
     final parentDiscussId = asString(reply['parent_discuss_id']).trim();
     final rootDiscussId = asString(reply['root_discuss_id']).trim();

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/genesis_l10n.dart';
 import '../components/gems/subscription_tracking_scope.dart';
 import '../app/membership/subscription_analytics.dart';
 import '../app/bootstrap/app_services_scope.dart';
@@ -677,28 +678,28 @@ sealed class AppRouter {
       case RouteNames.notifications:
         return GenesisDarkPageRoute<void>(
           settings: settings,
-          builder: (_) => const MessageCategoryListPage(
-            title: 'Notifications',
+          builder: (_) => MessageCategoryListPage(
+            title: GenesisL10n.current.inboxNotifications,
             block: 'world_apply',
-            emptyText: 'No notifications yet.',
+            emptyText: GenesisL10n.current.inboxNoNotificationsYet,
           ),
         );
       case RouteNames.newFollowers:
         return GenesisDarkPageRoute<void>(
           settings: settings,
-          builder: (_) => const MessageCategoryListPage(
-            title: 'New followers',
+          builder: (_) => MessageCategoryListPage(
+            title: GenesisL10n.current.inboxNewFollowers,
             block: 'follow',
-            emptyText: 'No new followers yet.',
+            emptyText: GenesisL10n.current.inboxNoNewFollowersYet,
           ),
         );
       case RouteNames.comments:
         return GenesisDarkPageRoute<void>(
           settings: settings,
-          builder: (_) => const MessageCategoryListPage(
-            title: 'Comments',
+          builder: (_) => MessageCategoryListPage(
+            title: GenesisL10n.current.inboxComments,
             block: 'interaction',
-            emptyText: 'No comments yet.',
+            emptyText: GenesisL10n.current.inboxNoCommentsYet,
           ),
         );
       case RouteNames.userInfo:

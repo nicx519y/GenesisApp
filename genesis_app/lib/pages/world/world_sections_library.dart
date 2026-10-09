@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'dart:async';
@@ -24,6 +25,8 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_detail_tags.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';

@@ -90,7 +90,9 @@ class _OpeningDialogueEditor extends StatelessWidget {
                 children: [
                   _OpeningDialogueAddButton(
                     key: const ValueKey<String>('opening-add-narrator'),
-                    label: 'Narrator',
+                    label: GenesisL10n
+                        .current
+                        .createOpeningNarrator,
                     leading: SvgPicture.asset(
                       paragraphIconAsset,
                       width: 14,
@@ -104,7 +106,9 @@ class _OpeningDialogueEditor extends StatelessWidget {
                   ),
                   _OpeningDialogueAddButton(
                     key: const ValueKey<String>('opening-add-image'),
-                    label: 'Image',
+                    label: GenesisL10n
+                        .current
+                        .createOpeningImage,
                     leading: const Icon(
                       Icons.image_outlined,
                       color: _openingDialogueAddColor,
@@ -139,8 +143,10 @@ class _OpeningBestRoleSelector extends StatelessWidget {
         key: const ValueKey<String>('opening-best-role-selector'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Suggest a role for user',
+          Text(
+            GenesisL10n
+                .current
+                .createOpeningSuggestRoleUser,
             style: TextStyle(
               color: GenesisColors.darkTextPrimary,
               fontSize: 16,
@@ -150,8 +156,10 @@ class _OpeningBestRoleSelector extends StatelessWidget {
           ),
           const SizedBox(height: _fieldLabelInputGap),
           if (characters.isEmpty)
-            const Text(
-              'No characters available.',
+            Text(
+              GenesisL10n
+                  .current
+                  .createOpeningNoCharacters,
               style: TextStyle(
                 color: GenesisColors.darkTextTertiary,
                 fontSize: 13,
@@ -351,7 +359,9 @@ class _OpeningNarratorEditor extends StatelessWidget {
                       '${item.id}-keyboard-safe-text-field',
                     ),
                     item: item,
-                    hintText: 'Enter narrator dialogue',
+                    hintText: GenesisL10n
+                        .current
+                        .createOpeningEnterNarrator,
                     style: narratorTextStyle,
                     softItalic: true,
                     insertTextColor: GenesisColors.darkTextSecondary,
@@ -469,7 +479,10 @@ class _OpeningCharacterEditor extends StatelessWidget {
                           '${item.id}-keyboard-safe-text-field',
                         ),
                         item: item,
-                        hintText: 'Enter $name dialogue',
+                        hintText: GenesisL10n.current
+                            .createOpeningEnterNameDialogue(
+                              name: (name).toString(),
+                            ),
                         style: style.bubbleTextStyle,
                         insertTextColor: GenesisColors.darkTextSecondary,
                         insertBackgroundColor: GenesisColors.darkFaintFill,
@@ -621,10 +634,16 @@ class _OpeningDialogueTextField extends StatelessWidget {
                       children: [
                         _OpeningDialogueInsertButton(
                           buttonKey: ValueKey<String>('${item.id}-insert-user'),
-                          label: '{{user}}',
+                          label: GenesisL10n
+                              .current
+                              .createOpeningUser,
                           textColor: insertTextColor,
                           backgroundColor: insertBackgroundColor,
-                          onTap: () => _insertToken('{{user}}'),
+                          onTap: () => _insertToken(
+                            GenesisL10n
+                                .current
+                                .createOpeningUser,
+                          ),
                         ),
                         if (showAsteriskInsert) ...[
                           const SizedBox(width: 10),
@@ -768,7 +787,9 @@ class _OpeningImageEditor extends StatelessWidget {
                 child: CreateUploadBox(
                   key: ValueKey<String>('${item.id}-image'),
                   controller: item.controller,
-                  label: 'UPLOAD IMAGE',
+                  label: GenesisL10n
+                      .current
+                      .createOpeningUploadImage,
                   emptyBackgroundColor: GenesisColors.darkFaintFill,
                   emptyBorderColor: GenesisColors.darkTextTertiary,
                   emptyIconColor: GenesisColors.createAdd,

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -891,7 +892,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       if (mounted) {
         showGenesisToast(
           context,
-          'No saved profile found',
+          GenesisL10n
+              .current
+              .worldDetailNoSavedProfileFound,
           brightness: Brightness.dark,
         );
       }
@@ -934,8 +937,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Load failed',
+                Text(
+                  GenesisL10n
+                      .current
+                      .homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 10),
@@ -944,7 +949,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                     setState(() => _initialLoadError = null);
                     unawaited(_fetchOriginDetail(isInitial: true));
                   },
-                  child: const Text('Retry'),
+                  child: Text(
+                    GenesisL10n
+                        .current
+                        .homeRetry,
+                  ),
                 ),
               ],
             ),

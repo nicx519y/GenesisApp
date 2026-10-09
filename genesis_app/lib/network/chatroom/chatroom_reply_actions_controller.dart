@@ -1,3 +1,4 @@
+import '../../../../../../../../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import '../../features/location_chat_reply/inspiration/inspiration.dart';

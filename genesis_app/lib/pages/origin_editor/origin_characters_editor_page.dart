@@ -40,7 +40,9 @@ class _OriginCharactersEditorPageState
 
   void _addCharacter() {
     if (_forms.length >= _maxCharacters) {
-      _showError('You can add up to $_maxCharacters characters.');
+      _showError(
+        GenesisL10n.current.createCharacterLimit(count: _maxCharacters),
+      );
       return;
     }
     setState(() {
@@ -105,15 +107,21 @@ class _OriginCharactersEditorPageState
       final form = _forms[i];
       if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty) {
-        _showError('Character ${i + 1}: Name is required.');
+        _showError(
+          GenesisL10n.current.createCharacterNameRequired(index: i + 1),
+        );
         return;
       }
       if (form.identity.text.trim().isEmpty) {
-        _showError('Character ${i + 1}: Identity is required.');
+        _showError(
+          GenesisL10n.current.createCharacterIdentityRequired(index: i + 1),
+        );
         return;
       }
       if (form.personality.text.trim().isEmpty) {
-        _showError('Character ${i + 1}: Personality is required.');
+        _showError(
+          GenesisL10n.current.createCharacterPersonalityRequired(index: i + 1),
+        );
         return;
       }
     }
@@ -122,7 +130,7 @@ class _OriginCharactersEditorPageState
         .where(_characterDraftHasContent)
         .toList(growable: false);
     if (characters.isEmpty) {
-      _showError('Please create at least one character.');
+      _showError(GenesisL10n.current.createCharacterMinOne);
       return;
     }
 
@@ -163,21 +171,27 @@ class _OriginCharactersEditorPageState
   }
 
   String get _saveDisabledReason {
-    if (_isSaving) return 'Saving is already in progress.';
+    if (_isSaving) return GenesisL10n.current.createSaveInProgress;
     for (int index = 0; index < _forms.length; index++) {
       final form = _forms[index];
       if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty) {
-        return 'Character ${index + 1}: Name is required.';
+        return GenesisL10n.current.createCharacterNameRequired(
+          index: index + 1,
+        );
       }
       if (form.identity.text.trim().isEmpty) {
-        return 'Character ${index + 1}: Identity is required.';
+        return GenesisL10n.current.createCharacterIdentityRequired(
+          index: index + 1,
+        );
       }
       if (form.personality.text.trim().isEmpty) {
-        return 'Character ${index + 1}: Personality is required.';
+        return GenesisL10n.current.createCharacterPersonalityRequired(
+          index: index + 1,
+        );
       }
     }
-    return 'Please create at least one character.';
+    return GenesisL10n.current.createCharacterMinOne;
   }
 
   void _showError(String message) {
@@ -226,8 +240,8 @@ class _OriginCharactersEditorPageState
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: GenesisColors.darkBackground,
-      appBar: const GenesisBackAppBar(
-        pageName: 'Characters',
+      appBar: GenesisBackAppBar(
+        pageName: GenesisL10n.current.createCharactersTitle,
         backgroundColor: GenesisColors.darkBackground,
         foregroundColor: GenesisColors.darkTextPrimary,
         systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
@@ -273,7 +287,7 @@ class _OriginCharactersEditorPageState
                       ],
                       if (_forms.isNotEmpty) const SizedBox(height: 12),
                       CreateInlineAddButton(
-                        label: '+ Add Character',
+                        label: GenesisL10n.current.createCharacterAddCharacter,
                         onTap: _addCharacter,
                         fontSize: 16,
                         centered: true,
@@ -286,7 +300,9 @@ class _OriginCharactersEditorPageState
               ),
               _KeyboardHiddenBottomAction(
                 child: GenesisPrimaryButton(
-                  label: _isSaving ? 'Saving...' : 'Save',
+                  label: _isSaving
+                      ? GenesisL10n.current.createBasicsSaving
+                      : GenesisL10n.current.chatSave,
                   isLoading: _isSaving,
                   showLoadingIndicator: false,
                   backgroundColor: GenesisColors.redPrimary,

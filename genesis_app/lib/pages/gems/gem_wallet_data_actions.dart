@@ -128,37 +128,22 @@ extension _GemWalletDataActions on _GemWalletPageState {
         await _openCreateWorld(taskCode);
         return;
       case 'launch_first_world':
-        showGenesisToast(
-          context,
-          'Open a Worldo you like, then Launch your own world.',
-        );
+        showGenesisToast(context, GenesisL10n.current.gemTaskLaunchWorldHint);
         return;
       case 'invite_friend':
-        showGenesisToast(
-          context,
-          'Open a World, then tap Invite in the detail panel.',
-        );
+        showGenesisToast(context, GenesisL10n.current.gemTaskInviteFriendHint);
         return;
       case 'write_comment':
-        showGenesisToast(
-          context,
-          'Open a Worldo you liked, then write a post in Discuss.',
-        );
+        showGenesisToast(context, GenesisL10n.current.gemTaskWriteCommentHint);
         return;
       case 'request_join_world':
-        showGenesisToast(
-          context,
-          'Open a World you haven’t joined, then request to join it.',
-        );
+        showGenesisToast(context, GenesisL10n.current.gemTaskRequestJoinHint);
         return;
       case 'send_message':
-        showGenesisToast(context, 'Send messages in your world.');
+        showGenesisToast(context, GenesisL10n.current.gemTaskSendMessageHint);
         return;
       case 'progress_world':
-        showGenesisToast(
-          context,
-          'Open your playing World, then tap Tick Now.',
-        );
+        showGenesisToast(context, GenesisL10n.current.gemTaskProgressWorldHint);
         return;
       case 'discord_follow':
         await Future.wait<void>([_openDiscord(), _reportTaskAction(taskCode)]);
@@ -212,11 +197,17 @@ extension _GemWalletDataActions on _GemWalletPageState {
               mode: LaunchMode.externalApplication,
             );
       if (!launched && mounted) {
-        showGenesisToast(context, 'Could not open Discord');
+        showGenesisToast(
+          context,
+          GenesisL10n.current.meFailedOpenDiscord,
+        );
       }
     } catch (_) {
       if (mounted) {
-        showGenesisToast(context, 'Could not open Discord');
+        showGenesisToast(
+          context,
+          GenesisL10n.current.meFailedOpenDiscord,
+        );
       }
     }
   }
@@ -248,7 +239,13 @@ extension _GemWalletDataActions on _GemWalletPageState {
         _updateState(() => _taskStatusOverrides[taskCode] = result.status);
         showGenesisToast(
           context,
-          claimingDailyReward ? 'Claim failed.' : 'Check in failed.',
+          claimingDailyReward
+              ? GenesisL10n
+                    .current
+                    .gemsClaimFailed
+              : GenesisL10n
+                    .current
+                    .gemsCheckFailed,
         );
         return;
       }
@@ -270,9 +267,19 @@ extension _GemWalletDataActions on _GemWalletPageState {
       if (!mounted) return;
       final message = switch (taskCode) {
         'daily_checkin' =>
-          claimingDailyReward ? 'Claim failed.' : 'Check in failed.',
-        'discord_follow' => 'Follow failed.',
-        _ => 'Task update failed.',
+          claimingDailyReward
+              ? GenesisL10n
+                    .current
+                    .gemsClaimFailed
+              : GenesisL10n
+                    .current
+                    .gemsCheckFailed,
+        'discord_follow' =>
+          GenesisL10n.current.gemsFollowFailed,
+        _ =>
+          GenesisL10n
+              .current
+              .gemsTaskUpdateFailed,
       };
       showGenesisToast(context, message);
     } finally {
@@ -289,7 +296,10 @@ extension _GemWalletDataActions on _GemWalletPageState {
       final result = await _claimTask(taskCode);
       if (!mounted) return;
       if (result.status != 'claimed') {
-        showGenesisToast(context, 'Claim failed.');
+        showGenesisToast(
+          context,
+          GenesisL10n.current.gemsClaimFailed,
+        );
         return;
       }
       trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
@@ -301,13 +311,19 @@ extension _GemWalletDataActions on _GemWalletPageState {
             )
           : showGemTaskSuccessDialog(
               context,
-              title: 'Claim successful!',
+              title: GenesisL10n
+                  .current
+                  .gemsClaimSuccessful,
               rewardGemsCent: rewardGemsCent,
             );
       unawaited(_refreshTasksAndWallet());
       await successDialog;
     } catch (_) {
-      if (mounted) showGenesisToast(context, 'Claim failed.');
+      if (mounted)
+        showGenesisToast(
+          context,
+          GenesisL10n.current.gemsClaimFailed,
+        );
     } finally {
       _endTaskAction(taskCode);
     }

@@ -142,8 +142,10 @@ class _JoinRequestListItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Join request',
+        Text(
+          GenesisL10n
+              .current
+              .inboxJoinRequest,
           style: TextStyle(
             color: GenesisColors.darkTextPrimary,
             fontSize: 14,
@@ -169,23 +171,27 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        style: const TextStyle(
-          color: GenesisColors.darkTextSecondary,
-          fontSize: 12,
-          height: 1.25,
-          fontWeight: FontWeight.w400,
+    return GenesisLocalizedRichText(
+      template: context.l10n.joinRequestSelfSummary(
+        worldName: GenesisLocalizedRichText.placeholder('worldName'),
+        worldId: GenesisLocalizedRichText.placeholder('worldId'),
+      ),
+      placeholders: {
+        'worldName': TextSpan(
+          text: item.requestWorldSummaryName,
+          style: _notificationNameStyle,
         ),
-        children: [
-          const TextSpan(text: 'You request to join '),
-          TextSpan(
-            text: item.requestWorldSummaryName,
-            style: _notificationNameStyle,
-          ),
-          if (item.requestWorldIdLabel.trim().isNotEmpty)
-            TextSpan(text: ' (${item.requestWorldIdLabel})'),
-        ],
+        'worldId': TextSpan(
+          text: item.requestWorldIdLabel.trim().isEmpty
+              ? ''
+              : ' (${item.requestWorldIdLabel})',
+        ),
+      },
+      style: const TextStyle(
+        color: GenesisColors.darkTextSecondary,
+        fontSize: 12,
+        height: 1.25,
+        fontWeight: FontWeight.w400,
       ),
     );
   }
@@ -198,26 +204,38 @@ class _JoinRequestSummaryText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        style: const TextStyle(
-          color: GenesisColors.darkTextSecondary,
-          fontSize: 12,
-          height: 1.25,
-          fontWeight: FontWeight.w400,
+    return GenesisLocalizedRichText(
+      template: context.l10n.joinRequestIncomingSummary(
+        requesterName: GenesisLocalizedRichText.placeholder('requesterName'),
+        requesterBadge: GenesisLocalizedRichText.placeholder('requesterBadge'),
+        worldName: GenesisLocalizedRichText.placeholder('worldName'),
+        worldId: GenesisLocalizedRichText.placeholder('worldId'),
+      ),
+      placeholders: {
+        'requesterName': TextSpan(
+          text: item.requesterName,
+          style: _notificationNameStyle,
         ),
-        children: [
-          TextSpan(text: item.requesterName, style: _notificationNameStyle),
-          ProUserBadge.span(
-            membershipStatus: item.senderMembershipStatus,
-            fontSize: 12,
-            deleted: item.senderDeleted,
-          ),
-          const TextSpan(text: ' request to join '),
-          TextSpan(text: item.requestWorldName, style: _notificationNameStyle),
-          if (item.requestWorldIdLabel.trim().isNotEmpty)
-            TextSpan(text: ' (${item.requestWorldIdLabel})'),
-        ],
+        'requesterBadge': ProUserBadge.span(
+          membershipStatus: item.senderMembershipStatus,
+          fontSize: 12,
+          deleted: item.senderDeleted,
+        ),
+        'worldName': TextSpan(
+          text: item.requestWorldName,
+          style: _notificationNameStyle,
+        ),
+        'worldId': TextSpan(
+          text: item.requestWorldIdLabel.trim().isEmpty
+              ? ''
+              : ' (${item.requestWorldIdLabel})',
+        ),
+      },
+      style: const TextStyle(
+        color: GenesisColors.darkTextSecondary,
+        fontSize: 12,
+        height: 1.25,
+        fontWeight: FontWeight.w400,
       ),
     );
   }
@@ -282,21 +300,22 @@ class _CommentNotificationListItem extends StatelessWidget {
         ? _commentNotificationMetaStyle
         : _notificationMetaStyle;
     final verticalGap = 8.0;
+    final titleTemplate = item.discussTitleTemplate(context.l10n);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: item.senderDisplayName),
-              ProUserBadge.span(
-                membershipStatus: item.senderMembershipStatus,
-                fontSize: titleStyle.fontSize!,
-                deleted: item.senderDeleted,
-              ),
-              TextSpan(text: item.discussTitleSuffix),
-            ],
-          ),
+        GenesisLocalizedRichText(
+          template: titleTemplate,
+          placeholders: {
+            'senderName': TextSpan(text: item.senderDisplayName),
+            'senderBadge': ProUserBadge.span(
+              membershipStatus: item.senderMembershipStatus,
+              fontSize: titleStyle.fontSize!,
+              deleted: item.senderDeleted,
+            ),
+            if (titleTemplate.contains('{content}'))
+              'content': TextSpan(text: item.content),
+          },
           style: titleStyle,
         ),
         if (item.bodyText.isNotEmpty) ...[

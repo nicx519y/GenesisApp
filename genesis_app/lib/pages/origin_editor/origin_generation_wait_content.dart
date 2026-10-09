@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import 'package:flutter/material.dart';
 import '../create/create_origin_draft_store.dart';
@@ -28,10 +29,20 @@ class OriginGenerationWaitOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GenesisGenerationWaitOverlay(
     brightness: Brightness.dark,
-    title: publishing ? 'Publishing your Worldo' : 'Creating your Worldo',
+    title: publishing
+        ? GenesisL10n
+              .current
+              .createPublishingWorldo
+        : GenesisL10n
+              .current
+              .createCreatingWorldo,
     message: publishing
-        ? 'Preparing your Worldo updates.\nPlease wait for a moment.'
-        : 'Bringing your Worldo to life.\nPlease wait for a moment.',
+        ? GenesisL10n
+              .current
+              .createPreparingWorldoUpdatesWait
+        : GenesisL10n
+              .current
+              .createBringingWorldoLifeWait,
     characterAvatars: avatars,
     illustration: avatars.isEmpty
         ? Center(

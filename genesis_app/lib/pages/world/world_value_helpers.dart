@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
@@ -67,9 +68,12 @@ List<OriginCharacter> worldPresetRoleCharacters(WorldDetail world) {
           id: int.tryParse(charId) ?? 0,
           characterId: charId,
           originId: world.originId,
-          name: worldMapString(character, const [
-            'name',
-          ], fallback: 'Character'),
+          name: worldMapString(
+            character,
+            const ['name'],
+            fallback:
+                GenesisL10n.current.homeWorldCharacter,
+          ),
           avatar: worldMapString(character, const ['avatar']),
           tags: worldMapString(character, const ['identity']),
           tagline: worldMapString(character, const ['brief']),

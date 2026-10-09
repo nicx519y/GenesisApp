@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
 import '../../network/models/membership_product.dart';
@@ -41,27 +42,56 @@ String membershipPurchaseFailureMessage(
 }) {
   final message = switch (reason) {
     'downgrade_not_allowed' =>
-      'An active yearly Premium subscription cannot be changed to a monthly plan.',
+      GenesisL10n
+          .current
+          .premiumActiveYearlySubscription,
     'already_subscribed' =>
       product == null
-          ? 'You already have an active Premium subscription.'
-          : 'You’re already subscribed to Premium ${product.label}.',
+          ? GenesisL10n
+                .current
+                .premiumAlreadyHaveActive
+          : GenesisL10n.current
+                .premiumReAlreadySubscribedLabel(
+                  label: (product.label).toString(),
+                ),
     'purchase_processing' =>
-      'Your previous Premium purchase is still being confirmed.',
+      GenesisL10n
+          .current
+          .premiumPreviousPurchasePending,
     'cross_platform_upgrade_not_allowed' =>
-      'Please use the original store to upgrade your Premium subscription.',
+      GenesisL10n
+          .current
+          .premiumUseOriginalStoreUpgrade,
     'subscription_requires_action' =>
-      'Please resolve your current subscription in the store before purchasing.',
-    'sale_disabled' => 'Premium purchase is currently unavailable.',
+      GenesisL10n
+          .current
+          .premiumResolveCurrent,
+    'sale_disabled' =>
+      GenesisL10n
+          .current
+          .premiumPurchaseUnavailable,
     'device_id_required' || 'eligibility_unavailable' =>
-      'Unable to verify purchase eligibility. Please try again.',
+      GenesisL10n
+          .current
+          .premiumUnableVerifyPurchase,
     'account_mismatch' => membershipAccountIdentifiersMismatchMessage,
-    'invalid_purchase' => 'The store could not verify this Premium purchase.',
+    'invalid_purchase' =>
+      GenesisL10n
+          .current
+          .premiumStoreFailedVerifyPurchase,
     'product_mismatch' =>
-      'The Premium purchase does not match the selected plan.',
-    'purchase_canceled' => 'This Premium purchase was canceled.',
-    'purchase_revoked' => 'This Premium purchase was revoked.',
-    _ => 'Purchase failed.',
+      GenesisL10n
+          .current
+          .premiumPurchaseDoesNotMatch,
+    'purchase_canceled' =>
+      GenesisL10n
+          .current
+          .premiumMessagePurchaseCanceled,
+    'purchase_revoked' =>
+      GenesisL10n
+          .current
+          .premiumPurchaseRevoked,
+    _ => GenesisL10n.current.mePurchaseFailed,
   };
   return purchaseToastMessage(
     message,

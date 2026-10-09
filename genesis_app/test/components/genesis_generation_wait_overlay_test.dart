@@ -38,7 +38,7 @@ void main() {
     const message = 'Advancing the world timeline';
 
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: GenesisGenerationWaitOverlay(
           title: title,
           message: message,

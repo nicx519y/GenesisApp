@@ -36,8 +36,14 @@ class _TaskActionButton extends StatelessWidget {
     final actionText = status == task.status
         ? task.actionText
         : switch (status) {
-            'claimable' => 'Claim',
-            'claimed' => 'Claimed',
+            'claimable' =>
+              GenesisL10n
+                  .current
+                  .gemsClaim,
+            'claimed' =>
+              GenesisL10n
+                  .current
+                  .gemsClaimed,
             _ => task.actionText,
           };
     return Semantics(

@@ -25,9 +25,9 @@ enum _JoinRequestAction {
   String get successText {
     switch (this) {
       case _JoinRequestAction.approve:
-        return 'Approved';
+        return GenesisL10n.current.approvedStatus;
       case _JoinRequestAction.reject:
-        return 'Rejected';
+        return GenesisL10n.current.rejectedStatus;
     }
   }
 }
@@ -68,7 +68,9 @@ class _JoinRequestDialogContent extends StatelessWidget {
           const SizedBox(height: 4),
           _JoinRequestDialogInfoRow(
             title: item.requestWorldName.isEmpty
-                ? 'this world'
+                ? GenesisL10n
+                      .current
+                      .inboxWorld
                 : item.requestWorldName,
             subtitle: deletedAwareIdLabel(
               item.bizId,

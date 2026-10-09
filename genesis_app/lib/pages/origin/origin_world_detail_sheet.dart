@@ -1722,8 +1722,8 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 7),
-              const Text(
-                'Select your role',
+              Text(
+                GenesisL10n.current.worldoDetailSelectRole,
                 key: ValueKey<String>('origin-opening-select-role-label'),
                 style: TextStyle(
                   color: originWorldDetailSheetSecondaryTextColor,
@@ -1889,7 +1889,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   CopyableIdLabel(
-                    label: 'OID',
+                    label: GenesisL10n.current.worldoDetailOID,
                     value: origin.oid,
                     displayValue: origin.deleted
                         ? deletedEntityDisplayText
@@ -1899,7 +1899,9 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     customIconColor: originWorldDetailSheetSecondaryTextColor,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Creator: ${formatUidForDisplay(originator)}',
+                    text: GenesisL10n.current.worldoDetailCreator(
+                      creatorName: (formatUidForDisplay(originator)).toString(),
+                    ),
                     membershipStatus: origin.ownerDeleted
                         ? 0
                         : origin.ownerUser.membershipStatus,
@@ -1918,9 +1920,10 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     trailingGap: 4,
                   ),
                   GenesisInlineMetaLabel(
-                    text:
-                        'Latest Version: V$version'
-                        '${age.isEmpty ? '' : ' · $age'}',
+                    text: GenesisL10n.current.worldoLatestVersion(
+                      version: (version).toString(),
+                      ageSuffix: (age.isEmpty ? '' : ' · $age').toString(),
+                    ),
                     style: metaStyle,
                     trailingIconSize: genesisCopyableIdIconSize,
                   ),
@@ -1986,9 +1989,9 @@ class _OriginInfoTitleRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
-            'Detail',
+            GenesisL10n.current.worldModelsDetail,
             key: ValueKey<String>('origin-info-title'),
             style: TextStyle(
               fontSize: 16,
@@ -2053,7 +2056,7 @@ class _OriginInlineEditAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GenesisPrimaryButton(
       key: const ValueKey('origin-inline-edit-worldo'),
-      label: 'Edit Worldo',
+      label: GenesisL10n.current.worldoDetailEditWorldo,
       onPressed: onTap,
       height: 34,
       width: 92,

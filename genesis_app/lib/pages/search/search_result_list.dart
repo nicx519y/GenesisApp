@@ -70,8 +70,10 @@ class _SearchResultListState extends State<_SearchResultList>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Search failed',
+            Text(
+              GenesisL10n
+                  .current
+                  .searchFailed,
               style: TextStyle(color: GenesisColors.darkTextSecondary),
             ),
             const SizedBox(height: 10),
@@ -81,7 +83,9 @@ class _SearchResultListState extends State<_SearchResultList>
                 backgroundColor: GenesisColors.redPrimary,
                 foregroundColor: GenesisColors.darkTextPrimary,
               ),
-              child: const Text('Retry'),
+              child: Text(
+                GenesisL10n.current.homeRetry,
+              ),
             ),
           ],
         ),
@@ -93,9 +97,11 @@ class _SearchResultListState extends State<_SearchResultList>
     }
 
     if (state.items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No results.',
+          GenesisL10n
+              .current
+              .searchNoResults,
           style: TextStyle(
             fontSize: 14,
             color: GenesisColors.darkTextSecondary,

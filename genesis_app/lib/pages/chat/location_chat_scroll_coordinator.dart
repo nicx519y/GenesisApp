@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:collection';
 
@@ -2637,7 +2638,11 @@ class _LocationChatAnchoredMessageListState
                             children: [
                               TextButton(
                                 onPressed: gapLoader,
-                                child: const Text('Load earlier messages'),
+                                child: Text(
+                                  GenesisL10n
+                                      .current
+                                      .chatLoadEarlierMessages,
+                                ),
                               ),
                               row,
                             ],

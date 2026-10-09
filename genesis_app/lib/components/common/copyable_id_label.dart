@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,7 +60,12 @@ class CopyableIdLabel extends StatelessWidget {
   ) async {
     await Clipboard.setData(ClipboardData(text: displayValue));
     if (!context.mounted) return;
-    showGenesisToast(context, '$normalizedLabel copied');
+    showGenesisToast(
+      context,
+      GenesisL10n.current.commonIdCopied(
+        normalizedLabel: (normalizedLabel).toString(),
+      ),
+    );
   }
 }
 

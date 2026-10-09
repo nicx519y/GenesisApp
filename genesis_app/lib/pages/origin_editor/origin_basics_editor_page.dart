@@ -102,22 +102,22 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     final coverImage = _coverImageController.text.trim();
 
     if (originName.isEmpty) {
-      _showError('Worldo Name is required.');
+      _showError(GenesisL10n.current.createBasicsNameRequired);
       return;
     }
     if (worldView.isEmpty) {
-      _showError('Worldo Brief is required.');
+      _showError(GenesisL10n.current.createBasicsBriefRequired);
       return;
     }
     if (coverImage.isEmpty) {
-      _showError('Cover Image is required.');
+      _showError(GenesisL10n.current.createBasicsCoverRequired);
       return;
     }
     if (metricJson.isNotEmpty) {
       try {
         jsonDecode(metricJson);
       } catch (_) {
-        _showError('Metric must be valid JSON.');
+        _showError(GenesisL10n.current.createBasicsMetricInvalid);
         return;
       }
     }
@@ -161,25 +161,25 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 
   String get _saveDisabledReason {
-    if (_isSaving) return 'Saving is already in progress.';
+    if (_isSaving) return GenesisL10n.current.createSaveInProgress;
     if (_originNameController.text.trim().isEmpty) {
-      return 'Worldo Name is required.';
+      return GenesisL10n.current.createBasicsNameRequired;
     }
     if (_worldViewController.text.trim().isEmpty) {
-      return 'Worldo Brief is required.';
+      return GenesisL10n.current.createBasicsBriefRequired;
     }
     if (_coverImageController.text.trim().isEmpty) {
-      return 'Cover Image is required.';
+      return GenesisL10n.current.createBasicsCoverRequired;
     }
     final metricJson = _simulationSettingsJson();
     if (metricJson.trim().isNotEmpty) {
       try {
         jsonDecode(metricJson);
       } catch (_) {
-        return 'Metric must be valid JSON.';
+        return GenesisL10n.current.createBasicsMetricInvalid;
       }
     }
-    return 'Complete all required fields before saving.';
+    return GenesisL10n.current.createRequiredBeforeSave;
   }
 
   void _showError(String message) {
@@ -405,8 +405,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: GenesisColors.darkBackground,
-      appBar: const GenesisBackAppBar(
-        pageName: 'Basics',
+      appBar: GenesisBackAppBar(
+        pageName: GenesisL10n.current.createBasicsBasics,
         backgroundColor: GenesisColors.darkBackground,
         foregroundColor: GenesisColors.darkTextPrimary,
         systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
@@ -423,9 +423,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CreateTextFieldBlock(
-                        label: 'Worldo Name *',
+                        label: GenesisL10n.current.createBasicsWorldoName,
                         controller: _originNameController,
-                        hintText: 'eg. Main Street',
+                        hintText: GenesisL10n.current.createBasicsEgMainStreet,
                         maxLength: 30,
                         maxLines: 1,
                         labelInputGap: _fieldLabelInputGap,
@@ -443,13 +443,12 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       ),
                       const SizedBox(height: _fieldGroupGap),
                       CreateTextFieldBlock(
-                        label: 'Worldo Brief *',
+                        label: GenesisL10n.current.createBasicsWorldoBrief,
                         controller: _worldViewController,
                         hintText:
-                            'eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.',
+                            GenesisL10n.current.createBasicsEgHalfShopsMain,
                         maxLength: 300,
-                        note:
-                            'The public hook players see first — the setting, the core conflict, and what makes it intriguing.',
+                        note: GenesisL10n.current.createBasicsBriefNote,
                         minLines: 4,
                         maxLines: 8,
                         labelInputGap: _fieldLabelInputGap,
@@ -458,8 +457,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const Text(
-                        'Cover Image *',
+                      Text(
+                        GenesisL10n.current.createBasicsCoverImage,
                         style: TextStyle(
                           color: GenesisColors.darkTextPrimary,
                           fontSize: 14,
@@ -473,7 +472,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         children: [
                           CreateUploadBox(
                             controller: _coverImageController,
-                            label: 'Upload',
+                            label: GenesisL10n.current.createBasicsUpload,
                             emptyBackgroundColor: GenesisColors.darkFaintFill,
                             emptyBorderColor: GenesisColors.darkTextTertiary,
                             emptyIconColor: GenesisColors.createAdd,
@@ -487,10 +486,11 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             onChanged: _onFormChanged,
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: CreateFormNote(
-                              note:
-                                  'Used for cards and detail pages. Recommend ~768×1024 px. Supported formats: JPG, PNG, WEBP.',
+                              note: GenesisL10n
+                                  .current
+                                  .createBasicsUsedCardsDetailPages,
                             ),
                           ),
                         ],
@@ -499,13 +499,14 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       const _AdvancedSettingsDivider(),
                       const SizedBox(height: 26),
                       CreateTextFieldBlock(
-                        label: 'Worldo Settings - Hidden (Optional)',
+                        label: GenesisL10n
+                            .current
+                            .createBasicsWorldoSettingsHidden,
                         controller: _worldLogicController,
                         hintText:
-                            'eg. The banker secretly controls who gets loans; whoever overextends can be squeezed out.',
+                            GenesisL10n.current.createBasicsEgBankerSecretly,
                         maxLength: 1000,
-                        note:
-                            'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.',
+                        note: GenesisL10n.current.createBasicsHiddenNote,
                         minLines: 5,
                         maxLines: 12,
                         labelInputGap: _fieldLabelInputGap,
@@ -514,8 +515,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const Text(
-                        'Worldo Time (Optional)',
+                      Text(
+                        GenesisL10n.current.createBasicsWorldoTimeOptional,
                         style: TextStyle(
                           color: GenesisColors.darkTextPrimary,
                           fontSize: 14,
@@ -524,18 +525,19 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const CreateFormNote(
-                        note:
-                            'This worldo starts at {Start Time}; each time the user taps *progress*, the timeline moves forward by {Time per Progress}.',
+                      CreateFormNote(
+                        note: GenesisL10n.current.createBasicsWorldoStartsStart,
                         markdown: true,
                       ),
                       const SizedBox(height: 14),
-                      const _SimulationFieldLabel('Start Time'),
+                      _SimulationFieldLabel(
+                        GenesisL10n.current.createBasicsStartTime,
+                      ),
                       const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _worldStartTimeController,
-                        hintText: 'eg. Day 1, 09:00 / 2026-01-01',
+                        hintText: GenesisL10n.current.createBasicsDateExample,
                         maxLength: 30,
                         showCounter: false,
                         maxLines: 1,
@@ -544,7 +546,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const _SimulationFieldLabel('Time per Progress'),
+                      _SimulationFieldLabel(
+                        GenesisL10n.current.createBasicsTimePerProgress,
+                      ),
                       const SizedBox(height: _fieldLabelInputGap),
                       _TimeProgressPicker(
                         selected: _selectedTimeProgress,
@@ -554,14 +558,14 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       CreateTextFieldBlock(
                         label: '',
                         controller: _timeProgressCustomController,
-                        hintText: 'eg. 8 hours / 3 days',
+                        hintText: GenesisL10n.current.createBasicsEg8Hours3Days,
                         maxLength: 10,
                         showCounter: false,
                         maxLines: 1,
                         focusNode: _timeProgressCustomFocusNode,
                         nextFocusNode: _progressMetricFocusNode,
-                        prefix: const Text(
-                          'Custom',
+                        prefix: Text(
+                          GenesisL10n.current.worldoLaunchCustom,
                           style: TextStyle(
                             color: GenesisColors.darkTextPrimary,
                             fontSize: 12,
@@ -571,8 +575,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: _handleTimeProgressCustomChanged,
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const Text(
-                        'Worldo Metric (Optional)',
+                      Text(
+                        GenesisL10n.current.createBasicsWorldoMetricOptional,
                         style: TextStyle(
                           color: GenesisColors.darkTextPrimary,
                           fontSize: 14,
@@ -581,17 +585,20 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const CreateFormNote(
-                        note:
-                            "This worldo updates each character's {Metric Label} every progress, shown in {Unit}. Each character starts at {Starting}, and the value can move within {Delta Min}–{Delta Max}.",
+                      CreateFormNote(
+                        note: GenesisL10n.current.worldoMetricExplanation,
                       ),
                       const SizedBox(height: 14),
-                      const _SimulationFieldLabel('Metric Label'),
+                      _SimulationFieldLabel(
+                        GenesisL10n.current.createBasicsMetricLabel,
+                      ),
                       const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _progressMetricController,
-                        hintText: 'eg. Wealth / Goal Progress',
+                        hintText: GenesisL10n
+                            .current
+                            .createBasicsEgWealthGoalProgress,
                         maxLength: 20,
                         showCounter: false,
                         maxLines: 1,
@@ -600,12 +607,15 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const _SimulationFieldLabel('Label note'),
+                      _SimulationFieldLabel(
+                        GenesisL10n.current.createBasicsLabelNote,
+                      ),
                       const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _labelNoteController,
-                        hintText: 'Describe what this metric measures',
+                        hintText:
+                            GenesisL10n.current.createBasicsDescribeWhatMetric,
                         maxLength: 50,
                         showCounter: false,
                         maxLines: 1,
@@ -614,12 +624,14 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const _SimulationFieldLabel('Unit'),
+                      _SimulationFieldLabel(
+                        GenesisL10n.current.createBasicsUnit,
+                      ),
                       const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _unitController,
-                        hintText: 'eg. coins / %',
+                        hintText: GenesisL10n.current.createBasicsEgCoins,
                         maxLength: 10,
                         showCounter: false,
                         maxLines: 1,
@@ -628,7 +640,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const _SimulationFieldLabel('Value Range'),
+                      _SimulationFieldLabel(
+                        GenesisL10n.current.createBasicsRange,
+                      ),
                       const SizedBox(height: _fieldLabelInputGap),
                       Row(
                         children: [
@@ -636,7 +650,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             child: CreateTextFieldBlock(
                               label: '',
                               controller: _startingValueController,
-                              hintText: 'Starting',
+                              hintText:
+                                  GenesisL10n.current.createBasicsStarting,
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
@@ -650,7 +665,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             child: CreateTextFieldBlock(
                               label: '',
                               controller: _minValueController,
-                              hintText: 'Delta Min',
+                              hintText:
+                                  GenesisL10n.current.createBasicsDeltaMin,
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
@@ -664,7 +680,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             child: CreateTextFieldBlock(
                               label: '',
                               controller: _maxValueController,
-                              hintText: 'Delta Max',
+                              hintText:
+                                  GenesisL10n.current.createBasicsDeltaMax,
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
@@ -680,7 +697,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
               ),
               _KeyboardHiddenBottomAction(
                 child: GenesisPrimaryButton(
-                  label: _isSaving ? 'Saving...' : 'Save',
+                  label: _isSaving
+                      ? GenesisL10n.current.createBasicsSaving
+                      : GenesisL10n.current.chatSave,
                   isLoading: _isSaving,
                   showLoadingIndicator: false,
                   backgroundColor: GenesisColors.redPrimary,
@@ -703,13 +722,13 @@ class _AdvancedSettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Expanded(child: Divider(height: 1, color: GenesisColors.darkFaintFill)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text(
-            'Advanced Settings (Optional)',
+            GenesisL10n.current.createBasicsAdvancedSettings,
             style: TextStyle(
               color: GenesisColors.darkTextSecondary,
               fontSize: 12,

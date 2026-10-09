@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -277,14 +278,17 @@ class _GemWalletPageState extends State<GemWalletPage>
         child: Scaffold(
           backgroundColor: GenesisColors.darkBackground,
           appBar: GenesisBackAppBar(
-            pageName: 'Buy Gems',
+            pageName:
+                GenesisL10n.current.gemsBuy,
             titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
             titleSideInset: 56,
             actions: [
               if (widget.showBuyGems)
                 IconButton(
                   key: const ValueKey('wallet-records-button'),
-                  tooltip: 'Records',
+                  tooltip: GenesisL10n
+                      .current
+                      .gemsRecords,
                   padding: const EdgeInsets.only(left: 4),
                   constraints: const BoxConstraints.tightFor(
                     width: 56,
@@ -345,7 +349,9 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (!_hasPageData && _productsError != null && _tasksError != null) {
       return Center(
         child: GemPurchaseState(
-          message: 'Unable to load gems.',
+          message: GenesisL10n
+              .current
+              .gemsUnableLoad,
           onRetry: () => unawaited(_refreshAll()),
         ),
       );

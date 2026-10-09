@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -41,9 +42,12 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Log out of your account?',
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Log out', value: true),
+      title: GenesisL10n.current.settingsLogOutAccount,
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.settingsLogOut,
+          value: true,
+        ),
       ],
     );
     if (confirmed == true && context.mounted) {
@@ -78,11 +82,11 @@ class _SettingsPageState extends State<SettingsPage> {
     final api = AppServicesScope.read(context).api;
     await showGenesisContentSubmissionDialog(
       context: context,
-      title: 'Feedback',
+      title: GenesisL10n.current.settingsFeedback,
       contentInputKey: const ValueKey<String>('genesis-feedback-content-input'),
-      successMessage: 'Feedback submitted',
+      successMessage: GenesisL10n.current.feedbackSubmitted,
       brightness: Brightness.dark,
-      failureMessage: 'Feedback failed',
+      failureMessage: GenesisL10n.current.feedbackFailed,
       onSubmit: (content) => api.v1.feedback.create(content: content),
     );
   }
@@ -96,7 +100,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!launched && mounted) {
         showGenesisToast(
           context,
-          'Could not open Discord',
+          GenesisL10n.current.meFailedOpenDiscord,
           brightness: Brightness.dark,
         );
       }
@@ -104,7 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         showGenesisToast(
           context,
-          'Could not open Discord',
+          GenesisL10n.current.meFailedOpenDiscord,
           brightness: Brightness.dark,
         );
       }
@@ -137,7 +141,7 @@ class _SettingsPageState extends State<SettingsPage> {
               backgroundColor: GenesisColors.darkBackground,
               foregroundColor: GenesisColors.darkTextPrimary,
               systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
-              pageName: 'Settings',
+              pageName: GenesisL10n.current.settings,
               onBack: () => Navigator.of(context).maybePop(false),
               titleKey: const ValueKey<String>(
                 'settings-debug-title-unlock-area',
@@ -157,13 +161,13 @@ class _SettingsPageState extends State<SettingsPage> {
                           builder: (_) => const AboutUsPage(),
                         ),
                       ),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
-                                'About us',
+                                GenesisL10n.current.settingsAboutUs,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: GenesisColors.darkTextPrimary,
@@ -187,13 +191,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _openAccountPage(context),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
-                                'Account',
+                                GenesisL10n.current.settingsAccount,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: GenesisColors.darkTextPrimary,
@@ -217,13 +221,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _openBlockedUsersPage(context),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
-                                'Blocked users',
+                                GenesisL10n.current.settingsBlockedUsers,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: GenesisColors.darkTextPrimary,
@@ -247,13 +251,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _showFeedbackDialog(context),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
-                                'Feedback',
+                                GenesisL10n.current.settingsFeedback,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: GenesisColors.darkTextPrimary,
@@ -284,8 +288,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
-                                  'Join Discord',
+                                Text(
+                                  GenesisL10n.current.settingsJoinDiscord,
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: GenesisColors.darkTextPrimary,
@@ -316,7 +320,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     const Expanded(child: SizedBox.shrink()),
                     GenesisPrimaryButton(
-                      label: 'Log out',
+                      label: GenesisL10n.current.settingsLogOut,
                       width:
                           MediaQuery.sizeOf(context).width *
                           _logoutButtonWidthFactor,
@@ -400,8 +404,8 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       showGenesisToast(
         context,
         wasBlocked
-            ? 'User unblocked'
-            : 'User blocked. This content has been reported to Worldo team.',
+            ? GenesisL10n.current.meUserUnblocked
+            : GenesisL10n.current.meUserBlockedContentHasReported,
         brightness: Brightness.dark,
       );
     } catch (error, stackTrace) {
@@ -423,9 +427,12 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   Future<bool> _confirmBlockUser() async {
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Block this user?',
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Block', value: true),
+      title: GenesisL10n.current.meBlockUser,
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.meBlock,
+          value: true,
+        ),
       ],
     );
     return confirmed == true;
@@ -449,11 +456,11 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
           value: kGenesisLightSystemUiOverlayStyle,
           child: Scaffold(
             backgroundColor: GenesisColors.darkBackground,
-            appBar: const GenesisBackAppBar(
+            appBar: GenesisBackAppBar(
               backgroundColor: GenesisColors.darkBackground,
               foregroundColor: GenesisColors.darkTextPrimary,
               systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
-              pageName: 'Blocked users',
+              pageName: GenesisL10n.current.settingsBlockedUsers,
             ),
             body: SafeArea(
               child: FutureBuilder<List<_BlockedUserItem>>(
@@ -476,8 +483,8 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Load failed',
+                            Text(
+                              GenesisL10n.current.homeLoadFailed,
                               style: TextStyle(
                                 color: GenesisColors.darkTextSecondary,
                                 fontSize: 16,
@@ -486,7 +493,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                             ),
                             const SizedBox(height: 16),
                             GenesisPrimaryButton(
-                              label: 'Retry',
+                              label: GenesisL10n.current.homeRetry,
                               fullWidth: false,
                               width: 140,
                               onPressed: () {
@@ -508,10 +515,10 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                       child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(16, 120, 16, 24),
-                        children: const [
+                        children: [
                           Center(
                             child: Text(
-                              'No blocked users yet.',
+                              GenesisL10n.current.meNoBlockedUsersYet,
                               style: TextStyle(
                                 color: GenesisColors.darkTextSecondary,
                                 fontSize: 16,
@@ -582,7 +589,7 @@ class _BlockedUserItem {
       deleted: entityDeleted(user['deleted']),
       uid: uid,
       displayName: name.isEmpty
-          ? formatUidForDisplay(uid, fallback: 'User')
+          ? formatUidForDisplay(uid, fallback: GenesisL10n.current.worldoUser)
           : name,
       avatarUrl: asResolvedImageUrl(user['avatar'], resolveAssetUrl),
       isBlocked: asBool(relation['is_blocked'], fallback: true),
@@ -614,7 +621,9 @@ class _BlockedUserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = item.isBlocked ? 'Unblock' : 'Block';
+    final label = item.isBlocked
+        ? GenesisL10n.current.meUnblock
+        : GenesisL10n.current.meBlock;
     final backgroundColor = item.isBlocked
         ? GenesisColors.redPrimary
         : GenesisColors.darkFaintFill;
@@ -655,7 +664,9 @@ class _BlockedUserTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'UID: ${formatUidForDisplay(item.uid)}',
+                    GenesisL10n.current.meUID(
+                      uid: (formatUidForDisplay(item.uid)).toString(),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -696,11 +707,11 @@ class _BlockedUserTile extends StatelessWidget {
 String _blockedUserActionFailureMessage(Object error) {
   if (error is ApiException) {
     final message = error.message.trim().isEmpty
-        ? 'Request failed'
+        ? GenesisL10n.current.meRequestFailed
         : error.message;
     return '$message[${error.code}]';
   }
-  return 'Update failed';
+  return GenesisL10n.current.updateFailed;
 }
 
 class AccountPage extends StatefulWidget {
@@ -742,7 +753,7 @@ class _AccountPageState extends State<AccountPage> {
     if (!_hasReadAgreement) {
       showGenesisToast(
         context,
-        'Agree to our terms to continue.',
+        GenesisL10n.current.settingsAgreeTermsContinue,
         brightness: Brightness.dark,
       );
       return;
@@ -750,9 +761,12 @@ class _AccountPageState extends State<AccountPage> {
 
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Delete your account?',
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Delete', value: true),
+      title: GenesisL10n.current.settingsDeleteAccount,
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.worldDetailDelete,
+          value: true,
+        ),
       ],
     );
     if (confirmed == true && mounted) {
@@ -781,11 +795,11 @@ class _AccountPageState extends State<AccountPage> {
           value: kGenesisLightSystemUiOverlayStyle,
           child: Scaffold(
             backgroundColor: GenesisColors.darkBackground,
-            appBar: const GenesisBackAppBar(
+            appBar: GenesisBackAppBar(
               backgroundColor: GenesisColors.darkBackground,
               foregroundColor: GenesisColors.darkTextPrimary,
               systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
-              pageName: 'Account',
+              pageName: GenesisL10n.current.settingsAccount,
             ),
             body: SafeArea(
               child: Column(
@@ -796,8 +810,8 @@ class _AccountPageState extends State<AccountPage> {
                       children: [
                         _CurrentLoginAccountCard(provider: _provider),
                         const SizedBox(height: 42),
-                        const Text(
-                          'Account Deletion Agreement',
+                        Text(
+                          GenesisL10n.current.settingsAccountDeletionAgreement,
                           style: TextStyle(
                             color: GenesisColors.darkTextPrimary,
                             fontSize: 16,
@@ -806,15 +820,8 @@ class _AccountPageState extends State<AccountPage> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
-                          'To ensure the security of your account, please read about '
-                          'the consequences of account deletion.\n\n'
-                          'Account deletion is not the same as logging out, and once '
-                          'canceled, it cannot be undone. Your private data, including '
-                          'created characters, search history, chat logs with any '
-                          'characters, your favorites, your memories, interaction '
-                          'data, and order records, will be irreversibly deleted and '
-                          'cannot be recovered upon account deletion.',
+                        Text(
+                          GenesisL10n.current.settingsEnsureSecurityAccount,
                           style: TextStyle(
                             color: GenesisColors.darkTextSecondary,
                             fontSize: 14,
@@ -823,14 +830,8 @@ class _AccountPageState extends State<AccountPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'All unused Gems, including purchased and earned Gems, will '
-                          'be permanently lost. By continuing, you voluntarily waive '
-                          'them, and account deletion does not automatically entitle '
-                          'you to a refund.\n\n'
-                          'All remaining membership benefits will also be permanently '
-                          'lost and cannot be restored. Deleting your account does '
-                          'not cancel your subscription.',
+                        Text(
+                          GenesisL10n.current.gemsAllUnusedIncludingPurchased,
                           style: TextStyle(
                             color: GenesisColors.redSecondary,
                             fontSize: 14,
@@ -883,9 +884,11 @@ class _AccountPageState extends State<AccountPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Expanded(
+                                Expanded(
                                   child: Text(
-                                    'I have read the Account Deletion Agreement',
+                                    GenesisL10n
+                                        .current
+                                        .settingsIHaveReadAccountDeletion,
                                     style: TextStyle(
                                       color: GenesisColors.darkTextSecondary,
                                       fontSize: 14,
@@ -900,7 +903,7 @@ class _AccountPageState extends State<AccountPage> {
                         ),
                         const SizedBox(height: 12),
                         GenesisPrimaryButton(
-                          label: 'Delete',
+                          label: GenesisL10n.current.worldDetailDelete,
                           width:
                               MediaQuery.sizeOf(context).width *
                               _deleteButtonWidthFactor,
@@ -939,8 +942,8 @@ class _CurrentLoginAccountCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 18),
         child: Column(
           children: [
-            const Text(
-              'Current login account:',
+            Text(
+              GenesisL10n.current.settingsCurrentLoginAccount,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: GenesisColors.darkTextSecondary,

@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -128,16 +129,21 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
         child: Center(
           child: AlertDialog(
             key: const ValueKey('world-tick1-wait-dialog'),
-            title: const Text(
-              'Generating first tick',
+            title: Text(
+              GenesisL10n.current.homeGeneratingFirstTick,
               style: TextStyle(fontSize: 16, height: 1.2),
             ),
             content: SizedBox(
               width: 260,
               child: Text(
                 _hasError
-                    ? 'Generation status could not be loaded.'
-                    : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
+                    ? GenesisL10n.current.worldFirstTickStatusLoadFailed
+                    : GenesisL10n.current.worldFirstTickGenerating(
+                        progressDots: (List.filled(
+                          _dotCount,
+                          '.',
+                        ).join()).toString(),
+                      ),
                 style: const TextStyle(fontSize: 14, height: 1.35),
               ),
             ),
@@ -146,7 +152,7 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
                     FilledButton(
                       key: const ValueKey('world-tick1-wait-retry'),
                       onPressed: _loading ? null : () => unawaited(_poll()),
-                      child: const Text('Retry'),
+                      child: Text(GenesisL10n.current.homeRetry),
                     ),
                   ]
                 : null,

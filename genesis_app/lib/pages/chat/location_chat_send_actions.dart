@@ -93,7 +93,12 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _replyPresentationBlocksSend ||
         _sendConnectionPending ||
         _sending) {
-      onFailure?.call(StateError('This message can no longer be sent'), false);
+      onFailure?.call(
+        StateError(
+          GenesisL10n.current.chatMessageCannotSend,
+        ),
+        false,
+      );
       return;
     }
     final draftAtSubmit = _textController.serializedText;
@@ -101,12 +106,22 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
     if (isGenesisUgcTextBlank(text)) {
-      onFailure?.call(StateError('The message is empty'), false);
+      onFailure?.call(
+        StateError(
+          GenesisL10n.current.chatMessageEmpty,
+        ),
+        false,
+      );
       return;
     }
     final hasNetwork = await _hasNetworkForSend();
     if (hasNetwork && !await _prepareSendConnection(service)) {
-      onFailure?.call(StateError('Could not connect to this chat'), false);
+      onFailure?.call(
+        StateError(
+          GenesisL10n.current.chatConnectionFailed,
+        ),
+        false,
+      );
       return;
     }
     if (!mounted ||
@@ -121,7 +136,12 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _replyCardTransitionBusy ||
         _replyPresentationBlocksSend ||
         _sending) {
-      onFailure?.call(StateError('This message can no longer be sent'), false);
+      onFailure?.call(
+        StateError(
+          GenesisL10n.current.chatMessageCannotSend,
+        ),
+        false,
+      );
       return;
     }
     final controller = _replyController;
@@ -277,7 +297,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
                 ) ??
                 false)) {
           throw StateError(
-            'The reply changed. Please select inspiration again.',
+            GenesisL10n
+                .current
+                .chatReplyChangedSelect,
           );
         }
       } catch (error) {
@@ -319,7 +341,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           location != widget.locationId ||
           !identical(service, _service)) {
         onFailure?.call(
-          StateError('Could not confirm the message send'),
+          StateError(
+            GenesisL10n.current.chatSendConfirmFailed,
+          ),
           false,
         );
         if (mounted && optimisticMessageAdded) {
@@ -340,7 +364,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _sendAwaitingResponse ||
           widget.worldTickInProgress) {
         onFailure?.call(
-          StateError('This message can no longer be sent'),
+          StateError(
+            GenesisL10n.current.chatMessageCannotSend,
+          ),
           false,
         );
         _setLocationChatState(() {
@@ -478,7 +504,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         );
       }
       if (failBeforeTransport) {
-        throw const SocketException('No network connection');
+        throw SocketException(
+          GenesisL10n
+              .current
+              .chatNoNetworkConnection,
+        );
       }
       final handle = service.sendMessage(
         localMessage.text,

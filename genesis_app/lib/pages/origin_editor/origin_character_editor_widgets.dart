@@ -20,7 +20,10 @@ class _CharacterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateFormCard(
-      title: 'Character $index',
+      title: GenesisL10n.current
+          .createCharacterCharacterIndex(
+            index: (index).toString(),
+          ),
       onDelete: onDelete,
       showBorder: false,
       child: Column(
@@ -70,8 +73,10 @@ class _BestRoleSelector extends StatelessWidget {
                 starUnselectedColor: GenesisColors.darkTextTertiary,
               ),
               const SizedBox(width: 6),
-              const Text(
-                'Suggest',
+              Text(
+                GenesisL10n
+                    .current
+                    .createCharacterSuggest,
                 style: TextStyle(
                   color: GenesisColors.darkTextSecondary,
                   fontSize: 12,

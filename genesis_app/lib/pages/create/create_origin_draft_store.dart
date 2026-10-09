@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -336,35 +337,39 @@ class CreateOriginDraft {
 
     if (!hasRequiredSectionsSaved) {
       final missing = <String>[
-        if (!basicsSaved) 'Basics',
-        if (!charactersSaved) 'Characters',
-        if (!locationsSaved) 'Locations',
-        if (!openingSaved) 'Opening',
+        if (!basicsSaved) GenesisL10n.current.createBasicsBasics,
+        if (!charactersSaved) GenesisL10n.current.chatCharacters,
+        if (!locationsSaved) GenesisL10n.current.worldModelsLocations,
+        if (!openingSaved) GenesisL10n.current.createOpeningOpening,
       ];
-      errors.add('Please save ${missing.join(', ')} before creating.');
+      errors.add(
+        GenesisL10n.current.createSaveBeforeCreating(
+          missingSections: (missing.join(', ')).toString(),
+        ),
+      );
     }
 
     if (characters.where(_characterHasContent).isEmpty) {
-      errors.add('Characters: Please create at least one character.');
+      errors.add(GenesisL10n.current.createCharacterCharactersCreate);
     }
     if (characters.where((item) => item.isRecommended).length > 1) {
-      errors.add('Characters: Only one character can be recommended.');
+      errors.add(GenesisL10n.current.createCharacterCharactersOnlyOne);
     }
 
     if (basics.originName.trim().isEmpty) {
-      errors.add('Basics: Worldo Name is required.');
+      errors.add(GenesisL10n.current.createBasicsBasicsWorldoName);
     }
     if (basics.worldView.trim().isEmpty) {
-      errors.add('Basics: Worldo Brief is required.');
+      errors.add(GenesisL10n.current.createBasicsBasicsWorldoBrief);
     }
     if (basics.coverImageUrl.trim().isEmpty) {
-      errors.add('Basics: Cover Image is required.');
+      errors.add(GenesisL10n.current.createBasicsBasicsCoverImage);
     }
     if (basics.metricJson.trim().isNotEmpty) {
       try {
         jsonDecode(basics.metricJson);
       } catch (_) {
-        errors.add('Basics: Metric must be valid JSON.');
+        errors.add(GenesisL10n.current.createBasicsBasicsMetricMust);
       }
     }
 
@@ -372,17 +377,29 @@ class CreateOriginDraft {
       final item = characters[i];
       if (!_characterHasContent(item)) continue;
       if (item.name.trim().isEmpty) {
-        errors.add('Characters #${i + 1}: Name is required.');
+        errors.add(
+          GenesisL10n.current.createCharacterCharactersName(
+            characterIndex: (i + 1).toString(),
+          ),
+        );
       }
       if (item.identity.trim().isEmpty) {
-        errors.add('Characters #${i + 1}: Identity is required.');
+        errors.add(
+          GenesisL10n.current.createCharacterCharacters(
+            characterIndex: (i + 1).toString(),
+          ),
+        );
       }
       if (item.personality.trim().isEmpty) {
-        errors.add('Characters #${i + 1}: Personality is required.');
+        errors.add(
+          GenesisL10n.current.createCharacterRequired(
+            characterIndex: (i + 1).toString(),
+          ),
+        );
       }
     }
     if (!characters.any(_characterIsComplete)) {
-      errors.add('Characters: At least one character is required.');
+      errors.add(GenesisL10n.current.createCharacterCharactersLeast);
     }
 
     final leafLocations = locations.where(
@@ -390,20 +407,22 @@ class CreateOriginDraft {
           _locationHasContent(item) && (item.level == 0 || item.level == 3),
     );
     if (leafLocations.isEmpty) {
-      errors.add('Locations: Please create at least one location.');
+      errors.add(GenesisL10n.current.createLocationLocationsCreate);
     }
     for (int i = 0; i < locations.length; i++) {
       final item = locations[i];
       if (!_locationHasContent(item)) continue;
       if (item.name.trim().isEmpty) {
-        errors.add('Locations #${i + 1}: Location Name is required.');
+        errors.add(
+          GenesisL10n.current.createLocationLocationsLocation(
+            locationIndex: (i + 1).toString(),
+          ),
+        );
       }
     }
 
     if (openingSaved && !opening.isComplete) {
-      errors.add(
-        'Opening: Select a location and complete every dialogue item.',
-      );
+      errors.add(GenesisL10n.current.createOpeningOpeningSelect);
     } else if (openingSaved) {
       final validLocationIds = locations
           .where(
@@ -419,7 +438,7 @@ class CreateOriginDraft {
           .where((item) => item.isNotEmpty)
           .toSet();
       if (!validLocationIds.contains(opening.locationId.trim())) {
-        errors.add('Opening: The selected location is no longer available.');
+        errors.add(GenesisL10n.current.createOpeningOpeningSelected);
       }
       final validCharacterIds = characters
           .map((item) => item.charId.trim())
@@ -430,7 +449,7 @@ class CreateOriginDraft {
             item.type.trim() == OpeningDialogueDraft.characterType &&
             !validCharacterIds.contains(item.characterId.trim()),
       )) {
-        errors.add('Opening: A selected character is no longer available.');
+        errors.add(GenesisL10n.current.createOpeningCharacterOpening);
       }
       final openingCharacterIds = locations
           .where(
@@ -449,9 +468,7 @@ class CreateOriginDraft {
             item.type.trim() == OpeningDialogueDraft.characterType &&
             !openingCharacterIds.contains(item.characterId.trim()),
       )) {
-        errors.add(
-          'Opening: A dialogue character is not in the selected location. Open Opening to fix it.',
-        );
+        errors.add(GenesisL10n.current.createOpeningOpeningDialogue);
       }
     }
 
@@ -523,7 +540,11 @@ class CreateOriginDraft {
                 OpeningDialogueDraft.narratorType => 'nar',
                 OpeningDialogueDraft.imageType => 'nar_pic',
                 OpeningDialogueDraft.characterType => item.characterId.trim(),
-                _ => throw StateError('Unsupported opening dialogue: $type'),
+                _ => throw StateError(
+                  GenesisL10n.current.createUnsupportedOpeningDialogue(
+                    type: (type).toString(),
+                  ),
+                ),
               },
               'content': type == OpeningDialogueDraft.imageType
                   ? item.content.trim()

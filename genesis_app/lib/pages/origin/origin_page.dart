@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:ui' show SemanticsRole;
 
@@ -62,12 +63,7 @@ class _OriginPageState extends State<OriginPage>
   static const _tabsHeight = 32.0;
   static const _searchTopSpacing = 12.0;
   static const _scrollToTopDuration = Duration(milliseconds: 240);
-  static const _genderFilters = {
-    '': 'All',
-    'Male': 'Male',
-    'Female': 'Female',
-    'Non_binary': 'Non binary',
-  };
+  static const _genderFilters = ['', 'Male', 'Female', 'Non_binary'];
   static const _forYouCategory = _OriginCategory(
     name: 'For you',
     scene: 'foryou',
@@ -297,28 +293,28 @@ class _OriginPageState extends State<OriginPage>
                 onTapOutside: (_) => dismiss(),
                 child: _OriginGenderFilterMenu(
                   items: [
-                    for (final entry in _genderFilters.entries)
+                    for (final value in _genderFilters)
                       InkWell(
-                        key: ValueKey('origin-gender-option-${entry.key}'),
-                        onTap: () => dismiss(entry.key),
+                        key: ValueKey('origin-gender-option-$value'),
+                        onTap: () => dismiss(value),
                         child: SizedBox(
                           height: GenesisActionBox.defaultRowHeight,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Semantics(
-                              selected: entry.key == selectedGender,
+                              selected: value == selectedGender,
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      entry.value,
+                                      _genderFilterLabel(value),
                                       style: GenesisActionBox.actionTextStyle
                                           .copyWith(
                                             fontWeight: FontWeight.w400,
                                           ),
                                     ),
                                   ),
-                                  if (entry.key == selectedGender) ...[
+                                  if (value == selectedGender) ...[
                                     const SizedBox(width: 8),
                                     const Icon(
                                       Icons.check,
@@ -371,7 +367,9 @@ class _OriginPageState extends State<OriginPage>
               sessionRevision == services.sessionRevision.value) {
             showGenesisToast(
               context,
-              'Unable to save your preference. Please try again.',
+              GenesisL10n
+                  .current
+                  .worldoUnableSavePreference,
             );
           }
         });
@@ -615,7 +613,9 @@ class _OriginPageState extends State<OriginPage>
         return TapRegion(
           groupId: _genderFilterTapGroup,
           child: Tooltip(
-            message: 'Filter by gender',
+            message: GenesisL10n
+                .current
+                .worldoFilterGender,
             child: TextButton(
               key: const ValueKey('origin-gender-filter'),
               style: TextButton.styleFrom(
@@ -636,7 +636,7 @@ class _OriginPageState extends State<OriginPage>
                     maintainSize: true,
                     maintainAnimation: true,
                     maintainState: true,
-                    child: Text(_genderFilters[gender] ?? 'All'),
+                    child: Text(_genderFilterLabel(gender)),
                   ),
                   const SizedBox(width: GenesisSpacing.md),
                   CustomPaint(
@@ -659,7 +659,13 @@ class _OriginPageState extends State<OriginPage>
   @override
   Widget build(BuildContext context) {
     final categories = _categories;
-    final labels = categories.map((item) => item.name).toList();
+    final labels = categories
+        .map(
+          (item) => item.scene == 'foryou'
+              ? GenesisL10n.current.forYouLabel
+              : item.name,
+        )
+        .toList();
     final page = DefaultTabController(
       length: categories.length,
       child: Builder(
@@ -938,6 +944,13 @@ class _OriginCategory {
   @override
   int get hashCode => Object.hash(name, scene);
 }
+
+String _genderFilterLabel(String value) => switch (value) {
+  'Male' => GenesisL10n.current.maleLabel,
+  'Female' => GenesisL10n.current.femaleLabel,
+  'Non_binary' => GenesisL10n.current.nonBinaryLabel,
+  _ => GenesisL10n.current.allLabel,
+};
 
 class _OriginFeed extends StatefulWidget {
   const _OriginFeed({
@@ -2056,14 +2069,20 @@ class _OriginFeedState extends State<_OriginFeed>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Load failed',
+                  Text(
+                    GenesisL10n
+                        .current
+                        .homeLoadFailed,
                     style: TextStyle(color: GenesisColors.darkTextPrimary),
                   ),
                   const SizedBox(height: 10),
                   FilledButton(
                     onPressed: _refreshItems,
-                    child: const Text('Retry'),
+                    child: Text(
+                      GenesisL10n
+                          .current
+                          .homeRetry,
+                    ),
                   ),
                 ],
               ),
@@ -2081,12 +2100,12 @@ class _OriginFeedState extends State<_OriginFeed>
               controller: _scrollController,
               primary: false,
               physics: physics,
-              slivers: const [
+              slivers: [
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'No data',
+                      GenesisL10n.current.worldoNoData,
                       style: TextStyle(color: GenesisColors.darkTextSecondary),
                     ),
                   ),

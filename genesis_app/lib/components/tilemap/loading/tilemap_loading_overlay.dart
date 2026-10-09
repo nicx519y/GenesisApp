@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -266,7 +267,9 @@ class _TilemapLoadingStatus extends StatelessWidget {
           ),
           SizedBox(height: compact ? 6 : 10),
           Text(
-            'BUILDING THE WORLD',
+            GenesisL10n
+                .current
+                .homeBuildingWorld,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: palette.foreground,

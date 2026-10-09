@@ -159,11 +159,17 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
 String _originSubtitle(OriginSummary item) {
   final oid = deletedAwareIdLabel(item.oid, deleted: item.deleted);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  return 'OID: $oid\nLatest Version: $version';
+  return GenesisL10n.current.meOIDLatestVersion(
+    oid: (oid).toString(),
+    version: (version).toString(),
+  );
 }
 
 String _worldSubtitle(String wid, String ownerName, {bool deleted = false}) {
   final displayWid = deletedAwareIdLabel(wid, deleted: deleted);
   final owner = formatUidForDisplay(ownerName, fallback: '-');
-  return 'WID: $displayWid\nOwner: $owner';
+  return GenesisL10n.current.meWIDDisplayOwner(
+    displayWid: (displayWid).toString(),
+    owner: (owner).toString(),
+  );
 }

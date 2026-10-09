@@ -223,7 +223,7 @@ class WorldDetailSection extends StatelessWidget {
                             targetId: world.worldId,
                           ),
                           GenesisActionMenuItem(
-                            label: 'Delete',
+                            label: GenesisL10n.current.worldDetailDelete,
                             iconAsset: genesisDeleteIconAsset,
                             textStyle: TextStyle(
                               fontSize: 12,
@@ -237,7 +237,9 @@ class WorldDetailSection extends StatelessWidget {
                               if (!canDeleteWorld) {
                                 showGenesisToast(
                                   context,
-                                  'Only worlds launched by you alone can be deleted.',
+                                  GenesisL10n
+                                      .current
+                                      .worldDetailOnlyWorldsLaunched,
                                   duration: const Duration(seconds: 3),
                                   brightness: Brightness.dark,
                                 );
@@ -252,7 +254,7 @@ class WorldDetailSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   CopyableIdLabel(
-                    label: 'WID',
+                    label: GenesisL10n.current.worldDetailWID,
                     value: world.worldId,
                     displayValue: world.deleted
                         ? deletedEntityDisplayText
@@ -262,7 +264,9 @@ class WorldDetailSection extends StatelessWidget {
                     customIconColor: worldHeaderMetaColor,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Owner: $owner',
+                    text: GenesisL10n.current.searchOwner(
+                      owner: (owner).toString(),
+                    ),
                     onTap: ownerUid.isEmpty || world.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(
@@ -278,7 +282,10 @@ class WorldDetailSection extends StatelessWidget {
                     trailingGap: 4,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Source Worldo: $sourceOid · V$version',
+                    text: GenesisL10n.current.worldDetailSourceWorldoOIDV(
+                      sourceOid: (sourceOid).toString(),
+                      version: (version).toString(),
+                    ),
                     onTap: !canOpenSourceWorldo
                         ? null
                         : () => Navigator.of(context).pushNamed(
@@ -304,7 +311,7 @@ class WorldDetailSection extends StatelessWidget {
                   const SizedBox(height: 10),
                   GenesisPrimaryButton(
                     key: const ValueKey<String>('world-detail-invite-button'),
-                    label: 'Invite',
+                    label: GenesisL10n.current.worldDetailInvite,
                     onPressed: () => _copyInviteText(context, worldName: title),
                     height: 34,
                     width: 92,
@@ -329,11 +336,13 @@ class WorldDetailSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        const WorldDetailSectionTitle(title: 'World Brief'),
+        WorldDetailSectionTitle(
+          title: GenesisL10n.current.worldDetailWorldBrief,
+        ),
         const SizedBox(height: 8),
         Text(brief, style: worldDetailBodyTextStyle),
         const SizedBox(height: 24),
-        const WorldDetailSectionTitle(title: 'Cast'),
+        WorldDetailSectionTitle(title: GenesisL10n.current.worldDetailCast),
         const SizedBox(height: 8),
         if (showCharacters)
           WorldCharactersSection(world: world, currentUid: currentUid),
@@ -356,7 +365,7 @@ class WorldDetailSection extends StatelessWidget {
     if (!context.mounted) return;
     showGenesisToast(
       context,
-      'Link copied. Share it with your friends.',
+      GenesisL10n.current.worldDetailLinkCopiedShare,
       brightness: Brightness.dark,
     );
   }
@@ -406,7 +415,9 @@ class WorldDetailSectionListView extends StatelessWidget {
           );
         }
         if (sortedCharacters.isEmpty) {
-          return const WorldEmptySection(text: 'No characters yet.');
+          return WorldEmptySection(
+            text: GenesisL10n.current.worldDetailNoCharactersYet,
+          );
         }
         final characterIndex = index - 1;
         final character = sortedCharacters[characterIndex];
@@ -435,10 +446,11 @@ String worldInviteShareTextForTesting({
   final resolvedWorldName = worldName.trim().isEmpty
       ? resolvedWid
       : worldName.trim();
-  return 'Join my world "$resolvedWorldName" on Worldo!\n'
-      '$resolvedWid\n'
-      'Search this WID on Worldo to find and join.\n'
-      'https://worldo.ai/download';
+  return GenesisL10n.current.worldInviteText(
+    worldName: resolvedWorldName,
+    wid: resolvedWid,
+    downloadUrl: 'https://worldo.ai/download',
+  );
 }
 
 class _WorldNewUserJoinNoticeSwitcher extends StatelessWidget {
@@ -511,23 +523,28 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: SizedBox(
               width: constraints.maxWidth,
-              child: RichText(
+              child: GenesisLocalizedRichText(
                 maxLines: 2,
                 overflow: TextOverflow.clip,
-                text: TextSpan(
-                  style: baseStyle,
-                  children: [
-                    TextSpan(
-                      text: notice.displayPlayerUsername,
-                      style: emphasisStyle,
-                    ),
-                    const TextSpan(text: ' playing as '),
-                    TextSpan(
-                      text: notice.displayCharacterName,
-                      style: emphasisStyle,
-                    ),
-                  ],
+                template: context.l10n.worldPlayerPlayingAs(
+                  playerUsername: GenesisLocalizedRichText.placeholder(
+                    'playerUsername',
+                  ),
+                  characterName: GenesisLocalizedRichText.placeholder(
+                    'characterName',
+                  ),
                 ),
+                placeholders: {
+                  'playerUsername': TextSpan(
+                    text: notice.displayPlayerUsername,
+                    style: emphasisStyle,
+                  ),
+                  'characterName': TextSpan(
+                    text: notice.displayCharacterName,
+                    style: emphasisStyle,
+                  ),
+                },
+                style: baseStyle,
               ),
             ),
           ),

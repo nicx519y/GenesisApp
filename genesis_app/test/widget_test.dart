@@ -183,7 +183,9 @@ import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
 Finder _richTextWithPlainText(String text) {
   return find.byWidgetPredicate(
-    (widget) => widget is RichText && widget.text.toPlainText() == text,
+    (widget) =>
+        widget is RichText &&
+        widget.text.toPlainText(includePlaceholders: false) == text,
     description: 'RichText with plain text "$text"',
   );
 }
@@ -6646,9 +6648,9 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Alex comment your worldo'), findsOneWidget);
-    expect(find.text('Blair reply to you'), findsOneWidget);
-    expect(find.text('Casey like your comment'), findsOneWidget);
+    expect(_richTextWithPlainText('Alex comment your worldo'), findsOneWidget);
+    expect(_richTextWithPlainText('Blair reply to you'), findsOneWidget);
+    expect(_richTextWithPlainText('Casey like your comment'), findsOneWidget);
     expect(find.textContaining('#Comment Origin'), findsOneWidget);
     expect(find.textContaining('#Reply Origin'), findsOneWidget);
     expect(find.textContaining('#Like Origin'), findsOneWidget);
@@ -6656,28 +6658,35 @@ void main() {
     expect(find.textContaining('#O_REPLY'), findsNothing);
     expect(find.textContaining('#O_LIKE'), findsNothing);
 
-    final title = tester.widget<Text>(find.text('Alex comment your worldo'));
+    final title = tester.widget<Text>(
+      find.ancestor(
+        of: _richTextWithPlainText('Alex comment your worldo'),
+        matching: find.byType(Text),
+      ),
+    );
     expect(title.style?.fontSize, 14);
-    expect(title.style?.fontWeight, FontWeight.w700);
-    expect(title.style?.color, const Color(0xFF111111));
+    expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.style?.color, GenesisColors.darkTextPrimary);
 
     final body = tester.widget<Text>(find.text('Comment text'));
     expect(body.style?.fontSize, 12);
     expect(body.style?.fontWeight, FontWeight.w400);
-    expect(body.style?.color, const Color(0xFF111111));
+    expect(body.style?.color, GenesisColors.darkTextSecondary);
 
     final meta = tester.widget<Text>(find.textContaining('#Comment Origin'));
     expect(meta.style?.fontSize, 12);
     expect(meta.style?.fontWeight, FontWeight.w400);
-    expect(meta.style?.color, const Color(0xFF8A8D93));
+    expect(meta.style?.color, GenesisColors.darkTextTertiary);
 
     final itemRect = tester.getRect(
       find.byKey(const ValueKey('ntf_comment_001')),
     );
-    final titleRect = tester.getRect(find.text('Alex comment your worldo'));
+    final titleRect = tester.getRect(
+      _richTextWithPlainText('Alex comment your worldo'),
+    );
     final bodyRect = tester.getRect(find.text('Comment text'));
     final metaRect = tester.getRect(find.textContaining('#Comment Origin'));
-    expect(itemRect.left, 20);
+    expect(itemRect.left, 16);
     expect(titleRect.left, itemRect.left);
     expect(bodyRect.left, itemRect.left);
     expect(metaRect.left, itemRect.left);
@@ -6689,7 +6698,7 @@ void main() {
       'Blair reply to you',
       'Casey like your comment',
     ]) {
-      await tester.tap(find.text(title));
+      await tester.tap(_richTextWithPlainText(title));
       await tester.pumpAndSettle();
       expect(find.byType(PostDetailPage), findsOneWidget);
       Navigator.of(tester.element(find.byType(PostDetailPage))).pop();

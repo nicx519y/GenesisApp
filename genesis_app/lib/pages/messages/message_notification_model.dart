@@ -39,7 +39,10 @@ class _NotificationItem {
     final block = asString(json['notice_block']);
     final content = asString(
       json['content'],
-      fallback: asString(json['message'], fallback: 'New message'),
+      fallback: asString(
+        json['message'],
+        fallback: GenesisL10n.current.inboxNewMessage,
+      ),
     );
     final bizId = asString(
       json['biz_id'],
@@ -236,7 +239,9 @@ class _NotificationItem {
 
   String get senderDisplayName {
     if (senderDeleted) return deletedEntityDisplayText;
-    return senderName.isEmpty ? 'Someone' : formatUidForDisplay(senderName);
+    return senderName.isEmpty
+        ? GenesisL10n.current.inboxSomeone
+        : formatUidForDisplay(senderName);
   }
 
   String get requesterName {
@@ -244,7 +249,7 @@ class _NotificationItem {
     if (senderName.isNotEmpty) return senderName;
     return _firstNonEmpty([
       _extractRequesterNameFromJoinContent(content),
-      'Someone',
+      GenesisL10n.current.inboxSomeone,
     ]);
   }
 
@@ -263,7 +268,7 @@ class _NotificationItem {
     final cleanWorldName = worldName.trim();
     final cleanBizId = bizId.trim();
     if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
-      return cleanBizId.isEmpty ? 'this world' : cleanBizId;
+      return cleanBizId.isEmpty ? GenesisL10n.current.inboxWorld : cleanBizId;
     }
     return cleanWorldName;
   }
@@ -282,12 +287,20 @@ class _NotificationItem {
     final name = requesterName;
     final world = requestWorldSummaryName;
     final suffix = shouldShowRequestWorldId ? '($requestWorldIdLabel)' : '';
-    return '$name request to join $world$suffix';
+    return GenesisL10n.current.inboxNameRequestJoinWorldSuffix(
+      name: (name).toString(),
+      world: (world).toString(),
+      suffix: (suffix).toString(),
+    );
   }
 
   String get reviewTitleText {
     final world = requestWorldSummaryName;
-    return 'request to $world${shouldShowRequestWorldId ? '($requestWorldIdLabel)' : ''}';
+    return GenesisL10n.current.inboxJoinRequestTitle(
+      world: (world).toString(),
+      worldIdSuffix: (shouldShowRequestWorldId ? '($requestWorldIdLabel)' : '')
+          .toString(),
+    );
   }
 
   _JoinRequestApprovalStatus get joinRequestApprovalStatus {
@@ -297,28 +310,32 @@ class _NotificationItem {
   String get joinRequestListStatusText {
     switch (approvalStatus) {
       case _JoinRequestApprovalStatus.approved:
-        return 'Approved';
+        return GenesisL10n.current.approvedStatus;
       case _JoinRequestApprovalStatus.rejected:
-        return 'Rejected';
+        return GenesisL10n.current.rejectedStatus;
       case _JoinRequestApprovalStatus.pending:
         return isJoinRequestReview
-            ? 'Awaiting for approval'
-            : 'Awaiting your approval';
+            ? GenesisL10n.current.awaitingApprovalStatus
+            : GenesisL10n.current.awaitingYourApprovalStatus;
       case null:
-        return isJoinRequestReview ? 'Approved' : 'Awaiting your approval';
+        return isJoinRequestReview
+            ? GenesisL10n.current.approvedStatus
+            : GenesisL10n.current.awaitingYourApprovalStatus;
     }
   }
 
   String get joinRequestStatusText {
     switch (approvalStatus) {
       case _JoinRequestApprovalStatus.approved:
-        return 'Approved';
+        return GenesisL10n.current.approvedStatus;
       case _JoinRequestApprovalStatus.rejected:
-        return 'Rejected';
+        return GenesisL10n.current.rejectedStatus;
       case _JoinRequestApprovalStatus.pending:
-        return 'Awaiting your approval';
+        return GenesisL10n.current.awaitingYourApprovalStatus;
       case null:
-        return isJoinRequestReview ? 'Approved' : 'Awaiting your approval';
+        return isJoinRequestReview
+            ? GenesisL10n.current.approvedStatus
+            : GenesisL10n.current.awaitingYourApprovalStatus;
     }
   }
 
@@ -339,30 +356,93 @@ class _NotificationItem {
     final normalizedType = type.toLowerCase();
     final normalizedContent = content.toLowerCase();
     if (normalizedType == 'discuss_comment') {
-      return ' comment your worldo';
+      return GenesisL10n.current.inboxCommentWorldo;
     }
     if (normalizedType == 'discuss_reply') {
-      return ' reply to you';
+      return GenesisL10n.current.inboxReply;
     }
     if (normalizedType == 'discuss_like') {
-      return ' like your comment';
+      return GenesisL10n.current.inboxLikeComment;
     }
     if (normalizedType.contains('like') ||
-        normalizedContent.contains('liked your comment') ||
-        normalizedContent.contains('like your comment')) {
-      return ' like your comment';
+        normalizedContent.contains(GenesisL10n.current.inboxLikedComment) ||
+        normalizedContent.contains(
+          GenesisL10n.current.inboxComment2LikeComment,
+        )) {
+      return GenesisL10n.current.inboxLikeComment;
     }
     if (normalizedType.contains('reply') ||
-        normalizedContent.contains('replied to you') ||
-        normalizedContent.contains('reply to you')) {
-      return ' reply to you';
+        normalizedContent.contains(GenesisL10n.current.inboxReplied) ||
+        normalizedContent.contains(GenesisL10n.current.inboxYou2Reply)) {
+      return GenesisL10n.current.inboxReply;
     }
     if (normalizedType.contains('comment') ||
-        normalizedContent.contains('commented on your origin') ||
-        normalizedContent.contains('comment your origin')) {
-      return ' comment your worldo';
+        normalizedContent.contains(GenesisL10n.current.inboxCommentedOrigin) ||
+        normalizedContent.contains(GenesisL10n.current.inboxCommentOrigin)) {
+      return GenesisL10n.current.inboxCommentWorldo;
     }
-    return content.isEmpty ? ' sent you a message' : ' $content';
+    return content.isEmpty ? GenesisL10n.current.inboxSentMessage : ' $content';
+  }
+
+  String discussTitleTemplate(AppLocalizations l10n) {
+    final senderName = GenesisLocalizedRichText.placeholder('senderName');
+    final senderBadge = GenesisLocalizedRichText.placeholder('senderBadge');
+    final normalizedType = type.toLowerCase();
+    final normalizedContent = content.toLowerCase();
+    if (normalizedType == 'discuss_comment') {
+      return l10n.notificationCommentedOnWorldo(
+        senderName: senderName,
+        senderBadge: senderBadge,
+      );
+    }
+    if (normalizedType == 'discuss_reply') {
+      return l10n.notificationRepliedToYou(
+        senderName: senderName,
+        senderBadge: senderBadge,
+      );
+    }
+    if (normalizedType == 'discuss_like') {
+      return l10n.notificationLikedComment(
+        senderName: senderName,
+        senderBadge: senderBadge,
+      );
+    }
+    if (normalizedType.contains('like') ||
+        normalizedContent.contains(GenesisL10n.current.inboxLikedComment) ||
+        normalizedContent.contains(
+          GenesisL10n.current.inboxComment2LikeComment,
+        )) {
+      return l10n.notificationLikedComment(
+        senderName: senderName,
+        senderBadge: senderBadge,
+      );
+    }
+    if (normalizedType.contains('reply') ||
+        normalizedContent.contains(GenesisL10n.current.inboxReplied) ||
+        normalizedContent.contains(GenesisL10n.current.inboxYou2Reply)) {
+      return l10n.notificationRepliedToYou(
+        senderName: senderName,
+        senderBadge: senderBadge,
+      );
+    }
+    if (normalizedType.contains('comment') ||
+        normalizedContent.contains(GenesisL10n.current.inboxCommentedOrigin) ||
+        normalizedContent.contains(GenesisL10n.current.inboxCommentOrigin)) {
+      return l10n.notificationCommentedOnWorldo(
+        senderName: senderName,
+        senderBadge: senderBadge,
+      );
+    }
+    return content.isEmpty
+        ? l10n.notificationSentMessage(
+            senderName: senderName,
+            senderBadge: senderBadge,
+          )
+        : l10n.notificationGenericContent(
+            senderName: senderName,
+            senderBadge: senderBadge,
+            content: GenesisLocalizedRichText.placeholder('content'),
+          );
   }
 
   String get titleText => '$senderDisplayName$discussTitleSuffix';
@@ -371,16 +451,19 @@ class _NotificationItem {
     if (!isFollowNotification) return '';
     if (senderDeleted) return deletedEntityDisplayText;
     if (senderName.isNotEmpty) {
-      return formatUidForDisplay(senderName, fallback: 'User');
+      return formatUidForDisplay(
+        senderName,
+        fallback: GenesisL10n.current.worldoUser,
+      );
     }
-    final suffix = ' started following you.';
+    final suffix = GenesisL10n.current.inboxStartedFollowing;
     if (content.endsWith(suffix)) {
       return formatUidForDisplay(
         content.substring(0, content.length - suffix.length).trim(),
-        fallback: 'User',
+        fallback: GenesisL10n.current.worldoUser,
       );
     }
-    return 'User';
+    return GenesisL10n.current.worldoUser;
   }
 
   String get followUserUid {

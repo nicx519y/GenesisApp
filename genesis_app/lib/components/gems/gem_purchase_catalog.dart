@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -78,8 +79,10 @@ class GemBalancePanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'My Balance',
+              Text(
+                GenesisL10n
+                    .current
+                    .meMyBalance,
                 style: TextStyle(
                   fontSize: 14,
                   height: 18 / 14,
@@ -314,7 +317,9 @@ class GemProductCard extends StatelessWidget {
                         'gem-product-price-${product.productId}',
                       ),
                       label: isSoldOut
-                          ? 'Sold Out'
+                          ? GenesisL10n
+                                .current
+                                .meSoldOut
                           : formatGemPrice(
                               product.priceAmount,
                               product.priceCurrencyCode,
@@ -381,7 +386,11 @@ String formatGemPrice(int cents, String currencyCode) {
   if (text.endsWith('0')) text = text.substring(0, text.length - 1);
   if (text.endsWith('.0')) text = text.substring(0, text.length - 2);
   final cleanCurrencyCode = currencyCode.trim().toUpperCase();
-  final currencyLabel = cleanCurrencyCode == 'USD' ? r'$' : cleanCurrencyCode;
+  final currencyLabel =
+      cleanCurrencyCode ==
+          GenesisL10n.current.meUsd
+      ? r'$'
+      : cleanCurrencyCode;
   return '$currencyLabel$text';
 }
 

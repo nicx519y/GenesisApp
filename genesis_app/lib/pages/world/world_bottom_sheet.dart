@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../ui/components/genesis_dark_close_button.dart';
 // ignore_for_file: use_key_in_widget_constructors
 
@@ -505,7 +506,9 @@ class WorldSingleSectionBottomSheetState
       storageKey: 'world-status-section-bottom-sheet',
       characters: world.characters,
       currentUid: widget.currentUid,
-      emptyText: 'No character status yet.',
+      emptyText: GenesisL10n
+          .current
+          .worldDetailNoCharacterStatusYet,
       subtitleBuilder: (character) =>
           worldMetricStatusText(world.metric, character),
       subtitleColor: GenesisColors.darkTextSecondary,
@@ -520,7 +523,9 @@ class WorldSingleSectionBottomSheetState
       storageKey: 'world-cast-section-bottom-sheet',
       characters: world.characters,
       currentUid: widget.currentUid,
-      emptyText: 'No characters yet.',
+      emptyText: GenesisL10n
+          .current
+          .worldDetailNoCharactersYet,
       subtitleBuilder: worldCharacterDescriptionText,
       subtitleColor: GenesisColors.darkTextSecondary,
       showCharacterDetails: true,

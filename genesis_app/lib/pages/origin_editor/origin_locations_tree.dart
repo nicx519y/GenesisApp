@@ -183,21 +183,30 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
   }
 
   String _l1NeedsL2Message(_L1LocationForm l1) {
-    return '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
-        'must contain at least one L2 location.';
+    return GenesisL10n.current.createLocationL1NeedsL2(
+      locationLabel: _locationNameLabel(
+        l1.name,
+        fallback: GenesisL10n.current.createLocationThisL1,
+      ),
+    );
   }
 
   String _l2NeedsL3Message(_L2LocationForm l2) {
-    return '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
-        'must contain at least one L3 location.';
+    return GenesisL10n.current.createLocationL2NeedsL3(
+      locationLabel: _locationNameLabel(
+        l2.name,
+        fallback: GenesisL10n.current.createLocationThisL2,
+      ),
+    );
   }
 
   void _addL1Location() {
     if (_blockForRequiredLocation()) return;
     if (_l3LocationCount >= _OriginLocationsEditorPageState._maxLocations) {
       _showError(
-        'You can add up to '
-        '${_OriginLocationsEditorPageState._maxLocations} L3 locations.',
+        GenesisL10n.current.createLocationMaxL3(
+          count: _OriginLocationsEditorPageState._maxLocations,
+        ),
       );
       return;
     }
@@ -216,8 +225,9 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     if (_blockForRequiredLocation()) return;
     if (_l3LocationCount >= _OriginLocationsEditorPageState._maxLocations) {
       _showError(
-        'You can add up to '
-        '${_OriginLocationsEditorPageState._maxLocations} L3 locations.',
+        GenesisL10n.current.createLocationMaxL3(
+          count: _OriginLocationsEditorPageState._maxLocations,
+        ),
       );
       return;
     }
@@ -236,9 +246,9 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     if (_blockForRequiredLocation()) return;
     if (_l3LocationCount >= _OriginLocationsEditorPageState._maxLocations) {
       _showError(
-        "You've used all "
-        '${_OriginLocationsEditorPageState._maxLocations} rooms. '
-        'Delete one to add another.',
+        GenesisL10n.current.createLocationRoomsFull(
+          count: _OriginLocationsEditorPageState._maxLocations,
+        ),
       );
       return;
     }
@@ -265,7 +275,7 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
 
   void _removeL1Location(_L1LocationForm form) {
     if (_treeForms.length == 1) {
-      _showError('At least one L1 location is required.');
+      _showError(GenesisL10n.current.createLocationAtLeastOneL1);
       return;
     }
     final restoresRootAdd =
@@ -390,10 +400,9 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     if (count == 0) return true;
     return await showGenesisActionBox<bool>(
           context: context,
-          title: 'Remove character from location?',
+          title: GenesisL10n.current.createLocationRemoveCharacter,
           titleContent: Text(
-            'Saving Locations will also delete $count Opening dialogue '
-            '${count == 1 ? 'bubble' : 'bubbles'} for the removed characters.',
+            GenesisL10n.current.createLocationDeleteBubbles(count: count),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: GenesisColors.darkTextSecondary,
@@ -402,10 +411,13 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
             ),
           ),
           titleHeight: 120,
-          actions: const [
-            GenesisActionBoxAction<bool>(label: 'Remove', value: true),
+          actions: [
+            GenesisActionBoxAction<bool>(
+              label: GenesisL10n.current.createLocationRemove,
+              value: true,
+            ),
           ],
-          cancelLabel: 'Cancel',
+          cancelLabel: GenesisL10n.current.searchCancel,
         ) ==
         true;
   }

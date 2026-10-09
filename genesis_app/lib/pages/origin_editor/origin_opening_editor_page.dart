@@ -103,11 +103,14 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     if (_dialogueItems.any((item) => item.hasContent)) {
       final shouldContinue = await showGenesisActionBox<bool>(
         context: context,
-        title: 'Switching locations will clear the dialogue content.',
-        actions: const [
-          GenesisActionBoxAction<bool>(label: 'Continue', value: true),
+        title: GenesisL10n.current.createOpeningSwitchingLocations,
+        actions: [
+          GenesisActionBoxAction<bool>(
+            label: GenesisL10n.current.createOpeningContinue,
+            value: true,
+          ),
         ],
-        cancelLabel: 'Cancel',
+        cancelLabel: GenesisL10n.current.searchCancel,
       );
       if (!mounted || shouldContinue != true) return;
     }
@@ -150,7 +153,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     if (_dialogueItems.length >= _maxDialogueItems) {
       showGenesisToast(
         context,
-        'You can add up to 10 dialogue items.',
+        GenesisL10n.current.createOpeningAdd10DialogueItems,
         brightness: Brightness.dark,
       );
       return;
@@ -218,7 +221,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
           if (mounted) {
             showGenesisToast(
               context,
-              'Unable to save suggested role.',
+              GenesisL10n.current.settingsUnableSaveSuggestedRole,
               brightness: Brightness.dark,
             );
           }
@@ -231,17 +234,17 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   }
 
   String get _saveDisabledReason {
-    if (_isSaving) return 'Saving is already in progress.';
+    if (_isSaving) return GenesisL10n.current.createSaveInProgress;
     if (_selectedOption == null) {
-      return 'Select an initial location before saving.';
+      return GenesisL10n.current.createOpeningInitialLocationRequired;
     }
     if (_dialogueItems.isEmpty) {
-      return 'Add at least one dialogue item before saving.';
+      return GenesisL10n.current.createOpeningAddDialogueFirst;
     }
     if (_dialogueItems.any((item) => !item.hasContent)) {
-      return 'Complete every dialogue item before saving.';
+      return GenesisL10n.current.createOpeningCompleteDialogue;
     }
-    return 'Complete all required fields before saving.';
+    return GenesisL10n.current.createRequiredBeforeSave;
   }
 
   Future<void> _save() async {
@@ -268,7 +271,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
       setState(() => _isSaving = false);
       showGenesisToast(
         context,
-        'Unable to save Opening.',
+        GenesisL10n.current.createOpeningUnableSaveOpening,
         brightness: Brightness.dark,
       );
     }
@@ -297,8 +300,8 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: GenesisColors.darkBackground,
-      appBar: const GenesisBackAppBar(
-        pageName: 'Opening',
+      appBar: GenesisBackAppBar(
+        pageName: GenesisL10n.current.createOpeningOpening,
         backgroundColor: GenesisColors.darkBackground,
         foregroundColor: GenesisColors.darkTextPrimary,
         systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
@@ -329,8 +332,10 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Select initial location',
+                                Text(
+                                  GenesisL10n
+                                      .current
+                                      .createOpeningSelectInitial,
                                   key: ValueKey<String>(
                                     'opening-location-title',
                                   ),
@@ -358,9 +363,11 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                 const SizedBox(height: _fieldGroupGap),
                                 Row(
                                   children: [
-                                    const Expanded(
+                                    Expanded(
                                       child: Text(
-                                        'Opening dialogue',
+                                        GenesisL10n
+                                            .current
+                                            .createOpeningDialogue,
                                         key: ValueKey<String>(
                                           'opening-dialogue-title',
                                         ),
@@ -393,12 +400,13 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                       : 16,
                                 ),
                                 if (selected == null)
-                                  const CreateFormNote(
+                                  CreateFormNote(
                                     key: ValueKey<String>(
                                       'opening-location-note',
                                     ),
-                                    note:
-                                        'Select a location first, then edit the dialogue.',
+                                    note: GenesisL10n
+                                        .current
+                                        .createOpeningLocationRequired,
                                   ),
                               ],
                             ),
@@ -425,7 +433,9 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                   _KeyboardHiddenBottomAction(
                     minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                     child: GenesisPrimaryButton(
-                      label: _isSaving ? 'Saving...' : 'Save',
+                      label: _isSaving
+                          ? GenesisL10n.current.createBasicsSaving
+                          : GenesisL10n.current.chatSave,
                       isLoading: _isSaving,
                       showLoadingIndicator: false,
                       backgroundColor: GenesisColors.redPrimary,

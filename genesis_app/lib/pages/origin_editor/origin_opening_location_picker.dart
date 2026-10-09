@@ -27,7 +27,9 @@ class _OpeningLocationPickerSheetState
   @override
   Widget build(BuildContext context) {
     return GenesisBottomSheetPanel(
-      title: 'Select Location',
+      title: GenesisL10n
+          .current
+          .createOpeningSelectLocation,
       height: MediaQuery.sizeOf(context).height * 0.58,
       trailing: GenesisBottomSheetCloseButton(
         onPressed: () => Navigator.of(context).pop(),
@@ -36,9 +38,11 @@ class _OpeningLocationPickerSheetState
         children: [
           Expanded(
             child: widget.options.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No saved locations',
+                      GenesisL10n
+                          .current
+                          .createOpeningNoSavedLocations,
                       style: TextStyle(
                         color: GenesisColors.darkTextTertiary,
                         fontSize: 14,
@@ -69,7 +73,8 @@ class _OpeningLocationPickerSheetState
             children: [
               Expanded(
                 child: GenesisPrimaryButton(
-                  label: 'Cancel',
+                  label:
+                      GenesisL10n.current.searchCancel,
                   onPressed: () => Navigator.of(context).pop(),
                   backgroundColor: GenesisColors.darkFaintFill,
                   foregroundColor: GenesisColors.darkTextPrimary,
@@ -78,12 +83,18 @@ class _OpeningLocationPickerSheetState
               const SizedBox(width: 18),
               Expanded(
                 child: GenesisPrimaryButton(
-                  label: 'Select',
+                  label: GenesisL10n
+                      .current
+                      .createOpeningSelect,
                   onPressed: _selection == null
                       ? null
                       : () => Navigator.of(context).pop(_selection),
-                  onDisabledPressed: () =>
-                      showGenesisToast(context, 'Select a location first.'),
+                  onDisabledPressed: () => showGenesisToast(
+                    context,
+                    GenesisL10n
+                        .current
+                        .createOpeningSelectLocationFirst,
+                  ),
                   backgroundColor: GenesisColors.redPrimary,
                   foregroundColor: GenesisColors.darkTextPrimary,
                 ),
@@ -159,7 +170,9 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                       Expanded(
                         child: Text(
                           option.characterNames.isEmpty
-                              ? 'No initial character'
+                              ? GenesisL10n
+                                    .current
+                                    .createOpeningNoInitialCharacter
                               : option.characterNames,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

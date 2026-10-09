@@ -12,7 +12,7 @@ class GenesisPageHeader extends StatelessWidget {
     this.horizontalPadding = GenesisSpacing.page,
     this.topPadding = GenesisSpacing.md,
     this.showSearchField = true,
-    this.searchHintText = genesisSearchHintText,
+    this.searchHintText,
     this.onSearchTap,
   });
 
@@ -20,7 +20,7 @@ class GenesisPageHeader extends StatelessWidget {
   final double horizontalPadding;
   final double topPadding;
   final bool showSearchField;
-  final String searchHintText;
+  final String? searchHintText;
   final VoidCallback? onSearchTap;
 
   @override

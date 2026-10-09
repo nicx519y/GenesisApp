@@ -5,6 +5,34 @@ import 'package:genesis_flutter_android/network/models/app_version_check.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
+  testWidgets('upgrade fallback copy uses localized messages', (tester) async {
+    final response = AppVersionCheckResponse.fromJson({
+      'latest_version_name': '2.3.4',
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ForceUpgradePage(
+          response: response,
+          onUpdate: () {},
+          hasCheckError: true,
+        ),
+      ),
+    );
+
+    expect(find.text('Update required'), findsOneWidget);
+    expect(
+      find.text(
+        'Please update to the latest version to continue using Worldo.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Version 2.3.4'), findsOneWidget);
+    expect(
+      find.text('Unable to refresh update status. Please update to continue.'),
+      findsOneWidget,
+    );
+  });
+
   for (final preview in [false, true]) {
     testWidgets(
       'upgrade page dark surface and return policy preview=$preview',

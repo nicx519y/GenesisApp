@@ -104,7 +104,9 @@ extension _WorldPageSheets on _WorldPageState {
         !worldCanDeleteLaunchedOnlyBySelf(world, _currentUid)) {
       showGenesisToast(
         actionContext,
-        'Only worlds launched by you alone can be deleted.',
+        GenesisL10n
+            .current
+            .worldDetailOnlyWorldsLaunched,
         duration: const Duration(seconds: 3),
         brightness: Brightness.dark,
       );
@@ -116,10 +118,15 @@ extension _WorldPageSheets on _WorldPageState {
       title: '',
       titleWidget: _DeleteWorldConfirmationTitle(name: world.name.trim()),
       titleHeight: null,
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Delete', value: true),
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n
+              .current
+              .worldDetailDelete,
+          value: true,
+        ),
       ],
-      cancelLabel: 'Cancel',
+      cancelLabel: GenesisL10n.current.searchCancel,
     );
     if (confirmed != true || !mounted || !actionContext.mounted) return;
     final api = AppServicesScope.read(actionContext).api;
@@ -161,16 +168,18 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedName = name.trim().isEmpty ? 'this World' : name.trim();
+    final resolvedName = name.trim().isEmpty
+        ? GenesisL10n.current.thisWorld
+        : name.trim();
     return Center(
-      child: Text.rich(
-        TextSpan(
-          style: _baseStyle,
-          children: [
-            const TextSpan(text: 'Delete world '),
-            TextSpan(text: resolvedName, style: _nameStyle),
-          ],
+      child: GenesisLocalizedRichText(
+        template: context.l10n.worldDeleteConfirmation(
+          worldName: GenesisLocalizedRichText.placeholder('worldName'),
         ),
+        placeholders: {
+          'worldName': TextSpan(text: resolvedName, style: _nameStyle),
+        },
+        style: _baseStyle,
         textAlign: TextAlign.center,
       ),
     );

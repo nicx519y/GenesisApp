@@ -42,13 +42,13 @@ class ChatMessageVm {
 
   factory ChatMessageVm.aiContentDisclaimer({
     String localId = chatAiContentDisclaimerMessageLocalId,
-    String text = kAiContentDisclaimerText,
+    String? text,
   }) {
     return ChatMessageVm(
       localId: localId,
       senderId: '',
       senderName: '',
-      text: text,
+      text: text ?? kAiContentDisclaimerText,
       isMe: false,
       status: 'system',
       senderType: chatAiContentDisclaimerSenderType,

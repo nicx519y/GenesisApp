@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -49,7 +50,7 @@ class _LoginSheetState extends State<LoginSheet> {
         debugPrint('[Auth][LoginSheet] login failed: onLogin returned false');
         showGenesisToast(
           context,
-          'Sign-in failed',
+          GenesisL10n.current.homeSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -67,7 +68,9 @@ class _LoginSheetState extends State<LoginSheet> {
       final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty ? 'Sign-in failed' : message,
+        message.isEmpty
+            ? GenesisL10n.current.homeSignInFailed
+            : message,
         brightness: Brightness.dark,
       );
     } finally {
@@ -95,12 +98,18 @@ class _LoginSheetState extends State<LoginSheet> {
             ),
             child: GenesisBottomSheetPanel(
               title: widget.linkPurchasedMembership
-                  ? 'Sign up to claim Premium'
-                  : 'Sign up to continue',
+                  ? GenesisL10n
+                        .current
+                        .meSignUpClaimPremium
+                  : GenesisL10n
+                        .current
+                        .meSignUpContinue,
               height: targetHeight,
               header: widget.linkPurchasedMembership
-                  ? const GenesisActionSheetHeader(
-                      title: 'Sign up to claim Premium',
+                  ? GenesisActionSheetHeader(
+                      title: GenesisL10n
+                          .current
+                          .meSignUpClaimPremium,
                       leading: ProMembershipBadge.beside(fontSize: 18),
                     )
                   : null,

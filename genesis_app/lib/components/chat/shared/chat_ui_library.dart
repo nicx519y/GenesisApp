@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -19,6 +20,8 @@ import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_character_avatar.dart';
+import '../../../ui/components/genesis_localized_rich_text.dart';
+import '../../../l10n/genesis_localizations.dart';
 import '../../../ui/components/genesis_asterisk_icon.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/components/genesis_soft_italic_text.dart';

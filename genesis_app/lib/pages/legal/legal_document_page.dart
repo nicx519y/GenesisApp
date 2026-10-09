@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,14 +11,19 @@ import '../../ui/theme/genesis_dark_theme.dart';
 import 'legal_document_dark_style.dart';
 
 enum LegalDocument {
-  terms(title: 'Terms of Service', url: 'https://worldo.ai/terms/'),
-  privacy(title: 'Privacy Policy', url: 'https://worldo.ai/privacy/'),
-  eula(title: 'End User License Agreement', url: 'https://worldo.ai/eula/');
+  terms(url: 'https://worldo.ai/terms/'),
+  privacy(url: 'https://worldo.ai/privacy/'),
+  eula(url: 'https://worldo.ai/eula/');
 
-  const LegalDocument({required this.title, required this.url});
+  const LegalDocument({required this.url});
 
-  final String title;
   final String url;
+
+  String get title => switch (this) {
+    LegalDocument.terms => GenesisL10n.current.termsOfService,
+    LegalDocument.privacy => GenesisL10n.current.privacyPolicy,
+    LegalDocument.eula => GenesisL10n.current.endUserLicenseAgreement,
+  };
 
   static LegalDocument fromRouteValue(String value) {
     return LegalDocument.values.firstWhere(
@@ -239,8 +245,10 @@ class _LegalWebErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Load failed',
+            Text(
+              GenesisL10n
+                  .current
+                  .homeLoadFailed,
               style: TextStyle(
                 fontSize: 16,
                 color: GenesisColors.darkTextPrimary,
@@ -265,7 +273,9 @@ class _LegalWebErrorView extends StatelessWidget {
                 foregroundColor: GenesisColors.darkTextPrimary,
                 side: const BorderSide(color: GenesisColors.darkFaintFill),
               ),
-              child: const Text('Retry'),
+              child: Text(
+                GenesisL10n.current.homeRetry,
+              ),
             ),
           ],
         ),

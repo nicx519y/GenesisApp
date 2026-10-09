@@ -7,7 +7,7 @@ extension _MePageActions on _MePageState {
     if (login == null) {
       showGenesisToast(
         context,
-        'Sign-in unavailable',
+        GenesisL10n.current.homeSignInUnavailable,
         brightness: Brightness.dark,
       );
       return;
@@ -30,7 +30,7 @@ extension _MePageActions on _MePageState {
       } else {
         showGenesisToast(
           context,
-          'Sign-in failed',
+          GenesisL10n.current.homeSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -43,7 +43,9 @@ extension _MePageActions on _MePageState {
       final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty ? 'Sign-in failed' : message,
+        message.isEmpty
+            ? GenesisL10n.current.homeSignInFailed
+            : message,
         brightness: Brightness.dark,
       );
     } finally {
@@ -78,7 +80,7 @@ extension _MePageActions on _MePageState {
       if (!launched && mounted) {
         showGenesisToast(
           context,
-          'Could not open Discord',
+          GenesisL10n.current.meFailedOpenDiscord,
           brightness: Brightness.dark,
         );
       }
@@ -86,7 +88,7 @@ extension _MePageActions on _MePageState {
       if (mounted) {
         showGenesisToast(
           context,
-          'Could not open Discord',
+          GenesisL10n.current.meFailedOpenDiscord,
           brightness: Brightness.dark,
         );
       }
@@ -116,7 +118,7 @@ extension _MePageActions on _MePageState {
       if (!mounted) return;
       showGenesisToast(
         context,
-        'Image pick failed',
+        GenesisL10n.current.meImagePickFailed,
         brightness: Brightness.dark,
       );
       return;
@@ -198,7 +200,11 @@ extension _MePageActions on _MePageState {
       _displayName.value = updatedDisplayName;
     } catch (_) {
       if (!mounted) return;
-      showGenesisToast(context, 'Update failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.meUpdateFailed,
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _isUpdatingProfile.value = false;
     }
@@ -220,7 +226,11 @@ extension _MePageActions on _MePageState {
       _avatarUrl.value = updatedAvatarUrl;
     } catch (_) {
       if (!mounted) return;
-      showGenesisToast(context, 'Update failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.meUpdateFailed,
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _isUpdatingProfile.value = false;
     }

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_dark_close_button.dart';
@@ -23,7 +24,9 @@ class GenesisBottomSheetCloseButton extends StatelessWidget {
       key: buttonKey,
       dimension: 24,
       child: IconButton(
-        tooltip: 'Close',
+        tooltip: GenesisL10n
+            .current
+            .commonClose,
         onPressed: onPressed,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints.tightFor(width: 24, height: 24),

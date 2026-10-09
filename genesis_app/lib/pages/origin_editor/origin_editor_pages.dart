@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -395,14 +396,14 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     }
     if (widget.updateNotesController != null &&
         widget.updateNotesController!.text.trim().isEmpty) {
-      return 'Update notes are required to publish.';
+      return GenesisL10n.current.createNotesRequired;
     }
     return null;
   }
 
   void _showSubmitDisabledReason() {
     if (_isSubmitting || widget.submitStatus != OriginDraftSubmitStatus.idle) {
-      _showError('This action is already in progress.');
+      _showError(GenesisL10n.current.createActionInProgress);
       return;
     }
     _showError(_submitBlockReason(_draft) ?? widget.submitUnavailableMessage);
@@ -440,13 +441,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         title: widget.leaveTitle,
         actions: [
           GenesisActionBoxAction<_DraftLeaveAction>(
-            label: widget.leaveSubmitLabel ?? 'Save',
+            label: widget.leaveSubmitLabel ?? GenesisL10n.current.chatSave,
             value: widget.leaveSubmitLabel == null
                 ? _DraftLeaveAction.save
                 : _DraftLeaveAction.submit,
           ),
-          const GenesisActionBoxAction<_DraftLeaveAction>(
-            label: 'Discard',
+          GenesisActionBoxAction<_DraftLeaveAction>(
+            label: GenesisL10n.current.createDiscard,
             value: _DraftLeaveAction.discard,
           ),
         ],
@@ -596,14 +597,18 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 if (widget.showCurrentVersion) ...[
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Current Version: ${_versionLabel(_draft.basics.originVersion)}',
+                                    GenesisL10n.current.createCurrentVersion(
+                                      version: _versionLabel(
+                                        _draft.basics.originVersion,
+                                      ),
+                                    ),
                                     style: _editSummaryLabelStyle,
                                   ),
                                   const SizedBox(height: 20),
                                 ],
                                 _SectionRow(
                                   icon: createOriginBasicsIconAsset,
-                                  title: 'Basics',
+                                  title: GenesisL10n.current.createBasicsBasics,
                                   summary: _basicsSummary(_draft),
                                   modified: _basicsModified(_draft),
                                   onTap: () => _openSection(
@@ -613,7 +618,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 ),
                                 _SectionRow(
                                   icon: createOriginCharactersIconAsset,
-                                  title: 'Characters (>=1)',
+                                  title:
+                                      GenesisL10n.current.createCharactersStep,
                                   summary: _charactersSummary(_draft),
                                   modified: _charactersModified(_draft),
                                   wrapFirstSummaryLine: true,
@@ -626,7 +632,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 ),
                                 _SectionRow(
                                   icon: createOriginLocationsIconAsset,
-                                  title: 'Locations (>=1)',
+                                  title:
+                                      GenesisL10n.current.createLocationsStep,
                                   summary: _locationsSummary(_draft),
                                   modified: _locationsModified(_draft),
                                   onTap: () => _openSection(
@@ -642,7 +649,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                       'create-opening-section',
                                     ),
                                     icon: createOriginOpeningIconAsset,
-                                    title: 'Opening',
+                                    title: GenesisL10n
+                                        .current
+                                        .createOpeningOpening,
                                     summary: _openingSummary(_draft),
                                     modified: _openingModified(_draft),
                                     onTap: () => _openSection(
@@ -654,7 +663,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   ),
                                 _SectionRow(
                                   icon: createOriginStoryEventsIconAsset,
-                                  title: 'Story Events (Optional)',
+                                  title: GenesisL10n
+                                      .current
+                                      .createStoryEventsOptional,
                                   summary: _storyEventsSummary(_draft),
                                   modified: _storyEventsModified(_draft),
                                   showDivider: false,
@@ -697,21 +708,29 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     if (_isSubmitting) return widget.submittingLabel;
     return switch (widget.submitStatus) {
       OriginDraftSubmitStatus.idle => widget.submitLabel,
-      OriginDraftSubmitStatus.checkingPending => 'Checking...',
+      OriginDraftSubmitStatus.checkingPending =>
+        GenesisL10n.current.createChecking,
       OriginDraftSubmitStatus.processing => widget.submittingLabel,
     };
   }
 
   String _basicsSummary(CreateOriginDraft draft) {
-    if (!draft.basicsSaved) return 'Not started yet';
+    if (!draft.basicsSaved) return GenesisL10n.current.createNotStartedYet;
     final basics = draft.basics;
+    final l10n = GenesisL10n.current;
     return [
-      'Worldo Name: ${_originNameSummaryValue(basics.originName)}',
-      'Worldo Brief: ${_summaryValue(basics.worldView)}',
-      'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
-      'Worldo Settings: ${_summaryValue(basics.worldLogic)}',
-      'Worldo Time: ${_summaryValue(_worldTimeSummary(basics))}',
-      'Worldo Metric: ${_summaryValue(_progressMetricSummary(basics))}',
+      l10n.createSummaryName(name: _originNameSummaryValue(basics.originName)),
+      l10n.createSummaryBrief(brief: _summaryValue(basics.worldView)),
+      l10n.createSummaryCover(
+        status: basics.coverImageUrl.trim().isEmpty
+            ? l10n.createNotUploaded
+            : l10n.createUploaded,
+      ),
+      l10n.createSummarySettings(settings: _summaryValue(basics.worldLogic)),
+      l10n.createSummaryTime(time: _summaryValue(_worldTimeSummary(basics))),
+      l10n.createSummaryMetric(
+        metric: _summaryValue(_progressMetricSummary(basics)),
+      ),
     ].join('\n');
   }
 
@@ -722,9 +741,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       if (_singleLineSummaryText(basics.tickDurationTime).isNotEmpty)
         _singleLineSummaryText(basics.tickDurationTime)
       else if (basics.tickDurationDays != null)
-        basics.tickDurationDays == 1
-            ? '1 day'
-            : '${basics.tickDurationDays} days',
+        GenesisL10n.current.createDays(count: basics.tickDurationDays!),
     ];
     return parts.join(', ');
   }
@@ -760,7 +777,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   }
 
   String _charactersSummary(CreateOriginDraft draft) {
-    if (!draft.charactersSaved) return 'Not started yet';
+    if (!draft.charactersSaved) return GenesisL10n.current.createNotStartedYet;
     final characters = draft.characters
         .where(_characterDraftHasContent)
         .toList(growable: false);
@@ -773,15 +790,16 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         .map((item) => _singleLineSummaryText(item.name))
         .where((name) => name.isNotEmpty)
         .firstOrNull;
+    final l10n = GenesisL10n.current;
     final characterSummary = characters.isEmpty
-        ? '0 characters'
-        : '${characters.length} characters: $names';
+        ? l10n.createSummaryNoCharacters
+        : l10n.createSummaryCharacters(count: characters.length, names: names);
     if (bestRoleName == null) return characterSummary;
-    return '$characterSummary\nSuggested: $bestRoleName';
+    return '$characterSummary\n${l10n.createSummarySuggested(name: bestRoleName)}';
   }
 
   String _locationsSummary(CreateOriginDraft draft) {
-    if (!draft.locationsSaved) return 'Not started yet';
+    if (!draft.locationsSaved) return GenesisL10n.current.createNotStartedYet;
     final locations = draft.locations
         .where(_locationDraftHasContent)
         .toList(growable: false);
@@ -790,22 +808,25 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final l3Count = locations
         .where((item) => item.level != 1 && item.level != 2)
         .length;
-    return 'L1 · Region : $l1Count\n'
-        'L2 · Building : $l2Count\n'
-        'L3 · Room : $l3Count';
+    final l10n = GenesisL10n.current;
+    return [
+      l10n.createSummaryRegion(count: l1Count),
+      l10n.createSummaryBuilding(count: l2Count),
+      l10n.createSummaryRoom(count: l3Count),
+    ].join('\n');
   }
 
   String _storyEventsSummary(CreateOriginDraft draft) {
-    if (!draft.storyEventsSaved) return 'Not started yet';
+    if (!draft.storyEventsSaved) return GenesisL10n.current.createNotStartedYet;
     final count = draft.storyEvents
         .map((item) => item.event.trim())
         .where((item) => item.isNotEmpty)
         .length;
-    return '$count events';
+    return GenesisL10n.current.createSummaryEvents(count: count);
   }
 
   String _openingSummary(CreateOriginDraft draft) {
-    if (!draft.openingSaved) return 'Not started yet';
+    if (!draft.openingSaved) return GenesisL10n.current.createNotStartedYet;
     final opening = draft.opening;
     final locationName = _singleLineSummaryText(opening.locationName);
     var characterDialogueCount = 0;
@@ -821,11 +842,12 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           imageCount += 1;
       }
     }
+    final l10n = GenesisL10n.current;
     return <String>[
       locationName.isEmpty ? '-' : locationName,
-      'Character dialogue : $characterDialogueCount',
-      'Narrator : $narratorCount',
-      'Image : $imageCount',
+      l10n.createSummaryDialogue(count: characterDialogueCount),
+      l10n.createSummaryNarrator(count: narratorCount),
+      l10n.createSummaryImage(count: imageCount),
     ].join('\n');
   }
 
@@ -889,8 +911,8 @@ class _UpdateNotesFieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Update notes (required to publish)',
+    return Text(
+      GenesisL10n.current.createUpdateNotesRequiredPublish,
       style: _editSummaryLabelStyle,
     );
   }
@@ -906,7 +928,7 @@ class _UpdateNotesField extends StatelessWidget {
     return CreateTextFieldBlock(
       label: '',
       controller: controller,
-      hintText: 'What changed in this version?',
+      hintText: GenesisL10n.current.createWhatChangedVersion,
       fillColor: GenesisColors.darkFaintFill,
       textColor: GenesisColors.darkTextPrimary,
       hintColor: GenesisColors.darkInputPlaceholder,

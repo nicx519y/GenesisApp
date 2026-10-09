@@ -135,17 +135,15 @@ void main() {
         );
         expect(richText.style?.fontSize, 13);
         final root = richText.textSpan! as TextSpan;
-        final message = root.children!.first as TextSpan;
-        expect((message.children!.last as TextSpan).text, '"1"');
-        expect(
-          (message.children!.last as TextSpan).style?.color,
-          GenesisColors.redSecondary,
+        final spans = root.children!.whereType<TextSpan>().toList();
+        final remainingSpan = spans.singleWhere((span) => span.text == '"1"');
+        final actionSpan = spans.singleWhere(
+          (span) => span.text == 'Get more >',
         );
-        expect(
-          (root.children!.last as TextSpan).style?.color,
-          GenesisColors.redSecondary,
-        );
-        expect((root.children!.last as TextSpan).text, '\nGet more >');
+        expect(remainingSpan.text, '"1"');
+        expect(remainingSpan.style?.color, GenesisColors.redSecondary);
+        expect(actionSpan.style?.color, GenesisColors.redSecondary);
+        expect(actionSpan.text, 'Get more >');
         expect(
           tester.getTopLeft(prompt).dy -
               tester
@@ -1305,8 +1303,14 @@ void main() {
                 style: kLocationChatStyle,
                 promptKey: const ValueKey('guest-subscription-prompt'),
                 semanticsLabel: 'Get more',
-                message: const TextSpan(text: 'Subscription'),
-                actionLabel: 'Get more >',
+                template: '{message}\n{action}',
+                placeholders: const {
+                  'message': TextSpan(text: 'Subscription'),
+                  'action': TextSpan(
+                    text: 'Get more >',
+                    style: TextStyle(color: GenesisColors.redSecondary),
+                  ),
+                },
               ),
             ),
           ),

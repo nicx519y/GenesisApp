@@ -83,7 +83,9 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
       final quota = services.featureQuotas.quotaFor(feature);
       if (quota == null || (!quota.unlimited && quota.remaining == null)) {
         throw ApiException(
-          message: 'Could not check free uses. Please try again.',
+          message: GenesisL10n
+              .current
+              .chatQuotaCheckFailed,
           kind: ApiExceptionKind.response,
         );
       }

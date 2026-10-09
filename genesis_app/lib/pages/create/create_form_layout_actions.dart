@@ -122,18 +122,31 @@ Future<bool> confirmCreateFormDelete(
     builder: (dialogContext) {
       return AlertDialog(
         title: Text(
-          'Delete $itemLabel?',
+          GenesisL10n.current
+              .createDeleteItemLabel(
+                itemLabel: (itemLabel).toString(),
+              ),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        content: const Text('This item has content. Delete it anyway?'),
+        content: Text(
+          GenesisL10n
+              .current
+              .createItemHasContentDeleteAnyway,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(
+              GenesisL10n.current.searchCancel,
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: Text(
+              GenesisL10n
+                  .current
+                  .worldDetailDelete,
+            ),
           ),
         ],
       );

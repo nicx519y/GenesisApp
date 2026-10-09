@@ -144,7 +144,13 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      showGenesisToast(context, 'Post failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n
+            .current
+            .worldoPostFailed,
+        brightness: Brightness.dark,
+      );
     }
   }
 
@@ -305,7 +311,9 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       });
       showGenesisToast(
         context,
-        'Image upload failed',
+        GenesisL10n
+            .current
+            .worldoImageUploadFailed,
         brightness: Brightness.dark,
       );
       rethrow;

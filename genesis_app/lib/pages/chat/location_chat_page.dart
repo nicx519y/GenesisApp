@@ -1,3 +1,4 @@
+import '../../../../../../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -1202,7 +1203,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               controller: _textController,
               focusNode: _composerFocusNode,
               onInputTap: _handleComposerInputTap,
-              hintText: 'Text...',
+              hintText: GenesisL10n
+                  .current
+                  .chatText,
               inputEnabled:
                   widget.active &&
                   !(_initialMessageSendPending &&
@@ -1557,8 +1560,10 @@ class _LocationChatRoster extends StatelessWidget {
                                   ),
                                   if (isSelf) ...[
                                     const SizedBox(width: 8),
-                                    const Text(
-                                      'YOU',
+                                    Text(
+                                      GenesisL10n
+                                          .current
+                                          .chatLocationRoster,
                                       style: TextStyle(
                                         color: accentSoft,
                                         fontSize: 9.5,

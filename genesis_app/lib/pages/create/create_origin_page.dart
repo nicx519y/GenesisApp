@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -69,16 +70,16 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   @override
   Widget build(BuildContext context) {
     final flow = OriginDraftFlowPage(
-      title: 'Create Worldo',
+      title: GenesisL10n.current.createWorldoTitle,
       repository: _repository,
       basicsPageBuilder: (_) => const CreateBasicsPage(),
       charactersPageBuilder: (_) => const CreateCharactersPage(),
       locationsPageBuilder: (_) => const CreateLocationsPage(),
       openingPageBuilder: (_) => const CreateOpeningPage(),
       storyEventsPageBuilder: (_) => const CreateStoryEventsPage(),
-      failurePrefix: 'Create failed',
-      submitLabel: 'Create',
-      submittingLabel: 'Creating...',
+      failurePrefix: GenesisL10n.current.createFailed,
+      submitLabel: GenesisL10n.current.createAction,
+      submittingLabel: GenesisL10n.current.createCreating,
       onSubmit: _onCreate,
       submitStatus: _submitStatus,
       reloadSignal: _reloadSignal,

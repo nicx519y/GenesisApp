@@ -785,9 +785,11 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
                       top: 15,
                       child: SizedBox(
                         height: 28,
-                        child: const Center(
+                        child: Center(
                           child: Text(
-                            'Mention',
+                            GenesisL10n
+                                .current
+                                .chatMention,
                             style: TextStyle(
                               color: _locationChatMentionPrimaryForeground,
                               fontSize: 16,
@@ -830,7 +832,12 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
               ),
               GenesisTabBar(
                 controller: _tabController,
-                labels: const <String>['Characters', 'Locations'],
+                labels: <String>[
+                  GenesisL10n
+                      .current
+                      .chatCharacters,
+                  GenesisL10n.current.worldModelsLocations,
+                ],
                 horizontalPadding: 8,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                 labelFontSize: 14,
@@ -861,7 +868,9 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
                             'location-chat-character-mentions',
                           ),
                           entries: widget.catalog.characters,
-                          emptyLabel: 'No characters',
+                          emptyLabel: GenesisL10n
+                              .current
+                              .chatNoCharacters,
                           currentEntryIds: widget
                               .catalog
                               .currentLocationCharacters
@@ -874,7 +883,9 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
                             'location-chat-location-mentions',
                           ),
                           entries: widget.catalog.locations,
-                          emptyLabel: 'No locations',
+                          emptyLabel: GenesisL10n
+                              .current
+                              .chatNoLocations,
                         ),
                       ],
                     ),
@@ -1071,8 +1082,10 @@ class _LocationChatMentionHereLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Here',
+    return Text(
+      GenesisL10n
+          .current
+          .chatHere,
       style: TextStyle(
         color: GenesisColors.darkTextTertiary,
         fontSize: 12,

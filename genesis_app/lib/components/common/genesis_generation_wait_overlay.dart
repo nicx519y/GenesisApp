@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import '../../ui/tokens/genesis_blur.dart';
+import '../../l10n/genesis_l10n.dart';
 
 import 'package:flutter/material.dart';
 
@@ -20,19 +21,18 @@ class GenesisGenerationWaitAvatar {
 }
 
 class GenesisGenerationWaitOverlay extends StatefulWidget {
-  const GenesisGenerationWaitOverlay({
+  GenesisGenerationWaitOverlay({
     super.key,
-    this.title = 'AI is generating',
-    this.message =
-        'Generating a live and customized world for you.\n'
-        'Please wait for a moment.',
+    String? title,
+    String? message,
     this.illustration,
     this.characterAvatars = const <GenesisGenerationWaitAvatar>[],
     this.animateTitleDots = true,
     this.brightness = Brightness.light,
     this.onBackPressed,
     this.onBarrierTap,
-  });
+  }) : title = title ?? GenesisL10n.current.aiIsGenerating,
+       message = message ?? GenesisL10n.current.generatingCustomizedWorldWait;
 
   final String title;
   final String message;
