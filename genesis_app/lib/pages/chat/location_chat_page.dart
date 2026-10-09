@@ -1440,7 +1440,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                             child: MiniPhoneEdgeDock(
                               topInset: 4,
                               bottomInset: 8,
-                              onPressed: () => showMiniPhoneDemo(context),
+                              onPressed: () => showMiniPhoneDemo(
+                                context,
+                                worldId: _modelWorldId,
+                                modelCache: _modelRequestCache,
+                              ),
                             ),
                           ),
                       ],

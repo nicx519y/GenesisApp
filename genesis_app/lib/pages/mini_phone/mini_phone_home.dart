@@ -64,17 +64,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                 kinds.any(expandedNotificationGroups.contains);
             return Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 6, 22, 0),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: MiniIconButton(
-                      'close',
-                      'Close mini phone',
-                      () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 56),
                 Expanded(
                   child: PageView(
                     controller: homePages,

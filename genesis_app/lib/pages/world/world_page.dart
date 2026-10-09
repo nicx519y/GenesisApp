@@ -27,11 +27,7 @@ import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/legacy_world_map/legacy_world_map_gesture.dart'
-    show
-        legacyWorldMapZoomControlRightGap,
-        legacyWorldMapZoomControlWidth,
-        legacyWorldMapZoomControlBottomGap,
-        legacyWorldMapZoomControlHeight;
+    show legacyWorldMapZoomControlBottomGap, legacyWorldMapZoomControlHeight;
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/api_client.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';

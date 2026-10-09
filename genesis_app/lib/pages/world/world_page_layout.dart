@@ -147,17 +147,23 @@ extension _WorldPageLayout on _WorldPageState {
                   world != null &&
                   _worldMainTabIndex == 0 &&
                   _activeChatLocationId.isEmpty)
-                Positioned(
-                  right:
-                      legacyWorldMapZoomControlRightGap +
-                      (legacyWorldMapZoomControlWidth - 34) / 2,
-                  bottom:
-                      worldCollapsedPanelHeightFor(context, world: world) +
-                      legacyWorldMapZoomControlBottomGap +
-                      legacyWorldMapZoomControlHeight +
-                      12,
-                  child: MiniPhoneDemoEntry(
-                    onPressed: () => showMiniPhoneDemo(context),
+                Positioned.fill(
+                  child: MiniPhoneEdgeDock(
+                    positionStore: miniPhoneMapDockPosition,
+                    topInset:
+                        top + worldMapBackButtonTop + worldMapTabsHeight + 8,
+                    leftBottomInset:
+                        worldCollapsedPanelHeightFor(context, world: world) + 8,
+                    bottomInset:
+                        worldCollapsedPanelHeightFor(context, world: world) +
+                        legacyWorldMapZoomControlBottomGap +
+                        legacyWorldMapZoomControlHeight +
+                        12,
+                    onPressed: () => showMiniPhoneDemo(
+                      context,
+                      worldId: world.worldId,
+                      modelCache: _locationChatPageCache.memoryModelPageCache,
+                    ),
                   ),
                 ),
               if (_worldMainTabIndex == 0)

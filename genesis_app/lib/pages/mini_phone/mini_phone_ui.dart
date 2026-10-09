@@ -590,27 +590,35 @@ class MiniPhoneEdgeDock extends StatefulWidget {
     required this.topInset,
     required this.bottomInset,
     required this.onPressed,
+    this.positionStore,
+    this.leftBottomInset,
   });
   final double topInset, bottomInset;
+  final double? leftBottomInset;
+  final MiniPhoneDockPosition? positionStore;
   final VoidCallback onPressed;
   @override
   State<MiniPhoneEdgeDock> createState() => _MiniPhoneEdgeDockState();
 }
 
 class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
-  bool _right = miniPhoneDockPosition.right;
-  double _vertical = miniPhoneDockPosition.vertical;
+  late bool _right;
+  late double _vertical;
+  MiniPhoneDockPosition get _positionStore =>
+      widget.positionStore ?? miniPhoneDockPosition;
   bool _userMoved = false;
   Offset? _drag;
   @override
   void initState() {
     super.initState();
+    _right = _positionStore.right;
+    _vertical = _positionStore.vertical;
     unawaited(
-      miniPhoneDockPosition.load().then((_) {
+      _positionStore.load().then((_) {
         if (!mounted || _userMoved) return;
         setState(() {
-          _right = miniPhoneDockPosition.right;
-          _vertical = miniPhoneDockPosition.vertical;
+          _right = _positionStore.right;
+          _vertical = _positionStore.vertical;
         });
       }),
     );
@@ -626,7 +634,12 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
         widget.topInset + 48,
         math.max(0.0, bounds.maxHeight - 57),
       );
-      final bottom = math.max(top, bounds.maxHeight - widget.bottomInset - 57);
+      final dragSideRight =
+          (_drag?.dx ?? (_right ? right : left)) + 17 >= bounds.maxWidth / 2;
+      final bottomInset = dragSideRight
+          ? widget.bottomInset
+          : (widget.leftBottomInset ?? widget.bottomInset);
+      final bottom = math.max(top, bounds.maxHeight - bottomInset - 57);
       final settled = Offset(
         _right ? right : left,
         top + (bottom - top) * _vertical,
@@ -645,7 +658,7 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
               : 0;
           _drag = null;
         });
-        unawaited(miniPhoneDockPosition.save(_right, _vertical));
+        unawaited(_positionStore.save(_right, _vertical));
       }
 
       return Stack(

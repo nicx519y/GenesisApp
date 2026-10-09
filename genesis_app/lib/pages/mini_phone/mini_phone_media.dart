@@ -270,12 +270,26 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
               author: author ?? miniDemoMe,
             ),
           ];
+    await _openPhotoGallery(photos, galleryIndex ?? 0);
+  }
+
+  Future<void> _openPhotoGallery(List<_MiniPhotoItem> photos, int index) async {
+    _miniResume.viewerPhotos = photos;
+    _miniResume.viewerIndex = index;
     await showDialog<void>(
       context: context,
       useSafeArea: false,
-      builder: (context) =>
-          _MiniPhotoGallery(photos: photos, initialIndex: galleryIndex ?? 0),
+      builder: (dialogContext) => _MiniPhotoGallery(
+        photos: photos,
+        initialIndex: index,
+        onIndex: (index) => _miniResume.viewerIndex = index,
+        onClose: () {
+          Navigator.of(dialogContext).pop();
+          _close();
+        },
+      ),
     );
+    if (!_closing) _miniResume.viewerPhotos = null;
   }
 }
 
@@ -287,7 +301,14 @@ class _MiniPhotoItem {
 }
 
 class _MiniPhotoGallery extends StatefulWidget {
-  const _MiniPhotoGallery({required this.photos, required this.initialIndex});
+  const _MiniPhotoGallery({
+    required this.photos,
+    required this.initialIndex,
+    required this.onIndex,
+    required this.onClose,
+  });
+  final ValueChanged<int> onIndex;
+  final VoidCallback onClose;
   final List<_MiniPhotoItem> photos;
   final int initialIndex;
   @override
@@ -318,27 +339,32 @@ class _MiniPhotoGalleryState extends State<_MiniPhotoGallery> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(miniPageInset),
-            child: Row(
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const MiniIcon('back', size: 20),
-                      const SizedBox(width: 12),
-                      Text('Photo', style: miniPageTitle),
-                    ],
+            padding: const EdgeInsets.symmetric(horizontal: miniPageInset),
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const MiniIcon('back', size: 20),
+                        const SizedBox(width: 12),
+                        Text('Photo', style: miniPageTitle),
+                      ],
+                    ),
                   ),
-                ),
-                const Spacer(),
-                if (widget.photos.length > 1)
-                  Text(
-                    '${_index + 1} / ${widget.photos.length}',
-                    style: miniStyle(12, FontWeight.w400, miniSecondary),
-                  ),
-              ],
+                  const Spacer(),
+                  if (widget.photos.length > 1)
+                    Text(
+                      '${_index + 1} / ${widget.photos.length}',
+                      style: miniStyle(12, FontWeight.w400, miniSecondary),
+                    ),
+                  const SizedBox(width: 12),
+                  MiniIconButton('close', 'Close mini phone', widget.onClose),
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -351,6 +377,7 @@ class _MiniPhotoGalleryState extends State<_MiniPhotoGallery> {
               onPageChanged: (value) => setState(() {
                 _index = value;
                 _zoomed = false;
+                widget.onIndex(value);
               }),
               itemBuilder: (context, index) => _MiniPhotoFrame(
                 key: ValueKey(index),

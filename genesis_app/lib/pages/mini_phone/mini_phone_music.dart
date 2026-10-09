@@ -220,9 +220,12 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                             minimumSize: const Size(64, 64),
                             maximumSize: const Size(64, 64),
                           ),
-                          icon: MiniIcon(
-                            _playing ? 'music-pause' : 'music-play',
-                            size: 30,
+                          icon: Transform.translate(
+                            offset: Offset(_playing ? 0 : 2, 0),
+                            child: MiniIcon(
+                              _playing ? 'music-pause' : 'music-play',
+                              size: 30,
+                            ),
                           ),
                         ),
                       ),

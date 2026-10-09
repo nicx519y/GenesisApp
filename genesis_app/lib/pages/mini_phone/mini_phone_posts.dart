@@ -424,6 +424,8 @@ extension _MiniPhonePosts on _MiniPhonePageState {
                       },
                 primary: true,
               ),
+              const SizedBox(width: 8),
+              const SizedBox.square(dimension: 28),
             ],
           ),
         ),

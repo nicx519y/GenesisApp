@@ -93,10 +93,9 @@ final miniDemoPhotoAuthors = [
   miniDemoPeople[3],
 ];
 const miniDemoWallpapers = {
-  miniSolidWallpaper: 'Dark',
-  'loc_1_1_1.jpg': 'Ballroom',
-  'loc_1_1_2.jpg': 'Library',
-  'loc_1_2_1.jpg': 'Terrace',
+  'wallpaper-01.png': 'Mist Forest',
+  'wallpaper-02.png': 'Moonlit Town',
+  'wallpaper-04.png': 'Night City',
 };
 
 class MiniDemoMessage {
@@ -158,7 +157,7 @@ class MiniPhoneDemoStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  String wallpaper = miniSolidWallpaper;
+  String wallpaper = 'wallpaper-01.png';
   Uint8List? wallpaperPhoto;
   int _sequence = 0;
   int unread(MiniDemoPerson p) => read.contains(p.id) ? 0 : p.initialUnread;
@@ -230,7 +229,7 @@ class MiniPhoneDemoStore extends ChangeNotifier {
     readPosts.clear();
     chats.clear();
     posts.clear();
-    wallpaper = miniSolidWallpaper;
+    wallpaper = 'wallpaper-01.png';
     wallpaperPhoto = null;
     _sequence = 0;
     for (final p in miniDemoPeople) {
@@ -411,9 +410,15 @@ class MiniDemoMusic extends ChangeNotifier with WidgetsBindingObserver {
 
 // Device-local debug UI preference, separate from fixtures and account data.
 final miniPhoneDockPosition = MiniPhoneDockPosition();
+final miniPhoneMapDockPosition = MiniPhoneDockPosition(
+  'worldo.debug.mini_phone.map_dock_position.v1',
+);
 
 class MiniPhoneDockPosition {
-  static const _key = 'worldo.debug.mini_phone.dock_position.v1';
+  MiniPhoneDockPosition([
+    this._key = 'worldo.debug.mini_phone.dock_position.v1',
+  ]);
+  final String _key;
   bool right = true;
   double vertical = 1;
   int _revision = 0;
