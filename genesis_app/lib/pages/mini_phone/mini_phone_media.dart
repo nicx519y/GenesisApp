@@ -13,7 +13,7 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
         label: 'Open photo ${i + 1}',
         button: true,
         child: GestureDetector(
-          onTap: () => _viewPhoto(asset: miniDemoPhotos[i]),
+          onTap: () => _viewPhoto(galleryIndex: i),
           child: Image.asset(
             '$miniPhoneAssets${miniDemoPhotos[i]}',
             fit: BoxFit.cover,
@@ -37,12 +37,7 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  draftWallpaperPhoto == null
-                      ? Image.asset(
-                          '$miniPhoneAssets$draftWallpaper',
-                          fit: BoxFit.cover,
-                        )
-                      : Image.memory(draftWallpaperPhoto!, fit: BoxFit.cover),
+                  _wallpaperBackground(draftWallpaper, draftWallpaperPhoto),
                   const ColoredBox(color: Color(0x22000000)),
                   Column(
                     children: [
@@ -111,11 +106,10 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.asset(
-                              '$miniPhoneAssets${w.key}',
+                            child: SizedBox(
                               height: 100,
                               width: double.infinity,
-                              fit: BoxFit.cover,
+                              child: _wallpaperBackground(w.key, null),
                             ),
                           ),
                         ),
@@ -255,58 +249,201 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
     _go(MiniPhoneScreen.home);
   }
 
-  Future<void> _viewPhoto({String? asset, Uint8List? bytes}) async {
+  Future<void> _viewPhoto({
+    String? asset,
+    Uint8List? bytes,
+    MiniDemoPerson? author,
+    int? galleryIndex,
+  }) async {
+    final photos = galleryIndex != null
+        ? [
+            for (var i = 0; i < miniDemoPhotos.length; i++)
+              _MiniPhotoItem(
+                asset: miniDemoPhotos[i],
+                author: miniDemoPhotoAuthors[i],
+              ),
+          ]
+        : [
+            _MiniPhotoItem(
+              asset: asset,
+              bytes: bytes,
+              author: author ?? miniDemoMe,
+            ),
+          ];
     await showDialog<void>(
       context: context,
       useSafeArea: false,
-      builder: (context) => Dialog.fullscreen(
-        backgroundColor: miniBackground,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(miniPageInset),
-                child: Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const MiniIcon('back', size: 20),
-                          const SizedBox(width: 12),
-                          Text('Photo', style: miniPageTitle),
-                        ],
-                      ),
+      builder: (context) =>
+          _MiniPhotoGallery(photos: photos, initialIndex: galleryIndex ?? 0),
+    );
+  }
+}
+
+class _MiniPhotoItem {
+  const _MiniPhotoItem({this.asset, this.bytes, required this.author});
+  final String? asset;
+  final Uint8List? bytes;
+  final MiniDemoPerson author;
+}
+
+class _MiniPhotoGallery extends StatefulWidget {
+  const _MiniPhotoGallery({required this.photos, required this.initialIndex});
+  final List<_MiniPhotoItem> photos;
+  final int initialIndex;
+  @override
+  State<_MiniPhotoGallery> createState() => _MiniPhotoGalleryState();
+}
+
+class _MiniPhotoGalleryState extends State<_MiniPhotoGallery> {
+  late final PageController _pages;
+  late int _index;
+  bool _zoomed = false;
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _pages = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Dialog.fullscreen(
+    backgroundColor: miniBackground,
+    child: SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(miniPageInset),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const MiniIcon('back', size: 20),
+                      const SizedBox(width: 12),
+                      Text('Photo', style: miniPageTitle),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                if (widget.photos.length > 1)
+                  Text(
+                    '${_index + 1} / ${widget.photos.length}',
+                    style: miniStyle(12, FontWeight.w400, miniSecondary),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: PageView.builder(
+              controller: _pages,
+              itemCount: widget.photos.length,
+              physics: _zoomed
+                  ? const NeverScrollableScrollPhysics()
+                  : const PageScrollPhysics(),
+              onPageChanged: (value) => setState(() {
+                _index = value;
+                _zoomed = false;
+              }),
+              itemBuilder: (context, index) => _MiniPhotoFrame(
+                key: ValueKey(index),
+                photo: widget.photos[index],
+                onZoom: (zoomed) {
+                  if (mounted && index == _index && zoomed != _zoomed) {
+                    setState(() => _zoomed = zoomed);
+                  }
+                },
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(miniPageInset),
+            child: Text(
+              'From this world · Original image',
+              style: miniStyle(12, FontWeight.w400, miniSecondary),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MiniPhotoFrame extends StatefulWidget {
+  const _MiniPhotoFrame({super.key, required this.photo, required this.onZoom});
+  final _MiniPhotoItem photo;
+  final ValueChanged<bool> onZoom;
+  @override
+  State<_MiniPhotoFrame> createState() => _MiniPhotoFrameState();
+}
+
+class _MiniPhotoFrameState extends State<_MiniPhotoFrame> {
+  final _transform = TransformationController();
+  bool _zoomed = false;
+  @override
+  void initState() {
+    super.initState();
+    _transform.addListener(_changed);
+  }
+
+  void _changed() {
+    final zoomed = _transform.value.getMaxScaleOnAxis() > 1.01;
+    if (zoomed != _zoomed) {
+      setState(() => _zoomed = zoomed);
+      widget.onZoom(zoomed);
+    }
+  }
+
+  @override
+  void dispose() {
+    _transform.removeListener(_changed);
+    _transform.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => InteractiveViewer(
+    transformationController: _transform,
+    minScale: 1,
+    maxScale: 4,
+    panEnabled: _zoomed,
+    child: Center(
+      child: Stack(
+        children: [
+          if (widget.photo.bytes != null)
+            Image.memory(widget.photo.bytes!, fit: BoxFit.contain)
+          else
+            Image.asset(
+              '$miniPhoneAssets${widget.photo.asset}',
+              fit: BoxFit.contain,
+            ),
+          Positioned(
+            right: 12,
+            bottom: 12,
+            child: IgnorePointer(
+              child: Text(
+                '@${widget.photo.author.short}',
+                style: miniStyle(12, FontWeight.w600).copyWith(
+                  shadows: const [
+                    Shadow(
+                      color: Colors.black87,
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
                     ),
                   ],
                 ),
               ),
-              Expanded(
-                child: InteractiveViewer(
-                  minScale: 1,
-                  maxScale: 4,
-                  child: Center(
-                    child: bytes != null
-                        ? Image.memory(bytes, fit: BoxFit.contain)
-                        : Image.asset(
-                            '$miniPhoneAssets$asset',
-                            fit: BoxFit.contain,
-                          ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(miniPageInset),
-                child: Text(
-                  'From this world · Original image',
-                  style: miniStyle(12, FontWeight.w400, miniSecondary),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

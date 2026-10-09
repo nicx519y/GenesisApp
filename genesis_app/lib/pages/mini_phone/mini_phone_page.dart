@@ -13,6 +13,7 @@ part 'mini_phone_home.dart';
 part 'mini_phone_conversations.dart';
 part 'mini_phone_posts.dart';
 part 'mini_phone_media.dart';
+part 'mini_phone_music.dart';
 
 enum MiniPhoneScreen {
   home,
@@ -24,6 +25,7 @@ enum MiniPhoneScreen {
   create,
   photos,
   settings,
+  music,
 }
 
 /// Only a debug UI prototype. It never receives production world/account data.
@@ -75,7 +77,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   final commentsScroll = ScrollController();
   Uint8List? draftPhoto;
   Uint8List? draftWallpaperPhoto;
-  String draftWallpaper = 'loc_1_1_1.jpg';
+  String draftWallpaper = miniSolidWallpaper;
   String feedback = '';
   final _replyTimers = <Timer>[];
 
@@ -119,6 +121,14 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     });
     if (next == MiniPhoneScreen.posts) store.markPostsRead();
     if (next == MiniPhoneScreen.chat) _scrollToEnd(chatScroll);
+  }
+
+  Widget _wallpaperBackground(String asset, Uint8List? photo) {
+    if (photo != null) return Image.memory(photo, fit: BoxFit.cover);
+    if (asset == miniSolidWallpaper) {
+      return const ColoredBox(color: miniBackground);
+    }
+    return Image.asset('$miniPhoneAssets$asset', fit: BoxFit.cover);
   }
 
   void _prepareSettings() {
@@ -194,6 +204,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     MiniPhoneScreen.create => _create(),
     MiniPhoneScreen.photos => _photos(),
     MiniPhoneScreen.settings => _settings(),
+    MiniPhoneScreen.music => _panel('Music', const _MiniMusicPlayer()),
   };
 
   Widget _navigation(String title, {MiniDemoPerson? person}) => Padding(
@@ -243,7 +254,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     Widget body, {
     String? subtitle,
     Widget? footer,
-    bool indicator = true,
   }) => SafeArea(
     child: Column(
       children: [
@@ -266,30 +276,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ),
         Expanded(child: body),
         if (footer != null) footer,
-        if (indicator) _indicator(),
       ],
-    ),
-  );
-  Widget _indicator() => Semantics(
-    label: 'Mini phone home',
-    button: true,
-    child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _go(MiniPhoneScreen.home),
-      child: SizedBox(
-        height: 28,
-        width: double.infinity,
-        child: Center(
-          child: Container(
-            height: 4,
-            width: 124,
-            decoration: BoxDecoration(
-              color: const Color(0xCCF4F3F6),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-        ),
-      ),
     ),
   );
   Widget _button(String text, VoidCallback? action, {bool primary = false}) =>

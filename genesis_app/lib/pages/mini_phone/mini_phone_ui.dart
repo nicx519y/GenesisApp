@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -188,8 +189,11 @@ class MiniPhoneDemoEntry extends StatefulWidget {
 }
 
 class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _arrival;
+  late final AnimationController _musicPulse;
+  final _musicOverlay = OverlayPortalController();
+  final _entryLink = LayerLink();
   int _unread = 0;
   @override
   void initState() {
@@ -198,13 +202,34 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
+    _musicPulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    miniDemoMusic.addListener(_musicChanged);
     _unread = miniPhoneDemoStore.totalUnread;
     miniPhoneDemoStore.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _musicChanged();
       if (mounted && _unread > 0 && !MediaQuery.disableAnimationsOf(context)) {
         _arrival.forward();
       }
     });
+  }
+
+  void _musicChanged() {
+    if (!mounted) return;
+    if (miniDemoMusic.playing && !MediaQuery.disableAnimationsOf(context)) {
+      if (!_musicPulse.isAnimating) _musicPulse.repeat();
+    } else {
+      _musicPulse.stop();
+    }
+    if (miniDemoMusic.activated) {
+      _musicOverlay.show();
+    } else {
+      _musicOverlay.hide();
+    }
+    setState(() {});
   }
 
   void _changed() {
@@ -220,205 +245,297 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
   void dispose() {
     miniPhoneDemoStore.removeListener(_changed);
     _arrival.dispose();
+    miniDemoMusic.removeListener(_musicChanged);
+    _musicPulse.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Open Mini phone, $_unread unread messages',
-    button: true,
-    child: GestureDetector(
-      onTap: widget.onPressed,
-      child: AnimatedBuilder(
-        animation: _arrival,
-        builder: (context, child) {
-          final seconds = _arrival.value * 3;
-          final vibrating = _arrival.isAnimating && seconds < .76;
-          final wave = vibrating
-              ? math.sin(seconds / .76 * math.pi * 8) * (1 - seconds / .76)
-              : 0.0;
-          final visible = _unread > 0 && _arrival.isAnimating;
-          final alpha = visible
-              ? (_arrival.value < .1
-                    ? _arrival.value / .1
-                    : _arrival.value > .85
-                    ? (1 - _arrival.value) / .15
-                    : 1.0)
-              : 0.0;
-          final reveal = (_arrival.isAnimating ? seconds / .9 : 1.0).clamp(
-            0.0,
-            1.0,
-          );
-          return SizedBox(
-            width: 34,
-            height: 57,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Transform.translate(
-                  offset: Offset(wave * 1.2, 0),
-                  child: Transform.rotate(
-                    angle: wave * math.pi / 22,
-                    child: child,
-                  ),
-                ),
-                if (_unread > 0)
-                  Positioned(
-                    right: -5,
-                    top: -6,
-                    child: Container(
-                      constraints: const BoxConstraints(minWidth: 17),
-                      height: 17,
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        color: miniRed,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$_unread',
-                          style: miniStyle(
-                            9,
-                            FontWeight.w600,
-                          ).copyWith(height: 1),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (visible)
-                  Positioned(
-                    left: -1,
-                    top: -48,
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: alpha.clamp(0.0, 1.0),
-                        child: Transform.translate(
-                          offset: Offset(0, (1 - alpha) * 8),
-                          child: Column(
+  Widget build(BuildContext context) => OverlayPortal(
+    controller: _musicOverlay,
+    overlayChildBuilder: (_) => ModalRoute.of(context)?.isCurrent == false
+        ? const SizedBox.shrink()
+        : AnimatedBuilder(
+            animation: _arrival,
+            builder: (context, _) => Positioned(
+              left: 0,
+              top: 0,
+              child: CompositedTransformFollower(
+                link: _entryLink,
+                showWhenUnlinked: false,
+                offset: const Offset(-1, -48),
+                child: _MiniPhonePopup(
+                  child: Material(
+                    color: const Color(0xFF303435),
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: miniDemoMusic.toggle,
+                      child: Tooltip(
+                        message: miniDemoMusic.playing
+                            ? 'Pause music'
+                            : 'Play music',
+                        child: Semantics(
+                          button: true,
+                          label: miniDemoMusic.playing
+                              ? 'Pause music'
+                              : 'Play music',
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black38,
-                                      blurRadius: 14,
-                                      offset: Offset(0, 5),
+                              if (_unread > 0 && _arrival.isAnimating)
+                                MiniAvatar(miniDemoPeople.first, size: 32),
+                              if (_unread > 0 && _arrival.isAnimating)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 17,
+                                    height: 17,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF303435),
+                                      shape: BoxShape.circle,
                                     ),
-                                  ],
+                                    child: Center(
+                                      child: MiniIcon(
+                                        miniDemoMusic.playing
+                                            ? 'music-pause'
+                                            : 'music-play',
+                                        size: 10,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                MiniIcon(
+                                  miniDemoMusic.playing
+                                      ? 'music-pause'
+                                      : 'music-play',
+                                  size: 16,
                                 ),
-                                child: MiniAvatar(
-                                  miniDemoPeople.first,
-                                  size: 32,
-                                ),
-                              ),
-                              CustomPaint(
-                                size: const Size(12, 6),
-                                painter: _MiniPhonePointer(),
-                              ),
                             ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                if (_unread > 0)
-                  Positioned(
-                    top: 28,
-                    left: 5,
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: reveal,
-                        child: Transform.translate(
-                          offset: Offset(0, (1 - reveal) * 7),
-                          child: Container(
-                            width: 24,
-                            height: 12,
-                            padding: const EdgeInsets.all(3),
-                            decoration: BoxDecoration(
-                              color: const Color(0x1CFFFFFF),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF929294),
-                                    borderRadius: BorderRadius.circular(1),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 10,
-                                      height: 1.5,
-                                      color: const Color(0xFFC9C9CB),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Container(
-                                      width: 7,
-                                      height: 1.5,
-                                      color: const Color(0xFF8D8D90),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                ),
+              ),
+            ),
+          ),
+    child: CompositedTransformTarget(
+      link: _entryLink,
+      child: Semantics(
+        label: 'Open Mini phone, $_unread unread messages',
+        button: true,
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_arrival, _musicPulse]),
+            builder: (context, child) {
+              final seconds = _arrival.value * 3;
+              final vibrating = _arrival.isAnimating && seconds < .76;
+              final wave = vibrating
+                  ? math.sin(seconds / .76 * math.pi * 8) * (1 - seconds / .76)
+                  : 0.0;
+              final music = miniDemoMusic.activated;
+              final visible = _unread > 0 && _arrival.isAnimating;
+              final alpha = visible
+                  ? (_arrival.value < .1
+                        ? _arrival.value / .1
+                        : _arrival.value > .85
+                        ? (1 - _arrival.value) / .15
+                        : 1.0)
+                  : 0.0;
+              final reveal = (_arrival.isAnimating ? seconds / .9 : 1.0).clamp(
+                0.0,
+                1.0,
+              );
+              return SizedBox(
+                width: 34,
+                height: 57,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Transform.translate(
+                      offset: Offset(wave * 1.2, 0),
+                      child: Transform.rotate(
+                        angle: wave * math.pi / 22,
+                        child: child,
+                      ),
+                    ),
+                    if (_unread > 0)
+                      Positioned(
+                        right: -5,
+                        top: -6,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 17),
+                          height: 17,
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: miniRed,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$_unread',
+                              style: miniStyle(
+                                9,
+                                FontWeight.w600,
+                              ).copyWith(height: 1),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    if (music && _unread == 0) ...[
+                      Positioned(
+                        top: 26,
+                        left: 9,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: miniDemoMusic.playing
+                                ? .9 +
+                                      .1 *
+                                          math.sin(
+                                            _musicPulse.value * math.pi * 2,
+                                          )
+                                : .55,
+                            child: Transform.translate(
+                              offset: Offset(
+                                0,
+                                miniDemoMusic.playing
+                                    ? math.cos(_musicPulse.value * math.pi * 2)
+                                    : 0,
+                              ),
+                              child: Transform.rotate(
+                                angle: miniDemoMusic.playing
+                                    ? math.sin(
+                                            _musicPulse.value * math.pi * 2,
+                                          ) *
+                                          math.pi /
+                                          30
+                                    : 0,
+                                child: const MiniIcon(
+                                  'music-musical-note',
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (visible && !music)
+                      Positioned(
+                        left: -1,
+                        top: -48,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: alpha.clamp(0.0, 1.0),
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - alpha) * 8),
+                              child: _MiniPhonePopup(
+                                child: MiniAvatar(
+                                  miniDemoPeople.first,
+                                  size: 32,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_unread > 0)
+                      Positioned(
+                        top: 28,
+                        left: 5,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: reveal,
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - reveal) * 7),
+                              child: Container(
+                                width: 24,
+                                height: 12,
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x1CFFFFFF),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF929294),
+                                        borderRadius: BorderRadius.circular(1),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 10,
+                                          height: 1.5,
+                                          color: const Color(0xFFC9C9CB),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Container(
+                                          width: 7,
+                                          height: 1.5,
+                                          color: const Color(0xFF8D8D90),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+            child: Container(
+              width: 34,
+              height: 57,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white, width: 2),
+                color: const Color(0xFF232228),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black38,
+                    blurRadius: 8,
+                    offset: Offset(0, 3),
                   ),
-              ],
-            ),
-          );
-        },
-        child: Container(
-          width: 34,
-          height: 57,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white, width: 2),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF454647), Color(0xFF151718), Color(0xFF303435)],
-              stops: [0, .55, 1],
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black38,
-                blurRadius: 8,
-                offset: Offset(0, 3),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 4),
-              Container(width: 11, height: 2, color: Colors.white),
-              const SizedBox(height: 6),
-              Text(
-                '01:04',
-                style: miniStyle(
-                  7,
-                  FontWeight.w900,
-                ).copyWith(height: 1, letterSpacing: -.175),
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  Container(width: 11, height: 2, color: Colors.white),
+                  const SizedBox(height: 6),
+                  Text(
+                    '01:04',
+                    style: miniStyle(
+                      7,
+                      FontWeight.w900,
+                    ).copyWith(height: 1, letterSpacing: -.175),
+                  ),
+                  const Spacer(),
+                  Container(width: 12, height: 2, color: Colors.white),
+                  const SizedBox(height: 4),
+                ],
               ),
-              const Spacer(),
-              Container(width: 12, height: 2, color: Colors.white),
-              const SizedBox(height: 4),
-            ],
+            ),
           ),
         ),
       ),
@@ -426,16 +543,140 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
   );
 }
 
-class _MiniPhonePointer extends CustomPainter {
+class _MiniPhonePopup extends StatelessWidget {
+  const _MiniPhonePopup({required this.child});
+  final Widget child;
   @override
-  void paint(Canvas canvas, Size size) => canvas.drawPath(
-    Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close(),
-    Paint()..color = Colors.white,
+  Widget build(BuildContext context) => SizedBox(
+    width: 36,
+    height: 41,
+    child: Stack(
+      children: [
+        Positioned.fill(child: CustomPaint(painter: _MiniPhonePopupPainter())),
+        Positioned(
+          left: 2,
+          top: 2,
+          width: 32,
+          height: 32,
+          child: ClipOval(child: child),
+        ),
+      ],
+    ),
   );
+}
+
+class _MiniPhonePopupPainter extends CustomPainter {
   @override
-  bool shouldRepaint(_MiniPhonePointer oldDelegate) => false;
+  void paint(Canvas canvas, Size size) {
+    final circle = Path()..addOval(const Rect.fromLTWH(0, 0, 36, 36));
+    final pointer = Path()
+      ..moveTo(12, 34)
+      ..lineTo(24, 34)
+      ..lineTo(18, 41)
+      ..close();
+    final frame = Path.combine(PathOperation.union, circle, pointer);
+    canvas.drawShadow(frame, Colors.black38, 3, false);
+    canvas.drawPath(frame, Paint()..color = const Color(0xFFFFFFFF));
+  }
+
+  @override
+  bool shouldRepaint(_MiniPhonePopupPainter oldDelegate) => false;
+}
+
+// Local UI position only; the handle snaps to a side after every drag.
+class MiniPhoneEdgeDock extends StatefulWidget {
+  const MiniPhoneEdgeDock({
+    super.key,
+    required this.topInset,
+    required this.bottomInset,
+    required this.onPressed,
+  });
+  final double topInset, bottomInset;
+  final VoidCallback onPressed;
+  @override
+  State<MiniPhoneEdgeDock> createState() => _MiniPhoneEdgeDockState();
+}
+
+class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
+  bool _right = miniPhoneDockPosition.right;
+  double _vertical = miniPhoneDockPosition.vertical;
+  bool _userMoved = false;
+  Offset? _drag;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      miniPhoneDockPosition.load().then((_) {
+        if (!mounted || _userMoved) return;
+        setState(() {
+          _right = miniPhoneDockPosition.right;
+          _vertical = miniPhoneDockPosition.vertical;
+        });
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      const inset = 12.0;
+      final left = inset;
+      final right = math.max(left, bounds.maxWidth - inset - 34);
+      final top = math.min(
+        widget.topInset + 48,
+        math.max(0.0, bounds.maxHeight - 57),
+      );
+      final bottom = math.max(top, bounds.maxHeight - widget.bottomInset - 57);
+      final settled = Offset(
+        _right ? right : left,
+        top + (bottom - top) * _vertical,
+      );
+      final position = _drag ?? settled;
+      final clamped = Offset(
+        position.dx.clamp(left, right),
+        position.dy.clamp(top, bottom),
+      );
+      void snap() {
+        setState(() {
+          final released = _drag ?? clamped;
+          _right = released.dx + 17 >= bounds.maxWidth / 2;
+          _vertical = bottom > top
+              ? ((released.dy - top) / (bottom - top)).clamp(0.0, 1.0)
+              : 0;
+          _drag = null;
+        });
+        unawaited(miniPhoneDockPosition.save(_right, _vertical));
+      }
+
+      return Stack(
+        children: [
+          AnimatedPositioned(
+            duration: _drag != null || MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            left: clamped.dx,
+            top: clamped.dy,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (_) => setState(() {
+                _userMoved = true;
+                _drag = clamped;
+              }),
+              onPanUpdate: (details) => setState(() {
+                final next = (_drag ?? clamped) + details.delta;
+                _drag = Offset(
+                  next.dx.clamp(left, right),
+                  next.dy.clamp(top, bottom),
+                );
+              }),
+              onPanEnd: (_) => snap(),
+              onPanCancel: snap,
+              child: MiniPhoneDemoEntry(onPressed: widget.onPressed),
+            ),
+          ),
+        ],
+      );
+    },
+  );
 }

@@ -1432,7 +1432,19 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                             );
                           }
                         : null,
-                    messageViewport: messageViewport,
+                    messageViewport: Stack(
+                      children: [
+                        Positioned.fill(child: messageViewport),
+                        if (kDebugMode && widget.active)
+                          Positioned.fill(
+                            child: MiniPhoneEdgeDock(
+                              topInset: 4,
+                              bottomInset: 8,
+                              onPressed: () => showMiniPhoneDemo(context),
+                            ),
+                          ),
+                      ],
+                    ),
                     header: header,
                     composerTopOverlay: widget.showComposer
                         ? widget.composerTopOverlay
@@ -1448,14 +1460,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   ),
                 ),
               ),
-              if (kDebugMode && widget.active)
-                Positioned(
-                  right: 16,
-                  top: headerHeight + 16,
-                  child: MiniPhoneDemoEntry(
-                    onPressed: () => showMiniPhoneDemo(context),
-                  ),
-                ),
               if (_supportsEdgeSwipeBack)
                 PositionedDirectional(
                   start: 0,

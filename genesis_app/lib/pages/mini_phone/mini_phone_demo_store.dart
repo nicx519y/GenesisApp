@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 const miniPhoneAssets = 'assets/mini_phone/';
+const miniSolidWallpaper = 'solid-dark';
 
 class MiniDemoPerson {
   const MiniDemoPerson(
@@ -78,7 +83,17 @@ const miniDemoPhotos = [
   'loc_1_2_2.jpg',
   'loc_1_6_1.jpg',
 ];
+final miniDemoPhotoAuthors = [
+  miniDemoPeople[0],
+  miniDemoPeople[1],
+  miniDemoPeople[2],
+  miniDemoPeople[0],
+  miniDemoPeople[3],
+  miniDemoPeople[1],
+  miniDemoPeople[3],
+];
 const miniDemoWallpapers = {
+  miniSolidWallpaper: 'Dark',
   'loc_1_1_1.jpg': 'Ballroom',
   'loc_1_1_2.jpg': 'Library',
   'loc_1_2_1.jpg': 'Terrace',
@@ -91,8 +106,9 @@ class MiniDemoMessage {
 }
 
 class MiniDemoComment {
-  const MiniDemoComment(this.person, this.text, this.time);
+  const MiniDemoComment(this.person, this.text, this.time, {this.replyTo});
   final MiniDemoPerson person;
+  final MiniDemoPerson? replyTo;
   final String text, time;
 }
 
@@ -142,7 +158,7 @@ class MiniPhoneDemoStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  String wallpaper = 'loc_1_1_1.jpg';
+  String wallpaper = miniSolidWallpaper;
   Uint8List? wallpaperPhoto;
   int _sequence = 0;
   int unread(MiniDemoPerson p) => read.contains(p.id) ? 0 : p.initialUnread;
@@ -214,7 +230,7 @@ class MiniPhoneDemoStore extends ChangeNotifier {
     readPosts.clear();
     chats.clear();
     posts.clear();
-    wallpaper = 'loc_1_1_1.jpg';
+    wallpaper = miniSolidWallpaper;
     wallpaperPhoto = null;
     _sequence = 0;
     for (final p in miniDemoPeople) {
@@ -260,13 +276,19 @@ class MiniPhoneDemoStore extends ChangeNotifier {
             miniDemoPeople[3],
             'The light in here is something else.',
             '3m',
+            replyTo: miniDemoPeople[1],
           ),
           MiniDemoComment(
             miniDemoPeople[2],
             'Some stories never leave the ballroom.',
             '4m',
           ),
-          MiniDemoComment(miniDemoPeople[0], 'Especially this one.', '5m'),
+          MiniDemoComment(
+            miniDemoPeople[0],
+            'Especially this one.',
+            '5m',
+            replyTo: miniDemoPeople[2],
+          ),
         ],
       ),
       MiniDemoPost(
@@ -316,3 +338,122 @@ class MiniPhoneDemoStore extends ChangeNotifier {
 
 /// Retained only during the debug process; independent of every production store.
 final miniPhoneDemoStore = MiniPhoneDemoStore();
+
+// Shared, memory-only silent playback preview; independent of production data.
+final miniDemoMusic = MiniDemoMusic();
+
+class MiniDemoMusic extends ChangeNotifier with WidgetsBindingObserver {
+  MiniDemoMusic() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+  static const durations = [228, 196, 254];
+  int index = 0;
+  int position = 42;
+  bool playing = false;
+  bool activated = false;
+  Timer? _timer;
+  void toggle() {
+    activated = true;
+    playing = !playing;
+    _timer?.cancel();
+    if (playing) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (++position >= durations[index]) {
+          index = (index + 1) % durations.length;
+          position = 0;
+        }
+        notifyListeners();
+      });
+    }
+    notifyListeners();
+  }
+
+  void resetPausedOnWorldExit() {
+    if (playing || !activated) return;
+    _timer?.cancel();
+    activated = false;
+    index = 0;
+    position = 42;
+    notifyListeners();
+  }
+
+  void seek(int value) {
+    position = value.clamp(0, durations[index]);
+    notifyListeners();
+  }
+
+  void next() {
+    index = (index + 1) % durations.length;
+    position = 0;
+    notifyListeners();
+  }
+
+  void previous() {
+    if (position <= 3) {
+      index = (index + durations.length - 1) % durations.length;
+    }
+    position = 0;
+    notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && playing) toggle();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+}
+
+// Device-local debug UI preference, separate from fixtures and account data.
+final miniPhoneDockPosition = MiniPhoneDockPosition();
+
+class MiniPhoneDockPosition {
+  static const _key = 'worldo.debug.mini_phone.dock_position.v1';
+  bool right = true;
+  double vertical = 1;
+  int _revision = 0;
+  Future<void>? _loading;
+  Future<void> _writing = Future.value();
+  Future<void> load() => _loading ??= _read();
+  Future<void> _read() async {
+    final revision = _revision;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key);
+      if (raw == null || revision != _revision) return;
+      final value = jsonDecode(raw);
+      if (value is List &&
+          value.length == 2 &&
+          value[0] is bool &&
+          value[1] is num) {
+        final height = (value[1] as num).toDouble();
+        if (height.isFinite) {
+          right = value[0] as bool;
+          vertical = height.clamp(0.0, 1.0);
+        }
+      }
+    } catch (_) {
+      debugPrint('Mini phone position could not be restored.');
+    }
+  }
+
+  Future<void> save(bool side, double height) {
+    right = side;
+    vertical = height.clamp(0.0, 1.0);
+    _revision++;
+    final raw = jsonEncode([right, vertical]);
+    return _writing = _writing.then((_) async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_key, raw);
+      } catch (_) {
+        debugPrint('Mini phone position could not be saved.');
+      }
+    });
+  }
+}

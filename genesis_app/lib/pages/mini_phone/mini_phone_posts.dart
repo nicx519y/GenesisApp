@@ -135,7 +135,11 @@ extension _MiniPhonePosts on _MiniPhonePageState {
                       maxHeight: detail ? 180 : 300,
                     ),
                     child: GestureDetector(
-                      onTap: () => _viewPhoto(asset: p.asset, bytes: p.photo),
+                      onTap: () => _viewPhoto(
+                        asset: p.asset,
+                        bytes: p.photo,
+                        author: p.person,
+                      ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(13),
                         child: p.photo != null
@@ -191,6 +195,15 @@ extension _MiniPhonePosts on _MiniPhonePageState {
                                         '${c.person == miniDemoMe ? 'Adrian' : c.person.short}  ',
                                     style: miniStyle(12, FontWeight.w600),
                                   ),
+                                  if (c.replyTo != null)
+                                    TextSpan(
+                                      text: '@${c.replyTo!.short} ',
+                                      style: miniStyle(
+                                        12,
+                                        FontWeight.w600,
+                                        miniPink,
+                                      ),
+                                    ),
                                   TextSpan(
                                     text: c.text,
                                     style: miniStyle(
@@ -322,7 +335,23 @@ extension _MiniPhonePosts on _MiniPhonePageState {
                           ],
                         ),
                         const SizedBox(height: 5),
-                        Text(c.text, style: miniStyle(14)),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              if (c.replyTo != null)
+                                TextSpan(
+                                  text: '@${c.replyTo!.short} ',
+                                  style: miniStyle(
+                                    14,
+                                    FontWeight.w600,
+                                    miniPink,
+                                  ),
+                                ),
+                              TextSpan(text: c.text),
+                            ],
+                          ),
+                          style: miniStyle(14),
+                        ),
                       ],
                     ),
                   ),
@@ -546,7 +575,6 @@ extension _MiniPhonePosts on _MiniPhonePageState {
             ),
           ),
         ),
-        _indicator(),
       ],
     ),
   );

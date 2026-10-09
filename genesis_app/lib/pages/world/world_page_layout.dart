@@ -143,7 +143,10 @@ extension _WorldPageLayout on _WorldPageState {
                   .toDouble();
           return Stack(
             children: [
-              if (kDebugMode && world != null && _worldMainTabIndex == 0)
+              if (kDebugMode &&
+                  world != null &&
+                  _worldMainTabIndex == 0 &&
+                  _activeChatLocationId.isEmpty)
                 Positioned(
                   right:
                       legacyWorldMapZoomControlRightGap +

@@ -48,6 +48,7 @@ import '../../utils/genesis_image_resource.dart';
 import 'world_bottom_sheet.dart';
 import '../mini_phone/mini_phone_page.dart';
 import '../mini_phone/mini_phone_ui.dart';
+import '../mini_phone/mini_phone_demo_store.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_location_chat_host.dart';
@@ -511,6 +512,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    if (kDebugMode) scheduleMicrotask(miniDemoMusic.resetPausedOnWorldExit);
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _stopWorldTickLockPolling();

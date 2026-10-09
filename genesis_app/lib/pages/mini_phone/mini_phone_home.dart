@@ -4,24 +4,23 @@ extension _MiniPhoneHome on _MiniPhonePageState {
   Widget _home() => Stack(
     fit: StackFit.expand,
     children: [
-      store.wallpaperPhoto == null
-          ? Image.asset('$miniPhoneAssets${store.wallpaper}', fit: BoxFit.cover)
-          : Image.memory(store.wallpaperPhoto!, fit: BoxFit.cover),
-      const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0x52151517),
-              Color(0x0A151517),
-              Color(0x14151517),
-              Color(0x33151517),
-            ],
-            stops: [0, .37, .68, 1],
+      _wallpaperBackground(store.wallpaper, store.wallpaperPhoto),
+      if (store.wallpaper != miniSolidWallpaper || store.wallpaperPhoto != null)
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0x52151517),
+                Color(0x0A151517),
+                Color(0x14151517),
+                Color(0x33151517),
+              ],
+              stops: [0, .37, .68, 1],
+            ),
           ),
         ),
-      ),
       SafeArea(
         child: LayoutBuilder(
           builder: (context, bounds) {
@@ -129,40 +128,6 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         if (kinds.isNotEmpty) ...[
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 8,
-                                              right: 8,
-                                              bottom: 6,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    'Notifications',
-                                                    style: miniStyle(
-                                                      16,
-                                                      FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ),
-                                                _noticeAction(
-                                                  allExpanded
-                                                      ? 'Show less'
-                                                      : 'Show all',
-                                                  () => _update(() {
-                                                    if (allExpanded) {
-                                                      expandedNotificationGroups
-                                                          .clear();
-                                                    } else {
-                                                      expandedNotificationGroups
-                                                          .addAll(kinds);
-                                                    }
-                                                  }),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
                                           if (messages.isNotEmpty)
                                             _noticeGroup(
                                               'Messages',
@@ -170,33 +135,49 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                                               [
                                                 for (final n in messages)
                                                   _homeNotice(
-                                                    expandedNotificationGroups
-                                                            .contains(
-                                                              'Messages',
-                                                            )
-                                                        ? 'Messages'
-                                                        : 'Messages · ${messages.length}',
                                                     n.person,
                                                     n.text,
                                                     n.time,
                                                     () => _openChat(n.person),
                                                   ),
                                               ],
+                                              allExpanded: allExpanded,
+                                              toggleAll: () => _update(() {
+                                                if (allExpanded) {
+                                                  expandedNotificationGroups
+                                                      .clear();
+                                                } else {
+                                                  expandedNotificationGroups
+                                                      .addAll(kinds);
+                                                }
+                                              }),
                                             ),
                                           if (posts.isNotEmpty)
-                                            _noticeGroup('Posts', posts.length, [
-                                              for (final p in posts)
-                                                _homeNotice(
-                                                  expandedNotificationGroups
-                                                          .contains('Posts')
-                                                      ? 'Posts'
-                                                      : 'Posts · ${posts.length}',
-                                                  p.person,
-                                                  p.text,
-                                                  p.time,
-                                                  () => _openComments(p),
-                                                ),
-                                            ]),
+                                            _noticeGroup(
+                                              'Posts',
+                                              posts.length,
+                                              [
+                                                for (final p in posts)
+                                                  _homeNotice(
+                                                    p.person,
+                                                    p.text,
+                                                    p.time,
+                                                    () => _openComments(p),
+                                                  ),
+                                              ],
+                                              allExpanded: allExpanded,
+                                              toggleAll: messages.isEmpty
+                                                  ? () => _update(() {
+                                                      if (allExpanded) {
+                                                        expandedNotificationGroups
+                                                            .clear();
+                                                      } else {
+                                                        expandedNotificationGroups
+                                                            .addAll(kinds);
+                                                      }
+                                                    })
+                                                  : null,
+                                            ),
                                         ],
                                       ],
                                     ),
@@ -221,6 +202,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                       radius: 18,
                       opacity: .094,
                       light: true,
+                      outlined: false,
                       child: SizedBox(
                         width: 68,
                         height: 28,
@@ -320,33 +302,20 @@ extension _MiniPhoneHome on _MiniPhonePageState {
     ).copyWith(height: 1.08, letterSpacing: -size * .065);
     return FittedBox(
       fit: BoxFit.scaleDown,
-      child: Stack(
-        children: [
-          Text(
-            '01:04',
-            style: style.copyWith(
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = .5
-                ..color = const Color(0x66FFFFFF),
-            ),
-          ),
-          ShaderMask(
-            blendMode: BlendMode.srcIn,
-            shaderCallback: (rect) => const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xA6FFFFFF),
-                Color(0x85FFFFFF),
-                Color(0x66FFFFFF),
-                Color(0x99FFFFFF),
-              ],
-              stops: [0, .3, .58, 1],
-            ).createShader(rect),
-            child: Text('01:04', style: style.copyWith(color: Colors.white)),
-          ),
-        ],
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (rect) => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xA6FFFFFF),
+            Color(0x85FFFFFF),
+            Color(0x66FFFFFF),
+            Color(0x99FFFFFF),
+          ],
+          stops: [0, .3, .58, 1],
+        ).createShader(rect),
+        child: Text('01:04', style: style.copyWith(color: Colors.white)),
       ),
     );
   }
@@ -362,7 +331,13 @@ extension _MiniPhoneHome on _MiniPhonePageState {
     child: Text(text, style: miniStyle(12)),
   );
 
-  Widget _noticeGroup(String kind, int count, List<Widget> cards) {
+  Widget _noticeGroup(
+    String kind,
+    int count,
+    List<Widget> cards, {
+    bool allExpanded = false,
+    VoidCallback? toggleAll,
+  }) {
     final expanded = expandedNotificationGroups.contains(kind);
     return Padding(
       padding: EdgeInsets.only(
@@ -374,17 +349,24 @@ extension _MiniPhoneHome on _MiniPhonePageState {
       ),
       child: Column(
         children: [
-          if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 9),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '$kind · $count',
-                  style: miniStyle(12, FontWeight.w600),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$kind · $count',
+                    style: miniStyle(16, FontWeight.w500),
+                  ),
                 ),
-              ),
+                if (toggleAll != null)
+                  _noticeAction(
+                    allExpanded ? 'Show less' : 'Show all',
+                    toggleAll,
+                  ),
+              ],
             ),
+          ),
           if (expanded) ...[
             for (final card in cards)
               Padding(padding: const EdgeInsets.only(bottom: 7), child: card),
@@ -429,7 +411,6 @@ extension _MiniPhoneHome on _MiniPhonePageState {
   );
 
   Widget _homeNotice(
-    String kind,
     MiniDemoPerson person,
     String text,
     String time,
@@ -455,7 +436,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                     children: [
                       Expanded(
                         child: Text(
-                          kind,
+                          person.short,
                           style: miniStyle(12, FontWeight.w600),
                         ),
                       ),
@@ -465,7 +446,6 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                       ),
                     ],
                   ),
-                  Text(person.short, style: miniStyle(12, FontWeight.w600)),
                   Text(
                     text,
                     maxLines: 2,
@@ -503,7 +483,11 @@ extension _MiniPhoneHome on _MiniPhonePageState {
               borderRadius: BorderRadius.circular(17),
             ),
             child: Center(
-              child: MiniIcon('flat-$icon', size: 33, color: miniWhite),
+              child: MiniIcon(
+                icon.startsWith('music-') ? icon : 'flat-$icon',
+                size: 33,
+                color: miniWhite,
+              ),
             ),
           ),
           if (badge > 0)
@@ -520,7 +504,19 @@ extension _MiniPhoneHome on _MiniPhonePageState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _lockedApp('Camera', Icons.camera_alt_rounded, size),
-        _lockedApp('Music', Icons.music_note_rounded, size),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _homeApp(
+              'music-musical-note',
+              'Music',
+              MiniPhoneScreen.music,
+              size: size,
+            ),
+            const SizedBox(height: 7),
+            Text('Music', style: miniStyle(12)),
+          ],
+        ),
         _lockedApp('Maps', Icons.map_rounded, size),
         _lockedApp('Calendar', Icons.calendar_month_rounded, size),
       ],
