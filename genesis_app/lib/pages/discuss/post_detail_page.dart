@@ -1,4 +1,5 @@
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/language_data_refresh.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -63,7 +64,15 @@ class PostDetailPage extends StatefulWidget {
   State<PostDetailPage> createState() => _PostDetailPageState();
 }
 
-class _PostDetailPageState extends State<PostDetailPage> {
+class _PostDetailPageState extends State<PostDetailPage>
+    with LanguageDataRefresh<PostDetailPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    final root = widget.item?.replyRootDiscussId.trim() ?? '';
+    if (root.isEmpty) return;
+    await _loadInitialReplies(root, _loadGeneration, propagateFailure: true);
+  }
+
   late final OriginDiscussListController _controller;
   late final SessionRevisionSubscription _sessionRevision;
   bool _initialRepliesRequested = false;
@@ -133,7 +142,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
     _loadInitialRepliesIfNeeded();
   }
 
-  Future<void> _loadInitialReplies(String rootDiscussId, int generation) async {
+  Future<void> _loadInitialReplies(
+    String rootDiscussId,
+    int generation, {
+    bool propagateFailure = false,
+  }) async {
     try {
       final data = await AppServicesScope.read(context).api.v1.discuss.replies(
         rootDiscussId: rootDiscussId,
@@ -147,6 +160,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
         page: page,
       );
       if (!loaded) {
+        if (propagateFailure) {
+          throw StateError('Reply page has no root comment');
+        }
         showGenesisToast(
           context,
           GenesisL10n.current.worldoLoadRepliesFailed,
@@ -161,6 +177,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
           brightness: Brightness.dark,
         );
       }
+      if (propagateFailure) rethrow;
     }
   }
 

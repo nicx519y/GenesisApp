@@ -483,7 +483,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   Future<void> refreshLanguageData() async {
     _modelRequestCache.clearModelCatalog();
     _selectedModelTitleLookupCode = '';
-    await _backfillSelectedModelTitle(_selectedModelCode);
+    await _backfillSelectedModelTitle(
+      _selectedModelCode,
+      propagateFailure: true,
+    );
   }
 
   final _unobscuredPanelKey = GlobalKey();

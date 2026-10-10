@@ -82,7 +82,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     }
   }
 
-  Future<void> _backfillSelectedModelTitle(String modelCode) async {
+  Future<void> _backfillSelectedModelTitle(
+    String modelCode, {
+    bool propagateFailure = false,
+  }) async {
     final modelWorldId = _modelWorldId;
     final code = modelCode.trim();
     if (!widget.active ||
@@ -129,6 +132,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     } catch (error) {
       _selectedModelTitleLookupCode = '';
       debugPrint('[WorldChat][Model] resolve model title failed: $error');
+      if (propagateFailure) rethrow;
     }
   }
 

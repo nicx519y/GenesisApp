@@ -39,6 +39,9 @@ class _UserInfoPageState extends State<UserInfoPage>
   @override
   Future<void> refreshLanguageData() async {
     await _refresh();
+    // _refresh keeps expected API errors in FutureBuilder. Language refresh
+    // must still observe that failure so the page stays stale for a retry.
+    await _future;
   }
 
   late Future<UserProfileData> _future;

@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'app_localizations.dart';
+import 'app_language_controller.dart';
 
 /// Provides localized copy to presentation helpers that cannot receive a
 /// [BuildContext]. Widgets should prefer `context.l10n`.
@@ -8,7 +9,10 @@ abstract final class GenesisL10n {
   static AppLocalizations? _current;
 
   static AppLocalizations get current =>
-      _current ?? _lookup(PlatformDispatcher.instance.locale);
+      _current ??
+      _lookup(
+        appLanguageController.locale ?? PlatformDispatcher.instance.locale,
+      );
 
   static void bind(AppLocalizations localizations) {
     _current = localizations;
@@ -16,7 +20,9 @@ abstract final class GenesisL10n {
 
   static AppLocalizations _lookup(Locale locale) {
     return lookupAppLocalizations(
-      resolveGenesisSupportedLocale(locale, AppLocalizations.supportedLocales),
+      AppLanguageController.resolve([
+        locale,
+      ], AppLanguageController.supportedLocales),
     );
   }
 }

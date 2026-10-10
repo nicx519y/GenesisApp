@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
+import 'package:genesis_flutter_android/l10n/language_data_refresh.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
@@ -33,6 +36,64 @@ const _wrappingTaskDescription =
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
+
+  testWidgets('failed language refresh remains stale and retries on return', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await appLanguageController.load();
+    addTearDown(() async {
+      SharedPreferences.setMockInitialValues({});
+      await appLanguageController.load();
+    });
+    final wallet = GemWalletStore(
+      readUid: () async => 'u_test',
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+    );
+    final billing = _FakeBillingService();
+    addTearDown(wallet.dispose);
+    addTearDown(billing.dispose);
+    var fail = false;
+    var requests = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [genesisPageRouteObserver],
+        home: GemWalletPage(
+          showSubscriptionInitially: false,
+          walletStore: wallet,
+          billingService: billing,
+          membershipProductsLoader: loadTestMembershipOffers,
+          productsLoader: (_) async {
+            requests++;
+            if (fail) throw StateError('offline');
+            return _products();
+          },
+          tasksLoader: (_) async => [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final state =
+        tester.state(find.byType(GemWalletPage))
+            as LanguageDataRefresh<GemWalletPage>;
+    fail = true;
+    await appLanguageController.select(
+      const Locale('fr'),
+      saveLanguage: (_) async {},
+    );
+    await tester.pumpAndSettle();
+    expect(state.languageDataStale, isTrue);
+    final failedRequests = requests;
+    fail = false;
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+    await tester.pumpAndSettle();
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(requests, greaterThan(failedRequests));
+    expect(state.languageDataStale, isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   for (final subscriptionFirst in [true, false]) {
     for (final swipe in [false, true]) {
@@ -2370,7 +2431,10 @@ void _expectGrantedSuccessDialog(
     12,
   );
   final grantedLine = tester.widget<Text>(
-    find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+    find.descendant(
+      of: find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+      matching: find.byType(Text),
+    ),
   );
   expect(grantedLine.style?.fontSize, 14);
   expect(grantedLine.style?.fontWeight, FontWeight.w400);

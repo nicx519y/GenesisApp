@@ -5,6 +5,8 @@ import 'package:genesis_flutter_android/components/discuss/discuss_dark_style.da
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
@@ -20,6 +22,42 @@ import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.d
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 
 void main() {
+  testWidgets(
+    'post detail reloads replies on language change without replacing state',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await appLanguageController.load();
+      addTearDown(() async {
+        SharedPreferences.setMockInitialValues({});
+        await appLanguageController.load();
+      });
+      final transport = _DiscussPageTransport(includeReplies: true);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: _postDetailTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final state = tester.state(find.byType(PostDetailPage));
+      final before = transport.requests
+          .where((request) => request.uri.path.endsWith('/discuss/replies'))
+          .length;
+      await appLanguageController.select(
+        const Locale('fr'),
+        saveLanguage: (_) async {},
+      );
+      await tester.pumpAndSettle();
+      expect(
+        transport.requests
+            .where((request) => request.uri.path.endsWith('/discuss/replies'))
+            .length,
+        before + 1,
+      );
+      expect(tester.state(find.byType(PostDetailPage)), same(state));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('hides attached images on discuss and post detail pages', (
     tester,
   ) async {

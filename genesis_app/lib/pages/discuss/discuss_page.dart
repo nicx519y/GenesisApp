@@ -39,6 +39,8 @@ class DiscussPage extends StatefulWidget {
 class _DiscussPageState extends State<DiscussPage>
     with LanguageDataRefresh<DiscussPage> {
   @override
+  bool get languageRefreshSucceeded => _discussController.error == null;
+  @override
   Future<void> refreshLanguageData() async {
     await _refresh();
   }

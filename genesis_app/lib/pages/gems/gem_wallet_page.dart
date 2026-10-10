@@ -124,6 +124,11 @@ class _GemWalletPageState extends State<GemWalletPage>
         LanguageDataRefresh<GemWalletPage> {
   @override
   Future<void> refreshLanguageData() => _refreshAll(silent: true);
+  @override
+  bool get languageRefreshSucceeded =>
+      _productsError == null &&
+      _tasksError == null &&
+      _walletStore.state.value.lastError == null;
 
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
   List<GemProduct>? _products;

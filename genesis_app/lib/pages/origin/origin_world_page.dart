@@ -159,6 +159,9 @@ enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
 class _OriginWorldPageState extends State<OriginWorldPage>
     with LanguageDataRefresh<OriginWorldPage> {
+  bool _lastOriginFetchSucceeded = false;
+  @override
+  bool get languageRefreshSucceeded => _lastOriginFetchSucceeded;
   @override
   Future<void> refreshLanguageData() async {
     await _fetchOriginDetail();
@@ -482,6 +485,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   Future<void> _fetchOriginDetail({bool isInitial = false}) async {
+    _lastOriginFetchSucceeded = false;
     final generation = ++_originLoadGeneration;
     final requestedOriginId = widget.oid.trim();
     FirebasePerformanceOperation? requestOperation;
@@ -514,6 +518,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         _initialRequestPerformanceOperation = null;
       }
       unawaited(requestOperation?.succeed());
+      _lastOriginFetchSucceeded = true;
       final shouldStageInitialContent =
           isInitial ||
           _origin == null ||
