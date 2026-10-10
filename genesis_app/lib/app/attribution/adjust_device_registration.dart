@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../telemetry/genesis_telemetry.dart';
 import 'adjust_local_adid_store.dart';
+import 'gaid_availability_monitor.dart';
 
 typedef AdjustAdidReader = Future<String?> Function(int timeoutMilliseconds);
 typedef AdjustOptionalIdReader = Future<String?> Function();
@@ -82,9 +83,12 @@ class AdjustDeviceRegistration {
     this.optionalIdTimeout = const Duration(seconds: 3),
     this.retryDelays = _defaultRetryDelays,
     this.reportAdidFailure = _reportAdidFailure,
+    GaidAvailabilityMonitor? gaidAvailabilityMonitor,
     AdjustDeviceRegistrationRetryScheduler retryScheduler =
         _scheduleRetryWithTimer,
-  }) : _retryScheduler = retryScheduler;
+  }) : gaidAvailabilityMonitor =
+           gaidAvailabilityMonitor ?? GaidAvailabilityMonitor(),
+       _retryScheduler = retryScheduler;
 
   final TargetPlatform platform;
   final AdjustDeviceRegistrationRequest registerDevice;
@@ -99,6 +103,7 @@ class AdjustDeviceRegistration {
   final Duration optionalIdTimeout;
   final List<Duration> retryDelays;
   final AdjustAdidFailureReporter reportAdidFailure;
+  final GaidAvailabilityMonitor gaidAvailabilityMonitor;
   final AdjustDeviceRegistrationRetryScheduler _retryScheduler;
 
   Future<void>? _inFlight;
@@ -295,15 +300,16 @@ class AdjustDeviceRegistration {
         : AdjustDeviceRegistrationResult.registeredWithoutAdid;
 
     try {
+      final environment = environmentProvider();
       final identifiers = platform == TargetPlatform.android
           ? _AdjustDeviceIdentifiers(
               adid: adid,
-              environment: environmentProvider(),
-              gpsAdid: await _readGoogleAdId(),
+              environment: environment,
+              gpsAdid: await _readGoogleAdId(environment),
             )
           : _AdjustDeviceIdentifiers(
               adid: adid,
-              environment: environmentProvider(),
+              environment: environment,
               idfa: await _readOptional(readIdfa, 'IDFA'),
               idfv: await _readOptional(readIdfv, 'IDFV'),
             );
@@ -415,14 +421,29 @@ class AdjustDeviceRegistration {
     }
   }
 
-  Future<String> _readGoogleAdId() async {
+  Future<String> _readGoogleAdId(String environment) async {
     final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
-    if (_isUsableGoogleAdId(adjustId)) return adjustId;
+    if (_isUsableGoogleAdId(adjustId)) {
+      gaidAvailabilityMonitor.observe(
+        environment: environment,
+        source: 'adjust',
+      );
+      return adjustId;
+    }
 
     final nativeReader = readNativeGoogleAdId;
-    if (nativeReader == null) return '';
-    final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
-    return _isUsableGoogleAdId(nativeId) ? nativeId : '';
+    if (nativeReader != null) {
+      final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
+      if (_isUsableGoogleAdId(nativeId)) {
+        gaidAvailabilityMonitor.observe(
+          environment: environment,
+          source: 'native',
+        );
+        return nativeId;
+      }
+    }
+    gaidAvailabilityMonitor.observe(environment: environment, source: null);
+    return '';
   }
 
   bool _isUsableGoogleAdId(String value) =>
