@@ -18,7 +18,7 @@ while [ "$#" -gt 0 ]; do
       cat <<'HELP'
 Usage: bash agent_workflow/scripts/run_static_verify.sh [--build-apk] [--build-ios]
 
-Runs flutter analyze and flutter test in genesis_app/.
+Runs localization gates, flutter analyze and flutter test in genesis_app/.
 Optional flags add native build gates.
 HELP
       exit 0
@@ -33,13 +33,17 @@ done
 
 ensure_app_dir
 require_cmd flutter
+require_cmd python3
 
 report="$REPORT_DIR/static-verify-$(timestamp).log"
 printf 'GenesisApp static verification\n' | tee "$report"
 printf 'App dir: %s\n' "$APP_DIR" | tee -a "$report"
 
 cd "$APP_DIR"
+run_logged "$report" ./tool/l10n/check --catalog-only
+run_logged "$report" python3 -m unittest discover -s tool/l10n -p 'test_*.py'
 run_logged "$report" flutter pub get
+run_logged "$report" flutter gen-l10n
 run_logged "$report" flutter analyze
 run_logged "$report" flutter test
 

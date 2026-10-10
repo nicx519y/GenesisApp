@@ -1,0 +1,13 @@
+{
+  "source": {"api_code": "en", "arb_locale": "en", "display_name": "English", "style": "保持现有美式英文和产品术语。"},
+  "targets": {
+    "zh-TW": {"arb_locale": "zh_TW", "display_name": "繁體中文", "style": "台湾繁体中文与台湾惯用词，不混入简体/大陆用语。提示礼貌自然，按钮简洁。", "plural_policy": "uninflected"},
+    "es": {"arb_locale": "es", "display_name": "Español", "style": "拉美通用西语，使用 tú。避免 vosotros、西班牙专用表达和强地域俚语。Guardar/Configuración，正确处理性数一致。", "plural_policy": "inflected"},
+    "pt": {"arb_locale": "pt", "display_name": "Português", "style": "巴西葡语，使用 você，Salvar/Configurações。避免欧洲葡语表达，注意性数一致和 0 的数量表达。", "plural_policy": "inflected"},
+    "fr": {"arb_locale": "fr", "display_name": "Français", "style": "法国法语，统一 vous，Enregistrer/Paramètres，按法语习惯处理标点前空格。避免加拿大法语地域词，保持自然的产品语气。", "plural_policy": "inflected"},
+    "de": {"arb_locale": "de", "display_name": "Deutsch", "style": "德语使用 du，名词大写，正确处理格和复合词。提示自然清楚，按钮简短。", "plural_policy": "inflected"},
+    "it": {"arb_locale": "it", "display_name": "Italiano", "style": "意大利语使用 tu，Salva/Impostazioni，注意冠词、性数与介词，不逐词套英文词序。", "plural_policy": "inflected"},
+    "ja": {"arb_locale": "ja", "display_name": "日本語", "style": "日语提示采用自然的です/ます礼貌句式，控件用简洁动作/名词。不强行加入人称，动态名称不得假设读音，保留合适的计数单位。", "plural_policy": "uninflected"},
+    "ko": {"arb_locale": "ko", "display_name": "한국어", "style": "韩语提示统一礼貌敬语，控件使用简洁动作/名词。未知名称不得固定 은/는、이/가、을/를，优先改成自然的标签结构或不依赖名称词尾的句子。", "plural_policy": "uninflected"}
+  }
+}

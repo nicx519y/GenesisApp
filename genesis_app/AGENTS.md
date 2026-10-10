@@ -7,6 +7,18 @@
 - 讨论实际产品逻辑、正式接口字段、线上数据、商品配置、命名规则或用户可见行为时，只依据正式业务代码、接口契约和实际运行链路。
 - 不得把 mock、fixture、测试数据、自测配置或测试辅助实现混入产品结论，也不得用它们推断正式商品档位、字段值或命名规则。
 - 只有用户明确询问测试实现、mock 或 fixture 时，才讨论这些内容，并清楚标明其测试属性。
+
+## 用户文案与多语言必做流程
+
+- 任何 AI 新增/修改用户可见文案，都必须先读取 `docs/l10n/translation-rules.md`、`language-profiles.json` 和 `glossary.json`。`app_en.arb` 是语义源，新增/修改 key 要给出具体页面场景的 description；界面使用 `context.l10n`，展示辅助方法使用 `GenesisL10n.current`，不硬编码可翻译文字，不手改生成文件。
+- 新增或修改英文消息、占位符元数据后，必须完成所有目标语种的增量翻译。先运行 `./tool/l10n/translate --dry-run`。人工开发可执行 `./tool/l10n/translate` 调用已登录的 Codex CLI；当前 AI 可以运行 `./tool/l10n/translate --prepare-dir <空目录>`，读取生成的 prompt/schema，由当前任务直接生成同名响应 JSON，再运行 `./tool/l10n/translate --responses-dir <目录>` 导入，不必启动另一个 AI。
+- prepared/import 模式使用同一组 `--language` 和 `--batch-size` 参数。响应包含 schema 指定的 batch_id；上下文不足输出 needs_confirmation，不能自行虚构或标为已完成。不要覆盖未变更的译文。源文案变化后旧人工审校结论失效，自动译文只能标为 ai。
+- 手动译文修改后，逐 key 执行 `./tool/l10n/accept --language <接口码> --key <key> --note <实际修改理由>` 记录。只有人类明确确认的母语审校才可加 `--status reviewed`；AI 不得伪造审校结论。不得手改 translation-state.json 的 hash/status 来绕过漏翻检查。
+- 新增语言必须先补规范、术语、ARB/API 码映射，再完成全量翻译与客户端接入（枚举、supportedLocales、语言列表、设置页名称）。繁中接口值为 zh-TW，ARB 内部为 zh_TW；系统语言原值和明确的设置语言不能混用。
+- 完成前必须执行 `./tool/l10n/check`（目录/指纹检查、flutter gen-l10n、本地化与设置页测试）。修改工具时另执行 `python3 -m unittest discover -s tool/l10n -p 'test_*.py'`。检查失败、执行器缺失或待确认内容存在时，不得声称多语言工作完成。翻译规则/语种风格/术语修改也必须检查受影响译文；同值无变化不重翻。
+- 人工开发使用相同入口。统一静态验证脚本会执行离线目录和工具测试检查，防止漏翻进入后续验证。代码测试通过不代表真机排版、原生权限弹窗或服务端翻译已经验收；需要同步飞书时按 key 对齐并导出核对。
+
+入口及新增语言步骤见 `docs/l10n/README.md`。
 - 如果正式代码或接口契约不足以确认答案，直接说明尚不能确认并继续查正式来源，不用测试数据补全答案。
 
 ## 项目定位

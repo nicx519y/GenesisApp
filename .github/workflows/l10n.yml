@@ -1,0 +1,24 @@
+name: Localization
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    name: Catalog and translation state
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Test incremental translation tooling
+        working-directory: genesis_app
+        run: python3 -m unittest discover -s tool/l10n -p 'test_*.py'
+      - name: Reject missing or stale translations
+        working-directory: genesis_app
+        run: ./tool/l10n/check --catalog-only
