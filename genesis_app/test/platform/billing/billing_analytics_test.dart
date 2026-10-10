@@ -45,7 +45,6 @@ void main() {
 
     expect(result, <String, Object?>{
       'action': 'product_click',
-      'attempt_id': 'attempt-1',
       'product_id': 'gem_pack_500',
       'offer_token_present': true,
       'billing_account_id_present': true,
@@ -78,7 +77,6 @@ void main() {
         'action_type': 'pay_event',
         'action': 'product_click',
         'object1': 'gem_pack_500',
-        'object2': 'attempt-1',
         'object3': 'buy_gems_sheet',
       });
     },
@@ -104,7 +102,6 @@ void main() {
       'action_type': 'pay_event',
       'action': 'purchase_success',
       'object1': 'gem_pack_500',
-      'object2': 'attempt-1',
       'object3': 'GPA.1',
     });
   });
@@ -126,7 +123,6 @@ void main() {
       'action_type': 'pay_event',
       'action': 'purchase_pending',
       'object1': 'gem_pack_500',
-      'object2': 'attempt-1',
       'object3': 'store_callback_pending',
     });
   });
@@ -150,7 +146,6 @@ void main() {
         'action_type': 'pay_event',
         'action': 'purchase_timeout',
         'object1': 'gem_pack_500',
-        'object2': 'attempt-1',
         'object3': timeoutType,
       });
     });
@@ -176,9 +171,30 @@ void main() {
       'action_type': 'pay_event',
       'action': 'purchase_failed',
       'object1': 'gem_pack_500',
-      'object2': 'attempt-1',
       'object3': 'query_failed[product_not_found]',
     });
+  });
+
+  test('query failure keeps its stage in purchase object3', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'purchase_failed',
+      properties: <String, Object?>{
+        'attempt_id': 'attempt-1',
+        'product_id': 'gem_pack_500',
+        'reason': 'query_failed',
+        'error_code': 'billing_unavailable',
+        'failure_reason': 'google[response_code=billingUnavailable]',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      sink.events.single.collectPayload?['object3'],
+      'query_failed[billing_unavailable]',
+    );
   });
 
   test(
@@ -204,6 +220,26 @@ void main() {
     },
   );
 
+  test('precheck failure collect projection includes its code', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'purchase_failed',
+      properties: const <String, Object?>{
+        'product_id': 'gem_pack_500',
+        'reason': 'precheck_failed',
+        'error_code': 'gp_unavailable',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      sink.events.single.collectPayload?['object3'],
+      'precheck_failed[gp_unavailable]',
+    );
+  });
+
   test(
     'callback error collect projection appends normalized error code',
     () async {
@@ -226,7 +262,6 @@ void main() {
         'action_type': 'pay_event',
         'action': 'purchase_failed',
         'object1': 'gem_pack_500',
-        'object2': 'attempt-1',
         'object3': 'purchase_callback_error[network_error]',
       });
     },
@@ -274,7 +309,6 @@ void main() {
       'action_type': 'pay_event',
       'action': 'purchase_failed',
       'object1': 'gem_pack_1000',
-      'object2': 'attempt-1',
       'object3': 'launch_failed[storekit_duplicate_product_object]',
     });
   });

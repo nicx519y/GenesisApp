@@ -16,7 +16,7 @@ import '../../components/login_provider_button.dart';
 import '../../components/page_header.dart';
 import '../../components/gems/pro_user_name.dart';
 import '../../utils/entity_deleted.dart';
-import '../../network/api_exception.dart';
+import '../../utils/api_error_message.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../network/genesis_api.dart';
@@ -436,23 +436,41 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       if (!confirmed || !mounted) return;
     }
     setState(() => _updatingUids.add(item.uid));
+    final wasBlocked = item.isBlocked;
     try {
       final api = AppServicesScope.read(context).api;
-      if (item.isBlocked) {
+      if (wasBlocked) {
         await api.v1.user.unblock(targetUid: item.uid);
       } else {
         await api.v1.user.block(targetUid: item.uid);
-        await api.v1.report.create(
-          targetType: 'user',
-          targetId: item.uid,
-          content: 'User blocked from blocked users settings.',
-        );
+      }
+      if (mounted) {
+        setState(() => item.isBlocked = !wasBlocked);
+      }
+      if (!wasBlocked) {
+        try {
+          await api.v1.report.create(
+            targetType: 'user',
+            targetId: item.uid,
+            content: 'User blocked from blocked users settings.',
+          );
+        } catch (error, stackTrace) {
+          debugPrint('Failed to report blocked user ${item.uid}: $error');
+          debugPrintStack(stackTrace: stackTrace);
+          if (mounted) {
+            showGenesisToast(
+              context,
+              apiErrorMessage(
+                error,
+                fallback: GenesisL10n.current.blockedReportFailed,
+              ),
+              brightness: Brightness.dark,
+            );
+          }
+          return;
+        }
       }
       if (!mounted) return;
-      final wasBlocked = item.isBlocked;
-      setState(() {
-        item.isBlocked = !wasBlocked;
-      });
       showGenesisToast(
         context,
         wasBlocked
@@ -466,7 +484,12 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       if (!mounted) return;
       showGenesisToast(
         context,
-        _blockedUserActionFailureMessage(error),
+        apiErrorMessage(
+          error,
+          fallback: wasBlocked
+              ? 'Unblock failed. Please try again.'
+              : 'Block failed. Please try again.',
+        ),
         brightness: Brightness.dark,
       );
     } finally {
@@ -751,16 +774,6 @@ class _BlockedUserTile extends StatelessWidget {
       ),
     );
   }
-}
-
-String _blockedUserActionFailureMessage(Object error) {
-  if (error is ApiException) {
-    final message = error.message.trim().isEmpty
-        ? GenesisL10n.current.meRequestFailed
-        : error.message;
-    return '$message[${error.code}]';
-  }
-  return GenesisL10n.current.updateFailed;
 }
 
 class AccountPage extends StatefulWidget {

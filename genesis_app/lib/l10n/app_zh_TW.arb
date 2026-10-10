@@ -1,60 +1,168 @@
 {
   "imageGifUnsupported": "不支援 GIF 動畫。",
-  "@imageGifUnsupported": {"description": "Client UI message or accessibility label."},
+  "@imageGifUnsupported": {
+    "description": "Client UI message or accessibility label."
+  },
   "worldProgressComplete": "推進完成",
-  "@worldProgressComplete": {"description": "Client UI message or accessibility label."},
+  "@worldProgressComplete": {
+    "description": "Client UI message or accessibility label."
+  },
   "a11ySwitchMode": "切換至{label}模式",
-  "@a11ySwitchMode": {"description": "Client UI message or accessibility label.", "placeholders": {"label": {"type": "String"}}},
+  "@a11ySwitchMode": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "a11yEditItem": "編輯{title}",
-  "@a11yEditItem": {"description": "Client UI message or accessibility label.", "placeholders": {"title": {"type": "String"}}},
+  "@a11yEditItem": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "a11yRoleCards": "角色卡片，第 {index} 張，共 {count} 張",
-  "@a11yRoleCards": {"description": "Client UI message or accessibility label.", "placeholders": {"index": {"type": "int"}, "count": {"type": "int"}}},
+  "@a11yRoleCards": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "a11yEditInspiration": "編輯第 {index} 個靈感",
-  "@a11yEditInspiration": {"description": "Client UI message or accessibility label.", "placeholders": {"index": {"type": "int"}}},
+  "@a11yEditInspiration": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "a11yInsert": "插入{label}",
-  "@a11yInsert": {"description": "Client UI message or accessibility label.", "placeholders": {"label": {"type": "String"}}},
+  "@a11yInsert": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "a11yMembership": "會員",
-  "@a11yMembership": {"description": "Accessibility label."},
+  "@a11yMembership": {
+    "description": "Accessibility label."
+  },
   "a11yOpenWorldo": "開啟 Worldo",
-  "@a11yOpenWorldo": {"description": "Accessibility label."},
+  "@a11yOpenWorldo": {
+    "description": "Accessibility label."
+  },
   "a11yFilterGender": "依性別篩選",
-  "@a11yFilterGender": {"description": "Accessibility label."},
+  "@a11yFilterGender": {
+    "description": "Accessibility label."
+  },
   "a11ySelectRole": "選擇你的角色",
-  "@a11ySelectRole": {"description": "Accessibility label."},
+  "@a11ySelectRole": {
+    "description": "Accessibility label."
+  },
   "a11yLoadingMap": "正在載入地圖",
-  "@a11yLoadingMap": {"description": "Accessibility label."},
+  "@a11yLoadingMap": {
+    "description": "Accessibility label."
+  },
   "a11yBuildingWorld": "正在建立世界",
-  "@a11yBuildingWorld": {"description": "Accessibility label."},
+  "@a11yBuildingWorld": {
+    "description": "Accessibility label."
+  },
   "a11yPremiumMembership": "Premium 會員",
-  "@a11yPremiumMembership": {"description": "Accessibility label."},
+  "@a11yPremiumMembership": {
+    "description": "Accessibility label."
+  },
   "a11yProMembership": "Pro 會員",
-  "@a11yProMembership": {"description": "Accessibility label."},
+  "@a11yProMembership": {
+    "description": "Accessibility label."
+  },
   "a11yRecommendedRole": "推薦角色",
-  "@a11yRecommendedRole": {"description": "Accessibility label."},
+  "@a11yRecommendedRole": {
+    "description": "Accessibility label."
+  },
   "a11yLastMessage": "最新訊息",
-  "@a11yLastMessage": {"description": "Accessibility label."},
+  "@a11yLastMessage": {
+    "description": "Accessibility label."
+  },
   "a11yRecentChat": "最近的聊天",
-  "@a11yRecentChat": {"description": "Accessibility label."},
+  "@a11yRecentChat": {
+    "description": "Accessibility label."
+  },
   "a11yAiReplyLoading": "正在產生 AI 回覆",
-  "@a11yAiReplyLoading": {"description": "Accessibility label."},
+  "@a11yAiReplyLoading": {
+    "description": "Accessibility label."
+  },
   "statMessages": "{count, plural, other{{amount} 則訊息}}",
-  "@statMessages": {"description": "Localized UI label for statistics or Worldo editor.", "placeholders": {"count": {"type": "num"}, "amount": {"type": "String"}}},
+  "@statMessages": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "statPlayers": "{count, plural, other{{amount} 位玩家}}",
-  "@statPlayers": {"description": "Localized UI label for statistics or Worldo editor.", "placeholders": {"count": {"type": "num"}, "amount": {"type": "String"}}},
+  "@statPlayers": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "createAddedMax": "{added}/{max}（已新增／上限）",
-  "@createAddedMax": {"description": "Localized UI label for statistics or Worldo editor.", "placeholders": {"added": {"type": "int"}, "max": {"type": "int"}}},
+  "@createAddedMax": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "createSixHours": "6 小時",
-  "@createSixHours": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createSixHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "createTwelveHours": "12 小時",
-  "@createTwelveHours": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createTwelveHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "createOneDay": "1 天",
-  "@createOneDay": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createOneDay": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "createOneWeek": "1 週",
-  "@createOneWeek": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createOneWeek": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "settingsLanguage": "語言",
-  "@settingsLanguage": {"description": "Settings language entry and language page title."},
+  "@settingsLanguage": {
+    "description": "Settings language entry and language page title."
+  },
   "languageChangeFailed": "無法切換語言，請再試一次。",
-  "@languageChangeFailed": {"description": "Language preference save failure."},
+  "@languageChangeFailed": {
+    "description": "Language preference save failure."
+  },
   "@@locale": "zh_TW",
   "purchasingGems": "正在購買寶石",
   "@purchasingGems": {
@@ -3940,5 +4048,116 @@
   "premiumAccountMismatch": "帳號識別資訊與先前的訂閱不符。",
   "@premiumAccountMismatch": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "worldRecap": "故事回顧",
+  "@worldRecap": {
+    "description": "World detail bottom sheet tab for the story recap."
+  },
+  "inboxMissingJoinRequestId": "缺少加入申請 ID",
+  "@inboxMissingJoinRequestId": {
+    "description": "Inbox approval action cannot proceed because the join request ID is missing."
+  },
+  "loginTimedOut": "登入逾時，請再試一次。",
+  "@loginTimedOut": {
+    "description": "Login error toast after a sign-in request times out."
+  },
+  "loginConnectionFailed": "無法連線，請檢查網路連線後再試一次。",
+  "@loginConnectionFailed": {
+    "description": "Login toast for a transport failure with no server message."
+  },
+  "loginTemporarilyUnavailable": "暫時無法登入，請稍後再試。",
+  "@loginTemporarilyUnavailable": {
+    "description": "Login toast for HTTP or gateway failure with no server message."
+  },
+  "recapUnlockHeading": "解鎖故事回顧",
+  "@recapUnlockHeading": {
+    "description": "Heading suffix following Worldo Premium on the story recap subscription upsell."
+  },
+  "recapUpsellDescription": "透過完整的故事回顧，重溫每個轉折、選擇，以及一路相伴的角色。",
+  "@recapUpsellDescription": {
+    "description": "Story recap subscription upsell description."
+  },
+  "recapShowEarlier": "查看較早的故事回顧",
+  "@recapShowEarlier": {
+    "description": "Button loading previous story recap pages."
+  },
+  "recapEmpty": "隨著故事發展，這裡會顯示故事回顧。",
+  "@recapEmpty": {
+    "description": "Empty story recap section after a successful request with no summaries."
+  },
+  "chatMessageAsNarrator": "以旁白身分發送訊息",
+  "@chatMessageAsNarrator": {
+    "description": "Location chat input hint when narrator mode is selected."
+  },
+  "chatMessageAsCharacter": "以 {name} 的身分發送訊息",
+  "@chatMessageAsCharacter": {
+    "description": "Location chat input hint naming the player character.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatNarratorSpeaker": "旁白",
+  "@chatNarratorSpeaker": {
+    "description": "Accessibility speaker name for narrator mode."
+  },
+  "chatYourCharacterSpeaker": "你的角色",
+  "@chatYourCharacterSpeaker": {
+    "description": "Accessibility speaker fallback while the player character name is unavailable."
+  },
+  "chatSpeakingAs": "目前以 {speaker} 的身分發言",
+  "@chatSpeakingAs": {
+    "description": "Accessibility label for location chat speaker toggle.",
+    "placeholders": {
+      "speaker": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSwitchCharacter": "切換為角色",
+  "@chatSwitchCharacter": {
+    "description": "Tooltip for switching from narration to character chat."
+  },
+  "chatSwitchNarration": "切換為旁白",
+  "@chatSwitchNarration": {
+    "description": "Tooltip for switching from character chat to narration."
+  },
+  "chatOpenLocation": "開啟 {locationName}",
+  "@chatOpenLocation": {
+    "description": "Accessible button label opening a character movement destination.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatRetryMessage": "重試訊息",
+  "@chatRetryMessage": {
+    "description": "Accessibility label on the narrator message retry control."
+  },
+  "blockedReportFailed": "已封鎖使用者，但檢舉失敗。",
+  "@blockedReportFailed": {
+    "description": "Profile and blocked-user settings toast when block succeeded but report submission failed."
+  },
+  "storeConnectionFailed": "無法連線至商店，請再試一次。",
+  "@storeConnectionFailed": {
+    "description": "Billing toast when the store cannot be reached."
+  },
+  "storeProductUnavailable": "目前無法購買此商品。",
+  "@storeProductUnavailable": {
+    "description": "Billing toast when selected store product is unavailable."
+  },
+  "storeDevicePurchasesUnavailable": "此裝置無法進行購買。",
+  "@storeDevicePurchasesUnavailable": {
+    "description": "Billing toast when the device does not allow purchases."
+  },
+  "worldHistoryRequestFailed": "世界歷史紀錄請求失敗",
+  "@worldHistoryRequestFailed": {
+    "description": "Developer history query failure toast; World History refers to world chat history."
+  },
+  "genericError": "發生錯誤",
+  "@genericError": {
+    "description": "Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback."
   }
 }

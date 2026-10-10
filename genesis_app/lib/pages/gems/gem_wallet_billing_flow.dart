@@ -38,6 +38,22 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         widget.billingService ??
         AppServicesScope.maybeRead(context)?.billing;
     if (service == null) {
+      const analytics = GenesisBillingAnalytics();
+      analytics.track(
+        'product_click',
+        properties: <String, Object?>{
+          'product_id': product.productId,
+          'source': BillingPurchaseSource.buyGemsPage.value,
+        },
+      );
+      analytics.track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'product_id': product.productId,
+          'reason': 'precheck_failed',
+          'error_code': 'service_unavailable',
+        },
+      );
       showGenesisToast(
         context,
         purchaseToastMessage(
@@ -59,7 +75,6 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       await service.purchaseGem(
         product,
         source: BillingPurchaseSource.buyGemsPage,
-        payTrackId: billingPurchaseTrackId(_payTrackPageId),
       );
     } catch (error) {
       if (!mounted) return;
@@ -91,7 +106,6 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         _showBillingPurchaseSuccess(event);
         unawaited(_refreshAll(silent: true));
         return;
-      case BillingUiEventKind.accepted:
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
       case BillingUiEventKind.deferred:

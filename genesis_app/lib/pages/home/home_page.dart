@@ -32,6 +32,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
+import '../../utils/api_error_message.dart';
 import 'home_feed_cache_store.dart';
 import '../world/world_deletion_events.dart';
 import '../world/world_page_result.dart';
@@ -137,16 +138,18 @@ class _HomePageState extends State<HomePage> {
       );
       return;
     }
-    final onLoginCompleted = widget.onLoginCompleted;
     setState(() => _loggingInProvider = provider);
     try {
       final ok = await login(provider);
       if (ok) {
-        await onLoginCompleted?.call();
+        final onLoginCompleted = widget.onLoginCompleted;
+        if (onLoginCompleted != null) {
+          await _runPostLoginFlow(onLoginCompleted);
+        }
       } else if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n.current.homeSignInFailed,
+          GenesisL10n.current.meSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -156,12 +159,21 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         showGenesisToast(
           context,
-          error.toString(),
+          loginErrorMessage(error),
           brightness: Brightness.dark,
         );
       }
     } finally {
       if (mounted) setState(() => _loggingInProvider = null);
+    }
+  }
+
+  Future<void> _runPostLoginFlow(Future<void> Function() flow) async {
+    try {
+      await flow();
+    } catch (error, stackTrace) {
+      debugPrint('[Auth][HomePage] post-login flow failed: $error');
+      debugPrint('[Auth][HomePage] stacktrace:\n$stackTrace');
     }
   }
 

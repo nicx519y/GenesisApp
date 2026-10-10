@@ -30,7 +30,7 @@ extension _MePageActions on _MePageState {
       } else {
         showGenesisToast(
           context,
-          GenesisL10n.current.homeSignInFailed,
+          GenesisL10n.current.meSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -40,12 +40,9 @@ extension _MePageActions on _MePageState {
       debugPrint('[Auth][MePage] login failed: $e');
       debugPrint('[Auth][MePage] stacktrace:\n$st');
       if (!mounted) return;
-      final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty
-            ? GenesisL10n.current.homeSignInFailed
-            : message,
+        loginErrorMessage(e),
         brightness: Brightness.dark,
       );
     } finally {
@@ -198,11 +195,11 @@ extension _MePageActions on _MePageState {
       final updatedDisplayName = apply(updatedUser);
       if (!mounted) return;
       _displayName.value = updatedDisplayName;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       showGenesisToast(
         context,
-        GenesisL10n.current.meUpdateFailed,
+        apiErrorMessage(error, fallback: GenesisL10n.current.meUpdateFailed),
         brightness: Brightness.dark,
       );
     } finally {
@@ -224,11 +221,11 @@ extension _MePageActions on _MePageState {
       final updatedAvatarUrl = apply(updatedUser);
       if (!mounted) return;
       _avatarUrl.value = updatedAvatarUrl;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       showGenesisToast(
         context,
-        GenesisL10n.current.meUpdateFailed,
+        apiErrorMessage(error, fallback: GenesisL10n.current.meUpdateFailed),
         brightness: Brightness.dark,
       );
     } finally {

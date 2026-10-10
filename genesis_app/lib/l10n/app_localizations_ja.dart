@@ -2901,4 +2901,83 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get premiumAccountMismatch => 'アカウントの識別情報が以前のサブスクリプションと一致しません。';
+
+  @override
+  String get worldRecap => 'ストーリーの振り返り';
+
+  @override
+  String get inboxMissingJoinRequestId => '参加申請 ID がありません';
+
+  @override
+  String get loginTimedOut => 'ログインがタイムアウトしました。もう一度お試しください。';
+
+  @override
+  String get loginConnectionFailed => '接続できません。インターネット接続を確認して、もう一度お試しください。';
+
+  @override
+  String get loginTemporarilyUnavailable => '現在ログインできません。しばらくしてからお試しください。';
+
+  @override
+  String get recapUnlockHeading => 'ストーリーの振り返りを解放';
+
+  @override
+  String get recapUpsellDescription =>
+      '物語の展開や選択、登場人物をまとめた振り返りで、これまでのストーリーを確認できます。';
+
+  @override
+  String get recapShowEarlier => '以前の振り返りを見る';
+
+  @override
+  String get recapEmpty => 'ストーリーが進むと、ここに振り返りが表示されます。';
+
+  @override
+  String get chatMessageAsNarrator => 'ナレーターとしてメッセージを送信';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return '$name としてメッセージを送信';
+  }
+
+  @override
+  String get chatNarratorSpeaker => 'ナレーター';
+
+  @override
+  String get chatYourCharacterSpeaker => '自分のキャラクター';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return '$speaker として発言中';
+  }
+
+  @override
+  String get chatSwitchCharacter => 'キャラクターに切り替え';
+
+  @override
+  String get chatSwitchNarration => 'ナレーションに切り替え';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return '$locationName を開く';
+  }
+
+  @override
+  String get chatRetryMessage => 'メッセージを再送信';
+
+  @override
+  String get blockedReportFailed => 'ユーザーをブロックしましたが、通報できませんでした。';
+
+  @override
+  String get storeConnectionFailed => 'ストアに接続できません。もう一度お試しください。';
+
+  @override
+  String get storeProductUnavailable => 'この商品は現在購入できません。';
+
+  @override
+  String get storeDevicePurchasesUnavailable => 'このデバイスでは購入できません。';
+
+  @override
+  String get worldHistoryRequestFailed => 'ワールドの履歴を取得できませんでした';
+
+  @override
+  String get genericError => 'エラーが発生しました';
 }

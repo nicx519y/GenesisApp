@@ -101,16 +101,11 @@ Object? handleV1ResponseErrNo(Object? json, {bool normalizeKeys = true}) {
     return normalizeKeys ? _normalizeV1Keys(map['data']) : map['data'];
   }
 
+  final serverErrMsg = serverErrorMessageFromResponse(map);
   throw ApiException(
-    message: asString(
-      map.containsKey('err_msg')
-          ? map['err_msg']
-          : map.containsKey('err_str')
-          ? map['err_str']
-          : map['errStr'],
-      fallback: 'Something went wrong',
-    ),
+    message: serverErrMsg ?? 'Something went wrong',
     code: errNo,
+    serverErrMsg: serverErrMsg,
     kind: ApiExceptionKind.business,
   );
 }

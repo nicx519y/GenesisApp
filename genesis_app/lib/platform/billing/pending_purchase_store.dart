@@ -44,6 +44,10 @@ class SqfliteBillingPendingPurchaseStore
       options: OpenDatabaseOptions(
         version: 4,
         onCreate: (db, _) => db.execute(_createTableSql),
+        onOpen: (db) => db.delete(
+          'billing_pending_purchases',
+          where: "status IN ('received', 'accepted')",
+        ),
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) {
             await db.execute('DROP TABLE IF EXISTS billing_pending_purchases');

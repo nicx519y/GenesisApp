@@ -163,9 +163,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       onTap: _isUploading
           ? () => showGenesisToast(
               context,
-              GenesisL10n
-                  .current
-                  .createImageUploadProgress,
+              GenesisL10n.current.createImageUploadProgress,
             )
           : null,
       child: Material(
@@ -233,9 +231,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             enabled: !_isUploading,
             onDisabledPressed: () => showGenesisToast(
               context,
-              GenesisL10n
-                  .current
-                  .createImageUploadProgress,
+              GenesisL10n.current.createImageUploadProgress,
             ),
           ),
         ),
@@ -306,9 +302,11 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     } on UnsupportedGifImageException {
       if (!context.mounted) return;
       _showMessage(unsupportedGifImageMessage);
-    } catch (_) {
+    } catch (error) {
       if (!context.mounted) return;
-      _showMessage(GenesisL10n.current.imageUploadFailed);
+      _showMessage(
+        apiErrorMessage(error, fallback: GenesisL10n.current.imageUploadFailed),
+      );
     } finally {
       widget.onInteractionActiveChanged?.call(false);
     }
@@ -363,7 +361,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.onPreviewBytesChanged?.call(image.bytes);
       widget.onChanged();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isUploading = false;
@@ -375,7 +373,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
-      _showMessage(GenesisL10n.current.imageUploadFailed);
+      _showMessage(
+        apiErrorMessage(error, fallback: GenesisL10n.current.imageUploadFailed),
+      );
     }
   }
 
@@ -414,7 +414,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.onPreviewBytesChanged?.call(crop.bytes);
       widget.onChanged();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isUploading = false;
@@ -426,7 +426,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
-      _showMessage(GenesisL10n.current.imageUploadFailed);
+      _showMessage(
+        apiErrorMessage(error, fallback: GenesisL10n.current.imageUploadFailed),
+      );
     }
   }
 

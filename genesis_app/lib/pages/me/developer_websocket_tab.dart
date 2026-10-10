@@ -81,7 +81,12 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
     try {
       await webSocketCaptureController.setEnabled(value);
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      if (mounted)
+        _showDeveloperTabFailure(
+          context,
+          GenesisL10n.current.memorySaveFailed,
+          error,
+        );
     } finally {
       if (mounted) setState(() => _savingEnabled = false);
     }
@@ -92,7 +97,12 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
     try {
       await webSocketCaptureController.setDirectionFilter(direction);
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      if (mounted)
+        _showDeveloperTabFailure(
+          context,
+          GenesisL10n.current.memorySaveFailed,
+          error,
+        );
     } finally {
       _refreshForSettings = false;
       if (mounted) _refreshDisplayed(jumpToTop: true);
@@ -129,7 +139,12 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
         selectedTypes: result.selectedTypes,
       );
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      if (mounted)
+        _showDeveloperTabFailure(
+          context,
+          GenesisL10n.current.memorySaveFailed,
+          error,
+        );
     } finally {
       _refreshForSettings = false;
       if (mounted) _refreshDisplayed(jumpToTop: true);

@@ -3033,4 +3033,93 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get premiumAccountMismatch =>
       'Les identifiants du compte ne correspondent pas à ceux de l’abonnement précédent.';
+
+  @override
+  String get worldRecap => 'Récapitulatif';
+
+  @override
+  String get inboxMissingJoinRequestId =>
+      'Identifiant de la demande de participation manquant';
+
+  @override
+  String get loginTimedOut => 'Le délai de connexion a expiré. Réessayez.';
+
+  @override
+  String get loginConnectionFailed =>
+      'Connexion impossible. Vérifiez votre connexion Internet et réessayez.';
+
+  @override
+  String get loginTemporarilyUnavailable =>
+      'La connexion est temporairement indisponible. Réessayez plus tard.';
+
+  @override
+  String get recapUnlockHeading => 'Débloque le récapitulatif';
+
+  @override
+  String get recapUpsellDescription =>
+      'Retrouvez le fil de votre histoire grâce à un récapitulatif complet de chaque rebondissement, choix et personnage rencontré.';
+
+  @override
+  String get recapShowEarlier => 'Voir les récapitulatifs précédents';
+
+  @override
+  String get recapEmpty =>
+      'Le récapitulatif apparaîtra ici au fil de l’histoire.';
+
+  @override
+  String get chatMessageAsNarrator =>
+      'Envoyer un message en tant que narrateur';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return 'Envoyer un message en tant que $name';
+  }
+
+  @override
+  String get chatNarratorSpeaker => 'le narrateur';
+
+  @override
+  String get chatYourCharacterSpeaker => 'votre personnage';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return 'Vous parlez en tant que $speaker';
+  }
+
+  @override
+  String get chatSwitchCharacter => 'Passer au personnage';
+
+  @override
+  String get chatSwitchNarration => 'Passer à la narration';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return 'Ouvrir $locationName';
+  }
+
+  @override
+  String get chatRetryMessage => 'Réessayer d’envoyer le message';
+
+  @override
+  String get blockedReportFailed =>
+      'L’utilisateur a été bloqué, mais le signalement a échoué.';
+
+  @override
+  String get storeConnectionFailed =>
+      'Connexion à la boutique impossible. Réessayez.';
+
+  @override
+  String get storeProductUnavailable =>
+      'Ce produit est actuellement indisponible.';
+
+  @override
+  String get storeDevicePurchasesUnavailable =>
+      'Les achats ne sont pas disponibles sur cet appareil.';
+
+  @override
+  String get worldHistoryRequestFailed =>
+      'Échec du chargement de l’historique du monde';
+
+  @override
+  String get genericError => 'Une erreur s’est produite';
 }

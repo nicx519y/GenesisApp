@@ -2908,4 +2908,83 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get premiumAccountMismatch => '계정 식별 정보가 이전 구독과 일치하지 않습니다.';
+
+  @override
+  String get worldRecap => '스토리 요약';
+
+  @override
+  String get inboxMissingJoinRequestId => '참여 요청 ID가 없어요';
+
+  @override
+  String get loginTimedOut => '로그인 시간이 초과되었어요. 다시 시도해 주세요.';
+
+  @override
+  String get loginConnectionFailed => '연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+
+  @override
+  String get loginTemporarilyUnavailable => '지금은 로그인할 수 없어요. 잠시 후 다시 시도해 주세요.';
+
+  @override
+  String get recapUnlockHeading => '스토리 요약 이용 가능';
+
+  @override
+  String get recapUpsellDescription =>
+      '이야기의 반전과 선택, 함께한 캐릭터를 담은 전체 요약으로 지금까지의 스토리를 확인하세요.';
+
+  @override
+  String get recapShowEarlier => '이전 요약 보기';
+
+  @override
+  String get recapEmpty => '스토리가 진행되면 여기에 요약이 표시돼요.';
+
+  @override
+  String get chatMessageAsNarrator => '내레이터로 메시지 보내기';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return '$name 이름으로 메시지 보내기';
+  }
+
+  @override
+  String get chatNarratorSpeaker => '내레이터';
+
+  @override
+  String get chatYourCharacterSpeaker => '내 캐릭터';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return '현재 발언: $speaker';
+  }
+
+  @override
+  String get chatSwitchCharacter => '캐릭터로 전환';
+
+  @override
+  String get chatSwitchNarration => '내레이션으로 전환';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return '$locationName 열기';
+  }
+
+  @override
+  String get chatRetryMessage => '메시지 다시 보내기';
+
+  @override
+  String get blockedReportFailed => '사용자를 차단했지만 신고하지 못했어요.';
+
+  @override
+  String get storeConnectionFailed => '스토어에 연결할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get storeProductUnavailable => '현재 이 상품을 구매할 수 없어요.';
+
+  @override
+  String get storeDevicePurchasesUnavailable => '이 기기에서는 구매할 수 없어요.';
+
+  @override
+  String get worldHistoryRequestFailed => '월드 기록을 불러오지 못했어요';
+
+  @override
+  String get genericError => '오류가 발생했어요';
 }

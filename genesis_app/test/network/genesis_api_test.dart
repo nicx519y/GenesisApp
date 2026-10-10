@@ -2269,6 +2269,14 @@ void main() {
                 'tick_result': {
                   'current_time': 'Day 1, 08:30',
                   'narrator': 'Narrator from origin tick result.',
+                  'global_status': [
+                    {
+                      'owner': 'world',
+                      'icon': '📋',
+                      'form': 'log',
+                      'content': 'Origin status',
+                    },
+                  ],
                   'paragraphs': [
                     {
                       'location_id': 'loc_1',
@@ -2353,6 +2361,10 @@ void main() {
     expect(origin.ticks.single['sub_tick_no'], 1);
     expect(origin.ticks.single['status'], 50);
     final tickResult = origin.ticks.single['tick_result'] as Map;
+    expect(
+      (tickResult['global_status'] as List).single['content'],
+      'Origin status',
+    );
     expect(tickResult, isNot(contains('location_groups')));
     final tickParagraph = (tickResult['paragraphs'] as List).single as Map;
     expect(tickParagraph['visibility'], 'char_only');
@@ -5482,7 +5494,7 @@ void main() {
           statusCode: 200,
           headers: {'content-type': 'application/json'},
           body:
-              '{"errNo":0,"errStr":"success","data":{"list":[{"tickId":"tick_2","tickNo":2,"subTickNo":1,"status":50,"tickResult":{"currentTime":"Day 2, 19:10","narrator":"latest","paragraphs":[{"locationId":"loc_1","timestamp":"Day 2, 19:10","text":"paragraph","visibility":"char_only","visibleTo":["char_6"],"clue":"follow the signal","characterDeltas":[{"charId":"char_6","name":"Iris","delta":5}]}],"locationGroups":[]},"createdAt":1779271200}],"total":3,"pn":1,"rn":2}}',
+              '{"errNo":0,"errStr":"success","data":{"list":[{"tickId":"tick_2","tickNo":2,"subTickNo":1,"status":50,"tickResult":{"currentTime":"Day 2, 19:10","narrator":"latest","globalStatus":[{"owner":"world","icon":"📋","form":"log","content":"World status"}],"paragraphs":[{"locationId":"loc_1","timestamp":"Day 2, 19:10","text":"paragraph","cast":[{"id":"char_6","name":"Iris"}],"status":[{"owner":"char_6","icon":"💬","form":"note","content":"Character status"}],"visibility":"char_only","visibleTo":["char_6"],"clue":"follow the signal","characterDeltas":[{"charId":"char_6","name":"Iris","delta":5}]}],"locationGroups":[]},"createdAt":1779271200}],"total":3,"pn":1,"rn":2}}',
         ),
       );
       final healthTransport = _FakeTransport(
@@ -5516,12 +5528,21 @@ void main() {
       final tickResult = result.data.single['tick_result'] as Map;
       expect(tickResult['current_time'], 'Day 2, 19:10');
       expect(tickResult['narrator'], 'latest');
+      expect(
+        (tickResult['global_status'] as List).single['content'],
+        'World status',
+      );
       final paragraphs = tickResult['paragraphs'] as List;
       final paragraph = paragraphs.single as Map;
       expect(paragraph['location_id'], 'loc_1');
       expect(paragraph['visibility'], 'char_only');
       expect(paragraph['visible_to'], ['char_6']);
       expect(paragraph['clue'], 'follow the signal');
+      expect((paragraph['cast'] as List).single['name'], 'Iris');
+      expect(
+        (paragraph['status'] as List).single['content'],
+        'Character status',
+      );
       expect(
         ((paragraph['character_deltas'] as List).single as Map)['delta'],
         5,

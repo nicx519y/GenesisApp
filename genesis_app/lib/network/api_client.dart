@@ -648,6 +648,7 @@ class ApiClient {
     if (ok) return response.data;
     throw ApiException(
       message: 'Something went wrong',
+      serverErrMsg: serverErrorMessageFromResponse(response.data),
       statusCode: response.statusCode,
       responseBody: response.body,
       responseHeaders: response.headers,

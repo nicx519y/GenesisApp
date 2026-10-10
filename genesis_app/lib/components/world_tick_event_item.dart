@@ -1,4 +1,7 @@
 import '../l10n/genesis_l10n.dart';
+import 'chat/shared/chat_tick_presenter.dart';
+import '../network/chatroom/chatroom_models.dart';
+import '../ui/tokens/genesis_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -59,6 +62,76 @@ class WorldTickEventItem extends StatelessWidget {
       'narrator',
     ], fallback: fallbackBody);
     final paragraphs = _tickParagraphs(tickResult);
+    if (useChatEventStyle) {
+      final chapter = ChatroomV2TickPayload.fromTickResult({
+        ...tickResult,
+        if (!tickResult.containsKey('narrator') &&
+            !tickResult.containsKey('global_status') &&
+            !paragraphs.any(
+              (item) => item.containsKey('cast') || item.containsKey('status'),
+            ))
+          'narrator': body,
+      });
+      final payload = presentChatTickChapter(
+        chapter,
+        locationName: (id) => _locationName(id, locationsById),
+        locationExists: (id) => locationsById.containsKey(id),
+        roleName: (id) =>
+            _mapString(charactersById[id] ?? const {}, const ['name']),
+        roleAvatarUrl: (id) => GenesisImageResource.fromJson(
+          (charactersById[id] ?? const {})['avatar'],
+        ).displayUrl,
+        roleIsAi: (id) => _mapString(charactersById[id] ?? const {}, const [
+          'player_uid',
+        ]).isEmpty,
+        isUserId: (id) => charactersById.values.any(
+          (character) =>
+              _mapString(character, const ['player_uid', 'user_id', 'uid']) ==
+              id,
+        ),
+      );
+      return Padding(
+        padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ChatTickHeader(
+              label: GenesisL10n.current.worldDetailItemTickNumber(
+                tickNumber: tickNumber.toString(),
+                subTickSuffix: subTickNumber > 0 ? '-$subTickNumber' : '',
+              ),
+              style: kLocationChatStyle,
+            ),
+            ChatTickChapterContent(
+              payload: payload,
+              currentTime: chapter.currentTime,
+              messageLocalId: 'world-event-$tickNumber-$subTickNumber',
+              // Only the tick's own rule stays on the Events page.
+              locationDividers: false,
+              locationFooterBuilder: (paragraph) {
+                final details = _characterDetails(
+                  paragraphs[paragraph.sourceIndex],
+                  metricUnit: metricUnit,
+                );
+                if (details.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: _CharacterDetailsText(
+                    details: details,
+                    style: GenesisTypography.body.copyWith(
+                      color: GenesisColors.darkTextSecondary,
+                    ),
+                    nameColor: GenesisColors.darkTextPrimary,
+                    strongStyle: GenesisTypography.bodyStrong,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
@@ -475,19 +548,20 @@ class _CharacterDetailsText extends StatelessWidget {
     required this.details,
     required this.style,
     this.nameColor = _characterDetailNameColor,
+    this.strongStyle,
   });
 
   final Color nameColor;
+  final TextStyle? strongStyle;
 
   final List<_CharacterDetailLine> details;
   final TextStyle style;
 
   @override
   Widget build(BuildContext context) {
-    final nameStyle = style.copyWith(
-      color: nameColor,
-      fontWeight: FontWeight.w600,
-    );
+    final emphasized =
+        strongStyle ?? style.copyWith(fontWeight: FontWeight.w600);
+    final nameStyle = emphasized.copyWith(color: nameColor);
     return Text.rich(
       TextSpan(
         children: [
@@ -502,10 +576,7 @@ class _CharacterDetailsText extends StatelessWidget {
                     : ' ${details[index].delta}',
                 style: details[index].deltaColor == null
                     ? null
-                    : style.copyWith(
-                        color: details[index].deltaColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    : emphasized.copyWith(color: details[index].deltaColor),
               ),
           ],
         ],

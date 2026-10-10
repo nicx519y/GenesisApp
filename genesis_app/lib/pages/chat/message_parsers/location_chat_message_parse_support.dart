@@ -97,7 +97,12 @@ bool locationChatMessageHasSupportedExplicitV2Envelope(
   if (!message.hasExplicitBusinessType) return true;
   final messageType = normalizeChatroomMessageType(message.messageType);
   if (messageType != chatroomTextMessageType &&
-      messageType != chatroomImageMessageType) {
+      messageType != chatroomImageMessageType &&
+      messageType != chatroomNarrationMessageType) {
+    return false;
+  }
+  if (messageType == chatroomNarrationMessageType &&
+      locationChatBusinessType(message) != 'user') {
     return false;
   }
   return switch (locationChatBusinessType(message)) {
@@ -135,6 +140,9 @@ bool locationChatMessageHasRenderableBusinessContent(
     return (messageType == chatroomTextMessageType ||
             messageType == chatroomImageMessageType) &&
         locationChatMessageDisplayText(message).trim().isNotEmpty;
+  }
+  if (businessType == 'user' && messageType == chatroomNarrationMessageType) {
+    return locationChatMessageDisplayText(message).trim().isNotEmpty;
   }
   if (businessType == 'user' ||
       businessType == 'character' ||

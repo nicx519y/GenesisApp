@@ -25,6 +25,7 @@ ChatMessageVm freezeLocationChatReplyMessage(ChatMessageVm message) =>
       isMe: message.isMe,
       status: message.status,
       senderType: message.senderType,
+      messageType: message.messageType,
       createdAt: message.createdAt,
     )..error = message.error;
 
@@ -63,6 +64,7 @@ bool locationChatReplyMessagePresentationEqual(
     a.isMe == b.isMe &&
     a.status == b.status &&
     a.senderType == b.senderType &&
+    a.messageType == b.messageType &&
     a.createdAt == b.createdAt &&
     a.error == b.error;
 
@@ -81,6 +83,8 @@ ChatTimelinePayloadVm? _freezeTimelinePayload(
   ChatCharactersMovedPayloadVm() => _freezeCharactersMoved(payload),
   ChatTickPayloadVm() => ChatTickPayloadVm(
     globalText: payload.globalText,
+    globalStatuses: List<ChatTickStatusVm>.unmodifiable(payload.globalStatuses),
+    isMalformed: payload.isMalformed,
     storyEvents: payload.storyEvents == null
         ? null
         : _freezeStoryEvents(payload.storyEvents!),
@@ -99,6 +103,8 @@ ChatStoryEventsPayloadVm _freezeStoryEvents(ChatStoryEventsPayloadVm payload) =>
         payload.paragraphs.map(
           (paragraph) => ChatStoryEventParagraphVm(
             timestamp: paragraph.timestamp,
+            statuses: List<ChatTickStatusVm>.unmodifiable(paragraph.statuses),
+            sourceIndex: paragraph.sourceIndex,
             text: paragraph.text,
             clue: paragraph.clue,
             visibilityLabel: paragraph.visibilityLabel,

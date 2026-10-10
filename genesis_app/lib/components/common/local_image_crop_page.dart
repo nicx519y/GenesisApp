@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../ui/system/genesis_system_ui.dart';
 import '../../utils/image_upload_processing.dart';
+import '../../utils/api_error_message.dart';
 import 'genesis_center_toast.dart';
 
 const int _localImageCropMaxDecodeDimension = 4096;
@@ -478,9 +479,15 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(url);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, GenesisL10n.current.imageCropUploadFailed);
+      showGenesisToast(
+        context,
+        apiErrorMessage(
+          error,
+          fallback: GenesisL10n.current.imageCropUploadFailed,
+        ),
+      );
       setState(() {
         _isSubmitting = false;
       });

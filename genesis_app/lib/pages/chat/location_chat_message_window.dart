@@ -1,6 +1,44 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatMessageWindow on _LocationChatPanelState {
+  void _loadPastHiddenInitialHistoryIfNeeded() {
+    if (!_messageAppVersionLoaded ||
+        !widget.active ||
+        !widget.isLeafLocation ||
+        _loadingOlderMessages ||
+        !_hasMoreOlderMessages) {
+      return;
+    }
+    final source =
+        _chatroomState.messagesByLocation[widget.locationId] ??
+        const <WorldChatroomMessage>[];
+    final history = _chatroomState.latestHistoryLoads[widget.locationId];
+    final snapshotHasMore =
+        _chatroomState.historyHasMoreByLocation[widget.locationId];
+    if (!(history?.hasMore ?? snapshotHasMore ?? false) ||
+        source.isEmpty ||
+        source.any((message) => _parserForMessage(message) != null)) {
+      return;
+    }
+    final cursor = _olderMessagesCursor > 0
+        ? _olderMessagesCursor
+        : _earliestLoadedLocationMessageId();
+    if (cursor <= 0 || _hiddenHistoryAttemptedCursor == cursor) return;
+    _hiddenHistoryAttemptedCursor = cursor;
+    final location = widget.locationId;
+    final service = _service;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !widget.active ||
+          widget.locationId != location ||
+          !identical(_service, service) ||
+          _loadingOlderMessages) {
+        return;
+      }
+      unawaited(_loadOlderMessages());
+    });
+  }
+
   void _handleMessageListScroll() {
     if (!_scrollController.hasClients) {
       _cancelOlderMessagesLoadSchedule();
@@ -68,7 +106,9 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     final historyGeneration =
         service.state.historyGenerationByLocation[widget.locationId] ?? 0;
     final locationId = widget.locationId;
-    final beforeLocationMessageId = _earliestLoadedLocationMessageId();
+    var beforeLocationMessageId = _olderMessagesCursor > 0
+        ? _olderMessagesCursor
+        : _earliestLoadedLocationMessageId();
     if (beforeLocationMessageId <= 0) {
       _setLocationChatState(() {
         _olderMessagesExhaustedByCursorlessContent = true;
@@ -85,36 +125,53 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       details: {'beforeLocationMessageId': beforeLocationMessageId},
     );
     try {
-      final page = await service.loadOlderMessages(
-        locationId: widget.locationId,
-        beforeMessageId: beforeLocationMessageId,
-        limit: 20,
-      );
-      if (!mounted ||
-          !identical(service, _service) ||
-          widget.locationId != locationId ||
-          historyGeneration !=
-              (service.state.historyGenerationByLocation[locationId] ?? 0)) {
-        if (mounted) {
-          _setLocationChatState(_finishOlderMessagesLoading);
-        } else {
-          _finishOlderMessagesLoading();
+      while (true) {
+        final page = await service.loadOlderMessages(
+          locationId: widget.locationId,
+          beforeMessageId: beforeLocationMessageId,
+          limit: 20,
+        );
+        if (!mounted ||
+            !identical(service, _service) ||
+            widget.locationId != locationId ||
+            historyGeneration !=
+                (service.state.historyGenerationByLocation[locationId] ?? 0)) {
+          if (mounted) {
+            _setLocationChatState(_finishOlderMessagesLoading);
+          } else {
+            _finishOlderMessagesLoading();
+          }
+          return;
         }
-        return;
+        final nextCursor = page.nextLocationMessageId;
+        if (nextCursor > 0) _olderMessagesCursor = nextCursor;
+        _olderMessagesExhaustedByRemote = !page.hasMore;
+        _hasMoreOlderMessages = page.hasMore;
+        if (page.loadedCount > 0 && mounted) {
+          _syncFromServiceState(service);
+        }
+        _recordPanelDebug(
+          action: 'loadOlderDone',
+          details: {
+            'beforeLocationMessageId': beforeLocationMessageId,
+            'loadedCount': page.loadedCount,
+            'hasMore': page.hasMore,
+          },
+        );
+        // A hidden page still advances the canonical cursor. Keep fetching until
+        // some content can be shown or the server reports the end of history.
+        if (page.hasMore &&
+            nextCursor > 0 &&
+            nextCursor < beforeLocationMessageId &&
+            !page.messages.any(
+              (message) => _parserForMessage(message) != null,
+            ) &&
+            widget.active) {
+          beforeLocationMessageId = nextCursor;
+          continue;
+        }
+        break;
       }
-      _olderMessagesExhaustedByRemote = !page.hasMore;
-      _hasMoreOlderMessages = page.hasMore;
-      if (page.loadedCount > 0 && mounted) {
-        _syncFromServiceState(service);
-      }
-      _recordPanelDebug(
-        action: 'loadOlderDone',
-        details: {
-          'beforeLocationMessageId': beforeLocationMessageId,
-          'loadedCount': page.loadedCount,
-          'hasMore': page.hasMore,
-        },
-      );
       if (mounted) {
         _setLocationChatState(() => _showOlderMessagesLoading = false);
       } else {
@@ -164,6 +221,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     final localIds = <String>{};
     for (final message in next) {
       if (previousKeys.contains(_messageDedupKey(message))) continue;
+      if (!_messageVersionIsVisible(message)) continue;
       if (_isMineMessage(message)) continue;
       if (isChatroomTimelinePayloadSenderType(message.senderType) &&
           message.timelinePayload == null) {

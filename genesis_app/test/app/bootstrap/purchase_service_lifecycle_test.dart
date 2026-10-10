@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
@@ -165,7 +167,7 @@ void main() {
         expect(h.service.state.value, MembershipCheckoutState.store);
 
         store.updates.add([
-          PurchaseDetails(
+          GooglePlayPurchaseDetails(
             purchaseID: 'test-transaction',
             productID: h.product().storeProductId,
             verificationData: PurchaseVerificationData(
@@ -174,6 +176,19 @@ void main() {
               source: 'google_play',
             ),
             transactionDate: '1000',
+            billingClientPurchase: PurchaseWrapper(
+              orderId: 'test-transaction',
+              packageName: 'ai.worldo.test',
+              purchaseTime: 1000,
+              purchaseToken: 'test-token',
+              signature: '',
+              products: [h.product().storeProductId],
+              isAutoRenewing: false,
+              originalJson: '',
+              isAcknowledged: true,
+              purchaseState: PurchaseStateWrapper.purchased,
+              obfuscatedAccountId: membership.accountUuid,
+            ),
             status: PurchaseStatus.purchased,
           ),
         ]);

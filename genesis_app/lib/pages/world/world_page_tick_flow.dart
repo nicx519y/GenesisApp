@@ -344,11 +344,14 @@ extension _WorldPageTickFlow on _WorldPageState {
         showGenesisToast(context, message, brightness: Brightness.dark);
       }
       await _fetchWorld();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       showGenesisToast(
         context,
-        GenesisL10n.current.worldDetailLaunchFailed,
+        apiErrorMessage(
+          error,
+          fallback: GenesisL10n.current.worldDetailLaunchFailed,
+        ),
         brightness: Brightness.dark,
       );
     } finally {

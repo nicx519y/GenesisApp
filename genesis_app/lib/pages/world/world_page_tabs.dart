@@ -22,9 +22,22 @@ extension _WorldPageTabs on _WorldPageState {
     if (_worldBottomSheetSelection.value.kind == WorldBottomSheetKind.events) {
       _clearEventsUnread();
     }
+    if (_worldBottomSheetSelection.value.kind == WorldBottomSheetKind.recap) {
+      _clearRecapUnread();
+    }
     if (!_isDetailBottomSheetVisible) return;
     if (!_hasUnreadNewUserJoin && _pendingNewUserJoinNotice == null) return;
     _setWorldPageState(_activateDetailNewUserJoinNotices);
+  }
+
+  void _markRecapUnread() {
+    if (_recapUnread) return;
+    _setWorldPageState(() => _recapUnread = true);
+  }
+
+  void _clearRecapUnread() {
+    if (!_recapUnread) return;
+    _setWorldPageState(() => _recapUnread = false);
   }
 
   void _syncWorldStatusBarForMainTab([int? index]) {

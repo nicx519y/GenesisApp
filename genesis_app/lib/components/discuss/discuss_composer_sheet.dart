@@ -141,14 +141,13 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _submitting = false);
+      if (_images.any((image) => image.failed)) return;
       showGenesisToast(
         context,
-        GenesisL10n
-            .current
-            .worldoPostFailed,
+        apiErrorMessage(error, fallback: GenesisL10n.current.worldoPostFailed),
         brightness: Brightness.dark,
       );
     }
@@ -301,7 +300,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
         attachment.processing = false;
         attachment.uploading = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted || !_images.contains(attachment)) return;
       attachment.progressTimer?.cancel();
       setState(() {
@@ -311,9 +310,10 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       });
       showGenesisToast(
         context,
-        GenesisL10n
-            .current
-            .worldoImageUploadFailed,
+        apiErrorMessage(
+          error,
+          fallback: GenesisL10n.current.worldoImageUploadFailed,
+        ),
         brightness: Brightness.dark,
       );
       rethrow;

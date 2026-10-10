@@ -4,6 +4,22 @@ import 'v1_api_resource.dart';
 class WorldV1Api extends V1ApiResource {
   const WorldV1Api(super.client);
 
+  /// GET /api/v1/world/recent_summary. Fixed 10-item cursor pages;
+  /// the server owns ordering and the cursor must be returned unchanged.
+  Future<Map<String, dynamic>> recentSummary({
+    required String worldId,
+    String? cursor,
+  }) {
+    final id = worldId.trim();
+    if (id.isEmpty) {
+      throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
+    }
+    return getMap('world/recent_summary', {
+      'world_id': id,
+      if (cursor != null) 'cursor': cursor,
+    });
+  }
+
   /// GET /api/v1/world/list
   ///
   /// Request parameters:

@@ -29,9 +29,7 @@ extension _WorldPageLocationChat on _WorldPageState {
       if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n
-              .current
-              .chatLocationUnavailable,
+          GenesisL10n.current.chatLocationUnavailable,
           brightness: Brightness.dark,
         );
       }
@@ -65,9 +63,7 @@ extension _WorldPageLocationChat on _WorldPageState {
       } else if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n
-              .current
-              .chatRequestApprovalLaunch,
+          worldParticipationRequiredMessage,
           brightness: Brightness.dark,
         );
       }

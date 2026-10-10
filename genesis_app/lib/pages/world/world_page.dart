@@ -52,6 +52,7 @@ import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_page_result.dart';
+import 'world_recap_cache.dart';
 import '../chat/location_chat_page.dart' show LocationChatOpeningPreview;
 import 'world_sections.dart';
 import 'world_update_push_banner.dart';
@@ -141,6 +142,7 @@ class _WorldPageState extends State<WorldPage>
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
   StreamSubscription<GemBalanceAlert>? _worldChatroomBalanceSub;
+  StreamSubscription<ChatroomWorldSummaryUpdated>? _worldSummaryUpdateSub;
   Future<void>? _worldChatroomAuthRecovery;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
@@ -170,6 +172,7 @@ class _WorldPageState extends State<WorldPage>
   bool _worldTickWaitOverlayRequested = false;
   bool _openEventsAfterTickDone = false;
   bool _eventsUnread = false;
+  bool _recapUnread = false;
   bool _worldBottomSheetOpen = false;
   bool _hasUnreadNewUserJoin = false;
   bool _openEventsAfterCurrentBottomSheetClosed = false;
@@ -227,6 +230,7 @@ class _WorldPageState extends State<WorldPage>
     const <WorldNewUserJoinNotice>[],
   );
   final _sectionsEventsCache = WorldSectionsEventsCache();
+  final _recapCache = WorldRecapCache();
   static const _worldTickLockPollInterval = Duration(seconds: 10);
 
   void _setWorldPageState(VoidCallback callback) {
@@ -530,6 +534,7 @@ class _WorldPageState extends State<WorldPage>
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldChatroomBalanceSub?.cancel());
+    unawaited(_worldSummaryUpdateSub?.cancel());
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -537,6 +542,7 @@ class _WorldPageState extends State<WorldPage>
     }
     _mainTabController.dispose();
     _sectionsEventsCache.clear();
+    _recapCache.dispose();
     _locationChatPageCache.dispose();
     _tilemapRestorationController.dispose();
     _sectionsWorldNotifier.dispose();
@@ -719,6 +725,8 @@ class _WorldPageState extends State<WorldPage>
           recentChatLocationIds: recentMapLocationIds,
           eventLocationIds: eventMapLocationIds,
           animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,
+          keepProgressiveTileMountingWhilePaused:
+              _worldBottomSheetOpen && !mapPausedForLocationChat,
           reloadRevision: _tilemapReloadRevision,
           visualModeToggleTop:
               topPadding + worldMapBackButtonTop + worldMapTabsHeight + 8,

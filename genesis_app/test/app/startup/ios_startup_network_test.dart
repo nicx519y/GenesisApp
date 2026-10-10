@@ -11,10 +11,13 @@ void main() {
   testWidgets('Android proceeds without a connectivity request', (
     tester,
   ) async {
-    await waitForIosStartupNetwork(
-      probeUri: _probeUri,
-      platform: TargetPlatform.android,
-      clientFactory: () => throw StateError('Must not create a client'),
+    expect(
+      await waitForIosStartupNetwork(
+        probeUri: _probeUri,
+        platform: TargetPlatform.android,
+        clientFactory: () => throw StateError('Must not create a client'),
+      ),
+      isTrue,
     );
   });
 
@@ -23,27 +26,27 @@ void main() {
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final client = _ProbeClient();
-    var configStarted = false;
+    bool? networkAvailable;
     final startup = waitForIosStartupNetwork(
       probeUri: _probeUri,
       platform: TargetPlatform.iOS,
       clientFactory: () => client,
-    ).then((_) => configStarted = true);
+    ).then((available) => networkAvailable = available);
 
     await tester.pump(const Duration(seconds: 2));
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump(const Duration(minutes: 1));
-    expect(configStarted, isFalse);
+    expect(networkAvailable, isNull);
     expect(client.requests.single.method, 'HEAD');
     expect(client.requests.single.url, _probeUri);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump(const Duration(seconds: 1));
-    expect(configStarted, isFalse);
+    expect(networkAvailable, isNull);
     client.respond(0);
     await tester.pump();
     await startup;
-    expect(configStarted, isTrue);
+    expect(networkAvailable, isTrue);
     expect(client.closed, isTrue);
   });
 
@@ -52,21 +55,21 @@ void main() {
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final client = _ProbeClient();
-    var continued = false;
+    bool? networkAvailable;
     final startup = waitForIosStartupNetwork(
       probeUri: _probeUri,
       platform: TargetPlatform.iOS,
       clientFactory: () => client,
-    ).then((_) => continued = true);
+    ).then((available) => networkAvailable = available);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     client.respond(0, statusCode: 405);
     await tester.pump(const Duration(seconds: 30));
-    expect(continued, isFalse);
+    expect(networkAvailable, isNull);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     await startup;
-    expect(continued, isTrue);
+    expect(networkAvailable, isTrue);
     expect(client.requests, hasLength(1));
   });
 
@@ -75,24 +78,24 @@ void main() {
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final client = _ProbeClient();
-    var continued = false;
+    bool? networkAvailable;
     final startup = waitForIosStartupNetwork(
       probeUri: _probeUri,
       platform: TargetPlatform.iOS,
       clientFactory: () => client,
-    ).then((_) => continued = true);
+    ).then((available) => networkAvailable = available);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump(const Duration(seconds: 20));
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     client.responses[0].completeError(http.ClientException('Not connected'));
     await tester.pump();
     expect(client.requests, hasLength(2));
-    expect(continued, isFalse);
+    expect(networkAvailable, isNull);
 
     client.respond(1);
     await tester.pump();
     await startup;
-    expect(continued, isTrue);
+    expect(networkAvailable, isTrue);
   });
 
   testWidgets('denied or offline access does not permanently hold startup', (
@@ -100,17 +103,30 @@ void main() {
   ) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     final client = _ProbeClient();
-    var continued = false;
+    bool? networkAvailable;
     final startup = waitForIosStartupNetwork(
       probeUri: _probeUri,
       platform: TargetPlatform.iOS,
       clientFactory: () => client,
-    ).then((_) => continued = true);
+    ).then((available) => networkAvailable = available);
     await tester.pump(const Duration(seconds: 8));
     await startup;
-    expect(continued, isTrue);
+    expect(networkAvailable, isFalse);
     expect(client.closed, isTrue);
     expect(await client.aborted, isTrue);
+  });
+
+  testWidgets('client creation failure reports network unavailable', (
+    tester,
+  ) async {
+    expect(
+      await waitForIosStartupNetwork(
+        probeUri: _probeUri,
+        platform: TargetPlatform.iOS,
+        clientFactory: () => throw StateError('URLSession unavailable'),
+      ),
+      isFalse,
+    );
   });
 
   testWidgets('startup continues before native cancellation finishes', (

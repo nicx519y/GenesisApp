@@ -10,6 +10,8 @@ import '../gems/subscription_tracking_scope.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/personalization.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/auth/auth_cancelled_exception.dart';
+import '../../utils/api_error_message.dart';
 import '../../ui/genesis_ui.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -225,9 +227,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
       if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n
-              .current
-              .profileSaveFailed,
+          GenesisL10n.current.profileSaveFailed,
           brightness: Brightness.dark,
         );
       }
@@ -254,13 +254,13 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
         // An unfilled account has neither field. Keep the local form draft.
         _step = PersonalizationStep.form;
       });
-    } catch (_) {
+    } on AuthCancelledException {
+      // Closing the provider UI is not a failed sign-in.
+    } catch (error) {
       if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n
-              .current
-              .meSignInFailed,
+          loginErrorMessage(error),
           brightness: Brightness.dark,
         );
       }
@@ -364,9 +364,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
             children: [
               if (_signedIn) ...[
                 Text(
-                  GenesisL10n
-                      .current
-                      .meCompleteProfileContinue,
+                  GenesisL10n.current.meCompleteProfileContinue,
                   style: TextStyle(
                     fontSize: 14,
                     color: GenesisColors.darkTextSecondary,
@@ -394,25 +392,17 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
               GenesisPrimaryButton(
                 key: const ValueKey('personalization-continue'),
                 isLoading: _saving,
-                label: GenesisL10n
-                    .current
-                    .createOpeningContinue,
+                label: GenesisL10n.current.createOpeningContinue,
                 height: 48,
                 onDisabledPressed: _saving
                     ? null
                     : () => showGenesisToast(
                         context,
                         _gender == null && _age == null
-                            ? GenesisL10n
-                                  .current
-                                  .meSelectGenderAge
+                            ? GenesisL10n.current.meSelectGenderAge
                             : _gender == null
-                            ? GenesisL10n
-                                  .current
-                                  .meSelectGender
-                            : GenesisL10n
-                                  .current
-                                  .meSelectAge,
+                            ? GenesisL10n.current.meSelectGender
+                            : GenesisL10n.current.meSelectAge,
                         brightness: Brightness.dark,
                       ),
                 onPressed: _profile.isComplete && !_saving ? _submit : null,
@@ -513,9 +503,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              GenesisL10n
-                  .current
-                  .meRequired,
+              GenesisL10n.current.meRequired,
               style: TextStyle(
                 fontSize: 12,
                 color: GenesisColors.darkTextTertiary,
@@ -592,9 +580,8 @@ class _PersonalizationHeader extends StatelessWidget {
   final PersonalizationStep step;
   final VoidCallback? onBack;
   final VoidCallback onSkip;
-  static String get formTitle => GenesisL10n
-      .current
-      .mePersonalizeWorldoExperience;
+  static String get formTitle =>
+      GenesisL10n.current.mePersonalizeWorldoExperience;
 
   @override
   Widget build(BuildContext context) => GenesisActionSheetHeader(
@@ -602,10 +589,7 @@ class _PersonalizationHeader extends StatelessWidget {
     titleKey: const ValueKey('personalization-header-title'),
     title: switch (step) {
       PersonalizationStep.form => formTitle,
-      PersonalizationStep.signIn =>
-        GenesisL10n
-            .current
-            .meSignIn,
+      PersonalizationStep.signIn => GenesisL10n.current.meSignIn,
       // The wordmark beside the crown is the title on this step.
       PersonalizationStep.subscription => '',
     },
@@ -629,9 +613,7 @@ class _PersonalizationHeader extends StatelessWidget {
       PersonalizationStep.form => null,
       PersonalizationStep.signIn => IconButton(
         key: const ValueKey('personalization-back'),
-        tooltip: GenesisL10n
-            .current
-            .meBack,
+        tooltip: GenesisL10n.current.meBack,
         onPressed: onBack,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints.tightFor(width: 28, height: 24),
@@ -649,11 +631,7 @@ class _PersonalizationHeader extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            child: Text(
-              GenesisL10n
-                  .current
-                  .meSkip,
-            ),
+            child: Text(GenesisL10n.current.meSkip),
           )
         : null,
   );

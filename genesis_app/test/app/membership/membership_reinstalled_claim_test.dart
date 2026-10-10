@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
-import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_store_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_proof.dart';
 
@@ -32,7 +31,7 @@ void main() {
       expect(h.claimRequests, hasLength(1));
       expect(h.store.claims.values.single.recoveredProof, isNotNull);
       result.complete(
-        const MembershipClaimResult(status: MembershipReportStatus.completed),
+        const MembershipClaimResult(status: MembershipClaimStatus.completed),
       );
       await recovery;
       expect(h.store.claims, isEmpty);
@@ -42,29 +41,22 @@ void main() {
     },
   );
 
-  for (final status in [
-    MembershipReportStatus.accepted,
-    MembershipReportStatus.rejected,
-  ]) {
-    test(
-      'reinstalled Apple $status claim retains its original proof',
-      () async {
-        final h = support.Harness(
-          provider: MembershipProvider.apple,
-          guestRecoveryEnabled: true,
-          claimEnabled: true,
-        )..uid = null;
-        h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
-        await h.service.checkGuestPurchasesOnHome();
-        h.claimHandler = (_) async => MembershipClaimResult(status: status);
-        h.uid = 'first-login';
-        await h.service.recover();
-        expect(h.store.claims.values.single.status, status.name);
-        expect(h.store.claims.values.single.recoveredProof, isNotNull);
-        expect(h.reports, isEmpty);
-      },
-    );
-  }
+  test('reinstalled Apple rejected claim retains its original proof', () async {
+    final h = support.Harness(
+      provider: MembershipProvider.apple,
+      guestRecoveryEnabled: true,
+      claimEnabled: true,
+    )..uid = null;
+    h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
+    await h.service.checkGuestPurchasesOnHome();
+    h.claimHandler = (_) async =>
+        const MembershipClaimResult(status: MembershipClaimStatus.rejected);
+    h.uid = 'first-login';
+    await h.service.recover();
+    expect(h.store.claims.values.single.status, 'rejected');
+    expect(h.store.claims.values.single.recoveredProof, isNotNull);
+    expect(h.reports, isEmpty);
+  });
 
   test(
     'completed Apple claim retries local cleanup after restart without claiming again',
@@ -99,9 +91,9 @@ void main() {
   );
 
   for (final provider in MembershipProvider.values) {
-    for (final outcome in ['failure', 'accepted']) {
+    for (final failure in ['offline', 'invalid_status']) {
       testWidgets(
-        '$provider reinstalled $outcome claim retries the same proof without report',
+        '$provider reinstalled $failure claim retries the same proof without report',
         (tester) async {
           final h = support.Harness(
             provider: provider,
@@ -115,10 +107,8 @@ void main() {
           await h.service.checkGuestPurchasesOnHome();
           final saved = h.store.claims.values.single.recoveredProof!;
           h.claimHandler = (_) async {
-            if (outcome == 'failure') throw StateError('offline');
-            return const MembershipClaimResult(
-              status: MembershipReportStatus.accepted,
-            );
+            if (failure == 'offline') throw StateError('offline');
+            throw const FormatException('Invalid membership claim status');
           };
           h.productsHandler = () async =>
               throw StateError('catalog must not be queried for claim');

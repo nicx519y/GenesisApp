@@ -1,15 +1,18 @@
 import 'dart:async';
 
+import '../../l10n/genesis_l10n.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
-import '../../app/telemetry/firebase_analytics_monitoring.dart';
-import '../../network/api_exception.dart';
+import '../../app/telemetry/purchase_event_reporting.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_purchase_report.dart';
 import 'billing_analytics.dart';
 import 'billing_contract.dart';
 import 'billing_models.dart';
+import 'billing_store_failure_reason.dart';
 import 'purchase_toast_diagnostics.dart';
 import 'google_play_billing_platform.dart';
 import 'pending_purchase_store.dart';
@@ -33,6 +36,7 @@ class GooglePlayBillingService implements BillingService {
     Future<bool> Function(BillingPurchase)? interceptPurchase,
     bool Function()? otherPurchaseBusy,
     ValueChanged<Object>? onPurchaseStreamError,
+    this.purchaseEventReporting,
   }) : _platform = platform,
        _pendingPurchaseStore = pendingPurchaseStore,
        _loadBillingAccountId = loadBillingAccountId,
@@ -58,6 +62,7 @@ class GooglePlayBillingService implements BillingService {
   final Future<bool> Function(BillingPurchase)? _interceptPurchase;
   final bool Function()? _otherPurchaseBusy;
   final ValueChanged<Object>? _onPurchaseStreamError;
+  final PurchaseEventRecorder? purchaseEventReporting;
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(),
   );
@@ -65,11 +70,15 @@ class GooglePlayBillingService implements BillingService {
       StreamController<BillingUiEvent>.broadcast();
   final Map<String, BillingPurchaseAttempt> _attemptByStoreProductId =
       <String, BillingPurchaseAttempt>{};
+  final Map<String, BillingPurchaseAttempt>
+  _interruptedAttemptByStoreProductId = <String, BillingPurchaseAttempt>{};
   final Map<String, BillingPurchaseAttempt> _attemptByPurchaseToken =
       <String, BillingPurchaseAttempt>{};
   final Set<String> _processingPurchaseKeys = <String>{};
   final Set<String> _completedPurchaseKeys = <String>{};
+  final Set<String> _trackedPurchasedKeys = <String>{};
   final Set<String> _trackedPendingAttemptIds = <String>{};
+  final Set<String> _trackedFailedAttemptIds = <String>{};
   final Map<String, Timer> _attemptTimeouts = <String, Timer>{};
 
   StreamSubscription<List<BillingPurchase>>? _purchaseSubscription;
@@ -106,11 +115,11 @@ class GooglePlayBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {
     final startedAt = DateTime.now();
-    final attemptId = payTrackId.trim().isNotEmpty
-        ? payTrackId.trim()
+    final attemptId = operationId.trim().isNotEmpty
+        ? operationId.trim()
         : newBillingAttemptId();
     var activeProduct = product;
     var storeProductId = _storeProductIdFor(product, _platform.provider);
@@ -364,7 +373,8 @@ class GooglePlayBillingService implements BillingService {
             activeProduct,
             attemptId,
             'query_failed',
-            errorCode: _queryFailureErrorCode(error),
+            errorCode: _platformFailureErrorCode(error),
+            failureReason: _storeFailureReason(error: error, stage: 'query'),
           );
           return;
         }
@@ -387,6 +397,12 @@ class GooglePlayBillingService implements BillingService {
             attemptId,
             'query_failed',
             errorCode: errorCode,
+            failureReason: _storeFailureReason(
+              code: queryResult.errorCode,
+              source: queryResult.errorSource,
+              details: queryResult.errorDetails,
+              stage: 'query',
+            ),
           );
           return;
         }
@@ -423,7 +439,13 @@ class GooglePlayBillingService implements BillingService {
                 reason: 'launch_rejected',
               ),
             );
-            _trackFlowResult(activeProduct, attemptId, 'launch_rejected');
+            _trackFlowResult(
+              activeProduct,
+              attemptId,
+              'launch_rejected',
+              errorCode: 'launch_rejected',
+              failureReason: 'store_failure[stage=launch]',
+            );
           }
         } catch (error) {
           if (_attemptByStoreProductId[storeProductId]?.id != attemptId ||
@@ -442,7 +464,8 @@ class GooglePlayBillingService implements BillingService {
             activeProduct,
             attemptId,
             'launch_failed',
-            errorCode: _purchaseLaunchErrorCode(error),
+            errorCode: _platformFailureErrorCode(error),
+            failureReason: _storeFailureReason(error: error, stage: 'launch'),
           );
         }
       } catch (_) {
@@ -509,8 +532,10 @@ class GooglePlayBillingService implements BillingService {
     _cachedBillingAccountId = null;
     _cachedBillingAccountOwnerUid = null;
     _attemptByStoreProductId.clear();
+    _interruptedAttemptByStoreProductId.clear();
     _attemptByPurchaseToken.clear();
     _completedPurchaseKeys.clear();
+    _trackedPurchasedKeys.clear();
     _trackedPendingAttemptIds.clear();
     for (final timeout in _attemptTimeouts.values) {
       timeout.cancel();

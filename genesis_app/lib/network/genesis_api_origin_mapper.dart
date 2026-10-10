@@ -455,6 +455,14 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
             ? asJsonMap(tick['tick_result'])
             : tick;
         final paragraphsRaw = result['paragraphs'];
+        final hasTickStatuses =
+            result.containsKey('global_status') ||
+            (paragraphsRaw is List &&
+                paragraphsRaw.any(
+                  (item) =>
+                      item is Map &&
+                      (item.containsKey('cast') || item.containsKey('status')),
+                ));
         final paragraphs = paragraphsRaw is List
             ? asJsonList(paragraphsRaw)
                   .whereType<Map>()
@@ -476,18 +484,24 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
           'status': asInt(tick['status']),
           'created_at': tick['created_at'],
           'tick_result': <String, dynamic>{
-            'current_time': asString(
-              result['current_time'],
-              fallback: asString(tick['current_time']),
-            ),
-            'narrator': asString(
-              result['narrator'],
-              fallback: asString(
-                tick['narrator'],
-                fallback: asString(tick['summary']),
-              ),
-            ),
-            'paragraphs': paragraphs,
+            'current_time': hasTickStatuses
+                ? result['current_time']
+                : asString(
+                    result['current_time'],
+                    fallback: asString(tick['current_time']),
+                  ),
+            'narrator': hasTickStatuses
+                ? result['narrator']
+                : asString(
+                    result['narrator'],
+                    fallback: asString(
+                      tick['narrator'],
+                      fallback: asString(tick['summary']),
+                    ),
+                  ),
+            'paragraphs': hasTickStatuses ? paragraphsRaw : paragraphs,
+            if (result.containsKey('global_status'))
+              'global_status': result['global_status'],
             if (locationGroupsRaw is List) 'location_groups': locationGroups,
           },
         };

@@ -3036,4 +3036,92 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get premiumAccountMismatch =>
       'Die Kontokennungen stimmen nicht mit dem vorherigen Abonnement überein.';
+
+  @override
+  String get worldRecap => 'Rückblick';
+
+  @override
+  String get inboxMissingJoinRequestId => 'ID der Beitrittsanfrage fehlt';
+
+  @override
+  String get loginTimedOut =>
+      'Zeitüberschreitung bei der Anmeldung. Versuch es erneut.';
+
+  @override
+  String get loginConnectionFailed =>
+      'Verbindung fehlgeschlagen. Prüfe deine Internetverbindung und versuch es erneut.';
+
+  @override
+  String get loginTemporarilyUnavailable =>
+      'Die Anmeldung ist vorübergehend nicht verfügbar. Versuch es später erneut.';
+
+  @override
+  String get recapUnlockHeading => 'Schaltet den Rückblick frei';
+
+  @override
+  String get recapUpsellDescription =>
+      'Hol deine Geschichte mit einem vollständigen Rückblick auf jede Wendung, Entscheidung und Figur nach.';
+
+  @override
+  String get recapShowEarlier => 'Frühere Rückblicke anzeigen';
+
+  @override
+  String get recapEmpty =>
+      'Hier erscheint ein Rückblick, sobald die Geschichte voranschreitet.';
+
+  @override
+  String get chatMessageAsNarrator => 'Als Erzähler schreiben';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return 'Als $name schreiben';
+  }
+
+  @override
+  String get chatNarratorSpeaker => 'der Erzähler';
+
+  @override
+  String get chatYourCharacterSpeaker => 'deine Figur';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return 'Du sprichst als $speaker';
+  }
+
+  @override
+  String get chatSwitchCharacter => 'Zur Figur wechseln';
+
+  @override
+  String get chatSwitchNarration => 'Zur Erzählung wechseln';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return '$locationName öffnen';
+  }
+
+  @override
+  String get chatRetryMessage => 'Nachricht erneut senden';
+
+  @override
+  String get blockedReportFailed =>
+      'Der Nutzer wurde blockiert, aber die Meldung ist fehlgeschlagen.';
+
+  @override
+  String get storeConnectionFailed =>
+      'Verbindung zum Store fehlgeschlagen. Versuch es erneut.';
+
+  @override
+  String get storeProductUnavailable =>
+      'Dieses Produkt ist derzeit nicht verfügbar.';
+
+  @override
+  String get storeDevicePurchasesUnavailable =>
+      'Auf diesem Gerät sind keine Käufe möglich.';
+
+  @override
+  String get worldHistoryRequestFailed =>
+      'Weltverlauf konnte nicht geladen werden';
+
+  @override
+  String get genericError => 'Ein Fehler ist aufgetreten';
 }

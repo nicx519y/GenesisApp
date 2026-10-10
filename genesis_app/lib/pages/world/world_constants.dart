@@ -21,6 +21,7 @@ const double worldMainTabsHeight = 49;
 const double worldBottomTagHeight = 34;
 const double worldBottomTagToStatsGap = 10;
 const double worldSheetVisibleContentTopGap = 15;
+const double worldSheetHeaderHeight = 48;
 const double worldSheetPageIndicatorTopOffset = 8.5;
 const double worldDetailSheetExpandedTopOffset = 50;
 const double worldStatsTopSpacerHeight =

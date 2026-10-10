@@ -4,6 +4,7 @@ import Darwin
 import FirebaseAnalytics
 import Flutter
 import ImageIO
+import Network
 import PhotosUI
 import Security
 import StoreKit
@@ -180,12 +181,56 @@ final class GenesisAppLifecycleStreamHandler: NSObject, FlutterStreamHandler {
   }
 }
 
+private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterStreamHandler {
+  private var eventSink: FlutterEventSink?
+  private var monitor: NWPathMonitor?
+  private var generation = 0
+  private var lastAvailable: Bool?
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    stop()
+    eventSink = events
+    let currentGeneration = generation
+    let pathMonitor = NWPathMonitor()
+    monitor = pathMonitor
+    pathMonitor.pathUpdateHandler = { [weak self] path in
+      DispatchQueue.main.async {
+        guard let self = self, self.generation == currentGeneration else { return }
+        let available = path.status == .satisfied
+        if self.lastAvailable != available {
+          self.lastAvailable = available
+          self.eventSink?(available)
+        }
+      }
+    }
+    pathMonitor.start(queue: DispatchQueue(label: "com.worldo.ai.network_availability"))
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    stop()
+    return nil
+  }
+
+  private func stop() {
+    generation += 1
+    monitor?.cancel()
+    monitor = nil
+    eventSink = nil
+    lastAvailable = nil
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PHPickerViewControllerDelegate {
   private let channelName = "com.worldo.ai/device"
   private let discussImagePickerChannelName = "com.worldo.ai/discuss_image_picker"
   private let keyboardAnimationChannelName = "com.worldo.ai/keyboard_animation"
   private let appLifecycleChannelName = "com.worldo.ai/app_lifecycle"
+  private let networkAvailabilityChannelName = "com.worldo.ai/network_availability"
   private let firebaseAnalyticsChannelName = "com.worldo.ai/firebase_analytics"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
@@ -203,6 +248,8 @@ final class GenesisAppLifecycleStreamHandler: NSObject, FlutterStreamHandler {
   private var cachedDeviceIdResolution: DeviceIdResolution?
   private var keyboardAnimationStreamHandler: GenesisKeyboardAnimationStreamHandler?
   private var appLifecycleEventChannel: FlutterEventChannel?
+  private var networkAvailabilityStreamHandler: GenesisNetworkAvailabilityStreamHandler?
+  private var networkAvailabilityEventChannel: FlutterEventChannel?
 
   override func application(
     _ application: UIApplication,
@@ -218,6 +265,18 @@ final class GenesisAppLifecycleStreamHandler: NSObject, FlutterStreamHandler {
     configureFirebaseAnalyticsChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureKeyboardAnimationChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureAppLifecycleChannel(messenger: engineBridge.applicationRegistrar.messenger())
+    configureNetworkAvailabilityChannel(messenger: engineBridge.applicationRegistrar.messenger())
+  }
+
+  private func configureNetworkAvailabilityChannel(messenger: FlutterBinaryMessenger) {
+    let handler = GenesisNetworkAvailabilityStreamHandler()
+    let channel = FlutterEventChannel(
+      name: networkAvailabilityChannelName,
+      binaryMessenger: messenger
+    )
+    channel.setStreamHandler(handler)
+    networkAvailabilityStreamHandler = handler
+    networkAvailabilityEventChannel = channel
   }
 
   private func configureAppLifecycleChannel(messenger: FlutterBinaryMessenger) {

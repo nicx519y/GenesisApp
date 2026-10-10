@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
-import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 
 import 'membership_purchase_service_test.dart';
 
@@ -92,8 +91,7 @@ void main() {
     await h.service.purchase(h.product());
     await h.service.interceptPurchase(h.purchase());
     h.uid = 'first-login';
-    h.claimHandler = (_) async =>
-        const MembershipClaimResult(status: MembershipReportStatus.accepted);
+    h.claimHandler = (_) async => throw StateError('claim offline');
     await h.service.recover();
     await h.service.recover();
     expect(h.claimRequests, hasLength(1));

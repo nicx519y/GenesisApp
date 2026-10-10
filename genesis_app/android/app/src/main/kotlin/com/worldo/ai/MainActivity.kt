@@ -71,6 +71,7 @@ class MainActivity : FlutterActivity() {
     private var pendingDiscussImagePickerNormalizeForUpload = false
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
     private var appLifecycleBinding: ProcessAppLifecycleChannel.Binding? = null
+    private var networkAvailabilityChannel: NetworkAvailabilityChannel? = null
     private var keyboardAnimationEventSink: EventChannel.EventSink? = null
     private var latestKeyboardAnimationEvent: Map<String, Any>? = null
     private var keyboardAnimationGeneration = 0
@@ -87,6 +88,11 @@ class MainActivity : FlutterActivity() {
 
         appLifecycleBinding?.dispose()
         appLifecycleBinding = ProcessAppLifecycleChannel.bind(
+            flutterEngine.dartExecutor.binaryMessenger,
+        )
+        networkAvailabilityChannel?.dispose()
+        networkAvailabilityChannel = NetworkAvailabilityChannel(
+            applicationContext,
             flutterEngine.dartExecutor.binaryMessenger,
         )
         configureKeyboardAnimationChannel(flutterEngine)
@@ -253,6 +259,8 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         appLifecycleBinding?.dispose()
         appLifecycleBinding = null
+        networkAvailabilityChannel?.dispose()
+        networkAvailabilityChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

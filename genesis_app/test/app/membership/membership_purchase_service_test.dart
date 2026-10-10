@@ -6,6 +6,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
+import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
@@ -18,6 +19,7 @@ import 'package:genesis_flutter_android/platform/billing/membership_restore_reco
 import 'package:genesis_flutter_android/platform/billing/membership_store_purchase.dart';
 
 import '../../support/membership_fixtures.dart';
+import '../../support/recording_purchase_event_recorder.dart';
 
 const accountUuid = '4b74ec68-7abc-4cce-a223-e997e31dc811';
 const guest = MembershipGuestIdentity(
@@ -206,6 +208,7 @@ class Harness {
   Harness({
     this.provider = MembershipProvider.google,
     SubscriptionAnalytics? analytics,
+    PurchaseEventRecorder? purchaseEventReporting,
     Future<void> Function()? ensureStoreListening,
     Future<MembershipProductList> Function()? checkoutProducts,
     PendingStore? storage,
@@ -218,6 +221,7 @@ class Harness {
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
       analytics: analytics,
+      purchaseEventReporting: purchaseEventReporting,
       ensureStoreListening: ensureStoreListening,
       platform: platform,
       store: store,
@@ -265,7 +269,7 @@ class Harness {
               );
               return claimHandler == null
                   ? MembershipClaimResult(
-                      status: MembershipReportStatus.completed,
+                      status: MembershipClaimStatus.completed,
                     )
                   : await claimHandler!(request);
             }
@@ -351,6 +355,7 @@ class Harness {
     String token = 'test-token',
     String transaction = '100',
     String? uuid,
+    bool omitUuid = false,
     String purchaseTime = '',
     String? checkoutAttemptId,
     bool directResult = true,
@@ -377,8 +382,9 @@ class Harness {
                 status != BillingPurchaseStatus.restored
             ? platform.checkoutAttemptId
             : null),
-    obfuscatedAccountId:
-        uuid ?? (uid == null ? guest.accountUuid : accountUuid),
+    obfuscatedAccountId: omitUuid
+        ? null
+        : uuid ?? (uid == null ? guest.accountUuid : accountUuid),
   );
 }
 
@@ -403,14 +409,16 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider prewarmed checkout retains Firebase price and deduplicates callbacks',
+      '$provider prewarmed checkout deduplicates callbacks without Firebase purchase events',
       () async {
         final client = enableFirebaseAnalytics();
+        final purchaseEvents = RecordingPurchaseEventRecorder();
         final product = membershipProduct(provider: provider);
         final catalog = MembershipProductList(products: [product]);
         final h = Harness(
           provider: provider,
           checkoutProducts: () async => catalog,
+          purchaseEventReporting: purchaseEvents,
         );
         h.platform.priceAmountMicros = 89990000;
         h.platform.priceCurrencyCode = 'EUR';
@@ -423,26 +431,28 @@ void main() {
         await h.service.recover();
         await h.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events.map((e) => e.name), [
-          'purchase',
-          'subscription',
-          'purchase_first',
-          'subscription_first',
-        ]);
+        expect(client.events, isEmpty);
         expect(h.reports, hasLength(1));
-        expect(client.events.first.parameters['value'], 89.99);
-        expect(client.events.first.parameters['currency'], 'EUR');
+        expect(purchaseEvents.calls, hasLength(1));
+        expect(
+          purchaseEvents.calls.single.kind,
+          PurchaseEventKind.subscription,
+        );
+        expect(purchaseEvents.calls.single.provider, provider.name);
+        expect(purchaseEvents.calls.single.productId, product.storeProductId);
+        expect(purchaseEvents.calls.single.priceAmountMicros, 89990000);
+        expect(purchaseEvents.calls.single.priceCurrencyCode, 'EUR');
         expect(h.service.state.value, MembershipCheckoutState.completed);
       },
     );
 
     test(
-      '$provider Firebase accepted does not become success after restart',
+      '$provider report rejection leaves Firebase purchase events disabled',
       () async {
         final client = enableFirebaseAnalytics();
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.accepted,
+          status: MembershipReportStatus.rejected,
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
@@ -460,24 +470,70 @@ void main() {
     );
   }
 
-  for (final outcome in ['rejected', 'offline', 'foreign_account']) {
-    test('subscription Firebase purchase excludes $outcome', () async {
+  for (final outcome in ['rejected', 'offline']) {
+    test(
+      'subscription Firebase purchase events stay disabled for $outcome',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final h = Harness();
+        if (outcome == 'rejected') {
+          h.reportHandler = (_) async => const MembershipPurchaseReport(
+            status: MembershipReportStatus.rejected,
+          );
+        }
+        if (outcome == 'offline') {
+          h.reportHandler = (_) async => throw StateError('offline');
+        }
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(h.purchase());
+        await _settleAnalytics();
+        expect(h.reports, hasLength(1));
+        expect(client.events, isEmpty);
+      },
+    );
+  }
+  for (final provider in MembershipProvider.values) {
+    test('$provider ignores a purchased callback for another UUID', () async {
       final client = enableFirebaseAnalytics();
-      final h = Harness();
-      if (outcome == 'rejected' || outcome == 'foreign_account') {
-        h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.rejected,
-        );
-      }
-      if (outcome == 'offline') {
-        h.reportHandler = (_) async => throw StateError('offline');
-      }
+      final purchaseEvents = RecordingPurchaseEventRecorder();
+      final h = Harness(
+        provider: provider,
+        purchaseEventReporting: purchaseEvents,
+      );
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(h.purchase(uuid: 'other-account'));
+      await _settleAnalytics();
+
+      expect(h.reports, isEmpty);
+      expect(client.events, isEmpty);
+      expect(purchaseEvents.calls, isEmpty);
+    });
+
+    test(
+      '$provider ignores a purchased callback after account switch',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final h = Harness(provider: provider);
+        await h.service.purchase(h.product());
+        h.uid = 'another-user';
+        await h.service.interceptPurchase(h.purchase(uuid: accountUuid));
+        await _settleAnalytics();
+
+        expect(h.reports, isEmpty);
+        expect(client.events, isEmpty);
+      },
+    );
+
+    test('$provider does not attach an unmarked unrelated purchase', () async {
+      final client = enableFirebaseAnalytics();
+      final h = Harness(provider: provider);
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
-        h.purchase(uuid: outcome == 'foreign_account' ? 'other-account' : null),
+        h.purchase(omitUuid: true, directResult: false),
       );
       await _settleAnalytics();
-      expect(h.reports, hasLength(1));
+
+      expect(h.reports, isEmpty);
       expect(client.events, isEmpty);
     });
   }
@@ -499,7 +555,12 @@ void main() {
             attemptId: 'local-first-attempt',
           );
           expect(h.service.debugStoreOrderId.value, isNull);
-          await h.service.interceptPurchase(h.purchase(transaction: firstId));
+          await h.service.interceptPurchase(
+            h.purchase(
+              transaction: firstId,
+              checkoutAttemptId: 'local-first-attempt',
+            ),
+          );
           expect(h.service.debugStoreOrderId.value, firstId);
           expect(h.store.records, isEmpty);
           await h.service.purchase(
@@ -508,7 +569,12 @@ void main() {
           );
           expect(h.service.debugStoreOrderId.value, isNull);
           // A late callback from the previous receipt must not replace this order.
-          await h.service.interceptPurchase(h.purchase(transaction: firstId));
+          await h.service.interceptPurchase(
+            h.purchase(
+              transaction: firstId,
+              checkoutAttemptId: 'local-first-attempt',
+            ),
+          );
           expect(h.service.debugStoreOrderId.value, isNull);
           await h.service.interceptPurchase(
             h.purchase(
@@ -530,7 +596,7 @@ void main() {
   }
 
   test(
-    'subscription purchases record independent first analytics events',
+    'subscription callbacks do not emit removed Firebase purchase events',
     () async {
       final analytics = _RecordingAnalyticsClient();
       FirebaseAnalyticsMonitoring.resetForTesting();
@@ -567,34 +633,16 @@ void main() {
         canceled.purchase(status: BillingPurchaseStatus.canceled),
       );
 
-      final unowned = Harness();
-      await unowned.service.interceptPurchase(
-        unowned.purchase(token: 'unowned-token', transaction: 'unowned-order'),
+      final recovered = Harness();
+      await recovered.service.interceptPurchase(
+        recovered.purchase(
+          token: 'unowned-token',
+          transaction: 'unowned-order',
+        ),
       );
       await _settleAnalytics();
 
-      expect(analytics.events.map((event) => event.name), <String>[
-        'purchase',
-        'subscription',
-        'purchase_first',
-        'subscription_first',
-        'purchase',
-        'subscription',
-      ]);
-      expect(analytics.events.first.parameters, <String, Object>{
-        'provider': 'google',
-        'product_id': google.product().storeProductId,
-        'device_id': 'test-device-id',
-        'value': 9.99,
-        'currency': 'USD',
-      });
-      expect(analytics.events.last.parameters, <String, Object>{
-        'provider': 'apple',
-        'product_id': apple.product(yearly: true).storeProductId,
-        'device_id': 'test-device-id',
-        'value': 9.99,
-        'currency': 'USD',
-      });
+      expect(analytics.events, isEmpty);
     },
   );
 
@@ -626,11 +674,11 @@ void main() {
   });
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider accepted ends report without persistence or later retry',
+      '$provider rejected ends report without persistence or later retry',
       () async {
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.accepted,
+          status: MembershipReportStatus.rejected,
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
@@ -640,7 +688,7 @@ void main() {
         h.reportHandler = null;
         await h.service.recover();
         expect(h.reports, hasLength(1));
-        expect(h.service.state.value, MembershipCheckoutState.accepted);
+        expect(h.service.state.value, MembershipCheckoutState.rejected);
         expect(h.store.records, isEmpty);
         expect(h.refreshes, 0);
       },
@@ -723,6 +771,21 @@ void main() {
         h.store.confirmed.values.single.guest?.accountUuid,
         guest.accountUuid,
       );
+    },
+  );
+
+  test(
+    'guest purchase keeps its guest UUID if login changes before callback',
+    () async {
+      final h = Harness()..uid = null;
+      await h.service.purchase(h.product());
+      h.uid = 'signed-in-user';
+
+      await h.service.interceptPurchase(h.purchase(uuid: guest.accountUuid));
+
+      expect(h.reports, hasLength(1));
+      expect(h.reports.single.guest?.accountUuid, guest.accountUuid);
+      expect(h.refreshes, 0);
     },
   );
   test(
@@ -833,28 +896,26 @@ void main() {
       );
     }
   }
-  test(
-    'accepted and rejected both end reporting without a durable queue',
-    () async {
-      for (final status in [
-        MembershipReportStatus.accepted,
-        MembershipReportStatus.rejected,
-      ]) {
-        final h = Harness();
-        h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
-        await h.service.purchase(h.product());
-        await h.service.interceptPurchase(h.purchase());
-        await h.service.recover();
-        expect(h.reports, hasLength(1));
-        expect(h.store.records.length, 0);
-        expect(h.refreshes, 0);
-      }
-    },
-  );
+  test('rejected ends reporting without a durable queue', () async {
+    for (final status in [MembershipReportStatus.rejected]) {
+      final h = Harness();
+      h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(h.purchase());
+      await h.service.recover();
+      expect(h.reports, hasLength(1));
+      expect(h.store.records.length, 0);
+      expect(h.refreshes, 0);
+    }
+  });
   test(
     'pending Apple payment is not completed or reported without a transaction',
     () async {
-      final h = Harness(provider: MembershipProvider.apple);
+      final purchaseEvents = RecordingPurchaseEventRecorder();
+      final h = Harness(
+        provider: MembershipProvider.apple,
+        purchaseEventReporting: purchaseEvents,
+      );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
         h.purchase(
@@ -864,10 +925,170 @@ void main() {
         ),
       );
       expect(h.reports, isEmpty);
+      expect(h.store.records, isEmpty);
+      expect(purchaseEvents.calls, isEmpty);
       await h.service.interceptPurchase(h.purchase());
       expect(h.reports, hasLength(1));
+      expect(purchaseEvents.calls, hasLength(1));
       expect(h.store.records, isEmpty);
       expect(h.service.state.value, MembershipCheckoutState.completed);
+    },
+  );
+  test('guest pending callback keeps only guest identity proof', () async {
+    final h = Harness()..uid = null;
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(
+      h.purchase(status: BillingPurchaseStatus.pending),
+    );
+    expect(h.store.records, isEmpty);
+    expect(h.store.confirmed, isEmpty);
+    expect(h.store.claims.values.single.hasPurchase, isFalse);
+    expect(h.reports, isEmpty);
+
+    await h.service.interceptPurchase(h.purchase());
+    expect(h.reports, hasLength(1));
+    expect(h.store.confirmed, hasLength(1));
+  });
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider guest pending purchase reports after a matching restart',
+      () async {
+        final storage = PendingStore();
+        final first = Harness(provider: provider, storage: storage)..uid = null;
+        await first.service.purchase(first.product());
+        await first.service.interceptPurchase(
+          first.purchase(status: BillingPurchaseStatus.pending),
+        );
+        expect(storage.records, isEmpty);
+        first.service.dispose();
+
+        final restarted = Harness(provider: provider, storage: storage)
+          ..uid = null
+          ..lastAccountUuid = guest.accountUuid;
+        await restarted.service.start();
+        await restarted.service.interceptPurchase(
+          restarted.purchase(directResult: false),
+        );
+        expect(restarted.reports, hasLength(1));
+        expect(restarted.reports.single.guest?.accountUuid, guest.accountUuid);
+        expect(storage.confirmed, hasLength(1));
+      },
+    );
+  }
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider pending purchase reports a matching purchased callback after restart',
+      () async {
+        final storage = PendingStore();
+        final first = Harness(provider: provider, storage: storage);
+        await first.service.purchase(first.product());
+        await first.service.interceptPurchase(
+          first.purchase(
+            status: BillingPurchaseStatus.pending,
+            transaction: '',
+            token: '',
+          ),
+        );
+        expect(first.reports, isEmpty);
+        expect(storage.records, isEmpty);
+        first.service.dispose();
+
+        final events = <SubscriptionAnalyticsEvent>[];
+        final restarted = Harness(
+          provider: provider,
+          storage: storage,
+          analytics: SubscriptionAnalytics(sink: events.add),
+        );
+        await restarted.service.start();
+        expect(restarted.reports, isEmpty);
+        await restarted.service.interceptPurchase(
+          restarted.purchase(directResult: false),
+        );
+        expect(restarted.reports, hasLength(1));
+        expect(events.map((event) => event.action), ['subscription_success']);
+        expect(storage.records, isEmpty);
+        await restarted.service.interceptPurchase(
+          restarted.purchase(directResult: false),
+        );
+        await restarted.service.recover();
+        expect(restarted.reports, hasLength(1));
+        expect(events.map((event) => event.action), ['subscription_success']);
+      },
+    );
+    test(
+      '$provider ignores an unmatched purchased callback after restart',
+      () async {
+        final events = <SubscriptionAnalyticsEvent>[];
+        final h = Harness(
+          provider: provider,
+          analytics: SubscriptionAnalytics(sink: events.add),
+        );
+        await h.service.start();
+        await h.service.interceptPurchase(
+          h.purchase(
+            uuid: 'f66ced12-80d3-4f1e-9cf6-bec56dbaf453',
+            directResult: false,
+          ),
+        );
+        expect(h.reports, isEmpty);
+        expect(h.store.records, isEmpty);
+        expect(events, isEmpty);
+      },
+    );
+    test(
+      '$provider ignores a purchased callback without an account UUID',
+      () async {
+        final events = <SubscriptionAnalyticsEvent>[];
+        final h = Harness(
+          provider: provider,
+          analytics: SubscriptionAnalytics(sink: events.add),
+        );
+        await h.service.start();
+        await h.service.interceptPurchase(
+          h.purchase(omitUuid: true, directResult: false),
+        );
+        expect(h.reports, isEmpty);
+        expect(events, isEmpty);
+      },
+    );
+    test(
+      '$provider reports a matching callback when catalog lookup fails',
+      () async {
+        final h = Harness(provider: provider);
+        h.productsHandler = () async => throw StateError('catalog unavailable');
+        await h.service.start();
+        await h.service.interceptPurchase(h.purchase(directResult: false));
+        expect(h.reports, hasLength(1));
+        expect(h.reports.single.product.planCode, 'unknown');
+      },
+    );
+    test(
+      '$provider reports a matching callback when local cache read fails',
+      () async {
+        final h = Harness(provider: provider);
+        h.store.onLoad = () async => throw StateError('cache unavailable');
+        await h.service.interceptPurchase(h.purchase(directResult: false));
+        expect(h.reports, hasLength(1));
+      },
+    );
+  }
+  test(
+    'guest callback without a listed product keeps recoverable claim proof',
+    () async {
+      final storage = PendingStore();
+      final h = Harness(storage: storage)
+        ..uid = null
+        ..lastAccountUuid = guest.accountUuid
+        ..productsHandler = (() async => <MembershipProduct>[]);
+      await h.service.interceptPurchase(h.purchase(directResult: false));
+      expect(h.reports, hasLength(1));
+      expect(storage.confirmed.values.single.product.planCode, 'unknown');
+      expect(
+        MembershipPurchaseRecord.fromJson(
+          storage.confirmed.values.single.toJson(),
+        ).product.planCode,
+        'unknown',
+      );
     },
   );
   test(
@@ -897,11 +1118,11 @@ void main() {
     },
   );
   test(
-    'unknown subscription never becomes a Gems purchase or guessed base plan',
+    'matching subscription callback reports without a local attempt; Gems stays separate',
     () async {
       final h = Harness();
       expect(await h.service.interceptPurchase(h.purchase()), isTrue);
-      expect(h.reports, isEmpty);
+      expect(h.reports, hasLength(1));
       final gem = BillingPurchase(
         provider: BillingProvider.googlePlay,
         productId: 'gem-test',

@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import '../telemetry/firebase_analytics_monitoring.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_purchase.dart';
 import '../../network/models/membership_claim.dart';
@@ -16,6 +15,7 @@ import '../../platform/billing/membership_store_purchase.dart';
 import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
+import '../telemetry/purchase_event_reporting.dart';
 import 'membership_purchase_eligibility.dart';
 import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
@@ -36,7 +36,6 @@ enum MembershipCheckoutState {
   pending,
   reporting,
   completed,
-  accepted,
   rejected,
   canceled,
   failed,
@@ -88,9 +87,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     this.retryDelay = const Duration(seconds: 15),
     this.attemptTimeout = const Duration(seconds: 90),
     this.guestRecoveryTimeout = const Duration(seconds: 15),
+    this.purchaseEventReporting,
   }) : analytics = analytics ?? SubscriptionAnalytics();
 
   final SubscriptionAnalytics analytics;
+  final PurchaseEventRecorder? purchaseEventReporting;
   final Map<String, SubscriptionTracking> _attemptTracking = {};
 
   final MembershipCheckoutPlatform platform;
@@ -291,8 +292,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           await store.complete(record);
         }
       }
-      // Retire legacy report queues without issuing any network report. Guest
-      // receipts remain separate proof for login/claim, never report recovery.
+      // Retire legacy purchase attempts, including store-pending records,
+      // without reporting them. Guest receipts remain separate proof for
+      // login/claim.
       for (final record in await store.loadAll()) {
         if (record.guest != null && record.paid && record.hasReceipt) {
           _records[record.requestId] = record;
@@ -397,7 +399,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         tracking ??
         SubscriptionTracking.recovery('${provider.name}:attempt:$attemptId');
     if (_busy || (otherPurchaseBusy?.call() ?? false)) {
-      _checkoutFailure(attemptId, 'purchase_in_progress');
+      _trackPreparationFailure(attemptId, 'precheck', 'purchase_in_progress');
       _emitCheckout(
         MembershipCheckoutState.failed,
         attemptId,
@@ -653,8 +655,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       } catch (error) {
         // Expired operations and completed callbacks cannot overwrite a newer UI.
         if (!canContinue()) return;
-        _checkoutFailure(
+        _trackPreparationFailure(
           id,
+          stage,
           _preparationFailure(preparationError ?? error, stage),
         );
         final record = _records[attemptId];
@@ -729,7 +732,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   Future<bool> interceptPurchase(BillingPurchase purchase) async {
     return _serialize(() async {
       try {
-        await _load();
+        try {
+          await _load();
+        } catch (error) {
+          if (purchase.status != BillingPurchaseStatus.purchased) rethrow;
+          _log('purchase cache load deferred', error);
+        }
         if (kDebugMode && provider == MembershipProvider.apple) {
           final active = _records[_activeRequestId];
           final transaction = purchase.transactionId;
@@ -789,9 +797,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         ? purchase.checkoutAttemptId
         : null;
     final sourceAttempt = sourceId == null ? null : _records[sourceId];
-    // A direct StoreKit result belongs only to its original call, including
-    // when it arrives after timeout. Never attach it to a newer checkout.
-    if (sourceId != null && sourceAttempt == null) return;
+    // Keep direct StoreKit errors with their original attempt. A purchased
+    // result without that attempt may still be recovered by account UUID.
+    if (sourceId != null &&
+        sourceAttempt == null &&
+        purchase.status != BillingPurchaseStatus.purchased) {
+      return;
+    }
     MembershipPurchaseRecord? record = sourceAttempt;
     if (provider == MembershipProvider.apple) {
       // Product.purchase results belong to their checkout, regardless of the
@@ -869,16 +881,42 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (pending.length == 1) record = pending.single;
       }
     }
+    if (record == null && purchase.status == BillingPurchaseStatus.purchased) {
+      record = await _recordForCurrentAccountPurchase(purchase);
+    }
     if (record == null) {
-      // Unsolicited store history is not a failed report from this client.
-      if (purchase.status == BillingPurchaseStatus.purchased ||
-          purchase.status == BillingPurchaseStatus.restored) {
+      // An unmatched purchased callback must not report, track, or initiate
+      // guest recovery for another account. Restore history has its own path.
+      if (purchase.status == BillingPurchaseStatus.restored) {
         if (_guestStoreEvents.add(_guestStoreEventKey(purchase))) {
           _invalidateGuestStartupCheck();
           if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
         }
       }
       return;
+    }
+    if (purchase.status == BillingPurchaseStatus.purchased ||
+        purchase.status == BillingPurchaseStatus.pending ||
+        purchase.status == BillingPurchaseStatus.restored) {
+      final storeAccountUuid = purchase.obfuscatedAccountId?.trim() ?? '';
+      final hasMatchingStoreAccount =
+          storeAccountUuid.isNotEmpty &&
+          storeAccountUuid.toLowerCase() ==
+              record.accountUuid.trim().toLowerCase();
+      final hasMatchingPurchaseIdentity =
+          sourceAttempt?.requestId == record.requestId ||
+          (purchase.purchaseToken.isNotEmpty &&
+              purchase.purchaseToken == record.purchaseToken) ||
+          (purchase.transactionId.isNotEmpty &&
+              purchase.transactionId == record.transactionId);
+      if ((storeAccountUuid.isNotEmpty && !hasMatchingStoreAccount) ||
+          (storeAccountUuid.isEmpty && !hasMatchingPurchaseIdentity) ||
+          (record.guest == null && await readLoginUid() != record.ownerUid)) {
+        debugPrint(
+          '[Membership] ignored store callback without matching account ownership',
+        );
+        return;
+      }
     }
     _trackingFor(record);
     // Only this order's callback ends its store deadline. Reporting has its own
@@ -895,6 +933,76 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         debugInfo: purchaseDebugInfo('vip.handle_callback', error: error),
       );
       _log('callback deferred', error);
+    }
+  }
+
+  Future<MembershipPurchaseRecord?> _recordForCurrentAccountPurchase(
+    BillingPurchase purchase,
+  ) async {
+    final callbackUuid =
+        purchase.obfuscatedAccountId?.trim().toLowerCase() ?? '';
+    final credential = provider == MembershipProvider.google
+        ? purchase.purchaseToken.trim()
+        : purchase.transactionId.trim();
+    if (!isMembershipAccountUuid(callbackUuid) ||
+        credential.isEmpty ||
+        purchase.productId.trim().isEmpty) {
+      return null;
+    }
+    final session = _session;
+    try {
+      final uid = await readLoginUid();
+      MembershipProductList? products;
+      String currentUuid;
+      if (uid == null) {
+        products = await readCheckoutProducts();
+        currentUuid = products.lastAccountUuid ?? '';
+      } else {
+        currentUuid = await loadAccountUuid();
+      }
+      currentUuid = currentUuid.trim().toLowerCase();
+      if (_disposed ||
+          session != _session ||
+          await readLoginUid() != uid ||
+          currentUuid != callbackUuid) {
+        return null;
+      }
+      // A live catalog is not needed to report a verified store product. Guest
+      // checkouts already read it to resolve their current account UUID.
+      final matches = products?.products.where(
+        (product) =>
+            product.provider == provider &&
+            product.storeProductId == purchase.productId,
+      );
+      final product = matches?.isNotEmpty == true
+          ? matches!.first
+          : MembershipOrderProduct(
+              planCode: 'unknown',
+              provider: provider,
+              storeProductId: purchase.productId,
+            );
+      if (_disposed || session != _session || await readLoginUid() != uid) {
+        return null;
+      }
+      final identity = purchase.transactionId.trim().isNotEmpty
+          ? purchase.transactionId.trim()
+          : credential;
+      final tracking = SubscriptionTracking.recovery(
+        '${provider.name}:purchase:$identity',
+      );
+      return MembershipPurchaseRecord(
+        requestId: tracking.id,
+        tracking: tracking,
+        product: product,
+        accountUuid: callbackUuid,
+        ownerUid: uid,
+        guest: uid == null
+            ? MembershipGuestIdentity(accountUuid: callbackUuid)
+            : null,
+      );
+    } catch (error) {
+      _log('purchase ownership check deferred', error);
+      return null;
     }
   }
 
@@ -944,6 +1052,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           stage: 'callback',
           status: purchase.status.name,
         )!,
+        fromStoreCallback: true,
       );
       final failure = purchase.status == BillingPurchaseStatus.error
           ? membershipStoreError(
@@ -1025,18 +1134,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     if (purchase.status == BillingPurchaseStatus.pending) {
       record = _trackPending(record, 'store_callback_pending');
       await _save(record);
-    }
-    try {
-      await _prepareGuestClaim(
-        record,
-        purchaseTime: purchase.purchaseTime,
-        fromStoreCallback: true,
-      );
-    } catch (error) {
-      _scheduleGuestMaintenance();
-      _log('guest proof persistence deferred', error);
-    }
-    if (purchase.status == BillingPurchaseStatus.pending) {
       _setState(
         MembershipCheckoutState.pending,
         attemptId: record.requestId,
@@ -1047,6 +1144,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     // Restore callbacks retain ownership proof for claim, but only a successful
     // purchase callback may start the single report request.
     if (purchase.status != BillingPurchaseStatus.purchased) {
+      await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
       _setState(
         MembershipCheckoutState.deferred,
         attemptId: record.requestId,
@@ -1057,8 +1155,52 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       );
       return;
     }
+    if (record.guest == null && await readLoginUid() != record.ownerUid) return;
+    final tracking = analytics.success(
+      _trackingFor(record),
+      provider.name,
+      purchase.transactionId,
+    );
+    _attemptTracking[record.requestId] = tracking;
+    record = record.copyWith(tracking: tracking);
+    await _save(record);
+    final eventReporter = purchaseEventReporting;
+    if (eventReporter != null) {
+      unawaited(
+        eventReporter.recordPurchase(
+          provider: provider.name,
+          productId: record.product.storeProductId,
+          kind: PurchaseEventKind.subscription,
+          purchaseIdentity: provider == MembershipProvider.google
+              ? record.purchaseToken
+              : record.transactionId,
+          transactionIdentity: record.transactionId.trim().isNotEmpty
+              ? record.transactionId
+              : record.purchaseToken,
+          priceAmountMicros: record.priceAmountMicros,
+          priceCurrencyCode: record.priceCurrencyCode,
+        ),
+      );
+    }
+    await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
     await _report(record);
     await _claimPendingGuests();
+  }
+
+  Future<void> _prepareGuestClaimFromStore(
+    MembershipPurchaseRecord record,
+    String purchaseTime,
+  ) async {
+    try {
+      await _prepareGuestClaim(
+        record,
+        purchaseTime: purchaseTime,
+        fromStoreCallback: true,
+      );
+    } catch (error) {
+      _scheduleGuestMaintenance();
+      _log('guest proof persistence deferred', error);
+    }
   }
 
   Future<void> _report(MembershipPurchaseRecord record) async {
@@ -1109,7 +1251,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           return;
         }
         final report = await _sendTrackedReport(record, request);
-        record = _trackReportResult(record, report);
         record = record.copyWith(
           signedTransaction: request.signedTransaction,
           reportStatus: report.status.name,
@@ -1120,26 +1261,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               : null,
         );
         await _save(record);
-      }
-      if (record.reportStatus == 'completed' &&
-          record.state != 'restored' &&
-          !_disposed &&
-          session == _session) {
-        unawaited(
-          FirebaseAnalyticsMonitoring.recordPurchase(
-            provider: provider.name,
-            productId: record.product.storeProductId,
-            kind: FirebaseAnalyticsPurchaseKind.subscription,
-            purchaseIdentity: provider == MembershipProvider.google
-                ? record.purchaseToken
-                : record.transactionId,
-            transactionIdentity: record.transactionId.trim().isNotEmpty
-                ? record.transactionId
-                : record.purchaseToken,
-            priceAmountMicros: record.priceAmountMicros,
-            priceCurrencyCode: record.priceCurrencyCode,
-          ),
-        );
       }
       // Guest ownership proof supports claim after login, not report retry.
       try {
@@ -1160,7 +1281,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _setState(
         switch (record.reportStatus) {
           'completed' => MembershipCheckoutState.completed,
-          'accepted' => MembershipCheckoutState.accepted,
           'rejected' => MembershipCheckoutState.rejected,
           _ => MembershipCheckoutState.deferred,
         },
@@ -1361,12 +1481,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         subscriptionStoreFailureReason(
           provider,
           error: error,
-          stage: 'callback',
+          stage: 'stream',
+          status: 'error',
         ) ??
-        'unknown_error';
+        'store_failure[stage=stream;status=error]';
     for (final entry in _checkoutWaits.entries) {
       if (!entry.value.storeCallbackReceived) {
-        _checkoutFailure(entry.key, reason);
+        _checkoutFailure(entry.key, reason, fromStoreStream: true);
       }
     }
     _endCheckoutWaits(

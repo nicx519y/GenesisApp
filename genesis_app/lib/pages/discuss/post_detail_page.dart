@@ -26,6 +26,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
@@ -169,11 +170,14 @@ class _PostDetailPageState extends State<PostDetailPage>
           brightness: Brightness.dark,
         );
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted && generation == _loadGeneration) {
         showGenesisToast(
           context,
-          GenesisL10n.current.worldoLoadRepliesFailed,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLoadRepliesFailed,
+          ),
           brightness: Brightness.dark,
         );
       }
@@ -191,11 +195,14 @@ class _PostDetailPageState extends State<PostDetailPage>
           return OriginDiscussRepliesPage.fromJson(data);
         },
       );
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n.current.worldoLoadRepliesFailed,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLoadRepliesFailed,
+          ),
           brightness: Brightness.dark,
         );
       }
@@ -602,7 +609,7 @@ class _ReplyActionRow extends StatelessWidget {
       } else {
         await api.unlike(discussId: normalizedDiscussId);
       }
-    } catch (_) {
+    } catch (error) {
       controller.applyLikeState(
         discussId: normalizedDiscussId,
         isLiked: previousLiked,
@@ -611,7 +618,10 @@ class _ReplyActionRow extends StatelessWidget {
       if (context.mounted) {
         showGenesisToast(
           context,
-          GenesisL10n.current.worldoLikeFailed,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLikeFailed,
+          ),
           brightness: Brightness.dark,
         );
       }

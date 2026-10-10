@@ -17,6 +17,14 @@ extension _WorldPageSheets on _WorldPageState {
   }) {
     final world = _world;
     if (world == null) return;
+    if (!canAccessWorldSection(kind, world.relationStatus)) {
+      showGenesisToast(
+        context,
+        worldParticipationRequiredMessage,
+        brightness: Brightness.dark,
+      );
+      return;
+    }
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: worldBottomSheetPageName(kind),
@@ -61,6 +69,7 @@ extension _WorldPageSheets on _WorldPageState {
             worldListenable: _sectionsWorldNotifier,
             newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
             eventsCache: _sectionsEventsCache,
+            recapCache: _recapCache,
             currentUid: _currentUid,
             recentChatLocationIds: _recentChatLocationIds,
             onLocationTap: _handleBottomSheetLocationTap,

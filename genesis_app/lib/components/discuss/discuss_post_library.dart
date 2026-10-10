@@ -18,6 +18,7 @@ import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/image_format_guards.dart';
 import '../../utils/image_upload_processing.dart';
 

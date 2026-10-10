@@ -6,10 +6,53 @@ import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_p
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 
 void main() {
+  testWidgets('server login error shows only err_msg', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LoginSheet(
+            onLogin: (_) async => throw ApiException(
+              message: 'user banned',
+              serverErrMsg: 'user banned',
+              code: 10013,
+              kind: ApiExceptionKind.business,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pump();
+    expect(find.text('user banned'), findsOneWidget);
+    expect(find.textContaining('ApiException'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('provider cancellation does not show a failure Toast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LoginSheet(
+            onLogin: (_) async => throw const AuthCancelledException(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pump();
+    expect(find.textContaining('Sign-in failed'), findsNothing);
+  });
+
   testWidgets('provider buttons follow the current flavor capability', (
     tester,
   ) async {

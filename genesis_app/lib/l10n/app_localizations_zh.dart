@@ -2991,6 +2991,91 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get premiumAccountMismatch =>
       'Account identifiers don\'t match the previous subscription.';
+
+  @override
+  String get worldRecap => 'Recap';
+
+  @override
+  String get inboxMissingJoinRequestId => 'Missing join request ID';
+
+  @override
+  String get loginTimedOut => 'Sign-in timed out. Please try again.';
+
+  @override
+  String get loginConnectionFailed =>
+      'Unable to connect. Check your internet connection and try again.';
+
+  @override
+  String get loginTemporarilyUnavailable =>
+      'Sign-in is temporarily unavailable. Please try again later.';
+
+  @override
+  String get recapUnlockHeading => 'Unlocks Recap';
+
+  @override
+  String get recapUpsellDescription =>
+      'Catch up on your story with a full recap of every twist, choice, and character along the way.';
+
+  @override
+  String get recapShowEarlier => 'Show earlier recap';
+
+  @override
+  String get recapEmpty =>
+      'Story recap will appear here as the story moves forward.';
+
+  @override
+  String get chatMessageAsNarrator => 'Message as the Narrator';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return 'Message as $name';
+  }
+
+  @override
+  String get chatNarratorSpeaker => 'the Narrator';
+
+  @override
+  String get chatYourCharacterSpeaker => 'your character';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return 'Speaking as $speaker';
+  }
+
+  @override
+  String get chatSwitchCharacter => 'Switch to character';
+
+  @override
+  String get chatSwitchNarration => 'Switch to narration';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return 'Open $locationName';
+  }
+
+  @override
+  String get chatRetryMessage => 'Retry message';
+
+  @override
+  String get blockedReportFailed => 'User blocked, but reporting failed.';
+
+  @override
+  String get storeConnectionFailed =>
+      'Unable to connect to the store. Please try again.';
+
+  @override
+  String get storeProductUnavailable =>
+      'This product is currently unavailable.';
+
+  @override
+  String get storeDevicePurchasesUnavailable =>
+      'Purchases are unavailable on this device.';
+
+  @override
+  String get worldHistoryRequestFailed => 'World History request failed';
+
+  @override
+  String get genericError => 'Something went wrong';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -5839,4 +5924,82 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get premiumAccountMismatch => '帳號識別資訊與先前的訂閱不符。';
+
+  @override
+  String get worldRecap => '故事回顧';
+
+  @override
+  String get inboxMissingJoinRequestId => '缺少加入申請 ID';
+
+  @override
+  String get loginTimedOut => '登入逾時，請再試一次。';
+
+  @override
+  String get loginConnectionFailed => '無法連線，請檢查網路連線後再試一次。';
+
+  @override
+  String get loginTemporarilyUnavailable => '暫時無法登入，請稍後再試。';
+
+  @override
+  String get recapUnlockHeading => '解鎖故事回顧';
+
+  @override
+  String get recapUpsellDescription => '透過完整的故事回顧，重溫每個轉折、選擇，以及一路相伴的角色。';
+
+  @override
+  String get recapShowEarlier => '查看較早的故事回顧';
+
+  @override
+  String get recapEmpty => '隨著故事發展，這裡會顯示故事回顧。';
+
+  @override
+  String get chatMessageAsNarrator => '以旁白身分發送訊息';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return '以 $name 的身分發送訊息';
+  }
+
+  @override
+  String get chatNarratorSpeaker => '旁白';
+
+  @override
+  String get chatYourCharacterSpeaker => '你的角色';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return '目前以 $speaker 的身分發言';
+  }
+
+  @override
+  String get chatSwitchCharacter => '切換為角色';
+
+  @override
+  String get chatSwitchNarration => '切換為旁白';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return '開啟 $locationName';
+  }
+
+  @override
+  String get chatRetryMessage => '重試訊息';
+
+  @override
+  String get blockedReportFailed => '已封鎖使用者，但檢舉失敗。';
+
+  @override
+  String get storeConnectionFailed => '無法連線至商店，請再試一次。';
+
+  @override
+  String get storeProductUnavailable => '目前無法購買此商品。';
+
+  @override
+  String get storeDevicePurchasesUnavailable => '此裝置無法進行購買。';
+
+  @override
+  String get worldHistoryRequestFailed => '世界歷史紀錄請求失敗';
+
+  @override
+  String get genericError => '發生錯誤';
 }

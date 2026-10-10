@@ -56,7 +56,10 @@ void main() {
       expect(h.service.state.value, MembershipCheckoutState.completed);
       h.service.dispose();
     });
-    for (final status in MembershipReportStatus.values) {
+    for (final status in [
+      MembershipReportStatus.completed,
+      MembershipReportStatus.rejected,
+    ]) {
       test(
         '$provider $status ends report including duplicate callback and restart',
         () async {
@@ -75,7 +78,7 @@ void main() {
             await Future<void>.delayed(Duration.zero);
           }
           expect(h.service.state.value, MembershipCheckoutState.reporting);
-          expect(events, isEmpty);
+          expect(events.map((e) => e.action), ['subscription_success']);
           reply.complete(MembershipPurchaseReport(status: status));
           await callback;
           expect(h.service.state.value.name, status.name);
@@ -84,13 +87,7 @@ void main() {
           await h.service.recover();
           expect(h.reports, hasLength(1));
           expect(h.store.records, isEmpty);
-          expect(events.map((e) => e.action), [
-            switch (status) {
-              MembershipReportStatus.completed => 'subscription_success',
-              MembershipReportStatus.accepted => 'subscription_pending',
-              MembershipReportStatus.rejected => 'subscription_failed',
-            },
-          ]);
+          expect(events.map((e) => e.action), ['subscription_success']);
           h.service.dispose();
           final restarted = support.Harness(
             provider: provider,
@@ -147,12 +144,7 @@ void main() {
           expect(h.reports, hasLength(1));
           expect(h.service.state.value, MembershipCheckoutState.failed);
           expect(events, hasLength(1));
-          expect(
-            events.single.action,
-            entry.key == 'timeout'
-                ? 'subscription_timeout'
-                : 'subscription_failed',
-          );
+          expect(events.single.action, 'subscription_success');
           await h.service.interceptPurchase(h.purchase());
           h.service.didChangeAppLifecycleState(AppLifecycleState.resumed);
           await h.service.recover();
@@ -187,7 +179,7 @@ void main() {
         h.service.didChangeAppLifecycleState(AppLifecycleState.resumed);
         await h.service.recover();
         expect(h.reports, hasLength(1));
-        expect(events.single.action, 'subscription_timeout');
+        expect(events.single.action, 'subscription_success');
         expect(h.service.state.value, MembershipCheckoutState.failed);
         h.service.dispose();
       },

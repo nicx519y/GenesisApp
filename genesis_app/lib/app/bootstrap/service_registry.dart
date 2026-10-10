@@ -37,6 +37,7 @@ import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
 import '../telemetry/device_info_telemetry.dart';
 import '../telemetry/app_event_reporting.dart';
+import '../telemetry/purchase_event_reporting.dart';
 import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/telemetry_upload_policy.dart';
@@ -46,6 +47,8 @@ import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/pending_purchase_store.dart';
 import '../attribution/adjust_device_registration.dart';
+import '../attribution/adjust_attribution_runtime.dart';
+import '../attribution/adjust_local_adid_store.dart';
 
 class AppServices {
   AppServices({
@@ -74,7 +77,9 @@ class AppServices {
     PersonalizationStore? personalization,
     this.adjustDeviceRegistration,
     this.eventReporting,
-  }) : membershipCatalog =
+    VoidCallback? removeAdjustSessionListener,
+  }) : _removeAdjustSessionListener = removeAdjustSessionListener,
+       membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
              loadProducts: (provider) async => api.v1.membership.products(
@@ -167,6 +172,7 @@ class AppServices {
   final ValueNotifier<int> sessionRevision;
   final AdjustDeviceRegistration? adjustDeviceRegistration;
   final AppEventReporting? eventReporting;
+  final VoidCallback? _removeAdjustSessionListener;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
   (String?, int, String, DateTime?)? _quotaMembershipSignature;
   Future<void> _originFeedGenderUpdate = Future.value();
@@ -274,6 +280,8 @@ class AppServices {
     personalization.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
+    _removeAdjustSessionListener?.call();
+    adjustDeviceRegistration?.dispose();
     unawaited(eventReporting?.dispose());
   }
 }
@@ -352,6 +360,7 @@ class ServiceRegistry {
       frameLogName: 'ChatroomSocketFrame',
     );
     final appRequestHeaders = AppRequestHeaderProvider();
+    PurchaseEventReporting? purchaseEventReporting;
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
     GatewayAuthCoordinator? gatewayAuthCoordinator;
@@ -363,8 +372,9 @@ class ServiceRegistry {
         deviceIdService: deviceId,
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
-        onServerTimeSynchronized:
-            FirebaseAnalyticsMonitoring.recordServerTimeSynchronized,
+        onServerTimeSynchronized: (serverUtc) =>
+            purchaseEventReporting?.recordServerTimeSynchronized(serverUtc) ??
+            Future<void>.value(),
       );
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,
@@ -394,8 +404,9 @@ class ServiceRegistry {
     final adjustDeviceRegistration = switch (defaultTargetPlatform) {
       TargetPlatform.android || TargetPlatform.iOS => AdjustDeviceRegistration(
         platform: defaultTargetPlatform,
-        environmentProvider: () => eventReportEnvironmentForFirebase(
-          TelemetryUploadPolicy.state.value.appEnvironment,
+        environmentProvider: () => AdjustAttributionRuntime.environment.name,
+        localAdidStore: SharedPreferencesAdjustLocalAdidStore(
+          environment: AdjustAttributionRuntime.environment,
         ),
         registerDevice: api.v1.device.registerAttribution,
       ),
@@ -418,9 +429,41 @@ class ServiceRegistry {
             ),
           )
         : null;
+    if (eventReporting != null) {
+      purchaseEventReporting = PurchaseEventReporting(
+        eventReporting: eventReporting,
+        deviceIdReader: deviceId.getDeviceId,
+      );
+    }
     FirebaseAnalyticsMonitoring.configureServerEventReporter(
       eventReporting?.report,
     );
+    VoidCallback? removeAdjustSessionListener;
+    if (adjustDeviceRegistration != null) {
+      final removeSuccess = AdjustAttributionRuntime.addSessionListener((adid) {
+        unawaited(
+          (adid == null
+                  ? adjustDeviceRegistration.registerAfterSessionWithoutAdid()
+                  : adjustDeviceRegistration.registerKnownAdid(adid))
+              .whenComplete(() => eventReporting?.flush()),
+        );
+      });
+      final removeFailure = AdjustAttributionRuntime.addSessionFailureListener((
+        failure,
+      ) {
+        final adid = failure.adid?.trim() ?? '';
+        unawaited(
+          (adid.isEmpty
+                  ? adjustDeviceRegistration.registerAfterSessionWithoutAdid()
+                  : adjustDeviceRegistration.registerKnownAdid(adid))
+              .whenComplete(() => eventReporting?.flush()),
+        );
+      });
+      removeAdjustSessionListener = () {
+        removeSuccess();
+        removeFailure();
+      };
+    }
     final chatroom = ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,
       sessionStore: sessionStore,
@@ -508,6 +551,7 @@ class ServiceRegistry {
               return result.future;
             },
             refreshWallet: gemWallet.refreshAfterMembershipChanged,
+            purchaseEventReporting: purchaseEventReporting,
           );
     billing = billingPlatform == null
         ? null
@@ -523,6 +567,7 @@ class ServiceRegistry {
             interceptPurchase: membershipPurchases?.interceptPurchase,
             otherPurchaseBusy: () => membershipPurchases?.isBusy ?? false,
             onPurchaseStreamError: membershipPurchases?.handleStreamError,
+            purchaseEventReporting: purchaseEventReporting,
           );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,
@@ -565,6 +610,7 @@ class ServiceRegistry {
       sessionRevision: sessionRevision,
       adjustDeviceRegistration: adjustDeviceRegistration,
       eventReporting: eventReporting,
+      removeAdjustSessionListener: removeAdjustSessionListener,
     );
   }
 

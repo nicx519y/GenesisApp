@@ -94,32 +94,26 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _sendConnectionPending ||
         _sending) {
       onFailure?.call(
-        StateError(
-          GenesisL10n.current.chatMessageCannotSend,
-        ),
+        StateError(GenesisL10n.current.chatMessageCannotSend),
         false,
       );
       return;
     }
     final draftAtSubmit = _textController.serializedText;
+    final messageTypeAtSubmit =
+        outgoingMessage?.messageType ??
+        (textOverride == null ? _composerMessageType : chatroomTextMessageType);
     final text = normalizeGenesisUgcTextForDisplay(
       textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
     if (isGenesisUgcTextBlank(text)) {
-      onFailure?.call(
-        StateError(
-          GenesisL10n.current.chatMessageEmpty,
-        ),
-        false,
-      );
+      onFailure?.call(StateError(GenesisL10n.current.chatMessageEmpty), false);
       return;
     }
     final hasNetwork = await _hasNetworkForSend();
     if (hasNetwork && !await _prepareSendConnection(service)) {
       onFailure?.call(
-        StateError(
-          GenesisL10n.current.chatConnectionFailed,
-        ),
+        StateError(GenesisL10n.current.chatConnectionFailed),
         false,
       );
       return;
@@ -137,9 +131,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _replyPresentationBlocksSend ||
         _sending) {
       onFailure?.call(
-        StateError(
-          GenesisL10n.current.chatMessageCannotSend,
-        ),
+        StateError(GenesisL10n.current.chatMessageCannotSend),
         false,
       );
       return;
@@ -187,6 +179,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             text: text,
             isMe: true,
             status: 'sending',
+            messageType: messageTypeAtSubmit,
           );
       _localMessageOrder.capture(
         localMessage,
@@ -216,6 +209,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _preAckWaitingMessageLocalId = localMessage.localId;
           _preAckWaitingAccepted = false;
         }
+        _composerMessageType = chatroomTextMessageType;
         if (outgoingMessage != null) return;
         if (_textController.serializedText == draftAtSubmit) {
           _hasDraftText = false;
@@ -248,6 +242,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _localMessageOrder.remove(localMessage.localId);
         if (isGenesisUgcTextBlank(_textController.serializedText) &&
             !isGenesisUgcTextBlank(draftAtSubmit)) {
+          _composerMessageType = messageTypeAtSubmit;
           _textController.setSerializedText(draftAtSubmit);
           _hasDraftText = true;
         }
@@ -296,11 +291,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
                   inspirationEpoch!,
                 ) ??
                 false)) {
-          throw StateError(
-            GenesisL10n
-                .current
-                .chatReplyChangedSelect,
-          );
+          throw StateError(GenesisL10n.current.chatReplyChangedSelect);
         }
       } catch (error) {
         onFailure?.call(error, false);
@@ -341,9 +332,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           location != widget.locationId ||
           !identical(service, _service)) {
         onFailure?.call(
-          StateError(
-            GenesisL10n.current.chatSendConfirmFailed,
-          ),
+          StateError(GenesisL10n.current.chatSendConfirmFailed),
           false,
         );
         if (mounted && optimisticMessageAdded) {
@@ -364,9 +353,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _sendAwaitingResponse ||
           widget.worldTickInProgress) {
         onFailure?.call(
-          StateError(
-            GenesisL10n.current.chatMessageCannotSend,
-          ),
+          StateError(GenesisL10n.current.chatMessageCannotSend),
           false,
         );
         _setLocationChatState(() {
@@ -504,21 +491,21 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         );
       }
       if (failBeforeTransport) {
-        throw SocketException(
-          GenesisL10n
-              .current
-              .chatNoNetworkConnection,
-        );
+        throw SocketException(GenesisL10n.current.chatNoNetworkConnection);
       }
       final handle = service.sendMessage(
         localMessage.text,
         clientMsgId: clientMsgId,
+        messageType: localMessage.messageType,
       );
       final receipt = await handle.receipt;
       receiptReceived = true;
       if (!mounted) {
         service.cancelCanonicalMessageWait(clientMsgId);
-        onFailure?.call(StateError('Could not confirm the message send'), true);
+        onFailure?.call(
+          StateError(GenesisL10n.current.chatSendConfirmFailed),
+          true,
+        );
         return;
       }
       unawaited(

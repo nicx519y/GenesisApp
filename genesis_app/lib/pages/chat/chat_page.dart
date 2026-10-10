@@ -23,6 +23,7 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/genesis_ugc_text.dart';
 
 String get _privateChatReplyGateHint =>
@@ -412,12 +413,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('[ChatPage][DM] send failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
       if (mounted) {
-        final message = error.message.trim();
         setState(() {
           _latestSendFailureLocalMessageId = localMessageId;
-          _latestSendFailureMessage = message.isEmpty
-              ? GenesisL10n.current.sendFailed
-              : message;
+          _latestSendFailureMessage = apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.sendFailed,
+          );
         });
       }
       await _markLocalMessageSendFailed(localMessageId);
@@ -651,9 +652,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     sendEnabled: _peerUid.isNotEmpty && !_sending,
                     sending: _sending,
                     onSend: _send,
-                    sendLabel: GenesisL10n
-                        .current
-                        .worldoSend,
+                    sendLabel: GenesisL10n.current.worldoSend,
                     hintText: _composerHintText(),
                     style: kPrivateChatStyle,
                     onHeightChanged: _handleComposerHeightChanged,

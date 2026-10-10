@@ -2991,4 +2991,89 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get premiumAccountMismatch =>
       'Account identifiers don\'t match the previous subscription.';
+
+  @override
+  String get worldRecap => 'Recap';
+
+  @override
+  String get inboxMissingJoinRequestId => 'Missing join request ID';
+
+  @override
+  String get loginTimedOut => 'Sign-in timed out. Please try again.';
+
+  @override
+  String get loginConnectionFailed =>
+      'Unable to connect. Check your internet connection and try again.';
+
+  @override
+  String get loginTemporarilyUnavailable =>
+      'Sign-in is temporarily unavailable. Please try again later.';
+
+  @override
+  String get recapUnlockHeading => 'Unlocks Recap';
+
+  @override
+  String get recapUpsellDescription =>
+      'Catch up on your story with a full recap of every twist, choice, and character along the way.';
+
+  @override
+  String get recapShowEarlier => 'Show earlier recap';
+
+  @override
+  String get recapEmpty =>
+      'Story recap will appear here as the story moves forward.';
+
+  @override
+  String get chatMessageAsNarrator => 'Message as the Narrator';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return 'Message as $name';
+  }
+
+  @override
+  String get chatNarratorSpeaker => 'the Narrator';
+
+  @override
+  String get chatYourCharacterSpeaker => 'your character';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return 'Speaking as $speaker';
+  }
+
+  @override
+  String get chatSwitchCharacter => 'Switch to character';
+
+  @override
+  String get chatSwitchNarration => 'Switch to narration';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return 'Open $locationName';
+  }
+
+  @override
+  String get chatRetryMessage => 'Retry message';
+
+  @override
+  String get blockedReportFailed => 'User blocked, but reporting failed.';
+
+  @override
+  String get storeConnectionFailed =>
+      'Unable to connect to the store. Please try again.';
+
+  @override
+  String get storeProductUnavailable =>
+      'This product is currently unavailable.';
+
+  @override
+  String get storeDevicePurchasesUnavailable =>
+      'Purchases are unavailable on this device.';
+
+  @override
+  String get worldHistoryRequestFailed => 'World History request failed';
+
+  @override
+  String get genericError => 'Something went wrong';
 }

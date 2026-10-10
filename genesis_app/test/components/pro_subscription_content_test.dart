@@ -583,9 +583,7 @@ void main() {
             expect(purchases, previous + (subscribed ? 0 : 1));
             expect(find.text('Notification'), findsNothing);
             expect(
-              find.textContaining(
-                'You already have an active Premium subscription.',
-              ),
+              find.textContaining('You’re already subscribed to Premium'),
               subscribed ? findsOneWidget : findsNothing,
             );
             await tester.pump(const Duration(seconds: 3));
@@ -894,7 +892,7 @@ void main() {
   }
 
   testWidgets(
-    'entry loads products once after accepted without report recovery',
+    'entry loads products once after rejected without report recovery',
     (tester) async {
       final h = support.Harness(
         provider: MembershipProvider.apple,
@@ -904,7 +902,7 @@ void main() {
         h.purchase(yearly: true, status: BillingPurchaseStatus.pending),
       ];
       h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
+        status: MembershipReportStatus.rejected,
       );
       await h.service.purchase(h.product(yearly: true));
       await h.service.interceptPurchase(h.purchase(yearly: true));
@@ -923,7 +921,7 @@ void main() {
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
 
-      // Recovery cannot turn accepted into completed or refresh the catalog.
+      // Recovery cannot turn rejected into completed or refresh the catalog.
       h.reportHandler = null;
       await h.service.recover();
       await tester.pumpAndSettle();
@@ -1054,7 +1052,7 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        find.text('You already have an active Premium subscription.'),
+        find.textContaining('You’re already subscribed to Premium'),
         findsOneWidget,
       );
       expect(purchases, 0);
@@ -1089,7 +1087,10 @@ void main() {
     },
   );
 
-  for (final status in MembershipReportStatus.values) {
+  for (final status in [
+    MembershipReportStatus.completed,
+    MembershipReportStatus.rejected,
+  ]) {
     testWidgets(
       '$status report silently reloads eligibility without another restore',
       (tester) async {
@@ -1351,6 +1352,7 @@ void main() {
             events.where((event) => event.action == 'subscription_failed'),
             hasLength(1),
           );
+          expect(events.last.object3, 'precheck_failed[catalog_unavailable]');
 
           // While that refresh is unresolved, repeated physical taps are part
           // of the same attempt and cannot emit more click/failure pairs.

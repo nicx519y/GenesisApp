@@ -10,20 +10,21 @@ import 'package:http/http.dart' as http;
 /// URLSession waits for connectivity while the user answers the prompt. The
 /// foreground timeout only handles offline/denied access; time spent inactive
 /// in a system prompt or in Settings never consumes that timeout.
-Future<void> waitForIosStartupNetwork({
+/// Returns true only when an HTTP response arrives before startup continues.
+Future<bool> waitForIosStartupNetwork({
   required Uri probeUri,
   TargetPlatform? platform,
   http.Client Function()? clientFactory,
   Duration foregroundTimeout = const Duration(seconds: 8),
 }) async {
-  if ((platform ?? defaultTargetPlatform) != TargetPlatform.iOS) return;
+  if ((platform ?? defaultTargetPlatform) != TargetPlatform.iOS) return true;
 
   http.Client client;
   try {
     client = (clientFactory ?? _createConnectivityClient)();
   } catch (error) {
     debugPrint('[Startup] iOS network preparation unavailable: $error');
-    return;
+    return false;
   }
 
   final binding = WidgetsBinding.instance;
@@ -122,6 +123,7 @@ Future<void> waitForIosStartupNetwork({
     updateForegroundWait();
     unawaited(probe());
     await ready.future;
+    return receivedResponse;
   } finally {
     foregroundTimer?.cancel();
     observer.dispose();

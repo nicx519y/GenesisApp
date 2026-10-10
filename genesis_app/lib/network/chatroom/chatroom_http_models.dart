@@ -109,7 +109,20 @@ class ChatroomHttpMessage {
   factory ChatroomHttpMessage.fromJson(Map<String, dynamic> json) {
     final messageId = asInt(json['message_id']);
     final senderId = asString(json['sender_id']);
+    final isTick = asString(json['sender_type']).trim().toLowerCase() == 'tick';
+    final tickPayload = isTick
+        ? <String, dynamic>{
+            'content': asString(json['content']),
+            'current_time': asString(json['current_time']),
+            'tick_no': asInt(json['tick_no']),
+            'sub_tick_no': asInt(json['sub_tick_no']),
+          }
+        : const <String, dynamic>{};
     return ChatroomHttpMessage(
+      payload: tickPayload,
+      v2TickPayload: isTick
+          ? ChatroomV2TickPayload.fromJson(tickPayload)
+          : null,
       rawJson: Map<String, Object?>.from(json),
       globalMessageId: asInt(json['global_message_id']),
       messageId: messageId,

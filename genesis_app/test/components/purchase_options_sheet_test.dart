@@ -55,7 +55,6 @@ void main() {
                   },
                   walletStore: wallet,
                   billingService: billing,
-                  payTrackPageId: 'test',
                 ),
               ),
             ),

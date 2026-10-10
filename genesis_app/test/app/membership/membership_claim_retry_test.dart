@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
-import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 
 import 'membership_purchase_service_test.dart';
 
 void main() {
-  for (final response in ['failure', 'accepted']) {
+  for (final failure in ['offline', 'invalid_status']) {
     testWidgets(
-      '$response claim retries five times without recovery bypassing backoff',
+      '$failure claim retries five times without recovery bypassing backoff',
       (tester) async {
         final h = Harness(
           claimEnabled: true,
@@ -20,10 +19,8 @@ void main() {
         await h.service.interceptPurchase(h.purchase());
         h.uid = 'first-login';
         h.claimHandler = (_) async {
-          if (response == 'failure') throw StateError('offline');
-          return const MembershipClaimResult(
-            status: MembershipReportStatus.accepted,
-          );
+          if (failure == 'offline') throw StateError('offline');
+          throw const FormatException('Invalid membership claim status');
         };
         await h.service.recover();
         expect(h.claimRequests, hasLength(1));

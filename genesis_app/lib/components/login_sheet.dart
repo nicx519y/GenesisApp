@@ -13,6 +13,7 @@ import '../platform/auth/auth_session.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../ui/components/genesis_dark_close_button.dart';
 import '../ui/components/genesis_safe_area.dart';
+import '../utils/api_error_message.dart';
 import '../ui/theme/genesis_dark_theme.dart';
 
 class LoginSheet extends StatefulWidget {
@@ -50,7 +51,7 @@ class _LoginSheetState extends State<LoginSheet> {
         debugPrint('[Auth][LoginSheet] login failed: onLogin returned false');
         showGenesisToast(
           context,
-          GenesisL10n.current.homeSignInFailed,
+          GenesisL10n.current.meSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -65,12 +66,9 @@ class _LoginSheetState extends State<LoginSheet> {
       debugPrint('[Auth][LoginSheet] login exception: $e');
       debugPrint('[Auth][LoginSheet] stacktrace:\n$st');
       if (!mounted) return;
-      final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty
-            ? GenesisL10n.current.homeSignInFailed
-            : message,
+        loginErrorMessage(e),
         brightness: Brightness.dark,
       );
     } finally {
@@ -98,18 +96,12 @@ class _LoginSheetState extends State<LoginSheet> {
             ),
             child: GenesisBottomSheetPanel(
               title: widget.linkPurchasedMembership
-                  ? GenesisL10n
-                        .current
-                        .meSignUpClaimPremium
-                  : GenesisL10n
-                        .current
-                        .meSignUpContinue,
+                  ? GenesisL10n.current.meSignUpClaimPremium
+                  : GenesisL10n.current.meSignUpContinue,
               height: targetHeight,
               header: widget.linkPurchasedMembership
                   ? GenesisActionSheetHeader(
-                      title: GenesisL10n
-                          .current
-                          .meSignUpClaimPremium,
+                      title: GenesisL10n.current.meSignUpClaimPremium,
                       leading: ProMembershipBadge.beside(fontSize: 18),
                     )
                   : null,

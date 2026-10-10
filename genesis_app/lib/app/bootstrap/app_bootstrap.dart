@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../attribution/adjust_attribution_runtime.dart';
+import '../attribution/adjust_device_registration.dart';
 import '../config/app_config.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
@@ -118,7 +120,15 @@ class AppBootstrap {
     }
 
     final adjustDeviceRegistration = services.adjustDeviceRegistration;
-    if (adjustDeviceRegistration != null) {
+    final registrationAlreadyHandled =
+        AdjustAttributionRuntime.hasSuccessfulSession ||
+        adjustDeviceRegistration?.lastResult ==
+            AdjustDeviceRegistrationResult.registered ||
+        adjustDeviceRegistration?.lastResult ==
+            AdjustDeviceRegistrationResult.alreadyRegistered;
+    if (adjustDeviceRegistration != null &&
+        AdjustAttributionRuntime.isInitialized &&
+        !registrationAlreadyHandled) {
       unawaited(
         adjustDeviceRegistration.register().whenComplete(
           () => services.eventReporting?.flush(),

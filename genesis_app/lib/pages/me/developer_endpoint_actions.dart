@@ -32,7 +32,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       showGenesisToast(context, 'Direct message cache cleared');
     } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Clear failed: $error');
+      _showDeveloperFailure('Clear failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _clearingDirectMessageCache = false);
@@ -51,7 +51,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       showGenesisToast(context, 'Image cache cleared');
     } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Clear failed: $error');
+      _showDeveloperFailure('Clear failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _clearingImageCache = false);
@@ -74,7 +74,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       showGenesisToast(context, 'Gateway auth cleared');
     } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Clear failed: $error');
+      _showDeveloperFailure('Clear failed', error);
     } finally {
       if (mounted) {
         _updateState(() => _clearingGatewayAuth = false);
@@ -104,7 +104,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       if (!mounted) return;
       final output = 'Failed: $error';
       _updateState(() => _gatewaySignatureVerifyResult = output);
-      showGenesisToast(context, output);
+      showGenesisToast(context, 'Gateway signature verification failed');
     } finally {
       if (mounted) {
         _updateState(() => _verifyingGatewaySignature = false);
@@ -158,9 +158,13 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
           AppEndpointOverrideStore.displayDomain(overrides.gatewayApiBaseUrl);
       _chatroomWsBaseUrlController.text =
           AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
+      final restartNeeded =
+          AdjustAttributionRuntime.resolveEnvironment(config: config) !=
+          AdjustAttributionRuntime.environment;
       showGenesisToast(
         context,
-        successMessage ?? 'Saved. New requests use endpoints.',
+        '${successMessage ?? 'Saved. New requests use endpoints.'}'
+        '${restartNeeded ? ' Restart app to apply Adjust environment.' : ''}',
       );
       return true;
     } on FormatException catch (error) {
@@ -170,7 +174,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       return false;
     } catch (error) {
       if (mounted) {
-        showGenesisToast(context, 'Save failed: $error');
+        _showDeveloperFailure(GenesisL10n.current.memorySaveFailed, error);
       }
       return false;
     } finally {

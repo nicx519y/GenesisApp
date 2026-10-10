@@ -109,11 +109,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
     await tester.pump();
     expect(calls, 1);
-    expect(events.first.object2, 'track_id_container');
-    expect(events.last.object2, startsWith('track_id_container_'));
+    expect(events.first.object2, isEmpty);
+    expect(events.last.object2, isEmpty);
     expect(events.last.object1, 'from_home_membership');
     expect(events.last.object3, 'yearly');
-    final firstClickId = events.last.object2;
     final eventCount = events.length;
     await tester.ensureVisible(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
@@ -128,8 +127,7 @@ void main() {
     expect(events, hasLength(eventCount + 1));
     expect(events.last.action, 'subscription_purchase_click');
     expect(events.last.object1, 'from_home_membership');
-    expect(events.last.object2, startsWith('track_id_container_'));
-    expect(events.last.object2, isNot(firstClickId));
+    expect(events.last.object2, isEmpty);
     expect(events.last.object3, 'monthly');
     await tester.pumpWidget(const SizedBox());
   });
@@ -212,7 +210,8 @@ void main() {
         events.where((e) => e.action == 'subscription_page_show'),
         hasLength(2),
       );
-      expect(events.first.object2, isNot(events.last.object2));
+      expect(events.first.object2, isEmpty);
+      expect(events.last.object2, isEmpty);
       await tester.pumpWidget(const SizedBox());
     },
   );

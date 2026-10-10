@@ -75,6 +75,7 @@ void main() {
         recentChatLocationIds: const {'loc_1'},
         eventLocationIds: const {'loc_event'},
         animationsPaused: true,
+        keepProgressiveTileMountingWhilePaused: true,
         locationImageFlowPaused: true,
         onMapTap: () => tilemapMapTapCount += 1,
         onCurrentLocationsChanged: handleCurrentLocations,
@@ -96,6 +97,7 @@ void main() {
     expect(tilemap.recentChatLocationIds, const {'loc_1'});
     expect(tilemap.eventLocationIds, const {'loc_event'});
     expect(tilemap.animationsPaused, isTrue);
+    expect(tilemap.keepProgressiveTileMountingWhilePaused, isTrue);
     expect(tilemap.locationImageFlowPaused, isTrue);
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);

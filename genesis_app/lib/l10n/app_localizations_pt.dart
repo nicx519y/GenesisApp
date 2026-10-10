@@ -3026,4 +3026,92 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get premiumAccountMismatch =>
       'Os identificadores da conta não correspondem aos da assinatura anterior.';
+
+  @override
+  String get worldRecap => 'Resumo';
+
+  @override
+  String get inboxMissingJoinRequestId =>
+      'ID da solicitação de entrada ausente';
+
+  @override
+  String get loginTimedOut => 'O tempo para entrar esgotou. Tente novamente.';
+
+  @override
+  String get loginConnectionFailed =>
+      'Não foi possível conectar. Verifique sua conexão com a internet e tente novamente.';
+
+  @override
+  String get loginTemporarilyUnavailable =>
+      'Não é possível entrar no momento. Tente novamente mais tarde.';
+
+  @override
+  String get recapUnlockHeading => 'Desbloqueia o resumo';
+
+  @override
+  String get recapUpsellDescription =>
+      'Acompanhe sua história com um resumo completo de cada reviravolta, escolha e personagem ao longo do caminho.';
+
+  @override
+  String get recapShowEarlier => 'Ver resumos anteriores';
+
+  @override
+  String get recapEmpty =>
+      'O resumo aparecerá aqui conforme a história avançar.';
+
+  @override
+  String get chatMessageAsNarrator => 'Enviar mensagem como narrador';
+
+  @override
+  String chatMessageAsCharacter({required String name}) {
+    return 'Enviar mensagem como $name';
+  }
+
+  @override
+  String get chatNarratorSpeaker => 'o narrador';
+
+  @override
+  String get chatYourCharacterSpeaker => 'seu personagem';
+
+  @override
+  String chatSpeakingAs({required String speaker}) {
+    return 'Falando como $speaker';
+  }
+
+  @override
+  String get chatSwitchCharacter => 'Mudar para personagem';
+
+  @override
+  String get chatSwitchNarration => 'Mudar para narração';
+
+  @override
+  String chatOpenLocation({required String locationName}) {
+    return 'Abrir $locationName';
+  }
+
+  @override
+  String get chatRetryMessage => 'Tentar enviar a mensagem novamente';
+
+  @override
+  String get blockedReportFailed =>
+      'Usuário bloqueado, mas não foi possível enviar a denúncia.';
+
+  @override
+  String get storeConnectionFailed =>
+      'Não foi possível conectar à loja. Tente novamente.';
+
+  @override
+  String get storeProductUnavailable =>
+      'Este produto não está disponível no momento.';
+
+  @override
+  String get storeDevicePurchasesUnavailable =>
+      'Não é possível fazer compras neste dispositivo.';
+
+  @override
+  String get worldHistoryRequestFailed =>
+      'Não foi possível carregar o histórico do mundo';
+
+  @override
+  String get genericError => 'Ocorreu um erro';
 }

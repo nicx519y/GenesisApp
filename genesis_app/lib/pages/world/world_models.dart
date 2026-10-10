@@ -6,13 +6,14 @@ import '../../network/models/origin.dart';
 import '../../network/json_utils.dart';
 import 'world_value_helpers.dart';
 
-enum WorldBottomSheetKind { detail, locations, events, status, cast }
+enum WorldBottomSheetKind { detail, locations, events, recap, status, cast }
 
 String worldBottomSheetPageName(WorldBottomSheetKind kind) {
   return switch (kind) {
     WorldBottomSheetKind.detail => 'world_detail_shell',
     WorldBottomSheetKind.locations => 'world_locations',
     WorldBottomSheetKind.events => 'world_events',
+    WorldBottomSheetKind.recap => 'world_recap',
     WorldBottomSheetKind.status => 'world_status',
     WorldBottomSheetKind.cast => 'world_cast',
   };
@@ -127,11 +128,30 @@ final worldBottomTagItems = <WorldBottomTagItem>[
     asset: worldSectionEventsIconAsset,
   ),
   WorldBottomTagItem(
+    label: GenesisL10n.current.worldRecap,
+    kind: WorldBottomSheetKind.recap,
+    icon: Icons.auto_stories_outlined,
+  ),
+  WorldBottomTagItem(
     label: GenesisL10n.current.worldModelsStatus,
     kind: WorldBottomSheetKind.status,
     asset: worldSectionStatusIconAsset,
   ),
 ];
+
+String get worldParticipationRequiredMessage =>
+    GenesisL10n.current.chatRequestApprovalLaunch;
+
+bool canAccessWorldSection(WorldBottomSheetKind kind, String relationStatus) {
+  switch (kind) {
+    case WorldBottomSheetKind.events:
+    case WorldBottomSheetKind.recap:
+    case WorldBottomSheetKind.status:
+      return shouldConnectWorldChatroom(relationStatus);
+    default:
+      return true;
+  }
+}
 
 enum WorldHeaderActionKind { request, pending, launch, progress, unavailable }
 

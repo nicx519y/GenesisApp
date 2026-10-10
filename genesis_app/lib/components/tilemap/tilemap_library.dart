@@ -428,6 +428,7 @@ class Tilemap extends StatefulWidget {
     this.recentChatLocationIds = const <String>{},
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.keepProgressiveTileMountingWhilePaused = false,
     this.locationImageFlowPaused = false,
     this.relatedMapPreloadingEnabled = tilemapRelatedMapPreloadingEnabled,
     this.reloadRevision = 0,
@@ -461,6 +462,7 @@ class Tilemap extends StatefulWidget {
     this.recentChatLocationIds = const <String>{},
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.keepProgressiveTileMountingWhilePaused = false,
     this.locationImageFlowPaused = false,
     this.relatedMapPreloadingEnabled = tilemapRelatedMapPreloadingEnabled,
     this.reloadRevision = 0,
@@ -493,6 +495,7 @@ class Tilemap extends StatefulWidget {
   final Set<String> recentChatLocationIds;
   final Set<String> eventLocationIds;
   final bool animationsPaused;
+  final bool keepProgressiveTileMountingWhilePaused;
   final bool locationImageFlowPaused;
   final bool relatedMapPreloadingEnabled;
   final int reloadRevision;
@@ -2107,6 +2110,8 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       waitForVisibleTileImageFrames: widget.tileImageLoader == null,
       isForeground: foreground,
       animationsPaused: widget.animationsPaused,
+      keepProgressiveTileMountingWhilePaused:
+          foreground && widget.keepProgressiveTileMountingWhilePaused,
       locationImageFlowPaused: widget.locationImageFlowPaused,
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,

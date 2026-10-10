@@ -770,6 +770,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         (_chatroomState.historyGenerationByLocation[widget.locationId] ?? 0) !=
         (state.historyGenerationByLocation[widget.locationId] ?? 0);
     if (historyChanged) {
+      _olderMessagesCursor = 0;
+      _hiddenHistoryAttemptedCursor = null;
       _olderMessagesExhaustedByRemote = false;
       _olderMessagesExhaustedByCursorlessContent = false;
       if (!widget.retainOpeningPreviewUntilHistory || _openingPreviewResolved) {
@@ -815,7 +817,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         state.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
     _deferNewTickUntilCurrentMessageFinishes(previousSource, nextSource);
-    final tickProgressStarted = _syncTickProgressState(
+    final tickProgressChanged = _syncTickProgressState(
       progressing: widget.worldTickInProgress || state.inputBlocked,
       nextSource: nextSource,
     );
@@ -851,7 +853,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         changedMessages ||
         changedHasMoreOlder ||
         mentionCatalogChanged ||
-        tickProgressStarted ||
+        tickProgressChanged ||
         tickProgressResolved;
     final shouldRebuild = messageViewportChanged || visibleChatroomStateChanged;
     if (visibleChatroomStateChanged) {
@@ -863,6 +865,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       if (messageViewportChanged) _notifyMessageViewport();
     }
     _scheduleDeferredTickReleaseIfReady();
+    _loadPastHiddenInitialHistoryIfNeeded();
     _logPanelMetric(
       'state received source ${previousSource.length}->${nextSource.length} '
       'vm $beforeVmCount->${_messages.length} changed=$changedMessages '

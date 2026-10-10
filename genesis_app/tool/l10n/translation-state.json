@@ -4846,6 +4846,150 @@
           "text_hash": "80cf9ae5b206b50101ff30107d204a728a40385e76838e7a28b3509b41dc1029",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "b356f1432ecd2bb628a01762baf8b80cac000ffdb5aa608ddebfc557f98225f2",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "32843cff2e586a6fa0fa3e00325b774b7e976e272bf4b09e467d8048352556df",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "dcd9c5de802f22d0f8113777a3e1be46caa99d8ce8fe2cbcacc26c64b1b7f4dd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "d7d0737035eae052b06d33751fba1b5584c1d874e8ca6546561be22ac98a32db",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "3a2619f45a130bc0c3c13424fa6f9ab86d0e5e6a48a28d7198bc548708d89d81",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "031776b28eb13b63357e00bebb85e8548de3bccf30e94cdbf965ac3384056c8c",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "191b14bf95370313a581b20560a4cf9a42f276bca2314f5538a6a4201f4f4943",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "66d21d079dd1a5a9a746943814f3c31e5d7a5dde71942b0a2f0b71a40fd1f4ce",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "98dc25391de01ed2c4c744da180a78a360f591b39e2b5e5f9774a0a9ac5980f5",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "4ddd0dde6fb9d8b4bb0acca361d0c05bb225c81d06bf97c5246957f8491a0a3b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "f38f0ff4996d791dbf770c7c833945980e6aea874ad3caa4ea7972adc9dcbd8b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "d3102261fd21fd61a4e8d6f78908545c345c5453211b5408df170d3bfa9c94be",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "54f9ff71d8765caeedc50dfef12db0bfa6f7c3b169a1ffb5b6c7423e3b5ca6e5",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "476ca6337f1e59e518e472610efe82093d0477ca56ff4bfe2a04c221967c2104",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "1758ab4ad57d395283870e4a5a34bb8e7aa6a1c72226386647725f14031fb76c",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "aec567b972956d70135c4196674990a9078e1fade9b8afa85df2cf0e96277a84",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "a90a9afe7f31eb6e8f2c1d4cce0d7cccb72605213d0142f3bf12e2ebf1a5e1df",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "c4813e0e8ec54927f4898f38a74dd45832462600cdd4b81a5e98753c584b4ba8",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "84f0eff779bb3faa70c9492493c800eafcabdfcf6cbf15f2ab34c57e576d0640",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "97aaa1c99287064447a6e9fd293bae0b10aecf3ed769dcac1a0da4365fb751a5",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "b3455d466d2919307d8d591e193168906364894e73925224ba74b8d6a4dd357c",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "4f6cb6208f211c70e6bfe310e8e9d5552307f3534268126bc07e225f44bd85a3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "4cbd2f650635c52a9bd4860df3cd297a16c5d19af4815142c6c7d964ff4104fd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "ef8003ae46feff00074d3219742f67ae86807989f9c1e2e4a8a92aceace55761",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -9693,6 +9837,150 @@
           "text_hash": "0e4ca9289df0aeca3c78164d008ab895c25dd89eec7b057fc93c6641eef9a2ac",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "23dd63e7309cffa120ddb6519729c43e705888272b17d2ffb9ca7c7fa9be0283",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "296d481b9ebb3eff37553b9f3bf3e31492ec1875f36215de03a2f3a2497d8dd2",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "32f984016bb715b052ced1046d1e24907d2f29430f9970b5d0fd518ce9a260bc",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "296bcb386ee448980dbd1efa34bc816baeeb17385d7a388d12bd1c3c05e1f99c",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "70e7b7f5d1b126c7900b11f690f4098bf70309776610d6fa46ea1dc25c2d1c33",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "a5b5f157df77d90c7ff8b7ad04d53cf198d8082667d4822adec85e0402d12746",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "b9f57431626a3dcc06ccacb8984e7d00619ba6ed8ee629e490b66a887d471f12",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "a1d93881cafddc224b190a99e3c8beba9adc7c8453a0fee85730b514adfda3a0",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "1021647c27f801cfed4dba18538eb03f3a32712a67347b6ca1c93729d209f1fa",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "240b4ec189b63e54293f4b040cb0f661b18717a4829bcacbce3b3edd13614f57",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "234b221471176de69cc8ad0f5e3048cec0a681c3c47345392b610196fcc65b2e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "252689e9eae76e4da4eca90a1fb3bd1093190dedad33d32b17edbaa4487fa88a",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "07ab97b643a95d8c767320a2069602c340fa34cf160c95c1219a7d6bc3317ea9",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "ba488186185b1d80ff0d8ea87ae82ad386d90bdfb745e7ffdbf7e88fa68cc0df",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "06e3c8fb1315944188379b0bb50d6762ed7bf232096487170d6795d503e6a2bd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "7b913e45a3460eefd0dac1769f636a82e8174a807fdcedf5eaae988fc734ad7f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "489b589698312a75c6a374b3fb14d999a2d8c5720cb2ca34497063cdccd7aa67",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "94f447c578d030da4f591df97ab3b040f2fd5ad735bfe79fc5dbb1c41ead745a",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "1f54b68dd71178246ecc404cd0a66e4b12f24f19a20d37cd66de2c6e320947d9",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "1d57ba769dd02731665acbd443fd42a55320047b6e5f677ea5144d28b95d10c4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "5a9d890e9e8440ba5da3b85d38bab8bf4fd59067fcd022e4639ed6aa420464f8",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "4ef4b34438e49510fd55e4faa8699789f69faeca3b9d0a4a6b20f9cca764668f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "6d629783cf064676fa943a55eb9dc3d503cf9e4236ae17c3e5f843f0e83c3fd6",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "dbb1c8353df37783093d1b13a0e092c0a062e3239626ae4421017d0fed7c734d",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -14540,6 +14828,150 @@
           "text_hash": "0a91119efa1a8b7f29188ffbc39cbaac0c75f454fb1415321bb25211ee7fdd31",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "ebbdde085289f8bf5543733f2ac15fb61966553947eccfa23eb851c4916ae535",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "00e05240a9811b0a1e21828397aefdf7d7fc179c22c824cffaa204f0b8a80092",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "6328e0104723e5309d9d4a38574bdd6de4e86e88b1988a28aa66e42d9c82a76d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "7c0efc339468f352e4fa9f1e5f87ca96a5a3f1b848a3382da03bfc0d0e737475",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "a961a24e1f7df4cbb65da26fc311782613943b09d2a1e56151bcdd3deb879a2b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "d2b396515a122523830562c2cab13c23609a54da81faa225f5eb7f92b12f9bc5",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "bbe381449ea23fd9c51ce5172dcb1a6fa7c771bbc797840124e39956e61129b3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "1641c1e5dee4413284091a3d22cdd6ae8dd4b9a8d5626c52f9816e1f27c43fdc",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "9729090d5be6cb6b5c7acd8358c14bb18d867b5111411a1376f9ca8af57fa3f3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "567f6afebb13336f29ec3822e4f5f6416cdcb98b362619b05af190b695924e01",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "cad5bb94dea913e742e47053382d31d7cf399313ac265f895ad53d6e2914de2b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "d40fa5f8ff5145b76f3954f8d8f3cae8d9f64ff830ddb70ba750ddea380500e9",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "53e35fcce60fe82c7556d4c4f965510311ff5c1dc2fe0222784f548d5772202e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "53efad85972c26a971556593828067dabe00d0e686e43567e44803e93cabdaad",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "057da6b8935e371700b0a3e073a23177e30caa467bd9f33274751de41fb13341",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "55f40e5e3ddf9ca5fb047b31c1843f8e3c9c0c612b1b634559ffc68120d1acb6",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "489b589698312a75c6a374b3fb14d999a2d8c5720cb2ca34497063cdccd7aa67",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "dc1434dced29a715bb08edcbfd14b53ebd9ad79e3991283a016f13fac81d645e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "ea585911f1d252ddaecf73aebdc6ad46c32fa07f92f381bce71fffe96e3d044e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "16c565b375bab9ddfb127960bb8ad3cbb288791abe6c0a5890ba64bbf57cd5ab",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "15e28a23199458fc1de5b6c6f6a29531dc1be5cd0a96d21b68ea4424539dc003",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "c33bb0fa44b5a332b6f90a2ae555396eedfef2ccb3715eed26a78419af932f1f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "6bfc408732ffb82199b2f046083605ca79d9f7caaf7965e2c3fbb8abf765de71",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "5de056aea5850607ec9ba88d85da1edfbf83ee3cd223c3b27f688b0cb66814e3",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -19387,6 +19819,150 @@
           "text_hash": "9cc227ceca8633ba0cfe0b5538876c84f8a957bbf26db621e5a47e98758725dd",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "8e6a765943b12b0f8ce2a2935c34ace65a811b791e7408a1960d7537b42d5641",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "96cd4fc9607daaa6fe7682d915c4a9dd29a14bab622ebb2c944d568da4a21875",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "1ac5218ff9bcc3d212829cff534a4bb6694199a3d53da78ae93efdcc6c42dca8",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "f76405fb962315cd680369283c96c4f67236893f737e934f3f67c187867b5648",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "0f630a701d4fffa34a34e1ddedf7fd2ea756a7561c93756dd651b1071e107aa5",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "f35858da80397577b6a6c91a73badf7457cfbcce2c0d85ac1b344588cd6f4713",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "d2a389798e687b1bc256f0f564fbd3f606ccce87d42b90964ed26a7b937bd8af",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "ca0d9d2b3e701e921453c7fa01aa127a6820c5d4e2eab88937f0d1b4e928d88b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "80539c6bb891699c82bac75e188a7af4d24a95558645917f9e5042e93ec0e74b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "9998d22bf1d55c051b1b3c1e5bebf59bc67a002b0b777a3af8c32163d66c7874",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "c2ce1ac7d9440487e74b0673356ce5a59db2d170f9f1e24fc878e8a57f5641d9",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "751f694e63848c1ee8411325525f63ca447814592cbd6081a3a5dc77c443f23d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "eaa0dcdeee3567f654f84273a8d19dee3cb4efefdc652025f7cb2614b86a4e45",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "027868717a42042e9571714f6ff7e3320151cb955d34e2d381381d2728821afd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "3eba63effdc21f19f32b7ede2c0c35c1584b02457259af27ee2d07ec7c84a6dd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "3f92856dfb151f1d5219418416ad44d6fee81aa0bab0799bd807017259cf9480",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "f9ba8321a9f814bcd7744aa4c19737f7e1b894f02b1725a971dd89802a433ccd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "fe3380fdab43ad40f47d77bab2bbd094cd68fb38027da8303b35b9a13b857286",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "b20216337e006914f9095e33a09f2d284aa53043266c38d491b0750874516957",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "c6ecafa7febccc17ba1c08a249033f5cf588b1a082ae7443522fd7362f68b73d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "b1745f4945d78e086b17be54e5bb8644d4a4b05dabf5acd0a50282daf21744bb",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "bfec7f9195d098ead70e8db81e0553b39399b6f76350175ac517e379f631a496",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "b529c9750aad6644e2d5b57fd333c5fdb48fc2e5ff2351eb93b7f22e8b4661df",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "649ac31aa62a7a41c4aba1793b666761d12cf8b70549deb0ee6d842d1f775fba",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -24234,6 +24810,150 @@
           "text_hash": "b87fb556ad1af3d63ab25135b3b43e2000e188fe3fc4d978e6ff47a719dca5db",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "a26580406887ee621cdfa78c4fbe29e4d5ed7f182754e5168de46a48620d07ca",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "d6178bdf090285da475d65488dfcd12c534694820974725b09f11b5625be3541",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "cc2067651aff0bfbd3efb5edc7556f255b576f27adba1fc27da1e6b1ee452d61",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "34bd8b8ce6290e2f76806012d54a6a089115849091248adddcc1012e2ad7a7ea",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "1e6512fc24bd1e617a9a2dcf0b8b957ae953d44ea31771ffa017e659453bf830",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "1bb9089f1a669f0a67fef55ef78d9af0d2ec5e60f1b6b1cb85c02e928811275e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "44d5c9ab6ae5949bcb0d406701c21f68d1c94cf853456a89e7d451b7be5f5ac1",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "b628f69dd430a8d70f194366ad6d67bb7fb01c538a731903a208db78af56b2b1",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "091c38fe087c41912efd8636c06ca6c4de086121e9b02929ccadb86233d0024f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "f10e61fdde846c17459e5bca6384eaab418027ebc6a58ef3fd2b272d8fd6ddfb",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "1d86f563511287dd70f568db098babfc2c7df505b5444b2fb611b37364f19619",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "56b3e9152e139530467ceec59b318c2bf9796892572e70aa9667bfd382ce954f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "aee90bd5432a751c23845bee8d122c37a1939dbef1df1d2f2db76ae5d715f133",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "75b4309683c366d55c1ece34f01da94b52de022a97cb1a427d81db99e0cfe2ab",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "e6408d05b3ca019c6c3f9ab22dae8bb11c1eaec0a59ae4e374eae83d8dc2ad89",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "ee31e9fde1382cd820356378304f32ba94d6b035ed345cb6e52b83945c767691",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "f2fa6b65615c0fb1c00aa296ebcbb04879ae25a23bd325a9dec839b4a20e27ff",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "9efc527711fc9513667dc1616d2fa1f863dad408969da7182302b6cf6a5c8997",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "b70c378453549f060cea6ae08781e7ff385a47a0d4648bc327d8fa8f878354c4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "7610ffc015703df6ddfc19c4c17fadd75af149023835c5aff6740424f6126ca4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "f861f087306850bcceff4f445da16d5f80a09cb69121bbab5e4e5384c9c2ba2f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "c4ff34088f5364d7355be102f7b0ced06344e59e3154b1407a0bf4a124167f45",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "b3a34be812c9a6210e30f895abacd5b5b794d5d28fdd471d3207c6a0de532a45",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "7db606746c4a0eac3cb6d18a129e57e0f4ea295207c3731d02ea489e30f67911",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -29081,6 +29801,150 @@
           "text_hash": "3575541e6d84e24be04d2070471927359462862b5ed16fdbebe39673a81a227f",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "5e8a13f7456ef8a01b742e7db0250ef2e14201533154e6a285cb3985c09e38c8",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "64162999c19431b10a0e1f914a48b17f98e8e4ff77d0ba7d1c973e4371351391",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "55cf1a2151a8f8e64dc73af61e614bf9db4332411548c432f0dd475729a1ea48",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "c54dc23b0bc05f2b4fb1cabca533a1a06d79145abd16c9ed32e4ad86d43eb4bb",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "bd2d6f1eaf2d9bef349c40cd0c24f853431d43e0279ae6d68868b1d8ea9659ef",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "2c61198a06e37733da31930207ef73b6390100078caef690e9d32d3b815af475",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "82068cadabea85cf4370e9d31ebd5726b3b6661ab5657de0a1af87967708eb91",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "b6efd62f83089ac2e283c4887db774a63ecee634b0e2940f3454886070f59028",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "d9a4ea116d7ea1c2c849bb2b48f2530fa229f3acd43d762baeca296f098ec3b7",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "56bb10617727b67e37ad7594322f048db2300656b852dc51445c7276e5a73304",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "4fda54589659475eae59f8de107d5a713d28496252629e7dae959fef5ce22483",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "65ee2e63944a2ea89c089e675e29eb6caf44a8c0e06bb2d9ee195477ee371d06",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "9f3a5f419bcffd51aa865bb5f24dc8f028231e0ebdd46ebc02f7b0a25c47ade3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "705742a7a8c4b66094d80470e4d2f7f2cfb2c3e2a8ff188949e6a595b7adc363",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "f0b3a188d750e20ad881d3c3033127f7f19aa12e82fb6d15bd8faac3b87dc830",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "1a9bd58c80ee90a215040afbaa8b7f9e128bac12205a8dc4ed1e388c4b516789",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "a21b9604173408106f082d664f74c9a11d16c8d93fd8eeca74e80cefe67f2e22",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "74dd31f98fc6782d67dae484689c1fc569de8f17646aabea8b9fdde8124280ab",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "3556d129adf1fd78aab61d5d0f4dc69fe7ec3cc1551ea13d0b69510b3b81f036",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "67d4b0986bf128dee116a181df00b19c739981bcf08284118d91e59f8091efe4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "844f6ec357633935e1c5dc9b6b244c7045e9720303a4a374457bcab64297f9cd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "c50a7a03339e013de5f1b0420093feccb103c1c4aca330c688148730b4a3cdef",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "86cd5ca1da910bb82b824a4b5730bcc41cd2903c17eb2f26161a0d32b05bb643",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "c4aad707e554cb4d69baff8911e4d81434cea93037adfbd3c6c55da5f3565a1b",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -33928,6 +34792,150 @@
           "text_hash": "15bb742f69be1e1312f09729036889dd72553ddd6778d2fb33f4df8a847d24ff",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "df89cd664526b97f69cd9810431909ca867d9eda44d947be0e2814916498346a",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "19bd17c85f51aedecf8298b116d0cb4e3e78be70d31c8a887bdd8d2e7abc583b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "f9ccbaef0a1498fe17d75340bc1c1b4a53e1ff6811695f0ff802422afa1fa0be",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "a3c17c733e0397e1cda99af6a3ea11d1c480a43c93d370acc687c112ef89a517",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "2486c9f8be179b0969481f1a8057b5b14e30e652804900620fe29d612b8af98f",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "e5d5ba913140d0e790b2344effc38b7daa97093bbe77167d3578360aa839c118",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "1c048e30585a1151d53a11e9afc4143ad5746e198f47d3b23c8ede92a7009acb",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "4ca4b3e0165a275179e8059b7794e8b0699cbca63cfdff4728195cd1bccb611e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "0a69b7ecbfd4ef8b638a3b94f0195a40b7d1539c8f3667553b9fd78edbec9fb3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "e271d731f34c1a4d174d52e04b9775571ca16cd060e3c8ef6db3348cb0c3b18d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "ae8f1676a73998a2da767dbd706ef04cbdfd4b654bd9e678bf26a77bc8c3073e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "0bbd44da0a985785a59453012ae0d503530b1d31e7ad9138b85eac8cffed6365",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "6558f667e3a538247a670c8e1fd5b5adc318cea66cae4c22c19011ef033a4125",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "6b3321f418c273e277e0bbe21345a22a4781bdadb831d354e72b82817711b9fd",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "ff581f0cfa86904cff25a262eb0aa08df1df93ddd12062aa5a145a82658206b3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "a50e899e95ed51e4c6abf9c103d7c8c9a2d5562306267c6c44b433c1e069638d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "79399bf4c0e77c66e455b22a95979066e29de4c09d7f8a94779113bf3c57d75e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "d02cbeade5bda3799248c4f1c0e5833459f5aafc7e0ee51c0c817b050325c953",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "f2dfad75c436181df2d3e534ebb6eee99004e400dbf061d2b96af5d9144828f2",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "e88968f54c0fa42d1ebe5ee387abbc6448646e9f71631fcc63cbf2b265b02a59",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "c13d700f5c68807be37fa12ca19ebcc61f3e8b878aff664a15bc0638039e4100",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "f1259e7b28bfe47e4e10078fe59b679af781a6f42152d3c1e9e317c45580c5db",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "70afa7b268c4c35fc99adb25ffc440553a3f0b356692bc7b4daa4ced01ee1e7a",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "1292e4a09ea93bb554f740e5f581944c6babd6b29031ef777f27d3fa3c13806c",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     },
@@ -38775,6 +39783,150 @@
           "text_hash": "838953b09177d98d9eb6f57f419de666110bb86bceac513d4ba746f7c1b9f9df",
           "status": "baseline",
           "note": ""
+        },
+        "worldRecap": {
+          "source_hash": "3aaba12d3575be599bf765c7b6b5e04c974fb6782482121a18131135336548b6",
+          "text_hash": "1c50a107564658e599249289e0e67d44eba4fd4222c405cc570cd10fc52982b4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "inboxMissingJoinRequestId": {
+          "source_hash": "24ff5582dd350ac4ece9ac23ee9f2e0684a0e46e9996f9b75a0b54d385419c17",
+          "text_hash": "9db14847dbad4da05025477f5c8379bd055b26874466a9c3ba694c09d81042b3",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTimedOut": {
+          "source_hash": "1fef8e6d86a8162aa2b86edc31d3aeed28ff7939d20dff760d902f575812c993",
+          "text_hash": "0ecbc33fcc2f03a2c9d942bf363ce774d605bfceb08109794a72cc3a50a746e4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginConnectionFailed": {
+          "source_hash": "d53f0100719a50ff82a37e88cbbbffb7cf9cc4af401fba5de69e128a3f0a8242",
+          "text_hash": "4ef537c612563194b6d4ba29105195d049f99687de5e361328d1ce827b0d471a",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "loginTemporarilyUnavailable": {
+          "source_hash": "c3b533ce24c11c58443dc62aedcebfbb2314d4b6ef4749b2a58f070fe0c59762",
+          "text_hash": "81ae39b9f3b6d45b26cba47ea3b5fa1ac4fe067f68930e8bd24392c115ac086d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUnlockHeading": {
+          "source_hash": "5a3b48649303abd2b68ec8bcad23de53cafa451b3da892492b988ab96a45328e",
+          "text_hash": "b4951f0c0c352e9199e485b5673dfb4b5693b849439b8a24f4cbd8d310cc947a",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapUpsellDescription": {
+          "source_hash": "071d02e30187918bc0f24435441970eac7fbe6c7d7ecb5b3d1b9b829cf8ae5fb",
+          "text_hash": "94ba29c4fd674f527fdd28f8cda40f0904e9c7f8c05b3198b82b0feaf33335f6",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapShowEarlier": {
+          "source_hash": "409ad86d13915bab1996e9f418b0a2949a2304559f4d002024ffa73a8ad30d42",
+          "text_hash": "240afeef61bfefa917192b12240517ffaafd4d9e2195f8328f30b64b842f6c74",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "recapEmpty": {
+          "source_hash": "fcddd25e6334b35c585c5a50e0310cd3b083bd376a1b8c2b9e1ceacb2fed6393",
+          "text_hash": "b48a9c306a685094f7490b1523711156060cc50dd31043639837ec5e123f1b03",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsNarrator": {
+          "source_hash": "2f1099b56aff365b082ed2c1182dd67db37afcece7e38ed10aaecb7eec3f0729",
+          "text_hash": "f43561436dae77049eb6bdd6fbbcb76760651950e7e75da9f6cbc745254643a2",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatMessageAsCharacter": {
+          "source_hash": "9e66c88d7a802944a5a4c512b117c354461e01909e8038b1c11bfa1dd16215f1",
+          "text_hash": "c1faa7516150995d575b118514b93ccf43a707a4db5aff85b7e7cbc9bc0ab8b1",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatNarratorSpeaker": {
+          "source_hash": "eb4198bccd56ccdfa79b50e3232d1a70916ba1a7acba10f17a43b69da1ea2ec4",
+          "text_hash": "4a2306bcf5213a1e1abd0b8e9397a7787df04d81a586ca24823b7f3d8ae5a77b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatYourCharacterSpeaker": {
+          "source_hash": "a00bcc9b0009eec22c80c4047b79941d05e5d0cc483c5ed5b3a9b3f6ab9a205f",
+          "text_hash": "67927b805950bbde0340bf8e7be89a34a641a4cd1864fbec4ff5811e15cb3da4",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSpeakingAs": {
+          "source_hash": "815bc33b7eba281c895c153f5dc60237c45ac38b668f7a057a8ffffcd884b44b",
+          "text_hash": "b1731b64e2fc0419227328cf4564c3c83aa9cf4d7b35c28f5083041af019a015",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchCharacter": {
+          "source_hash": "28cc374969cd4087f8ec71ce64eeac0fc166add1d642d4a04d4f161eb8eb09d4",
+          "text_hash": "0e0024c2a27eb04f38ff560f68ce14ecec7fd582e1779211a21fbaf841a1fbf0",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatSwitchNarration": {
+          "source_hash": "f7a5999e614987e960e3f5958ad671bd5410e4be58b1e4be2eea903c96117e88",
+          "text_hash": "c71ac331e17a0fa5cb4227b66415bfb9827541511ddbd73e76ca7e4a9761482b",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatOpenLocation": {
+          "source_hash": "6f7edee3bb86d56a543c5398623c28540a38a3173ec758b11fc1511b888eface",
+          "text_hash": "2d8bdf007842006963684a075c6aa37dfb9acd44d782aece04a8b3caf752ac65",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "chatRetryMessage": {
+          "source_hash": "d8d96fa4acc235dea2fe454aca7f55e5e83f725f3bb0e7e72ced825fc8b1a2f8",
+          "text_hash": "8f5ef1c948a5402f7a7f621e3f6d106080859a0610b72cefee1f22d569e20555",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "blockedReportFailed": {
+          "source_hash": "0f8690c0db2e038ed42e43ebfff521f71b40ede7008656e8a5c07161b4a7a49b",
+          "text_hash": "1df220da06d439de29b552ffa27e14e815b82a2ee704cfbb01a63fd6602d543c",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeConnectionFailed": {
+          "source_hash": "ce6d59f7cccceb7c59a1e2fc3a017e9ff2bd6045a094b7ccbe836e435e582020",
+          "text_hash": "56c5ef40e9e8c5b3a486cb615f89113b8b0a66426875ae1bedb07461b515515d",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeProductUnavailable": {
+          "source_hash": "e991076e13b2dfc9bdd26a3a4ece424ecfe152ed83424fed2e20ac07820aa2c9",
+          "text_hash": "85951fc299e91033d0b56578ade483a43e127d15d86fe4bc9cb32ea7820ece71",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "storeDevicePurchasesUnavailable": {
+          "source_hash": "f7d0a1afc3f4481964388fca9dfc6630e29878410ad939e02a0dc9df568f1150",
+          "text_hash": "53df4c62b444dd5909ca2f791a63410eb7153b86b0321d060a1746fe94d5fd5e",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "worldHistoryRequestFailed": {
+          "source_hash": "e4fa515926d1dedd6232e882dbec11d549f8765a4b3d75f2e7143f001ac7246f",
+          "text_hash": "f246eae597cba20eda01408758a179f0040927934fc246d32cc7815a215c0511",
+          "status": "ai",
+          "note": "Translated using UI descriptions, locale profile and preserved placeholders."
+        },
+        "genericError": {
+          "source_hash": "e0c383cc6117468b8a18badd0b1b50c6b013cef39a90efa37e60140789022393",
+          "text_hash": "0c9e2612a3604b710a1952fa63ebacd801283fb6f1256d1eb182c57735eef2f5",
+          "status": "ai",
+          "note": "Generic local API error fallback; server messages stay unchanged."
         }
       }
     }

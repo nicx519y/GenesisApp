@@ -5056,6 +5056,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Account identifiers don\'\'t match the previous subscription.'**
   String get premiumAccountMismatch;
+
+  /// World detail bottom sheet tab for the story recap.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap'**
+  String get worldRecap;
+
+  /// Inbox approval action cannot proceed because the join request ID is missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing join request ID'**
+  String get inboxMissingJoinRequestId;
+
+  /// Login error toast after a sign-in request times out.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in timed out. Please try again.'**
+  String get loginTimedOut;
+
+  /// Login toast for a transport failure with no server message.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to connect. Check your internet connection and try again.'**
+  String get loginConnectionFailed;
+
+  /// Login toast for HTTP or gateway failure with no server message.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in is temporarily unavailable. Please try again later.'**
+  String get loginTemporarilyUnavailable;
+
+  /// Heading suffix following Worldo Premium on the story recap subscription upsell.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlocks Recap'**
+  String get recapUnlockHeading;
+
+  /// Story recap subscription upsell description.
+  ///
+  /// In en, this message translates to:
+  /// **'Catch up on your story with a full recap of every twist, choice, and character along the way.'**
+  String get recapUpsellDescription;
+
+  /// Button loading previous story recap pages.
+  ///
+  /// In en, this message translates to:
+  /// **'Show earlier recap'**
+  String get recapShowEarlier;
+
+  /// Empty story recap section after a successful request with no summaries.
+  ///
+  /// In en, this message translates to:
+  /// **'Story recap will appear here as the story moves forward.'**
+  String get recapEmpty;
+
+  /// Location chat input hint when narrator mode is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Message as the Narrator'**
+  String get chatMessageAsNarrator;
+
+  /// Location chat input hint naming the player character.
+  ///
+  /// In en, this message translates to:
+  /// **'Message as {name}'**
+  String chatMessageAsCharacter({required String name});
+
+  /// Accessibility speaker name for narrator mode.
+  ///
+  /// In en, this message translates to:
+  /// **'the Narrator'**
+  String get chatNarratorSpeaker;
+
+  /// Accessibility speaker fallback while the player character name is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'your character'**
+  String get chatYourCharacterSpeaker;
+
+  /// Accessibility label for location chat speaker toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking as {speaker}'**
+  String chatSpeakingAs({required String speaker});
+
+  /// Tooltip for switching from narration to character chat.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to character'**
+  String get chatSwitchCharacter;
+
+  /// Tooltip for switching from character chat to narration.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to narration'**
+  String get chatSwitchNarration;
+
+  /// Accessible button label opening a character movement destination.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {locationName}'**
+  String chatOpenLocation({required String locationName});
+
+  /// Accessibility label on the narrator message retry control.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry message'**
+  String get chatRetryMessage;
+
+  /// Profile and blocked-user settings toast when block succeeded but report submission failed.
+  ///
+  /// In en, this message translates to:
+  /// **'User blocked, but reporting failed.'**
+  String get blockedReportFailed;
+
+  /// Billing toast when the store cannot be reached.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to connect to the store. Please try again.'**
+  String get storeConnectionFailed;
+
+  /// Billing toast when selected store product is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This product is currently unavailable.'**
+  String get storeProductUnavailable;
+
+  /// Billing toast when the device does not allow purchases.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases are unavailable on this device.'**
+  String get storeDevicePurchasesUnavailable;
+
+  /// Developer history query failure toast; World History refers to world chat history.
+  ///
+  /// In en, this message translates to:
+  /// **'World History request failed'**
+  String get worldHistoryRequestFailed;
+
+  /// Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get genericError;
 }
 
 class _AppLocalizationsDelegate

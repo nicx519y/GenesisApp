@@ -319,6 +319,7 @@ class GenesisTelemetry {
     GenesisTelemetryLevel level = GenesisTelemetryLevel.info,
     bool capture = true,
     Map<String, Object?>? collectPayload,
+    String? eventId,
     bool includeCollectIdentityHeaders = true,
   }) {
     if (!_enabled) return;
@@ -334,9 +335,10 @@ class GenesisTelemetry {
     );
     if (capture && collectPayload != null && collectPayload.isNotEmpty) {
       unawaited(
-        _collectUploader.enqueuePayload(
+        _collectUploader.enqueuePayloadWithResult(
           collectPayload,
           includeIdentityHeaders: includeCollectIdentityHeaders,
+          eventId: eventId,
         ),
       );
     }

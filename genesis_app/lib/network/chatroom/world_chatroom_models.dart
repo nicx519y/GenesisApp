@@ -419,8 +419,15 @@ class WorldChatroomMessage {
         content: content,
       ),
       v2TickPayload: _storedV2TickPayload(
-        businessType: businessType,
-        rawPayload: rawPayload,
+        businessType: businessType.isEmpty ? senderType : businessType,
+        rawPayload: rawPayload.isNotEmpty
+            ? rawPayload
+            : {
+                'content': content,
+                'current_time': asString(json['current_time']),
+                'tick_no': asInt(json['tick_no']),
+                'sub_tick_no': asInt(json['sub_tick_no']),
+              },
       ),
       minAppVersion: asInt(json['min_app_version']),
       rawPayload: rawPayload,

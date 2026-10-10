@@ -307,7 +307,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage>
     if (applyId.isEmpty) {
       showGenesisToast(
         context,
-        GenesisL10n.current.inboxReviewFailed,
+        GenesisL10n.current.inboxMissingJoinRequestId,
         brightness: Brightness.dark,
       );
       return;
@@ -331,11 +331,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage>
         action.successText,
         brightness: Brightness.dark,
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       showGenesisToast(
         context,
-        GenesisL10n.current.inboxReviewFailed,
+        apiErrorMessage(error, fallback: GenesisL10n.current.inboxReviewFailed),
         brightness: Brightness.dark,
       );
     }

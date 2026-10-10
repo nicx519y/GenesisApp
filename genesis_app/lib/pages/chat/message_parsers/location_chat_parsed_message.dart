@@ -27,6 +27,7 @@ class LocationChatParsedMessage {
   });
 
   final WorldChatroomMessage source;
+  String get messageType => source.messageType;
   final String localId;
   final String clientMsgId;
   final int globalMessageId;

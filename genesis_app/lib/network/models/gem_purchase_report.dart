@@ -42,7 +42,7 @@ class GemPurchaseReportRequest {
   }
 }
 
-enum GemPurchaseReportStatus { completed, accepted, rejected }
+enum GemPurchaseReportStatus { completed, rejected }
 
 class GemPurchaseReport {
   const GemPurchaseReport({
@@ -56,7 +56,6 @@ class GemPurchaseReport {
     final value = asString(json['status']).trim().toLowerCase();
     final status = switch (value) {
       'completed' => GemPurchaseReportStatus.completed,
-      'accepted' => GemPurchaseReportStatus.accepted,
       'rejected' => GemPurchaseReportStatus.rejected,
       _ => throw FormatException('Unsupported purchase report status: $value'),
     };

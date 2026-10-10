@@ -286,7 +286,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     String? requestId;
     if (uid == null) {
       for (final claim in _guestClaims.values) {
-        if (claim.status == 'completed') continue;
+        if (claim.status == 'completed' || claim.status == 'rejected') continue;
         final id = claim.purchaseRequestId ?? claim.guest.accountUuid;
         if (checkGuestPurchase != null &&
             !_currentGuestLoginUuids.contains(claim.guest.accountUuid) &&
@@ -453,7 +453,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         final result = await _sendTrackedClaim(record, request);
         record = record.copyWith(status: result.status.name);
         await _saveGuestClaim(record);
-        if (result.status == MembershipReportStatus.completed) {
+        if (result.status == MembershipClaimStatus.completed) {
           await _completeGuestClaim(record);
         }
         if (record.needsRetry) _scheduleGuestClaimRetry(accountUuid, retry);

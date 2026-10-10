@@ -26,13 +26,19 @@ class NativeDeviceIdService
   Future<DeviceIdDiagnostics> getDeviceIdDiagnostics() async {
     if (!Platform.isAndroid) {
       final identifiers = await Future.wait<String?>([
+        _readAdjustIdentifier(
+          () => Adjust.getAdidWithTimeout(
+            const Duration(seconds: 5).inMilliseconds,
+          ),
+        ),
         _readAdjustIdentifier(Adjust.getIdfa),
         _readAdjustIdentifier(Adjust.getIdfv),
       ]);
       return DeviceIdDiagnostics(
         deviceId: await getDeviceId(),
-        idfa: identifiers[0],
-        idfv: identifiers[1],
+        adjustAdid: identifiers[0],
+        idfa: identifiers[1],
+        idfv: identifiers[2],
       );
     }
 
@@ -40,16 +46,27 @@ class NativeDeviceIdService
       GenesisMethodChannels.device.invokeMapMethod<String, String>(
         GenesisMethodChannels.getAndroidDeviceIdDiagnostics,
       ),
+      _readAdjustIdentifier(
+        () => Adjust.getAdidWithTimeout(
+          const Duration(seconds: 5).inMilliseconds,
+        ),
+      ),
       _readAdjustIdentifier(Adjust.getGoogleAdId),
     ]);
     final details = results[0] as Map<String, String>?;
-    final gaid = results[1] as String?;
+    final adjustAdid = results[1] as String?;
+    final gaid = results[2] as String?;
     if (details == null) {
-      return DeviceIdDiagnostics(deviceId: await getDeviceId(), gaid: gaid);
+      return DeviceIdDiagnostics(
+        deviceId: await getDeviceId(),
+        adjustAdid: adjustAdid,
+        gaid: gaid,
+      );
     }
 
     return DeviceIdDiagnostics(
       androidId: _displayValue(details['android_id']),
+      adjustAdid: adjustAdid,
       gaid: gaid,
       deviceId: _displayValue(details['device_id']) ?? 'unknown',
     );

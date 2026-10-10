@@ -24,22 +24,16 @@ Future<void> showMembershipPurchaseFailure(
   if (reason == 'downgrade_not_allowed') {
     await showGenesisActionBox<bool>(
       context: context,
-      title: GenesisL10n
-          .current
-          .premiumNotification,
+      title: GenesisL10n.current.premiumNotification,
       titleHeight: null,
       titleContent: Text(
-        GenesisL10n
-            .current
-            .premiumWorldoActiveSubscription,
+        GenesisL10n.current.premiumWorldoActiveSubscription,
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 14, height: 1.4),
       ),
       actions: [
         GenesisActionBoxAction(
-          label: GenesisL10n
-              .current
-              .premiumGot,
+          label: GenesisL10n.current.premiumGot,
           value: true,
         ),
       ],
@@ -89,9 +83,6 @@ class MembershipPurchasePresentation {
     MembershipCheckoutPreparation? preparation,
   }) async {
     if (_disposed || _route != null || service.isBusy) {
-      if (tracking != null) {
-        service.analytics.failed(tracking, 'purchase_in_progress', once: true);
-      }
       return false;
     }
     final attemptId = tracking?.id ?? newBillingAttemptId();
@@ -157,7 +148,6 @@ class MembershipPurchasePresentation {
           _resolved = true;
           _close(false);
           return;
-        case MembershipCheckoutState.accepted:
         case MembershipCheckoutState.pending:
         case MembershipCheckoutState.deferred:
         case MembershipCheckoutState.canceled:
@@ -221,9 +211,7 @@ class MembershipPurchasePresentation {
               showGenesisToast(
                 context,
                 purchaseToastMessage(
-                  GenesisL10n
-                      .current
-                      .mePurchaseFailed,
+                  GenesisL10n.current.mePurchaseFailed,
                   debugInfo: purchaseDebugInfo(
                     'vip.checkout_exception',
                     error: error,
@@ -275,8 +263,6 @@ class MembershipPurchasePresentation {
   String _message(MembershipCheckoutState state) => switch (state) {
     MembershipCheckoutState.canceled => GenesisL10n.current.purchaseCanceled,
     MembershipCheckoutState.pending => GenesisL10n.current.purchasePending,
-    MembershipCheckoutState.accepted =>
-      GenesisL10n.current.purchaseBeingConfirmed,
     MembershipCheckoutState.deferred =>
       GenesisL10n.current.purchaseConfirmationDelayed,
     _ => GenesisL10n.current.purchaseFailed,

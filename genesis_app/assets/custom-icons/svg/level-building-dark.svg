@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- L2 建筑 / Building · theme: dark · 2:1 tile -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="64.0,46.0 124.0,76.0 64.0,106.0 4.0,76.0" fill="#4A525C" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="4.0,76.0 4.0,76.0 64.0,106.0 64.0,106.0 64.0,106.0 124.0,76.0 124.0,76.0 124.0,76.0 64.0,46.0 64.0,46.0 64.0,46.0 4.0,76.0 4.0,76.0" fill="none" stroke="#121417" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="32.0,54.0 64.0,70.0 64.0,92.0 32.0,76.0" fill="#C3CAD3" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="96.0,54.0 64.0,70.0 64.0,92.0 96.0,76.0" fill="#8A94A2" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="64.0,38.0 96.0,54.0 64.0,70.0 32.0,54.0" fill="#F1F3F6" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="32.0,54.0 48.0,48.0 64.0,70.0" fill="#C3CAD3" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="64.0,38.0 80.0,32.0 48.0,48.0 32.0,54.0" fill="#F1F3F6" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="80.0,32.0 96.0,54.0 64.0,70.0 48.0,48.0" fill="#8A94A2" stroke="#121417" stroke-width="1.5"/>
+    <polygon points="43.0,66.5 53.0,71.5 53.0,86.5 43.0,81.5" fill="#121417"/>
+    <polygon points="87.0,64.5 73.0,71.5 73.0,79.5 87.0,72.5" fill="#FFC53D"/>
+    <polygon points="32.0,54.0 32.0,54.0 32.0,54.0 32.0,54.0 32.0,54.0 32.0,54.0 32.0,76.0 32.0,76.0 32.0,76.0 64.0,92.0 64.0,92.0 64.0,92.0 64.0,92.0 64.0,92.0 96.0,76.0 96.0,76.0 96.0,76.0 96.0,54.0 96.0,54.0 96.0,54.0 96.0,54.0 96.0,54.0 80.0,32.0 80.0,32.0 80.0,32.0 80.0,32.0 64.0,38.0 64.0,38.0 32.0,54.0" fill="none" stroke="#121417" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+</svg>

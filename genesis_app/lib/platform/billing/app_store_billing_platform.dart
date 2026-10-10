@@ -109,7 +109,11 @@ class AppStoreBillingPlatform implements BillingPlatform {
           '[Billing][AppStore] product query failed id=$storeProductId '
           'code=${response.error!.code}',
         );
-        return BillingProductQueryResult.failure(response.error!.code);
+        return BillingProductQueryResult.failure(
+          response.error!.code,
+          errorSource: response.error!.source,
+          errorDetails: response.error!.details,
+        );
       }
       for (final product in response.productDetails) {
         if (product.id != storeProductId) continue;

@@ -241,7 +241,7 @@ void main() {
   );
 
   for (final provider in MembershipProvider.values) {
-    for (final outcome in ['offline', 'timeout', 'accepted']) {
+    for (final outcome in ['offline', 'timeout', 'rejected']) {
       testWidgets(
         '$provider ends $outcome report without background retry or repurchase',
         (tester) async {
@@ -254,7 +254,7 @@ void main() {
             if (outcome == 'offline') throw StateError('offline');
             if (outcome == 'timeout') throw TimeoutException('report timeout');
             return const MembershipPurchaseReport(
-              status: MembershipReportStatus.accepted,
+              status: MembershipReportStatus.rejected,
             );
           };
           await h.service.purchase(h.product());
@@ -274,8 +274,8 @@ void main() {
           expect(h.refreshes, 0);
           expect(
             h.service.state.value,
-            outcome == 'accepted'
-                ? MembershipCheckoutState.accepted
+            outcome == 'rejected'
+                ? MembershipCheckoutState.rejected
                 : MembershipCheckoutState.failed,
           );
           await h.service.recover();
@@ -285,15 +285,15 @@ void main() {
     }
   }
 
-  for (final status in ['accepted', 'offline', 'pending']) {
+  for (final status in ['rejected', 'offline', 'pending']) {
     test(
-      '$status report is not recovered and does not block another plan',
+      '$status result is not reported on recovery and does not block another plan',
       () async {
         final h = support.Harness();
         h.reportHandler = (_) async {
           if (status == 'offline') throw StateError('offline');
           return const MembershipPurchaseReport(
-            status: MembershipReportStatus.accepted,
+            status: MembershipReportStatus.rejected,
           );
         };
         await h.service.purchase(h.product(yearly: true));
@@ -309,7 +309,11 @@ void main() {
         await restarted.service.purchase(restarted.product());
         expect(restarted.eligibilityQueries, 2);
         expect(restarted.platform.launches, 1);
-        expect(h.store.records, isEmpty);
+        if (status == 'pending') {
+          expect(h.store.records.values.single.state, 'pending');
+        } else {
+          expect(h.store.records, isEmpty);
+        }
         expect(h.store.confirmed, isEmpty);
       },
     );
@@ -329,10 +333,10 @@ void main() {
     },
   );
 
-  test('accepted report never becomes completed through recovery', () async {
+  test('rejected report never becomes completed through recovery', () async {
     final h = support.Harness(provider: MembershipProvider.apple);
     h.reportHandler = (_) async =>
-        const MembershipPurchaseReport(status: MembershipReportStatus.accepted);
+        const MembershipPurchaseReport(status: MembershipReportStatus.rejected);
     await h.service.purchase(h.product());
     await h.service.interceptPurchase(h.purchase());
     expect(h.store.records, isEmpty);
@@ -340,7 +344,7 @@ void main() {
     h.reportHandler = null;
     await h.service.recover();
     expect(h.reports.last.toJson(), h.reports.first.toJson());
-    expect(h.service.state.value, MembershipCheckoutState.accepted);
+    expect(h.service.state.value, MembershipCheckoutState.rejected);
     expect(h.store.records, isEmpty);
     expect(h.store.confirmed, isEmpty);
     expect(h.service.catalogRevision.value, 1);

@@ -74,6 +74,39 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     await showDeveloperForcedLoginPreview(navigator.context);
   }
 
+  /// Picks which recap state the World sheet shows, until the app restarts.
+  Future<void> _chooseWorldRecapPreview() async {
+    final chosen = await showDialog<WorldRecapDebugPreview>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('World recap preview'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text(
+              'Stands in for membership and recap content on the World '
+              'sheet. Resets when the app restarts.',
+            ),
+          ),
+          for (final option in WorldRecapDebugPreview.values)
+            SimpleDialogOption(
+              key: ValueKey('world-recap-preview-${option.name}'),
+              onPressed: () => Navigator.of(context).pop(option),
+              child: Text(
+                option.label,
+                style: TextStyle(
+                  fontWeight: option == worldRecapDebugPreview.value
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (chosen != null) worldRecapDebugPreview.value = chosen;
+  }
+
   Future<void> _showPersonalizationPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     final scenario = await selectPersonalizationPreviewScenario(context);
@@ -98,9 +131,8 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
         builder: (previewContext) => ForceUpgradePage(
           preview: true,
           response: AppVersionCheckResponse.fromJson({
-            'title': 'Update required',
-            'content':
-                'Please update to the latest version to continue using Worldo.',
+            'title': GenesisL10n.current.appUpdateRequired,
+            'content': GenesisL10n.current.appUpdateContent,
             'latest_version_name': 'Preview',
           }),
           onUpdate: () => showGenesisToast(previewContext, 'Preview only'),
@@ -303,6 +335,11 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
         _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId),
         const SizedBox(height: _DeveloperPageContentState._itemGap),
         _DeveloperInfoSingleLineRow(
+          title: 'Adjust ADID',
+          content: _infoValue(diagnostics?.adjustAdid),
+        ),
+        const SizedBox(height: _DeveloperPageContentState._itemGap),
+        _DeveloperInfoSingleLineRow(
           title: 'GAID',
           content: _infoValue(diagnostics?.gaid),
         ),
@@ -395,7 +432,7 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
             ? (state.isRefreshing ? 'Loading...' : '0.0')
             : formatGemCent(balanceCent);
         return _DeveloperInfoSingleLineRow(
-          title: 'My Balance',
+          title: GenesisL10n.current.meMyBalance,
           content: content,
         );
       },
