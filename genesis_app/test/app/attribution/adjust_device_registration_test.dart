@@ -132,9 +132,121 @@ void main() {
     ]);
   });
 
-  test('missing ADID defers the request until a later trigger', () async {
+  test('Android registers GAID while ADID is unavailable', () async {
+    final requests = <Map<String, String?>>[];
+    var adidReads = 0;
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => ++adidReads == 1 ? null : 'later-adid',
+      readGoogleAdId: () async => ' gaid-available ',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({'adid': adid, 'gps_adid': gpsAdid});
+          },
+    );
+
+    await registration.register();
+    expect(requests, [
+      {'adid': '', 'gps_adid': 'gaid-available'},
+    ]);
+    expect(
+      registration.lastResult,
+      AdjustDeviceRegistrationResult.registeredWithoutAdid,
+    );
+
+    await registration.register();
+    expect(requests, [
+      {'adid': '', 'gps_adid': 'gaid-available'},
+      {'adid': 'later-adid', 'gps_adid': 'gaid-available'},
+    ]);
+    registration.dispose();
+  });
+
+  test('iOS registers IDFA and IDFV while ADID is unavailable', () async {
+    final requests = <Map<String, String?>>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => null,
+      readIdfa: () async => ' idfa-available ',
+      readIdfv: () async => ' idfv-available ',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({'adid': adid, 'idfa': idfa, 'idfv': idfv});
+          },
+    );
+
+    await registration.register();
+    expect(requests, [
+      {'adid': '', 'idfa': 'idfa-available', 'idfv': 'idfv-available'},
+    ]);
+    registration.dispose();
+  });
+
+  test('unavailable optional IDs are sent as empty strings', () async {
+    final requests = <Map<String, String?>>[];
+    final androidRegistration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => null,
+      readGoogleAdId: () async => '  ',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({'adid': adid, 'gps_adid': gpsAdid});
+          },
+    );
+    final iosRegistration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => null,
+      readIdfa: () async => '',
+      readIdfv: () async => ' ',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({'adid': adid, 'idfa': idfa, 'idfv': idfv});
+          },
+    );
+
+    await androidRegistration.register();
+    await iosRegistration.register();
+    expect(requests, [
+      {'adid': '', 'gps_adid': ''},
+      {'adid': '', 'idfa': '', 'idfv': ''},
+    ]);
+    androidRegistration.dispose();
+    iosRegistration.dispose();
+  });
+
+  test('a newly available GAID is sent even when ADID stays missing', () async {
+    final requests = <Map<String, String?>>[];
+    var gaidReads = 0;
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => null,
+      readGoogleAdId: () async => ++gaidReads == 1 ? null : 'later-gaid',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add({'adid': adid, 'gps_adid': gpsAdid});
+          },
+    );
+
+    await registration.register();
+    await registration.register();
+    await registration.register();
+
+    expect(gaidReads, 3);
+    expect(requests, [
+      {'adid': '', 'gps_adid': ''},
+      {'adid': '', 'gps_adid': 'later-gaid'},
+    ]);
+    registration.dispose();
+  });
+
+  test('missing ADID registers available IDs and updates later', () async {
     var readCount = 0;
-    var requestCount = 0;
+    final requests = <String>[];
     final registration = AdjustDeviceRegistration(
       platform: TargetPlatform.iOS,
       environmentProvider: () => 'sandbox',
@@ -144,19 +256,19 @@ void main() {
       retryDelays: const [],
       registerDevice:
           ({required adid, required environment, gpsAdid, idfa, idfv}) async {
-            requestCount++;
+            requests.add(adid);
           },
     );
 
     await registration.register();
     expect(
       registration.lastResult,
-      AdjustDeviceRegistrationResult.deferredNoAdid,
+      AdjustDeviceRegistrationResult.registeredWithoutAdid,
     );
     await registration.register();
 
     expect(readCount, 2);
-    expect(requestCount, 1);
+    expect(requests, ['', 'adid-ready']);
     expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
   });
 
@@ -185,12 +297,12 @@ void main() {
       await registration.checkAdidAfterStartup();
       expect(
         registration.lastResult,
-        AdjustDeviceRegistrationResult.deferredAdidReadError,
+        AdjustDeviceRegistrationResult.registeredWithoutAdidReadError,
       );
       expect(reports, isEmpty);
 
       await registration.register();
-      expect(requests, ['later-adid']);
+      expect(requests, ['', 'later-adid']);
       expect(
         registration.lastResult,
         AdjustDeviceRegistrationResult.registered,
@@ -216,12 +328,12 @@ void main() {
     await registration.registerKnownAdid('ready-adid');
     await registration.register(force: true);
 
-    expect(requests, [null, null]);
+    expect(requests, ['', '']);
     expect(registration.lastResult, AdjustDeviceRegistrationResult.registered);
     registration.dispose();
   });
 
-  test('unanswered iOS identifiers are omitted from registration', () async {
+  test('unanswered iOS identifiers are sent as empty strings', () async {
     final unansweredRead = Completer<String?>();
     final requests = <Map<String, String?>>[];
     final registration = AdjustDeviceRegistration(
@@ -239,7 +351,7 @@ void main() {
     await registration.registerKnownAdid('ready-adid');
 
     expect(requests, [
-      {'adid': 'ready-adid', 'idfa': null, 'idfv': null},
+      {'adid': 'ready-adid', 'idfa': '', 'idfv': ''},
     ]);
     registration.dispose();
   });
@@ -271,7 +383,7 @@ void main() {
     await registration.checkAdidAfterStartup();
 
     expect(readCount, 4);
-    expect(requestCount, 0);
+    expect(requestCount, 1);
     expect(reports, ['startup_delayed_check']);
   });
 
@@ -349,7 +461,7 @@ void main() {
 
     expect(
       registration.lastResult,
-      AdjustDeviceRegistrationResult.deferredNoAdid,
+      AdjustDeviceRegistrationResult.registeredWithoutAdid,
     );
     expect(reports, isEmpty);
   });
@@ -408,7 +520,7 @@ void main() {
       await registration.checkAdidAfterStartup();
 
       expect(readCount, 2);
-      expect(requests, ['adid-later']);
+      expect(requests, ['', 'adid-later']);
       expect(reports, isEmpty);
     },
   );
@@ -441,7 +553,7 @@ void main() {
       await Future.wait([startupAttempt, failureAttempt]);
 
       expect(readCount, 2);
-      expect(requests, ['adid-after-failure']);
+      expect(requests, ['', 'adid-after-failure']);
       expect(reports, isEmpty);
     },
   );
@@ -471,18 +583,18 @@ void main() {
 
       await registration.register();
 
-      expect(requestCount, 0);
+      expect(requestCount, 1);
       expect(readCount, 1);
       expect(scheduledDelays, isEmpty);
       expect(
         registration.lastResult,
-        AdjustDeviceRegistrationResult.deferredNoAdid,
+        AdjustDeviceRegistrationResult.registeredWithoutAdid,
       );
 
       await registration.register();
 
       expect(readCount, 2);
-      expect(requestCount, 1);
+      expect(requestCount, 2);
       expect(scheduledDelays, isEmpty);
       expect(
         registration.lastResult,
@@ -745,7 +857,7 @@ void main() {
       await registration.retryAfterNetworkRestored();
       await registration.retryAfterNetworkRestored();
 
-      expect(requests, ['production:saved-adid']);
+      expect(requests, ['production:', 'production:saved-adid']);
       expect(
         registration.lastResult,
         AdjustDeviceRegistrationResult.registered,

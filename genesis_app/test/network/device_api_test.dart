@@ -106,20 +106,71 @@ void main() {
     },
   );
 
-  test('device attribution registration rejects an empty ADID', () async {
+  test('device attribution registration sends an empty ADID', () async {
+    TransportRequest? captured;
     final api = DeviceV1Api(
       ApiClient(
         baseUrl: 'https://example.test/api/',
-        transport: _CallbackTransport((_) {
-          throw StateError('request must not be sent');
+        transport: _CallbackTransport((request) {
+          captured = request;
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"err_msg":"succ","data":{}}',
+          );
         }),
+        responseProcessor: ApiClient.defaultResponseProcessor,
       ),
     );
 
-    await expectLater(
-      api.registerAttribution(adid: '   ', environment: 'sandbox'),
-      throwsArgumentError,
+    await api.registerAttribution(
+      adid: '   ',
+      environment: 'sandbox',
+      gpsAdid: 'gaid-1',
     );
+
+    expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
+      'adid': '',
+      'environment': 'sandbox',
+      'gps_adid': 'gaid-1',
+    });
+  });
+
+  test('device attribution registration sends empty platform IDs', () async {
+    final bodies = <Map<String, dynamic>>[];
+    final api = DeviceV1Api(
+      ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _CallbackTransport((request) {
+          bodies.add(
+            jsonDecode(utf8.decode(request.bodyBytes!)) as Map<String, dynamic>,
+          );
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"err_msg":"succ","data":{}}',
+          );
+        }),
+        responseProcessor: ApiClient.defaultResponseProcessor,
+      ),
+    );
+
+    await api.registerAttribution(
+      adid: '',
+      environment: 'sandbox',
+      gpsAdid: '',
+    );
+    await api.registerAttribution(
+      adid: '',
+      environment: 'sandbox',
+      idfa: '',
+      idfv: '',
+    );
+
+    expect(bodies, [
+      {'adid': '', 'environment': 'sandbox', 'gps_adid': ''},
+      {'adid': '', 'environment': 'sandbox', 'idfa': '', 'idfv': ''},
+    ]);
   });
 
   test(

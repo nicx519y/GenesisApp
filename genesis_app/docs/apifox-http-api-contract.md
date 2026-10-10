@@ -2673,8 +2673,8 @@ World：
 ## Adjust 设备标识注册（2026-09-23 核对）
 
 - `POST /api/v1/device/register`：游客与登录用户均可调用。当前 Gateway 请求链提供必填 `X-Device-ID`、`X-App-ID`、`X-Platform`；UID 由服务端 session 读取，不在 body 中传递。
-- body 必填 `adid`、`environment`；`environment` 与当前进程的 Adjust SDK 环境保持一致，SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`。可选字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。客户端只在 Adjust 已取得非空 ADID 后调用。
-- 启动后注册为 best effort，不阻塞首帧。ADID 尚未取得或请求失败时，在下一次前台恢复重试；登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册。
+- `adid` 服务端非必传；客户端暂未取得时传空串，服务端保留已有 ADID，新设备默认空串。客户端继续传 `environment`，与当前进程的 Adjust SDK 环境保持一致：SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`；当前 Apifox 请求体模型未列出该字段，保留现有客户端行为。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`；这些字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。
+- 启动后注册为 best effort，不阻塞首帧。四个标识分别尝试读取，取到就传：ADID 未取得时传空串；Android `gps_adid` 或 iOS `idfa`、`idfv` 未取得（包括 SDK 返回空白、异常或超时）时也传空串。任何一个标识缺失都不阻断本次注册；按当前服务端契约，后三个字段传空串会清除其已有值。后续会话回调、前台恢复等时机可补齐新取得的值，请求失败按有限次数重试。登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册；空 ADID 的成功请求不视为 ADID 已补齐。
 - 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
 
 ## Adjust S2S 事件上报（2026-09-23 核对）

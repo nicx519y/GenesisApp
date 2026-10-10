@@ -29,8 +29,8 @@ typedef AdjustDeviceRegistrationRetryScheduler =
 enum AdjustDeviceRegistrationResult {
   registered,
   alreadyRegistered,
-  deferredNoAdid,
-  deferredAdidReadError,
+  registeredWithoutAdid,
+  registeredWithoutAdidReadError,
   failed,
 }
 
@@ -63,9 +63,10 @@ void _reportAdidFailure(String source, TargetPlatform platform) {
 /// registration endpoint.
 ///
 /// Registration never gates app startup. Explicit triggers such as startup or
-/// foreground resume read Adjust's cached ADID once. A missing ADID waits for a
-/// later explicit trigger or an Adjust session callback. Once an ADID is known,
-/// backend failures start a bounded automatic retry sequence.
+/// foreground resume read Adjust's cached ADID once. A missing ADID is sent as
+/// an empty value so available platform IDs can be registered immediately;
+/// later triggers or a session callback still attempt to fill in the ADID.
+/// Backend failures start a bounded automatic retry sequence.
 class AdjustDeviceRegistration {
   AdjustDeviceRegistration({
     required this.platform,
@@ -107,6 +108,8 @@ class AdjustDeviceRegistration {
   int _retryGeneration = 0;
   bool _disposed = false;
   bool _adidFailureReported = false;
+  bool _lastAdidReadWasEmpty = false;
+  bool _lastAdidReadFailed = false;
   AdjustDeviceRegistrationResult? _lastResult;
   String? _knownAdid;
 
@@ -121,13 +124,7 @@ class AdjustDeviceRegistration {
       return;
     }
     await register();
-    if (_disposed ||
-        (_knownAdid?.isNotEmpty ?? false) ||
-        (_lastResult != AdjustDeviceRegistrationResult.deferredNoAdid &&
-            _lastResult !=
-                AdjustDeviceRegistrationResult.deferredAdidReadError)) {
-      return;
-    }
+    if (_disposed || (_knownAdid?.isNotEmpty ?? false)) return;
     try {
       final cached = (await localAdidStore.read().timeout(
         const Duration(seconds: 2),
@@ -178,7 +175,7 @@ class AdjustDeviceRegistration {
         !localReadSucceeded ||
         _adidFailureReported ||
         (_knownAdid?.isNotEmpty ?? false) ||
-        _lastResult != AdjustDeviceRegistrationResult.deferredNoAdid) {
+        !_lastAdidReadWasEmpty) {
       return;
     }
     _adidFailureReported = true;
@@ -193,6 +190,8 @@ class AdjustDeviceRegistration {
     final normalizedAdid = adid.trim();
     if (normalizedAdid.isEmpty || _disposed) return Future<void>.value();
     _knownAdid = normalizedAdid;
+    _lastAdidReadWasEmpty = false;
+    _lastAdidReadFailed = false;
     unawaited(_persistAdid(normalizedAdid));
     final current = _inFlight;
     if (current != null) {
@@ -261,8 +260,9 @@ class AdjustDeviceRegistration {
     }
 
     var adid = _knownAdid ?? '';
-    var adidReadFailed = false;
     if (adid.isEmpty && readCachedAdid) {
+      _lastAdidReadWasEmpty = false;
+      _lastAdidReadFailed = false;
       try {
         // The SDK timeout covers ADID availability. The Dart deadline also
         // releases this registration if the platform channel never replies.
@@ -274,21 +274,23 @@ class AdjustDeviceRegistration {
         if (adid.isNotEmpty) {
           _knownAdid = adid;
           unawaited(_persistAdid(adid));
+        } else {
+          _lastAdidReadWasEmpty = true;
         }
       } catch (error, stackTrace) {
-        adidReadFailed = true;
+        _lastAdidReadFailed = true;
         debugPrint('[Adjust][DeviceRegister] cached ADID read failed: $error');
         debugPrint('[Adjust][DeviceRegister] stacktrace:\n$stackTrace');
       }
     }
     if (adid.isEmpty) {
       debugPrint(
-        '[Adjust][DeviceRegister] ADID unavailable; waiting for session callback',
+        '[Adjust][DeviceRegister] ADID unavailable; registering available identifiers',
       );
-      return adidReadFailed
-          ? AdjustDeviceRegistrationResult.deferredAdidReadError
-          : AdjustDeviceRegistrationResult.deferredNoAdid;
     }
+    final missingAdidResult = _lastAdidReadFailed
+        ? AdjustDeviceRegistrationResult.registeredWithoutAdidReadError
+        : AdjustDeviceRegistrationResult.registeredWithoutAdid;
 
     try {
       final identifiers = platform == TargetPlatform.android
@@ -304,7 +306,9 @@ class AdjustDeviceRegistration {
               idfv: await _readOptional(readIdfv, 'IDFV'),
             );
       if (!force && identifiers == _lastRegistered) {
-        return AdjustDeviceRegistrationResult.alreadyRegistered;
+        return adid.isEmpty
+            ? missingAdidResult
+            : AdjustDeviceRegistrationResult.alreadyRegistered;
       }
 
       await registerDevice(
@@ -317,9 +321,11 @@ class AdjustDeviceRegistration {
       _lastRegistered = identifiers;
       debugPrint(
         '[Adjust][DeviceRegister] registration succeeded; '
-        'platform=${platform.name}',
+        'platform=${platform.name}, adidAvailable=${adid.isNotEmpty}',
       );
-      return AdjustDeviceRegistrationResult.registered;
+      return adid.isEmpty
+          ? missingAdidResult
+          : AdjustDeviceRegistrationResult.registered;
     } catch (error, stackTrace) {
       debugPrint('[Adjust][DeviceRegister] registration failed: $error');
       debugPrint('[Adjust][DeviceRegister] stacktrace:\n$stackTrace');
@@ -333,8 +339,8 @@ class AdjustDeviceRegistration {
       case AdjustDeviceRegistrationResult.alreadyRegistered:
         _cancelRetry(resetBudget: true);
         return;
-      case AdjustDeviceRegistrationResult.deferredNoAdid:
-      case AdjustDeviceRegistrationResult.deferredAdidReadError:
+      case AdjustDeviceRegistrationResult.registeredWithoutAdid:
+      case AdjustDeviceRegistrationResult.registeredWithoutAdidReadError:
         _cancelRetry(resetBudget: true);
         return;
       case AdjustDeviceRegistrationResult.failed:
@@ -393,18 +399,17 @@ class AdjustDeviceRegistration {
     }
   }
 
-  Future<String?> _readOptional(
+  Future<String> _readOptional(
     AdjustOptionalIdReader reader,
     String name,
   ) async {
     try {
       final value = await reader().timeout(optionalIdTimeout);
-      return value?.trim();
+      final normalized = value?.trim();
+      return normalized ?? '';
     } catch (error) {
-      // Omit an unreadable optional value so the server preserves the last
-      // successfully registered identifier.
       debugPrint('[Adjust][DeviceRegister] $name unavailable: $error');
-      return null;
+      return '';
     }
   }
 }
