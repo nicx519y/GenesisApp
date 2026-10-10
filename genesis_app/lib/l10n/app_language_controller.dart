@@ -55,11 +55,8 @@ class AppLanguageController extends ChangeNotifier {
           if (candidate.languageCode == locale.languageCode) return candidate;
         }
       }
-      if (locale.languageCode == 'zh' &&
-          (locale.scriptCode == 'Hant' ||
-              locale.countryCode == 'TW' ||
-              locale.countryCode == 'HK' ||
-              locale.countryCode == 'MO')) {
+      // All Chinese system locales use the Taiwan Traditional Chinese catalog.
+      if (locale.languageCode == 'zh') {
         if (supported.contains(const Locale('zh', 'TW'))) {
           return const Locale('zh', 'TW');
         }

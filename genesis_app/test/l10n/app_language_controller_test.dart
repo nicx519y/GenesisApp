@@ -89,18 +89,29 @@ void main() {
           Locale(locale.languageCode),
         );
       }
-      expect(
-        AppLanguageController.resolve([
-          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-        ], AppLanguageController.supportedLocales),
-        const Locale('zh', 'TW'),
-      );
-      expect(
-        AppLanguageController.resolve([
-          const Locale('zh', 'CN'),
-        ], AppLanguageController.supportedLocales),
-        const Locale('en'),
-      );
+      for (final locale in const [
+        Locale('zh'),
+        Locale('zh', 'CN'),
+        Locale('zh', 'SG'),
+        Locale('zh', 'TW'),
+        Locale('zh', 'HK'),
+        Locale('zh', 'MO'),
+        Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
+        Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hans',
+          countryCode: 'CN',
+        ),
+      ]) {
+        expect(
+          AppLanguageController.resolve([
+            locale,
+          ], AppLanguageController.supportedLocales),
+          const Locale('zh', 'TW'),
+          reason: '$locale should use the Taiwan Traditional Chinese catalog',
+        );
+      }
       expect(controller.settingLanguage, isNull);
     },
   );
