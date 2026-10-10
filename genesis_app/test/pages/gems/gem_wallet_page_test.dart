@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'package:genesis_flutter_android/l10n/language_data_refresh.dart';
+import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
@@ -36,6 +37,88 @@ const _wrappingTaskDescription =
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
+
+  for (final subscriptionFirst in [false, true]) {
+    testWidgets(
+      'payment tabs force one registration each when subscription first=$subscriptionFirst',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final wallet = GemWalletStore(
+          readUid: () async => 'u_test',
+          loadWallet: () async => const GemWallet(balanceCent: 43000),
+        );
+        final billing = _FakeBillingService();
+        final requests = <String>[];
+        final registration = AdjustDeviceRegistration(
+          platform: TargetPlatform.android,
+          environmentProvider: () => 'sandbox',
+          readAdid: (_) async => 'ready-adid',
+          readGoogleAdId: () async => 'ready-gaid',
+          registerDevice:
+              ({
+                required adid,
+                required environment,
+                gpsAdid,
+                idfa,
+                idfv,
+              }) async {
+                requests.add(adid);
+              },
+        );
+        addTearDown(wallet.dispose);
+        addTearDown(billing.dispose);
+        addTearDown(registration.dispose);
+
+        Widget purchasePage() => MaterialApp(
+          home: GemWalletPage(
+            showSubscriptionInitially: subscriptionFirst,
+            walletStore: wallet,
+            billingService: billing,
+            attributionRegistration: registration,
+            membershipProductsLoader: loadTestMembershipOffers,
+            productsLoader: (_) async => _products(),
+            tasksLoader: (_) async => [],
+          ),
+        );
+
+        await tester.pumpWidget(purchasePage());
+        await tester.pumpAndSettle();
+        expect(requests, ['ready-adid']);
+
+        await tester.tap(
+          find.byKey(
+            ValueKey(
+              subscriptionFirst
+                  ? 'wallet-buy-gems-tab'
+                  : 'wallet-subscription-tab',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(requests, ['ready-adid', 'ready-adid']);
+
+        await tester.tap(
+          find.byKey(
+            ValueKey(
+              subscriptionFirst
+                  ? 'wallet-subscription-tab'
+                  : 'wallet-buy-gems-tab',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(requests, hasLength(2));
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+        await tester.pumpWidget(purchasePage());
+        await tester.pumpAndSettle();
+        expect(requests, hasLength(3));
+      },
+    );
+  }
 
   testWidgets('failed language refresh remains stale and retries on return', (
     tester,

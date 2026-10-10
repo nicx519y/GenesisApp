@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/attribution/adjust_device_registration.dart';
 import '../../app/membership/subscription_analytics.dart';
 import '../../components/gems/subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -23,6 +24,7 @@ import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
+import '../../components/gems/purchase_attribution_registration.dart';
 import '../../components/gems/pro_subscription_content.dart';
 import '../../components/gems/wallet_purchase_tabs.dart';
 import '../../components/page_header.dart';
@@ -70,6 +72,7 @@ class GemWalletPage extends StatefulWidget {
     this.taskReporter,
     this.taskClaimer,
     this.discordLauncher,
+    this.attributionRegistration,
   });
 
   final GemProductsLoader? productsLoader;
@@ -85,6 +88,7 @@ class GemWalletPage extends StatefulWidget {
   final GemTaskActionHandler? taskReporter;
   final GemTaskActionHandler? taskClaimer;
   final DiscordLauncher? discordLauncher;
+  final AdjustDeviceRegistration? attributionRegistration;
 
   @override
   State<GemWalletPage> createState() => _GemWalletPageState();
@@ -159,6 +163,8 @@ class _GemWalletPageState extends State<GemWalletPage>
   late bool _gemsVisited;
   AppServices? _membershipServices;
   late final SubscriptionPageTracking _subscriptionTracking;
+  final PurchaseAttributionRegistration _attributionRegistration =
+      PurchaseAttributionRegistration();
 
   @override
   void initState() {
@@ -182,6 +188,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     );
     _purchaseTabs.addListener(_visitCurrentTab);
     WidgetsBinding.instance.addObserver(this);
+    _registerAttributionForCurrentTab();
     if (_gemsVisited) {
       _trackBuyGemsPageView();
       unawaited(_refreshAll());
@@ -189,6 +196,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   void _visitCurrentTab() {
+    _registerAttributionForCurrentTab();
     if (_purchaseTabs.index == 0) {
       if (!_subscriptionVisited) {
         setState(() => _subscriptionVisited = true);
@@ -201,6 +209,15 @@ class _GemWalletPageState extends State<GemWalletPage>
       _trackBuyGemsPageView();
       unawaited(_refreshAll());
     }
+  }
+
+  void _registerAttributionForCurrentTab() {
+    _attributionRegistration.schedule(
+      context,
+      tabIndex: _purchaseTabs.index,
+      currentTabIndex: () => _purchaseTabs.index,
+      registration: widget.attributionRegistration,
+    );
   }
 
   @override
