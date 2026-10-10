@@ -1,0 +1,4052 @@
+{
+  "imageGifUnsupported": "GIFアニメーションには対応していません。",
+  "@imageGifUnsupported": {
+    "description": "Client UI message or accessibility label."
+  },
+  "worldProgressComplete": "進行完了",
+  "@worldProgressComplete": {
+    "description": "Client UI message or accessibility label."
+  },
+  "a11ySwitchMode": "{label}モードに切り替え",
+  "@a11ySwitchMode": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yEditItem": "{title}を編集",
+  "@a11yEditItem": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yRoleCards": "ロールカード {index}/{count}",
+  "@a11yRoleCards": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "a11yEditInspiration": "インスピレーション{index}を編集",
+  "@a11yEditInspiration": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "a11yInsert": "{label}を挿入",
+  "@a11yInsert": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yMembership": "メンバーシップ",
+  "@a11yMembership": {
+    "description": "Accessibility label."
+  },
+  "a11yOpenWorldo": "Worldoを開く",
+  "@a11yOpenWorldo": {
+    "description": "Accessibility label."
+  },
+  "a11yFilterGender": "性別で絞り込み",
+  "@a11yFilterGender": {
+    "description": "Accessibility label."
+  },
+  "a11ySelectRole": "自分の役割を選択",
+  "@a11ySelectRole": {
+    "description": "Accessibility label."
+  },
+  "a11yLoadingMap": "マップを読み込み中",
+  "@a11yLoadingMap": {
+    "description": "Accessibility label."
+  },
+  "a11yBuildingWorld": "ワールドを作成中",
+  "@a11yBuildingWorld": {
+    "description": "Accessibility label."
+  },
+  "a11yPremiumMembership": "Premiumメンバーシップ",
+  "@a11yPremiumMembership": {
+    "description": "Accessibility label."
+  },
+  "a11yProMembership": "Proメンバーシップ",
+  "@a11yProMembership": {
+    "description": "Accessibility label."
+  },
+  "a11yRecommendedRole": "おすすめの役割",
+  "@a11yRecommendedRole": {
+    "description": "Accessibility label."
+  },
+  "a11yLastMessage": "最新のメッセージ",
+  "@a11yLastMessage": {
+    "description": "Accessibility label."
+  },
+  "a11yRecentChat": "最近のチャット",
+  "@a11yRecentChat": {
+    "description": "Accessibility label."
+  },
+  "a11yAiReplyLoading": "AIの返信を読み込み中",
+  "@a11yAiReplyLoading": {
+    "description": "Accessibility label."
+  },
+  "statMessages": "{amount} {count, plural, =0{メッセージ} =1{メッセージ} other{メッセージ}}",
+  "@statMessages": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "statPlayers": "{amount} {count, plural, =0{プレイヤー} =1{プレイヤー} other{プレイヤー}}",
+  "@statPlayers": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "createAddedMax": "{added}/{max}（追加済み / 上限）",
+  "@createAddedMax": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "createSixHours": "6時間",
+  "@createSixHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "createTwelveHours": "12時間",
+  "@createTwelveHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "createOneDay": "1日",
+  "@createOneDay": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "createOneWeek": "1週間",
+  "@createOneWeek": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "settingsLanguage": "言語",
+  "@settingsLanguage": {
+    "description": "Settings language entry and language page title."
+  },
+  "languageChangeFailed": "言語を変更できませんでした。もう一度お試しください。",
+  "@languageChangeFailed": {
+    "description": "Language preference save failure."
+  },
+  "@@locale": "ja",
+  "purchasingGems": "ジェムを購入中",
+  "@purchasingGems": {
+    "description": "Gems purchase progress dialog title."
+  },
+  "purchaseSuccessful": "購入が完了しました！",
+  "@purchaseSuccessful": {
+    "description": "Generic purchase success dialog title."
+  },
+  "okAction": "OK",
+  "@okAction": {
+    "description": "Generic confirmation action."
+  },
+  "cancelAction": "キャンセル",
+  "@cancelAction": {
+    "description": "Generic cancel action."
+  },
+  "requestAction": "申請",
+  "@requestAction": {
+    "description": "Action for requesting to join a World."
+  },
+  "requestedStatus": "申請済み",
+  "@requestedStatus": {
+    "description": "Status after a World join request has been sent."
+  },
+  "launchAction": "起動",
+  "@launchAction": {
+    "description": "Action for launching a World from a Worldo."
+  },
+  "tickNowAction": "今すぐ進行",
+  "@tickNowAction": {
+    "description": "Action for progressing a World immediately."
+  },
+  "writePostHint": "投稿を書く",
+  "@writePostHint": {
+    "description": "Placeholder for a new discussion post."
+  },
+  "newPostTitle": "新しい投稿",
+  "@newPostTitle": {
+    "description": "Title of the new discussion post composer."
+  },
+  "aiIsGenerating": "AIが生成中",
+  "@aiIsGenerating": {
+    "description": "Title of the AI generation wait overlay."
+  },
+  "generatingCustomizedWorldWait": "あなた専用の、生きたワールドを生成しています。\nしばらくお待ちください。",
+  "@generatingCustomizedWorldWait": {
+    "description": "Message in the AI generation wait overlay."
+  },
+  "approvedStatus": "承認済み",
+  "@approvedStatus": {
+    "description": "Approved status for a World join request."
+  },
+  "rejectedStatus": "却下済み",
+  "@rejectedStatus": {
+    "description": "Rejected status for a World join request."
+  },
+  "awaitingApprovalStatus": "承認待ち",
+  "@awaitingApprovalStatus": {
+    "description": "Status while the user's join request is being reviewed."
+  },
+  "awaitingYourApprovalStatus": "あなたの承認待ち",
+  "@awaitingYourApprovalStatus": {
+    "description": "Status for a join request the user needs to review."
+  },
+  "liveYourWorld": "自分のワールドを生きよう",
+  "@liveYourWorld": {
+    "description": "Signed-out Me page headline."
+  },
+  "signedOutMeDescription": "ワールドで遊び、Worldoを作り、友達を招待して、\nどこからでも続きを楽しもう。",
+  "@signedOutMeDescription": {
+    "description": "Signed-out Me page introductory copy."
+  },
+  "gemTaskLaunchWorldHint": "好きなWorldoを開き、起動して自分のワールドを作りましょう。",
+  "@gemTaskLaunchWorldHint": {
+    "description": "Gems task guidance for launching the first World."
+  },
+  "gemTaskInviteFriendHint": "ワールドを開き、詳細パネルの「招待」をタップしましょう。",
+  "@gemTaskInviteFriendHint": {
+    "description": "Gems task guidance for inviting a friend."
+  },
+  "gemTaskWriteCommentHint": "好きなWorldoを開き、「ディスカッション」で投稿を書きましょう。",
+  "@gemTaskWriteCommentHint": {
+    "description": "Gems task guidance for writing a discussion post."
+  },
+  "gemTaskRequestJoinHint": "まだ参加していないワールドを開き、参加を申請しましょう。",
+  "@gemTaskRequestJoinHint": {
+    "description": "Gems task guidance for requesting to join a World."
+  },
+  "gemTaskSendMessageHint": "自分のワールドでメッセージを送りましょう。",
+  "@gemTaskSendMessageHint": {
+    "description": "Gems task guidance for sending messages."
+  },
+  "gemTaskProgressWorldHint": "プレイ中のワールドを開き、「今すぐ進行」をタップしましょう。",
+  "@gemTaskProgressWorldHint": {
+    "description": "Gems task guidance for progressing a World."
+  },
+  "termsOfService": "利用規約",
+  "@termsOfService": {
+    "description": "Terms of Service document title."
+  },
+  "worldoLabel": "Worldo",
+  "@worldoLabel": {
+    "description": "Worldo content-type label."
+  },
+  "worldoHashtagLabel": "#Worldo",
+  "@worldoHashtagLabel": {
+    "description": "Worldo profile collection tab label."
+  },
+  "worldLabel": "ワールド",
+  "@worldLabel": {
+    "description": "World content-type label."
+  },
+  "userLabel": "ユーザー",
+  "@userLabel": {
+    "description": "Generic user label and missing-name fallback."
+  },
+  "meLabel": "マイページ",
+  "@meLabel": {
+    "description": "Current-user sender name fallback."
+  },
+  "locationLabel": "場所",
+  "@locationLabel": {
+    "description": "Missing location-name fallback."
+  },
+  "allLabel": "すべて",
+  "@allLabel": {
+    "description": "All option in the Worldo audience filter."
+  },
+  "maleLabel": "男性",
+  "@maleLabel": {
+    "description": "Male option in the Worldo audience filter."
+  },
+  "femaleLabel": "女性",
+  "@femaleLabel": {
+    "description": "Female option in the Worldo audience filter."
+  },
+  "nonBinaryLabel": "ノンバイナリー",
+  "@nonBinaryLabel": {
+    "description": "Non-binary option in the Worldo audience filter."
+  },
+  "forYouLabel": "おすすめ",
+  "@forYouLabel": {
+    "description": "For You tab on the Worldo feed."
+  },
+  "userBlocked": "ユーザーをブロックしました",
+  "@userBlocked": {
+    "description": "Profile collection message after a user is blocked."
+  },
+  "purchaseCanceled": "購入はキャンセルされました。",
+  "@purchaseCanceled": {
+    "description": "Canceled subscription purchase result."
+  },
+  "purchasePending": "購入は保留中です。",
+  "@purchasePending": {
+    "description": "Pending subscription purchase result."
+  },
+  "purchaseBeingConfirmed": "購入を確認中です。",
+  "@purchaseBeingConfirmed": {
+    "description": "Accepted subscription purchase awaiting confirmation."
+  },
+  "purchaseConfirmationDelayed": "購入の確認に時間がかかっています。後でもう一度ご確認ください。",
+  "@purchaseConfirmationDelayed": {
+    "description": "Deferred subscription purchase result."
+  },
+  "purchaseFailed": "購入に失敗しました。",
+  "@purchaseFailed": {
+    "description": "Generic subscription purchase failure result."
+  },
+  "yearlyPlan": "年額",
+  "@yearlyPlan": {
+    "description": "Yearly Premium plan label."
+  },
+  "monthlyPlan": "月額",
+  "@monthlyPlan": {
+    "description": "Monthly Premium plan label."
+  },
+  "proSubscriptionTagline": "プレイするすべてのWorldoを、もっと深く楽しもう。",
+  "@proSubscriptionTagline": {
+    "description": "Premium subscription page tagline."
+  },
+  "eulaShort": "EULA",
+  "@eulaShort": {
+    "description": "Short End User License Agreement link label."
+  },
+  "billedAnnually": "{price}、年ごとに請求",
+  "@billedAnnually": {
+    "description": "Yearly Premium plan billing note.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresOn": "有効期限：{date}",
+  "@expiresOn": {
+    "description": "Premium membership expiry line.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "activeStatus": "有効",
+  "@activeStatus": {
+    "description": "Active Premium membership status."
+  },
+  "expiredStatus": "期限切れ",
+  "@expiredStatus": {
+    "description": "Expired Premium membership status."
+  },
+  "updatedAt": "更新：{timestamp}",
+  "@updatedAt": {
+    "description": "World or Worldo card last-updated line.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "tickLabel": "ターン",
+  "@tickLabel": {
+    "description": "Tick label without a number."
+  },
+  "tickNumber": "ターン{tick}{suffix}",
+  "@tickNumber": {
+    "description": "Tick label with optional sub-tick suffix.",
+    "placeholders": {
+      "tick": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
+    }
+  },
+  "loadFailedRetry": "読み込み失敗。再試行",
+  "@loadFailedRetry": {
+    "description": "Retry action after loading more profile items fails."
+  },
+  "loadMoreAction": "さらに読み込む",
+  "@loadMoreAction": {
+    "description": "Action to load more list items."
+  },
+  "gemPurchaseRecord": "ジェム購入",
+  "@gemPurchaseRecord": {
+    "description": "Fallback title for a Gems purchase record."
+  },
+  "taskRewardRecord": "タスク報酬",
+  "@taskRewardRecord": {
+    "description": "Fallback title for a Gems task reward record."
+  },
+  "worldProgressRecord": "ワールドの進行",
+  "@worldProgressRecord": {
+    "description": "Fallback title for a World progress Gems record."
+  },
+  "directMessageRecord": "ダイレクトメッセージ",
+  "@directMessageRecord": {
+    "description": "Fallback title for a direct-message Gems record."
+  },
+  "gemRecord": "ジェム履歴",
+  "@gemRecord": {
+    "description": "Generic fallback title for a Gems record."
+  },
+  "runATickTask": "1ターン進める",
+  "@runATickTask": {
+    "description": "Gems task title for progressing a World."
+  },
+  "runATickTaskDescription": "プレイ中のワールドを開き、「今すぐ進行」をタップしてください。",
+  "@runATickTaskDescription": {
+    "description": "Gems task instructions for progressing a World."
+  },
+  "someoneFallback": "誰か",
+  "@someoneFallback": {
+    "description": "Missing player-name fallback."
+  },
+  "aCharacterFallback": "キャラクター",
+  "@aCharacterFallback": {
+    "description": "Missing character-name fallback inside a sentence."
+  },
+  "thisWorld": "このワールド",
+  "@thisWorld": {
+    "description": "Missing World-name fallback inside a sentence."
+  },
+  "noWorldEventsYet": "ワールドのイベントはまだありません。",
+  "@noWorldEventsYet": {
+    "description": "World character events empty state."
+  },
+  "globalLabel": "全体",
+  "@globalLabel": {
+    "description": "Global section label in copied Tick content."
+  },
+  "eventLabel": "イベント",
+  "@eventLabel": {
+    "description": "Event section label in copied Tick content."
+  },
+  "characterDestinations": "キャラクターの行き先",
+  "@characterDestinations": {
+    "description": "Character movement section label in copied Tick content."
+  },
+  "characterMovementSentence": "{characterName}が{locationName}に{direction}",
+  "@characterMovementSentence": {
+    "description": "Character movement sentence with styled or copied parts.",
+    "placeholders": {
+      "characterName": {
+        "type": "String"
+      },
+      "direction": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "cameToDirection": "到着しました",
+  "@cameToDirection": {
+    "description": "Character movement direction in past tense."
+  },
+  "wentToDirection": "向かいました",
+  "@wentToDirection": {
+    "description": "Character movement direction away in past tense."
+  },
+  "hasComeToDirection": "到着しました",
+  "@hasComeToDirection": {
+    "description": "Character movement direction for the current location."
+  },
+  "hasGoneToDirection": "向かいました",
+  "@hasGoneToDirection": {
+    "description": "Character movement direction away from the current location."
+  },
+  "waitForReplyToSendMore": "返信を待ってから次のメッセージを送ってください",
+  "@waitForReplyToSendMore": {
+    "description": "Direct-message composer gate while awaiting a reply."
+  },
+  "newMessages": "{count, plural, =0{新着メッセージ{count}件} =1{新着メッセージ{count}件} other{新着メッセージ{count}件}}",
+  "@newMessages": {
+    "description": "Count of new direct messages.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectPresetRoleValidation": "プリセットの役割を選択してください",
+  "@selectPresetRoleValidation": {
+    "description": "Role launch validation message."
+  },
+  "enterNameValidation": "名前を入力してください",
+  "@enterNameValidation": {
+    "description": "Character-name validation message."
+  },
+  "enterIdentityValidation": "身分を入力してください",
+  "@enterIdentityValidation": {
+    "description": "Character-identity validation message."
+  },
+  "waitForProfileLoading": "プロフィールの読み込みが完了するまでお待ちください。",
+  "@waitForProfileLoading": {
+    "description": "Role launch message while profile data is loading."
+  },
+  "imageUploadFailed": "画像のアップロードに失敗しました。",
+  "@imageUploadFailed": {
+    "description": "Image upload failure shown in the Worldo editor."
+  },
+  "photoAccessDenied": "写真へのアクセスが拒否されました",
+  "@photoAccessDenied": {
+    "description": "Discussion image picker permission error."
+  },
+  "feedbackSubmitted": "フィードバックを送信しました",
+  "@feedbackSubmitted": {
+    "description": "Settings feedback submission success."
+  },
+  "feedbackFailed": "フィードバックの送信に失敗しました",
+  "@feedbackFailed": {
+    "description": "Settings feedback submission failure."
+  },
+  "worldoDetailUnavailable": "Worldoの詳細を表示できません。",
+  "@worldoDetailUnavailable": {
+    "description": "Worldo editor load failure fallback."
+  },
+  "publishAction": "公開",
+  "@publishAction": {
+    "description": "Publish Worldo action."
+  },
+  "publishingStatus": "公開中...",
+  "@publishingStatus": {
+    "description": "Worldo publishing progress label."
+  },
+  "publishFailed": "公開に失敗しました",
+  "@publishFailed": {
+    "description": "Worldo publishing failure prefix."
+  },
+  "publishChangesBeforeLeaving": "終了する前に変更を公開しますか？",
+  "@publishChangesBeforeLeaving": {
+    "description": "Worldo editor leave confirmation title."
+  },
+  "noChangesToPublish": "公開する変更はありません。",
+  "@noChangesToPublish": {
+    "description": "Worldo editor submit-disabled message."
+  },
+  "completeOpeningRequiredToPublish": "公開するには導入を完成させてください",
+  "@completeOpeningRequiredToPublish": {
+    "description": "Worldo editor validation error before publishing."
+  },
+  "publishResponseMissingOriginId": "公開結果にWorldo IDがありませんでした。",
+  "@publishResponseMissingOriginId": {
+    "description": "Worldo editor publishing response error."
+  },
+  "worldoIdRequired": "Worldo IDが必要です。",
+  "@worldoIdRequired": {
+    "description": "Worldo editor cannot load without an ID."
+  },
+  "loadFailedWithReason": "読み込みに失敗しました：{reason}",
+  "@loadFailedWithReason": {
+    "description": "Load failure with a technical reason.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSelectionFailed": "画像の選択に失敗しました",
+  "@imageSelectionFailed": {
+    "description": "Discussion image picker generic failure."
+  },
+  "updateFailed": "更新に失敗しました",
+  "@updateFailed": {
+    "description": "Generic settings update failure."
+  },
+  "profileOriginSubtitle": "OID：{oid}\n最新バージョン：{version}",
+  "@profileOriginSubtitle": {
+    "description": "Worldo summary in another user's profile.",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "profileWorldSubtitle": "WID：{wid}\n所有者：{owner}",
+  "@profileWorldSubtitle": {
+    "description": "World summary in another user's profile.",
+    "placeholders": {
+      "wid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "sendFailed": "送信に失敗しました",
+  "@sendFailed": {
+    "description": "Direct-message send failure."
+  },
+  "selectARole": "役割を選択",
+  "@selectARole": {
+    "description": "Role picker empty selection label."
+  },
+  "timeLabel": "時刻",
+  "@timeLabel": {
+    "description": "Sender name for a World timeline message."
+  },
+  "discussOriginSummary": "OID：{oid}",
+  "@discussOriginSummary": {
+    "description": "Worldo identifier in a discussion page summary.",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      }
+    }
+  },
+  "discussOriginSummaryWithCreator": "OID：{oid} · クリエイター：{creator}",
+  "@discussOriginSummaryWithCreator": {
+    "description": "Worldo identifier and creator in a discussion page summary.",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "creator": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoMetricExplanation": "このworldoでは、進行するたびに各キャラクターの'{指標名}'が更新され、'{単位}'で表示されます。各キャラクターは'{初期値}'から始まり、値は'{最小変動値}'～'{最大変動値}'の範囲で変動します。",
+  "@worldoMetricExplanation": {
+    "description": "Worldo Metric field explanation with literal field-name braces."
+  },
+  "homeMyWorldsEmptyTitle": "{worldo}を起動して\n自分のワールドを生成",
+  "@homeMyWorldsEmptyTitle": {
+    "description": "Home My Worlds empty-state title.",
+    "placeholders": {
+      "worldo": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryEstimatedNextMessageCost": "次のメッセージの推定：{cost}",
+  "@memoryEstimatedNextMessageCost": {
+    "description": "Estimated Gems cost under an AI model option.",
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "gemsAmount": "{amount}ジェム",
+  "@gemsAmount": {
+    "description": "A formatted amount followed by the Gems unit.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDeleteConfirmation": "ワールド{worldName}を削除",
+  "@worldDeleteConfirmation": {
+    "description": "World deletion confirmation title.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldPlayerPlayingAs": "{playerUsername}は{characterName}としてプレイ中",
+  "@worldPlayerPlayingAs": {
+    "description": "World detail notice describing a player's character.",
+    "placeholders": {
+      "playerUsername": {
+        "type": "String"
+      },
+      "characterName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLaunched": "Worldo {worldName}を起動しました！",
+  "@worldoLaunched": {
+    "description": "Success dialog after launching a Worldo.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoCreated": "Worldo {worldName}を作成しました！",
+  "@worldoCreated": {
+    "description": "Success dialog after creating a Worldo.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoPublished": "Worldo {worldName}を公開しました！",
+  "@worldoPublished": {
+    "description": "Success dialog after publishing a Worldo.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "createTimeout": "Worldoの作成がタイムアウトしました。",
+  "@createTimeout": {
+    "description": "Create Worldo 提交后等待创建结果超时的提示"
+  },
+  "publishTimeout": "Worldoの公開がタイムアウトしました",
+  "@publishTimeout": {
+    "description": "Publish Worldo 提交后等待发布结果超时的提示"
+  },
+  "joinRequestSelfSummary": "{worldName}{worldId}への参加を申請しました",
+  "@joinRequestSelfSummary": {
+    "description": "Inbox summary for the current user's World join request.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      },
+      "worldId": {
+        "type": "String"
+      }
+    }
+  },
+  "joinRequestIncomingSummary": "{requesterName}{requesterBadge}が{worldName}{worldId}への参加を申請しました",
+  "@joinRequestIncomingSummary": {
+    "description": "Inbox summary for another user's World join request.",
+    "placeholders": {
+      "requesterName": {
+        "type": "String"
+      },
+      "requesterBadge": {
+        "type": "String"
+      },
+      "worldName": {
+        "type": "String"
+      },
+      "worldId": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationCommentedOnWorldo": "{senderName}{senderBadge}があなたのworldoにコメントしました",
+  "@notificationCommentedOnWorldo": {
+    "description": "Inbox comment notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationRepliedToYou": "{senderName}{senderBadge}があなたに返信しました",
+  "@notificationRepliedToYou": {
+    "description": "Inbox reply notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationLikedComment": "{senderName}{senderBadge}があなたのコメントにいいねしました",
+  "@notificationLikedComment": {
+    "description": "Inbox comment-like notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationSentMessage": "{senderName}{senderBadge}からメッセージが届きました",
+  "@notificationSentMessage": {
+    "description": "Inbox generic message notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationGenericContent": "{senderName}{senderBadge} {content}",
+  "@notificationGenericContent": {
+    "description": "Inbox notification title using content supplied by the server.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "freeInspirationUsesLeft": "インスピレーションの無料利用残り回数：{remaining}\n{action}",
+  "@freeInspirationUsesLeft": {
+    "description": "Location chat free Inspiration quota prompt.",
+    "placeholders": {
+      "remaining": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "freeEditionUsesLeft": "編集の無料利用残り回数：{remaining}\n{action}",
+  "@freeEditionUsesLeft": {
+    "description": "Location chat free Edit quota prompt.",
+    "placeholders": {
+      "remaining": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "getMoreAction": "もっと獲得 >",
+  "@getMoreAction": {
+    "description": "Action that opens subscription options."
+  },
+  "characterCameToLocation": "{characterName}が{locationName}に到着しました",
+  "@characterCameToLocation": {
+    "description": "Location chat system message for entering a location.",
+    "placeholders": {
+      "characterName": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutDescription": "Worldoでは、キャラクター、物語、変化するイベントに満ちたAIワールドを作成、発見し、その中に入ることができます。AIキャラクターとチャットし、友達と遊び、臨場感のあるシーンや選択を通じてワールドを進めましょう。\n\nこのアプリは、読者としてだけでなく、ワールドの一員としてインタラクティブな物語を体験する新しい方法を提供します。ご質問は{contactEmail}までお問い合わせください。",
+  "@aboutDescription": {
+    "description": "About page product description and contact sentence.",
+    "placeholders": {
+      "contactEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "legalLinksSentence": "{privacyPolicy}、{termsOfUse}、{endUserLicenseAgreement}",
+  "@legalLinksSentence": {
+    "description": "About page legal-document links.",
+    "placeholders": {
+      "privacyPolicy": {
+        "type": "String"
+      },
+      "termsOfUse": {
+        "type": "String"
+      },
+      "endUserLicenseAgreement": {
+        "type": "String"
+      }
+    }
+  },
+  "loginLegalAgreement": "続行すると、{terms}、{privacyPolicy}、{endUserLicenseAgreement}に同意したものとみなされます",
+  "@loginLegalAgreement": {
+    "description": "Legal agreement below login provider buttons.",
+    "placeholders": {
+      "terms": {
+        "type": "String"
+      },
+      "privacyPolicy": {
+        "type": "String"
+      },
+      "endUserLicenseAgreement": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyPolicy": "プライバシーポリシー",
+  "@privacyPolicy": {
+    "description": "Privacy Policy document title."
+  },
+  "terms": "規約",
+  "@terms": {
+    "description": "Short Terms document title."
+  },
+  "termsOfUse": "利用規約",
+  "@termsOfUse": {
+    "description": "Terms of Use document title."
+  },
+  "endUserLicenseAgreement": "エンドユーザー使用許諾契約",
+  "@endUserLicenseAgreement": {
+    "description": "End User License Agreement document title."
+  },
+  "existingAccountSignIn": "アカウントをお持ちの方は{signIn}",
+  "@existingAccountSignIn": {
+    "description": "Personalization sheet sign-in sentence.",
+    "placeholders": {
+      "signIn": {
+        "type": "String"
+      }
+    }
+  },
+  "signInAction": "ログイン。",
+  "@signInAction": {
+    "description": "Sign-in link label inside a sentence."
+  },
+  "gemsGranted": "{gemIcon}{grantedAmount}ジェムが付与されました。",
+  "@gemsGranted": {
+    "description": "Gems purchase success message.",
+    "placeholders": {
+      "gemIcon": {
+        "type": "String"
+      },
+      "grantedAmount": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumMonthlyOffer": "毎月最大{amount}ジェムと、すべてのPremium機能へのアクセス。",
+  "@premiumMonthlyOffer": {
+    "description": "Premium offer shown on the profile membership card.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "gemsPerDay": "{amount} /日",
+  "@gemsPerDay": {
+    "description": "Daily Gems amount in a subscription benefit card.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyPrice": "{price}/月",
+  "@monthlyPrice": {
+    "description": "Monthly equivalent subscription price.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discussReplyLine": "{authorName}{authorBadge}：{replyToName}{replyToBadge}への返信：{content}",
+  "@discussReplyLine": {
+    "description": "Discussion reply preview that replies to another user.",
+    "placeholders": {
+      "authorName": {
+        "type": "String"
+      },
+      "authorBadge": {
+        "type": "String"
+      },
+      "replyToName": {
+        "type": "String"
+      },
+      "replyToBadge": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "discussReplyLineDirect": "{authorName}{authorBadge}：{content}",
+  "@discussReplyLineDirect": {
+    "description": "Discussion reply preview without a reply target.",
+    "placeholders": {
+      "authorName": {
+        "type": "String"
+      },
+      "authorBadge": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "navHome": "ホーム",
+  "@navHome": {
+    "description": "首页底部 TAB - Home"
+  },
+  "navWorldo": "Worldo",
+  "@navWorldo": {
+    "description": "首页底部 TAB - Worldo"
+  },
+  "navCreate": "作成",
+  "@navCreate": {
+    "description": "首页底部 TAB - Create（文案不可见）"
+  },
+  "navInbox": "受信箱",
+  "@navInbox": {
+    "description": "首页底部 TAB - Inbox"
+  },
+  "navMe": "マイページ",
+  "@navMe": {
+    "description": "首页底部 TAB - Me"
+  },
+  "homeLoadFailed": "読み込みに失敗しました",
+  "@homeLoadFailed": {
+    "description": "首页 - Home，My Worlds 列表状态"
+  },
+  "homeRetry": "再試行",
+  "@homeRetry": {
+    "description": "首页 - Home，My Worlds 列表状态"
+  },
+  "homeEmptyDescription": "Worldoは設計図です。起動すると、入って成長させられる生きたワールドが作られます。",
+  "@homeEmptyDescription": {
+    "description": "首页 - Home，My Worlds 空状态"
+  },
+  "homeWorldCharacter": "キャラクター",
+  "@homeWorldCharacter": {
+    "description": "首页 - Home，World 卡片中的状态信息中显示的文字"
+  },
+  "homeWorldSingleOtherPlayer": "· 他のプレイヤー1人",
+  "@homeWorldSingleOtherPlayer": {
+    "description": "首页 - Home，World 卡片中的状态信息的按钮或标签"
+  },
+  "homeWorldOtherPlayers": "· 他のプレイヤー{otherPlayerCount}人",
+  "@homeWorldOtherPlayers": {
+    "description": "首页 - Home，World 卡片中的状态信息的按钮或标签",
+    "placeholders": {
+      "otherPlayerCount": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSignInUnavailable": "ログインできません",
+  "@homeSignInUnavailable": {
+    "description": "首页 - Home，登录失败提示"
+  },
+  "homeSignInFailed": "ログインに失敗しました",
+  "@homeSignInFailed": {
+    "description": "首页 - Home，登录失败提示"
+  },
+  "homeSignedOutTitle": "すべてのワールドをひとつに",
+  "@homeSignedOutTitle": {
+    "description": "首页 - Home，页面标题/登录状态"
+  },
+  "homeSignedOutDescription": "ログインしてワールドを作成し、物語を続けましょう。",
+  "@homeSignedOutDescription": {
+    "description": "首页 - Home，页面标题/登录状态"
+  },
+  "searchUID": "UID: ",
+  "@searchUID": {
+    "description": "首页 - Home → 搜索页，搜索结果卡片中显示的文字"
+  },
+  "searchOID": "OID: ",
+  "@searchOID": {
+    "description": "首页 - Home → 搜索页，Worldo 结果元信息中显示的文字"
+  },
+  "searchWID": "WID: ",
+  "@searchWID": {
+    "description": "首页 - Home → 搜索页，World 结果元信息中显示的文字"
+  },
+  "searchOwner": "所有者：{owner}",
+  "@searchOwner": {
+    "description": "首页 - Home → 搜索页，World 结果元信息中显示的文字",
+    "placeholders": {
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "searchOIDCreatorOriginatorBrief": "OID：{oid}  クリエイター：{originator}\n概要：{brief}\n最新バージョン：{version}",
+  "@searchOIDCreatorOriginatorBrief": {
+    "description": "首页 - Home → 搜索页，Worldo 搜索结果卡片的 OID、创建者、简介和最新版本",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "originator": {
+        "type": "String"
+      },
+      "brief": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "searchWIDOwner": "WID：{wid}\n所有者：{owner}",
+  "@searchWIDOwner": {
+    "description": "首页 - Home → 搜索页，World 搜索结果卡片的 WID 和拥有者",
+    "placeholders": {
+      "wid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "searchHistory": "検索履歴",
+  "@searchHistory": {
+    "description": "首页 - Home → 搜索页，搜索历史中显示的文字"
+  },
+  "searchFailed": "検索に失敗しました",
+  "@searchFailed": {
+    "description": "首页 - Home → 搜索页，搜索结果列表/空状态"
+  },
+  "searchNoResults": "結果がありません。",
+  "@searchNoResults": {
+    "description": "首页 - Home → 搜索页，搜索结果列表/空状态"
+  },
+  "searchCancel": "キャンセル",
+  "@searchCancel": {
+    "description": "首页 - Home → 搜索页，搜索输入与结果状态"
+  },
+  "searchHint": "Worldo、キャラクター、タグ",
+  "@searchHint": {
+    "description": "首页 - Home → 搜索页，搜索输入框中显示的文字"
+  },
+  "worldDetailOnlyWorldsLaunched": "自分が単独で起動したワールドのみ削除できます。",
+  "@worldDetailOnlyWorldsLaunched": {
+    "description": "首页 - Home → World 操作弹窗，World 详情页删除 World时显示的提示"
+  },
+  "worldDetailDelete": "削除",
+  "@worldDetailDelete": {
+    "description": "首页 - Home → World 操作弹窗，World 详情页删除 World的按钮或标签"
+  },
+  "worldDetailNoCharacterStatusYet": "キャラクターの状態はまだありません。",
+  "@worldDetailNoCharacterStatusYet": {
+    "description": "首页 - Home → World 详情页，World 详情面板的 Cast 或 Status 空状态"
+  },
+  "worldDetailNoCharactersYet": "キャラクターはまだいません。",
+  "@worldDetailNoCharactersYet": {
+    "description": "首页 - Home → World 详情页，World 详情面板的 Cast 或 Status 空状态"
+  },
+  "worldDetailProgressingWorld": "ワールドを進行中",
+  "@worldDetailProgressingWorld": {
+    "description": "首页 - Home → World 详情页，World 详情页主体中显示的文字"
+  },
+  "worldDetailCompressingRecent": "最近の記憶を圧縮中\nワールドの時間軸を進行中\n物語の次の展開を生成中\nキャラクターの場所を更新中",
+  "@worldDetailCompressingRecent": {
+    "description": "首页 - Home → World 详情页，World 详情页主体中显示的文字"
+  },
+  "worldModelsDetail": "詳細",
+  "@worldModelsDetail": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldModelsLocations": "場所",
+  "@worldModelsLocations": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldModelsEvents": "イベント",
+  "@worldModelsEvents": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldModelsStatus": "状態",
+  "@worldModelsStatus": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldDetailUnavailable": "利用できません",
+  "@worldDetailUnavailable": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldActionFailed": "{actionLabel}に失敗しました",
+  "@worldActionFailed": {
+    "description": "首页 - Home → World 详情页，申请加入或推进操作失败时的提示",
+    "placeholders": {
+      "actionLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailRequestJoinWorld": "このワールドへの参加を申請しますか？",
+  "@worldDetailRequestJoinWorld": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World的标题"
+  },
+  "worldDetailRequest": "申請",
+  "@worldDetailRequest": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World的按钮或标签"
+  },
+  "worldDetailLaunchFailed": "起動に失敗しました",
+  "@worldDetailLaunchFailed": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World时显示的提示"
+  },
+  "worldDetailNoSavedProfileFound": "保存済みプロフィールが見つかりません",
+  "@worldDetailNoSavedProfileFound": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World时显示的提示"
+  },
+  "worldDetailWID": "WID",
+  "@worldDetailWID": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的按钮或标签"
+  },
+  "worldDetailSourceWorldoOIDV": "元のWorldo：{sourceOid} · V{version}",
+  "@worldDetailSourceWorldoOIDV": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域中显示的文字",
+    "placeholders": {
+      "sourceOid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailInvite": "招待",
+  "@worldDetailInvite": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的按钮或标签"
+  },
+  "worldInviteText": "Worldoで私のワールド「{worldName}」に参加しよう！\n{wid}\nこのWIDをWorldoで検索して、ワールドを見つけて参加してください。\n{downloadUrl}",
+  "@worldInviteText": {
+    "description": "首页 - Home → World 详情页，点击 Invite 后系统分享面板中的邀请正文",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      },
+      "wid": {
+        "type": "String"
+      },
+      "downloadUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailWorldBrief": "ワールド概要",
+  "@worldDetailWorldBrief": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的标题"
+  },
+  "worldDetailCast": "登場人物",
+  "@worldDetailCast": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的标题"
+  },
+  "worldDetailLinkCopiedShare": "リンクをコピーしました。友達に共有しましょう。",
+  "@worldDetailLinkCopiedShare": {
+    "description": "首页 - Home → World 详情页，World 详情页复制邀请链接完成"
+  },
+  "worldMapAction": "マップ",
+  "@worldMapAction": {
+    "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字"
+  },
+  "worldInfoAction": "情報",
+  "@worldInfoAction": {
+    "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字"
+  },
+  "worldLocationCount": "場所（{pointsCount}）",
+  "@worldLocationCount": {
+    "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字",
+    "placeholders": {
+      "pointsCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailPlayer": "プレイヤー",
+  "@worldDetailPlayer": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Characters 角色列表的按钮或标签"
+  },
+  "worldDetailGoal": "目標：{goal}",
+  "@worldDetailGoal": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Characters 角色列表中显示的文字",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailNoCharacterDetailsYet": "キャラクターの詳細はまだありません。",
+  "@worldDetailNoCharacterDetailsYet": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Characters 角色列表中显示的文字"
+  },
+  "worldDetailNoEventsYet": "イベントはまだありません。",
+  "@worldDetailNoEventsYet": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Events 事件列表中显示的文字"
+  },
+  "worldDetailLoadEventsFailed": "イベントの読み込みに失敗しました。",
+  "@worldDetailLoadEventsFailed": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Events 事件列表中显示的文字"
+  },
+  "homeLocationID": "場所{id}",
+  "@homeLocationID": {
+    "description": "首页 - Home → World 地图，World 地图地点名称缺失中显示的文字",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "homeBuildingWorld": "ワールドを作成中",
+  "@homeBuildingWorld": {
+    "description": "首页 - Home → World 地图，列表项或卡片中显示的文字"
+  },
+  "worldMapLoadFailed": "マップの読み込みに失敗しました",
+  "@worldMapLoadFailed": {
+    "description": "首页 - Home → World 地图，操作失败或内容加载失败"
+  },
+  "worldMapZoomIn": "マップを拡大",
+  "@worldMapZoomIn": {
+    "description": "首页 - Home → World 地图，页面内容区域的按钮或标签"
+  },
+  "worldMapZoomOut": "マップを縮小",
+  "@worldMapZoomOut": {
+    "description": "首页 - Home → World 地图，页面内容区域的按钮或标签"
+  },
+  "worldDetailGlobal": "全体",
+  "@worldDetailGlobal": {
+    "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
+  },
+  "worldDetailLocation": "場所",
+  "@worldDetailLocation": {
+    "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
+  },
+  "worldDetailTickNumber": "ターン{tickNumber}",
+  "@worldDetailTickNumber": {
+    "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
+    "placeholders": {
+      "tickNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGeneratingFirstTick": "最初のターンを生成中",
+  "@homeGeneratingFirstTick": {
+    "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
+  },
+  "worldFirstTickStatusLoadFailed": "生成状況を読み込めませんでした。",
+  "@worldFirstTickStatusLoadFailed": {
+    "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
+  },
+  "worldDetailNew": "新規",
+  "@worldDetailNew": {
+    "description": "首页 - Home → World 新内容标记，World 详情页的新内容标记中显示的文字"
+  },
+  "homeUnknownLocation": "不明な場所",
+  "@homeUnknownLocation": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "homeUnknownCharacter": "不明なキャラクター",
+  "@homeUnknownCharacter": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "homeNewPlaceEmerged": "新しい場所が出現しました",
+  "@homeNewPlaceEmerged": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "homeNewCharacterAppeared": "新しいキャラクターが登場しました",
+  "@homeNewCharacterAppeared": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "chatLocationUnavailable": "場所を利用できません",
+  "@chatLocationUnavailable": {
+    "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
+  },
+  "chatRequestApprovalLaunch": "起動の承認を申請",
+  "@chatRequestApprovalLaunch": {
+    "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
+  },
+  "chatLoading": "読み込み中",
+  "@chatLoading": {
+    "description": "首页 - Home → World 地图进入地点，进入 World 地点聊天室的加载页面中显示的文字"
+  },
+  "chatQuotaCheckFailed": "無料利用回数を確認できませんでした。もう一度お試しください。",
+  "@chatQuotaCheckFailed": {
+    "description": "首页 - Home → 地点聊天室 - Inspiration，AI 回复功能剩余次数不足"
+  },
+  "chatInspirationSourceChanged": "インスピレーションの元が変更されました。インスピレーションを開き直してください。",
+  "@chatInspirationSourceChanged": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，使用 Inspiration 生成回复中显示的文字"
+  },
+  "chatInspiration": "インスピレーション",
+  "@chatInspiration": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，使用 Inspiration 生成回复的按钮或标签"
+  },
+  "chatMessageCannotSend": "このメッセージは送信できなくなりました",
+  "@chatMessageCannotSend": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatMessageEmpty": "メッセージが空です",
+  "@chatMessageEmpty": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatConnectionFailed": "このチャットに接続できません",
+  "@chatConnectionFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatReplyChangedSelect": "返信が変更されました。インスピレーションを選び直してください。",
+  "@chatReplyChangedSelect": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatSendConfirmFailed": "メッセージの送信を確認できません",
+  "@chatSendConfirmFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatNoNetworkConnection": "ネットワーク接続がありません",
+  "@chatNoNetworkConnection": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatRoundCannotContinue": "このラウンドは続行できません",
+  "@chatRoundCannotContinue": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复中显示的文字"
+  },
+  "chatSourceRoundChanged": "元のラウンドが変更されました",
+  "@chatSourceRoundChanged": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复中显示的文字"
+  },
+  "chatGo": "続ける",
+  "@chatGo": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复的按钮或标签"
+  },
+  "chatReplyActionUnavailable": "この返信操作は利用できなくなりました",
+  "@chatReplyActionUnavailable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatRegenerateFailure": "再生成に失敗しました",
+  "@chatRegenerateFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatGoFailure": "続行に失敗しました",
+  "@chatGoFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatEditFailure": "編集に失敗しました",
+  "@chatEditFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatInspirationFailure": "インスピレーションの生成に失敗しました",
+  "@chatInspirationFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatJoinLocationFailed": "この場所への参加に失敗しました",
+  "@chatJoinLocationFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatInactive": "このチャットは有効ではありません",
+  "@chatInactive": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatChatroomUnavailable": "チャットルームを利用できません",
+  "@chatChatroomUnavailable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatFailedConfirmReplyAction": "返信操作を確認できません",
+  "@chatFailedConfirmReplyAction": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatLeastOneMessageMustRemain": "少なくとも1件のメッセージを残してください。",
+  "@chatLeastOneMessageMustRemain": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyNotEditable": "この返信は編集できません",
+  "@chatReplyNotEditable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyAlreadyFixed": "この返信は確定済みです",
+  "@chatReplyAlreadyFixed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyEditorFrozen": "返信エディターはロックされています",
+  "@chatReplyEditorFrozen": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatResolvePreviousSaveBefore": "前の保存を完了させてから、その下書きを変更してください",
+  "@chatResolvePreviousSaveBefore": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatStaleReplyEditor": "返信エディターの内容が古くなっています",
+  "@chatStaleReplyEditor": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatPreviousSaveResultUncertain": "前の保存結果が不明です。再編集する前に再読み込みしてください",
+  "@chatPreviousSaveResultUncertain": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatCandidateMissing": "候補が存在しません",
+  "@chatCandidateMissing": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatBatchSupportsMost100Changes": "1回の一括処理で変更できるのは最大100件です",
+  "@chatBatchSupportsMost100Changes": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatMissingStableMessageIdentity": "メッセージの固定識別子がありません",
+  "@chatMissingStableMessageIdentity": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatEditTargetHasChanged": "編集対象が変更されました",
+  "@chatEditTargetHasChanged": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatMessageNotEditable": "このメッセージは編集できません",
+  "@chatMessageNotEditable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyNoLongerEditable": "この返信は編集できなくなりました",
+  "@chatReplyNoLongerEditable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatEditorOpenFailed": "エディターを開けませんでした",
+  "@chatEditorOpenFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatInactiveDuringEdit": "このチャットは有効ではありません。",
+  "@chatInactiveDuringEdit": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatEditMessage": "メッセージを編集",
+  "@chatEditMessage": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复页面的标题"
+  },
+  "chatSave": "保存",
+  "@chatSave": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复页面的按钮或标签"
+  },
+  "chatEdit": "編集",
+  "@chatEdit": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，聊天回复旁的 Edit 按钮"
+  },
+  "chatRegenerate": "再生成",
+  "@chatRegenerate": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，聊天回复旁的 Regenerate 按钮"
+  },
+  "chatRegenerateUnavailable": "このラウンドは再生成できません",
+  "@chatRegenerateUnavailable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，重新生成聊天回复中显示的文字"
+  },
+  "chatGenerate10Replies": "返信は最大10件生成できます。",
+  "@chatGenerate10Replies": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，重新生成聊天回复时显示的提示"
+  },
+  "chatPreviousReply": "前の返信",
+  "@chatPreviousReply": {
+    "description": "首页 - Home → 地点聊天室，AI 回复的翻页按钮"
+  },
+  "chatNextReply": "次の返信",
+  "@chatNextReply": {
+    "description": "首页 - Home → 地点聊天室，AI 回复的翻页按钮"
+  },
+  "chatCopy": "コピー",
+  "@chatCopy": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室长按消息后的操作菜单的按钮或标签"
+  },
+  "chatReport": "報告",
+  "@chatReport": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室长按消息后的操作菜单的按钮或标签"
+  },
+  "chatCopied": "コピーしました",
+  "@chatCopied": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
+  },
+  "chatCountNewMessage": "新着メッセージ{count}件",
+  "@chatCountNewMessage": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "chatMention": "メンション",
+  "@chatMention": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatCharacters": "キャラクター",
+  "@chatCharacters": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatNoCharacters": "キャラクターがいません",
+  "@chatNoCharacters": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatNoLocations": "場所がありません",
+  "@chatNoLocations": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatHere": "ここ",
+  "@chatHere": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室消息中的当前位置标记中显示的文字"
+  },
+  "chatLoadEarlierMessages": "過去のメッセージを読み込む",
+  "@chatLoadEarlierMessages": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室消息列表的加载状态"
+  },
+  "chatText": "テキスト...",
+  "@chatText": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室消息输入区域的输入框提示"
+  },
+  "chatLocationRoster": "あなた",
+  "@chatLocationRoster": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室顶部的角色列表中显示的文字"
+  },
+  "homeNpc": "NPC",
+  "@homeNpc": {
+    "description": "首页 - Home → 聊天消息，聊天消息中的角色头像中显示的文字"
+  },
+  "commonAiDisclaimer": "すべてのコンテンツはAIが生成したフィクションです。実在の人物、出来事、場所との類似は偶然です。",
+  "@commonAiDisclaimer": {
+    "description": "首页 - Home → 聊天页 - AI 内容免责声明，聊天消息下方的 AI 内容免责声明中显示的文字"
+  },
+  "homeRecent": "最近",
+  "@homeRecent": {
+    "description": "首页 - Home → 聊天页 - 最近消息标记，聊天室最近消息标记中显示的文字"
+  },
+  "worldoUnableSavePreference": "設定を保存できませんでした。もう一度お試しください。",
+  "@worldoUnableSavePreference": {
+    "description": "首页 - Worldo，Worldo 列表页的性别筛选菜单时显示的提示"
+  },
+  "worldoFilterGender": "性別で絞り込み",
+  "@worldoFilterGender": {
+    "description": "首页 - Worldo，Worldo 列表页的性别筛选菜单中显示的文字"
+  },
+  "worldoNoData": "データがありません",
+  "@worldoNoData": {
+    "description": "首页 - Worldo，Worldo 列表的加载和空状态"
+  },
+  "worldoAll": "すべて",
+  "@worldoAll": {
+    "description": "首页 - Me → Gems 钱包 → Gems 明细页，顶部记录筛选栏的 All 选项"
+  },
+  "worldoDetailSelectRole": "自分の役割を選択",
+  "@worldoDetailSelectRole": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板的基础信息中显示的文字"
+  },
+  "worldoDetailOID": "OID",
+  "@worldoDetailOID": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板顶部信息的按钮或标签"
+  },
+  "worldoDetailCreator": "クリエイター：{creatorName}",
+  "@worldoDetailCreator": {
+    "description": "首页 - Home → 搜索结果的 Worldo 卡片，创建者名称；首页 - Worldo → Worldo 详情面板，创建者名称",
+    "placeholders": {
+      "creatorName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoDetailEditWorldo": "Worldoを編集",
+  "@worldoDetailEditWorldo": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板中的编辑入口的按钮或标签"
+  },
+  "worldoDetailWorldoBrief": "Worldo概要",
+  "@worldoDetailWorldoBrief": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 World 区域的标题"
+  },
+  "worldoDetailNewPost": "新しい投稿",
+  "@worldoDetailNewPost": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域的标题"
+  },
+  "worldoDetailWritePost": "投稿を書く",
+  "@worldoDetailWritePost": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域的输入框提示"
+  },
+  "worldoDetailDiscussCount": "ディスカッション（{discussCount}）",
+  "@worldoDetailDiscussCount": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域的标题",
+    "placeholders": {
+      "discussCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoDetailViewAll": "すべて表示 >",
+  "@worldoDetailViewAll": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域中显示的文字"
+  },
+  "worldoDetailPlayingWorld": "プレイ中のワールド",
+  "@worldoDetailPlayingWorld": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
+  },
+  "worldoDetailTickCountSubLabel": "ターン{tickCount}{subTickLabel} · {messageCountLabel}",
+  "@worldoDetailTickCountSubLabel": {
+    "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
+    "placeholders": {
+      "tickCount": {
+        "type": "String"
+      },
+      "subTickLabel": {
+        "type": "String"
+      },
+      "messageCountLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoDetailCharactersLength": "キャラクター（{length}）",
+  "@worldoDetailCharactersLength": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的角色列表中显示的文字",
+    "placeholders": {
+      "length": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoSend": "送信",
+  "@worldoSend": {
+    "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子中显示的文字"
+  },
+  "worldoPostFailed": "投稿に失敗しました",
+  "@worldoPostFailed": {
+    "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子时显示的提示"
+  },
+  "worldoImageUploadFailed": "画像のアップロードに失敗しました",
+  "@worldoImageUploadFailed": {
+    "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子时显示的提示"
+  },
+  "worldoLoadRepliesFailed": "返信の読み込みに失敗しました",
+  "@worldoLoadRepliesFailed": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页的回复列表时显示的提示"
+  },
+  "worldoWriteReply": "返信を書く",
+  "@worldoWriteReply": {
+    "description": "首页 - Worldo → 帖子详情页，回复评论时的输入框的输入框提示"
+  },
+  "worldoReplyName": "{replyToName}に返信",
+  "@worldoReplyName": {
+    "description": "首页 - Worldo → 帖子详情页，回复评论时的输入框的输入框提示",
+    "placeholders": {
+      "replyToName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoPostDetail": "投稿詳細",
+  "@worldoPostDetail": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页中显示的文字"
+  },
+  "worldoPostUnavailable": "投稿を表示できません",
+  "@worldoPostUnavailable": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页中显示的文字"
+  },
+  "worldoAllRepliesReplyCount": "すべての返信 {replyCount}",
+  "@worldoAllRepliesReplyCount": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页的回复列表中显示的文字",
+    "placeholders": {
+      "replyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoViewAllReplies": "返信{replyCount}件をすべて表示",
+  "@worldoViewAllReplies": {
+    "description": "首页 - Worldo → 帖子详情页，回复列表底部的查看全部回复按钮",
+    "placeholders": {
+      "replyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLikeFailed": "いいねに失敗しました",
+  "@worldoLikeFailed": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页时显示的提示"
+  },
+  "worldoViewAllReplyCountReplies": "返信{replyCount}件をすべて表示",
+  "@worldoViewAllReplyCountReplies": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字",
+    "placeholders": {
+      "replyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoUser": "ユーザー",
+  "@worldoUser": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字"
+  },
+  "worldoViewMore": "もっと見る >",
+  "@worldoViewMore": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字"
+  },
+  "worldoDiscuss": "ディスカッション（{discussCount}）",
+  "@worldoDiscuss": {
+    "description": "首页 - Worldo → Worldo 讨论区，Discuss 入口旁的数量",
+    "placeholders": {
+      "discussCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoViewAllRemainingReplyCount": "返信{remainingReplyCount}件をすべて表示",
+  "@worldoViewAllRemainingReplyCount": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字",
+    "placeholders": {
+      "remainingReplyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoReply": "返信",
+  "@worldoReply": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域的标题"
+  },
+  "worldoDiscussTitle": "ディスカッション",
+  "@worldoDiscussTitle": {
+    "description": "首页 - Worldo → 讨论列表页，Discuss 讨论列表中显示的文字"
+  },
+  "worldoLaunchLocationComesLife": "起動すると、この場所が動き出します。",
+  "@worldoLaunchLocationComesLife": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
+  },
+  "worldoLaunchLaunchWorldoExplore": "このWorldoを起動して、ここを探索し、交流しましょう。",
+  "@worldoLaunchLaunchWorldoExplore": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
+  },
+  "worldoLaunchRoleUnavailable": "この役割は利用できなくなりました",
+  "@worldoLaunchRoleUnavailable": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择时显示的提示"
+  },
+  "worldoLaunchSelectRole": "自分の役割を選択",
+  "@worldoLaunchSelectRole": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色中显示的文字"
+  },
+  "worldoLaunchProfile": "あなたのプロフィール",
+  "@worldoLaunchProfile": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchSuggested": "おすすめ",
+  "@worldoLaunchSuggested": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchName": "名前",
+  "@worldoLaunchName": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchIdentity": "身分",
+  "@worldoLaunchIdentity": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchPersonality": "性格",
+  "@worldoLaunchPersonality": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchGoal": "目標",
+  "@worldoLaunchGoal": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchSetupRole": "自分の役割を設定",
+  "@worldoLaunchSetupRole": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的标题"
+  },
+  "worldoLaunchPreset": "プリセット",
+  "@worldoLaunchPreset": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
+  },
+  "worldoLaunchCustom": "カスタム",
+  "@worldoLaunchCustom": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
+  },
+  "worldoLaunchNoPresetRole": "プリセットの役割がありません",
+  "@worldoLaunchNoPresetRole": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
+  },
+  "worldoLaunchFilling": "入力中...",
+  "@worldoLaunchFilling": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
+  },
+  "worldoLaunchFillMyProfile": "自分のプロフィールから入力",
+  "@worldoLaunchFillMyProfile": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
+  },
+  "worldoLaunchLaunch": "起動",
+  "@worldoLaunchLaunch": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
+  },
+  "worldoLaunchWorldoWorldName": "Worldo #{worldName}を起動しました！",
+  "@worldoLaunchWorldoWorldName": {
+    "description": "首页 - Worldo → Worldo Launch，Worldo Launch 完成后的弹窗",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLaunchEnter": "入る",
+  "@worldoLaunchEnter": {
+    "description": "首页 - Worldo → Worldo Launch，Worldo Launch 完成后的弹窗"
+  },
+  "createAction": "作成",
+  "@createAction": {
+    "description": "首页 - Create → Create Worldo 页面，底部最终提交按钮"
+  },
+  "createWorldoTitle": "Worldoを作成",
+  "@createWorldoTitle": {
+    "description": "首页 - Create → Create Worldo 页面，顶部标题"
+  },
+  "createFailed": "作成に失敗しました",
+  "@createFailed": {
+    "description": "首页 - Create → Create Worldo 页面，提交异常时的提示"
+  },
+  "createNotesRequired": "公開するには更新内容が必要です。",
+  "@createNotesRequired": {
+    "description": "首页 - Create → Edit Worldo 页面，发布时未填写更新说明的提示"
+  },
+  "createActionInProgress": "この操作はすでに実行中です。",
+  "@createActionInProgress": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，重复点击提交时的提示"
+  },
+  "createCurrentVersion": "現在のバージョン：{version}",
+  "@createCurrentVersion": {
+    "description": "首页 - Create → Edit Worldo 页面，摘要顶部显示当前版本",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "createChecking": "確認中...",
+  "@createChecking": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，检查待处理提交时的底部按钮"
+  },
+  "createSummaryName": "Worldo名：{name}",
+  "@createSummaryName": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 名称",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryBrief": "Worldo概要：{brief}",
+  "@createSummaryBrief": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 简介",
+    "placeholders": {
+      "brief": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryCover": "カバー画像：{status}",
+  "@createSummaryCover": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的封面状态",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "createNotUploaded": "未アップロード",
+  "@createNotUploaded": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中封面未上传状态"
+  },
+  "createUploaded": "アップロード済み",
+  "@createUploaded": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中封面已上传状态"
+  },
+  "createSummarySettings": "Worldo設定：{settings}",
+  "@createSummarySettings": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的世界设定",
+    "placeholders": {
+      "settings": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryTime": "Worldo時間：{time}",
+  "@createSummaryTime": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的时间设定",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryMetric": "Worldo指標：{metric}",
+  "@createSummaryMetric": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的数值设定",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
+  },
+  "createDays": "{count, plural, =0{{count}日}  =1{{count}日} other{{count}日}}",
+  "@createDays": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中时间间隔的天数",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryNoCharacters": "キャラクター0人",
+  "@createSummaryNoCharacters": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
+  },
+  "createSummaryCharacters": "キャラクター{count}人：{names}",
+  "@createSummaryCharacters": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummarySuggested": "おすすめ：{name}",
+  "@createSummarySuggested": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的推荐角色",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryRegion": "L1 · 地域：{count}",
+  "@createSummaryRegion": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的一级地点数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryBuilding": "L2 · 建物：{count}",
+  "@createSummaryBuilding": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的二级地点数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryRoom": "L3 · 部屋：{count}",
+  "@createSummaryRoom": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的三级地点数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryEvents": "イベント{count}件",
+  "@createSummaryEvents": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryDialogue": "キャラクターのセリフ：{count}",
+  "@createSummaryDialogue": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的角色对话数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryNarrator": "ナレーター：{count}",
+  "@createSummaryNarrator": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的旁白数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryImage": "画像：{count}",
+  "@createSummaryImage": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的图片数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createDeleteItemLabel": "{itemLabel}を削除しますか？",
+  "@createDeleteItemLabel": {
+    "description": "首页 - Create，“Delete ${itemLabel}?”字段或选项",
+    "placeholders": {
+      "itemLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createItemHasContentDeleteAnyway": "この項目には内容があります。それでも削除しますか？",
+  "@createItemHasContentDeleteAnyway": {
+    "description": "首页 - Create，删除条目确认弹窗"
+  },
+  "createImageUploadProgress": "画像をアップロード中です。",
+  "@createImageUploadProgress": {
+    "description": "首页 - Create，封面上传区时显示的提示"
+  },
+  "createBasicsBasics": "基本情報",
+  "@createBasicsBasics": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Basics 页标题；提交前校验提示中的 Basics 名称"
+  },
+  "createSaveInProgress": "すでに保存中です。",
+  "@createSaveInProgress": {
+    "description": "首页 - Create → Worldo 的 Basics、Characters、Locations、Opening、Story Events 编辑页，保存过程中再次点击禁用的 Save 按钮"
+  },
+  "createRequiredBeforeSave": "必須項目をすべて入力してから保存してください。",
+  "@createRequiredBeforeSave": {
+    "description": "首页 - Create → Worldo 的 Basics 或 Opening 编辑页，必填项未完成时点击 Save 按钮"
+  },
+  "createOpeningOpening": "導入",
+  "@createOpeningOpening": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Opening 页标题；提交前校验提示中的 Opening 名称"
+  },
+  "createCharacterCharactersCreate": "キャラクター：少なくとも1人作成してください。",
+  "@createCharacterCharactersCreate": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createCharacterCharactersOnlyOne": "キャラクター：おすすめにできるのは1人だけです。",
+  "@createCharacterCharactersOnlyOne": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsWorldoName": "基本情報：Worldo名は必須です。",
+  "@createBasicsBasicsWorldoName": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsWorldoBrief": "基本情報：Worldo概要は必須です。",
+  "@createBasicsBasicsWorldoBrief": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsCoverImage": "基本情報：カバー画像は必須です。",
+  "@createBasicsBasicsCoverImage": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsMetricMust": "基本情報：指標は有効なJSONである必要があります。",
+  "@createBasicsBasicsMetricMust": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createCharacterCharactersName": "キャラクター#{characterIndex}：名前は必須です。",
+  "@createCharacterCharactersName": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个角色缺少 Name 的提示",
+    "placeholders": {
+      "characterIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterCharacters": "キャラクター#{characterIndex}：身分は必須です。",
+  "@createCharacterCharacters": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个角色缺少 Identity 的提示",
+    "placeholders": {
+      "characterIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterRequired": "キャラクター#{characterIndex}：性格は必須です。",
+  "@createCharacterRequired": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个角色缺少 Personality 的提示",
+    "placeholders": {
+      "characterIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterCharactersLeast": "キャラクター：少なくとも1人必要です。",
+  "@createCharacterCharactersLeast": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createLocationLocationsCreate": "場所：少なくとも1か所作成してください。",
+  "@createLocationLocationsCreate": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createLocationLocationsLocation": "場所#{locationIndex}：場所名は必須です。",
+  "@createLocationLocationsLocation": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个地点缺少 Location Name 的提示",
+    "placeholders": {
+      "locationIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createOpeningOpeningSelect": "導入：場所を選択し、すべてのセリフ項目を完成させてください。",
+  "@createOpeningOpeningSelect": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createOpeningOpeningSelected": "導入：選択した場所は利用できなくなりました。",
+  "@createOpeningOpeningSelected": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createOpeningCharacterOpening": "導入：選択したキャラクターは利用できなくなりました。",
+  "@createOpeningCharacterOpening": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createOpeningOpeningDialogue": "導入：セリフのキャラクターが選択した場所にいません。「導入」を開いて修正してください。",
+  "@createOpeningOpeningDialogue": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createUnsupportedOpeningDialogue": "対応していない導入のセリフ：{type}",
+  "@createUnsupportedOpeningDialogue": {
+    "description": "首页 - Create，表单校验，“Unsupported opening dialogue: ${type}”字段或选项",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "createCreating": "作成中...",
+  "@createCreating": {
+    "description": "首页 - Create，页面标题/登录限制中显示的文字"
+  },
+  "createDiscard": "破棄",
+  "@createDiscard": {
+    "description": "首页 - Create → Worldo 编辑页，未保存离开确认弹窗"
+  },
+  "createCharactersStep": "キャラクター（1人以上）",
+  "@createCharactersStep": {
+    "description": "首页 - Create → Worldo 编辑页，步骤页标题/状态"
+  },
+  "createLocationsStep": "場所（1か所以上）",
+  "@createLocationsStep": {
+    "description": "首页 - Create → Worldo 编辑页，步骤页标题/状态"
+  },
+  "createStoryEventsOptional": "ストーリーイベント（任意）",
+  "@createStoryEventsOptional": {
+    "description": "首页 - Create → Worldo 编辑页，步骤页标题/状态"
+  },
+  "createUpdateNotesRequiredPublish": "更新内容（公開に必要）",
+  "@createUpdateNotesRequiredPublish": {
+    "description": "首页 - Create → Worldo 编辑页，Update Notes 字段标题"
+  },
+  "createWhatChangedVersion": "このバージョンの変更内容は？",
+  "@createWhatChangedVersion": {
+    "description": "首页 - Create → Worldo 编辑页，Update Notes 输入框的输入框提示"
+  },
+  "createView": "表示",
+  "@createView": {
+    "description": "首页 - Create → Worldo 编辑页，Worldo 提交处理完成后的弹窗"
+  },
+  "createNotStartedYet": "未開始",
+  "@createNotStartedYet": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics、Characters、Locations、Opening、Story Events 尚未保存时的模块摘要"
+  },
+  "createEdited": "編集済み",
+  "@createEdited": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域中显示的文字"
+  },
+  "createPublishingWorldo": "Worldoを公開中",
+  "@createPublishingWorldo": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域的标题"
+  },
+  "createCreatingWorldo": "Worldoを作成中",
+  "@createCreatingWorldo": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域的标题"
+  },
+  "createPreparingWorldoUpdatesWait": "Worldoの更新を準備しています。\nしばらくお待ちください。",
+  "@createPreparingWorldoUpdatesWait": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域中显示的文字"
+  },
+  "createBringingWorldoLifeWait": "Worldoに命を吹き込んでいます。\nしばらくお待ちください。",
+  "@createBringingWorldoLifeWait": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域中显示的文字"
+  },
+  "createDescribeIssue": "問題を説明してください",
+  "@createDescribeIssue": {
+    "description": "首页 - Create → 内容提交弹窗，提交内容时填写说明的弹窗"
+  },
+  "createSubmit": "送信",
+  "@createSubmit": {
+    "description": "首页 - Create → 内容提交弹窗，提交内容时填写说明的弹窗"
+  },
+  "createBasicsWorldoName": "Worldo名 *",
+  "@createBasicsWorldoName": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Name”字段标题"
+  },
+  "createBasicsNameRequired": "Worldo名は必須です。",
+  "@createBasicsNameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Name 为空时点击 Save 的提示"
+  },
+  "createBasicsBriefRequired": "Worldo概要は必須です。",
+  "@createBasicsBriefRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 为空时点击 Save 的提示"
+  },
+  "createBasicsCoverRequired": "カバー画像は必須です。",
+  "@createBasicsCoverRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Cover Image 为空时点击 Save 的提示"
+  },
+  "createBasicsMetricInvalid": "指標は有効なJSONである必要があります。",
+  "@createBasicsMetricInvalid": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Metric JSON 无效时点击 Save 的提示"
+  },
+  "createBasicsEgMainStreet": "例：メインストリート",
+  "@createBasicsEgMainStreet": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Main Street”"
+  },
+  "createBasicsWorldoBrief": "Worldo概要 *",
+  "@createBasicsWorldoBrief": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Brief”字段标题"
+  },
+  "createBasicsBriefNote": "プレイヤーが最初に見る紹介文。舞台、中心となる対立、興味を引く要素を記述します。",
+  "@createBasicsBriefNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 输入框下的说明"
+  },
+  "createBasicsHiddenNote": "物語を動かす隠されたルールや背景。思惑、仕組み、秘密の制約を記述します。",
+  "@createBasicsHiddenNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Settings - Hidden 输入框下的说明"
+  },
+  "createBasicsEgHalfShopsMain": "例：メインストリートの店の半分は板で塞がれている。労働者の日までに、最も裕福な店主が街を支配する。",
+  "@createBasicsEgHalfShopsMain": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.”"
+  },
+  "createBasicsCoverImage": "カバー画像 *",
+  "@createBasicsCoverImage": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Cover Image”字段标题"
+  },
+  "createBasicsUpload": "アップロード",
+  "@createBasicsUpload": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，封面图片上传按钮"
+  },
+  "createBasicsUsedCardsDetailPages": "カードや詳細ページに使用します。推奨サイズは約768×1024 px。対応形式：JPG、PNG、WEBP。",
+  "@createBasicsUsedCardsDetailPages": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，封面图片尺寸和格式说明"
+  },
+  "createBasicsWorldoSettingsHidden": "Worldo設定 — 非公開（任意）",
+  "@createBasicsWorldoSettingsHidden": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Settings - Hidden (Optional)”字段或选项"
+  },
+  "createBasicsEgBankerSecretly": "例：銀行家が融資先を密かに決めており、借りすぎた者は追い出される可能性がある。",
+  "@createBasicsEgBankerSecretly": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. The banker secretly controls who gets loans; whoever overextends can be squeezed out.”"
+  },
+  "createBasicsWorldoTimeOptional": "Worldo時間（任意）",
+  "@createBasicsWorldoTimeOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Time (Optional)”字段或选项"
+  },
+  "createBasicsWorldoStartsStart": "このworldoは'{開始時刻}'に始まり、ユーザーが*進行*をタップするたびに、時間軸が'{進行ごとの時間}'だけ進みます。",
+  "@createBasicsWorldoStartsStart": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Time 字段下方的说明"
+  },
+  "createBasicsStartTime": "開始時刻",
+  "@createBasicsStartTime": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Start Time”字段或选项"
+  },
+  "createBasicsDateExample": "例：1日目、09:00 / 2026-01-01",
+  "@createBasicsDateExample": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Day 1, 09:00 / 2026-01-01”"
+  },
+  "createBasicsTimePerProgress": "進行ごとの時間",
+  "@createBasicsTimePerProgress": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Time per Progress”字段或选项"
+  },
+  "createBasicsEg8Hours3Days": "例：8時間 / 3日",
+  "@createBasicsEg8Hours3Days": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. 8 hours / 3 days”"
+  },
+  "createBasicsWorldoMetricOptional": "Worldo指標（任意）",
+  "@createBasicsWorldoMetricOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Metric (Optional)”字段或选项"
+  },
+  "createBasicsMetricLabel": "指標名",
+  "@createBasicsMetricLabel": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Metric Label”字段或选项"
+  },
+  "createBasicsEgWealthGoalProgress": "例：資産 / 目標達成度",
+  "@createBasicsEgWealthGoalProgress": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Wealth / Goal Progress”"
+  },
+  "createBasicsLabelNote": "指標の説明",
+  "@createBasicsLabelNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Label note”字段或选项"
+  },
+  "createBasicsDescribeWhatMetric": "この指標が何を測定するか説明してください",
+  "@createBasicsDescribeWhatMetric": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Describe what this metric measures”"
+  },
+  "createBasicsUnit": "単位",
+  "@createBasicsUnit": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Unit”字段或选项"
+  },
+  "createBasicsEgCoins": "例：コイン / %",
+  "@createBasicsEgCoins": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. coins / %”"
+  },
+  "createBasicsRange": "値の範囲",
+  "@createBasicsRange": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Value Range”字段或选项"
+  },
+  "createBasicsStarting": "初期値",
+  "@createBasicsStarting": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Starting”"
+  },
+  "createBasicsDeltaMin": "最小変動値",
+  "@createBasicsDeltaMin": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Delta Min”"
+  },
+  "createBasicsDeltaMax": "最大変動値",
+  "@createBasicsDeltaMax": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Delta Max”"
+  },
+  "createBasicsSaving": "保存中...",
+  "@createBasicsSaving": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，保存按钮"
+  },
+  "createBasicsAdvancedSettings": "詳細設定（任意）",
+  "@createBasicsAdvancedSettings": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Advanced Settings 分隔标题"
+  },
+  "createCharacterCharacterIndex": "キャラクター{index}",
+  "@createCharacterCharacterIndex": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色卡片的标题",
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterSuggest": "おすすめにする",
+  "@createCharacterSuggest": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，Best Role 选择区中显示的文字"
+  },
+  "createCharacterAvatarOptional": "アバター\n（任意）",
+  "@createCharacterAvatarOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“AVATAR\\n(Optional)”字段或选项"
+  },
+  "createCharacterName": "名前 *",
+  "@createCharacterName": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Name”字段标题"
+  },
+  "createCharactersTitle": "キャラクター",
+  "@createCharactersTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Characters 编辑页顶部标题"
+  },
+  "createCharacterLimit": "キャラクターは最大{count}人追加できます。",
+  "@createCharacterLimit": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，超过角色数量上限时的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterNameRequired": "キャラクター{index}：名前は必須です。",
+  "@createCharacterNameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Name 时保存的提示",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterIdentityRequired": "キャラクター{index}：身分は必須です。",
+  "@createCharacterIdentityRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Identity 时保存的提示",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterPersonalityRequired": "キャラクター{index}：性格は必須です。",
+  "@createCharacterPersonalityRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Personality 时保存的提示",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterMinOne": "少なくとも1人のキャラクターを作成してください。",
+  "@createCharacterMinOne": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，没有角色时点击 Save 的提示"
+  },
+  "createCharacterEnterName": "名前を入力...",
+  "@createCharacterEnterName": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“Enter name...”"
+  },
+  "createCharacterIdentity": "身分 *",
+  "@createCharacterIdentity": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Identity”字段标题"
+  },
+  "createCharacterEgHometownKidBack": "例：本当のチャンスを求めて故郷に戻った若者",
+  "@createCharacterEgHometownKidBack": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. A hometown kid back for one real shot”"
+  },
+  "createCharacterPersonality": "性格 *",
+  "@createCharacterPersonality": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Personality”字段标题"
+  },
+  "createCharacterEgUnderdog": "例：善意はあるが資金の少ない挑戦者",
+  "@createCharacterEgUnderdog": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Underdog with goodwill but little capital”"
+  },
+  "createCharacterGoalOptional": "目標（任意）",
+  "@createCharacterGoalOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Goal (Optional)”字段或选项"
+  },
+  "createCharacterEgRichestOwner": "例：労働者の日までにメインストリートで最も裕福な店主になる",
+  "@createCharacterEgRichestOwner": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Be the richest owner on Main Street by Labor Day”"
+  },
+  "createCharacterBackgroundHidden": "背景 — 非公開（任意）",
+  "@createCharacterBackgroundHidden": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Background - Hidden (Optional)”字段或选项"
+  },
+  "createCharacterEgLeftTownYears": "例：何年も前に街を離れ、チャンスを求めて閉鎖されたメインストリートに戻ってきた。",
+  "@createCharacterEgLeftTownYears": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Left town years ago; returned to a boarded-up Main Street for one chance.”"
+  },
+  "createCharacterAddCharacter": "+ キャラクターを追加",
+  "@createCharacterAddCharacter": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色列表/保存操作的按钮或标签"
+  },
+  "createLocationImageOptional": "画像\n（任意）",
+  "@createLocationImageOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，“IMAGE\\n(Optional)”字段或选项"
+  },
+  "createCharacterSelectAvailable": "以下の利用可能なキャラクターから選択",
+  "@createCharacterSelectAvailable": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterInitialCharacters": "初期キャラクター（任意）",
+  "@createCharacterInitialCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createLocationStartingCharacters": "worldoが始まるときに、ここにいるキャラクター。",
+  "@createLocationStartingCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterAvailableSelect": "選択可能",
+  "@createCharacterAvailableSelect": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterNoCharactersYet": "キャラクターはまだいません。先に作成してから開始場所を選んでください。",
+  "@createCharacterNoCharactersYet": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterNoCharacters": "選択できるキャラクターがいません。全員に初期場所が設定されています。",
+  "@createCharacterNoCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createLocationEveryL2L3Locations": "中にあるすべてのL2とL3の場所も削除されます。",
+  "@createLocationEveryL2L3Locations": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗"
+  },
+  "createLocationEveryL3Locations": "中にあるすべてのL3の場所も削除されます。",
+  "@createLocationEveryL3Locations": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗"
+  },
+  "createLocationDeleteDisplayName": "「{displayName}」を削除",
+  "@createLocationDeleteDisplayName": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationOpeningLocation": "ここは導入の場所です。削除すると導入も消去されます。",
+  "@createLocationOpeningLocation": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除 Opening 地点确认弹窗"
+  },
+  "createLocationL1LocationRegion": "L1の場所 · 地域 *",
+  "@createLocationL1LocationRegion": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，地点树节点标题"
+  },
+  "createLocationL2LocationBuilding": "L2の場所 · 建物 *",
+  "@createLocationL2LocationBuilding": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，地点树节点标题"
+  },
+  "createLocationAddL3Location": "L3の場所を追加",
+  "@createLocationAddL3Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet的标题"
+  },
+  "createLocationsTitle": "場所",
+  "@createLocationsTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Locations 编辑页顶部标题"
+  },
+  "createLocationStatisticsNote": "ワールドは3つの階層で構成されます：\nL1 · 地域     ワールド内のエリア — 中心街\nL2 · 建物   その中の建物 — ジョーの食堂\nL3 · 部屋       建物内の部屋 — 奥の厨房\nすべての場所に3階層が必要です。部屋は合計15室まで作成できます。",
+  "@createLocationStatisticsNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Preview 页面地点层级说明"
+  },
+  "createLocationL1NameNote": "地区、街、森など、ワールド内のエリア。単独の建物ではありません。",
+  "@createLocationL1NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称输入框下的说明"
+  },
+  "createLocationL2NameNote": "店、学校、集合住宅など、その地域内の建物。",
+  "@createLocationL2NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点名称输入框下的说明"
+  },
+  "createLocationL3NameNote": "建物内の部屋。屋上、中庭、入口も設定できます。",
+  "@createLocationL3NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称输入框下的说明"
+  },
+  "createLocationName": "名前 *",
+  "@createLocationName": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet 的名称字段标题"
+  },
+  "createLocationL1NameRequired": "L1の場所名は必須です。",
+  "@createLocationL1NameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称为空时点击 Save 的提示"
+  },
+  "createLocationL3NameRequired": "L3の場所名は必須です。",
+  "@createLocationL3NameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称为空时点击 Save 的提示"
+  },
+  "createLocationThisL1": "このL1の場所",
+  "@createLocationThisL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点尚未命名时校验提示中的地点称呼"
+  },
+  "createLocationThisL2": "このL2の場所",
+  "@createLocationThisL2": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点尚未命名时校验提示中的地点称呼"
+  },
+  "createLocationL1NeedsL2": "{locationLabel}には少なくとも1つのL2の場所が必要です。",
+  "@createLocationL1NeedsL2": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点缺少 L2 子地点时的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationL2NeedsL3": "{locationLabel}には少なくとも1つのL3の場所が必要です。",
+  "@createLocationL2NeedsL3": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点缺少 L3 子地点时的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationL2NameNeeded": "{locationLabel}に名前のないL2の場所があります。",
+  "@createLocationL2NameNeeded": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 下的 L2 地点缺少名称时点击 Save 的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationL3NameNeeded": "{locationLabel}に名前のないL3の場所があります。",
+  "@createLocationL3NameNeeded": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 下的 L3 地点缺少名称时点击 Save 的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationMaxL3": "L3の場所は最大{count}か所追加できます。",
+  "@createLocationMaxL3": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，新增地点达到 L3 总数上限时的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createLocationRoomsFull": "{count}室すべてを使用しています。追加するには1室削除してください。",
+  "@createLocationRoomsFull": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，新增 L3 地点时房间已满的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createLocationAtLeastOneL1": "少なくとも1つのL1の場所が必要です。",
+  "@createLocationAtLeastOneL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，尝试删除最后一个 L1 地点时的提示"
+  },
+  "createLocationAddL1": "少なくとも1つのL1の場所を追加してください。",
+  "@createLocationAddL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，没有 L1 地点时点击 Save 的提示"
+  },
+  "createLocationMinOne": "少なくとも1か所の場所を作成してください。",
+  "@createLocationMinOne": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，没有地点时点击 Save 的提示"
+  },
+  "createLocationIdRequired": "すべての場所にIDが必要です。",
+  "@createLocationIdRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 缺失的提示"
+  },
+  "createLocationIdUnique": "すべての場所に固有のIDが必要です。",
+  "@createLocationIdUnique": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 重复的提示"
+  },
+  "createLocationParentInvalid": "すべての場所に有効な親が必要です。",
+  "@createLocationParentInvalid": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点上级无效的提示"
+  },
+  "createLocationFieldsRequired": "場所の必須項目をすべて入力してから保存してください。",
+  "@createLocationFieldsRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，必填地点字段未完成时点击 Save 的提示"
+  },
+  "createLocationDeleteBubbles": "{count, plural, =0{場所を保存すると、削除されたキャラクターの導入のセリフ吹き出しも{count}件削除されます。} =1{場所を保存すると、削除されたキャラクターの導入のセリフ吹き出しも1件削除されます。} other{場所を保存すると、削除されたキャラクターの導入のセリフ吹き出しも{count}件削除されます。}}",
+  "@createLocationDeleteBubbles": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时移除角色会连带删除 Opening 对话的确认弹窗正文",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createLocationEditL3Location": "L3の場所を編集",
+  "@createLocationEditL3Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet的标题"
+  },
+  "createLocationPreview": "プレビュー",
+  "@createLocationPreview": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，编辑模式切换中显示的文字"
+  },
+  "createLocationCompleteLocation": "この場所を完成させるか、削除してください。",
+  "@createLocationCompleteLocation": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createLocationRemoveCharacter": "この場所からキャラクターを外しますか？",
+  "@createLocationRemoveCharacter": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，移除 Opening 角色确认弹窗"
+  },
+  "createLocationRemove": "外す",
+  "@createLocationRemove": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，移除 Opening 角色确认弹窗"
+  },
+  "createLocationL1Location": "L1の場所",
+  "@createLocationL1Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createLocationL2Location": "L2の場所",
+  "@createLocationL2Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createLocationL3Location": "L3の場所",
+  "@createLocationL3Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createOpeningSelectLocation": "場所を選択",
+  "@createOpeningSelectLocation": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板的标题"
+  },
+  "createOpeningNoSavedLocations": "保存済みの場所がありません",
+  "@createOpeningNoSavedLocations": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板中显示的文字"
+  },
+  "createOpeningSelect": "選択",
+  "@createOpeningSelect": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板的按钮或标签"
+  },
+  "createOpeningSelectLocationFirst": "先に場所を選択してください。",
+  "@createOpeningSelectLocationFirst": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板时显示的提示"
+  },
+  "createOpeningNoInitialCharacter": "初期キャラクターがいません",
+  "@createOpeningNoInitialCharacter": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，列表项或卡片中显示的文字"
+  },
+  "createOpeningLocationsLoading": "場所を読み込み中です。",
+  "@createOpeningLocationsLoading": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，表单输入区域时显示的提示"
+  },
+  "createOpeningLoadingLocations": "場所を読み込み中...",
+  "@createOpeningLoadingLocations": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，表单输入区域中显示的文字"
+  },
+  "createOpeningSwitchingLocations": "場所を切り替えると、セリフの内容が消去されます。",
+  "@createOpeningSwitchingLocations": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，起始地点选择结果"
+  },
+  "createOpeningContinue": "続行",
+  "@createOpeningContinue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，起始地点选择结果"
+  },
+  "createOpeningAdd10DialogueItems": "セリフ項目は最大10件追加できます。",
+  "@createOpeningAdd10DialogueItems": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，添加对话条目时显示的提示"
+  },
+  "settingsUnableSaveSuggestedRole": "おすすめの役割を保存できませんでした。",
+  "@settingsUnableSaveSuggestedRole": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 设置时显示的提示"
+  },
+  "createOpeningUnableSaveOpening": "導入を保存できませんでした。",
+  "@createOpeningUnableSaveOpening": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，保存结果"
+  },
+  "createOpeningSelectInitial": "初期場所を選択",
+  "@createOpeningSelectInitial": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，“Select initial location”字段或选项"
+  },
+  "createOpeningInitialLocationRequired": "初期場所を選択してから保存してください。",
+  "@createOpeningInitialLocationRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，未选择初始地点时点击 Save 的提示"
+  },
+  "createOpeningAddDialogueFirst": "少なくとも1件のセリフ項目を追加してから保存してください。",
+  "@createOpeningAddDialogueFirst": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，没有对话条目时点击 Save 的提示"
+  },
+  "createOpeningCompleteDialogue": "すべてのセリフ項目を完成させてから保存してください。",
+  "@createOpeningCompleteDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，有未完成对话条目时点击 Save 的提示"
+  },
+  "createOpeningDialogue": "導入のセリフ",
+  "@createOpeningDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，“Opening dialogue”字段或选项"
+  },
+  "createOpeningLocationRequired": "先に場所を選択してからセリフを編集してください。",
+  "@createOpeningLocationRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Opening 内容表单中显示的文字"
+  },
+  "createOpeningNarrator": "ナレーター",
+  "@createOpeningNarrator": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 对话编辑区的按钮或标签"
+  },
+  "createOpeningImage": "画像",
+  "@createOpeningImage": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 对话编辑区的按钮或标签"
+  },
+  "createOpeningSuggestRoleUser": "ユーザーに役割をおすすめ",
+  "@createOpeningSuggestRoleUser": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 选择器中显示的文字"
+  },
+  "createOpeningNoCharacters": "利用可能なキャラクターがいません。",
+  "@createOpeningNoCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 选择器中显示的文字"
+  },
+  "createOpeningEnterNarrator": "ナレーターのセリフを入力",
+  "@createOpeningEnterNarrator": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Narrator 对话条目的输入框提示"
+  },
+  "createOpeningEnterNameDialogue": "{name}のセリフを入力",
+  "@createOpeningEnterNameDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Character 对话条目的输入框提示",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createOpeningUser": "'{{user}}'",
+  "@createOpeningUser": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 文本输入框的按钮或标签"
+  },
+  "createOpeningUploadImage": "画像をアップロード",
+  "@createOpeningUploadImage": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Image 对话条目的按钮或标签"
+  },
+  "createEventAddEvent": "+ イベントを追加",
+  "@createEventAddEvent": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件列表/保存操作的按钮或标签"
+  },
+  "createStoryEventsTitle": "ストーリーイベント",
+  "@createStoryEventsTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Story Events 编辑页顶部标题"
+  },
+  "createEventLimit": "イベントは最大{count}件追加できます。",
+  "@createEventLimit": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，新增事件达到上限时的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createEventEventIndex": "イベント{index}",
+  "@createEventEventIndex": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片的标题",
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "createEventEgNationalChainScouts": "例：全国チェーンが空き地を狙い、地元の全店舗を価格で圧倒しようとしている。",
+  "@createEventEgNationalChainScouts": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片的输入框提示"
+  },
+  "createEventKeyStoryBeatAIUses": "AIが物語の方向を決めるために使う、重要な展開。",
+  "@createEventKeyStoryBeatAIUses": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片中显示的文字"
+  },
+  "imageCropUploadFailed": "アップロードに失敗しました",
+  "@imageCropUploadFailed": {
+    "description": "首页 - Create → 图片裁剪/上传页，图片裁剪或上传失败"
+  },
+  "inboxNotifications": "通知",
+  "@inboxNotifications": {
+    "description": "首页 - Inbox，Notifications 消息分类入口；Notifications 分类页顶部标题"
+  },
+  "inboxNoNotificationsYet": "通知はまだありません。",
+  "@inboxNoNotificationsYet": {
+    "description": "首页 - Inbox → Notifications 分类页，无通知时的空状态"
+  },
+  "inboxFollowers": "フォロワー",
+  "@inboxFollowers": {
+    "description": "首页 - Inbox，会话列表/空状态/筛选的按钮或标签"
+  },
+  "inboxNewFollowers": "新しいフォロワー",
+  "@inboxNewFollowers": {
+    "description": "首页 - Inbox → New followers 消息分类页，顶部标题"
+  },
+  "inboxNoNewFollowersYet": "新しいフォロワーはまだいません。",
+  "@inboxNoNewFollowersYet": {
+    "description": "首页 - Inbox → New followers 分类页，无新关注时的空状态"
+  },
+  "inboxComments": "コメント",
+  "@inboxComments": {
+    "description": "首页 - Inbox，Comments 消息分类入口；Comments 分类页顶部标题"
+  },
+  "inboxNoCommentsYet": "コメントはまだありません。",
+  "@inboxNoCommentsYet": {
+    "description": "首页 - Inbox → Comments 分类页，无评论时的空状态"
+  },
+  "inboxPrivateChats": "プライベートチャット",
+  "@inboxPrivateChats": {
+    "description": "首页 - Inbox，会话列表/空状态/筛选中显示的文字"
+  },
+  "inboxChatFriendsWorldo": "Worldoで友達とチャットしましょう。",
+  "@inboxChatFriendsWorldo": {
+    "description": "首页 - Inbox，会话列表/空状态/筛选中显示的文字"
+  },
+  "inboxUnknownUser": "不明なユーザー",
+  "@inboxUnknownUser": {
+    "description": "首页 - Inbox，会话列表项中显示的文字"
+  },
+  "inboxDirectMessage": "ダイレクトメッセージ",
+  "@inboxDirectMessage": {
+    "description": "首页 - Inbox → 私聊页，私聊页面的空状态或加载状态"
+  },
+  "inboxJoinRequest": "参加申請",
+  "@inboxJoinRequest": {
+    "description": "首页 - Inbox → 通知/加入申请，列表项中显示的文字"
+  },
+  "inboxApprove": "承認",
+  "@inboxApprove": {
+    "description": "首页 - Inbox → 通知/加入申请，操作菜单的按钮或标签"
+  },
+  "inboxReject": "却下",
+  "@inboxReject": {
+    "description": "首页 - Inbox → 通知/加入申请，操作菜单的按钮或标签"
+  },
+  "inboxOk": "OK",
+  "@inboxOk": {
+    "description": "首页 - Inbox → 通知/加入申请，详情弹窗"
+  },
+  "inboxReviewFailed": "審査に失敗しました",
+  "@inboxReviewFailed": {
+    "description": "首页 - Inbox → 通知/加入申请，审核结果"
+  },
+  "inboxLoadMessagesFailed": "メッセージを読み込めませんでした。",
+  "@inboxLoadMessagesFailed": {
+    "description": "首页 - Inbox → 通知/加入申请，通知列表/空状态"
+  },
+  "inboxNewMessage": "新しいメッセージ",
+  "@inboxNewMessage": {
+    "description": "首页 - Inbox → 通知文案，列表项或卡片中显示的文字"
+  },
+  "inboxSomeone": "誰か",
+  "@inboxSomeone": {
+    "description": "首页 - Inbox → 通知文案，发送者名称兜底中显示的文字"
+  },
+  "inboxWorld": "このワールド",
+  "@inboxWorld": {
+    "description": "首页 - Inbox → 通知文案，World 请求摘要中显示的文字"
+  },
+  "inboxNameRequestJoinWorldSuffix": "{name}が{world}{suffix}への参加を申請しました",
+  "@inboxNameRequestJoinWorldSuffix": {
+    "description": "首页 - Inbox → 通知文案，Join Request 摘要中显示的文字",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "world": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxCommentWorldo": " があなたのworldoにコメントしました",
+  "@inboxCommentWorldo": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxReply": " があなたに返信しました",
+  "@inboxReply": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxLikeComment": " があなたのコメントにいいねしました",
+  "@inboxLikeComment": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxLikedComment": "があなたのコメントにいいねしました",
+  "@inboxLikedComment": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxComment2LikeComment": "があなたのコメントにいいねしました",
+  "@inboxComment2LikeComment": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxReplied": "があなたに返信しました",
+  "@inboxReplied": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxYou2Reply": "があなたに返信しました",
+  "@inboxYou2Reply": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxCommentedOrigin": "があなたの作品にコメントしました",
+  "@inboxCommentedOrigin": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxCommentOrigin": "があなたの作品にコメントしました",
+  "@inboxCommentOrigin": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxSentMessage": " があなたにメッセージを送りました",
+  "@inboxSentMessage": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxStartedFollowing": " があなたをフォローしました。",
+  "@inboxStartedFollowing": {
+    "description": "首页 - Inbox → 通知文案，Follow 通知用户名中显示的文字"
+  },
+  "meFailedOpenDiscord": "Discordを開けませんでした",
+  "@meFailedOpenDiscord": {
+    "description": "首页 - Me，Discord 跳转结果"
+  },
+  "meImagePickFailed": "画像の選択に失敗しました",
+  "@meImagePickFailed": {
+    "description": "首页 - Me，头像编辑结果"
+  },
+  "meUpdateFailed": "更新に失敗しました",
+  "@meUpdateFailed": {
+    "description": "首页 - Me，昵称修改结果"
+  },
+  "mePlaying": "プレイ中",
+  "@mePlaying": {
+    "description": "首页 - Me，个人信息/菜单列表中显示的文字"
+  },
+  "meEditName": "名前を編集",
+  "@meEditName": {
+    "description": "首页 - Me，修改昵称弹窗，修改昵称弹窗"
+  },
+  "meSignUpReward": "登録して250ジェムを獲得！",
+  "@meSignUpReward": {
+    "description": "首页 - Me，未登录状态下登录引导区中显示的文字"
+  },
+  "loginSignUpReward": "登録して250ジェムを獲得！",
+  "@loginSignUpReward": {
+    "description": "登录弹窗顶部以及新用户个性化页登录区的注册奖励提示"
+  },
+  "meUnknown": "不明",
+  "@meUnknown": {
+    "description": "首页 - Me，资料加载失败状态"
+  },
+  "meOIDLatestVersion": "OID：{oid}\n最新バージョン：{version}",
+  "@meOIDLatestVersion": {
+    "description": "首页 - Me，页面标题或顶部区域中显示的文字",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "meWIDDisplayOwner": "WID：{displayWid}\n所有者：{owner}",
+  "@meWIDDisplayOwner": {
+    "description": "首页 - Me，页面标题或顶部区域中显示的文字",
+    "placeholders": {
+      "displayWid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "meFollows": "フォロー",
+  "@meFollows": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字"
+  },
+  "meFollowingCount": "{followingCount}フォロー中",
+  "@meFollowingCount": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字",
+    "placeholders": {
+      "followingCount": {
+        "type": "String"
+      }
+    }
+  },
+  "meFollowersCount": "{followersCount}フォロワー",
+  "@meFollowersCount": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字",
+    "placeholders": {
+      "followersCount": {
+        "type": "String"
+      }
+    }
+  },
+  "meNoFollowingYet": "まだ誰もフォローしていません。",
+  "@meNoFollowingYet": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
+  },
+  "meNoFollowersYet": "フォロワーはまだいません。",
+  "@meNoFollowersYet": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
+  },
+  "meBlockFailed": "ブロックに失敗しました",
+  "@meBlockFailed": {
+    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+  },
+  "meUserBlockedContentHasReported": "ユーザーをブロックしました。このコンテンツはWorldoチームに報告されました。",
+  "@meUserBlockedContentHasReported": {
+    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+  },
+  "meBlockUser": "このユーザーをブロックしますか？",
+  "@meBlockUser": {
+    "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
+  },
+  "meBlock": "ブロック",
+  "@meBlock": {
+    "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
+  },
+  "meUnblockFailed": "ブロック解除に失敗しました",
+  "@meUnblockFailed": {
+    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+  },
+  "meUnblock": "ブロック解除",
+  "@meUnblock": {
+    "description": "首页 - Me → 其他用户资料页，其他用户资料页的按钮或标签"
+  },
+  "meFollowing": "フォロー中",
+  "@meFollowing": {
+    "description": "首页 - Me → 用户资料页，Following/Followers 统计的按钮或标签"
+  },
+  "meFollow": "フォロー",
+  "@meFollow": {
+    "description": "首页 - Me → 用户资料页，Follow/Edit 操作按钮"
+  },
+  "meMessage": "メッセージ",
+  "@meMessage": {
+    "description": "首页 - Me → 用户资料页，Follow/Edit 操作按钮"
+  },
+  "meUID": "UID：{uid}",
+  "@meUID": {
+    "description": "首页 - Me → 设置页，账号 UID；首页 - Me → Following 或 Followers 列表，用户项的 UID",
+    "placeholders": {
+      "uid": {
+        "type": "String"
+      }
+    }
+  },
+  "meNoWorldoCreatedYet": "作成したWorldoはまだありません。",
+  "@meNoWorldoCreatedYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "meNoWorldoYet": "Worldoはまだありません。",
+  "@meNoWorldoYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "meNoWorldsCreatedYet": "作成したワールドはまだありません。",
+  "@meNoWorldsCreatedYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "meNoWorldsYet": "ワールドはまだありません。",
+  "@meNoWorldsYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "profileUID": "UID",
+  "@profileUID": {
+    "description": "首页 - Me → 用户资料页，个人资料头部的按钮或标签"
+  },
+  "gemsRed": "レッドジェム",
+  "@gemsRed": {
+    "description": "首页 - Me → 用户资料页，Gems 余额入口的按钮或标签"
+  },
+  "gemsPink": "ピンクジェム",
+  "@gemsPink": {
+    "description": "首页 - Me → 用户资料页，Gems 余额入口的按钮或标签"
+  },
+  "gemsTop": "チャージ",
+  "@gemsTop": {
+    "description": "首页 - Me → 用户资料页，Gems 余额入口中显示的文字"
+  },
+  "gemsBuy": "ジェムを購入",
+  "@gemsBuy": {
+    "description": "首页 - Me → Gems 钱包页顶部的页面标题"
+  },
+  "gemsRecords": "履歴",
+  "@gemsRecords": {
+    "description": "首页 - Me → Gems 钱包页右上角 Records 记录入口"
+  },
+  "gemsUnableLoad": "ジェムを読み込めません。",
+  "@gemsUnableLoad": {
+    "description": "首页 - Me → Gems 钱包页整体加载失败时的提示"
+  },
+  "settingsLogOutAccount": "アカウントからログアウトしますか？",
+  "@settingsLogOutAccount": {
+    "description": "首页 - Me → 设置页，Log Out 确认弹窗"
+  },
+  "settingsLogOut": "ログアウト",
+  "@settingsLogOut": {
+    "description": "首页 - Me → 设置页，Log Out 确认弹窗"
+  },
+  "settingsFeedback": "フィードバック",
+  "@settingsFeedback": {
+    "description": "首页 - Me → 设置页，Feedback 反馈弹窗"
+  },
+  "settings": "設定",
+  "@settings": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsAboutUs": "私たちについて",
+  "@settingsAboutUs": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsAccount": "アカウント",
+  "@settingsAccount": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsBlockedUsers": "ブロックしたユーザー",
+  "@settingsBlockedUsers": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsJoinDiscord": "Discordに参加",
+  "@settingsJoinDiscord": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "meUserUnblocked": "ユーザーのブロックを解除しました",
+  "@meUserUnblocked": {
+    "description": "首页 - Me → 屏蔽用户页，Block/Unblock 操作结果"
+  },
+  "meNoBlockedUsersYet": "ブロックしたユーザーはまだいません。",
+  "@meNoBlockedUsersYet": {
+    "description": "首页 - Me → 屏蔽用户页，列表加载/空状态"
+  },
+  "meRequestFailed": "申請に失敗しました",
+  "@meRequestFailed": {
+    "description": "首页 - Me → 屏蔽用户页，Block/Unblock 错误映射出错时显示的提示"
+  },
+  "settingsAgreeTermsContinue": "続行するには規約に同意してください。",
+  "@settingsAgreeTermsContinue": {
+    "description": "首页 - Me → 账号设置页，删除账号确认与结果"
+  },
+  "settingsDeleteAccount": "アカウントを削除しますか？",
+  "@settingsDeleteAccount": {
+    "description": "首页 - Me → 账号设置页，删除账号确认与结果"
+  },
+  "settingsAccountDeletionAgreement": "アカウント削除に関する同意事項",
+  "@settingsAccountDeletionAgreement": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "settingsEnsureSecurityAccount": "アカウントの安全のため、削除による影響をお読みください。\n\nアカウントの削除はログアウトとは異なり、取り消せません。作成したキャラクター、検索履歴、キャラクターとのチャット履歴、お気に入り、記憶、交流データ、注文履歴などの個人データは完全に削除され、復元できなくなります。",
+  "@settingsEnsureSecurityAccount": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "gemsAllUnusedIncludingPurchased": "購入または獲得した未使用のジェムはすべて永久に失われます。続行すると自発的に放棄したものとみなされ、アカウント削除によって自動的に返金を受ける権利は生じません。\n\n残りのメンバーシップ特典もすべて永久に失われ、復元できません。アカウントを削除してもサブスクリプションは解約されません。",
+  "@gemsAllUnusedIncludingPurchased": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "settingsIHaveReadAccountDeletion": "アカウント削除に関する同意事項を読みました",
+  "@settingsIHaveReadAccountDeletion": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "settingsCurrentLoginAccount": "現在ログイン中のアカウント：",
+  "@settingsCurrentLoginAccount": {
+    "description": "首页 - Me → 账号设置页，当前登录账号卡片中显示的文字"
+  },
+  "profileSaveFailed": "プロフィールを保存できませんでした。もう一度お試しください。",
+  "@profileSaveFailed": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化提交或登录时显示的提示"
+  },
+  "meSignInFailed": "ログインに失敗しました。もう一度お試しください。",
+  "@meSignInFailed": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化提交或登录时显示的提示"
+  },
+  "meCompleteProfileContinue": "プロフィールを完成させて続行してください。",
+  "@meCompleteProfileContinue": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单中显示的文字"
+  },
+  "meSelectGenderAge": "性別と年齢を選択してください。",
+  "@meSelectGenderAge": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单时显示的提示"
+  },
+  "meSelectGender": "性別を選択してください。",
+  "@meSelectGender": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单时显示的提示"
+  },
+  "meSelectAge": "年齢を選択してください。",
+  "@meSelectAge": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单时显示的提示"
+  },
+  "meRequired": "必須",
+  "@meRequired": {
+    "description": "首页 - Me → 新用户个性化页，“Required”字段或选项"
+  },
+  "mePersonalizeWorldoExperience": "Worldo体験を自分好みに",
+  "@mePersonalizeWorldoExperience": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部中显示的文字"
+  },
+  "meSignIn": "ログイン",
+  "@meSignIn": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部的标题"
+  },
+  "meBack": "戻る",
+  "@meBack": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部的无障碍说明"
+  },
+  "meSkip": "スキップ",
+  "@meSkip": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部中显示的文字"
+  },
+  "meContinueGoogle": "Googleで続行",
+  "@meContinueGoogle": {
+    "description": "首页 - Me → 登录/注册页，登录注册页的登录方式按钮"
+  },
+  "meContinueApple": "Appleで続行",
+  "@meContinueApple": {
+    "description": "首页 - Me → 登录/注册页，登录注册页的登录方式按钮"
+  },
+  "meSignUpClaimPremium": "登録してPremiumを受け取る",
+  "@meSignUpClaimPremium": {
+    "description": "首页 - Me → 登录弹窗，登录弹窗"
+  },
+  "meSignUpContinue": "登録して続行",
+  "@meSignUpContinue": {
+    "description": "首页 - Me → 登录弹窗，登录弹窗"
+  },
+  "meAccountLoggedAnotherDevice": "別の端末でアカウントにログインされています。",
+  "@meAccountLoggedAnotherDevice": {
+    "description": "首页 - Me → 登录状态提示，账号在其他设备登录导致当前会话失效中显示的文字"
+  },
+  "premiumSubscription": "サブスクリプション",
+  "@premiumSubscription": {
+    "description": "首页 - Me → Premium 订阅，Premium/Gems 页签中显示的文字"
+  },
+  "gemsClaimFailed": "受け取りに失敗しました。",
+  "@gemsClaimFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsCheckFailed": "チェックインに失敗しました。",
+  "@gemsCheckFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsFollowFailed": "フォローに失敗しました。",
+  "@gemsFollowFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsTaskUpdateFailed": "タスクの更新に失敗しました。",
+  "@gemsTaskUpdateFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsClaimSuccessful": "受け取りました！",
+  "@gemsClaimSuccessful": {
+    "description": "首页 - Me → Gems 钱包页 Task 奖励领取成功弹窗的标题"
+  },
+  "gemsUnableLoadGemPacks": "ジェムパックを読み込めません。",
+  "@gemsUnableLoadGemPacks": {
+    "description": "首页 - Me → Gems 钱包页商品列表加载失败或没有商品时的提示"
+  },
+  "gemsNoGemPacksAvailable": "利用できるジェムパックがありません。",
+  "@gemsNoGemPacksAvailable": {
+    "description": "首页 - Me → Gems 钱包页商品列表加载失败或没有商品时的提示"
+  },
+  "gemsUnableLoadGemTasks": "ジェムのタスクを読み込めません。",
+  "@gemsUnableLoadGemTasks": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表加载失败时显示的提示"
+  },
+  "gemsJoinUs": "参加しよう",
+  "@gemsJoinUs": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表中的 Join Us 分组标题"
+  },
+  "gemsClaim": "受け取る",
+  "@gemsClaim": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表中，奖励可领取时的按钮"
+  },
+  "gemsClaimed": "受け取り済み",
+  "@gemsClaimed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表中，奖励已领取时的按钮"
+  },
+  "meDailyCheck": "デイリーチェックイン",
+  "@meDailyCheck": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+  },
+  "gemsDailyCheckInReward": "100獲得",
+  "@gemsDailyCheckInReward": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+  },
+  "meCheck": "チェックイン",
+  "@meCheck": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+  },
+  "meCheckSuccessful": "チェックインしました！",
+  "@meCheckSuccessful": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 成功弹窗"
+  },
+  "meGooglePlayUnavailable": "Google Playを利用できません。",
+  "@meGooglePlayUnavailable": {
+    "description": "首页 - Me → 购买结果弹窗，购买结果"
+  },
+  "mePurchaseFailed": "購入に失敗しました。",
+  "@mePurchaseFailed": {
+    "description": "首页 - Me → 购买结果弹窗，购买结果"
+  },
+  "gemsEarned": "獲得",
+  "@gemsEarned": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面的按钮或标签"
+  },
+  "gemsSpent": "消費",
+  "@gemsSpent": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面的按钮或标签"
+  },
+  "gemsPurchase": "購入",
+  "@gemsPurchase": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面的按钮或标签"
+  },
+  "gemsGemRecords": "ジェム履歴",
+  "@gemsGemRecords": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面中显示的文字"
+  },
+  "gemsUnableLoadRecords": "履歴を読み込めません。",
+  "@gemsUnableLoadRecords": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录加载失败"
+  },
+  "gemsNoGemRecordsYet": "ジェム履歴はまだありません。",
+  "@gemsNoGemRecordsYet": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录列表为空"
+  },
+  "meAbout": "このアプリについて",
+  "@meAbout": {
+    "description": "首页 - Me → About 页，品牌介绍和版本信息区域中显示的文字"
+  },
+  "meEmailCopied": "メールアドレスをコピーしました",
+  "@meEmailCopied": {
+    "description": "首页 - Me → About 页，复制联系邮箱完成"
+  },
+  "mePurchasingPremium": "Premiumを購入中",
+  "@mePurchasingPremium": {
+    "description": "首页 - Me → 购买结果弹窗，购买中/成功状态"
+  },
+  "mePurchaseSuccessful": "購入が完了しました！",
+  "@mePurchaseSuccessful": {
+    "description": "首页 - Me → 购买结果弹窗，购买中/成功状态"
+  },
+  "meWorldoPremiumSubscription": "Worldo Premiumのサブスクリプションが有効になりました。",
+  "@meWorldoPremiumSubscription": {
+    "description": "首页 - Me → 购买结果弹窗，购买中/成功状态"
+  },
+  "meMyBalance": "残高",
+  "@meMyBalance": {
+    "description": "首页 - Me → 购买结果弹窗，My Balance 余额卡片中显示的文字"
+  },
+  "meSoldOut": "売り切れ",
+  "@meSoldOut": {
+    "description": "首页 - Me → 购买结果弹窗，商品卡片的按钮或标签"
+  },
+  "meUsd": "USD",
+  "@meUsd": {
+    "description": "首页 - Me → 购买结果弹窗，商品价格的按钮或标签"
+  },
+  "memoryCompleteUserSession": "モデル一覧には完全なユーザーセッションが必要です",
+  "@memoryCompleteUserSession": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memoryModelListPermissionDenied": "このワールドのモデル一覧へのアクセスが拒否されました",
+  "@memoryModelListPermissionDenied": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memorySaveFailed": "保存に失敗しました",
+  "@memorySaveFailed": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域时显示的提示"
+  },
+  "memorySaveResultNotConfirmed": "保存結果を確認できません",
+  "@memorySaveResultNotConfirmed": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域时显示的提示"
+  },
+  "memoryChooseModel": "モデルを選択",
+  "@memoryChooseModel": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域的标题"
+  },
+  "memoryMaxTokenLimit": "記憶トークンの上限",
+  "@memoryMaxTokenLimit": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域的标题"
+  },
+  "memoryNoModelsAvailable": "利用可能なモデルがありません",
+  "@memoryNoModelsAvailable": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memoryRetryRanges": "再試行範囲",
+  "@memoryRetryRanges": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memoryCurrentUsage": "現在の記憶使用量",
+  "@memoryCurrentUsage": {
+    "description": "首页 - Me → Memory & Model 页，当前 Memory 摘要区域中显示的文字"
+  },
+  "memoryMinGems": "{min}ジェム",
+  "@memoryMinGems": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMinMaxGems": "{min}～{max}ジェム",
+  "@memoryMinMaxGems": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryStart": "記憶 {memoryStart}",
+  "@memoryStart": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "memoryStart": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryStartEnd": "記憶 {memoryStart} → {memoryEnd}",
+  "@memoryStartEnd": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "memoryStart": {
+        "type": "String"
+      },
+      "memoryEnd": {
+        "type": "String"
+      }
+    }
+  },
+  "memorySettingsUnavailable": "記憶設定を利用できません",
+  "@memorySettingsUnavailable": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域出错时显示的提示"
+  },
+  "premiumGooglePlayTookTooLong": "Google Playの応答に時間がかかりすぎました。もう一度お試しください。",
+  "@premiumGooglePlayTookTooLong": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionsNotSupported": "この端末のGoogle Playではサブスクリプションに対応していません。",
+  "@premiumSubscriptionsNotSupported": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumConnectionGooglePlayLost": "Google Playへの接続が切れました。もう一度お試しください。",
+  "@premiumConnectionGooglePlayLost": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchaseCanceled": "購入はキャンセルされました。",
+  "@premiumPurchaseCanceled": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayTemporarily": "Google Playを一時的に利用できません。後でもう一度お試しください。",
+  "@premiumGooglePlayTemporarily": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayBilling": "Google Playの課金を利用できません。Playアカウントと支払い設定をご確認ください。",
+  "@premiumGooglePlayBilling": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionUnavailable": "このPremiumサブスクリプションは現在Google Playで利用できません。",
+  "@premiumSubscriptionUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayFailedComplete": "Google PlayでPremiumの購入を完了できませんでした。もう一度お試しください。",
+  "@premiumGooglePlayFailedComplete": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAlreadyOwnSubscription": "このサブスクリプションはGoogle Playですでに購入済みです。",
+  "@premiumAlreadyOwnSubscription": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayFailedFind": "Google Playで変更対象のサブスクリプションが見つかりません。「定期購入の管理」をご確認ください。",
+  "@premiumGooglePlayFailedFind": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedConnectGooglePlay": "Google Playに接続できません。インターネット接続を確認して、もう一度お試しください。",
+  "@premiumFailedConnectGooglePlay": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumInsufficientFunds": "支払い方法の残高が不足しています。Google Playで更新して、もう一度お試しください。",
+  "@premiumInsufficientFunds": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGoogleAccountIneligible": "このGoogle Playアカウントはサブスクリプション特典の対象外です。",
+  "@premiumGoogleAccountIneligible": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedComplete": "App StoreでPremiumの購入を完了できませんでした。もう一度お試しください。",
+  "@premiumAppStoreFailedComplete": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedConnectAppStore": "App Storeに接続できません。インターネット接続を確認して、もう一度お試しください。",
+  "@premiumFailedConnectAppStore": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreTookTooLong": "App Storeの応答に時間がかかりすぎました。もう一度お試しください。",
+  "@premiumAppStoreTookTooLong": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreEncounteredSystem": "App Storeでシステムエラーが発生しました。後でもう一度お試しください。",
+  "@premiumAppStoreEncounteredSystem": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumRegionUnavailable": "このPremiumサブスクリプションは、App Storeの設定地域では利用できません。",
+  "@premiumRegionUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppCannotMakeStoreRequest": "このアプリではこのApp Storeリクエストを実行できません。サポートにお問い合わせください。",
+  "@premiumAppCannotMakeStoreRequest": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchaseNotSupported": "この端末またはシステムバージョンでは、この購入に対応していません。",
+  "@premiumPurchaseNotSupported": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStorePurchaseWindow": "App Storeの購入画面を開けませんでした。アプリに戻って、もう一度お試しください。",
+  "@premiumAppStorePurchaseWindow": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedAccept": "App Storeでこの購入数量を受け付けられませんでした。サポートにお問い合わせください。",
+  "@premiumAppStoreFailedAccept": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreUnavailable": "このPremiumサブスクリプションは現在App Storeで利用できません。",
+  "@premiumAppStoreUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchasesNotAllowedDevice": "この端末では購入が許可されていません。Apple Accountと購入制限をご確認ください。",
+  "@premiumPurchasesNotAllowedDevice": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppleAccountNotEligible": "このApple Accountはサブスクリプション特典の対象外です。",
+  "@premiumAppleAccountNotEligible": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionOffer": "このサブスクリプション特典は利用できません。ページを更新して、もう一度お試しください。",
+  "@premiumSubscriptionOffer": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedAcceptOffer": "App Storeでこの特典価格を受け付けられませんでした。ページを更新して、もう一度お試しください。",
+  "@premiumAppStoreFailedAcceptOffer": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedVerify": "App Storeでこのサブスクリプション特典を検証できませんでした。サポートにお問い合わせください。",
+  "@premiumAppStoreFailedVerify": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionOfferFailed": "このサブスクリプション特典を準備できませんでした。ページを更新して、もう一度お試しください。",
+  "@premiumSubscriptionOfferFailed": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAddPaymentMethodApple": "Apple Accountに支払い方法を追加して、もう一度お試しください。",
+  "@premiumAddPaymentMethodApple": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppCannotMakePurchases": "このアプリではApp Storeでの購入を行えません。サポートにお問い合わせください。",
+  "@premiumAppCannotMakePurchases": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreRequestRejected": "App Storeでこの購入リクエストを受け付けられませんでした。再試行するか、サポートにお問い合わせください。",
+  "@premiumAppStoreRequestRejected": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppleCloudServiceAccess": "Appleのクラウドサービスへのアクセスが拒否されました。Apple Accountの権限をご確認ください。",
+  "@premiumAppleCloudServiceAccess": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedConnectApple": "Appleのサービスに接続できません。インターネット接続を確認して、もう一度お試しください。",
+  "@premiumFailedConnectApple": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAccess2AppleCloudService": "Appleのクラウドサービスへのアクセスが取り消されました。Apple Accountの設定をご確認ください。",
+  "@premiumAccess2AppleCloudService": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAcceptLatestApplePrivacy": "Apple Accountで最新のAppleプライバシー規約に同意して、もう一度お試しください。",
+  "@premiumAcceptLatestApplePrivacy": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreWindowFailed": "App Storeの画面を設定できませんでした。サポートにお問い合わせください。",
+  "@premiumAppStoreWindowFailed": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreWindowTookTooLong": "App Storeの画面を開くのに時間がかかりすぎました。もう一度お試しください。",
+  "@premiumAppStoreWindowTookTooLong": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumReturnAppTryPurchase": "アプリに戻って、もう一度購入をお試しください。",
+  "@premiumReturnAppTryPurchase": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayUnavailable": "Google Playを利用できません。インストール済みでログインしていることをご確認ください。",
+  "@premiumGooglePlayUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumIs4Subscription": "このPremiumサブスクリプションは現在ストアで利用できません。ページを更新して、もう一度お試しください。",
+  "@premiumIs4Subscription": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionFailed": "このPremiumサブスクリプションを準備できませんでした。ページを更新して、もう一度お試しください。",
+  "@premiumSubscriptionFailed": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumStoreFailedOpenPurchase": "ストアでこのPremiumの購入を開始できませんでした。もう一度お試しください。",
+  "@premiumStoreFailedOpenPurchase": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumOriginalSubscriptionMissing": "Google Playで元のサブスクリプションが見つかりません。「定期購入の管理」をご確認ください。",
+  "@premiumOriginalSubscriptionMissing": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionUsesDifferent": "このサブスクリプションは別の購入識別情報を使用しています。ページを更新するか、サポートにお問い合わせください。",
+  "@premiumSubscriptionUsesDifferent": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayCannotChange": "Google Playでこのサブスクリプションをまだ変更できません。「定期購入の管理」をご確認ください。",
+  "@premiumGooglePlayCannotChange": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPlanChangePending": "このプランのApp Store購入は処理中です。完了するまでお待ちください。",
+  "@premiumPlanChangePending": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedLoadPlansAppStore": "App StoreからPremiumプランを読み込めませんでした。もう一度お試しください。",
+  "@premiumFailedLoadPlansAppStore": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchasePreparation": "購入準備の有効期限が切れました。もう一度お試しください。",
+  "@premiumPurchasePreparation": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreReturnedUnknown": "App Storeから不明な購入結果が返されました。再試行する前にサブスクリプションをご確認ください。",
+  "@premiumAppStoreReturnedUnknown": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchasesUnavailable": "現在、購入を利用できません。",
+  "@premiumPurchasesUnavailable": {
+    "description": "首页 - Me → Premium 订阅，订阅预检查结果"
+  },
+  "premiumAutoRenewsCancelAnytime": "自動更新。いつでも解約できます。",
+  "@premiumAutoRenewsCancelAnytime": {
+    "description": "首页 - Me → Premium 订阅，权益介绍区中显示的文字"
+  },
+  "premiumSubscribed": "登録済み",
+  "@premiumSubscribed": {
+    "description": "首页 - Me → Premium 订阅，订阅按钮"
+  },
+  "premiumAlsoIncluded": "こちらも含まれます",
+  "@premiumAlsoIncluded": {
+    "description": "首页 - Me → Premium 订阅，页面内容区域的按钮或标签"
+  },
+  "premiumWorldo": "Worldo Premium",
+  "@premiumWorldo": {
+    "description": "首页 - Me → Premium 订阅，顶部品牌标题"
+  },
+  "premiumPinkGems": "ピンクジェム",
+  "@premiumPinkGems": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumRedGems": "レッドジェム",
+  "@premiumRedGems": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumExtraDailyCheck": "デイリーチェックインで追加獲得",
+  "@premiumExtraDailyCheck": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumDailyCheck": "デイリーチェックイン",
+  "@premiumDailyCheck": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumClaimedMonthly": "毎月受け取り",
+  "@premiumClaimedMonthly": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumBilledMonthly": "毎月請求",
+  "@premiumBilledMonthly": {
+    "description": "首页 - Me → Premium 订阅，套餐卡片中显示的文字"
+  },
+  "premiumSaveSavings": "{savings}%お得",
+  "@premiumSaveSavings": {
+    "description": "首页 - Me → Premium 订阅，年付节省标签",
+    "placeholders": {
+      "savings": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumSubscribe": "登録する",
+  "@premiumSubscribe": {
+    "description": "首页 - Me → Premium 订阅，订阅按钮"
+  },
+  "premiumActiveYearlySubscription": "有効な年額Premiumサブスクリプションを月額プランに変更することはできません。",
+  "@premiumActiveYearlySubscription": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumAlreadyHaveActive": "すでに有効なPremiumサブスクリプションがあります。",
+  "@premiumAlreadyHaveActive": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumReAlreadySubscribedLabel": "Premium {label}にはすでに登録しています。",
+  "@premiumReAlreadySubscribedLabel": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumPreviousPurchasePending": "前回のPremium購入をまだ確認中です。",
+  "@premiumPreviousPurchasePending": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumUseOriginalStoreUpgrade": "Premiumサブスクリプションのアップグレードは、購入したストアで行ってください。",
+  "@premiumUseOriginalStoreUpgrade": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumResolveCurrent": "購入前に、ストアで現在のサブスクリプションの問題を解決してください。",
+  "@premiumResolveCurrent": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumPurchaseUnavailable": "現在、Premiumを購入できません。",
+  "@premiumPurchaseUnavailable": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumUnableVerifyPurchase": "購入資格を確認できません。もう一度お試しください。",
+  "@premiumUnableVerifyPurchase": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumStoreFailedVerifyPurchase": "ストアでこのPremium購入を検証できませんでした。",
+  "@premiumStoreFailedVerifyPurchase": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumPurchaseDoesNotMatch": "このPremium購入は選択したプランと一致しません。",
+  "@premiumPurchaseDoesNotMatch": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumMessagePurchaseCanceled": "このPremium購入はキャンセルされました。",
+  "@premiumMessagePurchaseCanceled": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumPurchaseRevoked": "このPremium購入は取り消されました。",
+  "@premiumPurchaseRevoked": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumNotification": "通知",
+  "@premiumNotification": {
+    "description": "首页 - Me → Premium 订阅，用户无法购买订阅时的提示弹窗"
+  },
+  "premiumWorldoActiveSubscription": "Worldo Premiumは現在のサブスクリプションで有効です。ダウングレードには対応していません。",
+  "@premiumWorldoActiveSubscription": {
+    "description": "首页 - Me → Premium 订阅，用户无法购买订阅时的提示弹窗"
+  },
+  "premiumGot": "了解",
+  "@premiumGot": {
+    "description": "首页 - Me → Premium 订阅，用户无法购买订阅时的提示弹窗"
+  },
+  "gemBalancePromptInsufficientGems": "ジェム不足",
+  "@gemBalancePromptInsufficientGems": {
+    "description": "首页 - Me → Gems 余额提示，Gems 余额不足时的购买提示"
+  },
+  "gemBalancePromptLowGems": "ジェム残高が少なくなっています",
+  "@gemBalancePromptLowGems": {
+    "description": "首页 - Me → Gems 余额提示，Gems 余额不足时的购买提示"
+  },
+  "appPressBackExit": "もう一度戻るを押すと終了します。",
+  "@appPressBackExit": {
+    "description": "App 退出提示，连续返回准备退出 App时显示的提示"
+  },
+  "appReportSubmitted": "報告を送信しました",
+  "@appReportSubmitted": {
+    "description": "举报弹窗，举报内容时的菜单和原因选择弹窗"
+  },
+  "appReportFailed": "報告に失敗しました",
+  "@appReportFailed": {
+    "description": "举报弹窗，举报内容时的菜单和原因选择弹窗"
+  },
+  "appUpdateRequired": "更新が必要です",
+  "@appUpdateRequired": {
+    "description": "强制更新弹窗，App 版本过低时的强制更新页面中显示的文字"
+  },
+  "appUpdateContent": "Worldoを引き続き利用するには、最新バージョンに更新してください。",
+  "@appUpdateContent": {
+    "description": "强制更新页，服务端未下发更新说明时显示的默认正文"
+  },
+  "appUpdateVersion": "バージョン{versionName}",
+  "@appUpdateVersion": {
+    "description": "强制更新页，显示服务端下发的最新版本号",
+    "placeholders": {
+      "versionName": {
+        "type": "String"
+      }
+    }
+  },
+  "appUpdateCheckFailed": "更新状況を再取得できません。更新して続行してください。",
+  "@appUpdateCheckFailed": {
+    "description": "强制更新页，重新检查版本状态失败时的提示"
+  },
+  "appUpdate": "今すぐ更新",
+  "@appUpdate": {
+    "description": "强制更新弹窗，App 版本过低时的强制更新页面的按钮或标签"
+  },
+  "commonIdCopied": "{normalizedLabel}をコピーしました",
+  "@commonIdCopied": {
+    "description": "通用 ID 信息，点击复制 ID 完成",
+    "placeholders": {
+      "normalizedLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "commonClose": "閉じる",
+  "@commonClose": {
+    "description": "通用 Sheet，底部面板右上角的关闭按钮"
+  },
+  "commonImageLoadFailed": "画像の読み込みに失敗しました",
+  "@commonImageLoadFailed": {
+    "description": "图片裁剪页，图片加载失败时的居中错误提示"
+  },
+  "commonPageNotFound": "ページが見つかりません。",
+  "@commonPageNotFound": {
+    "description": "页面不存在页，打开不存在的页面中显示的文字"
+  },
+  "worldDetailTickCount": "ターン{tickCount}{subTickSuffix}",
+  "@worldDetailTickCount": {
+    "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
+    "placeholders": {
+      "tickCount": {
+        "type": "String"
+      },
+      "subTickSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailItemTickNumber": "ターン{tickNumber}{subTickSuffix}",
+  "@worldDetailItemTickNumber": {
+    "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
+    "placeholders": {
+      "tickNumber": {
+        "type": "String"
+      },
+      "subTickSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailHeaderTickNumber": "ターン{tickNumber}{subTickSuffix}{dateSuffix}",
+  "@worldDetailHeaderTickNumber": {
+    "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
+    "placeholders": {
+      "tickNumber": {
+        "type": "String"
+      },
+      "subTickSuffix": {
+        "type": "String"
+      },
+      "dateSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "worldFirstTickGenerating": "LLMが最初のターンを生成しています。しばらくお待ちください{progressDots}",
+  "@worldFirstTickGenerating": {
+    "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
+    "placeholders": {
+      "progressDots": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLatestVersion": "最新バージョン：V{version}{ageSuffix}",
+  "@worldoLatestVersion": {
+    "description": "首页 - Worldo → Worldo 详情面板，最新版本及更新时间",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "ageSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "createSaveBeforeCreating": "作成する前に{missingSections}を保存してください。",
+  "@createSaveBeforeCreating": {
+    "description": "首页 - Create → Create Worldo 提交校验，部分模块尚未保存时的提示",
+    "placeholders": {
+      "missingSections": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterRoleHint": "worldo内でのキャラクターの役割。",
+  "@createCharacterRoleHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "createCharacterMannerHint": "セリフを決める、キャラクターの話し方や振る舞い。",
+  "@createCharacterMannerHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "createCharacterGoalHint": "行動を決める、キャラクターの目標や行動方針。",
+  "@createCharacterGoalHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "createCharacterBackgroundHint": "キャラクターの背景と人間関係。",
+  "@createCharacterBackgroundHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "inboxJoinRequestTitle": "{world}{worldIdSuffix}への参加申請",
+  "@inboxJoinRequestTitle": {
+    "description": "首页 - Inbox → 加入 World 的申请通知，审核弹窗标题中的 World 名称及可选 ID",
+    "placeholders": {
+      "world": {
+        "type": "String"
+      },
+      "worldIdSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryModel": "記憶とモデル",
+  "@memoryModel": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "premiumAccountMismatch": "アカウントの識別情報が以前のサブスクリプションと一致しません。",
+  "@premiumAccountMismatch": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  }
+}

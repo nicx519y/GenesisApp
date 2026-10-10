@@ -20,7 +20,17 @@ class AppLanguageController extends ChangeNotifier {
     'ko',
   };
   // Only languages with complete app translations are offered in the UI.
-  static const supportedLocales = [Locale('en'), Locale('zh', 'TW')];
+  static const supportedLocales = [
+    Locale('en'),
+    Locale('zh', 'TW'),
+    Locale('es'),
+    Locale('pt'),
+    Locale('fr'),
+    Locale('de'),
+    Locale('it'),
+    Locale('ja'),
+    Locale('ko'),
+  ];
   Locale? _locale;
   String? _settingLanguage;
   bool _userLanguageApplied = false;
@@ -40,13 +50,19 @@ class AppLanguageController extends ChangeNotifier {
 
   static Locale resolve(List<Locale>? preferred, Iterable<Locale> supported) {
     for (final locale in preferred ?? <Locale>[]) {
-      if (locale.languageCode == 'en') return const Locale('en');
+      if (locale.languageCode != 'zh') {
+        for (final candidate in supported) {
+          if (candidate.languageCode == locale.languageCode) return candidate;
+        }
+      }
       if (locale.languageCode == 'zh' &&
           (locale.scriptCode == 'Hant' ||
               locale.countryCode == 'TW' ||
               locale.countryCode == 'HK' ||
               locale.countryCode == 'MO')) {
-        return const Locale('zh', 'TW');
+        if (supported.contains(const Locale('zh', 'TW'))) {
+          return const Locale('zh', 'TW');
+        }
       }
     }
     return const Locale('en');
@@ -110,7 +126,7 @@ class AppLanguageController extends ChangeNotifier {
   }
 
   void _apply(String code) {
-    // Preserve all nine protocol values even when UI translation falls back.
+    // The protocol and completed UI bundles use the same nine language values.
     final requested = code == 'zh-TW' ? const Locale('zh', 'TW') : Locale(code);
     final display = resolve([requested], supportedLocales);
     if (_settingLanguage == code && _locale == display) return;

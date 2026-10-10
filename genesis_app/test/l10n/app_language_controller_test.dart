@@ -20,12 +20,16 @@ void main() {
       var notifications = 0;
       controller.addListener(() => notifications++);
       expect(
-        AppLanguageController.resolve([const Locale('zh', 'TW')], []),
+        AppLanguageController.resolve([
+          const Locale('zh', 'TW'),
+        ], AppLanguageController.supportedLocales),
         const Locale('zh', 'TW'),
       );
       expect(
-        AppLanguageController.resolve([const Locale('de')], []),
-        const Locale('en'),
+        AppLanguageController.resolve([
+          const Locale('de'),
+        ], AppLanguageController.supportedLocales),
+        const Locale('de'),
       );
       controller.applyConfigLanguage('', requestRevision: controller.revision);
       expect(controller.locale, const Locale('zh', 'TW'));
@@ -55,6 +59,84 @@ void main() {
         await controller.load();
         expect(controller.locale, isNull);
         expect(controller.settingLanguage, isNull);
+      }
+    },
+  );
+
+  test(
+    'supported regional system locales resolve without an explicit setting',
+    () {
+      final controller = AppLanguageController();
+      for (final locale in const [
+        Locale('en', 'US'),
+        Locale('en', 'GB'),
+        Locale('es', 'ES'),
+        Locale('es', 'MX'),
+        Locale('pt', 'BR'),
+        Locale('pt', 'PT'),
+        Locale('fr'),
+        Locale('fr', 'FR'),
+        Locale('fr', 'CA'),
+        Locale('de', 'DE'),
+        Locale('it', 'IT'),
+        Locale('ja', 'JP'),
+        Locale('ko', 'KR'),
+      ]) {
+        expect(
+          AppLanguageController.resolve([
+            locale,
+          ], AppLanguageController.supportedLocales),
+          Locale(locale.languageCode),
+        );
+      }
+      expect(
+        AppLanguageController.resolve([
+          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+        ], AppLanguageController.supportedLocales),
+        const Locale('zh', 'TW'),
+      );
+      expect(
+        AppLanguageController.resolve([
+          const Locale('zh', 'CN'),
+        ], AppLanguageController.supportedLocales),
+        const Locale('en'),
+      );
+      expect(controller.settingLanguage, isNull);
+    },
+  );
+
+  test(
+    'each added language saves, restores, and ignores identical server settings',
+    () async {
+      for (final code in ['es', 'pt', 'fr', 'de', 'it', 'ja', 'ko']) {
+        SharedPreferences.setMockInitialValues({});
+        final controller = AppLanguageController();
+        await controller.load();
+        final server = Completer<void>();
+        final selection = controller.select(
+          Locale(code),
+          saveLanguage: (language) {
+            expect(language, code);
+            return server.future;
+          },
+        );
+        expect(controller.settingLanguage, isNull);
+        server.complete();
+        await selection;
+        expect(controller.locale, Locale(code));
+        final restarted = AppLanguageController();
+        await restarted.load();
+        expect(restarted.locale, Locale(code));
+        final revision = restarted.dataRevision;
+        var notifications = 0;
+        restarted.addListener(() => notifications++);
+        restarted.applyConfigLanguage(
+          code,
+          requestRevision: restarted.revision,
+        );
+        restarted.applyUserLanguage(code, requestRevision: restarted.revision);
+        expect(restarted.dataRevision, revision);
+        expect(notifications, 0);
       }
     },
   );

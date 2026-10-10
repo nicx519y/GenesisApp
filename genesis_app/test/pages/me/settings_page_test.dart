@@ -19,8 +19,42 @@ import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/platform/platform_services.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets('settings language name follows the current locale', (
+    tester,
+  ) async {
+    final services = _feedbackTestServices(_RecordingFeedbackTransport());
+    for (final entry in const {
+      'en': 'English',
+      'zh': '繁體中文',
+      'es': 'Español',
+      'pt': 'Português',
+      'fr': 'Français',
+      'de': 'Deutsch',
+      'it': 'Italiano',
+      'ja': '日本語',
+      'ko': '한국어',
+    }.entries) {
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            locale: entry.key == 'zh'
+                ? const Locale('zh', 'TW')
+                : Locale(entry.key),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(entry.value), findsOneWidget);
+    }
+  });
+
   testWidgets('settings feedback opens shared dialog and submits', (
     tester,
   ) async {

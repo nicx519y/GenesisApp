@@ -173,10 +173,20 @@ class _SettingsPageState extends State<SettingsPage> {
                               ),
                             ),
                             Text(
-                              Localizations.localeOf(context).languageCode ==
-                                      'en'
-                                  ? 'English'
-                                  : '繁體中文',
+                              const {
+                                    'en': 'English',
+                                    'zh': '繁體中文',
+                                    'es': 'Español',
+                                    'pt': 'Português',
+                                    'fr': 'Français',
+                                    'de': 'Deutsch',
+                                    'it': 'Italiano',
+                                    'ja': '日本語',
+                                    'ko': '한국어',
+                                  }[Localizations.localeOf(
+                                    context,
+                                  ).languageCode] ??
+                                  'English',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: GenesisColors.darkTextTertiary,

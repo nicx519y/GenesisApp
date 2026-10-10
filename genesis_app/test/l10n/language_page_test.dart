@@ -70,6 +70,58 @@ void main() {
     },
   );
 
+  testWidgets(
+    'all added languages are reachable on a small screen and use fixed codes',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 460);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      await appLanguageController.load();
+      final saved = <String>[];
+      await tester.pumpWidget(
+        ListenableBuilder(
+          listenable: appLanguageController,
+          builder: (_, _) => MaterialApp(
+            locale: appLanguageController.locale,
+            supportedLocales: AppLanguageController.supportedLocales,
+            localeListResolutionCallback: AppLanguageController.resolve,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: LanguagePage(
+              saveLanguage: (code) async {
+                saved.add(code);
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final entry in const [
+        ('es', 'Español', 'Idioma'),
+        ('pt', 'Português', 'Idioma'),
+        ('fr', 'Français', 'Langue'),
+        ('de', 'Deutsch', 'Sprache'),
+        ('it', 'Italiano', 'Lingua'),
+        ('ja', '日本語', '言語'),
+        ('ko', '한국어', '언어'),
+      ]) {
+        await tester.scrollUntilVisible(
+          find.text(entry.$2),
+          120,
+          scrollable: find.byType(Scrollable),
+        );
+        await tester.tap(find.text(entry.$2));
+        await tester.pumpAndSettle();
+        expect(saved.last, entry.$1);
+        expect(appLanguageController.locale, Locale(entry.$1));
+        expect(find.text(entry.$3), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+      expect(saved, ['es', 'pt', 'fr', 'de', 'it', 'ja', 'ko']);
+    },
+  );
+
   testWidgets('language switches in place and preserves page state', (
     tester,
   ) async {
