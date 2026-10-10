@@ -31,6 +31,15 @@ Locale resolveGenesisSupportedLocale(
   for (final candidate in supportedLocales) {
     if (candidate == locale) return candidate;
   }
+  // A platform locale can carry a script (zh_Hant_TW) even when the generated
+  // locale is region-only (zh_TW). Prefer its matching region over base zh.
+  for (final candidate in supportedLocales) {
+    if (candidate.languageCode == locale.languageCode &&
+        candidate.countryCode != null &&
+        candidate.countryCode == locale.countryCode) {
+      return candidate;
+    }
+  }
   for (final candidate in supportedLocales) {
     if (candidate.languageCode == locale.languageCode &&
         candidate.scriptCode == locale.scriptCode) {

@@ -21,6 +21,20 @@ void main() {
     );
   });
 
+  test('maps a Taiwan platform locale with script to zh_TW', () {
+    expect(
+      resolveGenesisSupportedLocale(
+        const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+          countryCode: 'TW',
+        ),
+        const <Locale>[Locale('en'), Locale('zh'), Locale('zh', 'TW')],
+      ),
+      const Locale('zh', 'TW'),
+    );
+  });
+
   test(
     'returns a generated locale for another region of the same language',
     () {

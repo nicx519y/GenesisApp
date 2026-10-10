@@ -18,6 +18,13 @@ void main() {
       final localizedKeys = localized.keys
           .where((key) => !key.startsWith('@'))
           .toSet();
+      // gen-l10n requires a base zh locale for zh_TW. It intentionally has no
+      // translations so non-Taiwan Chinese locales keep the English fallback.
+      if (file.uri.pathSegments.last == 'app_zh.arb') {
+        expect(localized['@@locale'], 'zh');
+        expect(localizedKeys, isEmpty);
+        continue;
+      }
       expect(localizedKeys, messageKeys, reason: file.path);
 
       for (final key in messageKeys) {
