@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../l10n/app_language_controller.dart';
+
 import '../app/telemetry/genesis_telemetry.dart';
 import 'api_request_trace_sampling.dart';
 import 'api_exception.dart';
@@ -307,6 +309,7 @@ class ApiClient {
     ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final languageRevision = appLanguageController.dataRevision;
     final budget = Duration(milliseconds: _timeoutMs);
     Duration remainingBudget() {
       cancellationToken?.throwIfCancelled();
@@ -541,6 +544,27 @@ class ApiClient {
       }
     }
     attemptStopwatch.stop();
+
+    // Never publish localized read data obtained before a confirmed switch.
+    // Mutations must still finish normally, including setlanguage itself.
+    if ((method == 'GET' || method == 'HEAD') &&
+        uri.path.startsWith('/api/') &&
+        // These responses establish startup settings/account language. Their
+        // own request/session guards determine whether to apply language;
+        // dropping them here would lose config or account priority at launch.
+        uri.path != '/api/v1/app/config' &&
+        uri.path != '/api/v1/user/info' &&
+        responseType == ApiResponseType.json &&
+        languageRevision != appLanguageController.dataRevision) {
+      stopwatch.stop();
+      collectRequest?.failure(
+        duration: attemptDuration(),
+        error: const NetworkRequestCancelledException(),
+        clientFailureCode: ApiClientFailureCode.cancelled,
+        retryCount: retryCount,
+      );
+      throw const NetworkRequestCancelledException();
+    }
 
     final bodyBytes = transportResponse.bodyBytes.isEmpty
         ? utf8.encode(transportResponse.body)

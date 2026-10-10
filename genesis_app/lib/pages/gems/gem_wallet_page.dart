@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
@@ -116,7 +117,14 @@ Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
 }
 
 class _GemWalletPageState extends State<GemWalletPage>
-    with TickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        RouteAware,
+        LanguageDataRefresh<GemWalletPage> {
+  @override
+  Future<void> refreshLanguageData() => _refreshAll(silent: true);
+
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;
@@ -278,17 +286,14 @@ class _GemWalletPageState extends State<GemWalletPage>
         child: Scaffold(
           backgroundColor: GenesisColors.darkBackground,
           appBar: GenesisBackAppBar(
-            pageName:
-                GenesisL10n.current.gemsBuy,
+            pageName: GenesisL10n.current.gemsBuy,
             titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
             titleSideInset: 56,
             actions: [
               if (widget.showBuyGems)
                 IconButton(
                   key: const ValueKey('wallet-records-button'),
-                  tooltip: GenesisL10n
-                      .current
-                      .gemsRecords,
+                  tooltip: GenesisL10n.current.gemsRecords,
                   padding: const EdgeInsets.only(left: 4),
                   constraints: const BoxConstraints.tightFor(
                     width: 56,
@@ -349,9 +354,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (!_hasPageData && _productsError != null && _tasksError != null) {
       return Center(
         child: GemPurchaseState(
-          message: GenesisL10n
-              .current
-              .gemsUnableLoad,
+          message: GenesisL10n.current.gemsUnableLoad,
           onRetry: () => unawaited(_refreshAll()),
         ),
       );

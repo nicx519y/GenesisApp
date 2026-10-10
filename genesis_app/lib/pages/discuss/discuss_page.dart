@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
@@ -35,7 +36,13 @@ class DiscussPage extends StatefulWidget {
   State<DiscussPage> createState() => _DiscussPageState();
 }
 
-class _DiscussPageState extends State<DiscussPage> {
+class _DiscussPageState extends State<DiscussPage>
+    with LanguageDataRefresh<DiscussPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refresh();
+  }
+
   static const double _loadMoreThreshold = 600;
   static const double _loadMoreDragDistance = 48;
   static const double _postInputReservedHeight = 96;
@@ -170,11 +177,7 @@ class _DiscussPageState extends State<DiscussPage> {
                   onPressed: () => setState(() {
                     _future = _loadOriginDetail();
                   }),
-                  child: Text(
-                    GenesisL10n
-                        .current
-                        .homeRetry,
-                  ),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               );
             }

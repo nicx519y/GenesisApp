@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,7 +25,12 @@ class AppLanguageController extends ChangeNotifier {
   String? _settingLanguage;
   bool _userLanguageApplied = false;
   bool _saving = false;
+  SharedPreferences? _preferences;
   int _revision = 0;
+  int _dataRevision = 0;
+
+  /// Changes only when the confirmed request language changes.
+  int get dataRevision => _dataRevision;
   Locale? get locale => _locale;
   String? get settingLanguage => _settingLanguage;
   int get revision => _revision;
@@ -45,12 +52,30 @@ class AppLanguageController extends ChangeNotifier {
     return const Locale('en');
   }
 
-  // Every launch starts with the system. Cached settings never override config.
+  // Restore a saved setting before runApp; server settings remain authoritative.
   Future<void> load() async {
     _locale = null;
+    if (_settingLanguage != null) _dataRevision++;
     _settingLanguage = null;
     _userLanguageApplied = false;
-    _revision++;
+    final requestRevision = ++_revision;
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      _preferences = preferences;
+      if (requestRevision != _revision ||
+          _saving ||
+          _settingLanguage != null ||
+          _userLanguageApplied) {
+        return;
+      }
+      final cached = preferences.getString(preferenceKey);
+      if (cached != null && languageCodes.contains(cached)) {
+        _apply(cached);
+        return;
+      }
+    } catch (error) {
+      debugPrint('[Language] Could not read preference: $error');
+    }
     notifyListeners();
   }
 
@@ -68,7 +93,20 @@ class AppLanguageController extends ChangeNotifier {
     final code = language?.trim() ?? '';
     if (!languageCodes.contains(code)) return false;
     _apply(code);
+    unawaited(_persistLanguage(code));
     return true;
+  }
+
+  Future<void> _persistLanguage(String code) async {
+    try {
+      final preferences = _preferences ?? await SharedPreferences.getInstance();
+      // Do not let an earlier asynchronous save replace a newer setting.
+      if (_settingLanguage != code) return;
+      _preferences = preferences;
+      await preferences.setString(preferenceKey, code);
+    } catch (error) {
+      debugPrint('[Language] Could not cache preference: $error');
+    }
   }
 
   void _apply(String code) {
@@ -76,6 +114,7 @@ class AppLanguageController extends ChangeNotifier {
     final requested = code == 'zh-TW' ? const Locale('zh', 'TW') : Locale(code);
     final display = resolve([requested], supportedLocales);
     if (_settingLanguage == code && _locale == display) return;
+    if (_settingLanguage != code) _dataRevision++;
     _settingLanguage = code;
     _locale = display;
     notifyListeners();
@@ -96,12 +135,7 @@ class AppLanguageController extends ChangeNotifier {
       _apply(code);
       // Server confirmation is authoritative; a local cache failure must not
       // turn a successful server save into an apparent failed language change.
-      try {
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setString(preferenceKey, code);
-      } catch (error) {
-        debugPrint('[Language] Could not cache preference: $error');
-      }
+      await _persistLanguage(code);
     } finally {
       // Also discard profile responses started while saving was in progress.
       _revision++;

@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
@@ -34,25 +35,24 @@ class GemRecordsPage extends StatefulWidget {
 }
 
 class _GemRecordsPageState extends State<GemRecordsPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, LanguageDataRefresh<GemRecordsPage> {
+  @override
+  bool get languageRefreshSucceeded => _tabStates[_selectedIndex].error == null;
+  @override
+  Future<void> refreshLanguageData() async {
+    for (final state in _tabStates) {
+      state.hasLoaded = false;
+      state.records = [];
+    }
+    await _loadFirstPage(index: _selectedIndex, refreshing: true);
+  }
+
   static const int _pageSize = 20;
   List<_GemRecordTab> get _tabs => [
-    _GemRecordTab(
-      label: GenesisL10n.current.worldoAll,
-      scene: 'all',
-    ),
-    _GemRecordTab(
-      label: GenesisL10n.current.gemsEarned,
-      scene: 'earned',
-    ),
-    _GemRecordTab(
-      label: GenesisL10n.current.gemsSpent,
-      scene: 'spent',
-    ),
-    _GemRecordTab(
-      label: GenesisL10n.current.gemsPurchase,
-      scene: 'purchase',
-    ),
+    _GemRecordTab(label: GenesisL10n.current.worldoAll, scene: 'all'),
+    _GemRecordTab(label: GenesisL10n.current.gemsEarned, scene: 'earned'),
+    _GemRecordTab(label: GenesisL10n.current.gemsSpent, scene: 'spent'),
+    _GemRecordTab(label: GenesisL10n.current.gemsPurchase, scene: 'purchase'),
   ];
 
   late final TabController _tabController;
@@ -196,11 +196,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     return GenesisDarkTheme(
       child: Scaffold(
         backgroundColor: GenesisColors.darkBackground,
-        appBar: GenesisBackAppBar(
-          pageName: GenesisL10n
-              .current
-              .gemsGemRecords,
-        ),
+        appBar: GenesisBackAppBar(pageName: GenesisL10n.current.gemsGemRecords),
         body: SafeArea(
           child: Column(
             children: [
@@ -229,11 +225,8 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     if (state.isInitialLoading) return const _GemRecordsLoading();
     if (state.error != null && state.records.isEmpty) {
       return _GemRecordsMessage(
-        title: GenesisL10n
-            .current
-            .gemsUnableLoadRecords,
-        actionLabel:
-            GenesisL10n.current.homeRetry,
+        title: GenesisL10n.current.gemsUnableLoadRecords,
+        actionLabel: GenesisL10n.current.homeRetry,
         onAction: () => unawaited(_loadFirstPage(index: index)),
       );
     }
@@ -625,10 +618,7 @@ Future<void> _copyGemRecordText(BuildContext context, String text) async {
   if (value.isEmpty) return;
   await Clipboard.setData(ClipboardData(text: value));
   if (!context.mounted) return;
-  showGenesisToast(
-    context,
-    GenesisL10n.current.chatCopied,
-  );
+  showGenesisToast(context, GenesisL10n.current.chatCopied);
 }
 
 String _fallbackTitle(GemRecordItem record) {

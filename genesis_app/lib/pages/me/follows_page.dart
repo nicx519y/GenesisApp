@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
@@ -39,7 +40,16 @@ class FollowsPage extends StatefulWidget {
 }
 
 class _FollowsPageState extends State<FollowsPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, LanguageDataRefresh<FollowsPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    _reloadForSession();
+    await Future.wait([
+      if (_followingFuture != null) _followingFuture!,
+      if (_followersFuture != null) _followersFuture!,
+    ]);
+  }
+
   late final TabController _tabController;
   late final SessionRevisionSubscription _sessionRevision;
   Future<List<_FollowUserItem>>? _followingFuture;
@@ -90,8 +100,7 @@ class _FollowsPageState extends State<FollowsPage>
       _followersTotal = null;
       _canToggleFollow = false;
       _title =
-          _cleanTitle(widget.initialTitle) ??
-          GenesisL10n.current.meFollows;
+          _cleanTitle(widget.initialTitle) ?? GenesisL10n.current.meFollows;
       _followingFuture = following;
       _followersFuture = followers;
     });
@@ -300,9 +309,7 @@ class _FollowsPageState extends State<FollowsPage>
                       future:
                           _followingFuture ??
                           Future.value(const <_FollowUserItem>[]),
-                      emptyText: GenesisL10n
-                          .current
-                          .meNoFollowingYet,
+                      emptyText: GenesisL10n.current.meNoFollowingYet,
                       defaultFollowed: true,
                       loadingUids: _loadingUids,
                       followStateOverrides: _followStateOverrides,
@@ -314,9 +321,7 @@ class _FollowsPageState extends State<FollowsPage>
                       future:
                           _followersFuture ??
                           Future.value(const <_FollowUserItem>[]),
-                      emptyText: GenesisL10n
-                          .current
-                          .meNoFollowersYet,
+                      emptyText: GenesisL10n.current.meNoFollowersYet,
                       defaultFollowed: false,
                       loadingUids: _loadingUids,
                       followStateOverrides: _followStateOverrides,
@@ -373,9 +378,7 @@ class _FollowUsersPane extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  GenesisL10n
-                      .current
-                      .homeLoadFailed,
+                  GenesisL10n.current.homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -385,11 +388,7 @@ class _FollowUsersPane extends StatelessWidget {
                     backgroundColor: GenesisColors.darkFaintFill,
                     foregroundColor: GenesisColors.darkTextPrimary,
                   ),
-                  child: Text(
-                    GenesisL10n
-                        .current
-                        .homeRetry,
-                  ),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               ],
             ),
@@ -509,9 +508,7 @@ class _FollowUserItem {
       uid: uid,
       displayName: formatUidForDisplay(
         displayName,
-        fallback: GenesisL10n
-            .current
-            .worldoUser,
+        fallback: GenesisL10n.current.worldoUser,
       ),
       avatarUrl: avatar,
       deleted: entityDeleted(user['deleted']),

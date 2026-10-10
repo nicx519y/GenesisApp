@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_membership_badge.dart';
 import 'dart:async';
@@ -67,7 +68,16 @@ class MePage extends StatefulWidget {
   State<MePage> createState() => _MePageState();
 }
 
-class _MePageState extends State<MePage> with RouteAware {
+class _MePageState extends State<MePage>
+    with RouteAware, LanguageDataRefresh<MePage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refresh();
+  }
+
+  @override
+  ValueListenable<bool>? get languagePageActive => widget.isActiveListenable;
+
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
 
   late Future<_MePageContent> _future;
@@ -216,19 +226,13 @@ class _MePageState extends State<MePage> with RouteAware {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      GenesisL10n
-                          .current
-                          .homeLoadFailed,
+                      GenesisL10n.current.homeLoadFailed,
                       style: TextStyle(color: GenesisColors.darkTextSecondary),
                     ),
                     const SizedBox(height: 8),
                     FilledButton(
                       onPressed: _refresh,
-                      child: Text(
-                        GenesisL10n
-                            .current
-                            .homeRetry,
-                      ),
+                      child: Text(GenesisL10n.current.homeRetry),
                     ),
                   ],
                 ),
@@ -266,9 +270,7 @@ class _MePageState extends State<MePage> with RouteAware {
                             child: Padding(
                               padding: EdgeInsets.only(left: 16, right: 112),
                               child: PageTitleText(
-                                pageName: GenesisL10n
-                                    .current
-                                    .navMe,
+                                pageName: GenesisL10n.current.navMe,
                               ),
                             ),
                           ),
@@ -360,11 +362,8 @@ class _MePageState extends State<MePage> with RouteAware {
                           onWorldDeleted: _handleWorldDeleted,
                           onCollectionTabChanged: _handleCollectionTabChanged,
                           onCollapsedChanged: _handleProfileCollapsedChanged,
-                          originTabLabel: GenesisL10n
-                              .current
-                              .navWorldo,
-                          worldTabLabel:
-                              GenesisL10n.current.mePlaying,
+                          originTabLabel: GenesisL10n.current.navWorldo,
+                          worldTabLabel: GenesisL10n.current.mePlaying,
                           showCollectionCounts: true,
                           tabLabelFontSize: 14,
                         );

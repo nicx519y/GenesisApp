@@ -1,3 +1,4 @@
+import '../../l10n/app_language_controller.dart';
 import '../../network/api_exception.dart';
 import '../../network/models/gem_model.dart';
 import '../../network/models/user_memory_settings.dart';
@@ -8,16 +9,22 @@ class MemoryModelPageCache {
       <String, Future<GemModelCatalog>>{};
 
   GemModelCatalog? _modelCatalog;
+  int? _catalogLanguageRevision;
   UserMemorySettings? _memorySettings;
   final Set<String> _modelCatalogPermissionDenied = <String>{};
   bool _disposed = false;
 
-  GemModelCatalog? get modelCatalog => _disposed ? null : _modelCatalog;
+  GemModelCatalog? get modelCatalog =>
+      _disposed ||
+          _catalogLanguageRevision != appLanguageController.dataRevision
+      ? null
+      : _modelCatalog;
 
   UserMemorySettings? get memorySettings => _disposed ? null : _memorySettings;
 
   void storeModelCatalog(GemModelCatalog catalog) {
     if (_disposed) return;
+    _catalogLanguageRevision = appLanguageController.dataRevision;
     _modelCatalog = catalog;
   }
 
@@ -87,5 +94,5 @@ String? _modelCatalogRequestKey({
   final normalizedUid = uid.trim();
   final normalizedWorldId = worldId.trim();
   if (normalizedUid.isEmpty || normalizedWorldId.isEmpty) return null;
-  return '$normalizedUid\u001f$normalizedWorldId';
+  return '$normalizedUid\u001f$normalizedWorldId\u001f${appLanguageController.dataRevision}';
 }

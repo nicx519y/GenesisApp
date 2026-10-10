@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
@@ -67,7 +68,24 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, LanguageDataRefresh<SearchPage> {
+  @override
+  bool get languageRefreshSucceeded =>
+      _activeQuery.isEmpty || _results[_selectedTab]!.hasSuccessfulResponse;
+  @override
+  Future<void> refreshLanguageData() async {
+    _debounceTimer?.cancel();
+    final token = ++_requestToken;
+    final query = _controller.text.trim();
+    setState(() {
+      _activeQuery = _isSearchableQuery(query) ? query : '';
+      _hasInput = _activeQuery.isNotEmpty;
+      _resetAllTabs();
+      _markAllTabsStale();
+    });
+    if (_activeQuery.isNotEmpty) await _refreshTab(_selectedTab, token: token);
+  }
+
   static const Duration _debounceDuration = Duration(
     milliseconds: 600,
   ); // API rate limit is 1 request per second, so 600ms is a good balance between responsiveness and reducing unnecessary requests.
@@ -447,9 +465,7 @@ class _SearchPageState extends State<SearchPage>
                                 height: 28,
                                 child: Center(
                                   child: Text(
-                                    GenesisL10n
-                                        .current
-                                        .searchCancel,
+                                    GenesisL10n.current.searchCancel,
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: GenesisColors.darkTextPrimary,

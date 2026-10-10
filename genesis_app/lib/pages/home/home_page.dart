@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
@@ -219,10 +220,8 @@ class _HomePageState extends State<HomePage> {
             isActiveListenable: widget.isActiveListenable,
             topSafeArea: false,
             showLogo: false,
-            title:
-                GenesisL10n.current.homeSignedOutTitle,
-            description:
-                GenesisL10n.current.homeSignedOutDescription,
+            title: GenesisL10n.current.homeSignedOutTitle,
+            description: GenesisL10n.current.homeSignedOutDescription,
             titleFontSize: 20,
             descriptionFontSize: 14,
             titleLetterSpacing: 0,

@@ -31,7 +31,8 @@ void main() {
       );
       final restarted = AppLanguageController();
       await restarted.load();
-      expect(restarted.locale, isNull);
+      expect(restarted.locale, const Locale('zh', 'TW'));
+      final cachedDataRevision = restarted.dataRevision;
       final config = AppGlobalConfigStore(
         loadConfig: ({String? uid}) async => {'language': serverLanguage},
       );
@@ -45,9 +46,41 @@ void main() {
       );
       expect(restarted.locale, const Locale('zh', 'TW'));
       expect(restarted.settingLanguage, 'zh-TW');
+      expect(restarted.dataRevision, cachedDataRevision);
       config.dispose();
     },
   );
+
+  for (final result in ['', 'zh_TW', 'failure']) {
+    test(
+      'cached language survives empty invalid or failed config: $result',
+      () async {
+        SharedPreferences.setMockInitialValues({'app_language': 'zh-TW'});
+        final languages = AppLanguageController();
+        await languages.load();
+        final dataRevision = languages.dataRevision;
+        final config = AppGlobalConfigStore(
+          loadConfig: ({String? uid}) async {
+            if (result == 'failure') throw StateError('config unavailable');
+            return {'language': result};
+          },
+        );
+        await loadStartupAppConfig(
+          store: config,
+          uidResolution: Future.value(
+            const StartupUidResolution(uid: null, status: 'signed_out'),
+          ),
+          collectReady: Future.value(),
+          languageController: languages,
+        );
+        languages.applyUserLanguage('', requestRevision: languages.revision);
+        expect(languages.settingLanguage, 'zh-TW');
+        expect(languages.locale, const Locale('zh', 'TW'));
+        expect(languages.dataRevision, dataRevision);
+        config.dispose();
+      },
+    );
+  }
 
   for (final language in ['zh-TW', 'zh_TW', '', 'failure']) {
     test('startup config language or system fallback: $language', () async {
@@ -76,7 +109,10 @@ void main() {
     });
   }
 
-  setUp(ApiRequestTraceSampling.resetForTesting);
+  setUp(() {
+    ApiRequestTraceSampling.resetForTesting();
+    SharedPreferences.setMockInitialValues({});
+  });
   tearDown(ApiRequestTraceSampling.resetForTesting);
 
   for (final result in [

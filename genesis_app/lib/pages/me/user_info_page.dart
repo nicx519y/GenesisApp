@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
@@ -33,7 +34,13 @@ class UserInfoPage extends StatefulWidget {
   State<UserInfoPage> createState() => _UserInfoPageState();
 }
 
-class _UserInfoPageState extends State<UserInfoPage> {
+class _UserInfoPageState extends State<UserInfoPage>
+    with LanguageDataRefresh<UserInfoPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refresh();
+  }
+
   late Future<UserProfileData> _future;
   late final SessionRevisionSubscription _sessionRevision;
   int _loadGeneration = 0;
@@ -101,9 +108,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
     final displayName = _mapString(
       user,
       'name',
-      fallback: GenesisL10n
-          .current
-          .worldoUser,
+      fallback: GenesisL10n.current.worldoUser,
     );
     final avatarUrl = asResolvedImageUrl(
       user['avatar'],
@@ -344,9 +349,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       });
       showGenesisToast(
         context,
-        GenesisL10n
-            .current
-            .meUserBlockedContentHasReported,
+        GenesisL10n.current.meUserBlockedContentHasReported,
         brightness: Brightness.dark,
       );
     } catch (error, stackTrace) {
@@ -356,10 +359,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       setState(() => _isBlockingUser = false);
       showGenesisToast(
         context,
-        _blockActionFailureMessage(
-          error,
-          GenesisL10n.current.meBlockFailed,
-        ),
+        _blockActionFailureMessage(error, GenesisL10n.current.meBlockFailed),
         brightness: Brightness.dark,
       );
     }
@@ -368,14 +368,10 @@ class _UserInfoPageState extends State<UserInfoPage> {
   Future<bool> _confirmBlockUser() async {
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: GenesisL10n
-          .current
-          .meBlockUser,
+      title: GenesisL10n.current.meBlockUser,
       actions: [
         GenesisActionBoxAction<bool>(
-          label: GenesisL10n
-              .current
-              .meBlock,
+          label: GenesisL10n.current.meBlock,
           value: true,
         ),
       ],
@@ -389,9 +385,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
     if (targetUid.isEmpty) {
       showGenesisToast(
         context,
-        GenesisL10n
-            .current
-            .meUnblockFailed,
+        GenesisL10n.current.meUnblockFailed,
         brightness: Brightness.dark,
       );
       return;
@@ -418,12 +412,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       setState(() => _isBlockingUser = false);
       showGenesisToast(
         context,
-        _blockActionFailureMessage(
-          error,
-          GenesisL10n
-              .current
-              .meUnblockFailed,
-        ),
+        _blockActionFailureMessage(error, GenesisL10n.current.meUnblockFailed),
         brightness: Brightness.dark,
       );
     }
@@ -578,12 +567,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
                     ),
                     GenesisActionMenuItem(
                       label: _profileBlocked
-                          ? GenesisL10n
-                                .current
-                                .meUnblock
-                          : GenesisL10n
-                                .current
-                                .meBlock,
+                          ? GenesisL10n.current.meUnblock
+                          : GenesisL10n.current.meBlock,
                       iconData: Icons.block,
                       onSelected: _profileBlocked
                           ? _handleUnblockUser
@@ -609,9 +594,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          GenesisL10n
-                              .current
-                              .homeLoadFailed,
+                          GenesisL10n.current.homeLoadFailed,
                           style: TextStyle(
                             color: GenesisColors.darkTextSecondary,
                           ),
@@ -619,11 +602,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
                         const SizedBox(height: 8),
                         FilledButton(
                           onPressed: _refresh,
-                          child: Text(
-                            GenesisL10n
-                                .current
-                                .homeRetry,
-                          ),
+                          child: Text(GenesisL10n.current.homeRetry),
                         ),
                       ],
                     ),
@@ -647,10 +626,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
                     _selectedCollectionTabIndex = index;
                   },
                   onCollapsedChanged: _handleProfileCollapsedChanged,
-                  originTabLabel:
-                      GenesisL10n.current.navWorldo,
-                  worldTabLabel:
-                      GenesisL10n.current.mePlaying,
+                  originTabLabel: GenesisL10n.current.navWorldo,
+                  worldTabLabel: GenesisL10n.current.mePlaying,
                   showCollectionCounts: true,
                   tabLabelFontSize: 14,
                   isBlocking: _isBlockingUser,

@@ -42,7 +42,23 @@ class _MyWorldFeed extends StatefulWidget {
 }
 
 class _MyWorldFeedState extends State<_MyWorldFeed>
-    with AutomaticKeepAliveClientMixin<_MyWorldFeed>, WidgetsBindingObserver {
+    with
+        AutomaticKeepAliveClientMixin<_MyWorldFeed>,
+        WidgetsBindingObserver,
+        LanguageDataRefresh<_MyWorldFeed> {
+  @override
+  ValueListenable<bool>? get languagePageActive => widget.isActiveListenable;
+  @override
+  bool get languageSectionVisible => _tabController?.index == widget.index;
+  @override
+  bool get languageDataLoading => _isRefreshing || _initialRequestInFlight;
+  @override
+  bool get languageRefreshSucceeded => _error == null;
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refreshItems(force: true);
+  }
+
   static const _pageViewAction = 'home_my_worlds';
   static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
@@ -400,6 +416,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   void _requestIfCurrentTab() {
+    checkLanguageData();
     final controller = _tabController;
     if (controller == null ||
         controller.index != widget.index ||
@@ -576,6 +593,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _scheduleInitialRequestRetry();
     } finally {
       _initialRequestInFlight = false;
+      checkLanguageData();
     }
   }
 
@@ -675,6 +693,24 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _refreshItems({
+    bool force = false,
+    bool onlyIfFirstPageChanged = false,
+    bool scrollToTopOnUpdate = false,
+    bool hasConfirmedSession = false,
+  }) async {
+    try {
+      await _refreshItemsForCurrentLanguage(
+        force: force,
+        onlyIfFirstPageChanged: onlyIfFirstPageChanged,
+        scrollToTopOnUpdate: scrollToTopOnUpdate,
+        hasConfirmedSession: hasConfirmedSession,
+      );
+    } finally {
+      checkLanguageData();
+    }
+  }
+
+  Future<void> _refreshItemsForCurrentLanguage({
     bool force = false,
     bool onlyIfFirstPageChanged = false,
     bool scrollToTopOnUpdate = false,
@@ -1136,17 +1172,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              GenesisL10n
-                  .current
-                  .homeLoadFailed,
+              GenesisL10n.current.homeLoadFailed,
               style: TextStyle(color: GenesisColors.darkTextPrimary),
             ),
             const SizedBox(height: 10),
             FilledButton(
               onPressed: _refreshItems,
-              child: Text(
-                GenesisL10n.current.homeRetry,
-              ),
+              child: Text(GenesisL10n.current.homeRetry),
             ),
           ],
         ),

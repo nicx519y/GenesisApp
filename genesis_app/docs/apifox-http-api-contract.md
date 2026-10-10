@@ -2767,5 +2767,14 @@ Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
 客户端协议值固定为 `en`、`zh-TW`、`es`、`pt`、`fr`、`de`、`it`、`ja`、`ko`。config.language、data.user.language、setlanguage 请求、本地设置缓存及 x-setting-language 统一使用 `zh-TW`，不再接受旧协议值 `zh_TW`。Flutter 内部仍使用 Locale(zh, TW)，翻译资源文件与生成代码的 zh_TW 标识保留。
 
 公共 header 新增 `x-setting-language`：未获得用户设置语言时为空（不发送该 header），不使用系统语言填充；config、当前账号 user/info 的非空有效 language 表示已保存的设置，或手动保存成功后使用协议值。`x-system-language` 继续读取系统 locale，仅系统语言决定 UI 时不会产生设置语言。退出登录保留当前设置。
-启动先使用系统，再应用 config；当前账号非空 language 优先于 config，空值保持当前语言。config 迟到不能覆盖账号语言或手动切换。退出登录不改变语言。
-手动切换仅 err_no=0 后更新界面、header 和缓存；请求期间禁止重复提交；失败保持原语言并显示业务 err_msg。下一次启动不使用本地缓存覆盖 config／系统规则。当前完整界面翻译仅 en、zh_TW，其他协议语言保留 header 原值并以英语显示。
+启动优先读取有效本地语言缓存，无缓存时使用系统，再应用 config；当前账号非空 language 优先于 config，空值保持当前语言。config 迟到不能覆盖账号语言或手动切换。退出登录不改变语言。
+手动切换仅 err_no=0 后更新界面、header 和缓存；请求期间禁止重复提交；失败保持原语言并显示业务 err_msg。下一次启动先用缓存显示；config／userInfo 的有效语言仍优先，并同步更新缓存。服务端值与当前设置相同不重复切换、不递增数据语言版本；空值保留缓存／系统已确定的语言。当前完整界面翻译仅 en、zh_TW，其他协议语言保留 header 原值并以英语显示。
+
+
+### 切换语言后的页面数据刷新
+
+- 成功确认的请求语言变化时递增数据语言版本；保存失败、相同设置和空服务端 language 不触发刷新。
+- 保留页面 State、输入与筛选。可见数据页面刷新；被路由覆盖的页面、隐藏主 Tab 和列表子 Tab 在再次可见时检查版本并刷新。分页刷新从第一页开始。
+- `/api/` JSON GET/HEAD（除建立语言设置的 app/config、user/info）在返回时检查语言版本；旧版本结果按取消处理，不交给业务解析和页面。POST 等写操作正常完成，不因语言变化重发或取消。
+- Home、Worldo 首页及分类标签缓存按设置语言（未设置时按系统语言）区分；模型目录缓存按语言版本失效；Inbox 语言改变后的下一次同步使用全量会话请求，保留私信内容。
+- 不重建 App、不清理创建草稿、不重连聊天室、不重新翻译已发送的聊天／讨论原文。仍沿用各页面原有的错误提示与重试入口。

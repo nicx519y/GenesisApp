@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -116,6 +117,33 @@ void main() {
       expect(find.byType(SearchPage), findsNothing);
     });
   }
+
+  testWidgets(
+    'language change refetches existing query without clearing input',
+    (tester) async {
+      await appLanguageController.load();
+      final transport = _SearchPageTransport();
+      await _pumpSearchPage(tester, transport);
+      await tester.enterText(find.byType(TextField), 'abc');
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+      final count = transport.searchRequests.length;
+      expect(count, greaterThan(0));
+      appLanguageController.applyConfigLanguage(
+        'zh-TW',
+        requestRevision: appLanguageController.revision,
+      );
+      await tester.pumpAndSettle();
+      expect(transport.searchRequests.length, count + 1);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'abc',
+      );
+      expect(transport.searchRequests.last.uri.queryParameters['pn'], '1');
+      await tester.pumpWidget(const SizedBox());
+      await appLanguageController.load();
+    },
+  );
 
   testWidgets('does not request search before three letters or chinese chars', (
     tester,

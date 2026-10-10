@@ -9,13 +9,16 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test(
-    'launch ignores cache and uses system until config is confirmed',
+    'launch restores cache and identical server language does not refresh data',
     () async {
       SharedPreferences.setMockInitialValues({'app_language': 'zh-TW'});
       final controller = AppLanguageController();
       await controller.load();
-      expect(controller.locale, isNull);
-      expect(controller.settingLanguage, isNull);
+      expect(controller.locale, const Locale('zh', 'TW'));
+      expect(controller.settingLanguage, 'zh-TW');
+      final dataRevision = controller.dataRevision;
+      var notifications = 0;
+      controller.addListener(() => notifications++);
       expect(
         AppLanguageController.resolve([const Locale('zh', 'TW')], []),
         const Locale('zh', 'TW'),
@@ -25,15 +28,53 @@ void main() {
         const Locale('en'),
       );
       controller.applyConfigLanguage('', requestRevision: controller.revision);
-      expect(controller.locale, isNull);
+      expect(controller.locale, const Locale('zh', 'TW'));
       controller.applyConfigLanguage(
         'zh-TW',
         requestRevision: controller.revision,
       );
       expect(controller.locale, const Locale('zh', 'TW'));
       expect(controller.settingLanguage, 'zh-TW');
+      controller.applyUserLanguage(
+        'zh-TW',
+        requestRevision: controller.revision,
+      );
+      expect(controller.dataRevision, dataRevision);
+      expect(notifications, 0);
     },
   );
+
+  test(
+    'missing or invalid cache uses system without a setting header',
+    () async {
+      for (final cached in [null, '', 'zh_TW', 'invalid']) {
+        SharedPreferences.setMockInitialValues({
+          if (cached != null) 'app_language': cached,
+        });
+        final controller = AppLanguageController();
+        await controller.load();
+        expect(controller.locale, isNull);
+        expect(controller.settingLanguage, isNull);
+      }
+    },
+  );
+
+  test('server override updates cache for the next launch', () async {
+    SharedPreferences.setMockInitialValues({'app_language': 'zh-TW'});
+    final controller = AppLanguageController();
+    await controller.load();
+    final dataRevision = controller.dataRevision;
+    controller.applyConfigLanguage('en', requestRevision: controller.revision);
+    expect(controller.locale, const Locale('en'));
+    expect(controller.dataRevision, dataRevision + 1);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('app_language'), 'en');
+    controller.applyUserLanguage('zh-TW', requestRevision: controller.revision);
+    expect(prefs.getString('app_language'), 'zh-TW');
+    final restarted = AppLanguageController();
+    await restarted.load();
+    expect(restarted.settingLanguage, 'zh-TW');
+  });
 
   test(
     'nonempty account language wins and empty account retains config',

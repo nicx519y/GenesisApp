@@ -1,3 +1,5 @@
+import '../../l10n/app_language_controller.dart';
+import 'dart:ui' as ui;
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,8 +63,11 @@ class OriginFeedCacheStore {
       const {'', 'Male', 'Female', 'Non_binary'}.contains(value);
 
   Future<Map<String, dynamic>?> loadForYouFirstPage() async {
+    final languageRevision = appLanguageController.dataRevision;
+    final key = _storageKey;
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
+    if (languageRevision != appLanguageController.dataRevision) return null;
+    final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
@@ -75,8 +80,9 @@ class OriginFeedCacheStore {
   }
 
   Future<void> saveForYouFirstPage(Map<String, dynamic> data) async {
+    final key = _storageKey;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKey, jsonEncode(data));
+    await prefs.setString(key, jsonEncode(data));
   }
 
   String get _resolvedOwner {
@@ -87,6 +93,6 @@ class OriginFeedCacheStore {
   String get _storageKey {
     final gender = (_gender ?? '').trim();
     final suffix = gender.isEmpty ? '' : '.gender_$gender';
-    return '$storageKey.$_resolvedOwner.foryou.page_1$suffix';
+    return '$storageKey.$_resolvedOwner.foryou.page_1$suffix.language_${appLanguageController.settingLanguage ?? ui.PlatformDispatcher.instance.locale.toLanguageTag()}';
   }
 }

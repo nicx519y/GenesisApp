@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../../../../../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:io';
@@ -474,7 +475,17 @@ class LocationChatPanel extends StatefulWidget {
   State<LocationChatPanel> createState() => _LocationChatPanelState();
 }
 
-class _LocationChatPanelState extends State<LocationChatPanel> {
+class _LocationChatPanelState extends State<LocationChatPanel>
+    with LanguageDataRefresh<LocationChatPanel> {
+  @override
+  bool get languageSectionVisible => widget.active;
+  @override
+  Future<void> refreshLanguageData() async {
+    _modelRequestCache.clearModelCatalog();
+    _selectedModelTitleLookupCode = '';
+    await _backfillSelectedModelTitle(_selectedModelCode);
+  }
+
   final _unobscuredPanelKey = GlobalKey();
   ValueListenable<ChatroomLocationEntry>? _entryChanges;
   bool get _usesPreparedEntry =>
@@ -1203,9 +1214,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               controller: _textController,
               focusNode: _composerFocusNode,
               onInputTap: _handleComposerInputTap,
-              hintText: GenesisL10n
-                  .current
-                  .chatText,
+              hintText: GenesisL10n.current.chatText,
               inputEnabled:
                   widget.active &&
                   !(_initialMessageSendPending &&
@@ -1561,9 +1570,7 @@ class _LocationChatRoster extends StatelessWidget {
                                   if (isSelf) ...[
                                     const SizedBox(width: 8),
                                     Text(
-                                      GenesisL10n
-                                          .current
-                                          .chatLocationRoster,
+                                      GenesisL10n.current.chatLocationRoster,
                                       style: TextStyle(
                                         color: accentSoft,
                                         fontSize: 9.5,

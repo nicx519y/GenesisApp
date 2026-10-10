@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -156,7 +157,13 @@ bool originOpeningDialogueShouldFullyCacheForTesting({
 
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
-class _OriginWorldPageState extends State<OriginWorldPage> {
+class _OriginWorldPageState extends State<OriginWorldPage>
+    with LanguageDataRefresh<OriginWorldPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    await _fetchOriginDetail();
+  }
+
   static const String _profileLocationChatRoleId = 'current-user';
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       kGenesisLightStatusIconsSystemUiOverlayStyle;
@@ -892,9 +899,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       if (mounted) {
         showGenesisToast(
           context,
-          GenesisL10n
-              .current
-              .worldDetailNoSavedProfileFound,
+          GenesisL10n.current.worldDetailNoSavedProfileFound,
           brightness: Brightness.dark,
         );
       }
@@ -938,9 +943,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  GenesisL10n
-                      .current
-                      .homeLoadFailed,
+                  GenesisL10n.current.homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 10),
@@ -949,11 +952,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                     setState(() => _initialLoadError = null);
                     unawaited(_fetchOriginDetail(isInitial: true));
                   },
-                  child: Text(
-                    GenesisL10n
-                        .current
-                        .homeRetry,
-                  ),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               ],
             ),

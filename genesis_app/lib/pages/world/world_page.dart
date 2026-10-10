@@ -1,3 +1,4 @@
+import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -105,13 +106,23 @@ class WorldPage extends StatefulWidget {
 
 enum _WorldPageRenderStage { framework, detailShell, content }
 
-class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
+class _WorldPageState extends State<WorldPage>
+    with TickerProviderStateMixin, LanguageDataRefresh<WorldPage> {
+  @override
+  bool get languageDataLoading => _pollInFlight;
+  bool _lastWorldFetchSucceeded = false;
+  @override
+  bool get languageRefreshSucceeded => _lastWorldFetchSucceeded;
+  @override
+  Future<void> refreshLanguageData() async {
+    await _fetchWorld();
+  }
+
   static const double _progressWaitAvatarSize = 88;
   String get _progressWaitTitle =>
       GenesisL10n.current.worldDetailProgressingWorld;
-  String get _progressWaitMessage => GenesisL10n
-      .current
-      .worldDetailCompressingRecent;
+  String get _progressWaitMessage =>
+      GenesisL10n.current.worldDetailCompressingRecent;
   static const double _worldMainSwipeSystemGestureEdgeWidth = 24;
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
@@ -557,19 +568,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  GenesisL10n
-                      .current
-                      .homeLoadFailed,
+                  GenesisL10n.current.homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 10),
                 FilledButton(
                   onPressed: () => _fetchWorld(isInitial: true),
-                  child: Text(
-                    GenesisL10n
-                        .current
-                        .homeRetry,
-                  ),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               ],
             ),
