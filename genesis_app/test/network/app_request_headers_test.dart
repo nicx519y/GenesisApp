@@ -10,14 +10,16 @@ void main() {
       final provider = AppRequestHeaderProvider(
         appVersionLoader: () async => const AppVersionInfo(),
         systemUserAgentLoader: () async => '',
-        systemLanguageLoader: () async => 'zh-TW',
+        systemLanguageLoader: () async => 'zh-Hant',
         appTimeZoneLoader: () async => '',
         settingLanguageProvider: () => setting,
       );
-      expect((await provider.headers())['x-setting-language'], 'zh-TW');
+      final initialHeaders = await provider.headers();
+      expect(initialHeaders.containsKey('x-setting-language'), isFalse);
+      expect(initialHeaders['x-system-language'], 'zh-Hant');
       for (final code in [
         'en',
-        'zh_TW',
+        'zh-TW',
         'es',
         'pt',
         'fr',
@@ -29,7 +31,7 @@ void main() {
         setting = code;
         final headers = await provider.headers();
         expect(headers['x-setting-language'], code);
-        expect(headers['x-system-language'], 'zh-TW');
+        expect(headers['x-system-language'], 'zh-Hant');
       }
     },
   );
@@ -49,7 +51,6 @@ void main() {
     expect(await provider.headers(), {
       'user-agent': 'Android 15',
       'x-system-language': 'zh-CN',
-      'x-setting-language': 'zh-CN',
       'x-app-version-code': '1',
       'x-app-timezone': 'Asia/Shanghai',
     });

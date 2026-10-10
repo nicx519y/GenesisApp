@@ -36,9 +36,9 @@ void main() {
                   '{"err_no":0,"err_msg":"succ","data":{"token":"token","user":{"uid":"me"}}}',
             );
           }
-          if (request.uri.path.endsWith('/user/info')) return _profile('zh_TW');
+          if (request.uri.path.endsWith('/user/info')) return _profile('zh-TW');
           if (request.uri.path.endsWith('/user/logout')) {
-            expect(request.headers['x-setting-language'], 'zh_TW');
+            expect(request.headers['x-setting-language'], 'zh-TW');
             return const TransportResponse(
               statusCode: 200,
               headers: {'content-type': 'application/json'},
@@ -50,17 +50,17 @@ void main() {
       );
       await api.loginWithGoogle(idToken: 'provider-token');
       expect(paths.map((path) => path.split('/').last), ['google', 'info']);
-      expect(languages.settingLanguage, 'zh_TW');
+      expect(languages.settingLanguage, 'zh-TW');
       await api.logout();
-      expect(languages.settingLanguage, 'zh_TW');
+      expect(languages.settingLanguage, 'zh-TW');
     },
   );
 
-  for (final language in ['en', '', 'zh_TW']) {
+  for (final language in ['en', '', 'zh-TW']) {
     test('current user info applies nonempty language: $language', () async {
       final languages = AppLanguageController();
       languages.applyConfigLanguage(
-        'zh_TW',
+        'zh-TW',
         requestRevision: languages.revision,
       );
       final api = UserV1Api(
@@ -73,7 +73,7 @@ void main() {
         languageController: languages,
       );
       await api.info();
-      expect(languages.settingLanguage, language.isEmpty ? 'zh_TW' : language);
+      expect(languages.settingLanguage, language.isEmpty ? 'zh-TW' : language);
     });
   }
 
@@ -84,7 +84,7 @@ void main() {
       ApiClient(
         baseUrl: 'https://example.test/api/',
         transport: _Transport(
-          (_) async => _profile('zh_TW', uid: 'other', isSelf: false),
+          (_) async => _profile('zh-TW', uid: 'other', isSelf: false),
         ),
       ),
       currentUserInfoSessionProvider: () async =>
@@ -115,7 +115,7 @@ void main() {
     final fetch = api.info();
     await sent.future;
     session = null;
-    response.complete(_profile('zh_TW'));
+    response.complete(_profile('zh-TW'));
     await fetch;
     expect(languages.settingLanguage, 'en');
   });
@@ -150,7 +150,7 @@ void main() {
       await switching;
       response.complete(_profile('en'));
       await fetch;
-      expect(languages.settingLanguage, 'zh_TW');
+      expect(languages.settingLanguage, 'zh-TW');
     },
   );
 }

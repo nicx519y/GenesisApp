@@ -11,7 +11,7 @@ void main() {
   test(
     'launch ignores cache and uses system until config is confirmed',
     () async {
-      SharedPreferences.setMockInitialValues({'app_language': 'zh_TW'});
+      SharedPreferences.setMockInitialValues({'app_language': 'zh-TW'});
       final controller = AppLanguageController();
       await controller.load();
       expect(controller.locale, isNull);
@@ -27,11 +27,11 @@ void main() {
       controller.applyConfigLanguage('', requestRevision: controller.revision);
       expect(controller.locale, isNull);
       controller.applyConfigLanguage(
-        'zh_TW',
+        'zh-TW',
         requestRevision: controller.revision,
       );
       expect(controller.locale, const Locale('zh', 'TW'));
-      expect(controller.settingLanguage, 'zh_TW');
+      expect(controller.settingLanguage, 'zh-TW');
     },
   );
 
@@ -41,11 +41,11 @@ void main() {
       final controller = AppLanguageController();
       await controller.load();
       final revision = controller.revision;
-      controller.applyConfigLanguage('zh_TW', requestRevision: revision);
+      controller.applyConfigLanguage('zh-TW', requestRevision: revision);
       controller.applyUserLanguage('', requestRevision: revision);
-      expect(controller.settingLanguage, 'zh_TW');
+      expect(controller.settingLanguage, 'zh-TW');
       controller.applyUserLanguage('en', requestRevision: revision);
-      controller.applyConfigLanguage('zh_TW', requestRevision: revision);
+      controller.applyConfigLanguage('zh-TW', requestRevision: revision);
       expect(controller.settingLanguage, 'en');
     },
   );
@@ -53,7 +53,7 @@ void main() {
   test('all nine wire values are preserved without aliases', () {
     expect(AppLanguageController.languageCodes, {
       'en',
-      'zh_TW',
+      'zh-TW',
       'es',
       'pt',
       'fr',
@@ -72,7 +72,7 @@ void main() {
     }
     final controller = AppLanguageController();
     controller.applyConfigLanguage(
-      'zh-TW',
+      'zh_TW',
       requestRevision: controller.revision,
     );
     expect(controller.settingLanguage, isNull);
@@ -91,7 +91,7 @@ void main() {
       var calls = 0;
       Future<void> save(String language) {
         calls++;
-        expect(language, 'zh_TW');
+        expect(language, 'zh-TW');
         return server.future;
       }
 
@@ -105,14 +105,14 @@ void main() {
       expect(calls, 1);
       server.complete();
       await switching;
-      expect(controller.settingLanguage, 'zh_TW');
+      expect(controller.settingLanguage, 'zh-TW');
       expect(
         (await SharedPreferences.getInstance()).getString('app_language'),
-        'zh_TW',
+        'zh-TW',
       );
       controller.applyConfigLanguage('en', requestRevision: oldRevision);
       controller.applyUserLanguage('en', requestRevision: oldRevision);
-      expect(controller.settingLanguage, 'zh_TW');
+      expect(controller.settingLanguage, 'zh-TW');
     },
   );
 
@@ -137,6 +137,6 @@ void main() {
       const Locale('zh', 'TW'),
       saveLanguage: (_) async {},
     );
-    expect(controller.settingLanguage, 'zh_TW');
+    expect(controller.settingLanguage, 'zh-TW');
   });
 }

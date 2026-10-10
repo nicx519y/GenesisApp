@@ -64,7 +64,7 @@ class AppRequestHeaderProvider {
     final versionInfo = await _safeLoadAppVersion();
     final userAgent = await _safeLoadHeaderValue(_systemUserAgentLoader);
     final systemLanguage = await _safeLoadHeaderValue(_systemLanguageLoader);
-    final settingLanguage = _settingLanguageProvider() ?? systemLanguage;
+    final settingLanguage = _settingLanguageProvider() ?? '';
     final appTimeZone = await _safeLoadHeaderValue(_appTimeZoneLoader);
     final versionCode = versionInfo.versionCode.trim();
     return <String, String>{

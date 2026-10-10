@@ -18,13 +18,21 @@ class LanguagePage extends StatefulWidget {
 
 class _LanguagePageState extends State<LanguagePage> {
   bool _saving = false;
+  Locale? _localeBeforeSave;
+  Locale? _successLocale;
+  int _successSequence = 0;
   Future<void> _select(Locale locale) async {
     if (_saving ||
+        appLanguageController.settingLanguage ==
+            AppLanguageController.codeForLocale(locale) ||
         (appLanguageController.settingLanguage == null &&
             Localizations.localeOf(context) == locale)) {
       return;
     }
-    setState(() => _saving = true);
+    setState(() {
+      _localeBeforeSave = Localizations.localeOf(context);
+      _saving = true;
+    });
     try {
       final saveLanguage =
           widget.saveLanguage ??
@@ -37,6 +45,12 @@ class _LanguagePageState extends State<LanguagePage> {
             );
           };
       await appLanguageController.select(locale, saveLanguage: saveLanguage);
+      if (mounted) {
+        setState(() {
+          _successLocale = locale;
+          _successSequence++;
+        });
+      }
     } catch (error) {
       if (mounted) {
         showGenesisToast(
@@ -50,13 +64,20 @@ class _LanguagePageState extends State<LanguagePage> {
         );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _localeBeforeSave = null;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final current = Localizations.localeOf(context);
+    final current = _saving
+        ? _localeBeforeSave!
+        : Localizations.localeOf(context);
     return GenesisDarkTheme(
       child: GenesisBottomSystemBarStyleScope(
         style: const GenesisBottomSystemBarStyle(
@@ -101,14 +122,49 @@ class _LanguagePageState extends State<LanguagePage> {
                                     ),
                                   ),
                                 ),
-                                if (current == entry.$1)
-                                  Icon(
-                                    Icons.check,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                    size: 24,
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Center(
+                                    child: current == entry.$1
+                                        ? TweenAnimationBuilder<double>(
+                                            key: ValueKey(
+                                              'language-check-${entry.$1}-$_successSequence',
+                                            ),
+                                            tween: Tween(
+                                              begin: _successLocale == entry.$1
+                                                  ? 0.5
+                                                  : 1,
+                                              end: 1,
+                                            ),
+                                            duration:
+                                                MediaQuery.disableAnimationsOf(
+                                                  context,
+                                                )
+                                                ? Duration.zero
+                                                : const Duration(
+                                                    milliseconds: 300,
+                                                  ),
+                                            curve: Curves.easeOutCubic,
+                                            builder: (context, scale, child) =>
+                                                Transform.scale(
+                                                  key: const ValueKey(
+                                                    'language-check-scale',
+                                                  ),
+                                                  scale: scale,
+                                                  child: child,
+                                                ),
+                                            child: Icon(
+                                              Icons.check,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                              size: 24,
+                                            ),
+                                          )
+                                        : null,
                                   ),
+                                ),
                               ],
                             ),
                           ),

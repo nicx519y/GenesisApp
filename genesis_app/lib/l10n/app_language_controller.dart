@@ -5,10 +5,10 @@ final appLanguageController = AppLanguageController();
 
 class AppLanguageController extends ChangeNotifier {
   static const preferenceKey = 'app_language';
-  // Protocol values are agreed with the backend. Do not convert zh_TW to BCP 47.
+  // Protocol values are agreed with the backend; Traditional Chinese is zh-TW.
   static const languageCodes = {
     'en',
-    'zh_TW',
+    'zh-TW',
     'es',
     'pt',
     'fr',
@@ -29,7 +29,7 @@ class AppLanguageController extends ChangeNotifier {
   int get revision => _revision;
 
   static String codeForLocale(Locale locale) =>
-      locale == const Locale('zh', 'TW') ? 'zh_TW' : locale.languageCode;
+      locale == const Locale('zh', 'TW') ? 'zh-TW' : locale.languageCode;
 
   static Locale resolve(List<Locale>? preferred, Iterable<Locale> supported) {
     for (final locale in preferred ?? <Locale>[]) {
@@ -73,7 +73,7 @@ class AppLanguageController extends ChangeNotifier {
 
   void _apply(String code) {
     // Preserve all nine protocol values even when UI translation falls back.
-    final requested = code == 'zh_TW' ? const Locale('zh', 'TW') : Locale(code);
+    final requested = code == 'zh-TW' ? const Locale('zh', 'TW') : Locale(code);
     final display = resolve([requested], supportedLocales);
     if (_settingLanguage == code && _locale == display) return;
     _settingLanguage = code;

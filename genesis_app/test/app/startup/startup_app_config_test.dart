@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
@@ -14,7 +15,41 @@ import 'package:genesis_flutter_android/network/api_request_trace_sampling.dart'
 import '../../support/personalization_fixtures.dart';
 
 void main() {
-  for (final language in ['zh_TW', '', 'failure']) {
+  test(
+    'restart restores Traditional Chinese from agreed server setting',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      var serverLanguage = '';
+      final first = AppLanguageController();
+      await first.load();
+      await first.select(
+        const Locale('zh', 'TW'),
+        saveLanguage: (language) async {
+          expect(language, 'zh-TW');
+          serverLanguage = 'zh-TW';
+        },
+      );
+      final restarted = AppLanguageController();
+      await restarted.load();
+      expect(restarted.locale, isNull);
+      final config = AppGlobalConfigStore(
+        loadConfig: ({String? uid}) async => {'language': serverLanguage},
+      );
+      await loadStartupAppConfig(
+        store: config,
+        uidResolution: Future.value(
+          const StartupUidResolution(uid: null, status: 'signed_out'),
+        ),
+        collectReady: Future.value(),
+        languageController: restarted,
+      );
+      expect(restarted.locale, const Locale('zh', 'TW'));
+      expect(restarted.settingLanguage, 'zh-TW');
+      config.dispose();
+    },
+  );
+
+  for (final language in ['zh-TW', 'zh_TW', '', 'failure']) {
     test('startup config language or system fallback: $language', () async {
       final languages = AppLanguageController();
       await languages.load();
@@ -32,10 +67,10 @@ void main() {
         collectReady: Future.value(),
         languageController: languages,
       );
-      expect(languages.settingLanguage, language == 'zh_TW' ? 'zh_TW' : isNull);
+      expect(languages.settingLanguage, language == 'zh-TW' ? 'zh-TW' : isNull);
       expect(
         languages.locale,
-        language == 'zh_TW' ? const Locale('zh', 'TW') : isNull,
+        language == 'zh-TW' ? const Locale('zh', 'TW') : isNull,
       );
       config.dispose();
     });

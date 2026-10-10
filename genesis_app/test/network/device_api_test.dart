@@ -25,7 +25,7 @@ void main() {
       );
       for (final code in [
         'en',
-        'zh_TW',
+        'zh-TW',
         'es',
         'pt',
         'fr',
@@ -43,7 +43,7 @@ void main() {
         });
       }
       await expectLater(
-        api.setLanguage(deviceId: 'device-1', language: 'zh-TW'),
+        api.setLanguage(deviceId: 'device-1', language: 'zh_TW'),
         throwsArgumentError,
       );
     },
@@ -64,7 +64,7 @@ void main() {
       ),
     );
     await expectLater(
-      api.setLanguage(deviceId: 'device-1', language: 'zh_TW'),
+      api.setLanguage(deviceId: 'device-1', language: 'zh-TW'),
       throwsA(isA<Exception>()),
     );
   });

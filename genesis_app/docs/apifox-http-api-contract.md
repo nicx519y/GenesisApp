@@ -2761,11 +2761,11 @@ World：
 
 Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
 
-必填 header：`X-Device-ID`，由当前设备身份提供。JSON body：`{"language":"zh_TW"}`。
+必填 header：`X-Device-ID`，由当前设备身份提供。JSON body：`{"language":"zh-TW"}`。
 游客更新设备；登录用户同时更新设备及用户。成功响应为 `{err_no:0,err_msg:"succ",data:{device_id,language}}`；非零 err_no 按现有业务错误处理。
 
-客户端协议值固定为 `en`、`zh_TW`、`es`、`pt`、`fr`、`de`、`it`、`ja`、`ko`，原样提交和发送，不将 `zh_TW` 改为 `zh-TW`。Apifox 的服务端描述提及 BCP 47 规范化，客户端以已确认的产品协议值为准。
+客户端协议值固定为 `en`、`zh-TW`、`es`、`pt`、`fr`、`de`、`it`、`ja`、`ko`。config.language、data.user.language、setlanguage 请求、本地设置缓存及 x-setting-language 统一使用 `zh-TW`，不再接受旧协议值 `zh_TW`。Flutter 内部仍使用 Locale(zh, TW)，翻译资源文件与生成代码的 zh_TW 标识保留。
 
-公共 header 新增 `x-setting-language`：未获得设置语言时与 `x-system-language` 相同；config、当前账号 user/info 的非空有效 language 或手动保存成功后使用协议值。`x-system-language` 继续读取系统 locale。
+公共 header 新增 `x-setting-language`：未获得用户设置语言时为空（不发送该 header），不使用系统语言填充；config、当前账号 user/info 的非空有效 language 表示已保存的设置，或手动保存成功后使用协议值。`x-system-language` 继续读取系统 locale，仅系统语言决定 UI 时不会产生设置语言。退出登录保留当前设置。
 启动先使用系统，再应用 config；当前账号非空 language 优先于 config，空值保持当前语言。config 迟到不能覆盖账号语言或手动切换。退出登录不改变语言。
 手动切换仅 err_no=0 后更新界面、header 和缓存；请求期间禁止重复提交；失败保持原语言并显示业务 err_msg。下一次启动不使用本地缓存覆盖 config／系统规则。当前完整界面翻译仅 en、zh_TW，其他协议语言保留 header 原值并以英语显示。
