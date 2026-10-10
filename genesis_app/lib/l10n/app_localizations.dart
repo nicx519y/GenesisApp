@@ -515,12 +515,6 @@ abstract class AppLocalizations {
   /// **'Your purchase is pending.'**
   String get purchasePending;
 
-  /// Accepted subscription purchase awaiting confirmation.
-  ///
-  /// In en, this message translates to:
-  /// **'Your purchase is being confirmed.'**
-  String get purchaseBeingConfirmed;
-
   /// Deferred subscription purchase result.
   ///
   /// In en, this message translates to:
@@ -854,12 +848,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Image selection failed'**
   String get imageSelectionFailed;
-
-  /// Generic settings update failure.
-  ///
-  /// In en, this message translates to:
-  /// **'Update failed'**
-  String get updateFailed;
 
   /// Worldo summary in another user's profile.
   ///
@@ -1253,12 +1241,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign-in unavailable'**
   String get homeSignInUnavailable;
-
-  /// 首页 - Home，登录失败提示
-  ///
-  /// In en, this message translates to:
-  /// **'Sign-in failed'**
-  String get homeSignInFailed;
 
   /// 首页 - Home，页面标题/登录状态
   ///
@@ -3802,10 +3784,10 @@ abstract class AppLocalizations {
   /// **'No followers yet.'**
   String get meNoFollowersYet;
 
-  /// 首页 - Me → 其他用户资料页，Block 或 Unblock 失败
+  /// Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists.
   ///
   /// In en, this message translates to:
-  /// **'Block failed'**
+  /// **'Block failed. Please try again.'**
   String get meBlockFailed;
 
   /// 首页 - Me → 其他用户资料页，Block 或 Unblock 失败
@@ -3826,10 +3808,10 @@ abstract class AppLocalizations {
   /// **'Block'**
   String get meBlock;
 
-  /// 首页 - Me → 其他用户资料页，Block 或 Unblock 失败
+  /// Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists.
   ///
   /// In en, this message translates to:
-  /// **'Unblock failed'**
+  /// **'Unblock failed. Please try again.'**
   String get meUnblockFailed;
 
   /// 首页 - Me → 其他用户资料页，其他用户资料页的按钮或标签
@@ -3987,12 +3969,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No blocked users yet.'**
   String get meNoBlockedUsersYet;
-
-  /// 首页 - Me → 屏蔽用户页，Block/Unblock 错误映射出错时显示的提示
-  ///
-  /// In en, this message translates to:
-  /// **'Request failed'**
-  String get meRequestFailed;
 
   /// 首页 - Me → 账号设置页，删除账号确认与结果
   ///
@@ -5200,6 +5176,94 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong'**
   String get genericError;
+
+  /// Accessibility label on a selectable Premium plan card; price includes currency and the selected period is year or month.
+  ///
+  /// In en, this message translates to:
+  /// **'{period, select, year{{plan} Premium, {price} per year} other{{plan} Premium, {price} per month}}'**
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  });
+
+  /// Developer settings toast when clearing cached data or gateway configuration fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear failed'**
+  String get developerClearFailed;
+
+  /// Developer gateway signature check failure toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Gateway signature verification failed'**
+  String get developerGatewaySignatureFailed;
+
+  /// Developer endpoint settings success toast; new requests use the saved endpoint configuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. New requests use endpoints.'**
+  String get developerEndpointsSaved;
+
+  /// Developer settings instruction after changing the Adjust environment; shown as a separate sentence after the save success message.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart app to apply Adjust environment.'**
+  String get developerAdjustRestartRequired;
+
+  /// Developer settings row showing the selected story recap preview mode.
+  ///
+  /// In en, this message translates to:
+  /// **'World recap: {mode}'**
+  String developerRecapSetting({required String mode});
+
+  /// Title of the developer story recap preview selector dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'World recap preview'**
+  String get developerRecapPreview;
+
+  /// Developer recap preview explanation: overrides membership and recap content temporarily; resets on restart.
+  ///
+  /// In en, this message translates to:
+  /// **'Stands in for membership and recap content on the World sheet. Resets when the app restarts.'**
+  String get developerRecapPreviewDescription;
+
+  /// Developer version/reset settings failure toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset failed'**
+  String get developerResetFailed;
+
+  /// Recap debug selector: disable simulated membership and use real subscription status.
+  ///
+  /// In en, this message translates to:
+  /// **'Off (real membership)'**
+  String get developerRecapOff;
+
+  /// Recap debug selector: simulate a user without a subscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked · non-member'**
+  String get developerRecapLocked;
+
+  /// Recap debug selector: simulate subscription with no recap generated.
+  ///
+  /// In en, this message translates to:
+  /// **'Member · not generated yet'**
+  String get developerRecapEmpty;
+
+  /// Recap debug selector: simulate subscription and display sample recap text.
+  ///
+  /// In en, this message translates to:
+  /// **'Member · sample recap'**
+  String get developerRecapSample;
+
+  /// Recap debug selector: simulate subscription but load actual server recap content.
+  ///
+  /// In en, this message translates to:
+  /// **'Member · live recap'**
+  String get developerRecapLive;
 }
 
 class _AppLocalizationsDelegate

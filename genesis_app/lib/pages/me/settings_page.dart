@@ -487,8 +487,8 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
         apiErrorMessage(
           error,
           fallback: wasBlocked
-              ? 'Unblock failed. Please try again.'
-              : 'Block failed. Please try again.',
+              ? GenesisL10n.current.meUnblockFailed
+              : GenesisL10n.current.meBlockFailed,
         ),
         brightness: Brightness.dark,
       );

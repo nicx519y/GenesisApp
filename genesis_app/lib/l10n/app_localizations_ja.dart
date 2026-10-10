@@ -242,9 +242,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get purchasePending => '購入は保留中です。';
 
   @override
-  String get purchaseBeingConfirmed => '購入を確認中です。';
-
-  @override
   String get purchaseConfirmationDelayed => '購入の確認に時間がかかっています。後でもう一度ご確認ください。';
 
   @override
@@ -433,9 +430,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageSelectionFailed => '画像の選択に失敗しました';
-
-  @override
-  String get updateFailed => '更新に失敗しました';
 
   @override
   String profileOriginSubtitle({required String oid, required String version}) {
@@ -729,9 +723,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get homeSignInUnavailable => 'ログインできません';
-
-  @override
-  String get homeSignInFailed => 'ログインに失敗しました';
 
   @override
   String get homeSignedOutTitle => 'すべてのワールドをひとつに';
@@ -2181,7 +2172,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meNoFollowersYet => 'フォロワーはまだいません。';
 
   @override
-  String get meBlockFailed => 'ブロックに失敗しました';
+  String get meBlockFailed => 'ブロックできませんでした。もう一度お試しください。';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2194,7 +2185,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meBlock => 'ブロック';
 
   @override
-  String get meUnblockFailed => 'ブロック解除に失敗しました';
+  String get meUnblockFailed => 'ブロックを解除できませんでした。もう一度お試しください。';
 
   @override
   String get meUnblock => 'ブロック解除';
@@ -2275,9 +2266,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get meNoBlockedUsersYet => 'ブロックしたユーザーはまだいません。';
-
-  @override
-  String get meRequestFailed => '申請に失敗しました';
 
   @override
   String get settingsAgreeTermsContinue => '続行するには規約に同意してください。';
@@ -2980,4 +2968,60 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get genericError => 'エラーが発生しました';
+
+  @override
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  }) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '$plan Premium、年額 $price',
+      'other': '$plan Premium、月額 $price',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get developerClearFailed => '消去できませんでした';
+
+  @override
+  String get developerGatewaySignatureFailed => 'Gateway の署名検証に失敗しました';
+
+  @override
+  String get developerEndpointsSaved => '保存しました。新しいリクエストには設定したエンドポイントを使用します。';
+
+  @override
+  String get developerAdjustRestartRequired =>
+      'Adjust 環境を適用するには、アプリを再起動してください。';
+
+  @override
+  String developerRecapSetting({required String mode}) {
+    return 'ワールドの振り返り：$mode';
+  }
+
+  @override
+  String get developerRecapPreview => 'ワールドの振り返りプレビュー';
+
+  @override
+  String get developerRecapPreviewDescription =>
+      'ワールドのパネルでメンバーシップ状態と振り返りの内容を一時的に置き換えます。アプリの再起動でリセットされます。';
+
+  @override
+  String get developerResetFailed => 'リセットできませんでした';
+
+  @override
+  String get developerRecapOff => 'オフ（実際のメンバーシップ）';
+
+  @override
+  String get developerRecapLocked => 'ロック中 · メンバーではない';
+
+  @override
+  String get developerRecapEmpty => 'メンバー · 未生成';
+
+  @override
+  String get developerRecapSample => 'メンバー · サンプルの振り返り';
+
+  @override
+  String get developerRecapLive => 'メンバー · 実際の振り返り';
 }

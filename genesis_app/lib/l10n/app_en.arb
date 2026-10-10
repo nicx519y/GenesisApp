@@ -184,8 +184,6 @@
   "@purchaseCanceled": {"description": "Canceled subscription purchase result."},
   "purchasePending": "Your purchase is pending.",
   "@purchasePending": {"description": "Pending subscription purchase result."},
-  "purchaseBeingConfirmed": "Your purchase is being confirmed.",
-  "@purchaseBeingConfirmed": {"description": "Accepted subscription purchase awaiting confirmation."},
   "purchaseConfirmationDelayed": "Purchase confirmation is delayed. Please check again later.",
   "@purchaseConfirmationDelayed": {"description": "Deferred subscription purchase result."},
   "purchaseFailed": "Purchase failed.",
@@ -324,8 +322,6 @@
   },
   "imageSelectionFailed": "Image selection failed",
   "@imageSelectionFailed": {"description": "Discussion image picker generic failure."},
-  "updateFailed": "Update failed",
-  "@updateFailed": {"description": "Generic settings update failure."},
   "profileOriginSubtitle": "OID: {oid}\nLatest Version: {version}",
   "@profileOriginSubtitle": {
     "description": "Worldo summary in another user's profile.",
@@ -769,10 +765,6 @@
   },
   "homeSignInUnavailable": "Sign-in unavailable",
   "@homeSignInUnavailable": {
-    "description": "首页 - Home，登录失败提示"
-  },
-  "homeSignInFailed": "Sign-in failed",
-  "@homeSignInFailed": {
     "description": "首页 - Home，登录失败提示"
   },
   "homeSignedOutTitle": "Your worlds, all in one place",
@@ -2638,10 +2630,10 @@
   "@meNoFollowersYet": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
   },
-  "meBlockFailed": "Block failed",
+  "meBlockFailed": "Block failed. Please try again.",
   "@meBlockFailed": {
-    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
-  },
+  "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
+},
   "meUserBlockedContentHasReported": "User blocked. This content has been reported to Worldo team.",
   "@meUserBlockedContentHasReported": {
     "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
@@ -2654,10 +2646,10 @@
   "@meBlock": {
     "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
   },
-  "meUnblockFailed": "Unblock failed",
+  "meUnblockFailed": "Unblock failed. Please try again.",
   "@meUnblockFailed": {
-    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
-  },
+  "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
+},
   "meUnblock": "Unblock",
   "@meUnblock": {
     "description": "首页 - Me → 其他用户资料页，其他用户资料页的按钮或标签"
@@ -2766,10 +2758,6 @@
   "meNoBlockedUsersYet": "No blocked users yet.",
   "@meNoBlockedUsersYet": {
     "description": "首页 - Me → 屏蔽用户页，列表加载/空状态"
-  },
-  "meRequestFailed": "Request failed",
-  "@meRequestFailed": {
-    "description": "首页 - Me → 屏蔽用户页，Block/Unblock 错误映射出错时显示的提示"
   },
   "settingsAgreeTermsContinue": "Agree to our terms to continue.",
   "@settingsAgreeTermsContinue": {
@@ -3674,5 +3662,77 @@
   "genericError": "Something went wrong",
   "@genericError": {
     "description": "Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback."
+  },
+  "subscriptionPlanAccessibility": "{period, select, year{{plan} Premium, {price} per year} other{{plan} Premium, {price} per month}}",
+  "@subscriptionPlanAccessibility": {
+    "description": "Accessibility label on a selectable Premium plan card; price includes currency and the selected period is year or month.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "developerClearFailed": "Clear failed",
+  "@developerClearFailed": {
+    "description": "Developer settings toast when clearing cached data or gateway configuration fails."
+  },
+  "developerGatewaySignatureFailed": "Gateway signature verification failed",
+  "@developerGatewaySignatureFailed": {
+    "description": "Developer gateway signature check failure toast."
+  },
+  "developerEndpointsSaved": "Saved. New requests use endpoints.",
+  "@developerEndpointsSaved": {
+    "description": "Developer endpoint settings success toast; new requests use the saved endpoint configuration."
+  },
+  "developerAdjustRestartRequired": "Restart app to apply Adjust environment.",
+  "@developerAdjustRestartRequired": {
+    "description": "Developer settings instruction after changing the Adjust environment; shown as a separate sentence after the save success message."
+  },
+  "developerRecapSetting": "World recap: {mode}",
+  "@developerRecapSetting": {
+    "description": "Developer settings row showing the selected story recap preview mode.",
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "developerRecapPreview": "World recap preview",
+  "@developerRecapPreview": {
+    "description": "Title of the developer story recap preview selector dialog."
+  },
+  "developerRecapPreviewDescription": "Stands in for membership and recap content on the World sheet. Resets when the app restarts.",
+  "@developerRecapPreviewDescription": {
+    "description": "Developer recap preview explanation: overrides membership and recap content temporarily; resets on restart."
+  },
+  "developerResetFailed": "Reset failed",
+  "@developerResetFailed": {
+    "description": "Developer version/reset settings failure toast."
+  },
+  "developerRecapOff": "Off (real membership)",
+  "@developerRecapOff": {
+    "description": "Recap debug selector: disable simulated membership and use real subscription status."
+  },
+  "developerRecapLocked": "Locked · non-member",
+  "@developerRecapLocked": {
+    "description": "Recap debug selector: simulate a user without a subscription."
+  },
+  "developerRecapEmpty": "Member · not generated yet",
+  "@developerRecapEmpty": {
+    "description": "Recap debug selector: simulate subscription with no recap generated."
+  },
+  "developerRecapSample": "Member · sample recap",
+  "@developerRecapSample": {
+    "description": "Recap debug selector: simulate subscription and display sample recap text."
+  },
+  "developerRecapLive": "Member · live recap",
+  "@developerRecapLive": {
+    "description": "Recap debug selector: simulate subscription but load actual server recap content."
   }
 }

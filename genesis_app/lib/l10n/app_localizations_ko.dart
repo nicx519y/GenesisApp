@@ -242,9 +242,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get purchasePending => '구매가 대기 중입니다.';
 
   @override
-  String get purchaseBeingConfirmed => '구매를 확인하고 있습니다.';
-
-  @override
   String get purchaseConfirmationDelayed => '구매 확인이 지연되고 있습니다. 나중에 다시 확인해 주세요.';
 
   @override
@@ -433,9 +430,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get imageSelectionFailed => '이미지 선택에 실패했습니다';
-
-  @override
-  String get updateFailed => '업데이트에 실패했습니다';
 
   @override
   String profileOriginSubtitle({required String oid, required String version}) {
@@ -729,9 +723,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get homeSignInUnavailable => '로그인할 수 없습니다';
-
-  @override
-  String get homeSignInFailed => '로그인에 실패했습니다';
 
   @override
   String get homeSignedOutTitle => '내 모든 월드를 한곳에서';
@@ -2187,7 +2178,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meNoFollowersYet => '아직 팔로워가 없습니다.';
 
   @override
-  String get meBlockFailed => '차단에 실패했습니다';
+  String get meBlockFailed => '차단하지 못했어요. 다시 시도해 주세요.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2200,7 +2191,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meBlock => '차단';
 
   @override
-  String get meUnblockFailed => '차단 해제에 실패했습니다';
+  String get meUnblockFailed => '차단을 해제하지 못했어요. 다시 시도해 주세요.';
 
   @override
   String get meUnblock => '차단 해제';
@@ -2281,9 +2272,6 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get meNoBlockedUsersYet => '아직 차단한 사용자가 없습니다.';
-
-  @override
-  String get meRequestFailed => '요청에 실패했습니다';
 
   @override
   String get settingsAgreeTermsContinue => '계속하려면 약관에 동의하세요.';
@@ -2987,4 +2975,60 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get genericError => '오류가 발생했어요';
+
+  @override
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  }) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '$plan Premium, 연간 $price',
+      'other': '$plan Premium, 월간 $price',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get developerClearFailed => '삭제하지 못했어요';
+
+  @override
+  String get developerGatewaySignatureFailed => 'Gateway 서명 검증에 실패했어요';
+
+  @override
+  String get developerEndpointsSaved => '저장했어요. 새 요청에는 설정한 엔드포인트가 적용돼요.';
+
+  @override
+  String get developerAdjustRestartRequired =>
+      'Adjust 환경을 적용하려면 앱을 다시 시작해 주세요.';
+
+  @override
+  String developerRecapSetting({required String mode}) {
+    return '월드 요약: $mode';
+  }
+
+  @override
+  String get developerRecapPreview => '월드 요약 미리보기';
+
+  @override
+  String get developerRecapPreviewDescription =>
+      '월드 패널의 구독 상태와 요약 내용을 임시로 대체해요. 앱을 다시 시작하면 초기화돼요.';
+
+  @override
+  String get developerResetFailed => '초기화하지 못했어요';
+
+  @override
+  String get developerRecapOff => '끄기(실제 구독 상태)';
+
+  @override
+  String get developerRecapLocked => '잠김 · 구독하지 않음';
+
+  @override
+  String get developerRecapEmpty => '구독 중 · 아직 생성되지 않음';
+
+  @override
+  String get developerRecapSample => '구독 중 · 예시 요약';
+
+  @override
+  String get developerRecapLive => '구독 중 · 실제 요약';
 }

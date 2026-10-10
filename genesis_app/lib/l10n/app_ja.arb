@@ -320,10 +320,6 @@
   "@purchasePending": {
     "description": "Pending subscription purchase result."
   },
-  "purchaseBeingConfirmed": "購入を確認中です。",
-  "@purchaseBeingConfirmed": {
-    "description": "Accepted subscription purchase awaiting confirmation."
-  },
   "purchaseConfirmationDelayed": "購入の確認に時間がかかっています。後でもう一度ご確認ください。",
   "@purchaseConfirmationDelayed": {
     "description": "Deferred subscription purchase result."
@@ -587,10 +583,6 @@
   "imageSelectionFailed": "画像の選択に失敗しました",
   "@imageSelectionFailed": {
     "description": "Discussion image picker generic failure."
-  },
-  "updateFailed": "更新に失敗しました",
-  "@updateFailed": {
-    "description": "Generic settings update failure."
   },
   "profileOriginSubtitle": "OID：{oid}\n最新バージョン：{version}",
   "@profileOriginSubtitle": {
@@ -1063,10 +1055,6 @@
   },
   "homeSignInUnavailable": "ログインできません",
   "@homeSignInUnavailable": {
-    "description": "首页 - Home，登录失败提示"
-  },
-  "homeSignInFailed": "ログインに失敗しました",
-  "@homeSignInFailed": {
     "description": "首页 - Home，登录失败提示"
   },
   "homeSignedOutTitle": "すべてのワールドをひとつに",
@@ -3121,9 +3109,9 @@
   "@meNoFollowersYet": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
   },
-  "meBlockFailed": "ブロックに失敗しました",
+  "meBlockFailed": "ブロックできませんでした。もう一度お試しください。",
   "@meBlockFailed": {
-    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+    "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
   "meUserBlockedContentHasReported": "ユーザーをブロックしました。このコンテンツはWorldoチームに報告されました。",
   "@meUserBlockedContentHasReported": {
@@ -3137,9 +3125,9 @@
   "@meBlock": {
     "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
   },
-  "meUnblockFailed": "ブロック解除に失敗しました",
+  "meUnblockFailed": "ブロックを解除できませんでした。もう一度お試しください。",
   "@meUnblockFailed": {
-    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+    "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
   "meUnblock": "ブロック解除",
   "@meUnblock": {
@@ -3249,10 +3237,6 @@
   "meNoBlockedUsersYet": "ブロックしたユーザーはまだいません。",
   "@meNoBlockedUsersYet": {
     "description": "首页 - Me → 屏蔽用户页，列表加载/空状态"
-  },
-  "meRequestFailed": "申請に失敗しました",
-  "@meRequestFailed": {
-    "description": "首页 - Me → 屏蔽用户页，Block/Unblock 错误映射出错时显示的提示"
   },
   "settingsAgreeTermsContinue": "続行するには規約に同意してください。",
   "@settingsAgreeTermsContinue": {
@@ -4159,5 +4143,77 @@
   "genericError": "エラーが発生しました",
   "@genericError": {
     "description": "Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback."
+  },
+  "subscriptionPlanAccessibility": "{period, select, year{{plan} Premium、年額 {price}} other{{plan} Premium、月額 {price}}}",
+  "@subscriptionPlanAccessibility": {
+    "description": "Accessibility label on a selectable Premium plan card; price includes currency and the selected period is year or month.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "developerClearFailed": "消去できませんでした",
+  "@developerClearFailed": {
+    "description": "Developer settings toast when clearing cached data or gateway configuration fails."
+  },
+  "developerGatewaySignatureFailed": "Gateway の署名検証に失敗しました",
+  "@developerGatewaySignatureFailed": {
+    "description": "Developer gateway signature check failure toast."
+  },
+  "developerEndpointsSaved": "保存しました。新しいリクエストには設定したエンドポイントを使用します。",
+  "@developerEndpointsSaved": {
+    "description": "Developer endpoint settings success toast; new requests use the saved endpoint configuration."
+  },
+  "developerAdjustRestartRequired": "Adjust 環境を適用するには、アプリを再起動してください。",
+  "@developerAdjustRestartRequired": {
+    "description": "Developer settings instruction after changing the Adjust environment; shown as a separate sentence after the save success message."
+  },
+  "developerRecapSetting": "ワールドの振り返り：{mode}",
+  "@developerRecapSetting": {
+    "description": "Developer settings row showing the selected story recap preview mode.",
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "developerRecapPreview": "ワールドの振り返りプレビュー",
+  "@developerRecapPreview": {
+    "description": "Title of the developer story recap preview selector dialog."
+  },
+  "developerRecapPreviewDescription": "ワールドのパネルでメンバーシップ状態と振り返りの内容を一時的に置き換えます。アプリの再起動でリセットされます。",
+  "@developerRecapPreviewDescription": {
+    "description": "Developer recap preview explanation: overrides membership and recap content temporarily; resets on restart."
+  },
+  "developerResetFailed": "リセットできませんでした",
+  "@developerResetFailed": {
+    "description": "Developer version/reset settings failure toast."
+  },
+  "developerRecapOff": "オフ（実際のメンバーシップ）",
+  "@developerRecapOff": {
+    "description": "Recap debug selector: disable simulated membership and use real subscription status."
+  },
+  "developerRecapLocked": "ロック中 · メンバーではない",
+  "@developerRecapLocked": {
+    "description": "Recap debug selector: simulate a user without a subscription."
+  },
+  "developerRecapEmpty": "メンバー · 未生成",
+  "@developerRecapEmpty": {
+    "description": "Recap debug selector: simulate subscription with no recap generated."
+  },
+  "developerRecapSample": "メンバー · サンプルの振り返り",
+  "@developerRecapSample": {
+    "description": "Recap debug selector: simulate subscription and display sample recap text."
+  },
+  "developerRecapLive": "メンバー · 実際の振り返り",
+  "@developerRecapLive": {
+    "description": "Recap debug selector: simulate subscription but load actual server recap content."
   }
 }

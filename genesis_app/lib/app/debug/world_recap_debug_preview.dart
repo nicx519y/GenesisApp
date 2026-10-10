@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../network/models/world_recent_summary.dart';
@@ -9,15 +10,19 @@ import '../../network/models/world_recent_summary.dart';
 /// Held in memory only: a forced membership must not outlive the session it
 /// was set in, so a restart always returns to the real state.
 enum WorldRecapDebugPreview {
-  off('Off (real membership)'),
-  locked('Locked · non-member'),
-  memberEmpty('Member · not generated yet'),
-  memberSample('Member · sample recap'),
-  memberLive('Member · live recap');
+  off,
+  locked,
+  memberEmpty,
+  memberSample,
+  memberLive;
 
-  const WorldRecapDebugPreview(this.label);
-
-  final String label;
+  String get label => switch (this) {
+    off => GenesisL10n.current.developerRecapOff,
+    locked => GenesisL10n.current.developerRecapLocked,
+    memberEmpty => GenesisL10n.current.developerRecapEmpty,
+    memberSample => GenesisL10n.current.developerRecapSample,
+    memberLive => GenesisL10n.current.developerRecapLive,
+  };
 }
 
 final ValueNotifier<WorldRecapDebugPreview> worldRecapDebugPreview =

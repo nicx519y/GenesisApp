@@ -320,10 +320,6 @@
   "@purchasePending": {
     "description": "Pending subscription purchase result."
   },
-  "purchaseBeingConfirmed": "구매를 확인하고 있습니다.",
-  "@purchaseBeingConfirmed": {
-    "description": "Accepted subscription purchase awaiting confirmation."
-  },
   "purchaseConfirmationDelayed": "구매 확인이 지연되고 있습니다. 나중에 다시 확인해 주세요.",
   "@purchaseConfirmationDelayed": {
     "description": "Deferred subscription purchase result."
@@ -587,10 +583,6 @@
   "imageSelectionFailed": "이미지 선택에 실패했습니다",
   "@imageSelectionFailed": {
     "description": "Discussion image picker generic failure."
-  },
-  "updateFailed": "업데이트에 실패했습니다",
-  "@updateFailed": {
-    "description": "Generic settings update failure."
   },
   "profileOriginSubtitle": "OID: {oid}\n최신 버전: {version}",
   "@profileOriginSubtitle": {
@@ -1063,10 +1055,6 @@
   },
   "homeSignInUnavailable": "로그인할 수 없습니다",
   "@homeSignInUnavailable": {
-    "description": "首页 - Home，登录失败提示"
-  },
-  "homeSignInFailed": "로그인에 실패했습니다",
-  "@homeSignInFailed": {
     "description": "首页 - Home，登录失败提示"
   },
   "homeSignedOutTitle": "내 모든 월드를 한곳에서",
@@ -3121,9 +3109,9 @@
   "@meNoFollowersYet": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
   },
-  "meBlockFailed": "차단에 실패했습니다",
+  "meBlockFailed": "차단하지 못했어요. 다시 시도해 주세요.",
   "@meBlockFailed": {
-    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+    "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
   "meUserBlockedContentHasReported": "사용자를 차단했습니다. 이 콘텐츠를 Worldo 팀에 신고했습니다.",
   "@meUserBlockedContentHasReported": {
@@ -3137,9 +3125,9 @@
   "@meBlock": {
     "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
   },
-  "meUnblockFailed": "차단 해제에 실패했습니다",
+  "meUnblockFailed": "차단을 해제하지 못했어요. 다시 시도해 주세요.",
   "@meUnblockFailed": {
-    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+    "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
   "meUnblock": "차단 해제",
   "@meUnblock": {
@@ -3249,10 +3237,6 @@
   "meNoBlockedUsersYet": "아직 차단한 사용자가 없습니다.",
   "@meNoBlockedUsersYet": {
     "description": "首页 - Me → 屏蔽用户页，列表加载/空状态"
-  },
-  "meRequestFailed": "요청에 실패했습니다",
-  "@meRequestFailed": {
-    "description": "首页 - Me → 屏蔽用户页，Block/Unblock 错误映射出错时显示的提示"
   },
   "settingsAgreeTermsContinue": "계속하려면 약관에 동의하세요.",
   "@settingsAgreeTermsContinue": {
@@ -4159,5 +4143,77 @@
   "genericError": "오류가 발생했어요",
   "@genericError": {
     "description": "Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback."
+  },
+  "subscriptionPlanAccessibility": "{period, select, year{{plan} Premium, 연간 {price}} other{{plan} Premium, 월간 {price}}}",
+  "@subscriptionPlanAccessibility": {
+    "description": "Accessibility label on a selectable Premium plan card; price includes currency and the selected period is year or month.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "developerClearFailed": "삭제하지 못했어요",
+  "@developerClearFailed": {
+    "description": "Developer settings toast when clearing cached data or gateway configuration fails."
+  },
+  "developerGatewaySignatureFailed": "Gateway 서명 검증에 실패했어요",
+  "@developerGatewaySignatureFailed": {
+    "description": "Developer gateway signature check failure toast."
+  },
+  "developerEndpointsSaved": "저장했어요. 새 요청에는 설정한 엔드포인트가 적용돼요.",
+  "@developerEndpointsSaved": {
+    "description": "Developer endpoint settings success toast; new requests use the saved endpoint configuration."
+  },
+  "developerAdjustRestartRequired": "Adjust 환경을 적용하려면 앱을 다시 시작해 주세요.",
+  "@developerAdjustRestartRequired": {
+    "description": "Developer settings instruction after changing the Adjust environment; shown as a separate sentence after the save success message."
+  },
+  "developerRecapSetting": "월드 요약: {mode}",
+  "@developerRecapSetting": {
+    "description": "Developer settings row showing the selected story recap preview mode.",
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "developerRecapPreview": "월드 요약 미리보기",
+  "@developerRecapPreview": {
+    "description": "Title of the developer story recap preview selector dialog."
+  },
+  "developerRecapPreviewDescription": "월드 패널의 구독 상태와 요약 내용을 임시로 대체해요. 앱을 다시 시작하면 초기화돼요.",
+  "@developerRecapPreviewDescription": {
+    "description": "Developer recap preview explanation: overrides membership and recap content temporarily; resets on restart."
+  },
+  "developerResetFailed": "초기화하지 못했어요",
+  "@developerResetFailed": {
+    "description": "Developer version/reset settings failure toast."
+  },
+  "developerRecapOff": "끄기(실제 구독 상태)",
+  "@developerRecapOff": {
+    "description": "Recap debug selector: disable simulated membership and use real subscription status."
+  },
+  "developerRecapLocked": "잠김 · 구독하지 않음",
+  "@developerRecapLocked": {
+    "description": "Recap debug selector: simulate a user without a subscription."
+  },
+  "developerRecapEmpty": "구독 중 · 아직 생성되지 않음",
+  "@developerRecapEmpty": {
+    "description": "Recap debug selector: simulate subscription with no recap generated."
+  },
+  "developerRecapSample": "구독 중 · 예시 요약",
+  "@developerRecapSample": {
+    "description": "Recap debug selector: simulate subscription and display sample recap text."
+  },
+  "developerRecapLive": "구독 중 · 실제 요약",
+  "@developerRecapLive": {
+    "description": "Recap debug selector: simulate subscription but load actual server recap content."
   }
 }

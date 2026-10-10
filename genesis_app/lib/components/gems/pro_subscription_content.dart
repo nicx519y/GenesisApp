@@ -1010,14 +1010,17 @@ class _GemGrantCard extends StatelessWidget {
     // The design words the cadence itself and leaves only the figure to the
     // server, so read which cadence this is and use the design's line. Its
     // wording is shortened to hold one line at 12px down to a 360 screen.
-    final nameAt = lower.indexOf(name.toLowerCase());
+    final sourceName = pink ? 'Pink Gems' : 'Red Gems';
+    final nameAt = lower.indexOf(sourceName.toLowerCase());
     final note = lower.contains('check-in')
         ? (extra
               ? GenesisL10n.current.premiumExtraDailyCheck
               : GenesisL10n.current.premiumDailyCheck)
         : lower.contains('month')
         ? GenesisL10n.current.premiumClaimedMonthly
-        : title.substring(nameAt + name.length).trim();
+        : nameAt < 0
+        ? title
+        : title.substring(nameAt + sourceName.length).trim();
     return _GemGrantCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1150,8 +1153,11 @@ class _ProPlanCard extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label:
-          '${plan.label} Premium, ${price?.formattedPrice ?? ''} per ${plan.period}',
+      label: context.l10n.subscriptionPlanAccessibility(
+        period: plan.period,
+        plan: plan.label,
+        price: price?.formattedPrice ?? '',
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [

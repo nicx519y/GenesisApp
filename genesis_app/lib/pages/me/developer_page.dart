@@ -1176,7 +1176,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           valueListenable: worldRecapDebugPreview,
           builder: (context, preview, _) => GenesisPrimaryButton(
             key: const ValueKey<String>('developer-world-recap-preview'),
-            label: 'World recap: ${preview.label}',
+            label: GenesisL10n.current.developerRecapSetting(
+              mode: preview.label,
+            ),
             onPressed: _chooseWorldRecapPreview,
             backgroundColor: GenesisColors.darkFaintFill,
             disabledBackgroundColor: GenesisColors.darkFaintFill,

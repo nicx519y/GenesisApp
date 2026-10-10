@@ -248,9 +248,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get purchasePending => 'Your purchase is pending.';
 
   @override
-  String get purchaseBeingConfirmed => 'Your purchase is being confirmed.';
-
-  @override
   String get purchaseConfirmationDelayed =>
       'Purchase confirmation is delayed. Please check again later.';
 
@@ -443,9 +440,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageSelectionFailed => 'Image selection failed';
-
-  @override
-  String get updateFailed => 'Update failed';
 
   @override
   String profileOriginSubtitle({required String oid, required String version}) {
@@ -739,9 +733,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeSignInUnavailable => 'Sign-in unavailable';
-
-  @override
-  String get homeSignInFailed => 'Sign-in failed';
 
   @override
   String get homeSignedOutTitle => 'Your worlds, all in one place';
@@ -2247,7 +2238,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meNoFollowersYet => 'No followers yet.';
 
   @override
-  String get meBlockFailed => 'Block failed';
+  String get meBlockFailed => 'Block failed. Please try again.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2260,7 +2251,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meBlock => 'Block';
 
   @override
-  String get meUnblockFailed => 'Unblock failed';
+  String get meUnblockFailed => 'Unblock failed. Please try again.';
 
   @override
   String get meUnblock => 'Unblock';
@@ -2341,9 +2332,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meNoBlockedUsersYet => 'No blocked users yet.';
-
-  @override
-  String get meRequestFailed => 'Request failed';
 
   @override
   String get settingsAgreeTermsContinue => 'Agree to our terms to continue.';
@@ -3076,4 +3064,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get genericError => 'Something went wrong';
+
+  @override
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  }) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '$plan Premium, $price per year',
+      'other': '$plan Premium, $price per month',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get developerClearFailed => 'Clear failed';
+
+  @override
+  String get developerGatewaySignatureFailed =>
+      'Gateway signature verification failed';
+
+  @override
+  String get developerEndpointsSaved => 'Saved. New requests use endpoints.';
+
+  @override
+  String get developerAdjustRestartRequired =>
+      'Restart app to apply Adjust environment.';
+
+  @override
+  String developerRecapSetting({required String mode}) {
+    return 'World recap: $mode';
+  }
+
+  @override
+  String get developerRecapPreview => 'World recap preview';
+
+  @override
+  String get developerRecapPreviewDescription =>
+      'Stands in for membership and recap content on the World sheet. Resets when the app restarts.';
+
+  @override
+  String get developerResetFailed => 'Reset failed';
+
+  @override
+  String get developerRecapOff => 'Off (real membership)';
+
+  @override
+  String get developerRecapLocked => 'Locked · non-member';
+
+  @override
+  String get developerRecapEmpty => 'Member · not generated yet';
+
+  @override
+  String get developerRecapSample => 'Member · sample recap';
+
+  @override
+  String get developerRecapLive => 'Member · live recap';
 }

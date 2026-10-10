@@ -248,9 +248,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get purchasePending => 'Your purchase is pending.';
 
   @override
-  String get purchaseBeingConfirmed => 'Your purchase is being confirmed.';
-
-  @override
   String get purchaseConfirmationDelayed =>
       'Purchase confirmation is delayed. Please check again later.';
 
@@ -443,9 +440,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageSelectionFailed => 'Image selection failed';
-
-  @override
-  String get updateFailed => 'Update failed';
 
   @override
   String profileOriginSubtitle({required String oid, required String version}) {
@@ -739,9 +733,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeSignInUnavailable => 'Sign-in unavailable';
-
-  @override
-  String get homeSignInFailed => 'Sign-in failed';
 
   @override
   String get homeSignedOutTitle => 'Your worlds, all in one place';
@@ -2247,7 +2238,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meNoFollowersYet => 'No followers yet.';
 
   @override
-  String get meBlockFailed => 'Block failed';
+  String get meBlockFailed => 'Block failed. Please try again.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2260,7 +2251,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meBlock => 'Block';
 
   @override
-  String get meUnblockFailed => 'Unblock failed';
+  String get meUnblockFailed => 'Unblock failed. Please try again.';
 
   @override
   String get meUnblock => 'Unblock';
@@ -2341,9 +2332,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get meNoBlockedUsersYet => 'No blocked users yet.';
-
-  @override
-  String get meRequestFailed => 'Request failed';
 
   @override
   String get settingsAgreeTermsContinue => 'Agree to our terms to continue.';
@@ -3076,6 +3064,63 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get genericError => 'Something went wrong';
+
+  @override
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  }) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '$plan Premium, $price per year',
+      'other': '$plan Premium, $price per month',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get developerClearFailed => 'Clear failed';
+
+  @override
+  String get developerGatewaySignatureFailed =>
+      'Gateway signature verification failed';
+
+  @override
+  String get developerEndpointsSaved => 'Saved. New requests use endpoints.';
+
+  @override
+  String get developerAdjustRestartRequired =>
+      'Restart app to apply Adjust environment.';
+
+  @override
+  String developerRecapSetting({required String mode}) {
+    return 'World recap: $mode';
+  }
+
+  @override
+  String get developerRecapPreview => 'World recap preview';
+
+  @override
+  String get developerRecapPreviewDescription =>
+      'Stands in for membership and recap content on the World sheet. Resets when the app restarts.';
+
+  @override
+  String get developerResetFailed => 'Reset failed';
+
+  @override
+  String get developerRecapOff => 'Off (real membership)';
+
+  @override
+  String get developerRecapLocked => 'Locked · non-member';
+
+  @override
+  String get developerRecapEmpty => 'Member · not generated yet';
+
+  @override
+  String get developerRecapSample => 'Member · sample recap';
+
+  @override
+  String get developerRecapLive => 'Member · live recap';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3310,9 +3355,6 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get purchasePending => '你的購買交易正在處理中。';
 
   @override
-  String get purchaseBeingConfirmed => '正在確認你的購買交易。';
-
-  @override
   String get purchaseConfirmationDelayed => '購買交易確認延遲，請稍後再查看。';
 
   @override
@@ -3500,9 +3542,6 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get imageSelectionFailed => '選取圖片失敗';
-
-  @override
-  String get updateFailed => '更新失敗';
 
   @override
   String profileOriginSubtitle({required String oid, required String version}) {
@@ -3795,9 +3834,6 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get homeSignInUnavailable => '目前無法登入';
-
-  @override
-  String get homeSignInFailed => '登入失敗';
 
   @override
   String get homeSignedOutTitle => '你的世界，都在這裡';
@@ -5237,7 +5273,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get meNoFollowersYet => '目前還沒有粉絲。';
 
   @override
-  String get meBlockFailed => '封鎖失敗';
+  String get meBlockFailed => '封鎖失敗，請再試一次。';
 
   @override
   String get meUserBlockedContentHasReported => '已封鎖使用者，並向 Worldo 團隊檢舉此內容。';
@@ -5249,7 +5285,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get meBlock => '封鎖';
 
   @override
-  String get meUnblockFailed => '解除封鎖失敗';
+  String get meUnblockFailed => '解除封鎖失敗，請再試一次。';
 
   @override
   String get meUnblock => '解除封鎖';
@@ -5330,9 +5366,6 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get meNoBlockedUsersYet => '目前沒有已封鎖的使用者。';
-
-  @override
-  String get meRequestFailed => '申請失敗';
 
   @override
   String get settingsAgreeTermsContinue => '請同意條款後繼續。';
@@ -6002,4 +6035,59 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get genericError => '發生錯誤';
+
+  @override
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  }) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '$plan Premium，每年 $price',
+      'other': '$plan Premium，每月 $price',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get developerClearFailed => '清除失敗';
+
+  @override
+  String get developerGatewaySignatureFailed => 'Gateway 簽章驗證失敗';
+
+  @override
+  String get developerEndpointsSaved => '已儲存，新請求將使用已設定的端點。';
+
+  @override
+  String get developerAdjustRestartRequired => '請重新啟動 App，以套用 Adjust 環境。';
+
+  @override
+  String developerRecapSetting({required String mode}) {
+    return '世界故事回顧：$mode';
+  }
+
+  @override
+  String get developerRecapPreview => '世界故事回顧預覽';
+
+  @override
+  String get developerRecapPreviewDescription =>
+      '暫時替代世界頁面中的會員狀態與故事回顧內容，重新啟動 App 後會重設。';
+
+  @override
+  String get developerResetFailed => '重設失敗';
+
+  @override
+  String get developerRecapOff => '關閉（使用實際會員狀態）';
+
+  @override
+  String get developerRecapLocked => '未解鎖 · 非會員';
+
+  @override
+  String get developerRecapEmpty => '會員 · 尚未產生回顧';
+
+  @override
+  String get developerRecapSample => '會員 · 範例回顧';
+
+  @override
+  String get developerRecapLive => '會員 · 實際回顧';
 }

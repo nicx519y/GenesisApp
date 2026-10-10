@@ -64,7 +64,7 @@ extension _DeveloperVersionActions on _DeveloperPageContentState {
       });
       showGenesisToast(context, 'Restored build version');
     } catch (error) {
-      _showDeveloperFailure('Reset failed', error);
+      _showDeveloperFailure(GenesisL10n.current.developerResetFailed, error);
     } finally {
       if (mounted) {
         _updateState(() => _savingVersionOverrides = false);

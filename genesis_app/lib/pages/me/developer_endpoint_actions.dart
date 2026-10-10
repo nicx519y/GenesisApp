@@ -32,7 +32,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       showGenesisToast(context, 'Direct message cache cleared');
     } catch (error) {
       if (!mounted) return;
-      _showDeveloperFailure('Clear failed', error);
+      _showDeveloperFailure(GenesisL10n.current.developerClearFailed, error);
     } finally {
       if (mounted) {
         _updateState(() => _clearingDirectMessageCache = false);
@@ -51,7 +51,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       showGenesisToast(context, 'Image cache cleared');
     } catch (error) {
       if (!mounted) return;
-      _showDeveloperFailure('Clear failed', error);
+      _showDeveloperFailure(GenesisL10n.current.developerClearFailed, error);
     } finally {
       if (mounted) {
         _updateState(() => _clearingImageCache = false);
@@ -74,7 +74,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       showGenesisToast(context, 'Gateway auth cleared');
     } catch (error) {
       if (!mounted) return;
-      _showDeveloperFailure('Clear failed', error);
+      _showDeveloperFailure(GenesisL10n.current.developerClearFailed, error);
     } finally {
       if (mounted) {
         _updateState(() => _clearingGatewayAuth = false);
@@ -104,7 +104,10 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       if (!mounted) return;
       final output = 'Failed: $error';
       _updateState(() => _gatewaySignatureVerifyResult = output);
-      showGenesisToast(context, 'Gateway signature verification failed');
+      showGenesisToast(
+        context,
+        GenesisL10n.current.developerGatewaySignatureFailed,
+      );
     } finally {
       if (mounted) {
         _updateState(() => _verifyingGatewaySignature = false);
@@ -163,8 +166,8 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
           AdjustAttributionRuntime.environment;
       showGenesisToast(
         context,
-        '${successMessage ?? 'Saved. New requests use endpoints.'}'
-        '${restartNeeded ? ' Restart app to apply Adjust environment.' : ''}',
+        '${successMessage ?? GenesisL10n.current.developerEndpointsSaved}'
+        '${restartNeeded ? ' ${GenesisL10n.current.developerAdjustRestartRequired}' : ''}',
       );
       return true;
     } on FormatException catch (error) {

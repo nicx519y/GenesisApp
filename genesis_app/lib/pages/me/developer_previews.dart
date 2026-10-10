@@ -79,14 +79,11 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     final chosen = await showDialog<WorldRecapDebugPreview>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('World recap preview'),
+        title: Text(GenesisL10n.current.developerRecapPreview),
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
-            child: Text(
-              'Stands in for membership and recap content on the World '
-              'sheet. Resets when the app restarts.',
-            ),
+            child: Text(GenesisL10n.current.developerRecapPreviewDescription),
           ),
           for (final option in WorldRecapDebugPreview.values)
             SimpleDialogOption(

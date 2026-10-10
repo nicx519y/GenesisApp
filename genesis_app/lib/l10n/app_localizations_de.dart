@@ -248,9 +248,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get purchasePending => 'Dein Kauf ist ausstehend.';
 
   @override
-  String get purchaseBeingConfirmed => 'Dein Kauf wird bestätigt.';
-
-  @override
   String get purchaseConfirmationDelayed =>
       'Die Kaufbestätigung verzögert sich. Bitte prüfe später erneut.';
 
@@ -447,9 +444,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get imageSelectionFailed => 'Bildauswahl fehlgeschlagen';
-
-  @override
-  String get updateFailed => 'Aktualisierung fehlgeschlagen';
 
   @override
   String profileOriginSubtitle({required String oid, required String version}) {
@@ -744,9 +738,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get homeSignInUnavailable => 'Anmeldung nicht verfügbar';
-
-  @override
-  String get homeSignInFailed => 'Anmeldung fehlgeschlagen';
 
   @override
   String get homeSignedOutTitle => 'Alle deine Welten an einem Ort';
@@ -2283,7 +2274,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get meNoFollowersYet => 'Noch keine Follower.';
 
   @override
-  String get meBlockFailed => 'Blockieren fehlgeschlagen';
+  String get meBlockFailed => 'Blockieren fehlgeschlagen. Versuch es erneut.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2296,7 +2287,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get meBlock => 'Blockieren';
 
   @override
-  String get meUnblockFailed => 'Entsperren fehlgeschlagen';
+  String get meUnblockFailed => 'Entsperren fehlgeschlagen. Versuch es erneut.';
 
   @override
   String get meUnblock => 'Entsperren';
@@ -2377,9 +2368,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get meNoBlockedUsersYet => 'Noch keine blockierten Nutzer.';
-
-  @override
-  String get meRequestFailed => 'Anfrage fehlgeschlagen';
 
   @override
   String get settingsAgreeTermsContinue =>
@@ -3124,4 +3112,62 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get genericError => 'Ein Fehler ist aufgetreten';
+
+  @override
+  String subscriptionPlanAccessibility({
+    required String period,
+    required String plan,
+    required String price,
+  }) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': 'Premium $plan, $price pro Jahr',
+      'other': 'Premium $plan, $price pro Monat',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get developerClearFailed => 'Löschen fehlgeschlagen';
+
+  @override
+  String get developerGatewaySignatureFailed =>
+      'Gateway-Signaturprüfung fehlgeschlagen';
+
+  @override
+  String get developerEndpointsSaved =>
+      'Gespeichert. Neue Anfragen verwenden die konfigurierten Endpunkte.';
+
+  @override
+  String get developerAdjustRestartRequired =>
+      'Starte die App neu, um die Adjust-Umgebung anzuwenden.';
+
+  @override
+  String developerRecapSetting({required String mode}) {
+    return 'Weltrückblick: $mode';
+  }
+
+  @override
+  String get developerRecapPreview => 'Vorschau des Weltrückblicks';
+
+  @override
+  String get developerRecapPreviewDescription =>
+      'Ersetzt vorübergehend den Abo-Status und den Rückblick im Weltbereich. Wird beim Neustart der App zurückgesetzt.';
+
+  @override
+  String get developerResetFailed => 'Zurücksetzen fehlgeschlagen';
+
+  @override
+  String get developerRecapOff => 'Aus (echter Abo-Status)';
+
+  @override
+  String get developerRecapLocked => 'Gesperrt · ohne Abo';
+
+  @override
+  String get developerRecapEmpty => 'Mit Abo · noch nicht erstellt';
+
+  @override
+  String get developerRecapSample => 'Mit Abo · Beispielrückblick';
+
+  @override
+  String get developerRecapLive => 'Mit Abo · tatsächlicher Rückblick';
 }

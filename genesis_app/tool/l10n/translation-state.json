@@ -407,12 +407,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "d7f95684859290cb39e937cef1768a7c53ae9d7a2389512f1824a7753a2f0450",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "e11ee46cb6e27e8f769bbbd1314fc2f4b48ddce039afbd564f51683462960301",
@@ -740,12 +734,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "976d4560713982a118f048ec25e6a41387a0916b8cfe95c226aae222a85346fd",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "19a010adfc7a7505332430de8cf28218c798f4ccd54a81e3e6fef45852e9b314",
           "status": "baseline",
           "note": ""
         },
@@ -1082,12 +1070,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "eb8cc27243b642a81fd2ab9b16011168a847f6f06b7400147421b35dc8024833",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "28e835b43616fe900034962c1d2ba07b86fc2c8b7041adad5c158875f2ddc600",
           "status": "baseline",
           "note": ""
         },
@@ -3612,10 +3594,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "5502b065f86e52115a9fdf6e42ae1c074defc9024ae6a13c8898ddd8c6524283",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "d11c607079566c69853d90855287daac7eb9ec13af741c99cb650d3b085f3063",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -3636,10 +3618,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "85487e5f47daa30769b07aed76f25c846d2def82beea6cf20adcf29211b10f05",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "27000f6a3d8b88bdf0959c5b171f7c616fd84da1bd8a6ff87fe1967e0d286dea",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -3794,12 +3776,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "fbfdcd81ffee11d7161721ff7b7e50bec1c117e78de9ac8f2ceddd3fe232a7ec",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "c781a120d47de55173a599971313601d7ae551078355bde930bbd56a35316052",
           "status": "baseline",
           "note": ""
         },
@@ -4990,6 +4966,90 @@
           "text_hash": "ef8003ae46feff00074d3219742f67ae86807989f9c1e2e4a8a92aceace55761",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "a52f4ac26e9a68578a95482fb560d67e9efc8fa3eeb7efc1d1f1434461bc54dc",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "1784ccefc8599e7b54cd0e49d4a2cc326bc88439842bda5cc7d3aa855546e39d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "19ff03a1e2f7dec1afb8c6a5680b9549a6f9eb4d9e6feefbe4dd9d9e3dccb929",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "3f27ccea6c9399fbe7b85ed82b005e2efa45e9fe254eac37e199fab0127bcee6",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "29f3a961afa80d18e2a5f117653beed44b3bc5ed97266a7bc17a8826dcd0b844",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "dd2d573418183b7c0eacba60cbea3ee97fe1c03beb8a4d350389ab347f92c1ef",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "1057dc44c7225eb9666618bdd4fdc0e788fdbd5bb419a0fa7a5dc7fb0888ba74",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "6e46fc316adde437131f4df5ba61efbc2e96f0a00534a4f7b1dd0e2994f0e7ca",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "b276ebe97b1dd9cb322e87091ff181e6bf6ae3f5d7a875c3c5984863953dbfd1",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "71f4541ca5759dcc8fab598660d98ca52c56a7978bc781a36e2d4cdefdc3a5b0",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "f354b19f34f16eb247104c68ceba7728582c54d6f8e9b02921639c0efb77a72c",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "b91cbaa2bf8572804eec0b2d5f35602d97afc5aa324d674226c850fa34e60984",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "85419766f5c8af9307d8eb0c5bef78d28d24556669ec558940fda9476fc56cb0",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "36c7bf1dfa4511f14eda381e917e835eb11705cdd752b61a437ad61b75951279",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -5398,12 +5458,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "7c01e14b54f07328e93d61b39046a79e0b8d284e8bdaa4df814ad32eb778691a",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "56e8c17da9cd93a716a1ab921b611f7854404acec1555742d3c7eb1f05d90d3f",
@@ -5731,12 +5785,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "048c86d17c750b57f8e5da97d0c46382d3664cd924a7b10faffaf4844b1b3f8e",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "e6a83a0329ef77c70a94210217d4f9ba8709c9bc3e079386c3631e029d988c95",
           "status": "baseline",
           "note": ""
         },
@@ -6073,12 +6121,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "f3b5036b648d6e3f7875f247d6c28995274614d6084365bdd5bac87c40b848b8",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "ee560dc824b753ddd8b69d5b611cab7ff0ff71aeedc2231213d978f354d8fafe",
           "status": "baseline",
           "note": ""
         },
@@ -8603,10 +8645,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "ac00357abc91ba7790e2120dc8c3906d4bcd7bfb0280696cf1029c4b33e8a010",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "6fa35b8adca17721c41416709c1cb9eccc8965e1477668bb0596c07b9507b2ac",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -8627,10 +8669,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "4edbd2b44c48a824b13797dcfea7b352c19bd0b67a16c727beaa0f97ae4d4c3c",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "0499335d55af8fff01f0295c58cdf2aa59c9f9dfcc466edbb31b1467bde1c431",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -8785,12 +8827,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "f61aef79b5ea3ebdeb8ca55615aa8ddab2d9d007f64b41446b47271b1b4c1580",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "e438c0c8b364147ba457e08453b1eac3b1d327b633458da99ab9af085a08fa4f",
           "status": "baseline",
           "note": ""
         },
@@ -9981,6 +10017,90 @@
           "text_hash": "dbb1c8353df37783093d1b13a0e092c0a062e3239626ae4421017d0fed7c734d",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "e05cc72ca028cabcf6486def3bb746262ed1d69227905fcfe4b83dbef1c6bfe1",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "5b3fbbce69e46d73c2dc722c8c6d2a90431b5e675153a929b036ab6fa1a3978b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "32a7a540935fae1757a45bd7b1c9ca003f0066326c8fc3ec9c0918ebdb2b9158",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "1478ada041bc974adcee7e168f4d5d25694df98744338ad4e6b3046a2ba629b5",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "67c7f0f2f932feff22f8dafe123d55c23be13645771dfe667f812985144028fe",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "736ba82b9dfe3be5a1448f6d429147a37bac4f037159cd7be9d531d7b96f8ec9",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "5f479ac3ff1a55078ebb10b81ae9076381b819a245af5d484dd353a680bb0a5d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "2da97c5a9624e69c16ff3dfe2f2ebf8001e4b8288a7a039664d4580e500dd314",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "263993cb1f568348edfeea9ae62d43385d6107b1bdb3ecd25ff1c183924ead32",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "fdd7dc3d9013bdb763d3469bd43ba1db822df65e7c2ecd6a47dc0490a47a81fa",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "ddf542a0f3eb6bdef2b50f66abd16fe5c7d414169d10b6659449c18dbf4ecad8",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "c631006ec7c4a176ef18c4ebc4ed1268c2ae7400142b007f766fe0bc48684faa",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "e2553df01746fbffe5a6fef3ba1aaec1bd17d633cf34551f0d089b2f12febd7a",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "33a2dd7dca8a0215214a62aaa77314d0559af7fc5d4083acac26086a0c11fae2",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -10389,12 +10509,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "5b07e6fb4436d1d1a93a19564fa22609886ddecfc9d0269f44e348d5851cc483",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "36e8edb9466f660c1e83b6dd5eb504a36149c3cdf34f0e09f9ad431bb7ea5f07",
@@ -10722,12 +10836,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "9ec4948946143e4ca9e84d434d68a73bb6ff3bb005f075a03f1e44b19ea197d9",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "1164eb64a9b964314dbbe215e7065b7b1b1eb1b054972062e3572ac63ba9da92",
           "status": "baseline",
           "note": ""
         },
@@ -11064,12 +11172,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "b02b9b659baf7a314a64b32257411286ed90206d64a74f3bf41079159ae35692",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "98a2a48b40389d76ad8c87550a9298f253a099b650e874f4754e54dff2649b4c",
           "status": "baseline",
           "note": ""
         },
@@ -13594,10 +13696,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "b041480b1c340adbbd06d7e6d66453f3e86fca7e55b775c3e441fcbc5a2cd092",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "649cccbfcf04cadeeb4210056afcbabbf51b8d1ea2c826253b67687ccd521693",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -13618,10 +13720,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "22ebc9a1d654eba57858d59087c1cf6c6cf149a088dad71197fbe1a3ea10c41a",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "0e61b4825d5cfec26b798fed983d7952185c796aac6d03f5871bc41c33cd44a8",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -13776,12 +13878,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "26b1a6e9a6bbeb908c74589d446f0d847e5c1ef9aa1e3480c11b5b9cd4f2bd06",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "757641ce8f3124462dda1bf76a17561082c758a5dac17dc1c00f210152f1064f",
           "status": "baseline",
           "note": ""
         },
@@ -14972,6 +15068,90 @@
           "text_hash": "5de056aea5850607ec9ba88d85da1edfbf83ee3cd223c3b27f688b0cb66814e3",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "b14d111091be834fc75be400e62e5b5513be81332e0336782c447dd02957d9ac",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "bd40b07e5162e16bc58288ea8b822eaf15d3c420ebc92cca16446c7649577937",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "57d45b1fd65942c16f5d6d00c74e8b82c125d37b3ecb7393a20c8cda4fe501f8",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "ac983aeea3c2547ff5e3eccd9dc268c3de2a13f35e912ece6ff710095605b477",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "d9acb9db04e611f48d720472593056a1fee8aa24f56c423a6f3cf547e0660aef",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "153d034d566aa85de4f1c8cff21c1950c005e031a541c1cbb81c3c377e8f3f4b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "5e7562b1b74a1c963d6dae927805a31f6555aa8f12b78aaace3b09031d249895",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "d7b4d68d32473f30def56c8a6ba7c732efce489af1fd92790fbfb0a3714d7d7f",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "b35963c6bce4d3bd7038cc7d5b23c2a4ab09f0c2d769f65878add4863a05cc7f",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "99adefe5d07d587a1ba3b689bf19a21c33f2a2208eecbf3d8a50cd342e7ab6e0",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "6d096f58223edddf2fea7b36fd05f7215d7a6b84303f8054f4e2d464fd6f6954",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "c7cb3acdd46fb08d322ec062da965be096208ab756a0471c316b24331484ff96",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "a1b85c978fb3c932ef2622c7f5f20d0e09a7c3efb7b113c0b7ec32bbea4a3545",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "3db3bd683852ca6fe930fdae75344178f448fa1e657e618a7754ee9c3156fb1a",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -15380,12 +15560,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "77a7aeef10661968e8e529be13d0e3607dd6d6b7eae0cd2b3c5cb4a65d935a5f",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "cf5b4a8aa8d540e8e05087bf88d311f22a22c6d71e5732143d8c1bb3090ef9b3",
@@ -15713,12 +15887,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "418c93491be3ac297088997b368738a72f9c96688712ff29f3d1f9c0babba7d5",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "0c29280a4fa28c7dd0d75de32dc161f5137a0d189ad26a5bd38fbfa87fc6258b",
           "status": "baseline",
           "note": ""
         },
@@ -16055,12 +16223,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "e3599bec754ff5ba55deb143cd23bd38b5ffb27d94c8617ccec15ba3521599ae",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "40efa9a3b089640cf6c784a65708ea82e5cae94709980df7e17254fc196f5e0e",
           "status": "baseline",
           "note": ""
         },
@@ -18585,10 +18747,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "c353e993b082f2091a666c4604e690eb70752a2f977a49d76d1e638f871107f7",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "c35ff722550e7753e8d3d14adb6f362b420609012e5db398b3e959a85e422dc5",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -18609,10 +18771,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "04be0957ee8a9a92f3b53dfa07f0b0c75584ec8dd7928d24b9fbc7657af3f41e",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "2d3b4a0d2b82924d95005ea8f290b77e4cd237624ce4ad7bd6a39880d42160c5",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -18767,12 +18929,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "6383592171746a13830cc6555be75a6232dccf7754ff701c7fee9677a7dc03f2",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "8b4e7694ddb0a269142061ab02cbf4d943ceebdc4cbdf47b6265dd1a0502ae24",
           "status": "baseline",
           "note": ""
         },
@@ -19963,6 +20119,90 @@
           "text_hash": "649ac31aa62a7a41c4aba1793b666761d12cf8b70549deb0ee6d842d1f775fba",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "a432ddcc4fe6af62554e606b7661eef1a61e7b44b9684d15dbd7e427899901d1",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "53b4002eb340dbcb378da0b40a60c7ad7dd968bcddb70a177a3767e565714299",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "4b9aad7ca6778879fda0b723632dc19d096ab75c2742fae9fc9ccc32e19b3ad8",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "b4877c08911fc4a055e6320e87c36a763eb8623f5b88c132d94bc04242cfe608",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "b41e0cdaa11236195938e42e07e6adb4be46e04b51831c2245b56963ab72164b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "05bfacebe1a65f852a06efd175d14e70a0c349c142dc3a5c035160c9e894832d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "70690e2ff1284fc2f7e737e0a10b91efbe06cc2e695b9252d4f7b789414e1ea9",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "9777ee5a261f62ce6e4717dac58e912fe21af58272ca80298c2ccb1fb962b8ad",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "cb0d189516ab594211283e49a9a6d832d77466af4a3cd89b95d65b5ccd7aecbc",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "96b286ae9bf64d3c3aed5972f2228fcef27e9863212c6b6056c979c6e994614b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "a7cf9fafc46fe3b0829b5000b8e5c2703df18df4897feb150d2c59356a23b5bb",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "8a65aefbc48df33373114d8ba8cd82934f0f55f350270c2674ce067cf811d515",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "54b553f3f2cdf9fa5095654c13e41bdeae80ca7019ec844d2c1757e55aa132bc",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "ab00e1abd3ac678966e9334c8fe6ece665f814c8b113064a1e9d47e9464e6236",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -20371,12 +20611,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "5eed632de6302874a4608263347813e3e33a566e619206c868c3af22a38e4213",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "b8df3da92a805f6962462bb04f4938d6ad37f252fdd53bb8e811a2195370788b",
@@ -20704,12 +20938,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "6ea378cfe6bd586bc84266cd83b1e7e72ad90e1e5d78bc46dbfb04c2673b45cd",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "e9ed798f3864ebbeaae1e4dc682b79ecf98a8cf6f2c3961dd2ddd40e184971ad",
           "status": "baseline",
           "note": ""
         },
@@ -21046,12 +21274,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "000b2c5e2136bcbe595502984cdf4d38db9aa68f3064e93683ee9fa0f6dd4265",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "b69034ebfa6023d87f14d36f4c00a13fa2fbc953d1385ec0a1d8e01c2e81e008",
           "status": "baseline",
           "note": ""
         },
@@ -23576,10 +23798,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "eb93f98ba9d7181e57c65c1376e2845d8e8f1541d2cba8136581977a942c1ff9",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "22131f68017688caed9fc039cfad71fd36dbdc76da310b8b8671f3225f5f81af",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -23600,10 +23822,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "b05a7ad69dd7e6f2d96979f26a542325762a93d972ca2e4ebc07c849571e206b",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "1a6fdd41bd77869a6e3b6969f73fc87a5ea9602ebda712ae2059e234d447927b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -23758,12 +23980,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "5d50a3be85749521957affe320032bde838af8dd17990f6f9a58536698d9deeb",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "58994eed7963c91b0355c0e6f53b1819812df5a58624fdb8afb5ca385fd1f357",
           "status": "baseline",
           "note": ""
         },
@@ -24954,6 +25170,90 @@
           "text_hash": "7db606746c4a0eac3cb6d18a129e57e0f4ea295207c3731d02ea489e30f67911",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "9695e00fc621e47ec2f142d662c5ce56e72790d6d69d069d6df85e0828f566e3",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "b59818e0bbe689e039bc73231467cf40226bec8a91d52b21791afb2e966ae885",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "6bba8b183ff946a2bc338a6b9cb433cbf3579a1dca342d4d01fd8d26fa2f106e",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "b70f26fb87648efbfdec3c064422b6f690fcee5bc54d9508dda4b6e0fa8096ae",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "d558b7a3d44fea4cda10e910ac22c040845a9b3bd4b733a1065a34e87db0e900",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "86e001d819f42fa4e2e156584356a1542c4f0f1edfebccba8edb28b2b90c1404",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "58f844d1be28677ba97e06ebb2087307240d76418164b8ac69604e57ced9270f",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "78063cd67266f554c264ec66760200b974304182362bb4f7a5b513ade741303b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "d0a71bbafb03468bd68630e86be50795b00c873a07039961dfd9ee270b19e314",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "3f63104c9543585f18cbd3bc3481a65ecf558e3cc789a4d8414fdb00a66eb4da",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "0e679195c0e936e68e0e7e3d3fdd26c7792fe8468352bdd6a1c19a8740aa4cf9",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "993d81855712384dda5ba863bc071afb5a2dd67dc3c0a45ec28460d1f23be048",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "a6e47e2582c9a098bb51d87f23971d2b9bde0908a9ec59a1972f130f77e921de",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "5eb0032107f4fc80dff3ba3428b092ee24b951da32c5ad7d56e8643523afdbb7",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -25362,12 +25662,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "18814e120164ff8156ead265baf8fc4626f2d8c587d5b44583473e5de2be6e25",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "78f5a28b0c1eabdf0bc57876b137e13bf79959ba33f1e86ebed3215219cd00fb",
@@ -25695,12 +25989,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "87ce961e2765c12b23e4971fca9d6eddcb847832ead1e124f25a7ba5ffc435df",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "4aa736ec70e8c9fd6a1493800c26899c21bf5569f5d5961a4bbb3d66b80b8c55",
           "status": "baseline",
           "note": ""
         },
@@ -26037,12 +26325,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "6fa2963ecf8d56df0429b7539783f271f859e4d426e903f93e72361d80912e8e",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "40b64352aedd72b6da2c591688cc3dfee878f698789d1243d90ce0c241798325",
           "status": "baseline",
           "note": ""
         },
@@ -28567,10 +28849,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "dea894195894deced14fba0377355689280af8adfc838f81e6cb26e1ea85e5e1",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "e297252681a215b7d2302a53fd85701150a4bc7b651d599448c7f530804ab67c",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -28591,10 +28873,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "905e461684e9f26b55db67ea9daeead38e478abbe5b88eac08e0c28abceaa4c7",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "75f5fee3a4d667c2c143258c29b33419d99d4b29800d5ea2d0adb0195de29dae",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -28749,12 +29031,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "e9b9984e4791c6d7575f78ac025f91f1315de94a20a9d02eeec646c3ab72dd45",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "031e49cee0b48b2f10240a5d176d85616fe54d508814fed1018f190547770288",
           "status": "baseline",
           "note": ""
         },
@@ -29945,6 +30221,90 @@
           "text_hash": "c4aad707e554cb4d69baff8911e4d81434cea93037adfbd3c6c55da5f3565a1b",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "3920ed0b0ddda06640df4af77e803f1de8d7a7fc757e6a5a701c2b66085d0ebd",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "846077f0298dc7b4a6bab0882cf47a962dd5d3c46cebe2bcb0044f8dda5dd91a",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "3e35333a266665e665195e5e4de88a0741f3285ee6bbdce68c581a91bca0dfbc",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "e271405d3503a91ff73e891cec69f6effc312959d242f50f2bf5c3a82f096e32",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "da1392acb49aeaf25c4fe27c53c6b22336fc35081c663d2b21951d8334a3dae9",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "5e8625c4ff3a883f271032ffd1b555020025a25fca8743882e086978cb002529",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "3a0e56fe4c462592200f017f774f92491c992a351e81b14e6ab23fc8bc9ea0e2",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "a43b657a72f3b23cf21998e308164615dfd93f742e99eeda502f497ed2c3086a",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "01fc877d4efe0d5ad45b9e78a93eac28af1ce06f7256bd44eff21c5e37382d7c",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "340e112780b7fd8274c5332e4ffa2cca00c37572956c2707eb37ba13bd1a2d48",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "78e26a943481fed110a31cf3314e106166319e477ab8f995443d7eb2102df762",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "ddc0073b817d9ab8418bb5064a54e24883be858be252811389be428998d02876",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "16d36cf07eb53601c47480ddf7bf729f8604723659ba5b002d2f19612a46c521",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "2d06b1442840a92dc151c9a495711ec0e25df301e2d78cd3a68489a5144bae40",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -30353,12 +30713,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "d04371e2cd91b4cb488358a9a7baf36148cfefd54945f42346702ed52bb09a2c",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "f3e554753df988fa6f617a0fbd59004018c23ac337ff6aac101c1cd3cffe7852",
@@ -30686,12 +31040,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "4beaef48c1c1f06e6e47dff16e511ee5ed1674b5778bc56db94c93e8dbb4ad83",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "7a10fdac7b7592bfc682ab2284a31c810f3e99a9552b6c2f458859b499f8a58a",
           "status": "baseline",
           "note": ""
         },
@@ -31028,12 +31376,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "97119190b3bf1d6fa9522893e5b5098935ea6ce2f13bf36904488a15a52bd81b",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "0b7e509bd3010ab69f37ee42ac6c98c102fec2b8f3a51b1f8191aab4a40f5d74",
           "status": "baseline",
           "note": ""
         },
@@ -33558,10 +33900,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "c2db70234eb7729da2eb9869dec0515233046f962e118e99ec6bb9be7e760d91",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "d6ceffafc2d594575dd73a6b13232481bfaf4831f7a7382744dfd809e0d35b1d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -33582,10 +33924,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "73fdb2d1e8bfca46efd60014d25572fe616604184c501db5eda66671faa1f6ca",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "50245c93528816942cceeceeb040df87d09b40d06171c75124c43882eb33c4ad",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -33740,12 +34082,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "3905b23cf9e30b52c7c6da6cb7e2f38d50f1f1da059a9892e19c96d8ef57f478",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "6ab3a180f386041c12fe66876417010c9882663faccde098deb94b92a5226197",
           "status": "baseline",
           "note": ""
         },
@@ -34936,6 +35272,90 @@
           "text_hash": "1292e4a09ea93bb554f740e5f581944c6babd6b29031ef777f27d3fa3c13806c",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "799776d214a18e9017cf06a244fdde6c1f35b1fe041c3fef286f60dcb7db346a",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "e824188749099b9dd72389c9cd4ba7f6cd5357bb93ad9497733fcd280a098afc",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "cb9e78888be1a37516e1cd5310e10d00c3521bee2bb1687eba899bfedfb11eab",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "6aa4532fe18777d9cf3f62f78a9f3b75c4a3b5bfc36aa636f97e036edf811142",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "d1a13cf23a690edd1d54e2dfb5e2760b3ecc0f387ac527513cf9746933dad4cf",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "522283633985d7dc4e795b76cd9658332090ce26f3dbf911884c3c7905b48657",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "ba9536700a0da7e2bf807ed1e65f2828975802cd063660ad18efb77bd4c3c61c",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "610520247e6cfb5ea35fc1cba12041fb2f9ac3c7f051936259af8b3874b94cfd",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "c1ea0b1a0ba22ebb3ce7e4da0b492049fc4daf6fc6e1a0cb23e2fb4378af1c0f",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "dd69b06fcf419445415e2294407d5a0379af15b916424b55021f045b579dc555",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "8009d73cb032f3acae0a124efdf693bc921beafece11fdbb5d5e413e88c5c8d2",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "47ccd89f4f28133389cda5d4b2c2b8f5781d595f4d0b4ef7aedee3da772084d0",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "153a011d5208b0165d5449f1d87f0176126441ffa2a8dba2f62bd1e3bfba815b",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "e592e4e1738a568c3714f09b148e300dfe75dba0e7100c4b89a589a85ce0dfc0",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     },
@@ -35344,12 +35764,6 @@
           "status": "baseline",
           "note": ""
         },
-        "purchaseBeingConfirmed": {
-          "source_hash": "7560c4d37349eb7eb4d7e53ca5765e1168d2e0ae0d0dd4ef1cf5d050a326c4ad",
-          "text_hash": "9b6720cafb14303cc802aa92c7353177fa2a6f6803c6176a175696349b6a8d74",
-          "status": "baseline",
-          "note": ""
-        },
         "purchaseConfirmationDelayed": {
           "source_hash": "23360703ade3076cd0aea3ecd6297f532a7964416aa359403be5c0961bad78dd",
           "text_hash": "e71579ff2d8f742896c81b6ad18b9ff7ed0515bbb10f9b29bcbb68525e78b0d8",
@@ -35677,12 +36091,6 @@
         "imageSelectionFailed": {
           "source_hash": "c2a62def293de61e958ee1b6ae9642737e7db0c8b5ec2c0d15cd776be56e5a53",
           "text_hash": "f99537896507a640643a8c60190e4782e0f84dd3788781c86f55da883d783b6c",
-          "status": "baseline",
-          "note": ""
-        },
-        "updateFailed": {
-          "source_hash": "d346496664b3f49eeebf5d339dcfa8e95057382906ad517c259cd11d22f68b34",
-          "text_hash": "21417954a544460bb984c3d16c3fa113f0721938ab08f96517f8c60d0a800aea",
           "status": "baseline",
           "note": ""
         },
@@ -36019,12 +36427,6 @@
         "homeSignInUnavailable": {
           "source_hash": "438a5baf7ef87d452549ec1df3ecb88b1c8f9f330e4156bd27aeae4ea404c2a2",
           "text_hash": "a971b96a17d411e3b5959df18bb9d9d7baa44037b2f0f2f1659fdf58b7f90baa",
-          "status": "baseline",
-          "note": ""
-        },
-        "homeSignInFailed": {
-          "source_hash": "dc414da2090ed01e55628b945f4edfb9bd34dc8f77ad64f276a40f19776ec3f5",
-          "text_hash": "e7c95f0a8f87edf19160a2727b4674bea83dd023aab29be265d1b9a20027471b",
           "status": "baseline",
           "note": ""
         },
@@ -38549,10 +38951,10 @@
           "note": ""
         },
         "meBlockFailed": {
-          "source_hash": "a24049927ddd6b0b3ef63522134e3118a4c0f132e75feb7470178314bf1dac7a",
-          "text_hash": "d0020c93b1e32d72dba41e62314693e7bed1749a969b4689ebf0abd01b705370",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "3cf90ea2cfd78b680e57e16e202a9714a043bc68c0f109eeea9829b0809b4b5e",
+          "text_hash": "d20cde2ac9f2ecce8db1329683d4c671a2269ab6581aef1a548f573f50f8aefe",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUserBlockedContentHasReported": {
           "source_hash": "92fa3c6296b696faf090c20255a836a678627b92e1ff18f4f7d9a91e5342273a",
@@ -38573,10 +38975,10 @@
           "note": ""
         },
         "meUnblockFailed": {
-          "source_hash": "a3fcd85c81cab8628d91f5e6e725251b6ecab349b894faffaf533999a0a9bd03",
-          "text_hash": "7ab871e2a8a6813cacf8ce5fa69e9bd6343fd4a11a803f22fd4de70636ccb45c",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "c1f1d02657b1af406a979af9fc737947d2fd4040e01dd74c59b0a1c0aa99e77c",
+          "text_hash": "c7cada67f82debef11247ffe6607ac89ce76cbccd319be1b070b03ff10653b4d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "meUnblock": {
           "source_hash": "31f159fc1ad7daf8ea5e7fa03cf978357ac9655108d3bc2c56a88fabc2b3d609",
@@ -38731,12 +39133,6 @@
         "meNoBlockedUsersYet": {
           "source_hash": "6dbc730e5ae1dfb3530980e1f01719e2972d8111ba15e6d5d1ea0b9830466780",
           "text_hash": "472d784a1954df7ee71966ef0167ae19cbf7d043f23a1678e64102ccb914244f",
-          "status": "baseline",
-          "note": ""
-        },
-        "meRequestFailed": {
-          "source_hash": "0ea60d6170debba46e8fa478e0962769982bb0ff08cdafa50e20eb7096c84de3",
-          "text_hash": "5cfa7196045c1daa5e8ce208e0b58c638be21c4c653c782073f6060a2466531a",
           "status": "baseline",
           "note": ""
         },
@@ -39927,6 +40323,90 @@
           "text_hash": "0c9e2612a3604b710a1952fa63ebacd801283fb6f1256d1eb182c57735eef2f5",
           "status": "ai",
           "note": "Generic local API error fallback; server messages stay unchanged."
+        },
+        "subscriptionPlanAccessibility": {
+          "source_hash": "8e61f21f0ac65d2fc47916817b0d1a9262abf9a65b6e330d031856a091ef77c5",
+          "text_hash": "97a7b7e4565ce9b221b4d7ac56a91bf40a61496c660fe1aa3f126c08bd17d938",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerClearFailed": {
+          "source_hash": "42a1b4274702cffce156f988c7a1e19b52d185dbfdb49a7967678d226d8bce29",
+          "text_hash": "b29de57b7c2fcd0a2840ca8edcb4fb65c08cb4215842d16ed6e13573de554a21",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerGatewaySignatureFailed": {
+          "source_hash": "52a8e1e91c70a681dedb3ef4f2a21d4de7c0e9879ca498c3af5d0c361838789f",
+          "text_hash": "ae52d726ac50141790c46ff13cf28a0c8a88d121a859e2d317c4491435a89208",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerEndpointsSaved": {
+          "source_hash": "d9c0a19b5729b2660a2ffeef299ecf8c77ce5cd47fc2ac29482b73f2a8d020e9",
+          "text_hash": "fd78c82081039cb3e9815c9ff4b332bb1c862d99b5331e3e62feb570d4f52d8d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerAdjustRestartRequired": {
+          "source_hash": "92bfe575a25096833be7e3cdd1b3a505177e923e08b06cb4792bea9cf2b1aada",
+          "text_hash": "2e191641b2d2105875df4acde3c4e788d196ad68298745862dd201e7931f0896",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSetting": {
+          "source_hash": "2d9f1b54d5feca71cd1a400cd7c7bea897f26c13037f9e474919c80cef2455b0",
+          "text_hash": "4e62385aa2edd9083f553fad56e3a5bd1f59fe2de3b3f3b9e0b357cc42484581",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreview": {
+          "source_hash": "790ecee9a11477d990a1702d87c00ac9d91ebda0ec65da97ea1968f5511e8617",
+          "text_hash": "e861463085fb290297aa322b0a9fa8d6171793d90212fd23aae0998f2e148124",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapPreviewDescription": {
+          "source_hash": "e63d07a02a5fd4f508c8e265955159d8d7002534fba0064bdd70bbf7f0c0c6f5",
+          "text_hash": "8c6c9a0c4b14d8176e6d39a78ad9ed4e5dd25663ae5a9df5a3f19fa898cc637a",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerResetFailed": {
+          "source_hash": "4ab0faa9f0f5ac1d00855f5bd656bfa503b564bde8b48b3383606e294aae68c9",
+          "text_hash": "9e69b8d68cacce9682dd40a14911a2be35b69366b0fc77ff71fb4ec76101ab58",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapOff": {
+          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
+          "text_hash": "2ecb3f6aa88cf038088e620e80a0b66493a929d3b43582a1e3cba3b9f521f5c4",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLocked": {
+          "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
+          "text_hash": "a05a18d276b7d49417866ef7c2cdf9138f8fbdb376d8c10c6905105ad66d04ba",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapEmpty": {
+          "source_hash": "6e3b487d2d1f34e29a4c037a6872b8632c1a71e572b2cafb528ba1864831a058",
+          "text_hash": "5e05fa54dd12da57099632ab36fcdfc78c8a883051836b9171fe8fc47ffd5d7d",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapSample": {
+          "source_hash": "934d785e548908b7e1b7205faa02df5d9dfbcda08d55dd34c5d472d91b855085",
+          "text_hash": "de0ddeab602b0774f3d193d385032be36a84d4bc31989fd881ca318819952ddd",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "developerRecapLive": {
+          "source_hash": "c8b0a1ccbf86c39098ebd30309ebe1dbfb7e182aec8ccfbd46ff736fa1496f94",
+          "text_hash": "f03b43f62fbb7685ba73137339f9c0061986aae80c24a5187eb6b6c81ffa56af",
+          "status": "ai",
+          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         }
       }
     }
