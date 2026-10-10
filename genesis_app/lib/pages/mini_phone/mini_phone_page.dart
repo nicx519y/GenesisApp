@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -17,6 +18,7 @@ import '../../network/models/gem_model.dart';
 import '../../network/models/user_memory_settings.dart';
 
 part 'mini_phone_home.dart';
+part 'mini_phone_notifications.dart';
 part 'mini_phone_conversations.dart';
 part 'mini_phone_posts.dart';
 part 'mini_phone_media.dart';
@@ -116,6 +118,12 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   final expandedNotificationGroups = <String>{};
   int homePagerPosition = _miniResume.homePage;
   final homePages = PageController(initialPage: _miniResume.homePage);
+  final homeNoticeScroll = ScrollController(keepScrollOffset: false);
+  double? _homeNoticeDragProgress;
+  double _homeNoticeDragDistance = 0;
+  bool _homeNoticeDragActive = false;
+  double _homeNoticeDragInitialProgress = 0;
+  final _homeNoticeDragInitialGroups = <String>{};
   bool _closing = false;
   void _selectHomePage(int page) {
     if (homePages.hasClients) {
@@ -180,6 +188,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       t.cancel();
     }
     homePages.dispose();
+    homeNoticeScroll.dispose();
     messageInput.dispose();
     commentInput.dispose();
     postInput.dispose();

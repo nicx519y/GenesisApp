@@ -57,11 +57,13 @@ class MiniIcon extends StatelessWidget {
 }
 
 class MiniAvatar extends StatelessWidget {
-  const MiniAvatar(this.person, {super.key, this.size = 40});
+  const MiniAvatar(this.person, {super.key, this.size = 40, this.borderRadius});
   final MiniDemoPerson person;
   final double size;
+  final double? borderRadius;
   @override
-  Widget build(BuildContext context) => ClipOval(
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(borderRadius ?? size / 2),
     child: Image.asset(
       '$miniPhoneAssets${person.image}',
       width: size,

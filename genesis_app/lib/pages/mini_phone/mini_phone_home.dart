@@ -1,7 +1,12 @@
 part of 'mini_phone_page.dart';
 
 extension _MiniPhoneHome on _MiniPhonePageState {
-  Widget _home() => Stack(
+  Widget _home() => ListenableBuilder(
+    listenable: miniDemoMusic,
+    builder: (context, _) => _homeContent(),
+  );
+
+  Widget _homeContent() => Stack(
     fit: StackFit.expand,
     children: [
       _wallpaperBackground(store.wallpaper, store.wallpaperPhoto),
@@ -22,8 +27,10 @@ extension _MiniPhoneHome on _MiniPhonePageState {
           ),
         ),
       SafeArea(
+        top: false,
         child: LayoutBuilder(
           builder: (context, bounds) {
+            final homeTopSpace = MediaQuery.paddingOf(context).top + 56;
             final compact = bounds.maxHeight < 700;
             final narrow = bounds.maxWidth < 350;
             final messages =
@@ -62,219 +69,324 @@ extension _MiniPhoneHome on _MiniPhonePageState {
             final allExpanded =
                 kinds.isNotEmpty &&
                 kinds.any(expandedNotificationGroups.contains);
-            return Column(
+            final homeClock = Column(
               children: [
-                const SizedBox(height: 56),
-                Expanded(
+                Padding(
+                  padding: const EdgeInsets.only(top: 9),
+                  child: Text(
+                    'Day 2 · Ashford Estate',
+                    style: miniStyle(
+                      compact ? 18 : 20,
+                      FontWeight.w500,
+                    ).copyWith(height: 1.25, letterSpacing: -.6),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: _glassClock(
+                    narrow
+                        ? 96
+                        : compact
+                        ? 99
+                        : 110,
+                  ),
+                ),
+              ],
+            );
+            final homeNotices = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (miniDemoMusic.activated) ...[
+                  _MiniHomeMusicCard(onOpen: () => _go(MiniPhoneScreen.music)),
+                  const SizedBox(height: 12),
+                ],
+                if (kinds.isNotEmpty) ...[
+                  if (messages.isNotEmpty)
+                    _noticeGroup(
+                      'Messages',
+                      messages.length,
+                      [
+                        for (final n in messages)
+                          _homeNotice(
+                            n.person,
+                            n.text,
+                            n.time,
+                            () => _openChat(n.person),
+                            squareAvatar: true,
+                          ),
+                      ],
+                      allExpanded: allExpanded,
+                      toggleAll: () => _update(() {
+                        if (allExpanded) {
+                          expandedNotificationGroups.clear();
+                        } else {
+                          expandedNotificationGroups.addAll(kinds);
+                        }
+                      }),
+                    ),
+                  if (posts.isNotEmpty)
+                    _noticeGroup(
+                      'Posts',
+                      posts.length,
+                      [
+                        for (final p in posts)
+                          _homeNotice(
+                            p.person,
+                            p.text,
+                            p.time,
+                            () => _openComments(p),
+                          ),
+                      ],
+                      allExpanded: allExpanded,
+                      toggleAll: messages.isEmpty
+                          ? () => _update(() {
+                              if (allExpanded) {
+                                expandedNotificationGroups.clear();
+                              } else {
+                                expandedNotificationGroups.addAll(kinds);
+                              }
+                            })
+                          : null,
+                    ),
+                ],
+              ],
+            );
+            // Reserve space in scroll content, rather than clipping it above the dock.
+            final dockSpace =
+                (narrow ? 56.0 : 62.0) +
+                36 +
+                (compact ? 14 : 18) +
+                28 +
+                (compact ? 14 : 16) +
+                12;
+            return Stack(
+              children: [
+                Positioned.fill(
                   child: PageView(
                     controller: homePages,
                     reverse: false,
                     onPageChanged: (value) =>
                         _update(() => homePagerPosition = value),
                     children: [
-                      Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 9),
-                            child: Text(
-                              'Day 2 · Ashford Estate',
-                              style: miniStyle(
-                                compact ? 18 : 20,
-                                FontWeight.w500,
-                              ).copyWith(height: 1.25, letterSpacing: -.6),
-                            ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragStart: kinds.isEmpty
+                            ? null
+                            : (_) {
+                                _homeNoticeDragActive = true;
+                                _homeNoticeDragDistance = 0;
+                                _homeNoticeDragInitialProgress = allExpanded
+                                    ? 1
+                                    : 0;
+                                _homeNoticeDragInitialGroups
+                                  ..clear()
+                                  ..addAll(expandedNotificationGroups);
+                              },
+                        onVerticalDragUpdate: kinds.isEmpty
+                            ? null
+                            : (details) {
+                                if (!_homeNoticeDragActive) return;
+                                _homeNoticeDragDistance += details.delta.dy;
+                                if (_homeNoticeDragDistance.abs() < 12) return;
+                                _update(() {
+                                  final progress =
+                                      (_homeNoticeDragInitialProgress -
+                                              _homeNoticeDragDistance / 180)
+                                          .clamp(0.0, 1.0);
+                                  if (_homeNoticeDragInitialProgress == 0 &&
+                                      progress > 0) {
+                                    expandedNotificationGroups.addAll(kinds);
+                                  }
+                                  _homeNoticeDragProgress = progress;
+                                });
+                              },
+                        onVerticalDragEnd: kinds.isEmpty
+                            ? null
+                            : (details) {
+                                if (!_homeNoticeDragActive) return;
+                                _homeNoticeDragActive = false;
+                                final velocity = details.primaryVelocity ?? 0;
+                                final progress =
+                                    _homeNoticeDragProgress ??
+                                    _homeNoticeDragInitialProgress;
+                                final expand =
+                                    velocity.abs() > 500 &&
+                                        _homeNoticeDragDistance.abs() >= 24
+                                    ? velocity < 0
+                                    : progress >=
+                                          (_homeNoticeDragInitialProgress > .5
+                                              ? .65
+                                              : .35);
+                                _update(() {
+                                  if (expand) {
+                                    expandedNotificationGroups.addAll(kinds);
+                                  } else {
+                                    expandedNotificationGroups.clear();
+                                  }
+                                  _homeNoticeDragProgress = null;
+                                });
+                              },
+                        onVerticalDragCancel: kinds.isEmpty
+                            ? null
+                            : () {
+                                if (!_homeNoticeDragActive) return;
+                                _homeNoticeDragActive = false;
+                                _update(() {
+                                  expandedNotificationGroups
+                                    ..clear()
+                                    ..addAll(_homeNoticeDragInitialGroups);
+                                  _homeNoticeDragProgress = null;
+                                });
+                              },
+                        child: CustomScrollView(
+                          controller: homeNoticeScroll,
+                          physics: const NeverScrollableScrollPhysics(),
+                          key: const PageStorageKey(
+                            'mini-home-bottom-anchored-notices',
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: _glassClock(
-                              narrow
-                                  ? 96
-                                  : compact
-                                  ? 99
-                                  : 110,
+                          reverse: true,
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: SizedBox(height: dockSpace),
                             ),
-                          ),
-                          Expanded(
-                            child: Align(
-                              alignment: allExpanded
-                                  ? Alignment.topCenter
-                                  : Alignment.bottomCenter,
+                            SliverToBoxAdapter(
                               child: Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  18,
-                                  allExpanded ? 12 : 24,
+                                padding: const EdgeInsets.fromLTRB(
                                   18,
                                   12,
+                                  18,
+                                  0,
                                 ),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: allExpanded
-                                        ? double.infinity
-                                        : bounds.maxHeight *
-                                              (compact ? .38 : .44),
-                                  ),
-                                  child: SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (kinds.isNotEmpty) ...[
-                                          if (messages.isNotEmpty)
-                                            _noticeGroup(
-                                              'Messages',
-                                              messages.length,
-                                              [
-                                                for (final n in messages)
-                                                  _homeNotice(
-                                                    n.person,
-                                                    n.text,
-                                                    n.time,
-                                                    () => _openChat(n.person),
-                                                  ),
-                                              ],
-                                              allExpanded: allExpanded,
-                                              toggleAll: () => _update(() {
-                                                if (allExpanded) {
-                                                  expandedNotificationGroups
-                                                      .clear();
-                                                } else {
-                                                  expandedNotificationGroups
-                                                      .addAll(kinds);
-                                                }
-                                              }),
-                                            ),
-                                          if (posts.isNotEmpty)
-                                            _noticeGroup(
-                                              'Posts',
-                                              posts.length,
-                                              [
-                                                for (final p in posts)
-                                                  _homeNotice(
-                                                    p.person,
-                                                    p.text,
-                                                    p.time,
-                                                    () => _openComments(p),
-                                                  ),
-                                              ],
-                                              allExpanded: allExpanded,
-                                              toggleAll: messages.isEmpty
-                                                  ? () => _update(() {
-                                                      if (allExpanded) {
-                                                        expandedNotificationGroups
-                                                            .clear();
-                                                      } else {
-                                                        expandedNotificationGroups
-                                                            .addAll(kinds);
-                                                      }
-                                                    })
-                                                  : null,
-                                            ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                child: homeNotices,
                               ),
                             ),
-                          ),
-                        ],
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Column(
+                                children: [
+                                  SizedBox(height: homeTopSpace),
+                                  homeClock,
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      _lockedHomeApps(narrow ? 56 : 62),
+                      Padding(
+                        padding: EdgeInsets.only(top: homeTopSpace),
+                        child: _lockedHomeApps(narrow ? 56 : 62),
+                      ),
                     ],
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.only(bottom: compact ? 14 : 16),
-                  child: GestureDetector(
-                    onHorizontalDragEnd: (details) => _selectHomePage(
-                      (details.primaryVelocity ?? 0) < 0 ? 1 : 0,
-                    ),
-                    child: MiniGlass(
-                      radius: 18,
-                      opacity: .094,
-                      light: true,
-                      outlined: false,
-                      child: SizedBox(
-                        width: 68,
-                        height: 28,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            for (var i = 0; i < 2; i++)
-                              Semantics(
-                                label: 'Home position ${i + 1}',
-                                selected: homePagerPosition == i,
-                                button: true,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _selectHomePage(i),
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 28,
-                                    child: Center(
-                                      child: Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white.withValues(
-                                            alpha: homePagerPosition == i
-                                                ? .95
-                                                : .4,
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(bottom: compact ? 14 : 16),
+                        child: GestureDetector(
+                          onHorizontalDragEnd: (details) => _selectHomePage(
+                            (details.primaryVelocity ?? 0) < 0 ? 1 : 0,
+                          ),
+                          child: MiniGlass(
+                            radius: 18,
+                            opacity: .094,
+                            light: true,
+                            outlined: false,
+                            child: SizedBox(
+                              width: 68,
+                              height: 28,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  for (var i = 0; i < 2; i++)
+                                    Semantics(
+                                      label: 'Home position ${i + 1}',
+                                      selected: homePagerPosition == i,
+                                      button: true,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _selectHomePage(i),
+                                        child: SizedBox(
+                                          width: 16,
+                                          height: 28,
+                                          child: Center(
+                                            child: Container(
+                                              width: 6,
+                                              height: 6,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.white.withValues(
+                                                  alpha: homePagerPosition == i
+                                                      ? .95
+                                                      : .4,
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ),
+                                ],
                               ),
-                          ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, compact ? 14 : 18),
-                  child: MiniGlass(
-                    light: true,
-                    outlined: false,
-                    radius: 36,
-                    opacity: .20,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: narrow ? 12 : 16,
-                      vertical: 18,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _homeApp(
-                          'messages',
-                          'Messages',
-                          MiniPhoneScreen.messages,
-                          size: narrow ? 56 : 62,
-                          badge: store.totalUnread,
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          0,
+                          16,
+                          compact ? 14 : 18,
                         ),
-                        _homeApp(
-                          'posts',
-                          'Posts',
-                          MiniPhoneScreen.posts,
-                          size: narrow ? 56 : 62,
-                          badge: posts.length,
+                        child: MiniGlass(
+                          light: true,
+                          outlined: false,
+                          radius: 36,
+                          opacity: .20,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: narrow ? 12 : 16,
+                            vertical: 18,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _homeApp(
+                                'messages',
+                                'Messages',
+                                MiniPhoneScreen.messages,
+                                size: narrow ? 56 : 62,
+                                badge: store.totalUnread,
+                              ),
+                              _homeApp(
+                                'posts',
+                                'Posts',
+                                MiniPhoneScreen.posts,
+                                size: narrow ? 56 : 62,
+                                badge: posts.length,
+                              ),
+                              _homeApp(
+                                'photos',
+                                'Photos',
+                                MiniPhoneScreen.photos,
+                                size: narrow ? 56 : 62,
+                              ),
+                              _homeApp(
+                                'settings',
+                                'Settings',
+                                MiniPhoneScreen.settings,
+                                size: narrow ? 56 : 62,
+                              ),
+                            ],
+                          ),
                         ),
-                        _homeApp(
-                          'photos',
-                          'Photos',
-                          MiniPhoneScreen.photos,
-                          size: narrow ? 56 : 62,
-                        ),
-                        _homeApp(
-                          'settings',
-                          'Settings',
-                          MiniPhoneScreen.settings,
-                          size: narrow ? 56 : 62,
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -329,83 +441,70 @@ extension _MiniPhoneHome on _MiniPhonePageState {
     VoidCallback? toggleAll,
   }) {
     final expanded = expandedNotificationGroups.contains(kind);
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: expanded
-            ? 15
-            : count > 1
-            ? 25
-            : 15,
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '$kind · $count',
-                    style: miniStyle(16, FontWeight.w500),
-                  ),
-                ),
-                if (toggleAll != null)
-                  _noticeAction(
-                    allExpanded ? 'Show less' : 'Show all',
-                    toggleAll,
-                  ),
-              ],
-            ),
-          ),
-          if (expanded) ...[
-            for (final card in cards)
-              Padding(padding: const EdgeInsets.only(bottom: 7), child: card),
-          ] else
-            GestureDetector(
-              onTap: count > 1
-                  ? () => _update(() => expandedNotificationGroups.add(kind))
-                  : null,
-              child: Stack(
-                clipBehavior: Clip.none,
+    final target = expanded ? (_homeNoticeDragProgress ?? 1.0) : 0.0;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: target),
+      duration:
+          _homeNoticeDragProgress != null ||
+              MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      builder: (context, progress, _) => Padding(
+        // Keep the bottom edge independent of the expansion fraction.
+        padding: const EdgeInsets.only(bottom: 15),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+              child: Row(
                 children: [
-                  if (count > 2)
-                    Positioned(
-                      left: 12,
-                      right: 12,
-                      top: 14,
-                      bottom: -14,
-                      child: _stackStrip(.18),
+                  Expanded(
+                    child: Text(
+                      '$kind · $count',
+                      style: miniStyle(16, FontWeight.w500),
                     ),
-                  if (count > 1)
-                    Positioned(
-                      left: 6,
-                      right: 6,
-                      top: 8,
-                      bottom: -8,
-                      child: _stackStrip(.28),
+                  ),
+                  if (toggleAll != null)
+                    _noticeAction(
+                      allExpanded ? 'Show less' : 'Show all',
+                      toggleAll,
                     ),
-                  IgnorePointer(ignoring: count > 1, child: cards.first),
                 ],
               ),
             ),
-        ],
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: !expanded && count > 1
+                  ? () => _update(() => expandedNotificationGroups.add(kind))
+                  : null,
+              child: _MiniNoticeLayout(
+                progress: progress,
+                children: [
+                  for (var i = 0; i < cards.length; i++)
+                    IgnorePointer(
+                      ignoring: !expanded && count > 1,
+                      child: Opacity(
+                        opacity: i == 0 ? 1 : progress,
+                        child: cards[i],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  Widget _stackStrip(double opacity) => Container(
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: opacity),
-      borderRadius: BorderRadius.circular(21),
-    ),
-  );
 
   Widget _homeNotice(
     MiniDemoPerson person,
     String text,
     String time,
-    VoidCallback action,
-  ) => GestureDetector(
+    VoidCallback action, {
+    bool squareAvatar = false,
+  }) => GestureDetector(
     onTap: action,
     child: MiniGlass(
       light: true,
@@ -416,7 +515,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
         constraints: const BoxConstraints(minHeight: 54),
         child: Row(
           children: [
-            MiniAvatar(person, size: 36),
+            MiniAvatar(person, size: 36, borderRadius: squareAvatar ? 8 : null),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

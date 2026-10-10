@@ -78,3 +78,40 @@ Phone preview synchronized; hot restart confirmed in session21462 (6,956ms). Cur
 User authorized publishing current changes to team origin/miniphone. Includes draggable map entry, resume/global close, Inbox-aligned Messages, model catalogue with local 40% quotes, UI refinements and three wallpapers. Era/icon mapping investigated only, not implemented. SDK/IDE analysis_options.yaml and pubspec.lock remain excluded. Latest internal debug APK build and device installation succeeded; no automated regression tests run.
 
 - Fresh targeted Dart analyze passed (No issues found); staged diff --check passed. Publishing to origin/miniphone as a normal fast-forward push.
+
+## 2026-10-10 Home music widget
+- Added active-playback Home card above notifications, using existing MiniGlass, typography and music SVGs. Shows cover/title/author, elapsed/remaining time, seek, previous/play-pause/next; title opens Music. Paused playback retains card via activated state; World-exit reset follows existing behavior.
+- Shares in-memory silent miniDemoMusic state with Music app/entry, no audio/backend/billing added. Home notification area adjusts height while music is active and remains scrollable. Local/uncommitted; tests not requested/run. Flutter attach session 82520 syncing for preview.
+
+- Validation: Dart format completed; targeted dart analyze returned No issues found; git diff --check passed. Phone hot restart confirmed in session 82520: Restarted application in 5,708ms. No commit/push.
+
+- Home music refinement: match message glass (white alpha .36, radius21, no outline), remove trailing note/red play fill. Cover height56→44, padding14/8→10/6, progress slot28; overall default height approximately178→136. Activated/pause lifetime unchanged: card retained until paused World exit resets state. Format and targeted analyze passed; no tests/commit/push.
+
+- Home music proportions: restore portrait44x66 cover (same asset), title up to2 lines; central glyph32 vs skip24, controls40px height, progress22px, reduced bottom padding4/gap2. Information section enlarged while lower controls compact. Format/analyze passed, no tests/commit/push.
+
+- Expanded Home notifications now share one CustomScrollView with date/clock/music; upward scrolling carries clock out together with cards while bottom dock/pager remain fixed. Collapsed layout remains clock plus bottom-aligned stack. Home music title16/600 and author14/400. Local only; no tests/commit/push.
+
+- Home top occlusion fix: removed fixed top SafeArea/header reservation from scroll viewport. Initial status/header spacing is now a scrollable sliver for expanded notices, allowing cards/clock to scroll to screen top under independently floating global close. Collapsed clock and second app page retain initial safe spacing. Dart format/analyze passed; no tests/commit/push.
+
+- Home bottom layout: full-height page scroll instead of viewport clipped above fixed dock; app dock/dots float independently over wallpaper. Bottom clearance is part of scroll content. SliverFillRemaining anchors collapsed card groups near dock; AnimatedSize with bottom alignment unfolds cards upward. Clock/music/notices share scroll in both modes. Format/analyze passed; no tests/commit/push.
+
+- Messages Home notification avatars now use rounded squares (radius8 matching message list), including stacked and expanded cards. Posts retain circular avatars. MiniAvatar supports optional corner radius with circular default. Format/targeted analyze passed. Local/uncommitted; no tests run.
+
+- Corrected notification expansion anchor: bottom-first scroll slivers reserve dock gap at bottom, then notification/music group grows upward via bottom-aligned AnimatedSize; clock is above group rather than constraining it from top. Last group bottom stays fixed as notification heights expand. Format/analyze passed; no tests/commit/push.
+
+- Expanded Home notices: downward vertical swipe >=56px on release clears all expanded groups and resets bottom-anchored scroll to0, restoring folded stacks. Raw pointer listener preserves normal scrolling and horizontal pager/seek gestures; tracks pointer/cancel. Dedicated controller disposed with page. Format/analyze passed; no tests/commit/push.
+
+- Replaced conditional expanded/strip UI and whole-group AnimatedSize with measured per-card render layout. All cards remain mounted; 320ms transition interpolates stack offsets/insets to independent rows, content opacity fades in and reverse paint preserves front card. Bottom-first scroll keeps bottom anchored. Downward drag controls expansion fraction directly, release collapses or springs back through tween; no jumpTo/reset on release. Targeted analyze/format checked; hot restart confirmed8,953ms. Local/uncommitted; no tests run.
+
+- Fixed bottom-card anchor rather than only group height: front card stays at group bottom for every expansion fraction; other cards interpolate upward from overlapping slots. Footer spacing remains15 throughout (previous25→15 interpolation removed). Disabled native vertical scroll physics to stop Scrollable stealing collapse drag; downward gesture now exclusively controls fold progress. Format/analyze passed; no tests/commit/push.
+
+- Corrected card identity/order: source list remains top-to-bottom; LAST card lower edge is the anchor throughout progress0..1. Earlier cards interpolate upward; no reversal placing first card at bottom. Native vertical scrolling remains disabled; down gesture folds. Format/analyze passed; no tests/commit/push.
+
+- Folded notification stack tap: opaque hit area on stack GestureDetector lets tap expand even while child cards ignore taps. Single-card groups still allow direct card navigation. Targeted analyze passed; no tests/commit/push.
+
+- Added collapsed upward-drag expansion using same per-card progress; expanded downward-drag collapse remains. Gesture starts from initial0/1, progress follows180px range, release uses distance/velocity and cancelled gestures restore prior group state. Click expansion and fixed last-card anchor retained. Format/analyze passed; no tests/commit/push.
+
+- Horizontal swipe unintended expansion root cause: VerticalDragCancel can run when horizontal pager wins before VerticalDragStart; prior code restored stale group snapshot. Added active vertical-drag guard to update/end/cancel, so rejected horizontal gestures never mutate groups. Added12px progress deadzone and24px minimum for velocity-only settle. Format/analyze passed; no tests/commit/push.
+
+## 2026-10-10 Publication: Home music and notification gestures
+User approved publishing this preview to team origin/miniphone. Includes Home music controls, portrait cover/type refinements, message square avatars, per-card bottom-anchored expand/fold, tap/up/down gestures, and horizontal-cancel guard. Fresh dart analyze lib/pages/mini_phone passed; diff --check passed. Latest phone hot restart confirmed6,622ms. No automated regression tests run; SDK/IDE analysis_options.yaml/pubspec.lock excluded.

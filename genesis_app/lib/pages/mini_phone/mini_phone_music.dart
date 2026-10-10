@@ -250,3 +250,156 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
     icon: MiniIcon(icon, size: 28),
   );
 }
+
+/// Home controls share the Music app's isolated playback preview state.
+class _MiniHomeMusicCard extends StatelessWidget {
+  const _MiniHomeMusicCard({required this.onOpen});
+  final VoidCallback onOpen;
+
+  String _time(int seconds) =>
+      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
+  Widget _control(String icon, String label, VoidCallback onTap) => IconButton(
+    tooltip: label,
+    onPressed: onTap,
+    constraints: const BoxConstraints.tightFor(width: 48, height: 40),
+    padding: EdgeInsets.zero,
+    icon: MiniIcon(icon, size: 24),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final music = miniDemoMusic;
+    final track = _miniMusicTracks[music.index];
+    return MiniGlass(
+      key: const ValueKey('mini-phone-home-music'),
+      light: true,
+      outlined: false,
+      opacity: .36,
+      radius: 21,
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            label: 'Open Music: ${track.title}',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onOpen,
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      '$miniPhoneAssets${track.cover}',
+                      width: 44,
+                      height: 66,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: miniStyle(16, FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '@${track.handle}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: miniStyle(14, FontWeight.w400, miniSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: 22,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    _time(music.position),
+                    style: miniStyle(11, FontWeight.w400, miniSecondary),
+                  ),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      activeTrackColor: miniWhite,
+                      inactiveTrackColor: const Color(0x29F4F3F6),
+                      thumbColor: miniWhite,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 4,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 10,
+                      ),
+                    ),
+                    child: Slider(
+                      value: music.position.toDouble(),
+                      max: track.duration.toDouble(),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      semanticFormatterCallback: (value) =>
+                          _time(value.round()),
+                      onChanged: (value) => music.seek(value.round()),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 38,
+                  child: Text(
+                    '-${_time(track.duration - music.position)}',
+                    textAlign: TextAlign.right,
+                    style: miniStyle(11, FontWeight.w400, miniSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _control('music-backward', 'Previous track', music.previous),
+              const SizedBox(width: 20),
+              Semantics(
+                toggled: music.playing,
+                child: IconButton(
+                  tooltip: music.playing ? 'Pause' : 'Play',
+                  onPressed: music.toggle,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    minimumSize: const Size(48, 40),
+                    maximumSize: const Size(48, 40),
+                  ),
+                  icon: Transform.translate(
+                    offset: Offset(music.playing ? 0 : 2, 0),
+                    child: MiniIcon(
+                      music.playing ? 'music-pause' : 'music-play',
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              _control('music-forward', 'Next track', music.next),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
