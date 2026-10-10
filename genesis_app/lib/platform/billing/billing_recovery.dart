@@ -318,6 +318,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     _trackPurchasedCallback(
       purchase,
       productId: resolvedAttempt.product.productId,
+      priceAmountMicros: resolvedAttempt.priceAmountMicros,
+      priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
     );
 
     final processingKey = '${purchase.provider.name}:$token';

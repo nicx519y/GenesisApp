@@ -318,7 +318,7 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 | `perf_operation_complete` | 每次受监控操作完成时发送 | `surface`、`phase`、`result`、`duration_ms`、`attempt`、`data_source`、可选 `error_type` | 无显式添加 |
 | `in_app_purchase` | iOS 由验证后的 StoreKit 2 transaction 交给 Firebase SDK 生成 | Firebase SDK 标准购买参数 | 无显式添加 |
 
-购买相关的应用自定义 Firebase 事件已移除；对应的 `/api/v1/event/report` 上报也已停止。`in_app_purchase` 是独立的 iOS 原生标准事件。
+购买相关的 12 个应用自定义事件不发送到 Firebase Analytics；它们仅通过 `/api/v1/event/report` 上报服务端，用于 Adjust S2S。`in_app_purchase` 是独立的 iOS 原生标准事件。
 
 ### 6.2 参数及可能值
 

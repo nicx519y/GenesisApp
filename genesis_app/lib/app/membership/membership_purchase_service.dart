@@ -15,6 +15,7 @@ import '../../platform/billing/membership_store_purchase.dart';
 import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
+import '../telemetry/purchase_event_reporting.dart';
 import 'membership_purchase_eligibility.dart';
 import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
@@ -86,9 +87,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     this.retryDelay = const Duration(seconds: 15),
     this.attemptTimeout = const Duration(seconds: 90),
     this.guestRecoveryTimeout = const Duration(seconds: 15),
+    this.purchaseEventReporting,
   }) : analytics = analytics ?? SubscriptionAnalytics();
 
   final SubscriptionAnalytics analytics;
+  final PurchaseEventRecorder? purchaseEventReporting;
   final Map<String, SubscriptionTracking> _attemptTracking = {};
 
   final MembershipCheckoutPlatform platform;
@@ -1161,6 +1164,24 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _attemptTracking[record.requestId] = tracking;
     record = record.copyWith(tracking: tracking);
     await _save(record);
+    final eventReporter = purchaseEventReporting;
+    if (eventReporter != null) {
+      unawaited(
+        eventReporter.recordPurchase(
+          provider: provider.name,
+          productId: record.product.storeProductId,
+          kind: PurchaseEventKind.subscription,
+          purchaseIdentity: provider == MembershipProvider.google
+              ? record.purchaseToken
+              : record.transactionId,
+          transactionIdentity: record.transactionId.trim().isNotEmpty
+              ? record.transactionId
+              : record.purchaseToken,
+          priceAmountMicros: record.priceAmountMicros,
+          priceCurrencyCode: record.priceCurrencyCode,
+        ),
+      );
+    }
     await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
     await _report(record);
     await _claimPendingGuests();

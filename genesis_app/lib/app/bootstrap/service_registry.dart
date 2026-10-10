@@ -35,6 +35,7 @@ import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
 import '../telemetry/device_info_telemetry.dart';
 import '../telemetry/app_event_reporting.dart';
+import '../telemetry/purchase_event_reporting.dart';
 import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/telemetry_upload_policy.dart';
@@ -357,6 +358,7 @@ class ServiceRegistry {
       frameLogName: 'ChatroomSocketFrame',
     );
     final appRequestHeaders = AppRequestHeaderProvider();
+    PurchaseEventReporting? purchaseEventReporting;
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
     GatewayAuthCoordinator? gatewayAuthCoordinator;
@@ -368,6 +370,9 @@ class ServiceRegistry {
         deviceIdService: deviceId,
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
+        onServerTimeSynchronized: (serverUtc) =>
+            purchaseEventReporting?.recordServerTimeSynchronized(serverUtc) ??
+            Future<void>.value(),
       );
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,
@@ -421,6 +426,12 @@ class ServiceRegistry {
             ),
           )
         : null;
+    if (eventReporting != null) {
+      purchaseEventReporting = PurchaseEventReporting(
+        eventReporting: eventReporting,
+        deviceIdReader: deviceId.getDeviceId,
+      );
+    }
     FirebaseAnalyticsMonitoring.configureServerEventReporter(
       eventReporting?.report,
     );
@@ -537,6 +548,7 @@ class ServiceRegistry {
               return result.future;
             },
             refreshWallet: gemWallet.refreshAfterMembershipChanged,
+            purchaseEventReporting: purchaseEventReporting,
           );
     billing = billingPlatform == null
         ? null
@@ -552,6 +564,7 @@ class ServiceRegistry {
             interceptPurchase: membershipPurchases?.interceptPurchase,
             otherPurchaseBusy: () => membershipPurchases?.isBusy ?? false,
             onPurchaseStreamError: membershipPurchases?.handleStreamError,
+            purchaseEventReporting: purchaseEventReporting,
           );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,

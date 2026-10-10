@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/app_event_reporting.dart';
+import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -125,7 +126,7 @@ CREATE TABLE app_event_reports (
     await store.close();
   });
 
-  test('sqflite upgrade purges an old purchase report', () async {
+  test('sqflite upgrade retains a queued purchase report', () async {
     sqfliteFfiInit();
     final directory = await Directory.systemTemp.createTemp(
       'genesis-event-report-transaction-migration-',
@@ -170,11 +171,12 @@ CREATE TABLE app_event_reports (
     );
     final pending = await store.pending(limit: 20);
 
-    expect(pending, isEmpty);
+    expect(pending, hasLength(1));
+    expect(pending.single.transactionId, '2000000123456789');
     await store.close();
   });
 
-  test('sqflite v4 upgrade keeps login and deletes purchase rows', () async {
+  test('sqflite v4 upgrade retains supported purchase rows', () async {
     sqfliteFfiInit();
     final directory = await Directory.systemTemp.createTemp(
       'genesis-event-report-purchase-removal-',
@@ -225,13 +227,16 @@ CREATE TABLE app_event_reports (
       databasePath: databasePath,
     );
     expect((await store.pending(limit: 20)).map((report) => report.event), [
+      'purchase',
+      'gems_first',
+      'subscription_day0',
       'login_first',
     ]);
     await store.close();
   });
 
-  test('removed purchase events are neither enqueued nor delivered', () async {
-    const removedEvents = <String>[
+  test('purchase events require transaction_id and reach the sender', () async {
+    const purchaseEvents = <String>[
       'purchase',
       'purchase_first',
       'purchase_day0',
@@ -252,7 +257,7 @@ CREATE TABLE app_event_reports (
       store: store,
       sender: (report) async => sent.add(report),
     );
-    for (final event in removedEvents) {
+    for (final event in purchaseEvents) {
       await reporting.report(
         event: event,
         occurredAtSeconds: 1767225600,
@@ -261,28 +266,222 @@ CREATE TABLE app_event_reports (
     }
     expect(store.reports, isEmpty);
 
-    for (final event in removedEvents) {
-      await store.enqueue(
-        AppEventReport(
-          event: event,
-          environment: 'sandbox',
-          occurredAtSeconds: 1767225600,
-          params: const <String, String>{'device_id': 'device-1'},
-          reportKey: 'legacy-$event',
-        ),
+    for (final event in purchaseEvents) {
+      await reporting.report(
+        event: event,
+        occurredAtSeconds: 1767225600,
+        parameters: const <String, Object>{'device_id': 'device-1'},
+        transactionId: 'store-transaction-1',
       );
     }
-    await reporting.report(
-      event: 'login_first',
-      occurredAtSeconds: 1767225601,
-      parameters: const <String, Object>{'method': 'google'},
-    );
     await reporting.flush();
 
-    expect(sent.map((report) => report.event), ['login_first']);
+    expect(sent.map((report) => report.event), purchaseEvents);
+    expect(
+      sent.every((report) => report.transactionId == 'store-transaction-1'),
+      isTrue,
+    );
     expect(store.pendingReports, isEmpty);
     await reporting.dispose();
   });
+
+  test(
+    'first events remain device-once while other purchase events use receipt',
+    () async {
+      final store = _MemoryAppEventReportStore();
+      final sent = <AppEventReport>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: store,
+        sender: (report) async => sent.add(report),
+      );
+      for (final transactionId in ['receipt-1', 'receipt-2']) {
+        for (final event in [
+          'purchase',
+          'purchase_first',
+          'gems',
+          'gems_first',
+        ]) {
+          await reporting.report(
+            event: event,
+            occurredAtSeconds: 1767225600,
+            parameters: const <String, Object>{'device_id': 'device-1'},
+            transactionId: transactionId,
+          );
+        }
+      }
+      await reporting.flush();
+      expect(sent.where((report) => report.event == 'purchase'), hasLength(2));
+      expect(sent.where((report) => report.event == 'gems'), hasLength(2));
+      expect(
+        sent.where((report) => report.event == 'purchase_first'),
+        hasLength(1),
+      );
+      expect(
+        sent.where((report) => report.event == 'gems_first'),
+        hasLength(1),
+      );
+      await reporting.dispose();
+    },
+  );
+
+  test(
+    'store success sends server-only purchase events with Day0 and price',
+    () async {
+      final store = _MemoryAppEventReportStore();
+      final sent = <AppEventReport>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: store,
+        sender: (report) async => sent.add(report),
+      );
+      final purchaseEvents = PurchaseEventReporting(
+        eventReporting: reporting,
+        deviceIdReader: () async => 'device-1',
+        day0AnchorStore: _MemoryPurchaseDay0AnchorStore(),
+        legacyEventMarkerReader: (_) async => false,
+        enabled: () => true,
+      );
+      await purchaseEvents.recordServerTimeSynchronized(
+        DateTime.utc(2026, 10, 10, 12),
+      );
+      await purchaseEvents.recordPurchase(
+        provider: 'google',
+        productId: 'gem_pack',
+        kind: PurchaseEventKind.gems,
+        purchaseIdentity: 'token-1',
+        priceAmountMicros: 5000000,
+        priceCurrencyCode: 'usd',
+      );
+      await reporting.flush();
+      expect(sent.map((report) => report.event), [
+        'purchase',
+        'gems',
+        'purchase_first',
+        'gems_first',
+        'purchase_day0',
+        'gems_day0',
+        'purchase_first_day0',
+        'gems_first_day0',
+      ]);
+      expect(sent.every((report) => report.transactionId == 'token-1'), isTrue);
+      expect(sent.first.params, <String, String>{
+        'provider': 'google',
+        'product_id': 'gem_pack',
+        'device_id': 'device-1',
+        'value': '5.0',
+        'currency': 'USD',
+      });
+
+      await purchaseEvents.recordPurchase(
+        provider: 'google',
+        productId: 'gem_pack',
+        kind: PurchaseEventKind.gems,
+        purchaseIdentity: 'token-1',
+        transactionIdentity: 'new-transaction-for-same-token',
+      );
+      await reporting.flush();
+      expect(sent, hasLength(8));
+
+      await purchaseEvents.recordServerTimeSynchronized(
+        DateTime.utc(2026, 10, 11, 12),
+      );
+      await purchaseEvents.recordPurchase(
+        provider: 'apple',
+        productId: 'subscription_product',
+        kind: PurchaseEventKind.subscription,
+        purchaseIdentity: 'transaction-2',
+      );
+      await reporting.flush();
+      expect(
+        sent
+            .where((report) => report.transactionId == 'transaction-2')
+            .map((report) => report.event),
+        ['purchase', 'subscription', 'subscription_first'],
+      );
+      await reporting.dispose();
+    },
+  );
+
+  test(
+    'Google subscription renewal with the same token is not a new purchase',
+    () async {
+      final sent = <AppEventReport>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: _MemoryAppEventReportStore(),
+        sender: (report) async => sent.add(report),
+      );
+      final purchaseEvents = PurchaseEventReporting(
+        eventReporting: reporting,
+        deviceIdReader: () async => 'device-1',
+        legacyEventMarkerReader: (_) async => false,
+        enabled: () => true,
+      );
+      for (final transactionId in ['order-1', 'order-2']) {
+        await purchaseEvents.recordPurchase(
+          provider: 'google',
+          productId: 'monthly',
+          kind: PurchaseEventKind.subscription,
+          purchaseIdentity: 'same-purchase-token',
+          transactionIdentity: transactionId,
+        );
+      }
+      await reporting.flush();
+      expect(sent.map((report) => report.event), [
+        'purchase',
+        'subscription',
+        'purchase_first',
+        'subscription_first',
+      ]);
+      expect(sent.every((report) => report.transactionId == 'order-1'), isTrue);
+      await reporting.dispose();
+    },
+  );
+
+  test(
+    'legacy Firebase markers prevent duplicate server purchase events',
+    () async {
+      final sent = <AppEventReport>[];
+      final checkedKeys = <String>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: _MemoryAppEventReportStore(),
+        sender: (report) async => sent.add(report),
+      );
+      final purchaseEvents = PurchaseEventReporting(
+        eventReporting: reporting,
+        deviceIdReader: () async => 'device-1',
+        legacyEventMarkerReader: (key) async {
+          checkedKeys.add(key);
+          return true;
+        },
+        enabled: () => true,
+      );
+      await purchaseEvents.recordPurchase(
+        provider: 'google',
+        productId: 'monthly',
+        kind: PurchaseEventKind.subscription,
+        purchaseIdentity: 'old-token',
+        transactionIdentity: 'old-order',
+      );
+      await reporting.flush();
+      expect(sent, isEmpty);
+      expect(checkedKeys, contains('purchase_first'));
+      expect(checkedKeys, contains('subscription_first'));
+      expect(
+        checkedKeys.any((key) => key.startsWith('purchase_transaction_v1.')),
+        isTrue,
+      );
+      expect(
+        checkedKeys.any(
+          (key) => key.startsWith('subscription_transaction_v1.'),
+        ),
+        isTrue,
+      );
+      await reporting.dispose();
+    },
+  );
 
   test('failed reports stay queued and later flush exactly once', () async {
     final store = _MemoryAppEventReportStore();
@@ -425,4 +624,14 @@ class _MemoryAppEventReportStore implements AppEventReportStore {
 
   @override
   Future<void> close() async {}
+}
+
+class _MemoryPurchaseDay0AnchorStore implements PurchaseDay0AnchorStore {
+  DateTime? anchor;
+
+  @override
+  Future<DateTime?> read() async => anchor;
+
+  @override
+  Future<void> write(DateTime serverUtc) async => anchor = serverUtc;
 }

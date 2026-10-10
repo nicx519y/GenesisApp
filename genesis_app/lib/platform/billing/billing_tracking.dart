@@ -326,6 +326,8 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   void _trackPurchasedCallback(
     BillingPurchase purchase, {
     required String productId,
+    int? priceAmountMicros,
+    String priceCurrencyCode = '',
   }) {
     if (purchase.status != BillingPurchaseStatus.purchased) return;
     final receipt = purchase.provider == BillingProvider.googlePlay
@@ -349,6 +351,20 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         ),
       },
     );
+    final reporter = purchaseEventReporting;
+    if (reporter != null) {
+      unawaited(
+        reporter.recordPurchase(
+          provider: purchase.provider.apiValue,
+          productId: purchase.productId,
+          kind: PurchaseEventKind.gems,
+          purchaseIdentity: purchase.purchaseToken,
+          transactionIdentity: receipt,
+          priceAmountMicros: priceAmountMicros,
+          priceCurrencyCode: priceCurrencyCode,
+        ),
+      );
+    }
   }
 
   void _trackTimeoutById({

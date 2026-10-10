@@ -230,6 +230,42 @@ class AppEventReporting {
     'message_sent_first',
     'message_sent_10_first',
     'message_sent_20_first',
+    'purchase',
+    'purchase_first',
+    'purchase_day0',
+    'purchase_first_day0',
+    'gems',
+    'gems_first',
+    'gems_day0',
+    'gems_first_day0',
+    'subscription',
+    'subscription_first',
+    'subscription_day0',
+    'subscription_first_day0',
+  };
+
+  static const Set<String> transactionEvents = <String>{
+    'purchase',
+    'purchase_first',
+    'purchase_day0',
+    'purchase_first_day0',
+    'gems',
+    'gems_first',
+    'gems_day0',
+    'gems_first_day0',
+    'subscription',
+    'subscription_first',
+    'subscription_day0',
+    'subscription_first_day0',
+  };
+
+  static const Set<String> firstPurchaseEvents = <String>{
+    'purchase_first',
+    'purchase_first_day0',
+    'gems_first',
+    'gems_first_day0',
+    'subscription_first',
+    'subscription_first_day0',
   };
 
   final AppEventReportSender _sender;
@@ -246,6 +282,8 @@ class AppEventReporting {
     required String event,
     required int occurredAtSeconds,
     required Map<String, Object> parameters,
+    String? transactionId,
+    String? transactionDeduplicationId,
   }) async {
     if (_disposed || !supportedEvents.contains(event)) return;
     if (occurredAtSeconds <= 0) {
@@ -255,6 +293,16 @@ class AppEventReporting {
         'must be a positive UTC Unix timestamp in seconds',
       );
     }
+    final normalizedTransactionId = transactionId?.trim() ?? '';
+    if (transactionEvents.contains(event) && normalizedTransactionId.isEmpty) {
+      debugPrint(
+        '[Telemetry][EventReport] $event skipped: missing transaction_id',
+      );
+      return;
+    }
+    final effectiveTransactionId = transactionEvents.contains(event)
+        ? normalizedTransactionId
+        : null;
     final params = <String, String>{
       for (final entry in parameters.entries)
         entry.key: _parameterValue(entry.value),
@@ -266,8 +314,20 @@ class AppEventReporting {
         '$environment',
       );
     }
+    final deduplicationId = transactionDeduplicationId?.trim() ?? '';
+    final reportIdentity = firstPurchaseEvents.contains(event)
+        ? ''
+        : effectiveTransactionId == null
+        ? ''
+        : deduplicationId.isNotEmpty
+        ? deduplicationId
+        : effectiveTransactionId;
     final reportKey = sha256
-        .convert(utf8.encode(jsonEncode(<Object?>[environment, event, ''])))
+        .convert(
+          utf8.encode(
+            jsonEncode(<Object?>[environment, event, reportIdentity]),
+          ),
+        )
         .toString();
     try {
       await _store.enqueue(
@@ -277,6 +337,7 @@ class AppEventReporting {
           occurredAtSeconds: occurredAtSeconds,
           params: params,
           reportKey: reportKey,
+          transactionId: effectiveTransactionId,
         ),
       );
       unawaited(_flushAfterEnqueue());

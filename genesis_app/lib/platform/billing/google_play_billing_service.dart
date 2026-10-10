@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/telemetry/purchase_event_reporting.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_purchase_report.dart';
 import 'billing_analytics.dart';
@@ -33,6 +34,7 @@ class GooglePlayBillingService implements BillingService {
     Future<bool> Function(BillingPurchase)? interceptPurchase,
     bool Function()? otherPurchaseBusy,
     ValueChanged<Object>? onPurchaseStreamError,
+    this.purchaseEventReporting,
   }) : _platform = platform,
        _pendingPurchaseStore = pendingPurchaseStore,
        _loadBillingAccountId = loadBillingAccountId,
@@ -58,6 +60,7 @@ class GooglePlayBillingService implements BillingService {
   final Future<bool> Function(BillingPurchase)? _interceptPurchase;
   final bool Function()? _otherPurchaseBusy;
   final ValueChanged<Object>? _onPurchaseStreamError;
+  final PurchaseEventRecorder? purchaseEventReporting;
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(),
   );

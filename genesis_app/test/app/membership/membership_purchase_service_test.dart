@@ -6,6 +6,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
+import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
@@ -18,6 +19,7 @@ import 'package:genesis_flutter_android/platform/billing/membership_restore_reco
 import 'package:genesis_flutter_android/platform/billing/membership_store_purchase.dart';
 
 import '../../support/membership_fixtures.dart';
+import '../../support/recording_purchase_event_recorder.dart';
 
 const accountUuid = '4b74ec68-7abc-4cce-a223-e997e31dc811';
 const guest = MembershipGuestIdentity(
@@ -206,6 +208,7 @@ class Harness {
   Harness({
     this.provider = MembershipProvider.google,
     SubscriptionAnalytics? analytics,
+    PurchaseEventRecorder? purchaseEventReporting,
     Future<void> Function()? ensureStoreListening,
     Future<MembershipProductList> Function()? checkoutProducts,
     PendingStore? storage,
@@ -218,6 +221,7 @@ class Harness {
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
       analytics: analytics,
+      purchaseEventReporting: purchaseEventReporting,
       ensureStoreListening: ensureStoreListening,
       platform: platform,
       store: store,
@@ -408,11 +412,13 @@ void main() {
       '$provider prewarmed checkout deduplicates callbacks without Firebase purchase events',
       () async {
         final client = enableFirebaseAnalytics();
+        final purchaseEvents = RecordingPurchaseEventRecorder();
         final product = membershipProduct(provider: provider);
         final catalog = MembershipProductList(products: [product]);
         final h = Harness(
           provider: provider,
           checkoutProducts: () async => catalog,
+          purchaseEventReporting: purchaseEvents,
         );
         h.platform.priceAmountMicros = 89990000;
         h.platform.priceCurrencyCode = 'EUR';
@@ -427,6 +433,15 @@ void main() {
         await _settleAnalytics();
         expect(client.events, isEmpty);
         expect(h.reports, hasLength(1));
+        expect(purchaseEvents.calls, hasLength(1));
+        expect(
+          purchaseEvents.calls.single.kind,
+          PurchaseEventKind.subscription,
+        );
+        expect(purchaseEvents.calls.single.provider, provider.name);
+        expect(purchaseEvents.calls.single.productId, product.storeProductId);
+        expect(purchaseEvents.calls.single.priceAmountMicros, 89990000);
+        expect(purchaseEvents.calls.single.priceCurrencyCode, 'EUR');
         expect(h.service.state.value, MembershipCheckoutState.completed);
       },
     );
@@ -480,13 +495,18 @@ void main() {
   for (final provider in MembershipProvider.values) {
     test('$provider ignores a purchased callback for another UUID', () async {
       final client = enableFirebaseAnalytics();
-      final h = Harness(provider: provider);
+      final purchaseEvents = RecordingPurchaseEventRecorder();
+      final h = Harness(
+        provider: provider,
+        purchaseEventReporting: purchaseEvents,
+      );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase(uuid: 'other-account'));
       await _settleAnalytics();
 
       expect(h.reports, isEmpty);
       expect(client.events, isEmpty);
+      expect(purchaseEvents.calls, isEmpty);
     });
 
     test(
@@ -891,7 +911,11 @@ void main() {
   test(
     'pending Apple payment is not completed or reported without a transaction',
     () async {
-      final h = Harness(provider: MembershipProvider.apple);
+      final purchaseEvents = RecordingPurchaseEventRecorder();
+      final h = Harness(
+        provider: MembershipProvider.apple,
+        purchaseEventReporting: purchaseEvents,
+      );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
         h.purchase(
@@ -902,8 +926,10 @@ void main() {
       );
       expect(h.reports, isEmpty);
       expect(h.store.records, isEmpty);
+      expect(purchaseEvents.calls, isEmpty);
       await h.service.interceptPurchase(h.purchase());
       expect(h.reports, hasLength(1));
+      expect(purchaseEvents.calls, hasLength(1));
       expect(h.store.records, isEmpty);
       expect(h.service.state.value, MembershipCheckoutState.completed);
     },

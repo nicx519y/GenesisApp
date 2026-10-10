@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
+import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
@@ -11,6 +12,8 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/billing/google_play_billing_platform.dart';
 import 'package:genesis_flutter_android/platform/billing/pending_purchase_store.dart';
+
+import '../../support/recording_purchase_event_recorder.dart';
 
 class _FakeBillingPlatform implements BillingPlatform {
   _FakeBillingPlatform({
@@ -254,6 +257,7 @@ void main() {
   late List<GemPurchaseReportRequest> reports;
   late List<BillingUiEvent> uiEvents;
   late _FakeBillingAnalytics analytics;
+  late RecordingPurchaseEventRecorder purchaseEvents;
   late GooglePlayBillingService service;
   var refreshCount = 0;
   var reportError = false;
@@ -270,6 +274,7 @@ void main() {
     reports = <GemPurchaseReportRequest>[];
     uiEvents = <BillingUiEvent>[];
     analytics = _FakeBillingAnalytics();
+    purchaseEvents = RecordingPurchaseEventRecorder();
     refreshCount = 0;
     reportError = false;
     reportStatus = GemPurchaseReportStatus.completed;
@@ -304,6 +309,7 @@ void main() {
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => currentUid,
       analytics: analytics,
+      purchaseEventReporting: purchaseEvents,
     );
     service.events.listen(uiEvents.add);
   });
@@ -379,6 +385,27 @@ void main() {
 
     expect(await pendingStore.loadAll(), isEmpty);
     expect(reports, isEmpty);
+    expect(purchaseEvents.calls, isEmpty);
+  });
+
+  test('Gems purchased callback records one server purchase', () async {
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+
+    expect(purchaseEvents.calls, hasLength(1));
+    final call = purchaseEvents.calls.single;
+    expect(call.kind, PurchaseEventKind.gems);
+    expect(call.provider, 'google');
+    expect(call.productId, 'worldo_gems_500');
+    expect(call.purchaseIdentity, 'purchase-token-1');
+    expect(call.transactionIdentity, 'purchase-token-1');
+    expect(call.priceAmountMicros, 1490000);
+    expect(call.priceCurrencyCode, 'USD');
+
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    expect(purchaseEvents.calls, hasLength(1));
   });
 
   for (final outcome in [
@@ -413,8 +440,10 @@ void main() {
       expect(client.events, isEmpty);
       if (outcome == 'foreign_account') {
         expect(reports, isEmpty);
+        expect(purchaseEvents.calls, isEmpty);
       } else if (outcome == 'restored') {
         expect(reports, isEmpty);
+        expect(purchaseEvents.calls, isEmpty);
       } else {
         expect(reports, hasLength(1));
       }

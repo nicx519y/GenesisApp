@@ -2675,11 +2675,12 @@ World：
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 
-- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at` 和字符串 map `params`。`occurred_at` 是事件进入 Firebase/S2S 共用上报入口时采集的 UTC Unix 秒时间戳；持久化重试保留原值。
-- 客户端只同步 Firebase 当前实际触发的四个事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`。购买相关自定义事件不再向 Firebase 或本接口发送。
+- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at` 和字符串 map `params`；购买事件另传 `transaction_id`。`occurred_at` 是事件触发时采集的 UTC Unix 秒时间戳；持久化重试保留原值。
+- 登录、消息事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`，与 Firebase Analytics 同步。购买事件仅由商店 `purchased` 回调进入本接口，不发送至 Firebase Analytics：`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。不包含 `subscription_renew`。
 - 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`。S2S 的参数名和值与同次 Firebase 调用一致，值按接口要求转为字符串；这四个事件不传 `transaction_id`。
+- 购买事件参数为 `provider/product_id/device_id`，商店价格与三位货币码有效时再传 `value/currency`。`transaction_id` 来自当前商店交易凭据；普通事件按商店购买凭据去重（Google purchase token、Apple transaction ID），`_first` 事件按设备及上报环境只发送一次。Day0 以首次 Gateway 服务端时间同步为锚点，按 UTC+8 自然日判断；旧版事件的一次性标记继续生效，避免升级后重复上报。
 - 设备唯一事件先检查现有 Firebase 本地一次性标记：已标记为上报的老用户不向 Firebase 或 S2S 补报；未标记时才同时进入 Firebase 与 S2S。
-- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。升级时删除积压的购买事件，发送时也会跳过不在允许列表中的旧事件。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
+- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。已在旧版 SQLite v5 升级时清除的积压购买事件无法恢复；当前允许列表中的购买事件及其未送达队列可正常发送。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
 
 ## Pro 会员购买与上报（2026-09-16 更新）
 
