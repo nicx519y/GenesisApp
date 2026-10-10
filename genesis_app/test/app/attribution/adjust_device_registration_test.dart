@@ -132,6 +132,172 @@ void main() {
     ]);
   });
 
+  test('Android prefers a valid Adjust GAID without calling native', () async {
+    var nativeReads = 0;
+    final requests = <String?>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'adid',
+      readGoogleAdId: () async => ' adjust-gaid ',
+      readNativeGoogleAdId: () async {
+        nativeReads++;
+        return 'native-gaid';
+      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(gpsAdid);
+          },
+    );
+
+    await registration.register();
+
+    expect(requests, ['adjust-gaid']);
+    expect(nativeReads, 0);
+    registration.dispose();
+  });
+
+  for (final (description, adjustReader) in <(String, AdjustOptionalIdReader)>[
+    ('empty', () async => '  '),
+    ('null', () async => null),
+    ('all-zero', () async => '00000000-0000-0000-0000-000000000000'),
+    ('error', () async => throw StateError('Adjust unavailable')),
+    ('timeout', () => Completer<String?>().future),
+  ]) {
+    test(
+      'Android falls back to live native GAID after Adjust $description',
+      () async {
+        final requests = <String?>[];
+        var nativeReads = 0;
+        final registration = AdjustDeviceRegistration(
+          platform: TargetPlatform.android,
+          environmentProvider: () => 'sandbox',
+          optionalIdTimeout: const Duration(milliseconds: 10),
+          readAdid: (_) async => 'adid',
+          readGoogleAdId: adjustReader,
+          readNativeGoogleAdId: () async {
+            nativeReads++;
+            return ' native-gaid ';
+          },
+          registerDevice:
+              ({
+                required adid,
+                required environment,
+                gpsAdid,
+                idfa,
+                idfv,
+              }) async {
+                requests.add(gpsAdid);
+              },
+        );
+
+        await registration.register();
+
+        expect(requests, ['native-gaid']);
+        expect(nativeReads, 1);
+        registration.dispose();
+      },
+    );
+  }
+
+  test('Android sends empty GAID when both readers return all zeros', () async {
+    final requests = <String?>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'adid',
+      readGoogleAdId: () async => '00000000-0000-0000-0000-000000000000',
+      readNativeGoogleAdId: () async => '00000000-0000-0000-0000-000000000000',
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(gpsAdid);
+          },
+    );
+
+    await registration.register();
+
+    expect(requests, ['']);
+    registration.dispose();
+  });
+
+  test('Android keeps empty GAID when native fallback fails', () async {
+    final requests = <String?>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'adid',
+      readGoogleAdId: () async => null,
+      readNativeGoogleAdId: () async => throw StateError('Play services unavailable'),
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            requests.add(gpsAdid);
+          },
+    );
+
+    await registration.register();
+
+    expect(requests, ['']);
+    registration.dispose();
+  });
+
+  test('Android resends registration when Adjust later supplies a new GAID', (
+    ) async {
+      var adjustReads = 0;
+      var nativeReads = 0;
+      final requests = <String?>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) async => 'adid',
+        readGoogleAdId: () async => ++adjustReads == 1 ? null : 'adjust-gaid',
+        readNativeGoogleAdId: () async {
+          nativeReads++;
+          return 'native-gaid';
+        },
+        registerDevice:
+            ({
+              required adid,
+              required environment,
+              gpsAdid,
+              idfa,
+              idfv,
+            }) async {
+              requests.add(gpsAdid);
+            },
+      );
+
+      await registration.register();
+      await registration.register();
+      await registration.register();
+
+      expect(requests, ['native-gaid', 'adjust-gaid']);
+      expect(nativeReads, 1);
+      registration.dispose();
+    },
+  );
+
+  test('iOS never reads the Android native GAID', () async {
+    var nativeReads = 0;
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'adid',
+      readIdfa: () async => '',
+      readIdfv: () async => 'idfv',
+      readNativeGoogleAdId: () async {
+        nativeReads++;
+        return 'native-gaid';
+      },
+      registerDevice:
+          ({required adid, required environment, gpsAdid, idfa, idfv}) async {},
+    );
+
+    await registration.register();
+
+    expect(nativeReads, 0);
+    registration.dispose();
+  });
+
   test('Android registers GAID while ADID is unavailable', () async {
     final requests = <Map<String, String?>>[];
     var adidReads = 0;

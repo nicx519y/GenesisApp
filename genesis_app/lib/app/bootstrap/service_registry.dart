@@ -20,6 +20,7 @@ import '../../network/network_runtime_factory.dart';
 import '../../network/network_capture.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
+import '../../platform/device/android_advertising_id_service.dart';
 import '../../platform/session/user_info_cache.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
 import '../config/app_config.dart';
@@ -405,6 +406,9 @@ class ServiceRegistry {
       TargetPlatform.android || TargetPlatform.iOS => AdjustDeviceRegistration(
         platform: defaultTargetPlatform,
         environmentProvider: () => AdjustAttributionRuntime.environment.name,
+        readNativeGoogleAdId: defaultTargetPlatform == TargetPlatform.android
+            ? readGoogleAdvertisingIdFromPlatform
+            : null,
         localAdidStore: SharedPreferencesAdjustLocalAdidStore(
           environment: AdjustAttributionRuntime.environment,
         ),

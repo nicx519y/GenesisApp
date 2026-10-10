@@ -2674,7 +2674,7 @@ World：
 
 - `POST /api/v1/device/register`：游客与登录用户均可调用。当前 Gateway 请求链提供必填 `X-Device-ID`、`X-App-ID`、`X-Platform`；UID 由服务端 session 读取，不在 body 中传递。
 - `adid` 服务端非必传；客户端暂未取得时传空串，服务端保留已有 ADID，新设备默认空串。客户端继续传 `environment`，与当前进程的 Adjust SDK 环境保持一致：SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`；当前 Apifox 请求体模型未列出该字段，保留现有客户端行为。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`；这些字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。
-- 启动后注册为 best effort，不阻塞首帧。四个标识分别尝试读取，取到就传：ADID 未取得时传空串；Android `gps_adid` 或 iOS `idfa`、`idfv` 未取得（包括 SDK 返回空白、异常或超时）时也传空串。任何一个标识缺失都不阻断本次注册；按当前服务端契约，后三个字段传空串会清除其已有值。后续会话回调、前台恢复等时机可补齐新取得的值，请求失败按有限次数重试。登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册；空 ADID 的成功请求不视为 ADID 已补齐。
+- 启动后注册为 best effort，不阻塞首帧。四个标识分别尝试读取，取到就传：ADID 未取得时传空串；Android `gps_adid` 优先使用 Adjust `getGoogleAdId()` 的当前有效值，Adjust 返回空白、全零或读取失败／超时才实时通过 Google Play Services `AdvertisingIdClient` 读取；两者均不可用时传空串，不使用历史 GAID 缓存。iOS `idfa`、`idfv` 未取得（包括 SDK 返回空白、异常或超时）时也传空串。任何一个标识缺失都不阻断本次注册；按当前服务端契约，后三个字段传空串会清除其已有值。后续会话回调、前台恢复等时机可补齐新取得的值，请求失败按有限次数重试。登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册；空 ADID 的成功请求不视为 ADID 已补齐。
 - Gems／订阅共用完整购买页和购买底部弹层，任一标签在该页面／弹层实例中首次展示后，非阻塞地调用一次强制注册，重新读取当前平台的标识并实际发送请求；重建、同实例重复切换和回前台不因该兜底逻辑额外重复发送。重新打开购买页／弹层可再次兜底，不改变购买流程。
 - 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
 

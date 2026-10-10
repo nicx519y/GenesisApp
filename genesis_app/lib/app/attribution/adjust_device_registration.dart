@@ -74,6 +74,7 @@ class AdjustDeviceRegistration {
     required this.environmentProvider,
     this.readAdid = Adjust.getAdidWithTimeout,
     this.readGoogleAdId = Adjust.getGoogleAdId,
+    this.readNativeGoogleAdId,
     this.readIdfa = Adjust.getIdfa,
     this.readIdfv = Adjust.getIdfv,
     this.localAdidStore = const SharedPreferencesAdjustLocalAdidStore(),
@@ -90,6 +91,7 @@ class AdjustDeviceRegistration {
   final AdjustRegistrationEnvironmentProvider environmentProvider;
   final AdjustAdidReader readAdid;
   final AdjustOptionalIdReader readGoogleAdId;
+  final AdjustOptionalIdReader? readNativeGoogleAdId;
   final AdjustOptionalIdReader readIdfa;
   final AdjustOptionalIdReader readIdfv;
   final AdjustLocalAdidStore localAdidStore;
@@ -297,7 +299,7 @@ class AdjustDeviceRegistration {
           ? _AdjustDeviceIdentifiers(
               adid: adid,
               environment: environmentProvider(),
-              gpsAdid: await _readOptional(readGoogleAdId, 'GPS ADID'),
+              gpsAdid: await _readGoogleAdId(),
             )
           : _AdjustDeviceIdentifiers(
               adid: adid,
@@ -412,6 +414,20 @@ class AdjustDeviceRegistration {
       return '';
     }
   }
+
+  Future<String> _readGoogleAdId() async {
+    final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
+    if (_isUsableGoogleAdId(adjustId)) return adjustId;
+
+    final nativeReader = readNativeGoogleAdId;
+    if (nativeReader == null) return '';
+    final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
+    return _isUsableGoogleAdId(nativeId) ? nativeId : '';
+  }
+
+  bool _isUsableGoogleAdId(String value) =>
+      value.isNotEmpty &&
+      value.toLowerCase() != '00000000-0000-0000-0000-000000000000';
 }
 
 @immutable

@@ -106,6 +106,12 @@ class MainActivity : FlutterActivity() {
                     }.start()
                 }
                 "getAndroidSdkInt" -> result.success(Build.VERSION.SDK_INT)
+                "getGoogleAdvertisingId" -> {
+                    Thread {
+                        val advertisingId = readAdvertisingId()
+                        runOnUiThread { result.success(advertisingId) }
+                    }.start()
+                }
                 "getAndroidDeviceIdDiagnostics" -> {
                     Thread {
                         val diagnostics = resolveAndroidDeviceIdDiagnostics()
