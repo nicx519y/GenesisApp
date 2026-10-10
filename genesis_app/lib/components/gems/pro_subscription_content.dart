@@ -839,7 +839,9 @@ class _GemGrantCard extends StatelessWidget {
     final amount = match == null ? '' : '${extra ? '+' : ''}${match.group(0)}';
     // A grant that repeats says so beside its figure, the way a plan's price
     // carries "/mo", rather than leaving the rate to the note alone.
-    final perUnit = lower.contains('check-in') ? ' /day' : '';
+    final perUnit = lower.contains('check-in')
+        ? GenesisL10n.current.gemsPerDay(amount: '').trim()
+        : '';
     // The design words the cadence itself and leaves only the figure to the
     // server, so read which cadence this is and use the design's line. Its
     // wording is shortened to hold one line at 12px down to a 360 screen.

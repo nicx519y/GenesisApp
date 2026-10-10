@@ -151,7 +151,10 @@ class _OriginStoryEventsEditorPageState
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          '${_eventControllers.length}/$_maxEvents (Added / Max)',
+                          GenesisL10n.current.createAddedMax(
+                            added: _eventControllers.length,
+                            max: _maxEvents,
+                          ),
                           style: const TextStyle(
                             color: GenesisColors.darkTextTertiary,
                             fontSize: 14,

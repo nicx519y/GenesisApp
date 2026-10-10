@@ -11,6 +11,7 @@ import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/debug/purchase_toast_debug_settings.dart';
 import 'app/genesis_app.dart';
+import 'l10n/app_language_controller.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
 import 'app/startup/ios_startup_network.dart';
@@ -35,6 +36,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AdjustAttributionRuntime.initialize();
   final appConfigLoad = loadStartupEndpointConfig();
+  final languageLoad = appLanguageController.load();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),
     timeout: _startupSystemUiTimeout,
@@ -130,6 +132,7 @@ Future<void> main() async {
     ),
   );
   await Future.wait<Object?>(<Future<Object?>>[
+    languageLoad,
     systemUiInitialization,
     tilemapSettingsLoad,
     captureSettingsLoad,

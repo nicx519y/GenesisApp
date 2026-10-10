@@ -132,7 +132,7 @@ class _MyWorldsEmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Semantics(
           button: true,
-          label: 'Open Worldo',
+          label: GenesisL10n.current.a11yOpenWorldo,
           child: GestureDetector(
             key: const ValueKey<String>('home-my-worlds-empty-action'),
             behavior: HitTestBehavior.opaque,
@@ -161,9 +161,7 @@ class _MyWorldsEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  GenesisL10n
-                      .current
-                      .homeEmptyDescription,
+                  GenesisL10n.current.homeEmptyDescription,
                   textAlign: TextAlign.center,
                   style: textTheme.bodyMedium?.copyWith(
                     color: GenesisColors.darkTextSecondary,

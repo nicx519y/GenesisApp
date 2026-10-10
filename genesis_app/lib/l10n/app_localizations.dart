@@ -99,6 +99,174 @@ abstract class AppLocalizations {
     Locale('zh', 'TW'),
   ];
 
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'GIF animations are not supported.'**
+  String get imageGifUnsupported;
+
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress complete'**
+  String get worldProgressComplete;
+
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to {label} mode'**
+  String a11ySwitchMode({required String label});
+
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {title}'**
+  String a11yEditItem({required String title});
+
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'{index} of {count} role cards'**
+  String a11yRoleCards({required int index, required int count});
+
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit inspiration {index}'**
+  String a11yEditInspiration({required int index});
+
+  /// Client UI message or accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert {label}'**
+  String a11yInsert({required String label});
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership'**
+  String get a11yMembership;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Worldo'**
+  String get a11yOpenWorldo;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by gender'**
+  String get a11yFilterGender;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Your Role'**
+  String get a11ySelectRole;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading map'**
+  String get a11yLoadingMap;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Building the world'**
+  String get a11yBuildingWorld;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium membership'**
+  String get a11yPremiumMembership;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro membership'**
+  String get a11yProMembership;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended role'**
+  String get a11yRecommendedRole;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Message'**
+  String get a11yLastMessage;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent chat'**
+  String get a11yRecentChat;
+
+  /// Accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'AI reply loading'**
+  String get a11yAiReplyLoading;
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} {count, plural, =0{Message} =1{Message} other{Messages}}'**
+  String statMessages({required num count, required String amount});
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} {count, plural, =0{Player} =1{Player} other{Players}}'**
+  String statPlayers({required num count, required String amount});
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'{added}/{max} (Added / Max)'**
+  String createAddedMax({required int added, required int max});
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'6 hours'**
+  String get createSixHours;
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'12 hours'**
+  String get createTwelveHours;
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get createOneDay;
+
+  /// Localized UI label for statistics or Worldo editor.
+  ///
+  /// In en, this message translates to:
+  /// **'1 week'**
+  String get createOneWeek;
+
+  /// Settings language entry and language page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguage;
+
+  /// Language preference save failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not change language. Please try again.'**
+  String get languageChangeFailed;
+
   /// Gems purchase progress dialog title.
   ///
   /// In en, this message translates to:

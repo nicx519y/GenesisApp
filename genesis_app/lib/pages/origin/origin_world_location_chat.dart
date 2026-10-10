@@ -22,9 +22,7 @@ class _OriginLocationChatEmptyState extends StatelessWidget {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  GenesisL10n
-                      .current
-                      .worldoLaunchLocationComesLife,
+                  GenesisL10n.current.worldoLaunchLocationComesLife,
                   maxLines: 1,
                   softWrap: false,
                   textAlign: TextAlign.center,
@@ -40,9 +38,7 @@ class _OriginLocationChatEmptyState extends StatelessWidget {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  GenesisL10n
-                      .current
-                      .worldoLaunchLaunchWorldoExplore,
+                  GenesisL10n.current.worldoLaunchLaunchWorldoExplore,
                   maxLines: 1,
                   softWrap: false,
                   textAlign: TextAlign.center,
@@ -233,9 +229,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     return _OriginLocationChatRoleOption(
       id: _OriginWorldPageState._profileLocationChatRoleId,
       name: profileName.isEmpty
-          ? GenesisL10n
-                .current
-                .worldoLaunchProfile
+          ? GenesisL10n.current.worldoLaunchProfile
           : profileName,
       subtitle: profileRole.identity.trim(),
       avatarSnapshotSourceKey: _resolveAssetUrl(profileRole.avatarUrl).trim(),
@@ -283,9 +277,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       if (character == null) {
         showGenesisToast(
           context,
-          GenesisL10n
-              .current
-              .worldoLaunchRoleUnavailable,
+          GenesisL10n.current.worldoLaunchRoleUnavailable,
           brightness: Brightness.dark,
         );
         _setLocationChatRoleId(
@@ -324,10 +316,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
           location: WorldLocationChatPanelDescriptor(
             locationId: locationId,
             locationName:
-                location?.name ??
-                GenesisL10n
-                    .current
-                    .worldDetailLocation,
+                location?.name ?? GenesisL10n.current.worldDetailLocation,
             parentLocationName: parentNode?.id == originSyntheticRootLocationId
                 ? ''
                 : parentNode?.value.name ?? '',
@@ -555,8 +544,7 @@ class _OriginLocationChatLaunchComposerState
     final composer = LocationChatComposerInput(
       controller: _controller,
       focusNode: _focusNode,
-      hintText:
-          GenesisL10n.current.chatText,
+      hintText: GenesisL10n.current.chatText,
       inputEnabled: !widget.launching,
       sendEnabled: sendEnabled,
       sending: widget.sending,
@@ -757,7 +745,7 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
     );
     return Semantics(
       button: true,
-      label: 'Select Your Role',
+      label: GenesisL10n.current.a11ySelectRole,
       child: backdropBlurSigma <= 0
           ? pill
           : ClipRRect(

@@ -90,9 +90,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
                 children: [
                   _OpeningDialogueAddButton(
                     key: const ValueKey<String>('opening-add-narrator'),
-                    label: GenesisL10n
-                        .current
-                        .createOpeningNarrator,
+                    label: GenesisL10n.current.createOpeningNarrator,
                     leading: SvgPicture.asset(
                       paragraphIconAsset,
                       width: 14,
@@ -106,9 +104,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
                   ),
                   _OpeningDialogueAddButton(
                     key: const ValueKey<String>('opening-add-image'),
-                    label: GenesisL10n
-                        .current
-                        .createOpeningImage,
+                    label: GenesisL10n.current.createOpeningImage,
                     leading: const Icon(
                       Icons.image_outlined,
                       color: _openingDialogueAddColor,
@@ -144,9 +140,7 @@ class _OpeningBestRoleSelector extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            GenesisL10n
-                .current
-                .createOpeningSuggestRoleUser,
+            GenesisL10n.current.createOpeningSuggestRoleUser,
             style: TextStyle(
               color: GenesisColors.darkTextPrimary,
               fontSize: 16,
@@ -157,9 +151,7 @@ class _OpeningBestRoleSelector extends StatelessWidget {
           const SizedBox(height: _fieldLabelInputGap),
           if (characters.isEmpty)
             Text(
-              GenesisL10n
-                  .current
-                  .createOpeningNoCharacters,
+              GenesisL10n.current.createOpeningNoCharacters,
               style: TextStyle(
                 color: GenesisColors.darkTextTertiary,
                 fontSize: 13,
@@ -359,9 +351,7 @@ class _OpeningNarratorEditor extends StatelessWidget {
                       '${item.id}-keyboard-safe-text-field',
                     ),
                     item: item,
-                    hintText: GenesisL10n
-                        .current
-                        .createOpeningEnterNarrator,
+                    hintText: GenesisL10n.current.createOpeningEnterNarrator,
                     style: narratorTextStyle,
                     softItalic: true,
                     insertTextColor: GenesisColors.darkTextSecondary,
@@ -634,15 +624,11 @@ class _OpeningDialogueTextField extends StatelessWidget {
                       children: [
                         _OpeningDialogueInsertButton(
                           buttonKey: ValueKey<String>('${item.id}-insert-user'),
-                          label: GenesisL10n
-                              .current
-                              .createOpeningUser,
+                          label: GenesisL10n.current.createOpeningUser,
                           textColor: insertTextColor,
                           backgroundColor: insertBackgroundColor,
                           onTap: () => _insertToken(
-                            GenesisL10n
-                                .current
-                                .createOpeningUser,
+                            GenesisL10n.current.createOpeningUser,
                           ),
                         ),
                         if (showAsteriskInsert) ...[
@@ -712,7 +698,7 @@ class _OpeningDialogueInsertButton extends StatelessWidget {
     );
     return Semantics(
       button: true,
-      label: 'Insert $label',
+      label: GenesisL10n.current.a11yInsert(label: label),
       child: GestureDetector(
         key: buttonKey,
         behavior: HitTestBehavior.opaque,
@@ -787,9 +773,7 @@ class _OpeningImageEditor extends StatelessWidget {
                 child: CreateUploadBox(
                   key: ValueKey<String>('${item.id}-image'),
                   controller: item.controller,
-                  label: GenesisL10n
-                      .current
-                      .createOpeningUploadImage,
+                  label: GenesisL10n.current.createOpeningUploadImage,
                   emptyBackgroundColor: GenesisColors.darkFaintFill,
                   emptyBorderColor: GenesisColors.darkTextTertiary,
                   emptyIconColor: GenesisColors.createAdd,

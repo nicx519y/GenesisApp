@@ -5,7 +5,7 @@
 ## 已採用術語
 
 - `Worldo`、`#Worldo`、小寫 `worldo` 保留品牌拼法；作品類型 `World/Worlds` 譯為「世界」。
-- `Gem/Gems` 譯為「寶石」，`Pink Gems` 為「粉紅寶石」，`Red Gems` 為「紅寶石」。
+- `Gem/Gems` 譯為「寶石」，`Pink Gems` 為「粉寶石」，`Red Gems` 為「紅寶石」。
 - `Premium` 保留英文；`Discuss` 依位置使用「討論／討論區」；`Inspiration` 譯為「靈感」。
 - `Tick` 作名詞暫譯「回合」，推進動作依情境譯為「推進／立即推進」；從 Worldo 生成世界的 `Launch` 譯為「開啟世界」，其他情境按實際操作翻譯。
 - 平台名稱、UID/OID/WID、AI/NPC、貨幣與格式縮寫、`{...}` 參數及 ICU 語法均保留；`LLM`、`EULA` 暫保留原文。

@@ -9,6 +9,121 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get imageGifUnsupported => 'GIF animations are not supported.';
+
+  @override
+  String get worldProgressComplete => 'Progress complete';
+
+  @override
+  String a11ySwitchMode({required String label}) {
+    return 'Switch to $label mode';
+  }
+
+  @override
+  String a11yEditItem({required String title}) {
+    return 'Edit $title';
+  }
+
+  @override
+  String a11yRoleCards({required int index, required int count}) {
+    return '$index of $count role cards';
+  }
+
+  @override
+  String a11yEditInspiration({required int index}) {
+    return 'Edit inspiration $index';
+  }
+
+  @override
+  String a11yInsert({required String label}) {
+    return 'Insert $label';
+  }
+
+  @override
+  String get a11yMembership => 'Membership';
+
+  @override
+  String get a11yOpenWorldo => 'Open Worldo';
+
+  @override
+  String get a11yFilterGender => 'Filter by gender';
+
+  @override
+  String get a11ySelectRole => 'Select Your Role';
+
+  @override
+  String get a11yLoadingMap => 'Loading map';
+
+  @override
+  String get a11yBuildingWorld => 'Building the world';
+
+  @override
+  String get a11yPremiumMembership => 'Premium membership';
+
+  @override
+  String get a11yProMembership => 'Pro membership';
+
+  @override
+  String get a11yRecommendedRole => 'Recommended role';
+
+  @override
+  String get a11yLastMessage => 'Last Message';
+
+  @override
+  String get a11yRecentChat => 'Recent chat';
+
+  @override
+  String get a11yAiReplyLoading => 'AI reply loading';
+
+  @override
+  String statMessages({required num count, required String amount}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String statPlayers({required num count, required String amount}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Players',
+      one: 'Player',
+      zero: 'Player',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String createAddedMax({required int added, required int max}) {
+    return '$added/$max (Added / Max)';
+  }
+
+  @override
+  String get createSixHours => '6 hours';
+
+  @override
+  String get createTwelveHours => '12 hours';
+
+  @override
+  String get createOneDay => '1 day';
+
+  @override
+  String get createOneWeek => '1 week';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get languageChangeFailed =>
+      'Could not change language. Please try again.';
+
+  @override
   String get purchasingGems => 'Purchasing Gems';
 
   @override

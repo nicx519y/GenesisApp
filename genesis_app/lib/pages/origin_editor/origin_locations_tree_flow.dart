@@ -131,7 +131,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     required VoidCallback remove,
   }) async {
     _inlineNameFocusNode.unfocus();
-    final displayName = name.trim().isEmpty ? 'location' : name.trim();
+    final displayName = name.trim().isEmpty
+        ? GenesisL10n.current.locationLabel
+        : name.trim();
     final subtitle = level == 1
         ? GenesisL10n.current.createLocationEveryL2L3Locations
         : GenesisL10n.current.createLocationEveryL3Locations;
@@ -170,7 +172,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     required String name,
   }) async {
     if (locationId.trim() != _openingLocationId) return true;
-    final displayName = name.trim().isEmpty ? 'location' : name.trim();
+    final displayName = name.trim().isEmpty
+        ? GenesisL10n.current.locationLabel
+        : name.trim();
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
       title: GenesisL10n.current.createLocationDeleteDisplayName(

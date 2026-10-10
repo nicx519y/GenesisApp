@@ -245,9 +245,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
             child: SizedBox(
               width: double.infinity,
               child: Text(
-                GenesisL10n
-                    .current
-                    .worldoLaunchSelectRole,
+                GenesisL10n.current.worldoLaunchSelectRole,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -378,7 +376,10 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       key: const ValueKey<String>('origin-setup-role-page-indicator'),
-      label: '${currentIndex + 1} of $count role cards',
+      label: GenesisL10n.current.a11yRoleCards(
+        index: currentIndex + 1,
+        count: count,
+      ),
       child: Row(
         key: ValueKey<String>(
           'origin-setup-role-page-current-${currentIndex + 1}-of-$count',
@@ -842,13 +843,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
     final cardWidth = widget.cardWidth;
     final stableId = content.stableId;
     final topLabel = content.isProfile
-        ? GenesisL10n
-              .current
-              .worldoLaunchProfile
+        ? GenesisL10n.current.worldoLaunchProfile
         : content.isRecommended
-        ? GenesisL10n
-              .current
-              .worldoLaunchSuggested
+        ? GenesisL10n.current.worldoLaunchSuggested
         : null;
     final editActionAvailable =
         !widget.busy && (!_editing || _editValidationMessage == null);
@@ -1077,9 +1074,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   tapTargetKey: ValueKey<String>(
                     'origin-setup-role-inline-name-tap-$stableId',
                   ),
-                  label: GenesisL10n
-                      .current
-                      .worldoLaunchName,
+                  label: GenesisL10n.current.worldoLaunchName,
                   controller: form.name,
                   focusNode: form.focusNodes.name,
                   nextFocusNode: form.focusNodes.identity,
@@ -1098,9 +1093,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   tapTargetKey: ValueKey<String>(
                     'origin-setup-role-inline-identity-tap-$stableId',
                   ),
-                  label: GenesisL10n
-                      .current
-                      .worldoLaunchIdentity,
+                  label: GenesisL10n.current.worldoLaunchIdentity,
                   controller: form.identity,
                   focusNode: form.focusNodes.identity,
                   nextFocusNode: form.focusNodes.personality,
@@ -1116,9 +1109,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   tapTargetKey: ValueKey<String>(
                     'origin-setup-role-inline-brief-tap-$stableId',
                   ),
-                  label: GenesisL10n
-                      .current
-                      .worldoLaunchPersonality,
+                  label: GenesisL10n.current.worldoLaunchPersonality,
                   controller: form.personality,
                   focusNode: form.focusNodes.personality,
                   maxLength: originCharacterPersonalityMaxLength,
@@ -1468,23 +1459,17 @@ class _OriginSetupRoleDetails extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _OriginSetupRoleDetailField(
-                label: GenesisL10n
-                    .current
-                    .worldoLaunchIdentity,
+                label: GenesisL10n.current.worldoLaunchIdentity,
                 value: content.identity,
               ),
               _OriginSetupRoleDetailField(
-                label: GenesisL10n
-                    .current
-                    .worldoLaunchPersonality,
+                label: GenesisL10n.current.worldoLaunchPersonality,
                 value: content.personality,
                 addBottomGap: !content.isProfile,
               ),
               if (!content.isProfile) ...[
                 _OriginSetupRoleDetailField(
-                  label: GenesisL10n
-                      .current
-                      .worldoLaunchGoal,
+                  label: GenesisL10n.current.worldoLaunchGoal,
                   value: content.goal,
                   addBottomGap: false,
                 ),

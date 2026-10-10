@@ -68,7 +68,7 @@ class ProfileMembershipCard extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Pro membership',
+      label: GenesisL10n.current.a11yProMembership,
       child: GestureDetector(
         key: const ValueKey('user-profile-membership-entry'),
         onTap: openMembership,
@@ -230,9 +230,7 @@ class _ProTitle extends StatelessWidget {
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) => proTitleGradient.createShader(bounds),
       child: Text(
-        GenesisL10n
-            .current
-            .premiumWorldo,
+        GenesisL10n.current.premiumWorldo,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -344,9 +342,7 @@ class _SubscribeButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          GenesisL10n
-              .current
-              .premiumSubscribe,
+          GenesisL10n.current.premiumSubscribe,
           style: TextStyle(
             color: proSubscribeInk,
             fontSize: 12,

@@ -40,6 +40,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('About us'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Language')).dy,
+      lessThan(tester.getTopLeft(find.text('About us')).dy),
+    );
     expect(
       tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
       GenesisColors.darkBackground,

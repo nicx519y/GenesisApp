@@ -9,6 +9,121 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get imageGifUnsupported => 'GIF animations are not supported.';
+
+  @override
+  String get worldProgressComplete => 'Progress complete';
+
+  @override
+  String a11ySwitchMode({required String label}) {
+    return 'Switch to $label mode';
+  }
+
+  @override
+  String a11yEditItem({required String title}) {
+    return 'Edit $title';
+  }
+
+  @override
+  String a11yRoleCards({required int index, required int count}) {
+    return '$index of $count role cards';
+  }
+
+  @override
+  String a11yEditInspiration({required int index}) {
+    return 'Edit inspiration $index';
+  }
+
+  @override
+  String a11yInsert({required String label}) {
+    return 'Insert $label';
+  }
+
+  @override
+  String get a11yMembership => 'Membership';
+
+  @override
+  String get a11yOpenWorldo => 'Open Worldo';
+
+  @override
+  String get a11yFilterGender => 'Filter by gender';
+
+  @override
+  String get a11ySelectRole => 'Select Your Role';
+
+  @override
+  String get a11yLoadingMap => 'Loading map';
+
+  @override
+  String get a11yBuildingWorld => 'Building the world';
+
+  @override
+  String get a11yPremiumMembership => 'Premium membership';
+
+  @override
+  String get a11yProMembership => 'Pro membership';
+
+  @override
+  String get a11yRecommendedRole => 'Recommended role';
+
+  @override
+  String get a11yLastMessage => 'Last Message';
+
+  @override
+  String get a11yRecentChat => 'Recent chat';
+
+  @override
+  String get a11yAiReplyLoading => 'AI reply loading';
+
+  @override
+  String statMessages({required num count, required String amount}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String statPlayers({required num count, required String amount}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Players',
+      one: 'Player',
+      zero: 'Player',
+    );
+    return '$amount $_temp0';
+  }
+
+  @override
+  String createAddedMax({required int added, required int max}) {
+    return '$added/$max (Added / Max)';
+  }
+
+  @override
+  String get createSixHours => '6 hours';
+
+  @override
+  String get createTwelveHours => '12 hours';
+
+  @override
+  String get createOneDay => '1 day';
+
+  @override
+  String get createOneWeek => '1 week';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get languageChangeFailed =>
+      'Could not change language. Please try again.';
+
+  @override
   String get purchasingGems => 'Purchasing Gems';
 
   @override
@@ -2883,6 +2998,116 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   AppLocalizationsZhTw() : super('zh_TW');
 
   @override
+  String get imageGifUnsupported => '不支援 GIF 動畫。';
+
+  @override
+  String get worldProgressComplete => '推進完成';
+
+  @override
+  String a11ySwitchMode({required String label}) {
+    return '切換至$label模式';
+  }
+
+  @override
+  String a11yEditItem({required String title}) {
+    return '編輯$title';
+  }
+
+  @override
+  String a11yRoleCards({required int index, required int count}) {
+    return '角色卡片，第 $index 張，共 $count 張';
+  }
+
+  @override
+  String a11yEditInspiration({required int index}) {
+    return '編輯第 $index 個靈感';
+  }
+
+  @override
+  String a11yInsert({required String label}) {
+    return '插入$label';
+  }
+
+  @override
+  String get a11yMembership => '會員';
+
+  @override
+  String get a11yOpenWorldo => '開啟 Worldo';
+
+  @override
+  String get a11yFilterGender => '依性別篩選';
+
+  @override
+  String get a11ySelectRole => '選擇你的角色';
+
+  @override
+  String get a11yLoadingMap => '正在載入地圖';
+
+  @override
+  String get a11yBuildingWorld => '正在建立世界';
+
+  @override
+  String get a11yPremiumMembership => 'Premium 會員';
+
+  @override
+  String get a11yProMembership => 'Pro 會員';
+
+  @override
+  String get a11yRecommendedRole => '推薦角色';
+
+  @override
+  String get a11yLastMessage => '最新訊息';
+
+  @override
+  String get a11yRecentChat => '最近的聊天';
+
+  @override
+  String get a11yAiReplyLoading => '正在產生 AI 回覆';
+
+  @override
+  String statMessages({required num count, required String amount}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$amount 則訊息',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String statPlayers({required num count, required String amount}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$amount 位玩家',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String createAddedMax({required int added, required int max}) {
+    return '$added/$max（已新增／上限）';
+  }
+
+  @override
+  String get createSixHours => '6 小時';
+
+  @override
+  String get createTwelveHours => '12 小時';
+
+  @override
+  String get createOneDay => '1 天';
+
+  @override
+  String get createOneWeek => '1 週';
+
+  @override
+  String get settingsLanguage => '語言';
+
+  @override
+  String get languageChangeFailed => '無法切換語言，請再試一次。';
+
+  @override
   String get purchasingGems => '正在購買寶石';
 
   @override
@@ -4977,7 +5202,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get gemsRed => '紅寶石';
 
   @override
-  String get gemsPink => '粉紅寶石';
+  String get gemsPink => '粉寶石';
 
   @override
   String get gemsTop => '儲值';
@@ -5427,7 +5652,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get premiumWorldo => 'Worldo Premium';
 
   @override
-  String get premiumPinkGems => '粉紅寶石';
+  String get premiumPinkGems => '粉寶石';
 
   @override
   String get premiumRedGems => '紅寶石';

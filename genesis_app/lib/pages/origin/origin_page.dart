@@ -367,9 +367,7 @@ class _OriginPageState extends State<OriginPage>
               sessionRevision == services.sessionRevision.value) {
             showGenesisToast(
               context,
-              GenesisL10n
-                  .current
-                  .worldoUnableSavePreference,
+              GenesisL10n.current.worldoUnableSavePreference,
             );
           }
         });
@@ -613,9 +611,7 @@ class _OriginPageState extends State<OriginPage>
         return TapRegion(
           groupId: _genderFilterTapGroup,
           child: Tooltip(
-            message: GenesisL10n
-                .current
-                .worldoFilterGender,
+            message: GenesisL10n.current.worldoFilterGender,
             child: TextButton(
               key: const ValueKey('origin-gender-filter'),
               style: TextButton.styleFrom(
@@ -893,7 +889,7 @@ class _OriginGenderFilterMenu extends StatelessWidget {
         child: Semantics(
           role: SemanticsRole.menu,
           explicitChildNodes: true,
-          label: 'Filter by gender',
+          label: GenesisL10n.current.a11yFilterGender,
           child: SingleChildScrollView(
             primary: false,
             child: Column(
@@ -2070,19 +2066,13 @@ class _OriginFeedState extends State<_OriginFeed>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    GenesisL10n
-                        .current
-                        .homeLoadFailed,
+                    GenesisL10n.current.homeLoadFailed,
                     style: TextStyle(color: GenesisColors.darkTextPrimary),
                   ),
                   const SizedBox(height: 10),
                   FilledButton(
                     onPressed: _refreshItems,
-                    child: Text(
-                      GenesisL10n
-                          .current
-                          .homeRetry,
-                    ),
+                    child: Text(GenesisL10n.current.homeRetry),
                   ),
                 ],
               ),

@@ -72,7 +72,7 @@ class RecentChatTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Last Message',
+      label: GenesisL10n.current.a11yLastMessage,
       child: Container(
         key: const ValueKey<String>('recent-activity-tag-last-message'),
         height: 18,
@@ -117,7 +117,7 @@ class RecentChatIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Recent chat',
+      label: GenesisL10n.current.a11yRecentChat,
       child: SvgPicture.asset(
         connectStatIconAsset,
         width: size,

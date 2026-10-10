@@ -27,6 +27,7 @@ import '../pages/chat/chat_page.dart';
 import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
 import '../pages/me/follows_page.dart';
+import '../pages/me/language_page.dart';
 import '../pages/me/user_info_page.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
 import '../network/chatroom/world_chatroom_service.dart';
@@ -51,6 +52,7 @@ class GemWalletRouteArgs {
 }
 
 sealed class RouteNames {
+  static const language = '/language';
   static const shell = '/';
   static const home = '/home';
   static const origin = '/origin';
@@ -535,6 +537,11 @@ sealed class AppRouter {
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case RouteNames.language:
+        return GenesisDarkPageRoute<void>(
+          settings: settings,
+          builder: (_) => const LanguagePage(),
+        );
       case RouteNames.home:
         final initialIndex = settings.arguments is int
             ? settings.arguments! as int

@@ -12,15 +12,13 @@ class _LocationsModeSwitch extends StatelessWidget {
         ? _LocationsEditorMode.preview
         : _LocationsEditorMode.edit;
     final label = nextMode == _LocationsEditorMode.preview
-        ? GenesisL10n
-              .current
-              .createLocationPreview
+        ? GenesisL10n.current.createLocationPreview
         : GenesisL10n.current.chatEdit;
     final switchingToPreview = nextMode == _LocationsEditorMode.preview;
     return Semantics(
       key: const ValueKey<String>('locations-mode-switch'),
       button: true,
-      label: 'Switch to $label mode',
+      label: GenesisL10n.current.a11ySwitchMode(label: label),
       child: GestureDetector(
         key: ValueKey<String>(
           nextMode == _LocationsEditorMode.preview
@@ -421,9 +419,7 @@ class _InlineLocationSaveButton extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: GenesisL10n
-                  .current
-                  .chatSave,
+              tooltip: GenesisL10n.current.chatSave,
               onPressed: onPressed,
               padding: const EdgeInsets.all(5),
               constraints: const BoxConstraints.tightFor(width: 24, height: 24),

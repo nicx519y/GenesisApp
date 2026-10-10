@@ -118,7 +118,7 @@ class _HomeGemWalletEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Membership',
+      label: GenesisL10n.current.a11yMembership,
       child: GestureDetector(
         key: const ValueKey<String>('home-gem-wallet-entry'),
         behavior: HitTestBehavior.opaque,

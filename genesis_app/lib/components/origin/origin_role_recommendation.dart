@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../network/models/origin.dart';
@@ -27,7 +28,7 @@ class OriginRecommendedRoleMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Recommended role',
+      label: GenesisL10n.current.a11yRecommendedRole,
       child: SizedBox(
         key: badgeKey,
         width: size,

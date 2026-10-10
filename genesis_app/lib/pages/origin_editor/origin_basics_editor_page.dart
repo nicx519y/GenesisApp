@@ -788,7 +788,14 @@ class _TimeProgressPicker extends StatelessWidget {
       children: [
         for (final option in _options)
           _TimeProgressOption(
-            label: option,
+            label: switch (option) {
+              '6 hours' => GenesisL10n.current.createSixHours,
+              '12 hours' => GenesisL10n.current.createTwelveHours,
+              '1 day' => GenesisL10n.current.createOneDay,
+              '1 week' => GenesisL10n.current.createOneWeek,
+              _ => option,
+            },
+            value: option,
             selected: option == selected,
             onTap: () => onSelected(option == selected ? '' : option),
           ),
@@ -800,18 +807,20 @@ class _TimeProgressPicker extends StatelessWidget {
 class _TimeProgressOption extends StatelessWidget {
   const _TimeProgressOption({
     required this.label,
+    required this.value,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final String value;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      key: ValueKey('time-progress-option-$label'),
+      key: ValueKey('time-progress-option-$value'),
       color: selected
           ? GenesisColors.darkTextPrimary
           : GenesisColors.darkFaintFill,

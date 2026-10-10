@@ -1,3 +1,5 @@
+import '../l10n/genesis_l10n.dart';
+
 String formatStatCount(num value) {
   final sign = value < 0 ? '-' : '';
   final absValue = value.abs();
@@ -20,13 +22,17 @@ String formatStatCount(num value) {
 }
 
 String formatMessageCountLabel(num value) {
-  final unit = value == 0 || value == 1 ? 'Message' : 'Messages';
-  return '${formatStatCount(value)} $unit';
+  return GenesisL10n.current.statMessages(
+    count: value,
+    amount: formatStatCount(value),
+  );
 }
 
 String formatPlayerCountLabel(num value) {
-  final unit = value == 0 || value == 1 ? 'Player' : 'Players';
-  return '${formatStatCount(value)} $unit';
+  return GenesisL10n.current.statPlayers(
+    count: value,
+    amount: formatStatCount(value),
+  );
 }
 
 String formatWorldStatsLabel({
@@ -37,7 +43,7 @@ String formatWorldStatsLabel({
 }) {
   final subTickLabel = subTickNo > 0 ? '-$subTickNo' : '';
   final parts = <String>[
-    'Tick $tickNo$subTickLabel',
+    GenesisL10n.current.tickNumber(tick: '$tickNo', suffix: subTickLabel),
     formatMessageCountLabel(messageCount),
     if (playerCount >= 2) formatPlayerCountLabel(playerCount),
   ];
