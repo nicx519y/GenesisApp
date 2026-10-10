@@ -7,6 +7,68 @@ import 'package:genesis_flutter_android/network/v1/device_api.dart';
 
 void main() {
   test(
+    'language endpoint preserves all nine codes and required device header',
+    () async {
+      TransportRequest? captured;
+      final api = DeviceV1Api(
+        ApiClient(
+          baseUrl: 'https://example.test/api/',
+          transport: _CallbackTransport((request) {
+            captured = request;
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {},
+              body: '{"err_no":0,"err_msg":"succ","data":{}}',
+            );
+          }),
+        ),
+      );
+      for (final code in [
+        'en',
+        'zh_TW',
+        'es',
+        'pt',
+        'fr',
+        'de',
+        'it',
+        'ja',
+        'ko',
+      ]) {
+        await api.setLanguage(deviceId: 'device-1', language: code);
+        expect(captured!.method, 'POST');
+        expect(captured!.uri.path, '/api/v1/device/setlanguage');
+        expect(captured!.headers['X-Device-ID'], 'device-1');
+        expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
+          'language': code,
+        });
+      }
+      await expectLater(
+        api.setLanguage(deviceId: 'device-1', language: 'zh-TW'),
+        throwsArgumentError,
+      );
+    },
+  );
+
+  test('language endpoint propagates business failure', () async {
+    final api = DeviceV1Api(
+      ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _CallbackTransport(
+          (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {},
+            body:
+                '{"err_no":3102,"err_msg":"Unable to save language","data":{}}',
+          ),
+        ),
+      ),
+    );
+    await expectLater(
+      api.setLanguage(deviceId: 'device-1', language: 'zh_TW'),
+      throwsA(isA<Exception>()),
+    );
+  });
+  test(
     'device attribution registration uses the documented path and body',
     () async {
       TransportRequest? captured;

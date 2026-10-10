@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../network/api_request_trace_sampling.dart';
+import '../../l10n/app_language_controller.dart';
 import '../config/app_global_config.dart';
 import 'app_startup_coordinator.dart';
 import 'startup_dependency_guard.dart';
@@ -13,7 +14,10 @@ Future<void> loadStartupAppConfig({
   required AppGlobalConfigStore store,
   required Future<StartupUidResolution> uidResolution,
   required Future<void> collectReady,
+  AppLanguageController? languageController,
 }) async {
+  final languages = languageController ?? appLanguageController;
+  final requestRevision = languages.revision;
   try {
     await store.refresh(
       resolveUid: () async {
@@ -30,6 +34,10 @@ Future<void> loadStartupAppConfig({
         );
         return (await uidResolution).uid;
       },
+    );
+    languages.applyConfigLanguage(
+      store.value.language,
+      requestRevision: requestRevision,
     );
     ApiRequestTraceSampling.configureForLaunch(
       store.value.apiTraceSamplingRate,

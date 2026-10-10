@@ -85,6 +85,7 @@ Origin detail 增量核对时间：2026-08-05
 | origin | GET | `/api/v1/origin/hot_tags` | Origin 热门标签 |
 | origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | app | GET | `/api/v1/app/config` | App 启动全局配置 |
+| device | POST | `/api/v1/device/setlanguage` | 设置设备及当前登录用户语言 |
 | device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust 和广告标识 |
 | event | POST | `/api/v1/event/report` | 上报归因事件供服务端转发 Adjust S2S |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
@@ -507,6 +508,8 @@ Apple 登录。请求和响应结构与 Google 登录一致。
 响应 `data`：空对象。
 
 ### GET `/api/v1/user/info`
+
+`data.user.language` 返回目标用户的设置语言，未设置时为空字符串。仅当前登录账号的响应用于更新本机语言；查询他人不影响本机语言。
 
 客户端不使用本接口反查或恢复 UID。当前账号查询前会先校验本地 UID；UID 缺失或为 `guest_` UID 时，直接清除 UID、Token 和缓存用户资料并按未登录处理。启动和会话校验还会同时检查 `auth token`，登录态不完整时同样清理。查看公开用户资料时继续显式传 `uid`。
 
@@ -1074,6 +1077,7 @@ Query：
 
 响应 `data`：
 
+- `language`: string，可为空；当前设备的设置语言。启动时非空有效值覆盖系统语言；为空或请求失败继续使用系统语言。
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
 - `show_personalization_form`: boolean；控制新用户填表入口。默认 `false`，启动时仅成功获取 boolean `true` 才请求 `/api/v1/device/personalization`，按当前身份的 `completed` 判断是否弹出表单；获取失败、字段缺失、`null` 或类型错误均不查询、不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
 - `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
@@ -2751,3 +2755,17 @@ World：
 - 覆盖 Me / Profile、关注/粉丝、黑名单、搜索、私信列表、通知、Worldo Creator、评论作者/回复者和 Profile Playing Owner。World 和 Chat（含 Location Chat）不显示用户名会员徽章。
 - 回复目标只有 `reply_to_uid` / `reply_to_username` 时没有足够状态，不补查、不借用作者状态；有目标用户对象或点击回复时已有该作者数据才显示对应徽章。
 - 名字徽章仅用于展示。购买、钱包、会员卡及权限校验继续使用各自现有状态服务，不改授权或计费逻辑。
+
+
+### POST `/api/v1/device/setlanguage`
+
+Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
+
+必填 header：`X-Device-ID`，由当前设备身份提供。JSON body：`{"language":"zh_TW"}`。
+游客更新设备；登录用户同时更新设备及用户。成功响应为 `{err_no:0,err_msg:"succ",data:{device_id,language}}`；非零 err_no 按现有业务错误处理。
+
+客户端协议值固定为 `en`、`zh_TW`、`es`、`pt`、`fr`、`de`、`it`、`ja`、`ko`，原样提交和发送，不将 `zh_TW` 改为 `zh-TW`。Apifox 的服务端描述提及 BCP 47 规范化，客户端以已确认的产品协议值为准。
+
+公共 header 新增 `x-setting-language`：未获得设置语言时与 `x-system-language` 相同；config、当前账号 user/info 的非空有效 language 或手动保存成功后使用协议值。`x-system-language` 继续读取系统 locale。
+启动先使用系统，再应用 config；当前账号非空 language 优先于 config，空值保持当前语言。config 迟到不能覆盖账号语言或手动切换。退出登录不改变语言。
+手动切换仅 err_no=0 后更新界面、header 和缓存；请求期间禁止重复提交；失败保持原语言并显示业务 err_msg。下一次启动不使用本地缓存覆盖 config／系统规则。当前完整界面翻译仅 en、zh_TW，其他协议语言保留 header 原值并以英语显示。

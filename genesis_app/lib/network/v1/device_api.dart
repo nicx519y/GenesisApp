@@ -1,8 +1,27 @@
 import '../models/personalization.dart';
+import '../../l10n/app_language_controller.dart';
 import 'v1_api_resource.dart';
 
 class DeviceV1Api extends V1ApiResource {
   const DeviceV1Api(super.client);
+
+  /// POST /api/v1/device/setlanguage. Preserve exact backend language codes.
+  Future<void> setLanguage({
+    required String deviceId,
+    required String language,
+  }) async {
+    if (deviceId.trim().isEmpty) {
+      throw ArgumentError.value(deviceId, 'deviceId');
+    }
+    if (!AppLanguageController.languageCodes.contains(language)) {
+      throw ArgumentError.value(language, 'language');
+    }
+    await postData(
+      'device/setlanguage',
+      {'language': language},
+      {'X-Device-ID': deviceId.trim()},
+    );
+  }
 
   /// Registers the Adjust device identifier and the platform-specific
   /// advertising identifiers for the current Gateway device identity.

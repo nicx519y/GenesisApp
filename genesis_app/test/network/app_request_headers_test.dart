@@ -3,6 +3,36 @@ import 'package:genesis_flutter_android/network/app_request_headers.dart';
 import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
 
 void main() {
+  test(
+    'setting header changes while system header remains the system value',
+    () async {
+      String? setting;
+      final provider = AppRequestHeaderProvider(
+        appVersionLoader: () async => const AppVersionInfo(),
+        systemUserAgentLoader: () async => '',
+        systemLanguageLoader: () async => 'zh-TW',
+        appTimeZoneLoader: () async => '',
+        settingLanguageProvider: () => setting,
+      );
+      expect((await provider.headers())['x-setting-language'], 'zh-TW');
+      for (final code in [
+        'en',
+        'zh_TW',
+        'es',
+        'pt',
+        'fr',
+        'de',
+        'it',
+        'ja',
+        'ko',
+      ]) {
+        setting = code;
+        final headers = await provider.headers();
+        expect(headers['x-setting-language'], code);
+        expect(headers['x-system-language'], 'zh-TW');
+      }
+    },
+  );
   test('builds system user agent header', () async {
     final provider = AppRequestHeaderProvider(
       appVersionLoader: () async => const AppVersionInfo(
@@ -19,6 +49,7 @@ void main() {
     expect(await provider.headers(), {
       'user-agent': 'Android 15',
       'x-system-language': 'zh-CN',
+      'x-setting-language': 'zh-CN',
       'x-app-version-code': '1',
       'x-app-timezone': 'Asia/Shanghai',
     });

@@ -10,6 +10,7 @@ typedef AppGlobalConfigLoader =
 @immutable
 class AppGlobalConfig {
   const AppGlobalConfig({
+    this.language = '',
     this.showOpeningSheet = false,
     this.showPersonalizationForm = false,
     this.apiTraceSamplingRate = 0,
@@ -17,6 +18,7 @@ class AppGlobalConfig {
 
   factory AppGlobalConfig.fromJson(Map<String, dynamic> json) {
     return AppGlobalConfig(
+      language: asString(json['language']),
       showOpeningSheet: asBool(json['show_opening_sheet']),
       showPersonalizationForm: json['show_personalization_form'] == true,
       apiTraceSamplingRate: _samplingRate(
@@ -25,6 +27,7 @@ class AppGlobalConfig {
     );
   }
 
+  final String language;
   final bool showOpeningSheet;
   final bool showPersonalizationForm;
   final double apiTraceSamplingRate;

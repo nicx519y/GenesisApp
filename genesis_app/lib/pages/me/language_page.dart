@@ -3,12 +3,15 @@ import 'package:flutter/services.dart';
 import '../../components/page_header.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../l10n/app_language_controller.dart';
+import '../../app/bootstrap/app_services_scope.dart';
+import '../../network/api_exception.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 
 class LanguagePage extends StatefulWidget {
-  const LanguagePage({super.key});
+  const LanguagePage({super.key, this.saveLanguage});
+  final Future<void> Function(String language)? saveLanguage;
   @override
   State<LanguagePage> createState() => _LanguagePageState();
 }
@@ -16,15 +19,33 @@ class LanguagePage extends StatefulWidget {
 class _LanguagePageState extends State<LanguagePage> {
   bool _saving = false;
   Future<void> _select(Locale locale) async {
-    if (_saving) return;
+    if (_saving ||
+        (appLanguageController.settingLanguage == null &&
+            Localizations.localeOf(context) == locale)) {
+      return;
+    }
     setState(() => _saving = true);
     try {
-      await appLanguageController.select(locale);
-    } catch (_) {
+      final saveLanguage =
+          widget.saveLanguage ??
+          (String language) async {
+            final services = AppServicesScope.read(context);
+            final deviceId = await services.deviceId.getDeviceId();
+            await services.api.v1.device.setLanguage(
+              deviceId: deviceId,
+              language: language,
+            );
+          };
+      await appLanguageController.select(locale, saveLanguage: saveLanguage);
+    } catch (error) {
       if (mounted) {
         showGenesisToast(
           context,
-          context.l10n.languageChangeFailed,
+          error is ApiException &&
+                  error.kind == ApiExceptionKind.business &&
+                  error.message.trim().isNotEmpty
+              ? error.message
+              : context.l10n.languageChangeFailed,
           brightness: Brightness.dark,
         );
       }

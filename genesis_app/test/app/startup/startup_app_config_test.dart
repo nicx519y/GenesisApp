@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
@@ -13,6 +14,33 @@ import 'package:genesis_flutter_android/network/api_request_trace_sampling.dart'
 import '../../support/personalization_fixtures.dart';
 
 void main() {
+  for (final language in ['zh_TW', '', 'failure']) {
+    test('startup config language or system fallback: $language', () async {
+      final languages = AppLanguageController();
+      await languages.load();
+      final config = AppGlobalConfigStore(
+        loadConfig: ({String? uid}) async {
+          if (language == 'failure') throw StateError('config unavailable');
+          return {'language': language};
+        },
+      );
+      await loadStartupAppConfig(
+        store: config,
+        uidResolution: Future.value(
+          const StartupUidResolution(uid: null, status: 'signed_out'),
+        ),
+        collectReady: Future.value(),
+        languageController: languages,
+      );
+      expect(languages.settingLanguage, language == 'zh_TW' ? 'zh_TW' : isNull);
+      expect(
+        languages.locale,
+        language == 'zh_TW' ? const Locale('zh', 'TW') : isNull,
+      );
+      config.dispose();
+    });
+  }
+
   setUp(ApiRequestTraceSampling.resetForTesting);
   tearDown(ApiRequestTraceSampling.resetForTesting);
 

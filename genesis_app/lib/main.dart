@@ -36,7 +36,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AdjustAttributionRuntime.initialize();
   final appConfigLoad = loadStartupEndpointConfig();
-  final languageLoad = appLanguageController.load();
+  await appLanguageController.load();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),
     timeout: _startupSystemUiTimeout,
@@ -129,10 +129,17 @@ Future<void> main() async {
       store: services.appGlobalConfig,
       uidResolution: startupUidResolution,
       collectReady: collectReady.future,
-    ),
+    ).then((_) async {
+      final resolution = await startupUidResolution;
+      if (resolution.uid == null || resolution.uid!.isEmpty) return;
+      try {
+        await services.api.v1.user.info();
+      } catch (error) {
+        debugPrint('[Language] Could not load startup user language: $error');
+      }
+    }),
   );
   await Future.wait<Object?>(<Future<Object?>>[
-    languageLoad,
     systemUiInitialization,
     tilemapSettingsLoad,
     captureSettingsLoad,

@@ -1,4 +1,5 @@
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/app_language_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -316,9 +317,7 @@ class ServiceRegistry {
 
         final navigator = genesisNavigatorKey.currentState;
         navigator?.pushNamedAndRemoveUntil(RouteNames.origin, (_) => false);
-        final toastMessage = GenesisL10n
-            .current
-            .meAccountLoggedAnotherDevice;
+        final toastMessage = GenesisL10n.current.meAccountLoggedAnotherDevice;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final overlay = genesisNavigatorKey.currentState?.overlay;
           if (overlay == null) return;
@@ -384,6 +383,7 @@ class ServiceRegistry {
       sessionStore: sessionStore,
       identityAuthService: identityAuth,
       appHeaderProvider: appRequestHeaders.headers,
+      languageController: appLanguageController,
       gatewayRequestInterceptor: gatewayRequestInterceptor,
       onSessionExpired: handleSessionExpired,
       onChatroomMessageMutationError: (message) {
