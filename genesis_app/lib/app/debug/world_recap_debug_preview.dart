@@ -9,7 +9,7 @@ import '../../network/models/world_recent_summary.dart';
 /// Held in memory only: a forced membership must not outlive the session it
 /// was set in, so a restart always returns to the real state.
 enum WorldRecapDebugPreview {
-  off('Off (real membership)'),
+  off('Off (follows membership)'),
   locked('Locked · non-member'),
   memberEmpty('Member · not generated yet'),
   memberSample('Member · sample recap'),
@@ -27,9 +27,10 @@ final ValueNotifier<WorldRecapDebugPreview> worldRecapDebugPreview =
 WorldRecapDebugPreview get activeWorldRecapDebugPreview =>
     kDebugMode ? worldRecapDebugPreview.value : WorldRecapDebugPreview.off;
 
-/// Membership as the preview dictates it, or null to ask the real store. The
-/// live mode is a member reading this world's real recap, for looking at real
-/// content without a subscription.
+/// Membership as the preview dictates it, or null to ask the membership store
+/// (which honours the Developer membership override). The live mode is a
+/// member reading this world's real recap, for looking at real content without
+/// a subscription.
 bool? get worldRecapForcedMembership => switch (activeWorldRecapDebugPreview) {
   WorldRecapDebugPreview.off => null,
   WorldRecapDebugPreview.locked => false,

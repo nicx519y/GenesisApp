@@ -6,53 +6,122 @@ ChatUiStyleConfig get _originDetailSheetChatComposerStyle => kLocationChatStyle
 const double _originLocationChatRolePillAvatarSize = 22;
 const double _originLocationChatDockRoleOffsetY = -2;
 
+TextStyle get _originLocationPreviewHeadingStyle =>
+    kLocationChatStyle.bubbleTextStyle.copyWith(
+      fontWeight: FontWeight.w600,
+      color: GenesisColors.darkTextPrimary,
+    );
+
+class _OriginRoleInputEntry extends StatelessWidget {
+  const _OriginRoleInputEntry({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Select your role',
+    child: Material(
+      color: kLocationChatStyle.inputBackgroundColor,
+      borderRadius: BorderRadius.circular(kLocationChatStyle.inputBorderRadius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: const SizedBox(
+          height: 44,
+          width: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Select your role',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: GenesisColors.darkTextSecondary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _OriginLocationChatEmptyState extends StatelessWidget {
-  const _OriginLocationChatEmptyState();
+  const _OriginLocationChatEmptyState({
+    required this.origin,
+    required this.onStart,
+  });
+  final OriginDetail origin;
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'This location comes to life after launch.',
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: GenesisColors.darkTextPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-              SizedBox(height: 6),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'Launch this Worldo to explore and interact here.',
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: GenesisColors.darkTextSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
+    final startId = _originLaunchChatLocationId(origin);
+    final tree = origin.processedLocationTree;
+    final location = tree.nodeById(startId)?.value;
+    final occupants = location == null
+        ? <OriginCharacter>[]
+        : origin.characters
+              .where(
+                (character) =>
+                    _originCharacterIsAtLocation(character, location),
+              )
+              .where((character) => character.name.trim().isNotEmpty)
+              .toList();
+    final names = occupants
+        .map((character) => character.name.trim())
+        .join(', ');
+    final path = <String>[];
+    final visited = <String>{};
+    var node = tree.nodeById(startId);
+    while (node != null && visited.add(node.id)) {
+      if (node.id != originSyntheticRootLocationId &&
+          node.value.name.trim().isNotEmpty) {
+        path.insert(0, node.value.name.trim());
+      }
+      node = tree.nodeById(node.parentId);
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('World Brief', style: _originLocationPreviewHeadingStyle),
+          const SizedBox(height: 8),
+          Text(
+            _originWorldoBrief(origin),
+            style: kLocationChatStyle.bubbleTextStyle.copyWith(
+              color: GenesisColors.darkTextSecondary,
+            ),
           ),
-        ),
+          if (startId.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                'Recommended start: ${location?.name.trim().isNotEmpty == true ? location!.name.trim() : 'Story Opening'}',
+                textAlign: TextAlign.center,
+                style: _originLocationPreviewHeadingStyle,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ChatLocationJumpCard(
+              names: names,
+              action: names.isEmpty
+                  ? 'Story Opening'
+                  : '${occupants.length == 1 ? 'is' : 'are'} now at',
+              parentPath: path.length > 1
+                  ? path.take(path.length - 1).join(' > ')
+                  : '',
+              locationName: location?.name ?? 'Opening location',
+              imageUrl: location?.icon ?? '',
+              onTap: onStart,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -141,6 +210,152 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     );
   }
 
+  Widget _buildInlineLocationRoles(OriginDetail origin) {
+    return _OriginSetupRoleSection(
+      title: 'Start by selecting your role',
+      bottomPadding: 4,
+      indicatorGap: 14,
+      shrinkWrap: true,
+      titleStyle: _originLocationPreviewHeadingStyle,
+      characters: origin.characters,
+      roleAvatarSnapshots: _roleAvatarSnapshots,
+      launchBusy: _launching,
+      profileRole: _openingProfileRole,
+      selectedRoleId: _effectiveLocationChatRoleId(origin),
+      onSelectedRoleChanged: _selectLocationChatRole,
+      onSaveProfileRole: _saveProfileRoleLocally,
+      profileCardPositionKey: GlobalKey(),
+      profileRoleEditing: false,
+      onBeginProfileRoleEditing: _editPreviewLocationRole,
+      onCancelProfileRoleEditing: () {},
+      onProfileRoleFocusChanged: (_) {},
+      onProfileRoleInternalInteractionChanged: (_) {},
+      onResumeProfileRoleInternalInteraction: (_) {},
+    );
+  }
+
+  Future<void> _editPreviewLocationRole() async {
+    final origin = _origin;
+    if (origin == null || _launching) return;
+    final selection = await showOriginRoleLaunchSheet(
+      context: context,
+      characters: origin.characters,
+      initialCustomTab: true,
+      onFillFromProfile: _customRoleFromProfile,
+      resolveAvatarUrl: _resolveAssetUrl,
+    );
+    if (!mounted || selection?.customRole == null) return;
+    _saveProfileRoleLocally(selection!.customRole!);
+    _selectLocationChatRole(_OriginWorldPageState._profileLocationChatRoleId);
+  }
+
+  void _openStoryOpeningLocation() {
+    final origin = _origin;
+    if (origin == null) return;
+    final id = _originLaunchChatLocationId(origin);
+    final location = origin.processedLocationTree.nodeById(id)?.value;
+    if (location == null) return;
+    final messages = _originLocationOpeningPreviewMessages(origin, [id]);
+    _setPreviewChatLocation(
+      _OriginLocationChatDescriptor(
+        originId: origin.oid,
+        locationId: id,
+        locationName: location.name,
+        backgroundImageUrl: _resolveAssetUrl(location.icon),
+        backgroundPreviewImageUrl: '',
+        isLeafLocation: location.locations.isEmpty,
+        openingPreviewMessages: messages,
+        openingPreviewEntities: _originLocationOpeningPreviewEntities(
+          origin.characters,
+          messages,
+          id,
+        ),
+      ),
+    );
+  }
+
+  List<WorldChatroomEntity> _locationPreviewOccupants(String id) {
+    final origin = _origin!;
+    final location = origin.processedLocationTree.nodeById(id)?.value;
+    if (location == null) return const [];
+    return [
+      for (final character in origin.characters)
+        if (_originCharacterIsAtLocation(character, location))
+          WorldChatroomEntity(
+            id: _characterStableId(character),
+            name: character.name,
+            avatarUrl: _resolveAssetUrl(character.avatar),
+            type: WorldChatroomEntityType.character,
+            locationId: id,
+            isAi: true,
+          ),
+    ];
+  }
+
+  Widget _buildLocationPreviewContent(
+    _OriginLocationChatDescriptor descriptor,
+  ) {
+    final opening = _originFirstInitialDialoguePreview(_origin!);
+    final messages = opening?.locationId == descriptor.locationId
+        ? opening!.messages
+        : <ChatMessageVm>[];
+    return CustomScrollView(
+      key: ValueKey('origin-location-content-${descriptor.locationId}'),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        if (descriptor.openingPreviewMessages.isEmpty)
+          SliverToBoxAdapter(
+            child: _OriginLocationChatEmptyState(
+              origin: _origin!,
+              onStart: _openStoryOpeningLocation,
+            ),
+          )
+        else
+          SliverPadding(
+            padding: kLocationChatStyle.messageListPadding,
+            sliver: SliverList.list(
+              children: [
+                for (final message in messages)
+                  ChatMessageRow(
+                    message: message,
+                    imageViewerMessages: messages,
+                    style: kLocationChatStyle,
+                    showDateDivider: false,
+                  ),
+              ],
+            ),
+          ),
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 42),
+                child: Builder(
+                  builder: (context) {
+                    final keyboardOpen =
+                        MediaQuery.viewInsetsOf(context).bottom > 0;
+                    return IgnorePointer(
+                      ignoring: keyboardOpen,
+                      child: AnimatedOpacity(
+                        opacity: keyboardOpen ? 0 : 1,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        child: _buildInlineLocationRoles(_origin!),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLocationChatOverlay() {
     final descriptor = _activeChatLocation;
     return Positioned.fill(
@@ -156,6 +371,10 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   ),
                   worldId: descriptor.originId,
                   modelWorldId: null,
+                  style: kLocationChatStyle.copyWith(
+                    composerBackgroundColor: Colors.transparent,
+                    composerBackdropBlurSigma: 0,
+                  ),
                   locationId: descriptor.locationId,
                   locationName: descriptor.locationName,
                   backgroundImageUrl: descriptor.backgroundImageUrl,
@@ -163,15 +382,75 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                       descriptor.backgroundPreviewImageUrl,
                   openingPreviewMessages: descriptor.openingPreviewMessages,
                   openingPreviewEntities: descriptor.openingPreviewEntities,
-                  emptyState: descriptor.openingPreviewMessages.isEmpty
-                      ? const _OriginLocationChatEmptyState()
-                      : null,
+                  previewContent: _buildLocationPreviewContent(descriptor),
+                  previewOccupants: _locationPreviewOccupants(
+                    descriptor.locationId,
+                  ),
+                  parentLocationName:
+                      _origin!.processedLocationTree
+                          .nodeById(
+                            _origin!.processedLocationTree
+                                    .nodeById(descriptor.locationId)
+                                    ?.parentId ??
+                                '',
+                          )
+                          ?.value
+                          .name ??
+                      '',
                   isLeafLocation: descriptor.isLeafLocation,
                   active: false,
                   leaveOnInactive: false,
                   showMoreButton: false,
                   onBack: _closeLocationChat,
-                  showComposer: false,
+                  showComposer: true,
+                  extendComposerBackground: false,
+                  composerTopOverlay: _OriginLocationChatRoleRegion(
+                    role: _locationChatRoleOption(_origin!),
+                    roleAvatarSnapshots: _roleAvatarSnapshots,
+                    enabled: !_launching,
+                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                    style: _originDetailSheetChatComposerStyle,
+                    foregroundColor: originWorldDetailSheetPrimaryTextColor,
+                    mutedColor: originWorldDetailSheetTertiaryTextColor,
+                    backgroundColor: kLocationChatStyle.inputBackgroundColor,
+                    borderRadius: 8,
+                  ),
+                  composerReplacement: _OriginLocationChatLaunchComposer(
+                    key: ValueKey(
+                      'origin-location-composer-${descriptor.locationId}',
+                    ),
+                    launching: _launching,
+                    sending:
+                        _activeLaunchSource ==
+                        OriginLaunchSource.openingMessage,
+                    role: _locationChatRoleOption(_origin!),
+                    roleAvatarSnapshots: _roleAvatarSnapshots,
+                    mentionCatalog: _originLocationChatMentionCatalog(
+                      _origin!,
+                      selectedRoleId: _effectiveLocationChatRoleId(_origin!),
+                    ),
+                    onSelectRole: () =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onSend: (message, mentions) => _launchLocationChatMessage(
+                      _origin!,
+                      locationId: descriptor.locationId,
+                      message: message,
+                      mentionCatalog: mentions,
+                    ),
+                    style: _originDetailSheetChatComposerStyle.copyWith(
+                      composerBackgroundColor: Colors.transparent,
+                      composerBackdropBlurSigma: 0,
+                    ),
+                    roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
+                    roleMutedColor: originWorldDetailSheetTertiaryTextColor,
+                    roleBackgroundColor:
+                        kLocationChatStyle.inputBackgroundColor,
+                    roleBorderRadius: 8,
+                    showShortcuts: false,
+                    enableMentionSheet: false,
+                    showRoleSelector: false,
+                    bottomSafeAreaInset: 0,
+                  ),
                 ),
               ),
       ),
@@ -386,6 +665,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
     this.showShortcuts = true,
+    this.showRoleSelector = true,
     this.enableMentionSheet = true,
     this.roleBorderRadius = 999,
     this.bottomSafeAreaInset,
@@ -410,6 +690,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleMutedColor;
   final Color roleBackgroundColor;
   final bool showShortcuts;
+  final bool showRoleSelector;
   final bool enableMentionSheet;
   final double roleBorderRadius;
   final double? bottomSafeAreaInset;
@@ -567,7 +848,7 @@ class _OriginLocationChatLaunchComposerState
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [roleRegion, composer],
+      children: [if (widget.showRoleSelector) roleRegion, composer],
     );
   }
 }
@@ -622,7 +903,7 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
             'origin-location-chat-dock-role-translation',
           ),
           offset: const Offset(0, _originLocationChatDockRoleOffsetY),
-          child: roleSelector,
+          child: Align(alignment: Alignment.centerLeft, child: roleSelector),
         ),
       ),
     );

@@ -5,6 +5,11 @@ const Color _originSetupRoleSelectedAccentColor = Color(0x73FF2442);
 class _OriginSetupRoleSection extends StatefulWidget {
   const _OriginSetupRoleSection({
     super.key,
+    this.title = 'Select Your Role',
+    this.bottomPadding = _bottomPadding,
+    this.indicatorGap = 14,
+    this.titleStyle,
+    this.shrinkWrap = false,
     required this.characters,
     required this.roleAvatarSnapshots,
     required this.launchBusy,
@@ -25,6 +30,11 @@ class _OriginSetupRoleSection extends StatefulWidget {
   static const double _bottomPadding = 28;
   static const double _composerClearance = 16;
 
+  final String title;
+  final double bottomPadding;
+  final double indicatorGap;
+  final TextStyle? titleStyle;
+  final bool shrinkWrap;
   final List<OriginCharacter> characters;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
@@ -234,28 +244,29 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final cardsController = _cardsController;
     if (cardsController == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: _OriginSetupRoleSection._bottomPadding,
-      ),
+      padding: EdgeInsets.only(bottom: widget.bottomPadding),
       child: Column(
+        mainAxisSize: widget.shrinkWrap ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: const SizedBox(
+            child: SizedBox(
               width: double.infinity,
               child: Text(
-                'Select Your Role',
+                widget.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: originWorldDetailSheetPrimaryTextColor,
-                  decoration: TextDecoration.none,
-                ),
+                style:
+                    widget.titleStyle ??
+                    const TextStyle(
+                      fontSize: 14,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: originWorldDetailSheetPrimaryTextColor,
+                      decoration: TextDecoration.none,
+                    ),
               ),
             ),
           ),
@@ -346,7 +357,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: widget.indicatorGap),
           _OriginRoleCardsIndicator(
             count: cardCount,
             currentIndex: currentCardIndex,

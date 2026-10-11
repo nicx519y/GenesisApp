@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../network/models/gem_wallet.dart';
+import '../debug/membership_debug_override.dart';
 import '../gems/gem_wallet_store.dart';
 
 enum MembershipAccessStatus { unknown, active, inactive }
@@ -50,6 +51,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
     this.retryDelay = const Duration(seconds: 2),
   }) : _elapsed = elapsed ?? _startElapsedClock() {
     wallet.state.addListener(_walletChanged);
+    membershipDebugOverride.addListener(_debugOverrideChanged);
   }
 
   final GemWalletStore wallet;
@@ -84,6 +86,11 @@ class MembershipAccessStore with WidgetsBindingObserver {
   /// Calls [callback] once, asynchronously, whether using cache or the network.
   /// True means VIP, false means non-VIP, and null means not yet confirmed.
   void checkVip(ValueChanged<bool?> callback) {
+    final forced = _debugOverride();
+    if (forced != null) {
+      scheduleMicrotask(() => callback(_disposed ? null : forced.isVip));
+      return;
+    }
     final session = _session;
     unawaited(
       _ensureFresh().then((status) {
@@ -371,14 +378,60 @@ class MembershipAccessStore with WidgetsBindingObserver {
   MembershipAccessState _snapshot({
     MembershipAccessStatus? status,
     bool refreshing = false,
-  }) => MembershipAccessState(
-    status: status ?? _status(),
-    ownerUid: _ownerUid,
-    membership: _membership,
-    isRefreshing: refreshing,
-    lastError: _lastError,
-    isExpired: _isExpired,
-  );
+  }) =>
+      _debugOverride(refreshing: refreshing) ??
+      MembershipAccessState(
+        status: status ?? _status(),
+        ownerUid: _ownerUid,
+        membership: _membership,
+        isRefreshing: refreshing,
+        lastError: _lastError,
+        isExpired: _isExpired,
+      );
+
+  /// The membership forced from the Developer panel, or null to use the
+  /// account's own. Dates count from now so the plan reads as current.
+  MembershipAccessState? _debugOverride({bool refreshing = false}) {
+    final override = activeMembershipDebugOverride;
+    if (override == MembershipDebugOverride.off) return null;
+    final now = serverNow() ?? DateTime.now().toUtc();
+    final (status, planCode, expiresAt) = switch (override) {
+      MembershipDebugOverride.yearly => (
+        1,
+        'pro_yearly',
+        now.add(const Duration(days: 365)),
+      ),
+      MembershipDebugOverride.monthly => (
+        1,
+        'pro_monthly',
+        now.add(const Duration(days: 30)),
+      ),
+      MembershipDebugOverride.expired => (
+        2,
+        'pro_monthly',
+        now.subtract(const Duration(days: 3)),
+      ),
+      MembershipDebugOverride.none ||
+      MembershipDebugOverride.off => (0, '', null),
+    };
+    return MembershipAccessState(
+      status: status == 1
+          ? MembershipAccessStatus.active
+          : MembershipAccessStatus.inactive,
+      ownerUid: _ownerUid,
+      membership: GemWalletMembership(
+        status: status,
+        planCode: planCode,
+        expiresAt: expiresAt,
+        autoRenew: status == 1,
+        blueGemsCent: _membership?.blueGemsCent ?? 0,
+      ),
+      isRefreshing: refreshing,
+      isExpired: override == MembershipDebugOverride.expired,
+    );
+  }
+
+  void _debugOverrideChanged() => _publish();
 
   void resetForSession() {
     if (_disposed) return;
@@ -418,6 +471,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
     _session++;
     _cacheTimer?.cancel();
     wallet.state.removeListener(_walletChanged);
+    membershipDebugOverride.removeListener(_debugOverrideChanged);
     if (_started) WidgetsBinding.instance.removeObserver(this);
     _state.dispose();
   }

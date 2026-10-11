@@ -170,6 +170,10 @@ ChatMentionCatalog locationChatMentionCatalogForState(
         name: normalizeGenesisUgcTextForDisplay(name),
         type: ChatMentionType.location,
         subtitle: normalizeGenesisUgcTextForDisplay(parentName),
+        imageUrl: GenesisImageResource.fromJson(
+          node.value['image'],
+          fallback: node.value['icon'],
+        ).displayUrl,
         isNew: isLevel3 && asBool(node.value['is_new']),
         isCurrentLocation: resolvedCurrentLocationIds.contains(id),
       ),

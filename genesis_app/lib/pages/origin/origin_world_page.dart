@@ -156,6 +156,12 @@ bool originOpeningDialogueShouldFullyCacheForTesting({
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
 class _OriginWorldPageState extends State<OriginWorldPage> {
+  void _setPreviewChatLocation(_OriginLocationChatDescriptor location) {
+    setState(() => _activeChatLocation = location);
+  }
+
+  final _roleSheetKey = GlobalKey<_OriginDetailDraggableSheetState>();
+
   static const String _profileLocationChatRoleId = 'current-user';
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       kGenesisLightStatusIconsSystemUiOverlayStyle;
@@ -1037,6 +1043,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
+              key: _roleSheetKey,
               origin: origin,
               roleAvatarSnapshots: _roleAvatarSnapshots,
               minChildSize: minChildSize,

@@ -84,6 +84,7 @@ double _originDetailExpandedChildSize(
 
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
+    super.key,
     required this.origin,
     required this.roleAvatarSnapshots,
     required this.minChildSize,
@@ -200,8 +201,7 @@ class _OriginDetailDraggableSheetState
   PageController get _pageController => _sheetInteraction.pageController;
   int get _currentPage => _sheetInteraction.currentPage;
   double _expandedOpeningComposerReservedHeight(BuildContext context) {
-    return _expandedOpeningComposerHeightWithoutSafeArea +
-        GenesisSafeAreaInsets.bottom(context);
+    return _expandedOpeningComposerHeightWithoutSafeArea;
   }
 
   bool get _openingKeyboardMode => _sheetInteraction.keyboardMode;
@@ -974,6 +974,7 @@ class _OriginDetailDraggableSheetState
   }
 
   void _handleOpeningComposerFocusChanged(bool hasFocus) {
+    if (hasFocus && !_isRaised) _expandOpeningRoleCards();
     _sheetInteraction.handleComposerFocusChanged(hasFocus);
   }
 
@@ -1017,7 +1018,7 @@ class _OriginDetailDraggableSheetState
         return IgnorePointer(
           key: const ValueKey<String>('origin-opening-select-role-visibility'),
           ignoring: !visible,
-          child: Opacity(opacity: visible ? 1 : 0, child: child),
+          child: const SizedBox.shrink(),
         );
       },
     );
@@ -1067,7 +1068,7 @@ class _OriginDetailDraggableSheetState
               // Keyboard frame updates are owned by `_sheetInteraction`.
               // Depending on `MediaQuery.viewInsets` here would subscribe the
               // whole draggable sheet State to every intermediate IME inset.
-              bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
+              bottomSafeAreaInset: 0,
               onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
               onFocusChanged: _handleOpeningComposerFocusChanged,
               onSendCompleted: (launched) {
@@ -1084,7 +1085,7 @@ class _OriginDetailDraggableSheetState
         ),
       ),
       builder: (context, child) {
-        final opacity = _expandedOpeningComposerProgress(context);
+        final opacity = _currentPage == 0 ? 1.0 : 0.0;
         return IgnorePointer(
           key: const ValueKey<String>(
             'origin-expanded-opening-composer-visibility',
@@ -1096,27 +1097,13 @@ class _OriginDetailDraggableSheetState
     );
   }
 
-  double _expandedOpeningComposerProgress(BuildContext context) {
-    if (_openingKeyboardMode) return 1;
-    final sheetExtent = _sheetController.isAttached
-        ? _sheetController.size
-        : widget.initiallyExpanded
-        ? _expandedChildSize(context)
-        : _minChildSize;
-    return _sheetInteraction.expandedOpeningComposerProgress(
-      sheetExtent: sheetExtent,
-      minChildSize: _minChildSize,
-      autoExpansionPending: widget.autoExpansionPending,
-    );
-  }
-
   void _handleExpandedInputDockHeightChanged(double _) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final height =
           _expandedOpeningComposerMeasureKey.currentContext?.size?.height;
       if (height == null) return;
-      final includedBottomSafeArea = GenesisSafeAreaInsets.bottom(context);
+      const includedBottomSafeArea = 0.0;
       final heightWithoutSafeArea = math.max(
         0.0,
         height - includedBottomSafeArea,
@@ -1707,34 +1694,8 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
         onVerticalDragEnd: onVerticalDragEnd,
         onVerticalDragCancel: onVerticalDragCancel,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SvgPicture.string(
-                '<svg viewBox="0 0 16 9"><path d="M1.5 7.5 L8 2 L14.5 7.5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>',
-                key: const ValueKey<String>('origin-opening-select-role-arrow'),
-                width: 14,
-                height: 8,
-                colorFilter: const ColorFilter.mode(
-                  originWorldDetailSheetSelectRoleArrowColor,
-                  BlendMode.srcIn,
-                ),
-              ),
-              const SizedBox(height: 7),
-              const Text(
-                'Select your role',
-                key: ValueKey<String>('origin-opening-select-role-label'),
-                style: TextStyle(
-                  color: originWorldDetailSheetSecondaryTextColor,
-                  fontSize: 11,
-                  height: 1,
-                  fontWeight: FontWeight.w600,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: _OriginRoleInputEntry(onTap: onTap),
         ),
       ),
     );
