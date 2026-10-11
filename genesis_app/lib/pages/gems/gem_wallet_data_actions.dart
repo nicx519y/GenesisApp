@@ -30,6 +30,23 @@ extension _GemWalletDataActions on _GemWalletPageState {
       _productsError = null;
       if (!silent) _products = null;
     });
+    if (widget.productsLoader == null) {
+      unawaited(() async {
+        final snapshot = await AppServicesScope.read(
+          context,
+        ).gemStoreCatalog.loadCached();
+        if (!mounted ||
+            generation != _productsRequestGeneration ||
+            !_productsLoading ||
+            snapshot == null) {
+          return;
+        }
+        _updateState(() {
+          _products = snapshot;
+          _primaryLoading = false;
+        });
+      }());
+    }
     try {
       final products = await future;
       if (!mounted || generation != _productsRequestGeneration) return;
@@ -77,9 +94,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
   Future<List<GemProduct>> _loadProducts() async {
     final loader = widget.productsLoader;
     if (loader != null) return loader(context);
-    return (await AppServicesScope.read(
-      context,
-    ).api.v1.gem.products()).products;
+    return AppServicesScope.read(context).gemStoreCatalog.load();
   }
 
   Future<List<GemTaskGroup>> _loadTasks() async {
@@ -197,17 +212,11 @@ extension _GemWalletDataActions on _GemWalletPageState {
               mode: LaunchMode.externalApplication,
             );
       if (!launched && mounted) {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.meFailedOpenDiscord,
-        );
+        showGenesisToast(context, GenesisL10n.current.meFailedOpenDiscord);
       }
     } catch (_) {
       if (mounted) {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.meFailedOpenDiscord,
-        );
+        showGenesisToast(context, GenesisL10n.current.meFailedOpenDiscord);
       }
     }
   }
@@ -240,12 +249,8 @@ extension _GemWalletDataActions on _GemWalletPageState {
         showGenesisToast(
           context,
           claimingDailyReward
-              ? GenesisL10n
-                    .current
-                    .gemsClaimFailed
-              : GenesisL10n
-                    .current
-                    .gemsCheckFailed,
+              ? GenesisL10n.current.gemsClaimFailed
+              : GenesisL10n.current.gemsCheckFailed,
         );
         return;
       }
@@ -268,18 +273,10 @@ extension _GemWalletDataActions on _GemWalletPageState {
       final message = switch (taskCode) {
         'daily_checkin' =>
           claimingDailyReward
-              ? GenesisL10n
-                    .current
-                    .gemsClaimFailed
-              : GenesisL10n
-                    .current
-                    .gemsCheckFailed,
-        'discord_follow' =>
-          GenesisL10n.current.gemsFollowFailed,
-        _ =>
-          GenesisL10n
-              .current
-              .gemsTaskUpdateFailed,
+              ? GenesisL10n.current.gemsClaimFailed
+              : GenesisL10n.current.gemsCheckFailed,
+        'discord_follow' => GenesisL10n.current.gemsFollowFailed,
+        _ => GenesisL10n.current.gemsTaskUpdateFailed,
       };
       showGenesisToast(context, message);
     } finally {
@@ -296,10 +293,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       final result = await _claimTask(taskCode);
       if (!mounted) return;
       if (result.status != 'claimed') {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.gemsClaimFailed,
-        );
+        showGenesisToast(context, GenesisL10n.current.gemsClaimFailed);
         return;
       }
       trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
@@ -311,19 +305,14 @@ extension _GemWalletDataActions on _GemWalletPageState {
             )
           : showGemTaskSuccessDialog(
               context,
-              title: GenesisL10n
-                  .current
-                  .gemsClaimSuccessful,
+              title: GenesisL10n.current.gemsClaimSuccessful,
               rewardGemsCent: rewardGemsCent,
             );
       unawaited(_refreshTasksAndWallet());
       await successDialog;
     } catch (_) {
       if (mounted)
-        showGenesisToast(
-          context,
-          GenesisL10n.current.gemsClaimFailed,
-        );
+        showGenesisToast(context, GenesisL10n.current.gemsClaimFailed);
     } finally {
       _endTaskAction(taskCode);
     }

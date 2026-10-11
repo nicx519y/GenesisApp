@@ -336,6 +336,27 @@ void main() {
   }
 
   test(
+    'store price changed after UI confirmation never launches purchase',
+    () async {
+      await service.start();
+      await service.purchaseGem(
+        _product.withStorePrice(
+          formatted: r'$9.99',
+          micros: 9990000,
+          currency: 'USD',
+        ),
+      );
+      await _settle();
+      expect(platform.buyCount, 0);
+      expect(service.state.value.hasBusyPurchase, isFalse);
+      expect(
+        uiEvents.any((event) => event.kind == BillingUiEventKind.failure),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     'removed Firebase purchase events stay absent through recovery',
     () async {
       final client = enableFirebaseAnalytics();

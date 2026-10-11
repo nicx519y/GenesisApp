@@ -146,6 +146,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   BillingService? _billingService;
   StreamSubscription<BillingUiEvent>? _billingEvents;
   PageRoute<dynamic>? _subscribedRoute;
+  bool _checkingStorePrice = false;
   int _productsRequestGeneration = 0;
   int _tasksRequestGeneration = 0;
   final Set<String> _loadingTaskCodes = <String>{};

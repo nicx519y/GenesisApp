@@ -285,7 +285,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [1, 1, 1, 1, 1, 1],
+            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
           );
           expect(
             telemetry.events
@@ -315,7 +315,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [1, 1, 1, 1, 1, 1],
+            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
           );
           // Returning to the foreground while Subscription is selected must
           // not issue background Gems page requests, even after visiting Gems.
@@ -653,45 +653,46 @@ void main() {
     expect(events.single.data.containsKey('object2'), isFalse);
   });
 
-  testWidgets('purchase service unavailable records click and precheck failure', (
-    tester,
-  ) async {
-    final telemetry = _CapturingTelemetrySink();
-    GenesisTelemetry.setSinkForTesting(telemetry);
-    final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balanceCent: 43000),
-      readUid: () async => 'u_user',
-    );
-    addTearDown(walletStore.dispose);
+  testWidgets(
+    'purchase service unavailable records click and precheck failure',
+    (tester) async {
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      final walletStore = GemWalletStore(
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+        readUid: () async => 'u_user',
+      );
+      addTearDown(walletStore.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GemWalletPage(
-          walletStore: walletStore,
-          productsLoader: (_) async => _products(),
-          tasksLoader: (_) async => [],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemWalletPage(
+            walletStore: walletStore,
+            productsLoader: (_) async => _products(),
+            tasksLoader: (_) async => [],
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
-    );
-    await tester.pump();
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+      );
+      await tester.pump();
 
-    final purchaseEvents = telemetry.events
-        .where((event) => event.name == 'pay_event')
-        .toList();
-    expect(purchaseEvents.map((event) => event.data['action']), [
-      'product_click',
-      'purchase_failed',
-    ]);
-    expect(
-      purchaseEvents.last.collectPayload?['object3'],
-      'precheck_failed[service_unavailable]',
-    );
-    await tester.pump(const Duration(seconds: 3));
-  });
+      final purchaseEvents = telemetry.events
+          .where((event) => event.name == 'pay_event')
+          .toList();
+      expect(purchaseEvents.map((event) => event.data['action']), [
+        'product_click',
+        'purchase_failed',
+      ]);
+      expect(
+        purchaseEvents.last.collectPayload?['object3'],
+        'precheck_failed[service_unavailable]',
+      );
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
     tester,

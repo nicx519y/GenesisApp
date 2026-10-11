@@ -33,6 +33,25 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
   }
 
   Future<void> _purchaseProduct(GemProduct product) async {
+    if (_checkingStorePrice) return;
+    if (product.requiresStorePrice) {
+      final catalog = AppServicesScope.read(context).gemStoreCatalog;
+      _checkingStorePrice = true;
+      try {
+        final fresh = await catalog.confirm(product);
+        if (!mounted) return;
+        _updateState(() {
+          _products = catalog.cached;
+        });
+        if (fresh == null) return;
+        product = fresh;
+      } catch (_) {
+        if (mounted) unawaited(_refreshProducts(silent: true));
+        return;
+      } finally {
+        _checkingStorePrice = false;
+      }
+    }
     final service =
         _billingService ??
         widget.billingService ??
@@ -57,9 +76,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          GenesisL10n
-              .current
-              .meGooglePlayUnavailable,
+          GenesisL10n.current.meGooglePlayUnavailable,
           debugInfo: purchaseDebugInfo(
             'gems.precheck',
             reason: 'service_unavailable',

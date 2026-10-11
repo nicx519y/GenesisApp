@@ -1,3 +1,5 @@
+import '../gems/gem_store_catalog.dart';
+import '../../platform/billing/membership_product_store.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_language_controller.dart';
 import 'dart:async';
@@ -83,6 +85,7 @@ class AppServices {
        membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
+             loadStorePrices: MembershipProductStore().loadPrices,
              loadProducts: (provider) async => api.v1.membership.products(
                provider: provider,
                deviceId: await deviceId.getDeviceId(),
@@ -146,6 +149,15 @@ class AppServices {
       this.membershipCatalog.invalidate,
     );
   }
+
+  late final GemStoreCatalog gemStoreCatalog = GemStoreCatalog(
+    loadProducts: () async => (await api.v1.gem.products()).products,
+    platform: defaultTargetPlatform == TargetPlatform.iOS
+        ? AppStoreBillingPlatform()
+        : GooglePlayBillingPlatform(),
+    namespace: '${config.effectiveApiEnvironment}|${platformConfig.apiBaseUrl}',
+    readOwner: sessionStore.readLoginUid,
+  );
 
   final AppConfig config;
   final PlatformConfig platformConfig;
@@ -246,6 +258,7 @@ class AppServices {
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
     membershipCatalog.resetForSession();
+    gemStoreCatalog.reset();
     membership.resetForSession();
     unawaited(membership.start());
     membershipPurchases?.resetForSession();
@@ -269,6 +282,7 @@ class AppServices {
       membershipCatalog.invalidate,
     );
     membershipCatalog.resetForSession();
+    gemStoreCatalog.reset();
     sessionRevision.removeListener(_membershipSessionChanged);
     gemWallet.state.removeListener(_featureQuotaMembershipChanged);
     api.chatroomHttp.onFeatureQuotaRequest = null;

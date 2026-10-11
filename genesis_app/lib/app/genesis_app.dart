@@ -85,8 +85,12 @@ class GenesisApp extends StatelessWidget {
                             child: PersonalizationGate(
                               appConfig: services.appGlobalConfig,
                               store: services.personalization,
-                              preloadMembership:
-                                  services.membershipCatalog.preload,
+                              preloadMembership: () async {
+                                await Future.wait([
+                                  services.membershipCatalog.preload(),
+                                  services.gemStoreCatalog.preload(),
+                                ]);
+                              },
                               loginPending: services
                                   .membershipPurchases
                                   ?.guestLoginRequestId,

@@ -408,6 +408,22 @@ class GooglePlayBillingService implements BillingService {
         }
 
         final storeProduct = queryResult.product!;
+        if (product.requiresStorePrice &&
+            (product.storeAmountMicros != storeProduct.priceAmountMicros ||
+                product.storeCurrencyCode != storeProduct.priceCurrencyCode)) {
+          _clearActiveAttempt(storeProductId, attempt);
+          _emitFailure(
+            product.productId,
+            attemptId,
+            _productQueryFailureMessage('product_not_found'),
+            debugInfo: purchaseDebugInfo(
+              'gems.price_check',
+              reason: 'store_price_changed',
+            ),
+          );
+          _trackPrecheckFailure(product, attemptId, 'store_price_changed');
+          return;
+        }
         final storeCurrency = storeProduct.priceCurrencyCode.trim();
         if (storeProduct.priceAmountMicros >= 0 && storeCurrency.isNotEmpty) {
           attempt = attempt.copyWithStorePrice(

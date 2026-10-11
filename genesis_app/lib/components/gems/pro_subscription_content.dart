@@ -3,7 +3,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -162,7 +161,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     if (state != AppLifecycleState.resumed) {
       _clearCheckoutPreparation();
     } else if (!_submitting && _hasFreshCatalog) {
-      _prepareSelectedCheckout();
+      unawaited(_load(silent: true, forceRefresh: true));
     }
   }
 
@@ -348,6 +347,23 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       if (!_hasFreshCatalog) {
         await _load(forceRefresh: true);
         return;
+      }
+      if (_catalog?.loadStorePrices != null) {
+        final previous = _offerFor(_plan);
+        await _load(silent: true, forceRefresh: true);
+        if (!mounted || !_hasFreshCatalog) return;
+        final current = _offerFor(_plan);
+        if (current?.storePrice == null ||
+            current?.price == null ||
+            previous?.price?.amount != current?.price?.amount ||
+            previous?.price?.currencyCode != current?.price?.currencyCode ||
+            previous?.product.storeProductId !=
+                current?.product.storeProductId ||
+            previous?.product.basePlanId != current?.product.basePlanId ||
+            previous?.product.offerId != current?.product.offerId) {
+          // Updated conditions stay visible; a new tap confirms the new price.
+          return;
+        }
       }
       await _subscribe();
     } finally {
@@ -787,7 +803,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         foregroundColor: premiumInkOnGold,
         label: subscribed
             ? GenesisL10n.current.premiumSubscribed
-            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
+            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? GenesisL10n.current.premiumPurchaseUnavailable}',
         height: 44,
         fontSize: 18,
         fontWeight: FontWeight.w600,
@@ -1135,13 +1151,12 @@ class _ProPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final price = offer?.price;
     final monthlyPrice = price == null
-        ? ''
+        ? GenesisL10n.current.premiumPurchaseUnavailable
         : plan == _ProPlan.yearly
-        ? NumberFormat.simpleCurrency(
-            locale: Localizations.localeOf(context).toString(),
-            name: price.currencyCode,
-            decimalDigits: 2,
-          ).format(price.amountCent / 100 / offer!.product.billingMonths)
+        ? price.monthlyEquivalent(
+            Localizations.localeOf(context).toString(),
+            offer!.product.billingMonths,
+          )
         : price.formattedPrice;
     final note = plan == _ProPlan.yearly
         ? (price == null
@@ -1156,7 +1171,9 @@ class _ProPlanCard extends StatelessWidget {
       label: context.l10n.subscriptionPlanAccessibility(
         period: plan.period,
         plan: plan.label,
-        price: price?.formattedPrice ?? '',
+        price:
+            price?.formattedPrice ??
+            GenesisL10n.current.premiumPurchaseUnavailable,
       ),
       child: Stack(
         clipBehavior: Clip.none,

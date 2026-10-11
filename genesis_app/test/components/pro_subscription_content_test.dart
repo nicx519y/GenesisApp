@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/platform/billing/membership_product_store.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -975,6 +976,47 @@ void main() {
     },
   );
 
+  testWidgets('store KRW prices fill both cards and the selected button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      page(
+        () async => MembershipCatalogData(
+          offers: [
+            MembershipOffer(
+              product: membershipProduct(yearly: true),
+              requiresStorePrice: true,
+              storePrice: const MembershipStorePrice(
+                formattedPrice: '₩120,000',
+                amountMicros: 120000000000,
+                currencyCode: 'KRW',
+                currencySymbol: '₩',
+              ),
+            ),
+            MembershipOffer(
+              product: membershipProduct(),
+              requiresStorePrice: true,
+              storePrice: const MembershipStorePrice(
+                formattedPrice: '₩12,000',
+                amountMicros: 12000000000,
+                currencyCode: 'KRW',
+                currencySymbol: '₩',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Yearly: ₩120,000'), findsOneWidget);
+    expect(find.textContaining('12,000', findRichText: true), findsWidgets);
+    expect(find.text('Save 17%'), findsOneWidget);
+    expect(find.textContaining(r'$99.99', findRichText: true), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+    await tester.pump();
+    expect(find.text('Monthly: ₩12,000'), findsOneWidget);
+  });
+
   testWidgets('a single unpriced monthly product supplies its own display', (
     tester,
   ) async {
@@ -994,7 +1036,10 @@ void main() {
     expect(find.text('Monthly VIP'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
-    expect(find.text('Monthly: '), findsOneWidget);
+    expect(
+      find.text('Monthly: Premium purchase is currently unavailable.'),
+      findsOneWidget,
+    );
   });
 
   _testWidgets(

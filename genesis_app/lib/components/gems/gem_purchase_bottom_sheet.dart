@@ -33,10 +33,7 @@ Future<void> showGemPurchaseBottomSheet(
 }) async {
   final services = AppServicesScope.maybeRead(context);
   final resolvedProductsLoader =
-      productsLoader ??
-      (services == null
-          ? null
-          : () async => (await services.api.v1.gem.products()).products);
+      productsLoader ?? services?.gemStoreCatalog.load;
   final resolvedWalletStore = walletStore ?? services?.gemWallet;
   final resolvedBillingService = billingService ?? services?.billing;
   if (resolvedProductsLoader == null ||
@@ -46,9 +43,7 @@ Future<void> showGemPurchaseBottomSheet(
       showGenesisToast(
         context,
         purchaseToastMessage(
-          GenesisL10n
-              .current
-              .gemsUnableLoadGemPacks,
+          GenesisL10n.current.gemsUnableLoadGemPacks,
           debugInfo: purchaseDebugInfo(
             'gems.precheck',
             reason: 'service_unavailable',
@@ -118,8 +113,7 @@ Future<void> showSubscriptionPurchaseBottomSheet(
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
-                  productsLoader: () async =>
-                      (await services.api.v1.gem.products()).products,
+                  productsLoader: services.gemStoreCatalog.load,
                   walletStore: services.gemWallet,
                   billingService: billingService,
                 ),
@@ -156,7 +150,18 @@ class GemPurchaseBottomSheet extends StatefulWidget {
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
 }
 
-class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
+class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
+    with WidgetsBindingObserver {
+  bool _checkingPrice = false;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        !_checkingPrice &&
+        !widget.billingService.state.value.hasBusyPurchase) {
+      unawaited(_loadProducts());
+    }
+  }
+
   List<GemProduct>? _products;
   Object? _productsError;
   bool _productsLoading = false;
@@ -171,6 +176,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _billingEvents = widget.billingService.events.listen(_handleBillingEvent);
     unawaited(widget.billingService.start());
     unawaited(widget.walletStore.refresh());
@@ -179,6 +185,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _productsRequestGeneration += 1;
     _billingEvents?.cancel();
     _disposePurchaseDialogState();
@@ -191,6 +198,21 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       _productsLoading = true;
       _productsError = null;
     });
+    final catalog = AppServicesScope.maybeRead(context)?.gemStoreCatalog;
+    if (catalog != null) {
+      unawaited(() async {
+        final snapshot = await catalog.loadCached();
+        if (!mounted ||
+            generation != _productsRequestGeneration ||
+            !_productsLoading ||
+            snapshot == null) {
+          return;
+        }
+        setState(() {
+          _products = snapshot;
+        });
+      }());
+    }
     try {
       final products = await widget.productsLoader();
       if (!mounted || generation != _productsRequestGeneration) return;
@@ -208,7 +230,28 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   }
 
   Future<void> _purchase(GemProduct product) async {
-    if (widget.billingService.state.value.hasBusyPurchase) return;
+    if (_checkingPrice || widget.billingService.state.value.hasBusyPurchase) {
+      return;
+    }
+    if (product.requiresStorePrice) {
+      final catalog = AppServicesScope.maybeRead(context)?.gemStoreCatalog;
+      if (catalog == null) return;
+      _checkingPrice = true;
+      try {
+        final fresh = await catalog.confirm(product);
+        if (!mounted) return;
+        setState(() {
+          _products = catalog.cached;
+        });
+        if (fresh == null) return;
+        product = fresh;
+      } catch (_) {
+        if (mounted) unawaited(_loadProducts());
+        return;
+      } finally {
+        _checkingPrice = false;
+      }
+    }
     _startedProductIds.add(product.productId);
     _showPurchaseProcessing(attemptId: '');
     try {
@@ -379,17 +422,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     }
     if (_productsError != null && products == null) {
       return GemPurchaseState(
-        message: GenesisL10n
-            .current
-            .gemsUnableLoadGemPacks,
+        message: GenesisL10n.current.gemsUnableLoadGemPacks,
         onRetry: () => unawaited(_loadProducts()),
       );
     }
     if (products == null || products.isEmpty) {
       return GemPurchaseState(
-        message: GenesisL10n
-            .current
-            .gemsNoGemPacksAvailable,
+        message: GenesisL10n.current.gemsNoGemPacksAvailable,
       );
     }
     return GemProductGrid(

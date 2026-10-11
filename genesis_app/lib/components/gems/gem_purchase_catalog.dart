@@ -80,9 +80,7 @@ class GemBalancePanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                GenesisL10n
-                    .current
-                    .meMyBalance,
+                GenesisL10n.current.meMyBalance,
                 style: TextStyle(
                   fontSize: 14,
                   height: 18 / 14,
@@ -317,13 +315,12 @@ class GemProductCard extends StatelessWidget {
                         'gem-product-price-${product.productId}',
                       ),
                       label: isSoldOut
-                          ? GenesisL10n
-                                .current
-                                .meSoldOut
-                          : formatGemPrice(
-                              product.priceAmount,
-                              product.priceCurrencyCode,
-                            ),
+                          ? GenesisL10n.current.meSoldOut
+                          : product.storeFormattedPrice ??
+                                formatGemPrice(
+                                  product.priceAmount,
+                                  product.priceCurrencyCode,
+                                ),
                       onPressed: enabled ? onPurchase : null,
                       height: kGemPriceButtonHeight,
                       padding: EdgeInsets.zero,
@@ -386,9 +383,7 @@ String formatGemPrice(int cents, String currencyCode) {
   if (text.endsWith('0')) text = text.substring(0, text.length - 1);
   if (text.endsWith('.0')) text = text.substring(0, text.length - 2);
   final cleanCurrencyCode = currencyCode.trim().toUpperCase();
-  final currencyLabel =
-      cleanCurrencyCode ==
-          GenesisL10n.current.meUsd
+  final currencyLabel = cleanCurrencyCode == GenesisL10n.current.meUsd
       ? r'$'
       : cleanCurrencyCode;
   return '$currencyLabel$text';
