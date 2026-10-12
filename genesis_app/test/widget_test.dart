@@ -18079,6 +18079,15 @@ void main() {
             'The composer excluding its persistent safe area ends at the '
             'keyboard top.',
       );
+      final inputSurface = find.descendant(
+        of: composer,
+        matching: find.byKey(const ValueKey('chat-composer-input-surface')),
+      );
+      expect(
+        tester.getRect(inputSurface).bottom,
+        lessThanOrEqualTo(480 + 1),
+        reason: 'The Opening input surface must remain above the keyboard.',
+      );
       expect(
         tester.widget<CustomScrollView>(normalOpeningList).physics,
         isA<ClampingScrollPhysics>(),
@@ -19201,9 +19210,14 @@ void main() {
     },
   );
 
-  testWidgets('Origin map location is browse-only', (
+  testWidgets('Origin map location composer stays above the iOS keyboard', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.reset);
     AppStartupCoordinator.resetForTesting();
     addTearDown(AppStartupCoordinator.resetForTesting);
     final transport = _RecordingV1ListTransport(
@@ -19232,6 +19246,7 @@ void main() {
           chatroom: chatroom,
         ),
         child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
         ),
@@ -19247,24 +19262,44 @@ void main() {
       const ValueKey<String>('origin-location-chat-l_o_test_1'),
     );
     expect(chatPanel, findsOneWidget);
-    expect(tester.widget<LocationChatPanel>(chatPanel).showComposer, isFalse);
-    expect(
-      find.descendant(
-        of: chatPanel,
-        matching: find.byType(LocationChatComposerInput),
-      ),
-      findsNothing,
+    expect(tester.widget<LocationChatPanel>(chatPanel).showComposer, isTrue);
+    final composer = find.descendant(
+      of: chatPanel,
+      matching: find.byType(LocationChatComposerInput),
     );
-    expect(
-      find.descendant(of: chatPanel, matching: find.byType(ChatComposer)),
-      findsNothing,
+    expect(composer, findsOneWidget);
+    final input = find.descendant(
+      of: composer,
+      matching: find.byKey(const ValueKey('chat-composer-input')),
     );
+    final inputSurface = find.descendant(
+      of: composer,
+      matching: find.byKey(const ValueKey('chat-composer-input-surface')),
+    );
+    expect(input, findsOneWidget);
+    expect(inputSurface, findsOneWidget);
     expect(
-      find.descendant(
-        of: chatPanel,
-        matching: find.byKey(const ValueKey('chat-composer-input')),
-      ),
-      findsNothing,
+      tester.getRect(inputSurface).bottom,
+      lessThanOrEqualTo(844 - 34 + 1),
+      reason: 'The preview input clears the home indicator before focus.',
+    );
+    await tester.tap(input);
+    await tester.pump();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    for (var frame = 0; frame < 12; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(
+      tester.getRect(inputSurface).bottom,
+      lessThanOrEqualTo(844 - 300 + 1),
+      reason: 'The preview input surface must remain above the keyboard.',
+    );
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(inputSurface).bottom,
+      lessThanOrEqualTo(844 - 34 + 1),
+      reason: 'The preview input returns above the home indicator.',
     );
     expect(
       find.descendant(
@@ -19273,11 +19308,11 @@ void main() {
           const ValueKey<String>('origin-location-chat-role-region'),
         ),
       ),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey<String>('location-chat-composer-top-overlay')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.descendant(

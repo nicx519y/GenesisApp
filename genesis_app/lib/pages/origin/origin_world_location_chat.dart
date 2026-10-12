@@ -449,7 +449,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                     showShortcuts: false,
                     enableMentionSheet: false,
                     showRoleSelector: false,
-                    bottomSafeAreaInset: 0,
+                    bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
                   ),
                 ),
               ),

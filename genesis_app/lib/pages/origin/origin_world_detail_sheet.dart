@@ -201,7 +201,8 @@ class _OriginDetailDraggableSheetState
   PageController get _pageController => _sheetInteraction.pageController;
   int get _currentPage => _sheetInteraction.currentPage;
   double _expandedOpeningComposerReservedHeight(BuildContext context) {
-    return _expandedOpeningComposerHeightWithoutSafeArea;
+    return _expandedOpeningComposerHeightWithoutSafeArea +
+        GenesisSafeAreaInsets.bottom(context);
   }
 
   bool get _openingKeyboardMode => _sheetInteraction.keyboardMode;
@@ -1068,7 +1069,7 @@ class _OriginDetailDraggableSheetState
               // Keyboard frame updates are owned by `_sheetInteraction`.
               // Depending on `MediaQuery.viewInsets` here would subscribe the
               // whole draggable sheet State to every intermediate IME inset.
-              bottomSafeAreaInset: 0,
+              bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
               onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
               onFocusChanged: _handleOpeningComposerFocusChanged,
               onSendCompleted: (launched) {
@@ -1103,7 +1104,7 @@ class _OriginDetailDraggableSheetState
       final height =
           _expandedOpeningComposerMeasureKey.currentContext?.size?.height;
       if (height == null) return;
-      const includedBottomSafeArea = 0.0;
+      final includedBottomSafeArea = GenesisSafeAreaInsets.bottom(context);
       final heightWithoutSafeArea = math.max(
         0.0,
         height - includedBottomSafeArea,
