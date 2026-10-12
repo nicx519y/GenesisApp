@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../platform/device/method_channel_device_id_service.dart';
 import 'firebase_runtime.dart';
+import 'app_event_reporting.dart';
 import 'telemetry_upload_policy.dart';
 
 abstract interface class AppAnalyticsClient {
@@ -310,6 +311,18 @@ class FirebaseAnalyticsMonitoring {
   }) async {
     try {
       if (await _onceEventStore.wasSent(storageKey)) return;
+      if (AppEventReporting.firebaseForwardedOnceEvents.contains(name)) {
+        final reporter = _serverEventReporter;
+        if (reporter == null) return;
+        await reporter(
+          event: name,
+          occurredAtSeconds: occurredAtSeconds,
+          parameters: parameters,
+        );
+        // Durable enqueue, rather than Firebase SDK acceptance, owns once.
+        await _onceEventStore.markSent(storageKey);
+        return;
+      }
       final serverReport = _reportServerEvent(
         name,
         parameters,

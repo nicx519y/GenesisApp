@@ -8,10 +8,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   late _FakeAnalyticsClient client;
   late int messageSentCount;
+  late List<_RecordedEvent> forwardedEvents;
 
   setUp(() {
     FirebaseAnalyticsMonitoring.resetForTesting();
     client = _FakeAnalyticsClient();
+    forwardedEvents = <_RecordedEvent>[];
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (AppEventReporting.firebaseForwardedOnceEvents.contains(event)) {
+        forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+      }
+    });
     messageSentCount = 0;
     FirebaseAnalyticsMonitoring.setClientForTesting(client);
     FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
@@ -33,6 +44,58 @@ void main() {
     );
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+
+  test(
+    'four once events are server-only, retaining base Firebase events',
+    () async {
+      FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+        () async => 20,
+      );
+      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world',
+        locationId: 'location',
+      );
+      expect(
+        forwardedEvents.map((e) => e.name).toSet(),
+        AppEventReporting.firebaseForwardedOnceEvents,
+      );
+      expect(client.events.map((e) => e.name), ['login', 'message_sent']);
+    },
+  );
+
+  test('enqueue failure leaves first event eligible for retry', () async {
+    var attempts = 0;
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (event != 'login_first') return;
+      attempts++;
+      if (attempts == 1) throw StateError('enqueue failed');
+    });
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    expect(attempts, 2);
+    expect(client.events.every((e) => e.name == 'login'), isTrue);
+  });
+
+  test('missing server reporter does not consume the first marker', () async {
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(null);
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (event == 'login_first')
+        forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+    });
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    expect(forwardedEvents.map((e) => e.name), ['login_first']);
+  });
 
   test('records base and first events with exact parameters', () async {
     await FirebaseAnalyticsMonitoring.recordLaunch(
@@ -78,16 +141,7 @@ void main() {
         'location_id': 'location-3',
         'device_id': 'test-device-id',
       }),
-      const _RecordedEvent('message_sent_first', <String, Object>{
-        'world_id': 'world-3',
-        'location_id': 'location-3',
-        'device_id': 'test-device-id',
-      }),
       const _RecordedEvent('login', <String, Object>{
-        'method': 'google',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('login_first', <String, Object>{
         'method': 'google',
         'device_id': 'test-device-id',
       }),
@@ -119,7 +173,7 @@ void main() {
 
     expect(
       serverEvents.map((event) => event.name).toSet(),
-      AppEventReporting.supportedEvents,
+      AppEventReporting.firebaseForwardedOnceEvents,
     );
     expect(
       serverEvents.every((event) => event.occurredAtSeconds == 1767225600),
@@ -197,7 +251,7 @@ void main() {
         hasLength(2),
       );
       expect(
-        client.events.where((event) => event.name == 'message_sent_first'),
+        forwardedEvents.where((event) => event.name == 'message_sent_first'),
         hasLength(1),
       );
     },
@@ -214,7 +268,7 @@ void main() {
       }
 
       expect(
-        client.events.where(
+        forwardedEvents.where(
           (event) =>
               event.name == 'message_sent_10_first' ||
               event.name == 'message_sent_20_first',
@@ -251,7 +305,7 @@ void main() {
 
     expect(messageSentCount, 10);
     expect(
-      client.events.where((event) => event.name == 'message_sent_10_first'),
+      forwardedEvents.where((event) => event.name == 'message_sent_10_first'),
       <_RecordedEvent>[
         const _RecordedEvent('message_sent_10_first', <String, Object>{
           'world_id': 'world-10',
@@ -269,13 +323,9 @@ void main() {
     client.error = null;
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'apple');
 
-    expect(client.attempts, 4);
+    expect(client.attempts, 2);
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('login', <String, Object>{
-        'method': 'apple',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('login_first', <String, Object>{
         'method': 'apple',
         'device_id': 'test-device-id',
       }),
@@ -293,13 +343,9 @@ void main() {
     shouldFail = false;
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'apple');
 
-    expect(client.attempts, 2);
+    expect(client.attempts, 1);
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('login', <String, Object>{
-        'method': 'apple',
-        'device_id': 'recovered-device-id',
-      }),
-      const _RecordedEvent('login_first', <String, Object>{
         'method': 'apple',
         'device_id': 'recovered-device-id',
       }),
@@ -364,7 +410,16 @@ void main() {
       );
 
       FirebaseAnalyticsMonitoring.resetForTesting();
+      forwardedEvents.clear();
       client = _FakeAnalyticsClient();
+      FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+        required event,
+        required occurredAtSeconds,
+        required parameters,
+      }) async {
+        if (AppEventReporting.firebaseForwardedOnceEvents.contains(event))
+          forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+      });
       FirebaseAnalyticsMonitoring.setClientForTesting(client);
       FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
         const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
@@ -388,7 +443,7 @@ void main() {
         11,
       );
       expect(
-        client.events.where((event) => event.name == 'message_sent_10_first'),
+        forwardedEvents.where((event) => event.name == 'message_sent_10_first'),
         isEmpty,
       );
     },
@@ -479,7 +534,8 @@ void main() {
     readiness.complete();
     await recording;
 
-    expect(client.events, hasLength(2));
+    expect(client.events, hasLength(1));
+    expect(forwardedEvents.map((e) => e.name), ['message_sent_first']);
   });
 
   test('Firebase failures stay best-effort', () async {

@@ -37,7 +37,8 @@ class AppEventReport {
   // Derived at send time so already queued events use the current report
   // contract when retried without a local database migration.
   bool get reportFirebase =>
-      AppEventReporting.transactionEvents.contains(event);
+      AppEventReporting.transactionEvents.contains(event) ||
+      AppEventReporting.firebaseForwardedOnceEvents.contains(event);
 }
 
 abstract interface class AppEventReportStore {
@@ -249,6 +250,13 @@ class AppEventReporting {
     'subscription_first_day0',
   };
 
+  static const Set<String> firebaseForwardedOnceEvents = <String>{
+    'login_first',
+    'message_sent_first',
+    'message_sent_10_first',
+    'message_sent_20_first',
+  };
+
   static const Set<String> transactionEvents = <String>{
     'purchase',
     'purchase_first',
@@ -289,8 +297,12 @@ class AppEventReporting {
     required Map<String, Object> parameters,
     String? transactionId,
     String? transactionDeduplicationId,
+    bool requireEnqueueSuccess = false,
   }) async {
-    if (_disposed || !supportedEvents.contains(event)) return;
+    if (_disposed || !supportedEvents.contains(event)) {
+      if (requireEnqueueSuccess) throw StateError('Event reporter unavailable');
+      return;
+    }
     if (occurredAtSeconds <= 0) {
       throw ArgumentError.value(
         occurredAtSeconds,
@@ -350,6 +362,7 @@ class AppEventReporting {
       debugPrint('[Telemetry][EventReport] $event enqueue failed: $error');
       debugPrint('[Telemetry][EventReport] stacktrace:\n$stackTrace');
       _scheduleRetry();
+      if (requireEnqueueSuccess) rethrow;
     }
   }
 

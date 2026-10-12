@@ -7,6 +7,48 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('strict first-event enqueue reports failure and recovers', () async {
+    final store = _MemoryAppEventReportStore()
+      ..enqueueError = StateError('storage failed');
+    final sent = <AppEventReport>[];
+    final reporting = AppEventReporting(
+      store: store,
+      environmentProvider: () => 'sandbox',
+      sender: (report) async {
+        sent.add(report);
+      },
+    );
+    addTearDown(reporting.dispose);
+    await expectLater(
+      reporting.report(
+        event: 'login_first',
+        occurredAtSeconds: 1767225600,
+        parameters: {'method': 'google'},
+        requireEnqueueSuccess: true,
+      ),
+      throwsStateError,
+    );
+    expect(store.reports, isEmpty);
+    store.enqueueError = null;
+    for (final event in AppEventReporting.firebaseForwardedOnceEvents) {
+      await reporting.report(
+        event: event,
+        occurredAtSeconds: 1767225600,
+        parameters: {'device_id': 'device'},
+        requireEnqueueSuccess: true,
+      );
+    }
+    await reporting.flush();
+    expect(
+      sent.map((e) => e.event).toSet(),
+      AppEventReporting.firebaseForwardedOnceEvents,
+    );
+    expect(
+      sent.every((e) => e.reportFirebase && e.transactionId == null),
+      isTrue,
+    );
+  });
+
   test('sqflite outbox persists pending and delivered state', () async {
     sqfliteFfiInit();
     final store = SqfliteAppEventReportStore(
@@ -237,7 +279,7 @@ CREATE TABLE app_event_reports (
       true,
       true,
       true,
-      false,
+      true,
     ]);
     await store.close();
   });
@@ -610,6 +652,7 @@ CREATE TABLE app_event_reports (
 class _MemoryAppEventReportStore implements AppEventReportStore {
   final Map<String, AppEventReport> reports = <String, AppEventReport>{};
   final Set<String> delivered = <String>{};
+  Object? enqueueError;
 
   List<AppEventReport> get pendingReports => reports.values
       .where((report) => !delivered.contains(report.reportKey))
@@ -617,6 +660,7 @@ class _MemoryAppEventReportStore implements AppEventReportStore {
 
   @override
   Future<void> enqueue(AppEventReport report) async {
+    if (enqueueError != null) throw enqueueError!;
     reports.putIfAbsent(report.reportKey, () => report);
   }
 

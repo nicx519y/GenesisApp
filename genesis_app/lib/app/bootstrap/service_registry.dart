@@ -456,7 +456,20 @@ class ServiceRegistry {
       );
     }
     FirebaseAnalyticsMonitoring.configureServerEventReporter(
-      eventReporting?.report,
+      eventReporting == null
+          ? null
+          : ({
+              required event,
+              required occurredAtSeconds,
+              required parameters,
+            }) => eventReporting.report(
+              event: event,
+              occurredAtSeconds: occurredAtSeconds,
+              parameters: parameters,
+              requireEnqueueSuccess: AppEventReporting
+                  .firebaseForwardedOnceEvents
+                  .contains(event),
+            ),
     );
     VoidCallback? removeAdjustSessionListener;
     if (adjustDeviceRegistration != null) {
