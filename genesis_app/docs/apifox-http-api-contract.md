@@ -1489,7 +1489,7 @@ Inspiration 及正式/候选 batch 在 HTTP 200 envelope 的 `data` 同级返回
 
 成功结果模型提供可选 `ChatroomFeatureQuota quota`。`remaining=0` 的最后一次操作仍已成功，不撤销正文或灵感；缺失、格式错误或功能不匹配的可选 quota 不把已提交成功改成失败。真实 POST 开始时捕获 `ChatroomHttpApi.onFeatureQuotaRequest` 回调，在合法成功/2030 响应中更新对应额度；GET 和灵感缓存复用不调用该回调，缓存序列化也不保存旧 quota。
 
-`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），异常保留服务端响应供诊断；Edit 保存的用户提示使用本地化 `chatEditFreeUsesExhausted`（英文 `No free edits remaining.`，繁中 `免費編輯次數不足`）。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并拉起订阅 sheet（来源 `from_chat_edit_quota`），保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
+`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），异常保留服务端响应供诊断；Edit 保存的用户提示使用本地化 `chatEditFreeUsesExhausted`（英文 `No free edits remaining.`，繁中 `免費編輯次數不足`）。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并拉起订阅 sheet（来源 `from_chat_edit_save_quota`），保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
 
 ### POST `/aitown-chat/api/v1/worlds/{world_id}/locations/{location_id}/inspiration`
 

@@ -294,7 +294,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
         } else {
           await showSubscriptionPurchaseBottomSheet(
             context,
-            source: SubscriptionSource.chatEditQuota,
+            source: SubscriptionSource.chatEditSaveQuota,
           );
         }
         return;

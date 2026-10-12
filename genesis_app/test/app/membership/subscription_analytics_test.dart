@@ -33,21 +33,21 @@ void main() {
       analytics.pageShow(
         'edit-page',
         SubscriptionSurface.sheet,
-        SubscriptionSource.chatEditQuota,
+        SubscriptionSource.chatEditSaveQuota,
       );
       final click = analytics.click(
         'edit-page',
         SubscriptionSurface.sheet,
-        SubscriptionSource.chatEditQuota,
+        SubscriptionSource.chatEditSaveQuota,
         isYearly: true,
       );
       analytics.failed(click, 'query_failed');
-      expect(events.every((e) => e.object1 == 'from_chat_edit_quota'), isTrue);
+      expect(events.every((e) => e.object1 == 'from_chat_edit_save_quota'), isTrue);
       expect(events.first.object2, isEmpty);
       expect(events.first.object3, 'subscription_sheet');
       expect(
-        SubscriptionSource.parse('from_chat_edit_quota'),
-        SubscriptionSource.chatEditQuota,
+        SubscriptionSource.parse('from_chat_edit_save_quota'),
+        SubscriptionSource.chatEditSaveQuota,
       );
     },
   );

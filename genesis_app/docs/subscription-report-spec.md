@@ -25,4 +25,4 @@ report 请求失败率、服务端发货成功率、收入和退款仍需使用�
 
 ## 编辑保存额度不足入口（2026-10-12）
 
-新增来源 `from_chat_edit_quota`：编辑页保存接口返回 2030 时，显示本地化免费编辑次数不足 Toast 并打开会员 sheet。页面类型复用 `subscription_sheet`，每次打开生成新的 pageId；不新增页面类型。`subscription_page_show`、`subscription_click` 及后续购买结果的 object1 使用该来源；object2/object3 继续既有事件口径。已有聊天功能入口 `from_chat_feature_quota` 保持原含义。编辑日志 `location_chat_edit` 的 `save_quota_insufficient|轮次ID` 保留；sheet 关闭或购买成功不自动提交编辑草稿。
+新增来源 `from_chat_edit_save_quota`：编辑页保存接口返回 2030 时，显示本地化免费编辑次数不足 Toast 并打开会员 sheet。页面类型复用 `subscription_sheet`，每次打开生成新的 pageId；不新增页面类型。`subscription_page_show`、`subscription_click` 及后续购买结果的 object1 使用该来源；object2/object3 继续既有事件口径。已有聊天功能入口 `from_chat_feature_quota` 保持原含义。编辑日志 `location_chat_edit` 的 `save_quota_insufficient|轮次ID` 保留；sheet 关闭或购买成功不自动提交编辑草稿。
