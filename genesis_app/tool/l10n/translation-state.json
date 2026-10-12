@@ -23853,15 +23853,15 @@
         },
         "inboxNotifications": {
           "source_hash": "a4d9aeaad50614f2c71aceae3326ceadfee8ca4ac3149e70566727567ca869c9",
-          "text_hash": "fa0b9d8f64d8c2eb7f97f427e36e64e7a699d665eee0869571e81c76c6c87488",
-          "status": "baseline",
-          "note": ""
+          "text_hash": "e3a82e2f537d9425c6b81fb2769d317c9f1593c1a587f51a27bf5187e520d85b",
+          "status": "manual",
+          "note": "按用户选择将 Inbox 通知入口及空状态统一为更简短的 Mitteilungen"
         },
         "inboxNoNotificationsYet": {
           "source_hash": "240ed53c2175d1c693f38f972485534bf7aa2ffe3d7cfa0e84644fa6087b6385",
-          "text_hash": "a3b5b70a63d78e9fb0e0f454d5b28e3507bc7310c579af2d5055b3ba45658d2c",
-          "status": "baseline",
-          "note": ""
+          "text_hash": "cb4a56990c3220a66c6444c7172dc147a35db0b6bec02b1efd41109d3affbe84",
+          "status": "manual",
+          "note": "按用户选择将 Inbox 通知入口及空状态统一为更简短的 Mitteilungen"
         },
         "inboxFollowers": {
           "source_hash": "2093a63b40a9172dd812fb9483e3083296c3092f62aa325c716419042d562e07",
