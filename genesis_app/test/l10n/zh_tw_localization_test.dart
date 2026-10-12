@@ -11,10 +11,10 @@ void main() {
     () {
       expect(taiwan.navHome, '首頁');
       expect(taiwan.navWorldo, 'Worldo');
-      expect(taiwan.tickNowAction, '立即推進');
+      expect(taiwan.tickNowAction, '立即 Tick');
       expect(
         taiwan.homeMyWorldsEmptyTitle(worldo: '#Worldo'),
-        '開啟一個 #Worldo，打造\n屬於你的世界',
+        '啟動一個 #Worldo，打造\n屬於你的世界',
       );
     },
   );

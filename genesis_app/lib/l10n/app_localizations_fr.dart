@@ -74,16 +74,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get a11yRecentChat => 'Conversation récente';
 
   @override
-  String get a11yAiReplyLoading => 'Chargement de la réponse de l’IA';
+  String get a11yAiReplyLoading => 'Chargement de la réponse de l’AI';
 
   @override
   String statMessages({required num count, required String amount}) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'messages',
-      one: 'message',
-      zero: 'message',
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
     );
     return '$amount $_temp0';
   }
@@ -146,7 +146,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get launchAction => 'Lancer';
 
   @override
-  String get tickNowAction => 'Avancer maintenant';
+  String get tickNowAction => 'Tick maintenant';
 
   @override
   String get writePostHint => 'Écrire une publication';
@@ -155,7 +155,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get newPostTitle => 'Nouvelle publication';
 
   @override
-  String get aiIsGenerating => 'L’IA génère le contenu';
+  String get aiIsGenerating => 'L’AI génère le contenu';
 
   @override
   String get generatingCustomizedWorldWait =>
@@ -178,7 +178,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get signedOutMeDescription =>
-      'Explorez des mondes, créez des Worldo, invitez vos amis\net poursuivez vos aventures partout.';
+      'Explorez des mondes, créez des worldo, invitez vos amis\net poursuivez vos aventures partout.';
 
   @override
   String get gemTaskLaunchWorldHint =>
@@ -201,10 +201,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get gemTaskProgressWorldHint =>
-      'Ouvrez un monde auquel vous jouez, puis appuyez sur Avancer maintenant.';
+      'Ouvrez un monde auquel vous jouez, puis appuyez sur Tick maintenant.';
 
   @override
-  String get termsOfService => 'Conditions de service';
+  String get termsOfService => 'Conditions générales d’utilisation';
 
   @override
   String get worldoLabel => 'Worldo';
@@ -290,11 +290,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get tickLabel => 'Tour';
+  String get tickLabel => 'Tick';
 
   @override
   String tickNumber({required String tick, required String suffix}) {
-    return 'Tour $tick$suffix';
+    return 'Tick $tick$suffix';
   }
 
   @override
@@ -316,14 +316,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get directMessageRecord => 'Message privé';
 
   @override
-  String get gemRecord => 'Historique des gemmes';
+  String get gemRecord => 'Opération de gemmes';
 
   @override
-  String get runATickTask => 'Faire avancer d’un tour';
+  String get runATickTask => 'Lancer un Tick';
 
   @override
   String get runATickTaskDescription =>
-      'Ouvrez un monde auquel vous jouez et appuyez sur Avancer maintenant.';
+      'Ouvrez un monde auquel vous jouez et appuyez sur Tick maintenant.';
 
   @override
   String get someoneFallback => 'Quelqu’un';
@@ -357,16 +357,16 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get cameToDirection => 'est arrivé à';
+  String get cameToDirection => 'arrive à';
 
   @override
-  String get wentToDirection => 'est parti vers';
+  String get wentToDirection => 'se rend à';
 
   @override
-  String get hasComeToDirection => 'est arrivé à';
+  String get hasComeToDirection => 'arrive à';
 
   @override
-  String get hasGoneToDirection => 'est parti vers';
+  String get hasGoneToDirection => 'se rend à';
 
   @override
   String get waitForReplyToSendMore =>
@@ -487,7 +487,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String homeMyWorldsEmptyTitle({required String worldo}) {
-    return 'Lancez $worldo pour créer\nvotre propre monde';
+    return 'Lancez un $worldo pour créer\nvotre propre monde';
   }
 
   @override
@@ -617,12 +617,12 @@ class AppLocalizationsFr extends AppLocalizations {
     required String characterName,
     required String locationName,
   }) {
-    return '$characterName est arrivé à $locationName';
+    return '$characterName arrive à $locationName';
   }
 
   @override
   String aboutDescription({required String contactEmail}) {
-    return 'Worldo vous permet de créer, de découvrir et d’explorer des mondes alimentés par l’IA, peuplés de personnages, d’histoires et d’événements qui évoluent. Discutez avec des personnages IA, jouez avec vos amis et faites progresser chaque monde à travers des scènes et des choix immersifs.\n\nNotre application propose une nouvelle façon de vivre les histoires interactives : en faisant partie du monde. Pour toute question, veuillez nous contacter à $contactEmail.';
+    return 'Worldo vous permet de créer, de découvrir et d’explorer des mondes alimentés par l’AI, peuplés de personnages, d’histoires et d’événements qui évoluent. Discutez avec des personnages AI, jouez avec vos amis et faites progresser chaque monde à travers des scènes et des choix immersifs.\n\nNotre application propose une nouvelle façon de vivre les histoires interactives : en faisant partie du monde. Pour toute question, veuillez nous contacter à $contactEmail.';
   }
 
   @override
@@ -657,11 +657,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String existingAccountSignIn({required String signIn}) {
-    return 'J’ai un compte pour $signIn';
+    return 'Vous avez déjà un compte ? $signIn';
   }
 
   @override
-  String get signInAction => 'Me connecter.';
+  String get signInAction => 'Se connecter.';
 
   @override
   String gemsGranted({required String gemIcon, required String grantedAmount}) {
@@ -716,7 +716,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get navInbox => 'Boîte de réception';
 
   @override
-  String get navMe => 'Moi';
+  String get navMe => 'Profil';
 
   @override
   String get homeLoadFailed => 'Échec du chargement';
@@ -887,7 +887,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String worldLocationCount({required String pointsCount}) {
-    return 'Lieu ($pointsCount)';
+    return 'Lieux ($pointsCount)';
   }
 
   @override
@@ -934,11 +934,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String worldDetailTickNumber({required String tickNumber}) {
-    return 'Tour $tickNumber';
+    return 'Tick $tickNumber';
   }
 
   @override
-  String get homeGeneratingFirstTick => 'Génération du premier tour';
+  String get homeGeneratingFirstTick => 'Génération du premier Tick';
 
   @override
   String get worldFirstTickStatusLoadFailed =>
@@ -1125,8 +1125,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chatCopied => 'Copié';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '$count nouveaux messages';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nouveaux messages',
+      one: '$count nouveau message',
+      zero: '$count nouveaux messages',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1148,7 +1155,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chatLoadEarlierMessages => 'Charger les messages précédents';
 
   @override
-  String get chatText => 'Texte...';
+  String get chatText => 'Écrire un message...';
 
   @override
   String get chatLocationRoster => 'VOUS';
@@ -1158,7 +1165,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get commonAiDisclaimer =>
-      'Tout le contenu est généré par l’IA et fictif. Toute ressemblance avec des personnes, des événements ou des lieux réels est fortuite.';
+      'Tout le contenu est généré par l’AI et fictif. Toute ressemblance avec des personnes, des événements ou des lieux réels est fortuite.';
 
   @override
   String get homeRecent => 'Récent';
@@ -1216,7 +1223,7 @@ class AppLocalizationsFr extends AppLocalizations {
     required String subTickLabel,
     required String messageCountLabel,
   }) {
-    return 'Tour $tickCount$subTickLabel · $messageCountLabel';
+    return 'Tick $tickCount$subTickLabel · $messageCountLabel';
   }
 
   @override
@@ -1430,7 +1437,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '$count personnages : $names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count personnages : $names',
+      one: '1 personnage : $names',
+      zero: '0 personnage : $names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1455,7 +1469,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String createSummaryEvents({required int count}) {
-    return '$count événements';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count événements',
+      one: '1 événement',
+      zero: '$count événement',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2106,7 +2127,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get createEventKeyStoryBeatAIUses =>
-      'Un moment clé que l’IA utilise pour orienter l’histoire.';
+      'Un moment clé que l’AI utilise pour orienter l’histoire.';
 
   @override
   String get imageCropUploadFailed => 'Échec de l’importation';
@@ -2270,7 +2291,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get meNoFollowersYet => 'Aucun abonné pour le moment.';
 
   @override
-  String get meBlockFailed => 'Le blocage a échoué. Réessayez.';
+  String get meBlockFailed => 'Le blocage a échoué. Veuillez réessayer.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2283,7 +2304,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get meBlock => 'Bloquer';
 
   @override
-  String get meUnblockFailed => 'Le déblocage a échoué. Réessayez.';
+  String get meUnblockFailed => 'Le déblocage a échoué. Veuillez réessayer.';
 
   @override
   String get meUnblock => 'Débloquer';
@@ -2451,7 +2472,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get gemsClaimFailed => 'Échec de l’obtention.';
 
   @override
-  String get gemsCheckFailed => 'Échec du pointage quotidien.';
+  String get gemsCheckFailed => 'Échec du check-in.';
 
   @override
   String get gemsFollowFailed => 'Impossible de suivre cet utilisateur.';
@@ -2483,16 +2504,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get gemsClaimed => 'Obtenu';
 
   @override
-  String get meDailyCheck => 'Pointage quotidien';
+  String get meDailyCheck => 'Check-in quotidien';
 
   @override
   String get gemsDailyCheckInReward => 'Obtenez 100';
 
   @override
-  String get meCheck => 'Pointer';
+  String get meCheck => 'Faire le check-in';
 
   @override
-  String get meCheckSuccessful => 'Pointage effectué !';
+  String get meCheckSuccessful => 'Check-in effectué !';
 
   @override
   String get meGooglePlayUnavailable => 'Google Play est indisponible.';
@@ -2823,10 +2844,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get premiumRedGems => 'Gemmes rouges';
 
   @override
-  String get premiumExtraDailyCheck => 'Bonus de pointage quotidien';
+  String get premiumExtraDailyCheck => 'Bonus de check-in quotidien';
 
   @override
-  String get premiumDailyCheck => 'Pointage quotidien';
+  String get premiumDailyCheck => 'Check-in quotidien';
 
   @override
   String get premiumClaimedMonthly => 'Obtenues chaque mois';
@@ -2953,7 +2974,7 @@ class AppLocalizationsFr extends AppLocalizations {
     required String tickCount,
     required String subTickSuffix,
   }) {
-    return 'Tour $tickCount$subTickSuffix';
+    return 'Tick $tickCount$subTickSuffix';
   }
 
   @override
@@ -2961,7 +2982,7 @@ class AppLocalizationsFr extends AppLocalizations {
     required String tickNumber,
     required String subTickSuffix,
   }) {
-    return 'Tour $tickNumber$subTickSuffix';
+    return 'Tick $tickNumber$subTickSuffix';
   }
 
   @override
@@ -2970,12 +2991,12 @@ class AppLocalizationsFr extends AppLocalizations {
     required String subTickSuffix,
     required String dateSuffix,
   }) {
-    return 'Tour $tickNumber$subTickSuffix$dateSuffix';
+    return 'Tick $tickNumber$subTickSuffix$dateSuffix';
   }
 
   @override
   String worldFirstTickGenerating({required String progressDots}) {
-    return 'Le LLM génère votre premier tour. Cela peut prendre un instant$progressDots';
+    return 'Le LLM génère votre premier Tick. Cela peut prendre un instant$progressDots';
   }
 
   @override
@@ -3029,7 +3050,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Identifiant de la demande de participation manquant';
 
   @override
-  String get loginTimedOut => 'Le délai de connexion a expiré. Réessayez.';
+  String get loginTimedOut =>
+      'Le délai de connexion a expiré. Veuillez réessayer.';
 
   @override
   String get loginConnectionFailed =>
@@ -3037,7 +3059,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get loginTemporarilyUnavailable =>
-      'La connexion est temporairement indisponible. Réessayez plus tard.';
+      'La connexion est temporairement indisponible. Veuillez réessayer plus tard.';
 
   @override
   String get recapUnlockHeading => 'Débloque le récapitulatif';
@@ -3093,7 +3115,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get storeConnectionFailed =>
-      'Connexion à la boutique impossible. Réessayez.';
+      'Connexion à la boutique impossible. Veuillez réessayer.';
 
   @override
   String get storeProductUnavailable =>

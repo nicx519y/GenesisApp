@@ -35,14 +35,19 @@ void main() {
       en.createSummaryCharacters(count: 2, names: 'Ada, Bob'),
       '2 characters: Ada, Bob',
     );
+    expect(
+      en.createSummaryCharacters(count: 1, names: 'Ada'),
+      '1 character: Ada',
+    );
     expect(en.createSummarySuggested(name: 'Ada'), 'Suggested: Ada');
-    expect(en.createSummaryRegion(count: 1), 'L1 · Region : 1');
-    expect(en.createSummaryBuilding(count: 2), 'L2 · Building : 2');
-    expect(en.createSummaryRoom(count: 3), 'L3 · Room : 3');
+    expect(en.createSummaryRegion(count: 1), 'L1 · Region: 1');
+    expect(en.createSummaryBuilding(count: 2), 'L2 · Building: 2');
+    expect(en.createSummaryRoom(count: 3), 'L3 · Room: 3');
     expect(en.createSummaryEvents(count: 4), '4 events');
-    expect(en.createSummaryDialogue(count: 1), 'Character dialogue : 1');
-    expect(en.createSummaryNarrator(count: 2), 'Narrator : 2');
-    expect(en.createSummaryImage(count: 3), 'Image : 3');
+    expect(en.createSummaryEvents(count: 1), '1 event');
+    expect(en.createSummaryDialogue(count: 1), 'Character dialogue: 1');
+    expect(en.createSummaryNarrator(count: 2), 'Narrator: 2');
+    expect(en.createSummaryImage(count: 3), 'Image: 3');
     expect(en.inboxNewFollowers, 'New followers');
   });
 }

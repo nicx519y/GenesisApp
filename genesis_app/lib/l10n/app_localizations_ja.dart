@@ -49,7 +49,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get a11yFilterGender => '性別で絞り込み';
 
   @override
-  String get a11ySelectRole => '自分の役割を選択';
+  String get a11ySelectRole => '自分のロールを選択';
 
   @override
   String get a11yLoadingMap => 'マップを読み込み中';
@@ -64,7 +64,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get a11yProMembership => 'Proメンバーシップ';
 
   @override
-  String get a11yRecommendedRole => 'おすすめの役割';
+  String get a11yRecommendedRole => 'おすすめのロール';
 
   @override
   String get a11yLastMessage => '最新のメッセージ';
@@ -80,9 +80,9 @@ class AppLocalizationsJa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'メッセージ',
-      one: 'メッセージ',
-      zero: 'メッセージ',
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
     );
     return '$amount $_temp0';
   }
@@ -144,7 +144,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get launchAction => '起動';
 
   @override
-  String get tickNowAction => '今すぐ進行';
+  String get tickNowAction => '今すぐTick';
 
   @override
   String get writePostHint => '投稿を書く';
@@ -176,7 +176,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get signedOutMeDescription =>
-      'ワールドで遊び、Worldoを作り、友達を招待して、\nどこからでも続きを楽しもう。';
+      'ワールドで遊び、worldoを作り、友達を招待して、\nどこからでも続きを楽しもう。';
 
   @override
   String get gemTaskLaunchWorldHint => '好きなWorldoを開き、起動して自分のワールドを作りましょう。';
@@ -194,7 +194,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get gemTaskSendMessageHint => '自分のワールドでメッセージを送りましょう。';
 
   @override
-  String get gemTaskProgressWorldHint => 'プレイ中のワールドを開き、「今すぐ進行」をタップしましょう。';
+  String get gemTaskProgressWorldHint => 'プレイ中のワールドを開き、「今すぐTick」をタップしましょう。';
 
   @override
   String get termsOfService => '利用規約';
@@ -212,7 +212,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get userLabel => 'ユーザー';
 
   @override
-  String get meLabel => 'マイページ';
+  String get meLabel => '自分';
 
   @override
   String get locationLabel => '場所';
@@ -281,11 +281,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get tickLabel => 'ターン';
+  String get tickLabel => 'Tick';
 
   @override
   String tickNumber({required String tick, required String suffix}) {
-    return 'ターン$tick$suffix';
+    return 'Tick $tick$suffix';
   }
 
   @override
@@ -307,13 +307,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get directMessageRecord => 'ダイレクトメッセージ';
 
   @override
-  String get gemRecord => 'ジェム履歴';
+  String get gemRecord => 'ジェムの記録';
 
   @override
-  String get runATickTask => '1ターン進める';
+  String get runATickTask => 'Tickを1回実行';
 
   @override
-  String get runATickTaskDescription => 'プレイ中のワールドを開き、「今すぐ進行」をタップしてください。';
+  String get runATickTaskDescription => 'プレイ中のワールドを開き、「今すぐTick」をタップしてください。';
 
   @override
   String get someoneFallback => '誰か';
@@ -373,7 +373,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get selectPresetRoleValidation => 'プリセットの役割を選択してください';
+  String get selectPresetRoleValidation => 'プリセットのロールを選択してください';
 
   @override
   String get enterNameValidation => '名前を入力してください';
@@ -409,7 +409,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get publishFailed => '公開に失敗しました';
 
   @override
-  String get publishChangesBeforeLeaving => '終了する前に変更を公開しますか？';
+  String get publishChangesBeforeLeaving => 'このページを離れる前に変更を公開しますか？';
 
   @override
   String get noChangesToPublish => '公開する変更はありません。';
@@ -445,7 +445,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sendFailed => '送信に失敗しました';
 
   @override
-  String get selectARole => '役割を選択';
+  String get selectARole => 'ロールを選択';
 
   @override
   String get timeLabel => '時刻';
@@ -474,7 +474,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String memoryEstimatedNextMessageCost({required String cost}) {
-    return '次のメッセージの推定：$cost';
+    return '次のメッセージの推定コスト：$cost';
   }
 
   @override
@@ -725,7 +725,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get homeSignInUnavailable => 'ログインできません';
 
   @override
-  String get homeSignedOutTitle => 'すべてのワールドをひとつに';
+  String get homeSignedOutTitle => 'あなたのワールドを、ひとつの場所に';
 
   @override
   String get homeSignedOutDescription => 'ログインしてワールドを作成し、物語を続けましょう。';
@@ -910,17 +910,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String worldDetailTickNumber({required String tickNumber}) {
-    return 'ターン$tickNumber';
+    return 'Tick $tickNumber';
   }
 
   @override
-  String get homeGeneratingFirstTick => '最初のターンを生成中';
+  String get homeGeneratingFirstTick => '最初のTickを生成中';
 
   @override
   String get worldFirstTickStatusLoadFailed => '生成状況を読み込めませんでした。';
 
   @override
-  String get worldDetailNew => '新規';
+  String get worldDetailNew => '新着';
 
   @override
   String get homeUnknownLocation => '不明な場所';
@@ -1081,14 +1081,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chatCopy => 'コピー';
 
   @override
-  String get chatReport => '報告';
+  String get chatReport => '通報';
 
   @override
   String get chatCopied => 'コピーしました';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '新着メッセージ$count件';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '新着メッセージ$count件',
+      one: '新着メッセージ$count件',
+      zero: '新着メッセージ$count件',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1110,7 +1117,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chatLoadEarlierMessages => '過去のメッセージを読み込む';
 
   @override
-  String get chatText => 'テキスト...';
+  String get chatText => 'メッセージを入力...';
 
   @override
   String get chatLocationRoster => 'あなた';
@@ -1138,7 +1145,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldoAll => 'すべて';
 
   @override
-  String get worldoDetailSelectRole => '自分の役割を選択';
+  String get worldoDetailSelectRole => '自分のロールを選択';
 
   @override
   String get worldoDetailOID => 'OID';
@@ -1177,7 +1184,7 @@ class AppLocalizationsJa extends AppLocalizations {
     required String subTickLabel,
     required String messageCountLabel,
   }) {
-    return 'ターン$tickCount$subTickLabel · $messageCountLabel';
+    return 'Tick $tickCount$subTickLabel · $messageCountLabel';
   }
 
   @override
@@ -1260,10 +1267,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldoLaunchLaunchWorldoExplore => 'このWorldoを起動して、ここを探索し、交流しましょう。';
 
   @override
-  String get worldoLaunchRoleUnavailable => 'この役割は利用できなくなりました';
+  String get worldoLaunchRoleUnavailable => 'このロールは利用できなくなりました';
 
   @override
-  String get worldoLaunchSelectRole => '自分の役割を選択';
+  String get worldoLaunchSelectRole => '自分のロールを選択';
 
   @override
   String get worldoLaunchProfile => 'あなたのプロフィール';
@@ -1284,7 +1291,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldoLaunchGoal => '目標';
 
   @override
-  String get worldoLaunchSetupRole => '自分の役割を設定';
+  String get worldoLaunchSetupRole => '自分のロールを設定';
 
   @override
   String get worldoLaunchPreset => 'プリセット';
@@ -1293,7 +1300,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldoLaunchCustom => 'カスタム';
 
   @override
-  String get worldoLaunchNoPresetRole => 'プリセットの役割がありません';
+  String get worldoLaunchNoPresetRole => 'プリセットのロールがありません';
 
   @override
   String get worldoLaunchFilling => '入力中...';
@@ -1388,7 +1395,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return 'キャラクター$count人：$names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'キャラクター$count人：$names',
+      one: 'キャラクター1人：$names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1413,7 +1426,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String createSummaryEvents({required int count}) {
-    return 'イベント$count件';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'イベント$count件',
+      one: 'イベント1件',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1608,7 +1627,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'カードや詳細ページに使用します。推奨サイズは約768×1024 px。対応形式：JPG、PNG、WEBP。';
 
   @override
-  String get createBasicsWorldoSettingsHidden => 'Worldo設定 — 非公開（任意）';
+  String get createBasicsWorldoSettingsHidden => 'Worldo設定 — 非表示（任意）';
 
   @override
   String get createBasicsEgBankerSecretly =>
@@ -1734,7 +1753,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get createCharacterEgRichestOwner => '例：労働者の日までにメインストリートで最も裕福な店主になる';
 
   @override
-  String get createCharacterBackgroundHidden => '背景 — 非公開（任意）';
+  String get createCharacterBackgroundHidden => '背景 — 非表示（任意）';
 
   @override
   String get createCharacterEgLeftTownYears =>
@@ -1938,7 +1957,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get createOpeningAdd10DialogueItems => 'セリフ項目は最大10件追加できます。';
 
   @override
-  String get settingsUnableSaveSuggestedRole => 'おすすめの役割を保存できませんでした。';
+  String get settingsUnableSaveSuggestedRole => 'おすすめのロールを保存できませんでした。';
 
   @override
   String get createOpeningUnableSaveOpening => '導入を保存できませんでした。';
@@ -1968,7 +1987,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get createOpeningImage => '画像';
 
   @override
-  String get createOpeningSuggestRoleUser => 'ユーザーに役割をおすすめ';
+  String get createOpeningSuggestRoleUser => 'ユーザーにロールをおすすめ';
 
   @override
   String get createOpeningNoCharacters => '利用可能なキャラクターがいません。';
@@ -2176,7 +2195,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get meUserBlockedContentHasReported =>
-      'ユーザーをブロックしました。このコンテンツはWorldoチームに報告されました。';
+      'ユーザーをブロックしました。このコンテンツをWorldoチームに通報しました。';
 
   @override
   String get meBlockUser => 'このユーザーをブロックしますか？';
@@ -2785,10 +2804,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get appPressBackExit => 'もう一度戻るを押すと終了します。';
 
   @override
-  String get appReportSubmitted => '報告を送信しました';
+  String get appReportSubmitted => '通報を送信しました';
 
   @override
-  String get appReportFailed => '報告に失敗しました';
+  String get appReportFailed => '通報に失敗しました';
 
   @override
   String get appUpdateRequired => '更新が必要です';
@@ -2826,7 +2845,7 @@ class AppLocalizationsJa extends AppLocalizations {
     required String tickCount,
     required String subTickSuffix,
   }) {
-    return 'ターン$tickCount$subTickSuffix';
+    return 'Tick $tickCount$subTickSuffix';
   }
 
   @override
@@ -2834,7 +2853,7 @@ class AppLocalizationsJa extends AppLocalizations {
     required String tickNumber,
     required String subTickSuffix,
   }) {
-    return 'ターン$tickNumber$subTickSuffix';
+    return 'Tick $tickNumber$subTickSuffix';
   }
 
   @override
@@ -2843,12 +2862,12 @@ class AppLocalizationsJa extends AppLocalizations {
     required String subTickSuffix,
     required String dateSuffix,
   }) {
-    return 'ターン$tickNumber$subTickSuffix$dateSuffix';
+    return 'Tick $tickNumber$subTickSuffix$dateSuffix';
   }
 
   @override
   String worldFirstTickGenerating({required String progressDots}) {
-    return 'LLMが最初のターンを生成しています。しばらくお待ちください$progressDots';
+    return 'LLMが最初のTickを生成しています。しばらくお待ちください$progressDots';
   }
 
   @override
@@ -2894,7 +2913,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldRecap => 'ストーリーの振り返り';
 
   @override
-  String get inboxMissingJoinRequestId => '参加申請 ID がありません';
+  String get inboxMissingJoinRequestId => '参加申請IDがありません';
 
   @override
   String get loginTimedOut => 'ログインがタイムアウトしました。もう一度お試しください。';
@@ -2923,7 +2942,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String chatMessageAsCharacter({required String name}) {
-    return '$name としてメッセージを送信';
+    return '$nameとしてメッセージを送信';
   }
 
   @override
@@ -2934,7 +2953,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String chatSpeakingAs({required String speaker}) {
-    return '$speaker として発言中';
+    return '$speakerとして発言中';
   }
 
   @override
@@ -2945,7 +2964,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String chatOpenLocation({required String locationName}) {
-    return '$locationName を開く';
+    return '$locationNameを開く';
   }
 
   @override
@@ -2986,14 +3005,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get developerClearFailed => '消去できませんでした';
 
   @override
-  String get developerGatewaySignatureFailed => 'Gateway の署名検証に失敗しました';
+  String get developerGatewaySignatureFailed => 'Gatewayの署名検証に失敗しました';
 
   @override
   String get developerEndpointsSaved => '保存しました。新しいリクエストには設定したエンドポイントを使用します。';
 
   @override
-  String get developerAdjustRestartRequired =>
-      'Adjust 環境を適用するには、アプリを再起動してください。';
+  String get developerAdjustRestartRequired => 'Adjust環境を適用するには、アプリを再起動してください。';
 
   @override
   String developerRecapSetting({required String mode}) {

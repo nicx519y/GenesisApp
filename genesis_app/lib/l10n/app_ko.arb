@@ -103,7 +103,7 @@
   "@a11yAiReplyLoading": {
     "description": "Accessibility label."
   },
-  "statMessages": "{amount} {count, plural, =0{메시지} =1{메시지} other{메시지}}",
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
   "@statMessages": {
     "description": "Localized UI label for statistics or Worldo editor.",
     "placeholders": {
@@ -192,7 +192,7 @@
   "@launchAction": {
     "description": "Action for launching a World from a Worldo."
   },
-  "tickNowAction": "지금 진행",
+  "tickNowAction": "지금 Tick",
   "@tickNowAction": {
     "description": "Action for progressing a World immediately."
   },
@@ -232,7 +232,7 @@
   "@liveYourWorld": {
     "description": "Signed-out Me page headline."
   },
-  "signedOutMeDescription": "월드에서 플레이하고, Worldo를 만들고, 친구를 초대하세요.\n어디서든 이야기를 이어갈 수 있습니다.",
+  "signedOutMeDescription": "월드에서 플레이하고, worldo를 만들고, 친구를 초대하세요.\n어디서든 이야기를 이어갈 수 있습니다.",
   "@signedOutMeDescription": {
     "description": "Signed-out Me page introductory copy."
   },
@@ -256,7 +256,7 @@
   "@gemTaskSendMessageHint": {
     "description": "Gems task guidance for sending messages."
   },
-  "gemTaskProgressWorldHint": "플레이 중인 월드를 열고 지금 진행을 누르세요.",
+  "gemTaskProgressWorldHint": "플레이 중인 월드를 열고 지금 Tick을 누르세요.",
   "@gemTaskProgressWorldHint": {
     "description": "Gems task guidance for progressing a World."
   },
@@ -280,7 +280,7 @@
   "@userLabel": {
     "description": "Generic user label and missing-name fallback."
   },
-  "meLabel": "내 정보",
+  "meLabel": "나",
   "@meLabel": {
     "description": "Current-user sender name fallback."
   },
@@ -379,11 +379,11 @@
       }
     }
   },
-  "tickLabel": "턴",
+  "tickLabel": "Tick",
   "@tickLabel": {
     "description": "Tick label without a number."
   },
-  "tickNumber": "턴 {tick}{suffix}",
+  "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
@@ -419,15 +419,15 @@
   "@directMessageRecord": {
     "description": "Fallback title for a direct-message Gems record."
   },
-  "gemRecord": "젬 내역",
+  "gemRecord": "젬 기록",
   "@gemRecord": {
     "description": "Generic fallback title for a Gems record."
   },
-  "runATickTask": "한 턴 진행",
+  "runATickTask": "Tick 1회 실행",
   "@runATickTask": {
     "description": "Gems task title for progressing a World."
   },
-  "runATickTaskDescription": "플레이 중인 월드를 열고 지금 진행을 누르세요.",
+  "runATickTaskDescription": "플레이 중인 월드를 열고 지금 Tick을 누르세요.",
   "@runATickTaskDescription": {
     "description": "Gems task instructions for progressing a World."
   },
@@ -459,7 +459,7 @@
   "@characterDestinations": {
     "description": "Character movement section label in copied Tick content."
   },
-  "characterMovementSentence": "{characterName}: {direction} ({locationName})",
+  "characterMovementSentence": "{characterName}: {locationName}에 {direction}",
   "@characterMovementSentence": {
     "description": "Character movement sentence with styled or copied parts.",
     "placeholders": {
@@ -654,7 +654,7 @@
       }
     }
   },
-  "memoryEstimatedNextMessageCost": "다음 메시지 예상: {cost}",
+  "memoryEstimatedNextMessageCost": "다음 메시지 예상 비용: {cost}",
   "@memoryEstimatedNextMessageCost": {
     "description": "Estimated Gems cost under an AI model option.",
     "placeholders": {
@@ -782,7 +782,7 @@
       }
     }
   },
-  "notificationLikedComment": "{senderName}{senderBadge}님이 내 댓글을 좋아합니다",
+  "notificationLikedComment": "{senderName}{senderBadge}님이 내 댓글에 좋아요를 눌렀습니다",
   "@notificationLikedComment": {
     "description": "Inbox comment-like notification title.",
     "placeholders": {
@@ -1327,7 +1327,7 @@
   "@worldDetailLocation": {
     "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
   },
-  "worldDetailTickNumber": "턴 {tickNumber}",
+  "worldDetailTickNumber": "Tick {tickNumber}",
   "@worldDetailTickNumber": {
     "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
     "placeholders": {
@@ -1336,7 +1336,7 @@
       }
     }
   },
-  "homeGeneratingFirstTick": "첫 번째 턴 생성 중",
+  "homeGeneratingFirstTick": "첫 번째 Tick 생성 중",
   "@homeGeneratingFirstTick": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
@@ -1564,12 +1564,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "새 메시지 {count}개",
+  "chatCountNewMessage": "{count, plural, =0{새 메시지 {count}개} =1{새 메시지 {count}개} other{새 메시지 {count}개}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1597,7 +1597,7 @@
   "@chatLoadEarlierMessages": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息列表的加载状态"
   },
-  "chatText": "텍스트...",
+  "chatText": "메시지 입력...",
   "@chatText": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息输入区域的输入框提示"
   },
@@ -1683,7 +1683,7 @@
   "@worldoDetailPlayingWorld": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
   },
-  "worldoDetailTickCountSubLabel": "턴 {tickCount}{subTickLabel} · {messageCountLabel}",
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
   "@worldoDetailTickCountSubLabel": {
     "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
     "placeholders": {
@@ -1853,7 +1853,7 @@
   "@worldoLaunchSetupRole": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的标题"
   },
-  "worldoLaunchPreset": "기본",
+  "worldoLaunchPreset": "프리셋",
   "@worldoLaunchPreset": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
   },
@@ -1998,7 +1998,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "캐릭터 {count}명: {names}",
+  "createSummaryCharacters": "{count, plural, =1{캐릭터 1명: {names}} other{캐릭터 {count}명: {names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {
@@ -2046,7 +2046,7 @@
       }
     }
   },
-  "createSummaryEvents": "이벤트 {count}개",
+  "createSummaryEvents": "{count, plural, =1{이벤트 1개} other{이벤트 {count}개}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {
@@ -2082,7 +2082,7 @@
       }
     }
   },
-  "createDeleteItemLabel": "\"{itemLabel}\" 삭제할까요?",
+  "createDeleteItemLabel": "\"{itemLabel}\"을(를) 삭제할까요?",
   "@createDeleteItemLabel": {
     "description": "首页 - Create，“Delete ${itemLabel}?”字段或选项",
     "placeholders": {
@@ -2324,7 +2324,7 @@
   "@createBasicsUsedCardsDetailPages": {
     "description": "首页 - Create → Worldo 编辑 - Basics，封面图片尺寸和格式说明"
   },
-  "createBasicsWorldoSettingsHidden": "Worldo 설정 — 비공개 (선택)",
+  "createBasicsWorldoSettingsHidden": "Worldo 설정 — 숨김 (선택)",
   "@createBasicsWorldoSettingsHidden": {
     "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Settings - Hidden (Optional)”字段或选项"
   },
@@ -2501,7 +2501,7 @@
   "@createCharacterEgRichestOwner": {
     "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Be the richest owner on Main Street by Labor Day”"
   },
-  "createCharacterBackgroundHidden": "배경 — 비공개 (선택)",
+  "createCharacterBackgroundHidden": "배경 — 숨김 (선택)",
   "@createCharacterBackgroundHidden": {
     "description": "首页 - Create → Worldo 编辑 - Characters，“Background - Hidden (Optional)”字段或选项"
   },
@@ -2987,15 +2987,15 @@
   "@inboxReply": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxLikeComment": " 님이 내 댓글을 좋아합니다",
+  "inboxLikeComment": " 님이 내 댓글에 좋아요를 눌렀습니다",
   "@inboxLikeComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxLikedComment": "님이 내 댓글을 좋아합니다",
+  "inboxLikedComment": "님이 내 댓글에 좋아요를 눌렀습니다",
   "@inboxLikedComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxComment2LikeComment": "님이 내 댓글을 좋아합니다",
+  "inboxComment2LikeComment": "님이 내 댓글에 좋아요를 눌렀습니다",
   "@inboxComment2LikeComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -3109,7 +3109,7 @@
   "@meNoFollowersYet": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
   },
-  "meBlockFailed": "차단하지 못했어요. 다시 시도해 주세요.",
+  "meBlockFailed": "차단하지 못했습니다. 다시 시도해 주세요.",
   "@meBlockFailed": {
     "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
@@ -3125,7 +3125,7 @@
   "@meBlock": {
     "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
   },
-  "meUnblockFailed": "차단을 해제하지 못했어요. 다시 시도해 주세요.",
+  "meUnblockFailed": "차단을 해제하지 못했습니다. 다시 시도해 주세요.",
   "@meUnblockFailed": {
     "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
@@ -3632,11 +3632,11 @@
   "@premiumAppStoreUnavailable": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumPurchasesNotAllowedDevice": "이 기기에서는 구매가 허용되지 않습니다. Apple Account와 구매 제한을 확인하세요.",
+  "premiumPurchasesNotAllowedDevice": "이 기기에서는 구매가 허용되지 않습니다. Apple 계정과 구매 제한을 확인하세요.",
   "@premiumPurchasesNotAllowedDevice": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleAccountNotEligible": "내 Apple Account는 이 구독 혜택의 대상이 아닙니다.",
+  "premiumAppleAccountNotEligible": "내 Apple 계정은 이 구독 혜택의 대상이 아닙니다.",
   "@premiumAppleAccountNotEligible": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3656,7 +3656,7 @@
   "@premiumSubscriptionOfferFailed": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAddPaymentMethodApple": "Apple Account에 결제 수단을 추가한 후 다시 시도하세요.",
+  "premiumAddPaymentMethodApple": "Apple 계정에 결제 수단을 추가한 후 다시 시도하세요.",
   "@premiumAddPaymentMethodApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3668,7 +3668,7 @@
   "@premiumAppStoreRequestRejected": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleCloudServiceAccess": "Apple 클라우드 서비스 접근이 거부되었습니다. Apple Account 권한을 확인하세요.",
+  "premiumAppleCloudServiceAccess": "Apple 클라우드 서비스 접근이 거부되었습니다. Apple 계정 권한을 확인하세요.",
   "@premiumAppleCloudServiceAccess": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3676,11 +3676,11 @@
   "@premiumFailedConnectApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAccess2AppleCloudService": "Apple 클라우드 서비스 접근 권한이 철회되었습니다. Apple Account 설정을 확인하세요.",
+  "premiumAccess2AppleCloudService": "Apple 클라우드 서비스 접근 권한이 철회되었습니다. Apple 계정 설정을 확인하세요.",
   "@premiumAccess2AppleCloudService": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAcceptLatestApplePrivacy": "Apple Account에서 최신 Apple 개인정보 보호 약관에 동의한 후 다시 시도하세요.",
+  "premiumAcceptLatestApplePrivacy": "Apple 계정에서 최신 Apple 개인정보 보호 약관에 동의한 후 다시 시도하세요.",
   "@premiumAcceptLatestApplePrivacy": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3928,7 +3928,7 @@
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
   },
-  "worldDetailTickCount": "턴 {tickCount}{subTickSuffix}",
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
   "@worldDetailTickCount": {
     "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
     "placeholders": {
@@ -3940,7 +3940,7 @@
       }
     }
   },
-  "worldDetailItemTickNumber": "턴 {tickNumber}{subTickSuffix}",
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
   "@worldDetailItemTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
     "placeholders": {
@@ -3952,7 +3952,7 @@
       }
     }
   },
-  "worldDetailHeaderTickNumber": "턴 {tickNumber}{subTickSuffix}{dateSuffix}",
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
   "@worldDetailHeaderTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
     "placeholders": {
@@ -3967,7 +3967,7 @@
       }
     }
   },
-  "worldFirstTickGenerating": "LLM이 첫 번째 턴을 생성하고 있습니다. 잠시 기다려 주세요{progressDots}",
+  "worldFirstTickGenerating": "LLM이 첫 번째 Tick을 생성하고 있습니다. 잠시 기다려 주세요{progressDots}",
   "@worldFirstTickGenerating": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
     "placeholders": {
@@ -4037,19 +4037,19 @@
   "@worldRecap": {
     "description": "World detail bottom sheet tab for the story recap."
   },
-  "inboxMissingJoinRequestId": "참여 요청 ID가 없어요",
+  "inboxMissingJoinRequestId": "참여 요청 ID가 없습니다",
   "@inboxMissingJoinRequestId": {
     "description": "Inbox approval action cannot proceed because the join request ID is missing."
   },
-  "loginTimedOut": "로그인 시간이 초과되었어요. 다시 시도해 주세요.",
+  "loginTimedOut": "로그인 시간이 초과되었습니다. 다시 시도해 주세요.",
   "@loginTimedOut": {
     "description": "Login error toast after a sign-in request times out."
   },
-  "loginConnectionFailed": "연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+  "loginConnectionFailed": "연결할 수 없습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.",
   "@loginConnectionFailed": {
     "description": "Login toast for a transport failure with no server message."
   },
-  "loginTemporarilyUnavailable": "지금은 로그인할 수 없어요. 잠시 후 다시 시도해 주세요.",
+  "loginTemporarilyUnavailable": "지금은 로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   "@loginTemporarilyUnavailable": {
     "description": "Login toast for HTTP or gateway failure with no server message."
   },
@@ -4065,7 +4065,7 @@
   "@recapShowEarlier": {
     "description": "Button loading previous story recap pages."
   },
-  "recapEmpty": "스토리가 진행되면 여기에 요약이 표시돼요.",
+  "recapEmpty": "스토리가 진행되면 여기에 요약이 표시됩니다.",
   "@recapEmpty": {
     "description": "Empty story recap section after a successful request with no summaries."
   },
@@ -4120,27 +4120,27 @@
   "@chatRetryMessage": {
     "description": "Accessibility label on the narrator message retry control."
   },
-  "blockedReportFailed": "사용자를 차단했지만 신고하지 못했어요.",
+  "blockedReportFailed": "사용자를 차단했지만 신고하지 못했습니다.",
   "@blockedReportFailed": {
     "description": "Profile and blocked-user settings toast when block succeeded but report submission failed."
   },
-  "storeConnectionFailed": "스토어에 연결할 수 없어요. 다시 시도해 주세요.",
+  "storeConnectionFailed": "스토어에 연결할 수 없습니다. 다시 시도해 주세요.",
   "@storeConnectionFailed": {
     "description": "Billing toast when the store cannot be reached."
   },
-  "storeProductUnavailable": "현재 이 상품을 구매할 수 없어요.",
+  "storeProductUnavailable": "현재 이 상품을 구매할 수 없습니다.",
   "@storeProductUnavailable": {
     "description": "Billing toast when selected store product is unavailable."
   },
-  "storeDevicePurchasesUnavailable": "이 기기에서는 구매할 수 없어요.",
+  "storeDevicePurchasesUnavailable": "이 기기에서는 구매할 수 없습니다.",
   "@storeDevicePurchasesUnavailable": {
     "description": "Billing toast when the device does not allow purchases."
   },
-  "worldHistoryRequestFailed": "월드 기록을 불러오지 못했어요",
+  "worldHistoryRequestFailed": "월드 기록을 불러오지 못했습니다",
   "@worldHistoryRequestFailed": {
     "description": "Developer history query failure toast; World History refers to world chat history."
   },
-  "genericError": "오류가 발생했어요",
+  "genericError": "오류가 발생했습니다",
   "@genericError": {
     "description": "Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback."
   },
@@ -4159,15 +4159,15 @@
       }
     }
   },
-  "developerClearFailed": "삭제하지 못했어요",
+  "developerClearFailed": "삭제하지 못했습니다",
   "@developerClearFailed": {
     "description": "Developer settings toast when clearing cached data or gateway configuration fails."
   },
-  "developerGatewaySignatureFailed": "Gateway 서명 검증에 실패했어요",
+  "developerGatewaySignatureFailed": "Gateway 서명 검증에 실패했습니다",
   "@developerGatewaySignatureFailed": {
     "description": "Developer gateway signature check failure toast."
   },
-  "developerEndpointsSaved": "저장했어요. 새 요청에는 설정한 엔드포인트가 적용돼요.",
+  "developerEndpointsSaved": "저장했습니다. 새 요청에는 설정한 엔드포인트가 적용됩니다.",
   "@developerEndpointsSaved": {
     "description": "Developer endpoint settings success toast; new requests use the saved endpoint configuration."
   },
@@ -4188,11 +4188,11 @@
   "@developerRecapPreview": {
     "description": "Title of the developer story recap preview selector dialog."
   },
-  "developerRecapPreviewDescription": "월드 패널의 구독 상태와 요약 내용을 임시로 대체해요. 앱을 다시 시작하면 초기화돼요.",
+  "developerRecapPreviewDescription": "월드 패널의 구독 상태와 요약 내용을 임시로 대체합니다. 앱을 다시 시작하면 초기화됩니다.",
   "@developerRecapPreviewDescription": {
     "description": "Developer recap preview explanation: overrides membership and recap content temporarily; resets on restart."
   },
-  "developerResetFailed": "초기화하지 못했어요",
+  "developerResetFailed": "초기화하지 못했습니다",
   "@developerResetFailed": {
     "description": "Developer version/reset settings failure toast."
   },

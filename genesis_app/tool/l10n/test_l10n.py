@@ -159,6 +159,19 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(self.workflow().pending("es")), 2)
         self.assertEqual(self.workflow().pending("ja"), [])
 
+    def test_rules_recheck_keeps_status_for_identical_copy(self):
+        (self.rules_dir / "translation-rules.md").write_text("Use the updated terminology.")
+        workflow = self.workflow()
+        batches = workflow.batches(["es"], 20)
+        response = {"batch_id": l10n.digest(batches[0]["payload"]), "translations": [
+            {"key": item["key"], "text": item["previous_translation"],
+             "status": "translated", "note": "Confirmed under updated rules."}
+            for item in batches[0]["payload"]["items"]]}
+        workflow.apply_responses(batches, [response], workflow.snapshot())
+        after = self.workflow()
+        self.assertEqual(after.pending("es"), [])
+        self.assertEqual(after.state["languages"]["es"]["entries"]["saveAction"]["status"], "baseline")
+
     def test_new_language_requires_complete_glossary_and_client_registration(self):
         self.profiles["targets"]["fr"] = {"arb_locale": "fr", "display_name": "Français", "plural_policy": "inflected"}
         self.save(self.rules_dir / "language-profiles.json", self.profiles)

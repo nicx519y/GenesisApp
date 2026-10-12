@@ -103,7 +103,7 @@
   "@a11yAiReplyLoading": {
     "description": "Accessibility label."
   },
-  "statMessages": "{count, plural, other{{amount} 則訊息}}",
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
   "@statMessages": {
     "description": "Localized UI label for statistics or Worldo editor.",
     "placeholders": {
@@ -188,11 +188,11 @@
   "@requestedStatus": {
     "description": "Status after a World join request has been sent."
   },
-  "launchAction": "開啟世界",
+  "launchAction": "啟動世界",
   "@launchAction": {
     "description": "Action for launching a World from a Worldo."
   },
-  "tickNowAction": "立即推進",
+  "tickNowAction": "立即 Tick",
   "@tickNowAction": {
     "description": "Action for progressing a World immediately."
   },
@@ -236,7 +236,7 @@
   "@signedOutMeDescription": {
     "description": "Signed-out Me page introductory copy."
   },
-  "gemTaskLaunchWorldHint": "開啟你喜歡的 Worldo，再開啟自己的世界。",
+  "gemTaskLaunchWorldHint": "開啟你喜歡的 Worldo，再啟動自己的世界。",
   "@gemTaskLaunchWorldHint": {
     "description": "Gems task guidance for launching the first World."
   },
@@ -256,7 +256,7 @@
   "@gemTaskSendMessageHint": {
     "description": "Gems task guidance for sending messages."
   },
-  "gemTaskProgressWorldHint": "開啟你正在遊玩的世界，然後點選「立即推進」。",
+  "gemTaskProgressWorldHint": "開啟你正在遊玩的世界，然後點選「立即 Tick」。",
   "@gemTaskProgressWorldHint": {
     "description": "Gems task guidance for progressing a World."
   },
@@ -379,11 +379,11 @@
       }
     }
   },
-  "tickLabel": "回合",
+  "tickLabel": "Tick",
   "@tickLabel": {
     "description": "Tick label without a number."
   },
-  "tickNumber": "第 {tick}{suffix} 回合",
+  "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
@@ -423,11 +423,11 @@
   "@gemRecord": {
     "description": "Generic fallback title for a Gems record."
   },
-  "runATickTask": "推進一回合",
+  "runATickTask": "執行一次 Tick",
   "@runATickTask": {
     "description": "Gems task title for progressing a World."
   },
-  "runATickTaskDescription": "開啟一個你正在遊玩的世界，然後點選「立即推進」。",
+  "runATickTaskDescription": "開啟一個你正在遊玩的世界，然後點選「立即 Tick」。",
   "@runATickTaskDescription": {
     "description": "Gems task instructions for progressing a World."
   },
@@ -645,7 +645,7 @@
   "@worldoMetricExplanation": {
     "description": "Worldo Metric field explanation with literal field-name braces."
   },
-  "homeMyWorldsEmptyTitle": "開啟一個 {worldo}，打造\n屬於你的世界",
+  "homeMyWorldsEmptyTitle": "啟動一個 {worldo}，打造\n屬於你的世界",
   "@homeMyWorldsEmptyTitle": {
     "description": "Home My Worlds empty-state title.",
     "placeholders": {
@@ -693,7 +693,7 @@
       }
     }
   },
-  "worldoLaunched": "Worldo {worldName} 已開啟！",
+  "worldoLaunched": "Worldo {worldName} 已啟動！",
   "@worldoLaunched": {
     "description": "Success dialog after launching a Worldo.",
     "placeholders": {
@@ -1032,7 +1032,7 @@
   "@homeRetry": {
     "description": "首页 - Home，My Worlds 列表状态"
   },
-  "homeEmptyDescription": "Worldo 是藍圖。開啟後，你就能進入親手打造的世界，並讓它持續發展。",
+  "homeEmptyDescription": "Worldo 是藍圖。啟動後，你就能進入親手打造的世界，並讓它持續發展。",
   "@homeEmptyDescription": {
     "description": "首页 - Home，My Worlds 空状态"
   },
@@ -1136,7 +1136,7 @@
   "@searchHint": {
     "description": "首页 - Home → 搜索页，搜索输入框中显示的文字"
   },
-  "worldDetailOnlyWorldsLaunched": "只有你獨自開啟的世界可以刪除。",
+  "worldDetailOnlyWorldsLaunched": "只有你獨自啟動的世界可以刪除。",
   "@worldDetailOnlyWorldsLaunched": {
     "description": "首页 - Home → World 操作弹窗，World 详情页删除 World时显示的提示"
   },
@@ -1197,7 +1197,7 @@
   "@worldDetailRequest": {
     "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World的按钮或标签"
   },
-  "worldDetailLaunchFailed": "開啟失敗",
+  "worldDetailLaunchFailed": "啟動失敗",
   "@worldDetailLaunchFailed": {
     "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World时显示的提示"
   },
@@ -1327,7 +1327,7 @@
   "@worldDetailLocation": {
     "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
   },
-  "worldDetailTickNumber": "第 {tickNumber} 回合",
+  "worldDetailTickNumber": "Tick {tickNumber}",
   "@worldDetailTickNumber": {
     "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
     "placeholders": {
@@ -1336,7 +1336,7 @@
       }
     }
   },
-  "homeGeneratingFirstTick": "正在生成第一回合",
+  "homeGeneratingFirstTick": "正在生成第一個 Tick",
   "@homeGeneratingFirstTick": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
@@ -1368,7 +1368,7 @@
   "@chatLocationUnavailable": {
     "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
   },
-  "chatRequestApprovalLaunch": "申請核准開啟",
+  "chatRequestApprovalLaunch": "申請核准啟動",
   "@chatRequestApprovalLaunch": {
     "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
   },
@@ -1564,12 +1564,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "{count} 則新訊息",
+  "chatCountNewMessage": "{count, plural, =1{1 則新訊息} other{{count} 則新訊息}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1683,7 +1683,7 @@
   "@worldoDetailPlayingWorld": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
   },
-  "worldoDetailTickCountSubLabel": "第 {tickCount}{subTickLabel} 回合 · {messageCountLabel}",
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
   "@worldoDetailTickCountSubLabel": {
     "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
     "placeholders": {
@@ -1809,11 +1809,11 @@
   "@worldoDiscussTitle": {
     "description": "首页 - Worldo → 讨论列表页，Discuss 讨论列表中显示的文字"
   },
-  "worldoLaunchLocationComesLife": "開啟後，這個地點就會活躍起來。",
+  "worldoLaunchLocationComesLife": "啟動後，這個地點就會活躍起來。",
   "@worldoLaunchLocationComesLife": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
   },
-  "worldoLaunchLaunchWorldoExplore": "開啟這個 Worldo，即可在這裡探索和互動。",
+  "worldoLaunchLaunchWorldoExplore": "啟動這個 Worldo，即可在這裡探索和互動。",
   "@worldoLaunchLaunchWorldoExplore": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
   },
@@ -1873,11 +1873,11 @@
   "@worldoLaunchFillMyProfile": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
   },
-  "worldoLaunchLaunch": "開啟世界",
+  "worldoLaunchLaunch": "啟動世界",
   "@worldoLaunchLaunch": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
   },
-  "worldoLaunchWorldoWorldName": "Worldo #{worldName} 已開啟！",
+  "worldoLaunchWorldoWorldName": "Worldo #{worldName} 已啟動！",
   "@worldoLaunchWorldoWorldName": {
     "description": "首页 - Worldo → Worldo Launch，Worldo Launch 完成后的弹窗",
     "placeholders": {
@@ -1998,7 +1998,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "{count} 位角色：{names}",
+  "createSummaryCharacters": "{count, plural, =1{1 位角色：{names}} other{{count} 位角色：{names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {
@@ -2046,7 +2046,7 @@
       }
     }
   },
-  "createSummaryEvents": "{count} 個事件",
+  "createSummaryEvents": "{count, plural, =1{1 個事件} other{{count} 個事件}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {
@@ -2292,7 +2292,7 @@
   "@createBasicsMetricInvalid": {
     "description": "首页 - Create → Worldo 编辑 - Basics，Metric JSON 无效时点击 Save 的提示"
   },
-  "createBasicsEgMainStreet": "例如：Main Street",
+  "createBasicsEgMainStreet": "例如：主街",
   "@createBasicsEgMainStreet": {
     "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Main Street”"
   },
@@ -2308,7 +2308,7 @@
   "@createBasicsHiddenNote": {
     "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Settings - Hidden 输入框下的说明"
   },
-  "createBasicsEgHalfShopsMain": "例如：Main Street 上有一半店面已歇業。到了 Labor Day，擁有最值錢店面的人成為小鎮的主人。",
+  "createBasicsEgHalfShopsMain": "例如：主街上有一半店面已用木板封起。到了勞動節，最有錢的店家將掌控整個小鎮。",
   "@createBasicsEgHalfShopsMain": {
     "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.”"
   },
@@ -2497,7 +2497,7 @@
   "@createCharacterGoalOptional": {
     "description": "首页 - Create → Worldo 编辑 - Characters，“Goal (Optional)”字段或选项"
   },
-  "createCharacterEgRichestOwner": "例如：在 Labor Day 前成為 Main Street 上最富有的店主",
+  "createCharacterEgRichestOwner": "例如：在勞動節前成為主街上最富有的店主",
   "@createCharacterEgRichestOwner": {
     "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Be the richest owner on Main Street by Labor Day”"
   },
@@ -2505,7 +2505,7 @@
   "@createCharacterBackgroundHidden": {
     "description": "首页 - Create → Worldo 编辑 - Characters，“Background - Hidden (Optional)”字段或选项"
   },
-  "createCharacterEgLeftTownYears": "例如：多年前離開小鎮，如今回到店面荒廢的 Main Street，尋求一次機會。",
+  "createCharacterEgLeftTownYears": "例如：多年前離開小鎮，如今回到店面荒廢的主街，尋求一次機會。",
   "@createCharacterEgLeftTownYears": {
     "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Left town years ago; returned to a boarded-up Main Street for one chance.”"
   },
@@ -2578,7 +2578,7 @@
   "@createLocationsTitle": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 的 Locations 编辑页顶部标题"
   },
-  "createLocationStatisticsNote": "你的世界分為 3 個層級：\nL1 · 區域     世界中的一個區域，例如市中心\nL2 · 建築     區域內的一棟建築，例如 Joe''s Diner\nL3 · 房間     建築內的一個房間，例如後廚房\n每個地點都需要具備這三個層級。房間總數最多 15 個。",
+  "createLocationStatisticsNote": "你的世界分為 3 個層級：\nL1 · 區域     世界中的一個區域，例如市中心\nL2 · 建築     區域內的一棟建築，例如喬的小餐館\nL3 · 房間     建築內的一個房間，例如後廚房\n每個地點都需要具備這三個層級。房間總數最多 15 個。",
   "@createLocationStatisticsNote": {
     "description": "首页 - Create → Worldo 编辑 - Locations，Preview 页面地点层级说明"
   },
@@ -3083,7 +3083,7 @@
   "@meFollows": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字"
   },
-  "meFollowingCount": "追蹤中 {followingCount} 人",
+  "meFollowingCount": "{followingCount} 追蹤中",
   "@meFollowingCount": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字",
     "placeholders": {
@@ -3632,11 +3632,11 @@
   "@premiumAppStoreUnavailable": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumPurchasesNotAllowedDevice": "此裝置不允許購買。請檢查 Apple Account 與購買限制設定。",
+  "premiumPurchasesNotAllowedDevice": "此裝置不允許購買。請檢查 Apple 帳號 與購買限制設定。",
   "@premiumPurchasesNotAllowedDevice": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleAccountNotEligible": "你的 Apple Account 不符合這項訂閱優惠資格。",
+  "premiumAppleAccountNotEligible": "你的 Apple 帳號 不符合這項訂閱優惠資格。",
   "@premiumAppleAccountNotEligible": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3656,7 +3656,7 @@
   "@premiumSubscriptionOfferFailed": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAddPaymentMethodApple": "請先在 Apple Account 新增付款方式，然後再試一次。",
+  "premiumAddPaymentMethodApple": "請先在 Apple 帳號 新增付款方式，然後再試一次。",
   "@premiumAddPaymentMethodApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3668,7 +3668,7 @@
   "@premiumAppStoreRequestRejected": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleCloudServiceAccess": "無法存取 Apple 雲端服務，請檢查 Apple Account 權限。",
+  "premiumAppleCloudServiceAccess": "無法存取 Apple 雲端服務，請檢查 Apple 帳號 權限。",
   "@premiumAppleCloudServiceAccess": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3676,11 +3676,11 @@
   "@premiumFailedConnectApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAccess2AppleCloudService": "Apple 雲端服務的存取權限已遭撤銷，請檢查 Apple Account 設定。",
+  "premiumAccess2AppleCloudService": "Apple 雲端服務的存取權限已遭撤銷，請檢查 Apple 帳號 設定。",
   "@premiumAccess2AppleCloudService": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAcceptLatestApplePrivacy": "請先在 Apple Account 同意最新的 Apple 隱私權條款，再試一次。",
+  "premiumAcceptLatestApplePrivacy": "請先在 Apple 帳號 同意最新的 Apple 隱私權條款，再試一次。",
   "@premiumAcceptLatestApplePrivacy": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3776,7 +3776,7 @@
   "@premiumDailyCheck": {
     "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
   },
-  "premiumClaimedMonthly": "每月已領取",
+  "premiumClaimedMonthly": "每月領取",
   "@premiumClaimedMonthly": {
     "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
   },
@@ -3928,7 +3928,7 @@
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
   },
-  "worldDetailTickCount": "第 {tickCount}{subTickSuffix} 回合",
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
   "@worldDetailTickCount": {
     "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
     "placeholders": {
@@ -3940,7 +3940,7 @@
       }
     }
   },
-  "worldDetailItemTickNumber": "第 {tickNumber}{subTickSuffix} 回合",
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
   "@worldDetailItemTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
     "placeholders": {
@@ -3952,7 +3952,7 @@
       }
     }
   },
-  "worldDetailHeaderTickNumber": "第 {tickNumber}{subTickSuffix} 回合{dateSuffix}",
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
   "@worldDetailHeaderTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
     "placeholders": {
@@ -3967,7 +3967,7 @@
       }
     }
   },
-  "worldFirstTickGenerating": "LLM 正在生成第一回合，可能需要一點時間{progressDots}",
+  "worldFirstTickGenerating": "LLM 正在生成第一個 Tick，可能需要一點時間{progressDots}",
   "@worldFirstTickGenerating": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
     "placeholders": {

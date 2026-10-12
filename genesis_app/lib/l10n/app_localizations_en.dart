@@ -167,7 +167,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rejectedStatus => 'Rejected';
 
   @override
-  String get awaitingApprovalStatus => 'Awaiting for approval';
+  String get awaitingApprovalStatus => 'Awaiting approval';
 
   @override
   String get awaitingYourApprovalStatus => 'Awaiting your approval';
@@ -531,7 +531,7 @@ class AppLocalizationsEn extends AppLocalizations {
     required String worldName,
     required String worldId,
   }) {
-    return 'You request to join $worldName$worldId';
+    return 'You requested to join $worldName$worldId';
   }
 
   @override
@@ -541,7 +541,7 @@ class AppLocalizationsEn extends AppLocalizations {
     required String worldName,
     required String worldId,
   }) {
-    return '$requesterName$requesterBadge request to join $worldName$worldId';
+    return '$requesterName$requesterBadge requested to join $worldName$worldId';
   }
 
   @override
@@ -549,7 +549,7 @@ class AppLocalizationsEn extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge comment your worldo';
+    return '$senderName$senderBadge commented on your worldo';
   }
 
   @override
@@ -557,7 +557,7 @@ class AppLocalizationsEn extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge reply to you';
+    return '$senderName$senderBadge replied to you';
   }
 
   @override
@@ -565,7 +565,7 @@ class AppLocalizationsEn extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge like your comment';
+    return '$senderName$senderBadge liked your comment';
   }
 
   @override
@@ -649,7 +649,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String existingAccountSignIn({required String signIn}) {
-    return 'I have an account to $signIn';
+    return 'Already have an account? $signIn';
   }
 
   @override
@@ -1109,8 +1109,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatCopied => 'Copied';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '$count new message';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new messages',
+      one: '1 new message',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1412,7 +1418,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '$count characters: $names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count characters: $names',
+      one: '1 character: $names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1422,37 +1434,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String createSummaryRegion({required int count}) {
-    return 'L1 · Region : $count';
+    return 'L1 · Region: $count';
   }
 
   @override
   String createSummaryBuilding({required int count}) {
-    return 'L2 · Building : $count';
+    return 'L2 · Building: $count';
   }
 
   @override
   String createSummaryRoom({required int count}) {
-    return 'L3 · Room : $count';
+    return 'L3 · Room: $count';
   }
 
   @override
   String createSummaryEvents({required int count}) {
-    return '$count events';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count events',
+      one: '1 event',
+    );
+    return '$_temp0';
   }
 
   @override
   String createSummaryDialogue({required int count}) {
-    return 'Character dialogue : $count';
+    return 'Character dialogue: $count';
   }
 
   @override
   String createSummaryNarrator({required int count}) {
-    return 'Narrator : $count';
+    return 'Narrator: $count';
   }
 
   @override
   String createSummaryImage({required int count}) {
-    return 'Image : $count';
+    return 'Image: $count';
   }
 
   @override
@@ -1815,11 +1833,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createLocationEveryL2L3Locations =>
-      'Every L2 and L3 locations inside it will be removed too.';
+      'All L2 and L3 locations inside it will be removed too.';
 
   @override
   String get createLocationEveryL3Locations =>
-      'Every L3 locations inside it will be removed too.';
+      'All L3 locations inside it will be removed too.';
 
   @override
   String createLocationDeleteDisplayName({required String displayName}) {
@@ -2145,35 +2163,35 @@ class AppLocalizationsEn extends AppLocalizations {
     required String world,
     required String suffix,
   }) {
-    return '$name request to join $world$suffix';
+    return '$name requested to join $world$suffix';
   }
 
   @override
-  String get inboxCommentWorldo => ' comment your worldo';
+  String get inboxCommentWorldo => ' commented on your worldo';
 
   @override
-  String get inboxReply => ' reply to you';
+  String get inboxReply => ' replied to you';
 
   @override
-  String get inboxLikeComment => ' like your comment';
+  String get inboxLikeComment => ' liked your comment';
 
   @override
   String get inboxLikedComment => 'liked your comment';
 
   @override
-  String get inboxComment2LikeComment => 'like your comment';
+  String get inboxComment2LikeComment => 'liked your comment';
 
   @override
   String get inboxReplied => 'replied to you';
 
   @override
-  String get inboxYou2Reply => 'reply to you';
+  String get inboxYou2Reply => 'replied to you';
 
   @override
   String get inboxCommentedOrigin => 'commented on your origin';
 
   @override
-  String get inboxCommentOrigin => 'comment your origin';
+  String get inboxCommentOrigin => 'commented on your origin';
 
   @override
   String get inboxSentMessage => ' sent you a message';

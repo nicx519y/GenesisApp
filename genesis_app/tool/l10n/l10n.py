@@ -472,10 +472,15 @@ class Workflow:
             code = batch["payload"]["language"]
             language = state["languages"].setdefault(code, {"entries": {}})
             for key, entry in self.validate_response(batch, response).items():
+                previous = language["entries"].get(key)
                 catalogs[code][key] = entry["text"]
                 if "@" + key in self.source:
                     catalogs[code]["@" + key] = copy.deepcopy(self.source["@" + key])
-                language["entries"][key] = self.record(key, entry["text"], "ai", entry["note"])
+                # A rules-only recheck can confirm the existing wording without
+                # turning an unchanged baseline or human review into new AI copy.
+                if (previous is None or previous.get("source_hash") != self.source_hash(key)
+                        or previous.get("text_hash") != digest(entry["text"])):
+                    language["entries"][key] = self.record(key, entry["text"], "ai", entry["note"])
             language["guidance_hash"] = self.guidance_hash(code)
         # A per-language run can complete one language while the others stay
         # stale; the final check still requires every configured language.

@@ -73,16 +73,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get a11yRecentChat => 'Letzter Chat';
 
   @override
-  String get a11yAiReplyLoading => 'KI-Antwort wird geladen';
+  String get a11yAiReplyLoading => 'AI-Antwort wird geladen';
 
   @override
   String statMessages({required num count, required String amount}) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Nachrichten',
-      one: 'Nachricht',
-      zero: 'Nachrichten',
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
     );
     return '$amount $_temp0';
   }
@@ -145,7 +145,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get launchAction => 'Starten';
 
   @override
-  String get tickNowAction => 'Jetzt fortschreiten';
+  String get tickNowAction => 'Jetzt Tick';
 
   @override
   String get writePostHint => 'Beitrag schreiben';
@@ -154,7 +154,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get newPostTitle => 'Neuer Beitrag';
 
   @override
-  String get aiIsGenerating => 'KI generiert Inhalte';
+  String get aiIsGenerating => 'AI generiert Inhalte';
 
   @override
   String get generatingCustomizedWorldWait =>
@@ -170,14 +170,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get awaitingApprovalStatus => 'Genehmigung ausstehend';
 
   @override
-  String get awaitingYourApprovalStatus => 'Deine Genehmigung ausstehend';
+  String get awaitingYourApprovalStatus => 'Wartet auf deine Genehmigung';
 
   @override
   String get liveYourWorld => 'LEBE DEINE WELT';
 
   @override
   String get signedOutMeDescription =>
-      'Spiele in Welten, erstelle Worldos, lade Freunde ein\nund setze deine Abenteuer überall fort.';
+      'Spiele in Welten, erstelle worldo, lade Freunde ein\nund setze deine Abenteuer überall fort.';
 
   @override
   String get gemTaskLaunchWorldHint =>
@@ -200,7 +200,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get gemTaskProgressWorldHint =>
-      'Öffne eine Welt, in der du spielst, und tippe auf Jetzt fortschreiten.';
+      'Öffne eine Welt, in der du spielst, und tippe auf Jetzt Tick.';
 
   @override
   String get termsOfService => 'Nutzungsbedingungen';
@@ -289,11 +289,11 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get tickLabel => 'Runde';
+  String get tickLabel => 'Tick';
 
   @override
   String tickNumber({required String tick, required String suffix}) {
-    return 'Runde $tick$suffix';
+    return 'Tick $tick$suffix';
   }
 
   @override
@@ -315,14 +315,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get directMessageRecord => 'Direktnachricht';
 
   @override
-  String get gemRecord => 'Gem-Verlauf';
+  String get gemRecord => 'Gem-Buchung';
 
   @override
-  String get runATickTask => 'Eine Runde fortschreiten';
+  String get runATickTask => 'Einen Tick ausführen';
 
   @override
   String get runATickTaskDescription =>
-      'Öffne eine Welt, in der du spielst, und tippe auf Jetzt fortschreiten.';
+      'Öffne eine Welt, in der du spielst, und tippe auf Jetzt Tick.';
 
   @override
   String get someoneFallback => 'Jemand';
@@ -405,7 +405,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get feedbackSubmitted => 'Feedback gesendet';
 
   @override
-  String get feedbackFailed => 'Feedback fehlgeschlagen';
+  String get feedbackFailed => 'Feedback konnte nicht gesendet werden';
 
   @override
   String get worldoDetailUnavailable => 'Worldo-Details sind nicht verfügbar.';
@@ -479,16 +479,16 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get worldoMetricExplanation =>
-      'Dieses Worldo aktualisiert bei jedem Fortschritt den {Kennzahlname} jedes Charakters, angegeben in {Einheit}. Jeder Charakter beginnt bei {Startwert}, und der Wert kann sich innerhalb von {Min. Änderung}–{Max. Änderung} verändern.';
+      'Dieses worldo aktualisiert bei jedem Fortschritt den {Kennzahlname} jedes Charakters, angegeben in {Einheit}. Jeder Charakter beginnt bei {Startwert}, und der Wert kann sich innerhalb von {Min. Änderung}–{Max. Änderung} verändern.';
 
   @override
   String homeMyWorldsEmptyTitle({required String worldo}) {
-    return 'Starte $worldo, um\ndeine eigene Welt zu erstellen';
+    return 'Starte ein $worldo, um\ndeine eigene Welt zu erstellen';
   }
 
   @override
   String memoryEstimatedNextMessageCost({required String cost}) {
-    return 'Geschätzte nächste Nachricht: $cost';
+    return 'Geschätzte Kosten der nächsten Nachricht: $cost';
   }
 
   @override
@@ -536,7 +536,7 @@ class AppLocalizationsDe extends AppLocalizations {
     required String worldName,
     required String worldId,
   }) {
-    return 'Du fragst den Beitritt zu $worldName$worldId an';
+    return 'Du hast den Beitritt zu $worldName$worldId angefragt';
   }
 
   @override
@@ -546,7 +546,7 @@ class AppLocalizationsDe extends AppLocalizations {
     required String worldName,
     required String worldId,
   }) {
-    return '$requesterName$requesterBadge fragt den Beitritt zu $worldName$worldId an';
+    return '$requesterName$requesterBadge möchte $worldName$worldId beitreten';
   }
 
   @override
@@ -554,7 +554,7 @@ class AppLocalizationsDe extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge hat dein Worldo kommentiert';
+    return '$senderName$senderBadge hat dein worldo kommentiert';
   }
 
   @override
@@ -619,7 +619,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String aboutDescription({required String contactEmail}) {
-    return 'Mit Worldo kannst du KI-gestützte Welten voller Charaktere, Geschichten und sich entwickelnder Ereignisse erstellen, entdecken und betreten. Chatte mit KI-Charakteren, spiele mit Freunden und entwickle jede Welt durch lebendige Szenen und Entscheidungen weiter.\n\nUnsere App bietet eine neue Art, interaktive Geschichten zu erleben: als Teil der Welt. Bei Fragen kontaktiere uns bitte unter $contactEmail.';
+    return 'Mit Worldo kannst du AI-gestützte Welten voller Charaktere, Geschichten und sich entwickelnder Ereignisse erstellen, entdecken und betreten. Chatte mit AI-Charakteren, spiele mit Freunden und entwickle jede Welt durch lebendige Szenen und Entscheidungen weiter.\n\nUnsere App bietet eine neue Art, interaktive Geschichten zu erleben: als Teil der Welt. Bei Fragen kontaktiere uns bitte unter $contactEmail.';
   }
 
   @override
@@ -713,7 +713,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get navInbox => 'Posteingang';
 
   @override
-  String get navMe => 'Ich';
+  String get navMe => 'Profil';
 
   @override
   String get homeLoadFailed => 'Laden fehlgeschlagen';
@@ -884,7 +884,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String worldLocationCount({required String pointsCount}) {
-    return 'Ort ($pointsCount)';
+    return 'Orte ($pointsCount)';
   }
 
   @override
@@ -930,11 +930,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String worldDetailTickNumber({required String tickNumber}) {
-    return 'Runde $tickNumber';
+    return 'Tick $tickNumber';
   }
 
   @override
-  String get homeGeneratingFirstTick => 'Erste Runde wird generiert';
+  String get homeGeneratingFirstTick => 'Erster Tick wird generiert';
 
   @override
   String get worldFirstTickStatusLoadFailed =>
@@ -1126,8 +1126,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatCopied => 'Kopiert';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '$count neue Nachrichten';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count neue Nachrichten',
+      one: '$count neue Nachricht',
+      zero: '$count neue Nachrichten',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1149,7 +1156,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatLoadEarlierMessages => 'Ältere Nachrichten laden';
 
   @override
-  String get chatText => 'Text...';
+  String get chatText => 'Nachricht schreiben...';
 
   @override
   String get chatLocationRoster => 'DU';
@@ -1159,10 +1166,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get commonAiDisclaimer =>
-      'Alle Inhalte sind KI-generiert und fiktiv. Ähnlichkeiten mit realen Personen, Ereignissen oder Orten sind zufällig.';
+      'Alle Inhalte sind AI-generiert und fiktiv. Ähnlichkeiten mit realen Personen, Ereignissen oder Orten sind zufällig.';
 
   @override
-  String get homeRecent => 'Zuletzt';
+  String get homeRecent => 'Kürzlich';
 
   @override
   String get worldoUnableSavePreference =>
@@ -1209,7 +1216,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get worldoDetailViewAll => 'Alle anzeigen >';
 
   @override
-  String get worldoDetailPlayingWorld => 'Gespielte Welt';
+  String get worldoDetailPlayingWorld => 'Laufende Welt';
 
   @override
   String worldoDetailTickCountSubLabel({
@@ -1217,7 +1224,7 @@ class AppLocalizationsDe extends AppLocalizations {
     required String subTickLabel,
     required String messageCountLabel,
   }) {
-    return 'Runde $tickCount$subTickLabel · $messageCountLabel';
+    return 'Tick $tickCount$subTickLabel · $messageCountLabel';
   }
 
   @override
@@ -1229,7 +1236,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get worldoSend => 'Senden';
 
   @override
-  String get worldoPostFailed => 'Beitrag fehlgeschlagen';
+  String get worldoPostFailed => 'Beitrag konnte nicht veröffentlicht werden';
 
   @override
   String get worldoImageUploadFailed => 'Bild-Upload fehlgeschlagen';
@@ -1263,7 +1270,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get worldoLikeFailed => 'Gefällt-mir fehlgeschlagen';
+  String get worldoLikeFailed => '„Gefällt mir“ konnte nicht gesetzt werden';
 
   @override
   String worldoViewAllReplyCountReplies({required String replyCount}) {
@@ -1433,7 +1440,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '$count Charaktere: $names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Charaktere: $names',
+      one: '1 Charakter: $names',
+      zero: '0 Charaktere: $names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1458,7 +1472,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String createSummaryEvents({required int count}) {
-    return '$count Ereignisse';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Ereignisse',
+      one: '1 Ereignis',
+      zero: '$count Ereignisse',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1489,7 +1510,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get createImageUploadProgress => 'Bild wird gerade hochgeladen.';
 
   @override
-  String get createBasicsBasics => 'Grundlagen';
+  String get createBasicsBasics => 'Basisdaten';
 
   @override
   String get createSaveInProgress => 'Speichern läuft bereits.';
@@ -1511,19 +1532,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get createBasicsBasicsWorldoName =>
-      'Grundlagen: Worldo-Name ist erforderlich.';
+      'Basisdaten: Worldo-Name ist erforderlich.';
 
   @override
   String get createBasicsBasicsWorldoBrief =>
-      'Grundlagen: Worldo-Kurzbeschreibung ist erforderlich.';
+      'Basisdaten: Worldo-Kurzbeschreibung ist erforderlich.';
 
   @override
   String get createBasicsBasicsCoverImage =>
-      'Grundlagen: Titelbild ist erforderlich.';
+      'Basisdaten: Titelbild ist erforderlich.';
 
   @override
   String get createBasicsBasicsMetricMust =>
-      'Grundlagen: Kennzahl muss gültiges JSON sein.';
+      'Basisdaten: Kennzahl muss gültiges JSON sein.';
 
   @override
   String createCharacterCharactersName({required String characterIndex}) {
@@ -1683,7 +1704,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get createBasicsWorldoStartsStart =>
-      'Dieses Worldo beginnt bei {Startzeit}; jedes Tippen auf *Fortschreiten* verschiebt die Zeitlinie um {Zeit pro Fortschritt}.';
+      'Dieses worldo beginnt bei {Startzeit}; jedes Tippen auf *Fortschreiten* verschiebt die Zeitlinie um {Zeit pro Fortschritt}.';
 
   @override
   String get createBasicsStartTime => 'Startzeit';
@@ -1827,7 +1848,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get createLocationStartingCharacters =>
-      'Die Charaktere, die sich zu Beginn des Worldos hier befinden.';
+      'Die Charaktere, die sich zu Beginn des worldo hier befinden.';
 
   @override
   String get createCharacterAvailableSelect => 'Zur Auswahl verfügbar';
@@ -2109,7 +2130,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get createEventKeyStoryBeatAIUses =>
-      'Ein wichtiger Handlungsschritt, mit dem die KI die Geschichte lenkt.';
+      'Ein wichtiger Handlungsschritt, mit dem die AI die Geschichte lenkt.';
 
   @override
   String get imageCropUploadFailed => 'Upload fehlgeschlagen';
@@ -2181,11 +2202,11 @@ class AppLocalizationsDe extends AppLocalizations {
     required String world,
     required String suffix,
   }) {
-    return '$name fragt den Beitritt zu $world$suffix an';
+    return '$name möchte $world$suffix beitreten';
   }
 
   @override
-  String get inboxCommentWorldo => ' hat dein Worldo kommentiert';
+  String get inboxCommentWorldo => ' hat dein worldo kommentiert';
 
   @override
   String get inboxReply => ' hat dir geantwortet';
@@ -2203,13 +2224,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get inboxReplied => 'hat dir geantwortet';
 
   @override
-  String get inboxYou2Reply => 'antwortet dir';
+  String get inboxYou2Reply => 'hat dir geantwortet';
 
   @override
-  String get inboxCommentedOrigin => 'hat deine Schöpfung kommentiert';
+  String get inboxCommentedOrigin => 'hat dein Werk kommentiert';
 
   @override
-  String get inboxCommentOrigin => 'kommentiert deine Schöpfung';
+  String get inboxCommentOrigin => 'hat dein Werk kommentiert';
 
   @override
   String get inboxSentMessage => ' hat dir eine Nachricht gesendet';
@@ -2274,7 +2295,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get meNoFollowersYet => 'Noch keine Follower.';
 
   @override
-  String get meBlockFailed => 'Blockieren fehlgeschlagen. Versuch es erneut.';
+  String get meBlockFailed =>
+      'Blockieren fehlgeschlagen. Bitte versuche es erneut.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2287,7 +2309,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get meBlock => 'Blockieren';
 
   @override
-  String get meUnblockFailed => 'Entsperren fehlgeschlagen. Versuch es erneut.';
+  String get meUnblockFailed =>
+      'Entsperren fehlgeschlagen. Bitte versuche es erneut.';
 
   @override
   String get meUnblock => 'Entsperren';
@@ -2565,7 +2588,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get memoryChooseModel => 'Modell auswählen';
 
   @override
-  String get memoryMaxTokenLimit => 'Maximales Speicher-Token-Limit';
+  String get memoryMaxTokenLimit => 'Maximales Gedächtnis-Token-Limit';
 
   @override
   String get memoryNoModelsAvailable => 'Keine Modelle verfügbar';
@@ -2574,7 +2597,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get memoryRetryRanges => 'Wiederholungsbereiche';
 
   @override
-  String get memoryCurrentUsage => 'Deine aktuelle Speichernutzung';
+  String get memoryCurrentUsage => 'Deine aktuelle Gedächtnisnutzung';
 
   @override
   String memoryMinGems({required String min}) {
@@ -2588,7 +2611,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String memoryStart({required String memoryStart}) {
-    return 'Speicher $memoryStart';
+    return 'Gedächtnis $memoryStart';
   }
 
   @override
@@ -2596,12 +2619,12 @@ class AppLocalizationsDe extends AppLocalizations {
     required String memoryStart,
     required String memoryEnd,
   }) {
-    return 'Speicher $memoryStart → $memoryEnd';
+    return 'Gedächtnis $memoryStart → $memoryEnd';
   }
 
   @override
   String get memorySettingsUnavailable =>
-      'Speichereinstellungen nicht verfügbar';
+      'Gedächtniseinstellungen nicht verfügbar';
 
   @override
   String get premiumGooglePlayTookTooLong =>
@@ -2957,7 +2980,7 @@ class AppLocalizationsDe extends AppLocalizations {
     required String tickCount,
     required String subTickSuffix,
   }) {
-    return 'Runde $tickCount$subTickSuffix';
+    return 'Tick $tickCount$subTickSuffix';
   }
 
   @override
@@ -2965,7 +2988,7 @@ class AppLocalizationsDe extends AppLocalizations {
     required String tickNumber,
     required String subTickSuffix,
   }) {
-    return 'Runde $tickNumber$subTickSuffix';
+    return 'Tick $tickNumber$subTickSuffix';
   }
 
   @override
@@ -2974,12 +2997,12 @@ class AppLocalizationsDe extends AppLocalizations {
     required String subTickSuffix,
     required String dateSuffix,
   }) {
-    return 'Runde $tickNumber$subTickSuffix$dateSuffix';
+    return 'Tick $tickNumber$subTickSuffix$dateSuffix';
   }
 
   @override
   String worldFirstTickGenerating({required String progressDots}) {
-    return 'Das LLM generiert deine erste Runde. Dies kann einen Moment dauern$progressDots';
+    return 'Das LLM generiert deinen ersten Tick. Dies kann einen Moment dauern$progressDots';
   }
 
   @override
@@ -2996,7 +3019,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get createCharacterRoleHint => 'Die Rolle des Charakters im Worldo.';
+  String get createCharacterRoleHint => 'Die Rolle des Charakters im worldo.';
 
   @override
   String get createCharacterMannerHint =>
@@ -3019,7 +3042,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get memoryModel => 'Speicher und Modell';
+  String get memoryModel => 'Gedächtnis und Modell';
 
   @override
   String get premiumAccountMismatch =>
@@ -3033,22 +3056,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get loginTimedOut =>
-      'Zeitüberschreitung bei der Anmeldung. Versuch es erneut.';
+      'Zeitüberschreitung bei der Anmeldung. Bitte versuche es erneut.';
 
   @override
   String get loginConnectionFailed =>
-      'Verbindung fehlgeschlagen. Prüfe deine Internetverbindung und versuch es erneut.';
+      'Verbindung fehlgeschlagen. Prüfe deine Internetverbindung und versuche es erneut.';
 
   @override
   String get loginTemporarilyUnavailable =>
-      'Die Anmeldung ist vorübergehend nicht verfügbar. Versuch es später erneut.';
+      'Die Anmeldung ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.';
 
   @override
   String get recapUnlockHeading => 'Schaltet den Rückblick frei';
 
   @override
   String get recapUpsellDescription =>
-      'Hol deine Geschichte mit einem vollständigen Rückblick auf jede Wendung, Entscheidung und Figur nach.';
+      'Hol deine Geschichte mit einem vollständigen Rückblick auf jede Wendung, jede Entscheidung und jeden Charakter nach.';
 
   @override
   String get recapShowEarlier => 'Frühere Rückblicke anzeigen';
@@ -3069,7 +3092,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatNarratorSpeaker => 'der Erzähler';
 
   @override
-  String get chatYourCharacterSpeaker => 'deine Figur';
+  String get chatYourCharacterSpeaker => 'dein Charakter';
 
   @override
   String chatSpeakingAs({required String speaker}) {
@@ -3077,7 +3100,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get chatSwitchCharacter => 'Zur Figur wechseln';
+  String get chatSwitchCharacter => 'Zum Charakter wechseln';
 
   @override
   String get chatSwitchNarration => 'Zur Erzählung wechseln';
@@ -3096,7 +3119,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get storeConnectionFailed =>
-      'Verbindung zum Store fehlgeschlagen. Versuch es erneut.';
+      'Verbindung zum Store fehlgeschlagen. Bitte versuche es erneut.';
 
   @override
   String get storeProductUnavailable =>

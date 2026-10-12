@@ -103,7 +103,7 @@
   "@a11yAiReplyLoading": {
     "description": "Accessibility label."
   },
-  "statMessages": "{amount} {count, plural, =0{mensajes} =1{mensaje} other{mensajes}}",
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
   "@statMessages": {
     "description": "Localized UI label for statistics or Worldo editor.",
     "placeholders": {
@@ -188,11 +188,11 @@
   "@requestedStatus": {
     "description": "Status after a World join request has been sent."
   },
-  "launchAction": "Crear mundo",
+  "launchAction": "Iniciar mundo",
   "@launchAction": {
     "description": "Action for launching a World from a Worldo."
   },
-  "tickNowAction": "Avanzar ahora",
+  "tickNowAction": "Tick ahora",
   "@tickNowAction": {
     "description": "Action for progressing a World immediately."
   },
@@ -236,7 +236,7 @@
   "@signedOutMeDescription": {
     "description": "Signed-out Me page introductory copy."
   },
-  "gemTaskLaunchWorldHint": "Abre un Worldo que te guste y crea tu propio mundo.",
+  "gemTaskLaunchWorldHint": "Abre un Worldo que te guste e inicia tu propio mundo.",
   "@gemTaskLaunchWorldHint": {
     "description": "Gems task guidance for launching the first World."
   },
@@ -256,7 +256,7 @@
   "@gemTaskSendMessageHint": {
     "description": "Gems task guidance for sending messages."
   },
-  "gemTaskProgressWorldHint": "Abre un mundo en el que estés jugando y toca Avanzar ahora.",
+  "gemTaskProgressWorldHint": "Abre un mundo en el que estés jugando y toca Tick ahora.",
   "@gemTaskProgressWorldHint": {
     "description": "Gems task guidance for progressing a World."
   },
@@ -379,11 +379,11 @@
       }
     }
   },
-  "tickLabel": "Turno",
+  "tickLabel": "Tick",
   "@tickLabel": {
     "description": "Tick label without a number."
   },
-  "tickNumber": "Turno {tick}{suffix}",
+  "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
@@ -423,11 +423,11 @@
   "@gemRecord": {
     "description": "Generic fallback title for a Gems record."
   },
-  "runATickTask": "Avanzar un turno",
+  "runATickTask": "Haz un Tick",
   "@runATickTask": {
     "description": "Gems task title for progressing a World."
   },
-  "runATickTaskDescription": "Abre un mundo en el que estés jugando y toca Avanzar ahora.",
+  "runATickTaskDescription": "Abre un mundo en el que estés jugando y toca Tick ahora.",
   "@runATickTaskDescription": {
     "description": "Gems task instructions for progressing a World."
   },
@@ -559,7 +559,7 @@
   "@noChangesToPublish": {
     "description": "Worldo editor submit-disabled message."
   },
-  "completeOpeningRequiredToPublish": "Se necesita un inicio completo para publicar",
+  "completeOpeningRequiredToPublish": "Se necesita una apertura completa para publicar",
   "@completeOpeningRequiredToPublish": {
     "description": "Worldo editor validation error before publishing."
   },
@@ -645,7 +645,7 @@
   "@worldoMetricExplanation": {
     "description": "Worldo Metric field explanation with literal field-name braces."
   },
-  "homeMyWorldsEmptyTitle": "Crea un mundo a partir de {worldo}\npara generar tu propio mundo",
+  "homeMyWorldsEmptyTitle": "Inicia un {worldo} para generar\ntu propio mundo",
   "@homeMyWorldsEmptyTitle": {
     "description": "Home My Worlds empty-state title.",
     "placeholders": {
@@ -693,7 +693,7 @@
       }
     }
   },
-  "worldoLaunched": "¡Se creó el mundo de Worldo {worldName}!",
+  "worldoLaunched": "¡Worldo {worldName} iniciado!",
   "@worldoLaunched": {
     "description": "Success dialog after launching a Worldo.",
     "placeholders": {
@@ -916,7 +916,7 @@
   "@endUserLicenseAgreement": {
     "description": "End User License Agreement document title."
   },
-  "existingAccountSignIn": "Ya tengo una cuenta para {signIn}",
+  "existingAccountSignIn": "¿Ya tienes una cuenta? {signIn}",
   "@existingAccountSignIn": {
     "description": "Personalization sheet sign-in sentence.",
     "placeholders": {
@@ -925,7 +925,7 @@
       }
     }
   },
-  "signInAction": "Iniciar sesión.",
+  "signInAction": "Inicia sesión.",
   "@signInAction": {
     "description": "Sign-in link label inside a sentence."
   },
@@ -1020,7 +1020,7 @@
   "@navInbox": {
     "description": "首页底部 TAB - Inbox"
   },
-  "navMe": "Yo",
+  "navMe": "Perfil",
   "@navMe": {
     "description": "首页底部 TAB - Me"
   },
@@ -1032,7 +1032,7 @@
   "@homeRetry": {
     "description": "首页 - Home，My Worlds 列表状态"
   },
-  "homeEmptyDescription": "Worldo es el punto de partida. Crea a partir de él un mundo vivo al que puedas entrar y hacer crecer.",
+  "homeEmptyDescription": "Worldo es el punto de partida. Inícialo para crear un mundo vivo al que puedas entrar y hacer crecer.",
   "@homeEmptyDescription": {
     "description": "首页 - Home，My Worlds 空状态"
   },
@@ -1086,7 +1086,7 @@
       }
     }
   },
-  "searchOIDCreatorOriginatorBrief": "OID: {oid}  Creador: {originator}\nResumen: {brief}\nÚltima versión: {version}",
+  "searchOIDCreatorOriginatorBrief": "OID: {oid}  Creador: {originator}\nDescripción: {brief}\nÚltima versión: {version}",
   "@searchOIDCreatorOriginatorBrief": {
     "description": "首页 - Home → 搜索页，Worldo 搜索结果卡片的 OID、创建者、简介和最新版本",
     "placeholders": {
@@ -1136,7 +1136,7 @@
   "@searchHint": {
     "description": "首页 - Home → 搜索页，搜索输入框中显示的文字"
   },
-  "worldDetailOnlyWorldsLaunched": "Solo puedes eliminar mundos que hayas creado tú solo.",
+  "worldDetailOnlyWorldsLaunched": "Solo puedes eliminar mundos que hayas iniciado tú solo.",
   "@worldDetailOnlyWorldsLaunched": {
     "description": "首页 - Home → World 操作弹窗，World 详情页删除 World时显示的提示"
   },
@@ -1197,7 +1197,7 @@
   "@worldDetailRequest": {
     "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World的按钮或标签"
   },
-  "worldDetailLaunchFailed": "No se pudo crear el mundo",
+  "worldDetailLaunchFailed": "No se pudo iniciar el mundo",
   "@worldDetailLaunchFailed": {
     "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World时显示的提示"
   },
@@ -1240,7 +1240,7 @@
       }
     }
   },
-  "worldDetailWorldBrief": "Resumen del mundo",
+  "worldDetailWorldBrief": "Descripción del mundo",
   "@worldDetailWorldBrief": {
     "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的标题"
   },
@@ -1327,7 +1327,7 @@
   "@worldDetailLocation": {
     "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
   },
-  "worldDetailTickNumber": "Turno {tickNumber}",
+  "worldDetailTickNumber": "Tick {tickNumber}",
   "@worldDetailTickNumber": {
     "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
     "placeholders": {
@@ -1336,7 +1336,7 @@
       }
     }
   },
-  "homeGeneratingFirstTick": "Generando el primer turno",
+  "homeGeneratingFirstTick": "Generando el primer Tick",
   "@homeGeneratingFirstTick": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
@@ -1368,7 +1368,7 @@
   "@chatLocationUnavailable": {
     "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
   },
-  "chatRequestApprovalLaunch": "Solicitar aprobación para crear el mundo",
+  "chatRequestApprovalLaunch": "Solicitar aprobación para iniciar",
   "@chatRequestApprovalLaunch": {
     "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
   },
@@ -1468,7 +1468,7 @@
   "@chatReplyNotEditable": {
     "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
   },
-  "chatReplyAlreadyFixed": "Esta respuesta ya está fijada",
+  "chatReplyAlreadyFixed": "Esta respuesta ya es definitiva",
   "@chatReplyAlreadyFixed": {
     "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
   },
@@ -1564,12 +1564,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "{count} mensaje nuevo",
+  "chatCountNewMessage": "{count, plural, =0{{count} mensajes nuevos} =1{{count} mensaje nuevo} other{{count} mensajes nuevos}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1654,7 +1654,7 @@
   "@worldoDetailEditWorldo": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板中的编辑入口的按钮或标签"
   },
-  "worldoDetailWorldoBrief": "Resumen de Worldo",
+  "worldoDetailWorldoBrief": "Descripción de Worldo",
   "@worldoDetailWorldoBrief": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 World 区域的标题"
   },
@@ -1679,11 +1679,11 @@
   "@worldoDetailViewAll": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域中显示的文字"
   },
-  "worldoDetailPlayingWorld": "Mundo en juego",
+  "worldoDetailPlayingWorld": "Mundo en curso",
   "@worldoDetailPlayingWorld": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
   },
-  "worldoDetailTickCountSubLabel": "Turno {tickCount}{subTickLabel} · {messageCountLabel}",
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
   "@worldoDetailTickCountSubLabel": {
     "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
     "placeholders": {
@@ -1809,11 +1809,11 @@
   "@worldoDiscussTitle": {
     "description": "首页 - Worldo → 讨论列表页，Discuss 讨论列表中显示的文字"
   },
-  "worldoLaunchLocationComesLife": "Esta ubicación cobra vida cuando creas el mundo.",
+  "worldoLaunchLocationComesLife": "Esta ubicación cobra vida cuando inicias el mundo.",
   "@worldoLaunchLocationComesLife": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
   },
-  "worldoLaunchLaunchWorldoExplore": "Crea un mundo a partir de este Worldo para explorar e interactuar aquí.",
+  "worldoLaunchLaunchWorldoExplore": "Inicia este Worldo para explorar e interactuar aquí.",
   "@worldoLaunchLaunchWorldoExplore": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
   },
@@ -1873,11 +1873,11 @@
   "@worldoLaunchFillMyProfile": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
   },
-  "worldoLaunchLaunch": "Crear mundo",
+  "worldoLaunchLaunch": "Iniciar mundo",
   "@worldoLaunchLaunch": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
   },
-  "worldoLaunchWorldoWorldName": "¡Se creó el mundo de Worldo #{worldName}!",
+  "worldoLaunchWorldoWorldName": "¡Worldo #{worldName} iniciado!",
   "@worldoLaunchWorldoWorldName": {
     "description": "首页 - Worldo → Worldo Launch，Worldo Launch 完成后的弹窗",
     "placeholders": {
@@ -1932,7 +1932,7 @@
       }
     }
   },
-  "createSummaryBrief": "Resumen de Worldo: {brief}",
+  "createSummaryBrief": "Descripción de Worldo: {brief}",
   "@createSummaryBrief": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 简介",
     "placeholders": {
@@ -1998,7 +1998,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "{count} personajes: {names}",
+  "createSummaryCharacters": "{count, plural, =0{0 personajes: {names}} =1{1 personaje: {names}} other{{count} personajes: {names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {
@@ -2046,7 +2046,7 @@
       }
     }
   },
-  "createSummaryEvents": "{count} eventos",
+  "createSummaryEvents": "{count, plural, =0{{count} eventos} =1{1 evento} other{{count} eventos}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {
@@ -2111,7 +2111,7 @@
   "@createRequiredBeforeSave": {
     "description": "首页 - Create → Worldo 的 Basics 或 Opening 编辑页，必填项未完成时点击 Save 按钮"
   },
-  "createOpeningOpening": "Inicio",
+  "createOpeningOpening": "Apertura",
   "@createOpeningOpening": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 的 Opening 页标题；提交前校验提示中的 Opening 名称"
   },
@@ -2127,7 +2127,7 @@
   "@createBasicsBasicsWorldoName": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createBasicsBasicsWorldoBrief": "Datos básicos: El resumen de Worldo es obligatorio.",
+  "createBasicsBasicsWorldoBrief": "Datos básicos: La descripción de Worldo es obligatoria.",
   "@createBasicsBasicsWorldoBrief": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
@@ -2183,23 +2183,23 @@
       }
     }
   },
-  "createOpeningOpeningSelect": "Inicio: Selecciona una ubicación y completa todos los elementos del diálogo.",
+  "createOpeningOpeningSelect": "Apertura: Selecciona una ubicación y completa todos los elementos del diálogo.",
   "@createOpeningOpeningSelect": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createOpeningOpeningSelected": "Inicio: La ubicación seleccionada ya no está disponible.",
+  "createOpeningOpeningSelected": "Apertura: La ubicación seleccionada ya no está disponible.",
   "@createOpeningOpeningSelected": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createOpeningCharacterOpening": "Inicio: Un personaje seleccionado ya no está disponible.",
+  "createOpeningCharacterOpening": "Apertura: Un personaje seleccionado ya no está disponible.",
   "@createOpeningCharacterOpening": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createOpeningOpeningDialogue": "Inicio: Un personaje del diálogo no está en la ubicación seleccionada. Abre Inicio para corregirlo.",
+  "createOpeningOpeningDialogue": "Apertura: Un personaje del diálogo no está en la ubicación seleccionada. Abre Apertura para corregirlo.",
   "@createOpeningOpeningDialogue": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createUnsupportedOpeningDialogue": "Diálogo de inicio no compatible: {type}",
+  "createUnsupportedOpeningDialogue": "Diálogo de apertura no compatible: {type}",
   "@createUnsupportedOpeningDialogue": {
     "description": "首页 - Create，表单校验，“Unsupported opening dialogue: ${type}”字段或选项",
     "placeholders": {
@@ -2280,7 +2280,7 @@
   "@createBasicsNameRequired": {
     "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Name 为空时点击 Save 的提示"
   },
-  "createBasicsBriefRequired": "El resumen de Worldo es obligatorio.",
+  "createBasicsBriefRequired": "La descripción de Worldo es obligatoria.",
   "@createBasicsBriefRequired": {
     "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 为空时点击 Save 的提示"
   },
@@ -2296,7 +2296,7 @@
   "@createBasicsEgMainStreet": {
     "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Main Street”"
   },
-  "createBasicsWorldoBrief": "Resumen de Worldo *",
+  "createBasicsWorldoBrief": "Descripción de Worldo *",
   "@createBasicsWorldoBrief": {
     "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Brief”字段标题"
   },
@@ -2558,7 +2558,7 @@
       }
     }
   },
-  "createLocationOpeningLocation": "Esta es la ubicación de inicio. Eliminarla también borrará el inicio.",
+  "createLocationOpeningLocation": "Esta es la ubicación de la apertura. Eliminarla también borrará la apertura.",
   "@createLocationOpeningLocation": {
     "description": "首页 - Create → Worldo 编辑 - Locations，删除 Opening 地点确认弹窗"
   },
@@ -2696,7 +2696,7 @@
   "@createLocationFieldsRequired": {
     "description": "首页 - Create → Worldo 编辑 - Locations，必填地点字段未完成时点击 Save 的提示"
   },
-  "createLocationDeleteBubbles": "{count, plural, =0{Guardar las ubicaciones también eliminará {count} burbujas de diálogo del inicio correspondientes a los personajes eliminados.} =1{Guardar las ubicaciones también eliminará 1 burbuja de diálogo del inicio correspondiente a los personajes eliminados.} other{Guardar las ubicaciones también eliminará {count} burbujas de diálogo del inicio correspondientes a los personajes eliminados.}}",
+  "createLocationDeleteBubbles": "{count, plural, =0{Guardar las ubicaciones también eliminará {count} burbujas de diálogo de la apertura correspondientes a los personajes eliminados.} =1{Guardar las ubicaciones también eliminará 1 burbuja de diálogo de la apertura correspondiente a los personajes eliminados.} other{Guardar las ubicaciones también eliminará {count} burbujas de diálogo de la apertura correspondientes a los personajes eliminados.}}",
   "@createLocationDeleteBubbles": {
     "description": "首页 - Create → Worldo 编辑 - Locations，保存时移除角色会连带删除 Opening 对话的确认弹窗正文",
     "placeholders": {
@@ -2781,7 +2781,7 @@
   "@settingsUnableSaveSuggestedRole": {
     "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 设置时显示的提示"
   },
-  "createOpeningUnableSaveOpening": "No se pudo guardar el inicio.",
+  "createOpeningUnableSaveOpening": "No se pudo guardar la apertura.",
   "@createOpeningUnableSaveOpening": {
     "description": "首页 - Create → Worldo 编辑 - Opening，保存结果"
   },
@@ -2801,7 +2801,7 @@
   "@createOpeningCompleteDialogue": {
     "description": "首页 - Create → Worldo 编辑 - Opening，有未完成对话条目时点击 Save 的提示"
   },
-  "createOpeningDialogue": "Diálogo de inicio",
+  "createOpeningDialogue": "Diálogo de apertura",
   "@createOpeningDialogue": {
     "description": "首页 - Create → Worldo 编辑 - Opening，“Opening dialogue”字段或选项"
   },
@@ -2995,7 +2995,7 @@
   "@inboxLikedComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxComment2LikeComment": "indica que le gusta tu comentario",
+  "inboxComment2LikeComment": "indicó que le gusta tu comentario",
   "@inboxComment2LikeComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -3003,7 +3003,7 @@
   "@inboxReplied": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxYou2Reply": "te responde",
+  "inboxYou2Reply": "te respondió",
   "@inboxYou2Reply": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -3011,7 +3011,7 @@
   "@inboxCommentedOrigin": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxCommentOrigin": "comenta en tu creación",
+  "inboxCommentOrigin": "comentó en tu creación",
   "@inboxCommentOrigin": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -3338,7 +3338,7 @@
   "@gemsClaimFailed": {
     "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
   },
-  "gemsCheckFailed": "No se pudo registrar la asistencia.",
+  "gemsCheckFailed": "No se pudo hacer el check-in.",
   "@gemsCheckFailed": {
     "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
   },
@@ -3378,7 +3378,7 @@
   "@gemsClaimed": {
     "description": "首页 - Me → Gems 钱包页 Task 任务列表中，奖励已领取时的按钮"
   },
-  "meDailyCheck": "Registro diario",
+  "meDailyCheck": "Check-in diario",
   "@meDailyCheck": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
   },
@@ -3386,11 +3386,11 @@
   "@gemsDailyCheckInReward": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
   },
-  "meCheck": "Registrarse",
+  "meCheck": "Hacer check-in",
   "@meCheck": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
   },
-  "meCheckSuccessful": "¡Registro completado!",
+  "meCheckSuccessful": "¡Check-in completado!",
   "@meCheckSuccessful": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 成功弹窗"
   },
@@ -3632,11 +3632,11 @@
   "@premiumAppStoreUnavailable": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumPurchasesNotAllowedDevice": "No se permiten compras en este dispositivo. Revisa tu Apple Account y las restricciones de compra.",
+  "premiumPurchasesNotAllowedDevice": "No se permiten compras en este dispositivo. Revisa tu cuenta de Apple y las restricciones de compra.",
   "@premiumPurchasesNotAllowedDevice": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleAccountNotEligible": "Tu Apple Account no cumple los requisitos para esta oferta de suscripción.",
+  "premiumAppleAccountNotEligible": "Tu cuenta de Apple no cumple los requisitos para esta oferta de suscripción.",
   "@premiumAppleAccountNotEligible": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3656,7 +3656,7 @@
   "@premiumSubscriptionOfferFailed": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAddPaymentMethodApple": "Agrega un método de pago a tu Apple Account e inténtalo de nuevo.",
+  "premiumAddPaymentMethodApple": "Agrega un método de pago a tu cuenta de Apple e inténtalo de nuevo.",
   "@premiumAddPaymentMethodApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3668,7 +3668,7 @@
   "@premiumAppStoreRequestRejected": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleCloudServiceAccess": "Se denegó el acceso a los servicios en la nube de Apple. Revisa los permisos de tu Apple Account.",
+  "premiumAppleCloudServiceAccess": "Se denegó el acceso a los servicios en la nube de Apple. Revisa los permisos de tu cuenta de Apple.",
   "@premiumAppleCloudServiceAccess": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3676,11 +3676,11 @@
   "@premiumFailedConnectApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAccess2AppleCloudService": "Se revocó el acceso a los servicios en la nube de Apple. Revisa la configuración de tu Apple Account.",
+  "premiumAccess2AppleCloudService": "Se revocó el acceso a los servicios en la nube de Apple. Revisa la configuración de tu cuenta de Apple.",
   "@premiumAccess2AppleCloudService": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAcceptLatestApplePrivacy": "Acepta los términos de privacidad más recientes de Apple en tu Apple Account e inténtalo de nuevo.",
+  "premiumAcceptLatestApplePrivacy": "Acepta los términos de privacidad más recientes de Apple en tu cuenta de Apple e inténtalo de nuevo.",
   "@premiumAcceptLatestApplePrivacy": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3768,11 +3768,11 @@
   "@premiumRedGems": {
     "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
   },
-  "premiumExtraDailyCheck": "Extra por registro diario",
+  "premiumExtraDailyCheck": "Extra por check-in diario",
   "@premiumExtraDailyCheck": {
     "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
   },
-  "premiumDailyCheck": "Registro diario",
+  "premiumDailyCheck": "Check-in diario",
   "@premiumDailyCheck": {
     "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
   },
@@ -3928,7 +3928,7 @@
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
   },
-  "worldDetailTickCount": "Turno {tickCount}{subTickSuffix}",
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
   "@worldDetailTickCount": {
     "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
     "placeholders": {
@@ -3940,7 +3940,7 @@
       }
     }
   },
-  "worldDetailItemTickNumber": "Turno {tickNumber}{subTickSuffix}",
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
   "@worldDetailItemTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
     "placeholders": {
@@ -3952,7 +3952,7 @@
       }
     }
   },
-  "worldDetailHeaderTickNumber": "Turno {tickNumber}{subTickSuffix}{dateSuffix}",
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
   "@worldDetailHeaderTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
     "placeholders": {
@@ -3967,7 +3967,7 @@
       }
     }
   },
-  "worldFirstTickGenerating": "El LLM está generando tu primer turno. Esto puede tardar un momento{progressDots}",
+  "worldFirstTickGenerating": "El LLM está generando tu primer Tick. Esto puede tardar un momento{progressDots}",
   "@worldFirstTickGenerating": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
     "placeholders": {

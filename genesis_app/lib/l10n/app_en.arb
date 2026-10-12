@@ -112,7 +112,7 @@
   "@rejectedStatus": {
     "description": "Rejected status for a World join request."
   },
-  "awaitingApprovalStatus": "Awaiting for approval",
+  "awaitingApprovalStatus": "Awaiting approval",
   "@awaitingApprovalStatus": {
     "description": "Status while the user's join request is being reviewed."
   },
@@ -438,7 +438,7 @@
   "@createTimeout": {"description": "Create Worldo 提交后等待创建结果超时的提示"},
   "publishTimeout": "Worldo publishing timed out",
   "@publishTimeout": {"description": "Publish Worldo 提交后等待发布结果超时的提示"},
-  "joinRequestSelfSummary": "You request to join {worldName}{worldId}",
+  "joinRequestSelfSummary": "You requested to join {worldName}{worldId}",
   "@joinRequestSelfSummary": {
     "description": "Inbox summary for the current user's World join request.",
     "placeholders": {
@@ -450,7 +450,7 @@
       }
     }
   },
-  "joinRequestIncomingSummary": "{requesterName}{requesterBadge} request to join {worldName}{worldId}",
+  "joinRequestIncomingSummary": "{requesterName}{requesterBadge} requested to join {worldName}{worldId}",
   "@joinRequestIncomingSummary": {
     "description": "Inbox summary for another user's World join request.",
     "placeholders": {
@@ -468,7 +468,7 @@
       }
     }
   },
-  "notificationCommentedOnWorldo": "{senderName}{senderBadge} comment your worldo",
+  "notificationCommentedOnWorldo": "{senderName}{senderBadge} commented on your worldo",
   "@notificationCommentedOnWorldo": {
     "description": "Inbox comment notification title.",
     "placeholders": {
@@ -480,7 +480,7 @@
       }
     }
   },
-  "notificationRepliedToYou": "{senderName}{senderBadge} reply to you",
+  "notificationRepliedToYou": "{senderName}{senderBadge} replied to you",
   "@notificationRepliedToYou": {
     "description": "Inbox reply notification title.",
     "placeholders": {
@@ -492,7 +492,7 @@
       }
     }
   },
-  "notificationLikedComment": "{senderName}{senderBadge} like your comment",
+  "notificationLikedComment": "{senderName}{senderBadge} liked your comment",
   "@notificationLikedComment": {
     "description": "Inbox comment-like notification title.",
     "placeholders": {
@@ -626,7 +626,7 @@
   "@endUserLicenseAgreement": {
     "description": "End User License Agreement document title."
   },
-  "existingAccountSignIn": "I have an account to {signIn}",
+  "existingAccountSignIn": "Already have an account? {signIn}",
   "@existingAccountSignIn": {
     "description": "Personalization sheet sign-in sentence.",
     "placeholders": {
@@ -1268,12 +1268,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "{count} new message",
+  "chatCountNewMessage": "{count, plural, =1{1 new message} other{{count} new messages}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1670,7 +1670,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "{count} characters: {names}",
+  "createSummaryCharacters": "{count, plural, =1{1 character: {names}} other{{count} characters: {names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {"count": {"type": "int"}, "names": {"type": "String"}}
@@ -1680,37 +1680,37 @@
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的推荐角色",
     "placeholders": {"name": {"type": "String"}}
   },
-  "createSummaryRegion": "L1 · Region : {count}",
+  "createSummaryRegion": "L1 · Region: {count}",
   "@createSummaryRegion": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的一级地点数量",
     "placeholders": {"count": {"type": "int"}}
   },
-  "createSummaryBuilding": "L2 · Building : {count}",
+  "createSummaryBuilding": "L2 · Building: {count}",
   "@createSummaryBuilding": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的二级地点数量",
     "placeholders": {"count": {"type": "int"}}
   },
-  "createSummaryRoom": "L3 · Room : {count}",
+  "createSummaryRoom": "L3 · Room: {count}",
   "@createSummaryRoom": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的三级地点数量",
     "placeholders": {"count": {"type": "int"}}
   },
-  "createSummaryEvents": "{count} events",
+  "createSummaryEvents": "{count, plural, =1{1 event} other{{count} events}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {"count": {"type": "int"}}
   },
-  "createSummaryDialogue": "Character dialogue : {count}",
+  "createSummaryDialogue": "Character dialogue: {count}",
   "@createSummaryDialogue": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的角色对话数量",
     "placeholders": {"count": {"type": "int"}}
   },
-  "createSummaryNarrator": "Narrator : {count}",
+  "createSummaryNarrator": "Narrator: {count}",
   "@createSummaryNarrator": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的旁白数量",
     "placeholders": {"count": {"type": "int"}}
   },
-  "createSummaryImage": "Image : {count}",
+  "createSummaryImage": "Image: {count}",
   "@createSummaryImage": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的图片数量",
     "placeholders": {"count": {"type": "int"}}
@@ -2138,11 +2138,11 @@
   "@createCharacterNoCharacters": {
     "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
   },
-  "createLocationEveryL2L3Locations": "Every L2 and L3 locations inside it will be removed too.",
+  "createLocationEveryL2L3Locations": "All L2 and L3 locations inside it will be removed too.",
   "@createLocationEveryL2L3Locations": {
     "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗"
   },
-  "createLocationEveryL3Locations": "Every L3 locations inside it will be removed too.",
+  "createLocationEveryL3Locations": "All L3 locations inside it will be removed too.",
   "@createLocationEveryL3Locations": {
     "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗"
   },
@@ -2487,7 +2487,7 @@
   "@inboxWorld": {
     "description": "首页 - Inbox → 通知文案，World 请求摘要中显示的文字"
   },
-  "inboxNameRequestJoinWorldSuffix": "{name} request to join {world}{suffix}",
+  "inboxNameRequestJoinWorldSuffix": "{name} requested to join {world}{suffix}",
   "@inboxNameRequestJoinWorldSuffix": {
     "description": "首页 - Inbox → 通知文案，Join Request 摘要中显示的文字",
     "placeholders": {
@@ -2502,15 +2502,15 @@
       }
     }
   },
-  "inboxCommentWorldo": " comment your worldo",
+  "inboxCommentWorldo": " commented on your worldo",
   "@inboxCommentWorldo": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxReply": " reply to you",
+  "inboxReply": " replied to you",
   "@inboxReply": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxLikeComment": " like your comment",
+  "inboxLikeComment": " liked your comment",
   "@inboxLikeComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -2518,7 +2518,7 @@
   "@inboxLikedComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxComment2LikeComment": "like your comment",
+  "inboxComment2LikeComment": "liked your comment",
   "@inboxComment2LikeComment": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -2526,7 +2526,7 @@
   "@inboxReplied": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxYou2Reply": "reply to you",
+  "inboxYou2Reply": "replied to you",
   "@inboxYou2Reply": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -2534,7 +2534,7 @@
   "@inboxCommentedOrigin": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxCommentOrigin": "comment your origin",
+  "inboxCommentOrigin": "commented on your origin",
   "@inboxCommentOrigin": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },

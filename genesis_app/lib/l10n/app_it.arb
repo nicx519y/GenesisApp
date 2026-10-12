@@ -99,11 +99,11 @@
   "@a11yRecentChat": {
     "description": "Accessibility label."
   },
-  "a11yAiReplyLoading": "Caricamento della risposta IA",
+  "a11yAiReplyLoading": "Caricamento della risposta AI",
   "@a11yAiReplyLoading": {
     "description": "Accessibility label."
   },
-  "statMessages": "{amount} {count, plural, =0{messaggi} =1{messaggio} other{messaggi}}",
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
   "@statMessages": {
     "description": "Localized UI label for statistics or Worldo editor.",
     "placeholders": {
@@ -192,7 +192,7 @@
   "@launchAction": {
     "description": "Action for launching a World from a Worldo."
   },
-  "tickNowAction": "Avanza ora",
+  "tickNowAction": "Tick ora",
   "@tickNowAction": {
     "description": "Action for progressing a World immediately."
   },
@@ -204,7 +204,7 @@
   "@newPostTitle": {
     "description": "Title of the new discussion post composer."
   },
-  "aiIsGenerating": "L’IA sta generando",
+  "aiIsGenerating": "L’AI sta generando",
   "@aiIsGenerating": {
     "description": "Title of the AI generation wait overlay."
   },
@@ -232,7 +232,7 @@
   "@liveYourWorld": {
     "description": "Signed-out Me page headline."
   },
-  "signedOutMeDescription": "Gioca nei mondi, crea Worldo, invita gli amici\ne continua le tue avventure ovunque.",
+  "signedOutMeDescription": "Gioca nei mondi, crea worldo, invita gli amici\ne continua le tue avventure ovunque.",
   "@signedOutMeDescription": {
     "description": "Signed-out Me page introductory copy."
   },
@@ -256,7 +256,7 @@
   "@gemTaskSendMessageHint": {
     "description": "Gems task guidance for sending messages."
   },
-  "gemTaskProgressWorldHint": "Apri un mondo in cui giochi, poi tocca Avanza ora.",
+  "gemTaskProgressWorldHint": "Apri un mondo in cui giochi, poi tocca Tick ora.",
   "@gemTaskProgressWorldHint": {
     "description": "Gems task guidance for progressing a World."
   },
@@ -379,11 +379,11 @@
       }
     }
   },
-  "tickLabel": "Turno",
+  "tickLabel": "Tick",
   "@tickLabel": {
     "description": "Tick label without a number."
   },
-  "tickNumber": "Turno {tick}{suffix}",
+  "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
@@ -419,15 +419,15 @@
   "@directMessageRecord": {
     "description": "Fallback title for a direct-message Gems record."
   },
-  "gemRecord": "Cronologia gemme",
+  "gemRecord": "Movimento gemme",
   "@gemRecord": {
     "description": "Generic fallback title for a Gems record."
   },
-  "runATickTask": "Avanza di un turno",
+  "runATickTask": "Esegui un Tick",
   "@runATickTask": {
     "description": "Gems task title for progressing a World."
   },
-  "runATickTaskDescription": "Apri un mondo in cui giochi e tocca Avanza ora.",
+  "runATickTaskDescription": "Apri un mondo in cui giochi e tocca Tick ora.",
   "@runATickTaskDescription": {
     "description": "Gems task instructions for progressing a World."
   },
@@ -474,19 +474,19 @@
       }
     }
   },
-  "cameToDirection": "è arrivato a",
+  "cameToDirection": "arriva a",
   "@cameToDirection": {
     "description": "Character movement direction in past tense."
   },
-  "wentToDirection": "è andato a",
+  "wentToDirection": "va a",
   "@wentToDirection": {
     "description": "Character movement direction away in past tense."
   },
-  "hasComeToDirection": "è arrivato a",
+  "hasComeToDirection": "arriva a",
   "@hasComeToDirection": {
     "description": "Character movement direction for the current location."
   },
-  "hasGoneToDirection": "è andato a",
+  "hasGoneToDirection": "va a",
   "@hasGoneToDirection": {
     "description": "Character movement direction away from the current location."
   },
@@ -645,7 +645,7 @@
   "@worldoMetricExplanation": {
     "description": "Worldo Metric field explanation with literal field-name braces."
   },
-  "homeMyWorldsEmptyTitle": "Avvia {worldo} per generare\nil tuo mondo",
+  "homeMyWorldsEmptyTitle": "Avvia un {worldo} per generare\nil tuo mondo",
   "@homeMyWorldsEmptyTitle": {
     "description": "Home My Worlds empty-state title.",
     "placeholders": {
@@ -654,7 +654,7 @@
       }
     }
   },
-  "memoryEstimatedNextMessageCost": "Stima del prossimo messaggio: {cost}",
+  "memoryEstimatedNextMessageCost": "Costo stimato del prossimo messaggio: {cost}",
   "@memoryEstimatedNextMessageCost": {
     "description": "Estimated Gems cost under an AI model option.",
     "placeholders": {
@@ -849,7 +849,7 @@
   "@getMoreAction": {
     "description": "Action that opens subscription options."
   },
-  "characterCameToLocation": "{characterName} è arrivato a {locationName}",
+  "characterCameToLocation": "{characterName} arriva a {locationName}",
   "@characterCameToLocation": {
     "description": "Location chat system message for entering a location.",
     "placeholders": {
@@ -861,7 +861,7 @@
       }
     }
   },
-  "aboutDescription": "Worldo ti permette di creare, scoprire ed esplorare mondi alimentati dall’IA, popolati di personaggi, storie ed eventi in evoluzione. Chatta con personaggi IA, gioca con gli amici e fai avanzare ogni mondo attraverso scene e scelte coinvolgenti.\n\nLa nostra app offre un nuovo modo di vivere le storie interattive: come parte del mondo. Per qualsiasi domanda, contattaci all’indirizzo {contactEmail}.",
+  "aboutDescription": "Worldo ti permette di creare, scoprire ed esplorare mondi alimentati dall’AI, popolati di personaggi, storie ed eventi in evoluzione. Chatta con personaggi AI, gioca con gli amici e fai avanzare ogni mondo attraverso scene e scelte coinvolgenti.\n\nLa nostra app offre un nuovo modo di vivere le storie interattive: come parte del mondo. Per qualsiasi domanda, contattaci all’indirizzo {contactEmail}.",
   "@aboutDescription": {
     "description": "About page product description and contact sentence.",
     "placeholders": {
@@ -916,7 +916,7 @@
   "@endUserLicenseAgreement": {
     "description": "End User License Agreement document title."
   },
-  "existingAccountSignIn": "Ho un account per {signIn}",
+  "existingAccountSignIn": "Hai già un account? {signIn}",
   "@existingAccountSignIn": {
     "description": "Personalization sheet sign-in sentence.",
     "placeholders": {
@@ -925,7 +925,7 @@
       }
     }
   },
-  "signInAction": "accedere.",
+  "signInAction": "Accedi.",
   "@signInAction": {
     "description": "Sign-in link label inside a sentence."
   },
@@ -1020,7 +1020,7 @@
   "@navInbox": {
     "description": "首页底部 TAB - Inbox"
   },
-  "navMe": "Io",
+  "navMe": "Profilo",
   "@navMe": {
     "description": "首页底部 TAB - Me"
   },
@@ -1180,7 +1180,7 @@
   "@worldDetailUnavailable": {
     "description": "首页 - Home → World 详情页，World 详情页的操作状态"
   },
-  "worldActionFailed": "{actionLabel} non riuscito",
+  "worldActionFailed": "Operazione non riuscita: {actionLabel}",
   "@worldActionFailed": {
     "description": "首页 - Home → World 详情页，申请加入或推进操作失败时的提示",
     "placeholders": {
@@ -1260,7 +1260,7 @@
   "@worldInfoAction": {
     "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字"
   },
-  "worldLocationCount": "Luogo ({pointsCount})",
+  "worldLocationCount": "Luoghi ({pointsCount})",
   "@worldLocationCount": {
     "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字",
     "placeholders": {
@@ -1327,7 +1327,7 @@
   "@worldDetailLocation": {
     "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
   },
-  "worldDetailTickNumber": "Turno {tickNumber}",
+  "worldDetailTickNumber": "Tick {tickNumber}",
   "@worldDetailTickNumber": {
     "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
     "placeholders": {
@@ -1336,7 +1336,7 @@
       }
     }
   },
-  "homeGeneratingFirstTick": "Generazione del primo turno",
+  "homeGeneratingFirstTick": "Generazione del primo Tick",
   "@homeGeneratingFirstTick": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
@@ -1564,12 +1564,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "{count} nuovi messaggi",
+  "chatCountNewMessage": "{count, plural, =0{{count} nuovi messaggi} =1{{count} nuovo messaggio} other{{count} nuovi messaggi}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1597,7 +1597,7 @@
   "@chatLoadEarlierMessages": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息列表的加载状态"
   },
-  "chatText": "Testo...",
+  "chatText": "Scrivi un messaggio...",
   "@chatText": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息输入区域的输入框提示"
   },
@@ -1609,7 +1609,7 @@
   "@homeNpc": {
     "description": "首页 - Home → 聊天消息，聊天消息中的角色头像中显示的文字"
   },
-  "commonAiDisclaimer": "Tutti i contenuti sono generati dall’IA e fittizi. Qualsiasi somiglianza con persone, eventi o luoghi reali è casuale.",
+  "commonAiDisclaimer": "Tutti i contenuti sono generati dall’AI e fittizi. Qualsiasi somiglianza con persone, eventi o luoghi reali è casuale.",
   "@commonAiDisclaimer": {
     "description": "首页 - Home → 聊天页 - AI 内容免责声明，聊天消息下方的 AI 内容免责声明中显示的文字"
   },
@@ -1679,11 +1679,11 @@
   "@worldoDetailViewAll": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域中显示的文字"
   },
-  "worldoDetailPlayingWorld": "Mondo in gioco",
+  "worldoDetailPlayingWorld": "Mondo in corso",
   "@worldoDetailPlayingWorld": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
   },
-  "worldoDetailTickCountSubLabel": "Turno {tickCount}{subTickLabel} · {messageCountLabel}",
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
   "@worldoDetailTickCountSubLabel": {
     "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
     "placeholders": {
@@ -1998,7 +1998,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "{count} personaggi: {names}",
+  "createSummaryCharacters": "{count, plural, =0{0 personaggi: {names}} =1{1 personaggio: {names}} other{{count} personaggi: {names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {
@@ -2046,7 +2046,7 @@
       }
     }
   },
-  "createSummaryEvents": "{count} eventi",
+  "createSummaryEvents": "{count, plural, =0{{count} eventi} =1{1 evento} other{{count} eventi}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {
@@ -2055,7 +2055,7 @@
       }
     }
   },
-  "createSummaryDialogue": "Dialogo del personaggio: {count}",
+  "createSummaryDialogue": "Dialoghi dei personaggi: {count}",
   "@createSummaryDialogue": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的角色对话数量",
     "placeholders": {
@@ -2876,7 +2876,7 @@
   "@createEventEgNationalChainScouts": {
     "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片的输入框提示"
   },
-  "createEventKeyStoryBeatAIUses": "Uno sviluppo chiave che l’IA usa per guidare la storia.",
+  "createEventKeyStoryBeatAIUses": "Uno sviluppo chiave che l’AI usa per guidare la storia.",
   "@createEventKeyStoryBeatAIUses": {
     "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片中显示的文字"
   },
@@ -3035,7 +3035,7 @@
   "@meUpdateFailed": {
     "description": "首页 - Me，昵称修改结果"
   },
-  "mePlaying": "In gioco",
+  "mePlaying": "In corso",
   "@mePlaying": {
     "description": "首页 - Me，个人信息/菜单列表中显示的文字"
   },
@@ -3632,11 +3632,11 @@
   "@premiumAppStoreUnavailable": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumPurchasesNotAllowedDevice": "Gli acquisti non sono consentiti su questo dispositivo. Controlla il tuo Apple Account e le restrizioni sugli acquisti.",
+  "premiumPurchasesNotAllowedDevice": "Gli acquisti non sono consentiti su questo dispositivo. Controlla il tuo Account Apple e le restrizioni sugli acquisti.",
   "@premiumPurchasesNotAllowedDevice": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleAccountNotEligible": "Il tuo Apple Account non è idoneo a questa offerta di abbonamento.",
+  "premiumAppleAccountNotEligible": "Il tuo Account Apple non è idoneo a questa offerta di abbonamento.",
   "@premiumAppleAccountNotEligible": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3656,7 +3656,7 @@
   "@premiumSubscriptionOfferFailed": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAddPaymentMethodApple": "Aggiungi un metodo di pagamento al tuo Apple Account, poi riprova.",
+  "premiumAddPaymentMethodApple": "Aggiungi un metodo di pagamento al tuo Account Apple, poi riprova.",
   "@premiumAddPaymentMethodApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3668,7 +3668,7 @@
   "@premiumAppStoreRequestRejected": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAppleCloudServiceAccess": "Accesso al servizio cloud Apple negato. Controlla le autorizzazioni del tuo Apple Account.",
+  "premiumAppleCloudServiceAccess": "Accesso al servizio cloud Apple negato. Controlla le autorizzazioni del tuo Account Apple.",
   "@premiumAppleCloudServiceAccess": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3676,11 +3676,11 @@
   "@premiumFailedConnectApple": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAccess2AppleCloudService": "L’accesso al servizio cloud Apple è stato revocato. Controlla le impostazioni del tuo Apple Account.",
+  "premiumAccess2AppleCloudService": "L’accesso al servizio cloud Apple è stato revocato. Controlla le impostazioni del tuo Account Apple.",
   "@premiumAccess2AppleCloudService": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
-  "premiumAcceptLatestApplePrivacy": "Accetta gli ultimi termini sulla privacy Apple nel tuo Apple Account, poi riprova.",
+  "premiumAcceptLatestApplePrivacy": "Accetta gli ultimi termini sulla privacy Apple nel tuo Account Apple, poi riprova.",
   "@premiumAcceptLatestApplePrivacy": {
     "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
   },
@@ -3928,7 +3928,7 @@
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
   },
-  "worldDetailTickCount": "Turno {tickCount}{subTickSuffix}",
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
   "@worldDetailTickCount": {
     "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
     "placeholders": {
@@ -3940,7 +3940,7 @@
       }
     }
   },
-  "worldDetailItemTickNumber": "Turno {tickNumber}{subTickSuffix}",
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
   "@worldDetailItemTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
     "placeholders": {
@@ -3952,7 +3952,7 @@
       }
     }
   },
-  "worldDetailHeaderTickNumber": "Turno {tickNumber}{subTickSuffix}{dateSuffix}",
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
   "@worldDetailHeaderTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
     "placeholders": {
@@ -3967,7 +3967,7 @@
       }
     }
   },
-  "worldFirstTickGenerating": "Il LLM sta generando il tuo primo turno. Potrebbe volerci un momento{progressDots}",
+  "worldFirstTickGenerating": "L’LLM sta generando il tuo primo Tick. Potrebbe volerci un momento{progressDots}",
   "@worldFirstTickGenerating": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
     "placeholders": {

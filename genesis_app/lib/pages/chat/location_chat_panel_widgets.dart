@@ -372,7 +372,7 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
           child: Text(
             GenesisL10n.current
                 .chatCountNewMessage(
-                  count: (count).toString(),
+                  count: count,
                 ),
             style: const TextStyle(
               color: Colors.white,

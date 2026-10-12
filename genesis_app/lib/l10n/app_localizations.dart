@@ -368,7 +368,7 @@ abstract class AppLocalizations {
   /// Status while the user's join request is being reviewed.
   ///
   /// In en, this message translates to:
-  /// **'Awaiting for approval'**
+  /// **'Awaiting approval'**
   String get awaitingApprovalStatus;
 
   /// Status for a join request the user needs to review.
@@ -966,7 +966,7 @@ abstract class AppLocalizations {
   /// Inbox summary for the current user's World join request.
   ///
   /// In en, this message translates to:
-  /// **'You request to join {worldName}{worldId}'**
+  /// **'You requested to join {worldName}{worldId}'**
   String joinRequestSelfSummary({
     required String worldName,
     required String worldId,
@@ -975,7 +975,7 @@ abstract class AppLocalizations {
   /// Inbox summary for another user's World join request.
   ///
   /// In en, this message translates to:
-  /// **'{requesterName}{requesterBadge} request to join {worldName}{worldId}'**
+  /// **'{requesterName}{requesterBadge} requested to join {worldName}{worldId}'**
   String joinRequestIncomingSummary({
     required String requesterName,
     required String requesterBadge,
@@ -986,7 +986,7 @@ abstract class AppLocalizations {
   /// Inbox comment notification title.
   ///
   /// In en, this message translates to:
-  /// **'{senderName}{senderBadge} comment your worldo'**
+  /// **'{senderName}{senderBadge} commented on your worldo'**
   String notificationCommentedOnWorldo({
     required String senderName,
     required String senderBadge,
@@ -995,7 +995,7 @@ abstract class AppLocalizations {
   /// Inbox reply notification title.
   ///
   /// In en, this message translates to:
-  /// **'{senderName}{senderBadge} reply to you'**
+  /// **'{senderName}{senderBadge} replied to you'**
   String notificationRepliedToYou({
     required String senderName,
     required String senderBadge,
@@ -1004,7 +1004,7 @@ abstract class AppLocalizations {
   /// Inbox comment-like notification title.
   ///
   /// In en, this message translates to:
-  /// **'{senderName}{senderBadge} like your comment'**
+  /// **'{senderName}{senderBadge} liked your comment'**
   String notificationLikedComment({
     required String senderName,
     required String senderBadge,
@@ -1115,7 +1115,7 @@ abstract class AppLocalizations {
   /// Personalization sheet sign-in sentence.
   ///
   /// In en, this message translates to:
-  /// **'I have an account to {signIn}'**
+  /// **'Already have an account? {signIn}'**
   String existingAccountSignIn({required String signIn});
 
   /// Sign-in link label inside a sentence.
@@ -1911,8 +1911,8 @@ abstract class AppLocalizations {
   /// 首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字
   ///
   /// In en, this message translates to:
-  /// **'{count} new message'**
-  String chatCountNewMessage({required String count});
+  /// **'{count, plural, =1{1 new message} other{{count} new messages}}'**
+  String chatCountNewMessage({required int count});
 
   /// 首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字
   ///
@@ -2409,7 +2409,7 @@ abstract class AppLocalizations {
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称
   ///
   /// In en, this message translates to:
-  /// **'{count} characters: {names}'**
+  /// **'{count, plural, =1{1 character: {names}} other{{count} characters: {names}}}'**
   String createSummaryCharacters({required int count, required String names});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的推荐角色
@@ -2421,43 +2421,43 @@ abstract class AppLocalizations {
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的一级地点数量
   ///
   /// In en, this message translates to:
-  /// **'L1 · Region : {count}'**
+  /// **'L1 · Region: {count}'**
   String createSummaryRegion({required int count});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的二级地点数量
   ///
   /// In en, this message translates to:
-  /// **'L2 · Building : {count}'**
+  /// **'L2 · Building: {count}'**
   String createSummaryBuilding({required int count});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的三级地点数量
   ///
   /// In en, this message translates to:
-  /// **'L3 · Room : {count}'**
+  /// **'L3 · Room: {count}'**
   String createSummaryRoom({required int count});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量
   ///
   /// In en, this message translates to:
-  /// **'{count} events'**
+  /// **'{count, plural, =1{1 event} other{{count} events}}'**
   String createSummaryEvents({required int count});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的角色对话数量
   ///
   /// In en, this message translates to:
-  /// **'Character dialogue : {count}'**
+  /// **'Character dialogue: {count}'**
   String createSummaryDialogue({required int count});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的旁白数量
   ///
   /// In en, this message translates to:
-  /// **'Narrator : {count}'**
+  /// **'Narrator: {count}'**
   String createSummaryNarrator({required int count});
 
   /// 首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的图片数量
   ///
   /// In en, this message translates to:
-  /// **'Image : {count}'**
+  /// **'Image: {count}'**
   String createSummaryImage({required int count});
 
   /// 首页 - Create，“Delete ${itemLabel}?”字段或选项
@@ -3069,13 +3069,13 @@ abstract class AppLocalizations {
   /// 首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗
   ///
   /// In en, this message translates to:
-  /// **'Every L2 and L3 locations inside it will be removed too.'**
+  /// **'All L2 and L3 locations inside it will be removed too.'**
   String get createLocationEveryL2L3Locations;
 
   /// 首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗
   ///
   /// In en, this message translates to:
-  /// **'Every L3 locations inside it will be removed too.'**
+  /// **'All L3 locations inside it will be removed too.'**
   String get createLocationEveryL3Locations;
 
   /// 首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗
@@ -3621,7 +3621,7 @@ abstract class AppLocalizations {
   /// 首页 - Inbox → 通知文案，Join Request 摘要中显示的文字
   ///
   /// In en, this message translates to:
-  /// **'{name} request to join {world}{suffix}'**
+  /// **'{name} requested to join {world}{suffix}'**
   String inboxNameRequestJoinWorldSuffix({
     required String name,
     required String world,
@@ -3631,19 +3631,19 @@ abstract class AppLocalizations {
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
   ///
   /// In en, this message translates to:
-  /// **' comment your worldo'**
+  /// **' commented on your worldo'**
   String get inboxCommentWorldo;
 
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
   ///
   /// In en, this message translates to:
-  /// **' reply to you'**
+  /// **' replied to you'**
   String get inboxReply;
 
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
   ///
   /// In en, this message translates to:
-  /// **' like your comment'**
+  /// **' liked your comment'**
   String get inboxLikeComment;
 
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
@@ -3655,7 +3655,7 @@ abstract class AppLocalizations {
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
   ///
   /// In en, this message translates to:
-  /// **'like your comment'**
+  /// **'liked your comment'**
   String get inboxComment2LikeComment;
 
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
@@ -3667,7 +3667,7 @@ abstract class AppLocalizations {
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
   ///
   /// In en, this message translates to:
-  /// **'reply to you'**
+  /// **'replied to you'**
   String get inboxYou2Reply;
 
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
@@ -3679,7 +3679,7 @@ abstract class AppLocalizations {
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题
   ///
   /// In en, this message translates to:
-  /// **'comment your origin'**
+  /// **'commented on your origin'**
   String get inboxCommentOrigin;
 
   /// 首页 - Inbox → 通知文案，Discuss 互动通知标题

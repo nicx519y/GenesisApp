@@ -99,11 +99,11 @@
   "@a11yRecentChat": {
     "description": "Accessibility label."
   },
-  "a11yAiReplyLoading": "KI-Antwort wird geladen",
+  "a11yAiReplyLoading": "AI-Antwort wird geladen",
   "@a11yAiReplyLoading": {
     "description": "Accessibility label."
   },
-  "statMessages": "{amount} {count, plural, =0{Nachrichten} =1{Nachricht} other{Nachrichten}}",
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
   "@statMessages": {
     "description": "Localized UI label for statistics or Worldo editor.",
     "placeholders": {
@@ -192,7 +192,7 @@
   "@launchAction": {
     "description": "Action for launching a World from a Worldo."
   },
-  "tickNowAction": "Jetzt fortschreiten",
+  "tickNowAction": "Jetzt Tick",
   "@tickNowAction": {
     "description": "Action for progressing a World immediately."
   },
@@ -204,7 +204,7 @@
   "@newPostTitle": {
     "description": "Title of the new discussion post composer."
   },
-  "aiIsGenerating": "KI generiert Inhalte",
+  "aiIsGenerating": "AI generiert Inhalte",
   "@aiIsGenerating": {
     "description": "Title of the AI generation wait overlay."
   },
@@ -224,7 +224,7 @@
   "@awaitingApprovalStatus": {
     "description": "Status while the user's join request is being reviewed."
   },
-  "awaitingYourApprovalStatus": "Deine Genehmigung ausstehend",
+  "awaitingYourApprovalStatus": "Wartet auf deine Genehmigung",
   "@awaitingYourApprovalStatus": {
     "description": "Status for a join request the user needs to review."
   },
@@ -232,7 +232,7 @@
   "@liveYourWorld": {
     "description": "Signed-out Me page headline."
   },
-  "signedOutMeDescription": "Spiele in Welten, erstelle Worldos, lade Freunde ein\nund setze deine Abenteuer überall fort.",
+  "signedOutMeDescription": "Spiele in Welten, erstelle worldo, lade Freunde ein\nund setze deine Abenteuer überall fort.",
   "@signedOutMeDescription": {
     "description": "Signed-out Me page introductory copy."
   },
@@ -256,7 +256,7 @@
   "@gemTaskSendMessageHint": {
     "description": "Gems task guidance for sending messages."
   },
-  "gemTaskProgressWorldHint": "Öffne eine Welt, in der du spielst, und tippe auf Jetzt fortschreiten.",
+  "gemTaskProgressWorldHint": "Öffne eine Welt, in der du spielst, und tippe auf Jetzt Tick.",
   "@gemTaskProgressWorldHint": {
     "description": "Gems task guidance for progressing a World."
   },
@@ -379,11 +379,11 @@
       }
     }
   },
-  "tickLabel": "Runde",
+  "tickLabel": "Tick",
   "@tickLabel": {
     "description": "Tick label without a number."
   },
-  "tickNumber": "Runde {tick}{suffix}",
+  "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
@@ -419,15 +419,15 @@
   "@directMessageRecord": {
     "description": "Fallback title for a direct-message Gems record."
   },
-  "gemRecord": "Gem-Verlauf",
+  "gemRecord": "Gem-Buchung",
   "@gemRecord": {
     "description": "Generic fallback title for a Gems record."
   },
-  "runATickTask": "Eine Runde fortschreiten",
+  "runATickTask": "Einen Tick ausführen",
   "@runATickTask": {
     "description": "Gems task title for progressing a World."
   },
-  "runATickTaskDescription": "Öffne eine Welt, in der du spielst, und tippe auf Jetzt fortschreiten.",
+  "runATickTaskDescription": "Öffne eine Welt, in der du spielst, und tippe auf Jetzt Tick.",
   "@runATickTaskDescription": {
     "description": "Gems task instructions for progressing a World."
   },
@@ -531,7 +531,7 @@
   "@feedbackSubmitted": {
     "description": "Settings feedback submission success."
   },
-  "feedbackFailed": "Feedback fehlgeschlagen",
+  "feedbackFailed": "Feedback konnte nicht gesendet werden",
   "@feedbackFailed": {
     "description": "Settings feedback submission failure."
   },
@@ -641,11 +641,11 @@
       }
     }
   },
-  "worldoMetricExplanation": "Dieses Worldo aktualisiert bei jedem Fortschritt den '{Kennzahlname}' jedes Charakters, angegeben in '{Einheit}'. Jeder Charakter beginnt bei '{Startwert}', und der Wert kann sich innerhalb von '{Min. Änderung}'–'{Max. Änderung}' verändern.",
+  "worldoMetricExplanation": "Dieses worldo aktualisiert bei jedem Fortschritt den '{Kennzahlname}' jedes Charakters, angegeben in '{Einheit}'. Jeder Charakter beginnt bei '{Startwert}', und der Wert kann sich innerhalb von '{Min. Änderung}'–'{Max. Änderung}' verändern.",
   "@worldoMetricExplanation": {
     "description": "Worldo Metric field explanation with literal field-name braces."
   },
-  "homeMyWorldsEmptyTitle": "Starte {worldo}, um\ndeine eigene Welt zu erstellen",
+  "homeMyWorldsEmptyTitle": "Starte ein {worldo}, um\ndeine eigene Welt zu erstellen",
   "@homeMyWorldsEmptyTitle": {
     "description": "Home My Worlds empty-state title.",
     "placeholders": {
@@ -654,7 +654,7 @@
       }
     }
   },
-  "memoryEstimatedNextMessageCost": "Geschätzte nächste Nachricht: {cost}",
+  "memoryEstimatedNextMessageCost": "Geschätzte Kosten der nächsten Nachricht: {cost}",
   "@memoryEstimatedNextMessageCost": {
     "description": "Estimated Gems cost under an AI model option.",
     "placeholders": {
@@ -728,7 +728,7 @@
   "@publishTimeout": {
     "description": "Publish Worldo 提交后等待发布结果超时的提示"
   },
-  "joinRequestSelfSummary": "Du fragst den Beitritt zu {worldName}{worldId} an",
+  "joinRequestSelfSummary": "Du hast den Beitritt zu {worldName}{worldId} angefragt",
   "@joinRequestSelfSummary": {
     "description": "Inbox summary for the current user's World join request.",
     "placeholders": {
@@ -740,7 +740,7 @@
       }
     }
   },
-  "joinRequestIncomingSummary": "{requesterName}{requesterBadge} fragt den Beitritt zu {worldName}{worldId} an",
+  "joinRequestIncomingSummary": "{requesterName}{requesterBadge} möchte {worldName}{worldId} beitreten",
   "@joinRequestIncomingSummary": {
     "description": "Inbox summary for another user's World join request.",
     "placeholders": {
@@ -758,7 +758,7 @@
       }
     }
   },
-  "notificationCommentedOnWorldo": "{senderName}{senderBadge} hat dein Worldo kommentiert",
+  "notificationCommentedOnWorldo": "{senderName}{senderBadge} hat dein worldo kommentiert",
   "@notificationCommentedOnWorldo": {
     "description": "Inbox comment notification title.",
     "placeholders": {
@@ -861,7 +861,7 @@
       }
     }
   },
-  "aboutDescription": "Mit Worldo kannst du KI-gestützte Welten voller Charaktere, Geschichten und sich entwickelnder Ereignisse erstellen, entdecken und betreten. Chatte mit KI-Charakteren, spiele mit Freunden und entwickle jede Welt durch lebendige Szenen und Entscheidungen weiter.\n\nUnsere App bietet eine neue Art, interaktive Geschichten zu erleben: als Teil der Welt. Bei Fragen kontaktiere uns bitte unter {contactEmail}.",
+  "aboutDescription": "Mit Worldo kannst du AI-gestützte Welten voller Charaktere, Geschichten und sich entwickelnder Ereignisse erstellen, entdecken und betreten. Chatte mit AI-Charakteren, spiele mit Freunden und entwickle jede Welt durch lebendige Szenen und Entscheidungen weiter.\n\nUnsere App bietet eine neue Art, interaktive Geschichten zu erleben: als Teil der Welt. Bei Fragen kontaktiere uns bitte unter {contactEmail}.",
   "@aboutDescription": {
     "description": "About page product description and contact sentence.",
     "placeholders": {
@@ -1020,7 +1020,7 @@
   "@navInbox": {
     "description": "首页底部 TAB - Inbox"
   },
-  "navMe": "Ich",
+  "navMe": "Profil",
   "@navMe": {
     "description": "首页底部 TAB - Me"
   },
@@ -1260,7 +1260,7 @@
   "@worldInfoAction": {
     "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字"
   },
-  "worldLocationCount": "Ort ({pointsCount})",
+  "worldLocationCount": "Orte ({pointsCount})",
   "@worldLocationCount": {
     "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字",
     "placeholders": {
@@ -1327,7 +1327,7 @@
   "@worldDetailLocation": {
     "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
   },
-  "worldDetailTickNumber": "Runde {tickNumber}",
+  "worldDetailTickNumber": "Tick {tickNumber}",
   "@worldDetailTickNumber": {
     "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
     "placeholders": {
@@ -1336,7 +1336,7 @@
       }
     }
   },
-  "homeGeneratingFirstTick": "Erste Runde wird generiert",
+  "homeGeneratingFirstTick": "Erster Tick wird generiert",
   "@homeGeneratingFirstTick": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
@@ -1564,12 +1564,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "{count} neue Nachrichten",
+  "chatCountNewMessage": "{count, plural, =0{{count} neue Nachrichten} =1{{count} neue Nachricht} other{{count} neue Nachrichten}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1597,7 +1597,7 @@
   "@chatLoadEarlierMessages": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息列表的加载状态"
   },
-  "chatText": "Text...",
+  "chatText": "Nachricht schreiben...",
   "@chatText": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息输入区域的输入框提示"
   },
@@ -1609,11 +1609,11 @@
   "@homeNpc": {
     "description": "首页 - Home → 聊天消息，聊天消息中的角色头像中显示的文字"
   },
-  "commonAiDisclaimer": "Alle Inhalte sind KI-generiert und fiktiv. Ähnlichkeiten mit realen Personen, Ereignissen oder Orten sind zufällig.",
+  "commonAiDisclaimer": "Alle Inhalte sind AI-generiert und fiktiv. Ähnlichkeiten mit realen Personen, Ereignissen oder Orten sind zufällig.",
   "@commonAiDisclaimer": {
     "description": "首页 - Home → 聊天页 - AI 内容免责声明，聊天消息下方的 AI 内容免责声明中显示的文字"
   },
-  "homeRecent": "Zuletzt",
+  "homeRecent": "Kürzlich",
   "@homeRecent": {
     "description": "首页 - Home → 聊天页 - 最近消息标记，聊天室最近消息标记中显示的文字"
   },
@@ -1679,11 +1679,11 @@
   "@worldoDetailViewAll": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域中显示的文字"
   },
-  "worldoDetailPlayingWorld": "Gespielte Welt",
+  "worldoDetailPlayingWorld": "Laufende Welt",
   "@worldoDetailPlayingWorld": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
   },
-  "worldoDetailTickCountSubLabel": "Runde {tickCount}{subTickLabel} · {messageCountLabel}",
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
   "@worldoDetailTickCountSubLabel": {
     "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
     "placeholders": {
@@ -1711,7 +1711,7 @@
   "@worldoSend": {
     "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子中显示的文字"
   },
-  "worldoPostFailed": "Beitrag fehlgeschlagen",
+  "worldoPostFailed": "Beitrag konnte nicht veröffentlicht werden",
   "@worldoPostFailed": {
     "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子时显示的提示"
   },
@@ -1762,7 +1762,7 @@
       }
     }
   },
-  "worldoLikeFailed": "Gefällt-mir fehlgeschlagen",
+  "worldoLikeFailed": "„Gefällt mir“ konnte nicht gesetzt werden",
   "@worldoLikeFailed": {
     "description": "首页 - Worldo → 帖子详情页，帖子详情页时显示的提示"
   },
@@ -1998,7 +1998,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "{count} Charaktere: {names}",
+  "createSummaryCharacters": "{count, plural, =0{0 Charaktere: {names}} =1{1 Charakter: {names}} other{{count} Charaktere: {names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {
@@ -2046,7 +2046,7 @@
       }
     }
   },
-  "createSummaryEvents": "{count} Ereignisse",
+  "createSummaryEvents": "{count, plural, =0{{count} Ereignisse} =1{1 Ereignis} other{{count} Ereignisse}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {
@@ -2099,7 +2099,7 @@
   "@createImageUploadProgress": {
     "description": "首页 - Create，封面上传区时显示的提示"
   },
-  "createBasicsBasics": "Grundlagen",
+  "createBasicsBasics": "Basisdaten",
   "@createBasicsBasics": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 的 Basics 页标题；提交前校验提示中的 Basics 名称"
   },
@@ -2123,19 +2123,19 @@
   "@createCharacterCharactersOnlyOne": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createBasicsBasicsWorldoName": "Grundlagen: Worldo-Name ist erforderlich.",
+  "createBasicsBasicsWorldoName": "Basisdaten: Worldo-Name ist erforderlich.",
   "@createBasicsBasicsWorldoName": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createBasicsBasicsWorldoBrief": "Grundlagen: Worldo-Kurzbeschreibung ist erforderlich.",
+  "createBasicsBasicsWorldoBrief": "Basisdaten: Worldo-Kurzbeschreibung ist erforderlich.",
   "@createBasicsBasicsWorldoBrief": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createBasicsBasicsCoverImage": "Grundlagen: Titelbild ist erforderlich.",
+  "createBasicsBasicsCoverImage": "Basisdaten: Titelbild ist erforderlich.",
   "@createBasicsBasicsCoverImage": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
-  "createBasicsBasicsMetricMust": "Grundlagen: Kennzahl muss gültiges JSON sein.",
+  "createBasicsBasicsMetricMust": "Basisdaten: Kennzahl muss gültiges JSON sein.",
   "@createBasicsBasicsMetricMust": {
     "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
   },
@@ -2336,7 +2336,7 @@
   "@createBasicsWorldoTimeOptional": {
     "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Time (Optional)”字段或选项"
   },
-  "createBasicsWorldoStartsStart": "Dieses Worldo beginnt bei '{Startzeit}'; jedes Tippen auf *Fortschreiten* verschiebt die Zeitlinie um '{Zeit pro Fortschritt}'.",
+  "createBasicsWorldoStartsStart": "Dieses worldo beginnt bei '{Startzeit}'; jedes Tippen auf *Fortschreiten* verschiebt die Zeitlinie um '{Zeit pro Fortschritt}'.",
   "@createBasicsWorldoStartsStart": {
     "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Time 字段下方的说明"
   },
@@ -2525,7 +2525,7 @@
   "@createCharacterInitialCharacters": {
     "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
   },
-  "createLocationStartingCharacters": "Die Charaktere, die sich zu Beginn des Worldos hier befinden.",
+  "createLocationStartingCharacters": "Die Charaktere, die sich zu Beginn des worldo hier befinden.",
   "@createLocationStartingCharacters": {
     "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
   },
@@ -2876,7 +2876,7 @@
   "@createEventEgNationalChainScouts": {
     "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片的输入框提示"
   },
-  "createEventKeyStoryBeatAIUses": "Ein wichtiger Handlungsschritt, mit dem die KI die Geschichte lenkt.",
+  "createEventKeyStoryBeatAIUses": "Ein wichtiger Handlungsschritt, mit dem die AI die Geschichte lenkt.",
   "@createEventKeyStoryBeatAIUses": {
     "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片中显示的文字"
   },
@@ -2964,7 +2964,7 @@
   "@inboxWorld": {
     "description": "首页 - Inbox → 通知文案，World 请求摘要中显示的文字"
   },
-  "inboxNameRequestJoinWorldSuffix": "{name} fragt den Beitritt zu {world}{suffix} an",
+  "inboxNameRequestJoinWorldSuffix": "{name} möchte {world}{suffix} beitreten",
   "@inboxNameRequestJoinWorldSuffix": {
     "description": "首页 - Inbox → 通知文案，Join Request 摘要中显示的文字",
     "placeholders": {
@@ -2979,7 +2979,7 @@
       }
     }
   },
-  "inboxCommentWorldo": " hat dein Worldo kommentiert",
+  "inboxCommentWorldo": " hat dein worldo kommentiert",
   "@inboxCommentWorldo": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -3003,15 +3003,15 @@
   "@inboxReplied": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxYou2Reply": "antwortet dir",
+  "inboxYou2Reply": "hat dir geantwortet",
   "@inboxYou2Reply": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxCommentedOrigin": "hat deine Schöpfung kommentiert",
+  "inboxCommentedOrigin": "hat dein Werk kommentiert",
   "@inboxCommentedOrigin": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
-  "inboxCommentOrigin": "kommentiert deine Schöpfung",
+  "inboxCommentOrigin": "hat dein Werk kommentiert",
   "@inboxCommentOrigin": {
     "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
   },
@@ -3109,7 +3109,7 @@
   "@meNoFollowersYet": {
     "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
   },
-  "meBlockFailed": "Blockieren fehlgeschlagen. Versuch es erneut.",
+  "meBlockFailed": "Blockieren fehlgeschlagen. Bitte versuche es erneut.",
   "@meBlockFailed": {
     "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
@@ -3125,7 +3125,7 @@
   "@meBlock": {
     "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
   },
-  "meUnblockFailed": "Entsperren fehlgeschlagen. Versuch es erneut.",
+  "meUnblockFailed": "Entsperren fehlgeschlagen. Bitte versuche es erneut.",
   "@meUnblockFailed": {
     "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
@@ -3478,7 +3478,7 @@
   "@memoryChooseModel": {
     "description": "首页 - Me → Memory & Model 页，Memory 设置区域的标题"
   },
-  "memoryMaxTokenLimit": "Maximales Speicher-Token-Limit",
+  "memoryMaxTokenLimit": "Maximales Gedächtnis-Token-Limit",
   "@memoryMaxTokenLimit": {
     "description": "首页 - Me → Memory & Model 页，Memory 设置区域的标题"
   },
@@ -3490,7 +3490,7 @@
   "@memoryRetryRanges": {
     "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
   },
-  "memoryCurrentUsage": "Deine aktuelle Speichernutzung",
+  "memoryCurrentUsage": "Deine aktuelle Gedächtnisnutzung",
   "@memoryCurrentUsage": {
     "description": "首页 - Me → Memory & Model 页，当前 Memory 摘要区域中显示的文字"
   },
@@ -3515,7 +3515,7 @@
       }
     }
   },
-  "memoryStart": "Speicher {memoryStart}",
+  "memoryStart": "Gedächtnis {memoryStart}",
   "@memoryStart": {
     "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
     "placeholders": {
@@ -3524,7 +3524,7 @@
       }
     }
   },
-  "memoryStartEnd": "Speicher {memoryStart} → {memoryEnd}",
+  "memoryStartEnd": "Gedächtnis {memoryStart} → {memoryEnd}",
   "@memoryStartEnd": {
     "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
     "placeholders": {
@@ -3536,7 +3536,7 @@
       }
     }
   },
-  "memorySettingsUnavailable": "Speichereinstellungen nicht verfügbar",
+  "memorySettingsUnavailable": "Gedächtniseinstellungen nicht verfügbar",
   "@memorySettingsUnavailable": {
     "description": "首页 - Me → Memory & Model 页，Memory 设置区域出错时显示的提示"
   },
@@ -3928,7 +3928,7 @@
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
   },
-  "worldDetailTickCount": "Runde {tickCount}{subTickSuffix}",
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
   "@worldDetailTickCount": {
     "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
     "placeholders": {
@@ -3940,7 +3940,7 @@
       }
     }
   },
-  "worldDetailItemTickNumber": "Runde {tickNumber}{subTickSuffix}",
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
   "@worldDetailItemTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
     "placeholders": {
@@ -3952,7 +3952,7 @@
       }
     }
   },
-  "worldDetailHeaderTickNumber": "Runde {tickNumber}{subTickSuffix}{dateSuffix}",
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
   "@worldDetailHeaderTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
     "placeholders": {
@@ -3967,7 +3967,7 @@
       }
     }
   },
-  "worldFirstTickGenerating": "Das LLM generiert deine erste Runde. Dies kann einen Moment dauern{progressDots}",
+  "worldFirstTickGenerating": "Das LLM generiert deinen ersten Tick. Dies kann einen Moment dauern{progressDots}",
   "@worldFirstTickGenerating": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
     "placeholders": {
@@ -3997,7 +3997,7 @@
       }
     }
   },
-  "createCharacterRoleHint": "Die Rolle des Charakters im Worldo.",
+  "createCharacterRoleHint": "Die Rolle des Charakters im worldo.",
   "@createCharacterRoleHint": {
     "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
   },
@@ -4025,7 +4025,7 @@
       }
     }
   },
-  "memoryModel": "Speicher und Modell",
+  "memoryModel": "Gedächtnis und Modell",
   "@memoryModel": {
     "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
   },
@@ -4041,15 +4041,15 @@
   "@inboxMissingJoinRequestId": {
     "description": "Inbox approval action cannot proceed because the join request ID is missing."
   },
-  "loginTimedOut": "Zeitüberschreitung bei der Anmeldung. Versuch es erneut.",
+  "loginTimedOut": "Zeitüberschreitung bei der Anmeldung. Bitte versuche es erneut.",
   "@loginTimedOut": {
     "description": "Login error toast after a sign-in request times out."
   },
-  "loginConnectionFailed": "Verbindung fehlgeschlagen. Prüfe deine Internetverbindung und versuch es erneut.",
+  "loginConnectionFailed": "Verbindung fehlgeschlagen. Prüfe deine Internetverbindung und versuche es erneut.",
   "@loginConnectionFailed": {
     "description": "Login toast for a transport failure with no server message."
   },
-  "loginTemporarilyUnavailable": "Die Anmeldung ist vorübergehend nicht verfügbar. Versuch es später erneut.",
+  "loginTemporarilyUnavailable": "Die Anmeldung ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.",
   "@loginTemporarilyUnavailable": {
     "description": "Login toast for HTTP or gateway failure with no server message."
   },
@@ -4057,7 +4057,7 @@
   "@recapUnlockHeading": {
     "description": "Heading suffix following Worldo Premium on the story recap subscription upsell."
   },
-  "recapUpsellDescription": "Hol deine Geschichte mit einem vollständigen Rückblick auf jede Wendung, Entscheidung und Figur nach.",
+  "recapUpsellDescription": "Hol deine Geschichte mit einem vollständigen Rückblick auf jede Wendung, jede Entscheidung und jeden Charakter nach.",
   "@recapUpsellDescription": {
     "description": "Story recap subscription upsell description."
   },
@@ -4086,7 +4086,7 @@
   "@chatNarratorSpeaker": {
     "description": "Accessibility speaker name for narrator mode."
   },
-  "chatYourCharacterSpeaker": "deine Figur",
+  "chatYourCharacterSpeaker": "dein Charakter",
   "@chatYourCharacterSpeaker": {
     "description": "Accessibility speaker fallback while the player character name is unavailable."
   },
@@ -4099,7 +4099,7 @@
       }
     }
   },
-  "chatSwitchCharacter": "Zur Figur wechseln",
+  "chatSwitchCharacter": "Zum Charakter wechseln",
   "@chatSwitchCharacter": {
     "description": "Tooltip for switching from narration to character chat."
   },
@@ -4124,7 +4124,7 @@
   "@blockedReportFailed": {
     "description": "Profile and blocked-user settings toast when block succeeded but report submission failed."
   },
-  "storeConnectionFailed": "Verbindung zum Store fehlgeschlagen. Versuch es erneut.",
+  "storeConnectionFailed": "Verbindung zum Store fehlgeschlagen. Bitte versuche es erneut.",
   "@storeConnectionFailed": {
     "description": "Billing toast when the store cannot be reached."
   },

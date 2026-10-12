@@ -67,7 +67,7 @@
   "@a11yFilterGender": {
     "description": "Accessibility label."
   },
-  "a11ySelectRole": "自分の役割を選択",
+  "a11ySelectRole": "自分のロールを選択",
   "@a11ySelectRole": {
     "description": "Accessibility label."
   },
@@ -87,7 +87,7 @@
   "@a11yProMembership": {
     "description": "Accessibility label."
   },
-  "a11yRecommendedRole": "おすすめの役割",
+  "a11yRecommendedRole": "おすすめのロール",
   "@a11yRecommendedRole": {
     "description": "Accessibility label."
   },
@@ -103,7 +103,7 @@
   "@a11yAiReplyLoading": {
     "description": "Accessibility label."
   },
-  "statMessages": "{amount} {count, plural, =0{メッセージ} =1{メッセージ} other{メッセージ}}",
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
   "@statMessages": {
     "description": "Localized UI label for statistics or Worldo editor.",
     "placeholders": {
@@ -192,7 +192,7 @@
   "@launchAction": {
     "description": "Action for launching a World from a Worldo."
   },
-  "tickNowAction": "今すぐ進行",
+  "tickNowAction": "今すぐTick",
   "@tickNowAction": {
     "description": "Action for progressing a World immediately."
   },
@@ -232,7 +232,7 @@
   "@liveYourWorld": {
     "description": "Signed-out Me page headline."
   },
-  "signedOutMeDescription": "ワールドで遊び、Worldoを作り、友達を招待して、\nどこからでも続きを楽しもう。",
+  "signedOutMeDescription": "ワールドで遊び、worldoを作り、友達を招待して、\nどこからでも続きを楽しもう。",
   "@signedOutMeDescription": {
     "description": "Signed-out Me page introductory copy."
   },
@@ -256,7 +256,7 @@
   "@gemTaskSendMessageHint": {
     "description": "Gems task guidance for sending messages."
   },
-  "gemTaskProgressWorldHint": "プレイ中のワールドを開き、「今すぐ進行」をタップしましょう。",
+  "gemTaskProgressWorldHint": "プレイ中のワールドを開き、「今すぐTick」をタップしましょう。",
   "@gemTaskProgressWorldHint": {
     "description": "Gems task guidance for progressing a World."
   },
@@ -280,7 +280,7 @@
   "@userLabel": {
     "description": "Generic user label and missing-name fallback."
   },
-  "meLabel": "マイページ",
+  "meLabel": "自分",
   "@meLabel": {
     "description": "Current-user sender name fallback."
   },
@@ -379,11 +379,11 @@
       }
     }
   },
-  "tickLabel": "ターン",
+  "tickLabel": "Tick",
   "@tickLabel": {
     "description": "Tick label without a number."
   },
-  "tickNumber": "ターン{tick}{suffix}",
+  "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
@@ -419,15 +419,15 @@
   "@directMessageRecord": {
     "description": "Fallback title for a direct-message Gems record."
   },
-  "gemRecord": "ジェム履歴",
+  "gemRecord": "ジェムの記録",
   "@gemRecord": {
     "description": "Generic fallback title for a Gems record."
   },
-  "runATickTask": "1ターン進める",
+  "runATickTask": "Tickを1回実行",
   "@runATickTask": {
     "description": "Gems task title for progressing a World."
   },
-  "runATickTaskDescription": "プレイ中のワールドを開き、「今すぐ進行」をタップしてください。",
+  "runATickTaskDescription": "プレイ中のワールドを開き、「今すぐTick」をタップしてください。",
   "@runATickTaskDescription": {
     "description": "Gems task instructions for progressing a World."
   },
@@ -503,7 +503,7 @@
       }
     }
   },
-  "selectPresetRoleValidation": "プリセットの役割を選択してください",
+  "selectPresetRoleValidation": "プリセットのロールを選択してください",
   "@selectPresetRoleValidation": {
     "description": "Role launch validation message."
   },
@@ -551,7 +551,7 @@
   "@publishFailed": {
     "description": "Worldo publishing failure prefix."
   },
-  "publishChangesBeforeLeaving": "終了する前に変更を公開しますか？",
+  "publishChangesBeforeLeaving": "このページを離れる前に変更を公開しますか？",
   "@publishChangesBeforeLeaving": {
     "description": "Worldo editor leave confirmation title."
   },
@@ -612,7 +612,7 @@
   "@sendFailed": {
     "description": "Direct-message send failure."
   },
-  "selectARole": "役割を選択",
+  "selectARole": "ロールを選択",
   "@selectARole": {
     "description": "Role picker empty selection label."
   },
@@ -654,7 +654,7 @@
       }
     }
   },
-  "memoryEstimatedNextMessageCost": "次のメッセージの推定：{cost}",
+  "memoryEstimatedNextMessageCost": "次のメッセージの推定コスト：{cost}",
   "@memoryEstimatedNextMessageCost": {
     "description": "Estimated Gems cost under an AI model option.",
     "placeholders": {
@@ -1057,7 +1057,7 @@
   "@homeSignInUnavailable": {
     "description": "首页 - Home，登录失败提示"
   },
-  "homeSignedOutTitle": "すべてのワールドをひとつに",
+  "homeSignedOutTitle": "あなたのワールドを、ひとつの場所に",
   "@homeSignedOutTitle": {
     "description": "首页 - Home，页面标题/登录状态"
   },
@@ -1327,7 +1327,7 @@
   "@worldDetailLocation": {
     "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
   },
-  "worldDetailTickNumber": "ターン{tickNumber}",
+  "worldDetailTickNumber": "Tick {tickNumber}",
   "@worldDetailTickNumber": {
     "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
     "placeholders": {
@@ -1336,7 +1336,7 @@
       }
     }
   },
-  "homeGeneratingFirstTick": "最初のターンを生成中",
+  "homeGeneratingFirstTick": "最初のTickを生成中",
   "@homeGeneratingFirstTick": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
@@ -1344,7 +1344,7 @@
   "@worldFirstTickStatusLoadFailed": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
   },
-  "worldDetailNew": "新規",
+  "worldDetailNew": "新着",
   "@worldDetailNew": {
     "description": "首页 - Home → World 新内容标记，World 详情页的新内容标记中显示的文字"
   },
@@ -1556,7 +1556,7 @@
   "@chatCopy": {
     "description": "首页 - Home → 地点聊天室，地点聊天室长按消息后的操作菜单的按钮或标签"
   },
-  "chatReport": "報告",
+  "chatReport": "通報",
   "@chatReport": {
     "description": "首页 - Home → 地点聊天室，地点聊天室长按消息后的操作菜单的按钮或标签"
   },
@@ -1564,12 +1564,12 @@
   "@chatCopied": {
     "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
   },
-  "chatCountNewMessage": "新着メッセージ{count}件",
+  "chatCountNewMessage": "{count, plural, =0{新着メッセージ{count}件} =1{新着メッセージ{count}件} other{新着メッセージ{count}件}}",
   "@chatCountNewMessage": {
     "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
     "placeholders": {
       "count": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -1597,7 +1597,7 @@
   "@chatLoadEarlierMessages": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息列表的加载状态"
   },
-  "chatText": "テキスト...",
+  "chatText": "メッセージを入力...",
   "@chatText": {
     "description": "首页 - Home → 地点聊天室，地点聊天室消息输入区域的输入框提示"
   },
@@ -1633,7 +1633,7 @@
   "@worldoAll": {
     "description": "首页 - Me → Gems 钱包 → Gems 明细页，顶部记录筛选栏的 All 选项"
   },
-  "worldoDetailSelectRole": "自分の役割を選択",
+  "worldoDetailSelectRole": "自分のロールを選択",
   "@worldoDetailSelectRole": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板的基础信息中显示的文字"
   },
@@ -1683,7 +1683,7 @@
   "@worldoDetailPlayingWorld": {
     "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
   },
-  "worldoDetailTickCountSubLabel": "ターン{tickCount}{subTickLabel} · {messageCountLabel}",
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
   "@worldoDetailTickCountSubLabel": {
     "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
     "placeholders": {
@@ -1817,11 +1817,11 @@
   "@worldoLaunchLaunchWorldoExplore": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
   },
-  "worldoLaunchRoleUnavailable": "この役割は利用できなくなりました",
+  "worldoLaunchRoleUnavailable": "このロールは利用できなくなりました",
   "@worldoLaunchRoleUnavailable": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择时显示的提示"
   },
-  "worldoLaunchSelectRole": "自分の役割を選択",
+  "worldoLaunchSelectRole": "自分のロールを選択",
   "@worldoLaunchSelectRole": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色中显示的文字"
   },
@@ -1849,7 +1849,7 @@
   "@worldoLaunchGoal": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
   },
-  "worldoLaunchSetupRole": "自分の役割を設定",
+  "worldoLaunchSetupRole": "自分のロールを設定",
   "@worldoLaunchSetupRole": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的标题"
   },
@@ -1861,7 +1861,7 @@
   "@worldoLaunchCustom": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
   },
-  "worldoLaunchNoPresetRole": "プリセットの役割がありません",
+  "worldoLaunchNoPresetRole": "プリセットのロールがありません",
   "@worldoLaunchNoPresetRole": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
   },
@@ -1998,7 +1998,7 @@
   "@createSummaryNoCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
   },
-  "createSummaryCharacters": "キャラクター{count}人：{names}",
+  "createSummaryCharacters": "{count, plural, =1{キャラクター1人：{names}} other{キャラクター{count}人：{names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
     "placeholders": {
@@ -2046,7 +2046,7 @@
       }
     }
   },
-  "createSummaryEvents": "イベント{count}件",
+  "createSummaryEvents": "{count, plural, =1{イベント1件} other{イベント{count}件}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
     "placeholders": {
@@ -2324,7 +2324,7 @@
   "@createBasicsUsedCardsDetailPages": {
     "description": "首页 - Create → Worldo 编辑 - Basics，封面图片尺寸和格式说明"
   },
-  "createBasicsWorldoSettingsHidden": "Worldo設定 — 非公開（任意）",
+  "createBasicsWorldoSettingsHidden": "Worldo設定 — 非表示（任意）",
   "@createBasicsWorldoSettingsHidden": {
     "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Settings - Hidden (Optional)”字段或选项"
   },
@@ -2501,7 +2501,7 @@
   "@createCharacterEgRichestOwner": {
     "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Be the richest owner on Main Street by Labor Day”"
   },
-  "createCharacterBackgroundHidden": "背景 — 非公開（任意）",
+  "createCharacterBackgroundHidden": "背景 — 非表示（任意）",
   "@createCharacterBackgroundHidden": {
     "description": "首页 - Create → Worldo 编辑 - Characters，“Background - Hidden (Optional)”字段或选项"
   },
@@ -2777,7 +2777,7 @@
   "@createOpeningAdd10DialogueItems": {
     "description": "首页 - Create → Worldo 编辑 - Opening，添加对话条目时显示的提示"
   },
-  "settingsUnableSaveSuggestedRole": "おすすめの役割を保存できませんでした。",
+  "settingsUnableSaveSuggestedRole": "おすすめのロールを保存できませんでした。",
   "@settingsUnableSaveSuggestedRole": {
     "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 设置时显示的提示"
   },
@@ -2817,7 +2817,7 @@
   "@createOpeningImage": {
     "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 对话编辑区的按钮或标签"
   },
-  "createOpeningSuggestRoleUser": "ユーザーに役割をおすすめ",
+  "createOpeningSuggestRoleUser": "ユーザーにロールをおすすめ",
   "@createOpeningSuggestRoleUser": {
     "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 选择器中显示的文字"
   },
@@ -3113,7 +3113,7 @@
   "@meBlockFailed": {
     "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
   },
-  "meUserBlockedContentHasReported": "ユーザーをブロックしました。このコンテンツはWorldoチームに報告されました。",
+  "meUserBlockedContentHasReported": "ユーザーをブロックしました。このコンテンツをWorldoチームに通報しました。",
   "@meUserBlockedContentHasReported": {
     "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
   },
@@ -3874,11 +3874,11 @@
   "@appPressBackExit": {
     "description": "App 退出提示，连续返回准备退出 App时显示的提示"
   },
-  "appReportSubmitted": "報告を送信しました",
+  "appReportSubmitted": "通報を送信しました",
   "@appReportSubmitted": {
     "description": "举报弹窗，举报内容时的菜单和原因选择弹窗"
   },
-  "appReportFailed": "報告に失敗しました",
+  "appReportFailed": "通報に失敗しました",
   "@appReportFailed": {
     "description": "举报弹窗，举报内容时的菜单和原因选择弹窗"
   },
@@ -3928,7 +3928,7 @@
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
   },
-  "worldDetailTickCount": "ターン{tickCount}{subTickSuffix}",
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
   "@worldDetailTickCount": {
     "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
     "placeholders": {
@@ -3940,7 +3940,7 @@
       }
     }
   },
-  "worldDetailItemTickNumber": "ターン{tickNumber}{subTickSuffix}",
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
   "@worldDetailItemTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
     "placeholders": {
@@ -3952,7 +3952,7 @@
       }
     }
   },
-  "worldDetailHeaderTickNumber": "ターン{tickNumber}{subTickSuffix}{dateSuffix}",
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
   "@worldDetailHeaderTickNumber": {
     "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
     "placeholders": {
@@ -3967,7 +3967,7 @@
       }
     }
   },
-  "worldFirstTickGenerating": "LLMが最初のターンを生成しています。しばらくお待ちください{progressDots}",
+  "worldFirstTickGenerating": "LLMが最初のTickを生成しています。しばらくお待ちください{progressDots}",
   "@worldFirstTickGenerating": {
     "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
     "placeholders": {
@@ -4037,7 +4037,7 @@
   "@worldRecap": {
     "description": "World detail bottom sheet tab for the story recap."
   },
-  "inboxMissingJoinRequestId": "参加申請 ID がありません",
+  "inboxMissingJoinRequestId": "参加申請IDがありません",
   "@inboxMissingJoinRequestId": {
     "description": "Inbox approval action cannot proceed because the join request ID is missing."
   },
@@ -4073,7 +4073,7 @@
   "@chatMessageAsNarrator": {
     "description": "Location chat input hint when narrator mode is selected."
   },
-  "chatMessageAsCharacter": "{name} としてメッセージを送信",
+  "chatMessageAsCharacter": "{name}としてメッセージを送信",
   "@chatMessageAsCharacter": {
     "description": "Location chat input hint naming the player character.",
     "placeholders": {
@@ -4090,7 +4090,7 @@
   "@chatYourCharacterSpeaker": {
     "description": "Accessibility speaker fallback while the player character name is unavailable."
   },
-  "chatSpeakingAs": "{speaker} として発言中",
+  "chatSpeakingAs": "{speaker}として発言中",
   "@chatSpeakingAs": {
     "description": "Accessibility label for location chat speaker toggle.",
     "placeholders": {
@@ -4107,7 +4107,7 @@
   "@chatSwitchNarration": {
     "description": "Tooltip for switching from character chat to narration."
   },
-  "chatOpenLocation": "{locationName} を開く",
+  "chatOpenLocation": "{locationName}を開く",
   "@chatOpenLocation": {
     "description": "Accessible button label opening a character movement destination.",
     "placeholders": {
@@ -4163,7 +4163,7 @@
   "@developerClearFailed": {
     "description": "Developer settings toast when clearing cached data or gateway configuration fails."
   },
-  "developerGatewaySignatureFailed": "Gateway の署名検証に失敗しました",
+  "developerGatewaySignatureFailed": "Gatewayの署名検証に失敗しました",
   "@developerGatewaySignatureFailed": {
     "description": "Developer gateway signature check failure toast."
   },
@@ -4171,7 +4171,7 @@
   "@developerEndpointsSaved": {
     "description": "Developer endpoint settings success toast; new requests use the saved endpoint configuration."
   },
-  "developerAdjustRestartRequired": "Adjust 環境を適用するには、アプリを再起動してください。",
+  "developerAdjustRestartRequired": "Adjust環境を適用するには、アプリを再起動してください。",
   "@developerAdjustRestartRequired": {
     "description": "Developer settings instruction after changing the Adjust environment; shown as a separate sentence after the save success message."
   },

@@ -80,9 +80,9 @@ class AppLocalizationsKo extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '메시지',
-      one: '메시지',
-      zero: '메시지',
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
     );
     return '$amount $_temp0';
   }
@@ -144,7 +144,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get launchAction => '시작';
 
   @override
-  String get tickNowAction => '지금 진행';
+  String get tickNowAction => '지금 Tick';
 
   @override
   String get writePostHint => '게시물 작성';
@@ -176,7 +176,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get signedOutMeDescription =>
-      '월드에서 플레이하고, Worldo를 만들고, 친구를 초대하세요.\n어디서든 이야기를 이어갈 수 있습니다.';
+      '월드에서 플레이하고, worldo를 만들고, 친구를 초대하세요.\n어디서든 이야기를 이어갈 수 있습니다.';
 
   @override
   String get gemTaskLaunchWorldHint => '마음에 드는 Worldo를 열고 시작하여 나만의 월드를 만드세요.';
@@ -194,7 +194,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get gemTaskSendMessageHint => '내 월드에서 메시지를 보내세요.';
 
   @override
-  String get gemTaskProgressWorldHint => '플레이 중인 월드를 열고 지금 진행을 누르세요.';
+  String get gemTaskProgressWorldHint => '플레이 중인 월드를 열고 지금 Tick을 누르세요.';
 
   @override
   String get termsOfService => '서비스 이용약관';
@@ -212,7 +212,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get userLabel => '사용자';
 
   @override
-  String get meLabel => '내 정보';
+  String get meLabel => '나';
 
   @override
   String get locationLabel => '장소';
@@ -281,11 +281,11 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get tickLabel => '턴';
+  String get tickLabel => 'Tick';
 
   @override
   String tickNumber({required String tick, required String suffix}) {
-    return '턴 $tick$suffix';
+    return 'Tick $tick$suffix';
   }
 
   @override
@@ -307,13 +307,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get directMessageRecord => '개인 메시지';
 
   @override
-  String get gemRecord => '젬 내역';
+  String get gemRecord => '젬 기록';
 
   @override
-  String get runATickTask => '한 턴 진행';
+  String get runATickTask => 'Tick 1회 실행';
 
   @override
-  String get runATickTaskDescription => '플레이 중인 월드를 열고 지금 진행을 누르세요.';
+  String get runATickTaskDescription => '플레이 중인 월드를 열고 지금 Tick을 누르세요.';
 
   @override
   String get someoneFallback => '누군가';
@@ -342,7 +342,7 @@ class AppLocalizationsKo extends AppLocalizations {
     required String direction,
     required String locationName,
   }) {
-    return '$characterName: $direction ($locationName)';
+    return '$characterName: $locationName에 $direction';
   }
 
   @override
@@ -474,7 +474,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String memoryEstimatedNextMessageCost({required String cost}) {
-    return '다음 메시지 예상: $cost';
+    return '다음 메시지 예상 비용: $cost';
   }
 
   @override
@@ -555,7 +555,7 @@ class AppLocalizationsKo extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge님이 내 댓글을 좋아합니다';
+    return '$senderName$senderBadge님이 내 댓글에 좋아요를 눌렀습니다';
   }
 
   @override
@@ -910,11 +910,11 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String worldDetailTickNumber({required String tickNumber}) {
-    return '턴 $tickNumber';
+    return 'Tick $tickNumber';
   }
 
   @override
-  String get homeGeneratingFirstTick => '첫 번째 턴 생성 중';
+  String get homeGeneratingFirstTick => '첫 번째 Tick 생성 중';
 
   @override
   String get worldFirstTickStatusLoadFailed => '생성 상태를 불러오지 못했습니다.';
@@ -1087,8 +1087,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatCopied => '복사했습니다';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '새 메시지 $count개';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '새 메시지 $count개',
+      one: '새 메시지 $count개',
+      zero: '새 메시지 $count개',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1110,7 +1117,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatLoadEarlierMessages => '이전 메시지 불러오기';
 
   @override
-  String get chatText => '텍스트...';
+  String get chatText => '메시지 입력...';
 
   @override
   String get chatLocationRoster => '나';
@@ -1177,7 +1184,7 @@ class AppLocalizationsKo extends AppLocalizations {
     required String subTickLabel,
     required String messageCountLabel,
   }) {
-    return '턴 $tickCount$subTickLabel · $messageCountLabel';
+    return 'Tick $tickCount$subTickLabel · $messageCountLabel';
   }
 
   @override
@@ -1288,7 +1295,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get worldoLaunchSetupRole => '내 역할 설정';
 
   @override
-  String get worldoLaunchPreset => '기본';
+  String get worldoLaunchPreset => '프리셋';
 
   @override
   String get worldoLaunchCustom => '직접 설정';
@@ -1389,7 +1396,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '캐릭터 $count명: $names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '캐릭터 $count명: $names',
+      one: '캐릭터 1명: $names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1414,7 +1427,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String createSummaryEvents({required int count}) {
-    return '이벤트 $count개';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '이벤트 $count개',
+      one: '이벤트 1개',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1434,7 +1453,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String createDeleteItemLabel({required String itemLabel}) {
-    return '\"$itemLabel\" 삭제할까요?';
+    return '\"$itemLabel\"을(를) 삭제할까요?';
   }
 
   @override
@@ -1611,7 +1630,7 @@ class AppLocalizationsKo extends AppLocalizations {
       '카드와 상세 페이지에 사용됩니다. 약 768×1024 px 권장. 지원 형식: JPG, PNG, WEBP.';
 
   @override
-  String get createBasicsWorldoSettingsHidden => 'Worldo 설정 — 비공개 (선택)';
+  String get createBasicsWorldoSettingsHidden => 'Worldo 설정 — 숨김 (선택)';
 
   @override
   String get createBasicsEgBankerSecretly =>
@@ -1738,7 +1757,7 @@ class AppLocalizationsKo extends AppLocalizations {
       '예: 노동절까지 메인 스트리트에서 가장 부유한 상점 주인이 되기';
 
   @override
-  String get createCharacterBackgroundHidden => '배경 — 비공개 (선택)';
+  String get createCharacterBackgroundHidden => '배경 — 숨김 (선택)';
 
   @override
   String get createCharacterEgLeftTownYears =>
@@ -2095,13 +2114,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get inboxReply => ' 님이 내게 답글을 남겼습니다';
 
   @override
-  String get inboxLikeComment => ' 님이 내 댓글을 좋아합니다';
+  String get inboxLikeComment => ' 님이 내 댓글에 좋아요를 눌렀습니다';
 
   @override
-  String get inboxLikedComment => '님이 내 댓글을 좋아합니다';
+  String get inboxLikedComment => '님이 내 댓글에 좋아요를 눌렀습니다';
 
   @override
-  String get inboxComment2LikeComment => '님이 내 댓글을 좋아합니다';
+  String get inboxComment2LikeComment => '님이 내 댓글에 좋아요를 눌렀습니다';
 
   @override
   String get inboxReplied => '님이 내게 답글을 남겼습니다';
@@ -2178,7 +2197,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meNoFollowersYet => '아직 팔로워가 없습니다.';
 
   @override
-  String get meBlockFailed => '차단하지 못했어요. 다시 시도해 주세요.';
+  String get meBlockFailed => '차단하지 못했습니다. 다시 시도해 주세요.';
 
   @override
   String get meUserBlockedContentHasReported =>
@@ -2191,7 +2210,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meBlock => '차단';
 
   @override
-  String get meUnblockFailed => '차단을 해제하지 못했어요. 다시 시도해 주세요.';
+  String get meUnblockFailed => '차단을 해제하지 못했습니다. 다시 시도해 주세요.';
 
   @override
   String get meUnblock => '차단 해제';
@@ -2586,11 +2605,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get premiumPurchasesNotAllowedDevice =>
-      '이 기기에서는 구매가 허용되지 않습니다. Apple Account와 구매 제한을 확인하세요.';
+      '이 기기에서는 구매가 허용되지 않습니다. Apple 계정과 구매 제한을 확인하세요.';
 
   @override
-  String get premiumAppleAccountNotEligible =>
-      '내 Apple Account는 이 구독 혜택의 대상이 아닙니다.';
+  String get premiumAppleAccountNotEligible => '내 Apple 계정은 이 구독 혜택의 대상이 아닙니다.';
 
   @override
   String get premiumSubscriptionOffer =>
@@ -2609,8 +2627,7 @@ class AppLocalizationsKo extends AppLocalizations {
       '이 구독 혜택을 준비하지 못했습니다. 페이지를 새로고침한 후 다시 시도하세요.';
 
   @override
-  String get premiumAddPaymentMethodApple =>
-      'Apple Account에 결제 수단을 추가한 후 다시 시도하세요.';
+  String get premiumAddPaymentMethodApple => 'Apple 계정에 결제 수단을 추가한 후 다시 시도하세요.';
 
   @override
   String get premiumAppCannotMakePurchases =>
@@ -2622,7 +2639,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get premiumAppleCloudServiceAccess =>
-      'Apple 클라우드 서비스 접근이 거부되었습니다. Apple Account 권한을 확인하세요.';
+      'Apple 클라우드 서비스 접근이 거부되었습니다. Apple 계정 권한을 확인하세요.';
 
   @override
   String get premiumFailedConnectApple =>
@@ -2630,11 +2647,11 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get premiumAccess2AppleCloudService =>
-      'Apple 클라우드 서비스 접근 권한이 철회되었습니다. Apple Account 설정을 확인하세요.';
+      'Apple 클라우드 서비스 접근 권한이 철회되었습니다. Apple 계정 설정을 확인하세요.';
 
   @override
   String get premiumAcceptLatestApplePrivacy =>
-      'Apple Account에서 최신 Apple 개인정보 보호 약관에 동의한 후 다시 시도하세요.';
+      'Apple 계정에서 최신 Apple 개인정보 보호 약관에 동의한 후 다시 시도하세요.';
 
   @override
   String get premiumAppStoreWindowFailed =>
@@ -2833,7 +2850,7 @@ class AppLocalizationsKo extends AppLocalizations {
     required String tickCount,
     required String subTickSuffix,
   }) {
-    return '턴 $tickCount$subTickSuffix';
+    return 'Tick $tickCount$subTickSuffix';
   }
 
   @override
@@ -2841,7 +2858,7 @@ class AppLocalizationsKo extends AppLocalizations {
     required String tickNumber,
     required String subTickSuffix,
   }) {
-    return '턴 $tickNumber$subTickSuffix';
+    return 'Tick $tickNumber$subTickSuffix';
   }
 
   @override
@@ -2850,12 +2867,12 @@ class AppLocalizationsKo extends AppLocalizations {
     required String subTickSuffix,
     required String dateSuffix,
   }) {
-    return '턴 $tickNumber$subTickSuffix$dateSuffix';
+    return 'Tick $tickNumber$subTickSuffix$dateSuffix';
   }
 
   @override
   String worldFirstTickGenerating({required String progressDots}) {
-    return 'LLM이 첫 번째 턴을 생성하고 있습니다. 잠시 기다려 주세요$progressDots';
+    return 'LLM이 첫 번째 Tick을 생성하고 있습니다. 잠시 기다려 주세요$progressDots';
   }
 
   @override
@@ -2901,16 +2918,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String get worldRecap => '스토리 요약';
 
   @override
-  String get inboxMissingJoinRequestId => '참여 요청 ID가 없어요';
+  String get inboxMissingJoinRequestId => '참여 요청 ID가 없습니다';
 
   @override
-  String get loginTimedOut => '로그인 시간이 초과되었어요. 다시 시도해 주세요.';
+  String get loginTimedOut => '로그인 시간이 초과되었습니다. 다시 시도해 주세요.';
 
   @override
-  String get loginConnectionFailed => '연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+  String get loginConnectionFailed => '연결할 수 없습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.';
 
   @override
-  String get loginTemporarilyUnavailable => '지금은 로그인할 수 없어요. 잠시 후 다시 시도해 주세요.';
+  String get loginTemporarilyUnavailable => '지금은 로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.';
 
   @override
   String get recapUnlockHeading => '스토리 요약 이용 가능';
@@ -2923,7 +2940,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get recapShowEarlier => '이전 요약 보기';
 
   @override
-  String get recapEmpty => '스토리가 진행되면 여기에 요약이 표시돼요.';
+  String get recapEmpty => '스토리가 진행되면 여기에 요약이 표시됩니다.';
 
   @override
   String get chatMessageAsNarrator => '내레이터로 메시지 보내기';
@@ -2959,22 +2976,22 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatRetryMessage => '메시지 다시 보내기';
 
   @override
-  String get blockedReportFailed => '사용자를 차단했지만 신고하지 못했어요.';
+  String get blockedReportFailed => '사용자를 차단했지만 신고하지 못했습니다.';
 
   @override
-  String get storeConnectionFailed => '스토어에 연결할 수 없어요. 다시 시도해 주세요.';
+  String get storeConnectionFailed => '스토어에 연결할 수 없습니다. 다시 시도해 주세요.';
 
   @override
-  String get storeProductUnavailable => '현재 이 상품을 구매할 수 없어요.';
+  String get storeProductUnavailable => '현재 이 상품을 구매할 수 없습니다.';
 
   @override
-  String get storeDevicePurchasesUnavailable => '이 기기에서는 구매할 수 없어요.';
+  String get storeDevicePurchasesUnavailable => '이 기기에서는 구매할 수 없습니다.';
 
   @override
-  String get worldHistoryRequestFailed => '월드 기록을 불러오지 못했어요';
+  String get worldHistoryRequestFailed => '월드 기록을 불러오지 못했습니다';
 
   @override
-  String get genericError => '오류가 발생했어요';
+  String get genericError => '오류가 발생했습니다';
 
   @override
   String subscriptionPlanAccessibility({
@@ -2990,13 +3007,13 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get developerClearFailed => '삭제하지 못했어요';
+  String get developerClearFailed => '삭제하지 못했습니다';
 
   @override
-  String get developerGatewaySignatureFailed => 'Gateway 서명 검증에 실패했어요';
+  String get developerGatewaySignatureFailed => 'Gateway 서명 검증에 실패했습니다';
 
   @override
-  String get developerEndpointsSaved => '저장했어요. 새 요청에는 설정한 엔드포인트가 적용돼요.';
+  String get developerEndpointsSaved => '저장했습니다. 새 요청에는 설정한 엔드포인트가 적용됩니다.';
 
   @override
   String get developerAdjustRestartRequired =>
@@ -3012,10 +3029,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get developerRecapPreviewDescription =>
-      '월드 패널의 구독 상태와 요약 내용을 임시로 대체해요. 앱을 다시 시작하면 초기화돼요.';
+      '월드 패널의 구독 상태와 요약 내용을 임시로 대체합니다. 앱을 다시 시작하면 초기화됩니다.';
 
   @override
-  String get developerResetFailed => '초기화하지 못했어요';
+  String get developerResetFailed => '초기화하지 못했습니다';
 
   @override
   String get developerRecapOff => '끄기(실제 구독 상태)';

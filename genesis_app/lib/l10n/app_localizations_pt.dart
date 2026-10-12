@@ -80,9 +80,9 @@ class AppLocalizationsPt extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'mensagens',
-      one: 'mensagem',
-      zero: 'mensagens',
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
     );
     return '$amount $_temp0';
   }
@@ -142,10 +142,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get requestedStatus => 'Solicitado';
 
   @override
-  String get launchAction => 'Criar mundo';
+  String get launchAction => 'Iniciar mundo';
 
   @override
-  String get tickNowAction => 'Avançar agora';
+  String get tickNowAction => 'Tick agora';
 
   @override
   String get writePostHint => 'Escreva uma publicação';
@@ -181,7 +181,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get gemTaskLaunchWorldHint =>
-      'Abra um Worldo de que você goste e crie seu próprio mundo.';
+      'Abra um Worldo de que você goste e inicie seu próprio mundo.';
 
   @override
   String get gemTaskInviteFriendHint =>
@@ -200,7 +200,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get gemTaskProgressWorldHint =>
-      'Abra um mundo em que você está jogando e toque em Avançar agora.';
+      'Abra um mundo em que você está jogando e toque em Tick agora.';
 
   @override
   String get termsOfService => 'Termos de serviço';
@@ -289,11 +289,11 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get tickLabel => 'Turno';
+  String get tickLabel => 'Tick';
 
   @override
   String tickNumber({required String tick, required String suffix}) {
-    return 'Turno $tick$suffix';
+    return 'Tick $tick$suffix';
   }
 
   @override
@@ -318,11 +318,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get gemRecord => 'Registro de gemas';
 
   @override
-  String get runATickTask => 'Avançar um turno';
+  String get runATickTask => 'Faça um Tick';
 
   @override
   String get runATickTaskDescription =>
-      'Abra um mundo em que você está jogando e toque em Avançar agora.';
+      'Abra um mundo em que você está jogando e toque em Tick agora.';
 
   @override
   String get someoneFallback => 'Alguém';
@@ -485,7 +485,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String homeMyWorldsEmptyTitle({required String worldo}) {
-    return 'Crie um mundo a partir de $worldo\npara gerar seu próprio mundo';
+    return 'Inicie um $worldo para gerar\nseu próprio mundo';
   }
 
   @override
@@ -513,7 +513,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String worldoLaunched({required String worldName}) {
-    return 'Mundo do Worldo $worldName criado!';
+    return 'Worldo $worldName iniciado!';
   }
 
   @override
@@ -655,7 +655,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String existingAccountSignIn({required String signIn}) {
-    return 'Já tenho uma conta para $signIn';
+    return 'Já tem uma conta? $signIn';
   }
 
   @override
@@ -714,7 +714,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get navInbox => 'Caixa de entrada';
 
   @override
-  String get navMe => 'Eu';
+  String get navMe => 'Perfil';
 
   @override
   String get homeLoadFailed => 'Falha ao carregar';
@@ -724,7 +724,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get homeEmptyDescription =>
-      'O Worldo é o ponto de partida. Crie a partir dele um mundo vivo em que você possa entrar e que possa desenvolver.';
+      'O Worldo é o ponto de partida. Inicie-o para criar um mundo vivo em que você possa entrar e que possa desenvolver.';
 
   @override
   String get homeWorldCharacter => 'Personagem';
@@ -768,7 +768,7 @@ class AppLocalizationsPt extends AppLocalizations {
     required String brief,
     required String version,
   }) {
-    return 'OID: $oid  Criador: $originator\nResumo: $brief\nÚltima versão: $version';
+    return 'OID: $oid  Criador: $originator\nDescrição: $brief\nÚltima versão: $version';
   }
 
   @override
@@ -793,7 +793,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get worldDetailOnlyWorldsLaunched =>
-      'Só é possível excluir mundos criados apenas por você.';
+      'Só é possível excluir mundos iniciados apenas por você.';
 
   @override
   String get worldDetailDelete => 'Excluir';
@@ -839,7 +839,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get worldDetailRequest => 'Solicitar';
 
   @override
-  String get worldDetailLaunchFailed => 'Falha ao criar mundo';
+  String get worldDetailLaunchFailed => 'Falha ao iniciar o mundo';
 
   @override
   String get worldDetailNoSavedProfileFound => 'Nenhum perfil salvo encontrado';
@@ -868,7 +868,7 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get worldDetailWorldBrief => 'Resumo do mundo';
+  String get worldDetailWorldBrief => 'Descrição do mundo';
 
   @override
   String get worldDetailCast => 'Personagens';
@@ -931,11 +931,11 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String worldDetailTickNumber({required String tickNumber}) {
-    return 'Turno $tickNumber';
+    return 'Tick $tickNumber';
   }
 
   @override
-  String get homeGeneratingFirstTick => 'Gerando o primeiro turno';
+  String get homeGeneratingFirstTick => 'Gerando o primeiro Tick';
 
   @override
   String get worldFirstTickStatusLoadFailed =>
@@ -960,8 +960,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get chatLocationUnavailable => 'Local indisponível';
 
   @override
-  String get chatRequestApprovalLaunch =>
-      'Solicitar aprovação para criar o mundo';
+  String get chatRequestApprovalLaunch => 'Solicitar aprovação para iniciar';
 
   @override
   String get chatLoading => 'Carregando';
@@ -1044,7 +1043,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get chatReplyNotEditable => 'Esta resposta não pode ser editada';
 
   @override
-  String get chatReplyAlreadyFixed => 'Esta resposta já foi fixada';
+  String get chatReplyAlreadyFixed => 'Esta resposta já foi finalizada';
 
   @override
   String get chatReplyEditorFrozen => 'O editor de respostas está bloqueado';
@@ -1122,8 +1121,15 @@ class AppLocalizationsPt extends AppLocalizations {
   String get chatCopied => 'Copiado';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '$count nova mensagem';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count novas mensagens',
+      one: '$count nova mensagem',
+      zero: '$count novas mensagens',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1188,7 +1194,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get worldoDetailEditWorldo => 'Editar Worldo';
 
   @override
-  String get worldoDetailWorldoBrief => 'Resumo do Worldo';
+  String get worldoDetailWorldoBrief => 'Descrição do Worldo';
 
   @override
   String get worldoDetailNewPost => 'Nova publicação';
@@ -1205,7 +1211,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get worldoDetailViewAll => 'Ver tudo >';
 
   @override
-  String get worldoDetailPlayingWorld => 'Mundo em jogo';
+  String get worldoDetailPlayingWorld => 'Mundo em andamento';
 
   @override
   String worldoDetailTickCountSubLabel({
@@ -1213,7 +1219,7 @@ class AppLocalizationsPt extends AppLocalizations {
     required String subTickLabel,
     required String messageCountLabel,
   }) {
-    return 'Turno $tickCount$subTickLabel · $messageCountLabel';
+    return 'Tick $tickCount$subTickLabel · $messageCountLabel';
   }
 
   @override
@@ -1291,11 +1297,11 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get worldoLaunchLocationComesLife =>
-      'Este local ganha vida após a criação do mundo.';
+      'Este local ganha vida quando o mundo é iniciado.';
 
   @override
   String get worldoLaunchLaunchWorldoExplore =>
-      'Crie um mundo a partir deste Worldo para explorar e interagir aqui.';
+      'Inicie este Worldo para explorar e interagir aqui.';
 
   @override
   String get worldoLaunchRoleUnavailable =>
@@ -1341,11 +1347,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get worldoLaunchFillMyProfile => 'Preencher com meu perfil';
 
   @override
-  String get worldoLaunchLaunch => 'Criar mundo';
+  String get worldoLaunchLaunch => 'Iniciar mundo';
 
   @override
   String worldoLaunchWorldoWorldName({required String worldName}) {
-    return 'Mundo do Worldo #$worldName criado!';
+    return 'Worldo #$worldName iniciado!';
   }
 
   @override
@@ -1382,7 +1388,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String createSummaryBrief({required String brief}) {
-    return 'Resumo do Worldo: $brief';
+    return 'Descrição do Worldo: $brief';
   }
 
   @override
@@ -1428,7 +1434,14 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '$count personagens: $names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count personagens: $names',
+      one: '1 personagem: $names',
+      zero: '0 personagens: $names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1453,7 +1466,14 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String createSummaryEvents({required int count}) {
-    return '$count eventos';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count eventos',
+      one: '1 evento',
+      zero: '$count eventos',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1510,7 +1530,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get createBasicsBasicsWorldoBrief =>
-      'Dados básicos: O resumo do Worldo é obrigatório.';
+      'Dados básicos: A descrição do Worldo é obrigatória.';
 
   @override
   String get createBasicsBasicsCoverImage =>
@@ -1627,7 +1647,8 @@ class AppLocalizationsPt extends AppLocalizations {
   String get createBasicsNameRequired => 'O nome do Worldo é obrigatório.';
 
   @override
-  String get createBasicsBriefRequired => 'O resumo do Worldo é obrigatório.';
+  String get createBasicsBriefRequired =>
+      'A descrição do Worldo é obrigatória.';
 
   @override
   String get createBasicsCoverRequired => 'A imagem de capa é obrigatória.';
@@ -1640,7 +1661,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get createBasicsEgMainStreet => 'ex.: Rua Principal';
 
   @override
-  String get createBasicsWorldoBrief => 'Resumo do Worldo *';
+  String get createBasicsWorldoBrief => 'Descrição do Worldo *';
 
   @override
   String get createBasicsBriefNote =>
@@ -2190,19 +2211,19 @@ class AppLocalizationsPt extends AppLocalizations {
   String get inboxLikedComment => 'curtiu seu comentário';
 
   @override
-  String get inboxComment2LikeComment => 'curte seu comentário';
+  String get inboxComment2LikeComment => 'curtiu seu comentário';
 
   @override
   String get inboxReplied => 'respondeu a você';
 
   @override
-  String get inboxYou2Reply => 'responde a você';
+  String get inboxYou2Reply => 'respondeu a você';
 
   @override
   String get inboxCommentedOrigin => 'comentou na sua criação';
 
   @override
-  String get inboxCommentOrigin => 'comenta na sua criação';
+  String get inboxCommentOrigin => 'comentou na sua criação';
 
   @override
   String get inboxSentMessage => ' enviou uma mensagem para você';
@@ -2616,7 +2637,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get premiumGooglePlayBilling =>
-      'O faturamento do Google Play está indisponível. Confira sua conta do Play e as configurações de pagamento.';
+      'A cobrança do Google Play está indisponível. Confira sua conta do Play e as configurações de pagamento.';
 
   @override
   String get premiumSubscriptionUnavailable =>
@@ -2688,11 +2709,11 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get premiumPurchasesNotAllowedDevice =>
-      'Compras não são permitidas neste dispositivo. Confira sua Apple Account e as restrições de compra.';
+      'Compras não são permitidas neste dispositivo. Confira sua Conta Apple e as restrições de compra.';
 
   @override
   String get premiumAppleAccountNotEligible =>
-      'Sua Apple Account não é elegível para esta oferta de assinatura.';
+      'Sua Conta Apple não é elegível para esta oferta de assinatura.';
 
   @override
   String get premiumSubscriptionOffer =>
@@ -2712,7 +2733,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get premiumAddPaymentMethodApple =>
-      'Adicione um método de pagamento à sua Apple Account e tente novamente.';
+      'Adicione um método de pagamento à sua Conta Apple e tente novamente.';
 
   @override
   String get premiumAppCannotMakePurchases =>
@@ -2724,7 +2745,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get premiumAppleCloudServiceAccess =>
-      'O acesso aos serviços de nuvem da Apple foi negado. Confira as permissões da sua Apple Account.';
+      'O acesso aos serviços de nuvem da Apple foi negado. Confira as permissões da sua Conta Apple.';
 
   @override
   String get premiumFailedConnectApple =>
@@ -2732,11 +2753,11 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get premiumAccess2AppleCloudService =>
-      'O acesso aos serviços de nuvem da Apple foi revogado. Confira as configurações da sua Apple Account.';
+      'O acesso aos serviços de nuvem da Apple foi revogado. Confira as configurações da sua Conta Apple.';
 
   @override
   String get premiumAcceptLatestApplePrivacy =>
-      'Aceite os termos de privacidade mais recentes da Apple na sua Apple Account e tente novamente.';
+      'Aceite os termos de privacidade mais recentes da Apple na sua Conta Apple e tente novamente.';
 
   @override
   String get premiumAppStoreWindowFailed =>
@@ -2948,7 +2969,7 @@ class AppLocalizationsPt extends AppLocalizations {
     required String tickCount,
     required String subTickSuffix,
   }) {
-    return 'Turno $tickCount$subTickSuffix';
+    return 'Tick $tickCount$subTickSuffix';
   }
 
   @override
@@ -2956,7 +2977,7 @@ class AppLocalizationsPt extends AppLocalizations {
     required String tickNumber,
     required String subTickSuffix,
   }) {
-    return 'Turno $tickNumber$subTickSuffix';
+    return 'Tick $tickNumber$subTickSuffix';
   }
 
   @override
@@ -2965,12 +2986,12 @@ class AppLocalizationsPt extends AppLocalizations {
     required String subTickSuffix,
     required String dateSuffix,
   }) {
-    return 'Turno $tickNumber$subTickSuffix$dateSuffix';
+    return 'Tick $tickNumber$subTickSuffix$dateSuffix';
   }
 
   @override
   String worldFirstTickGenerating({required String progressDots}) {
-    return 'O LLM está gerando seu primeiro turno. Isso pode levar um momento$progressDots';
+    return 'O LLM está gerando seu primeiro Tick. Isso pode levar um momento$progressDots';
   }
 
   @override

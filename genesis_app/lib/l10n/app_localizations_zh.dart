@@ -167,7 +167,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rejectedStatus => 'Rejected';
 
   @override
-  String get awaitingApprovalStatus => 'Awaiting for approval';
+  String get awaitingApprovalStatus => 'Awaiting approval';
 
   @override
   String get awaitingYourApprovalStatus => 'Awaiting your approval';
@@ -531,7 +531,7 @@ class AppLocalizationsZh extends AppLocalizations {
     required String worldName,
     required String worldId,
   }) {
-    return 'You request to join $worldName$worldId';
+    return 'You requested to join $worldName$worldId';
   }
 
   @override
@@ -541,7 +541,7 @@ class AppLocalizationsZh extends AppLocalizations {
     required String worldName,
     required String worldId,
   }) {
-    return '$requesterName$requesterBadge request to join $worldName$worldId';
+    return '$requesterName$requesterBadge requested to join $worldName$worldId';
   }
 
   @override
@@ -549,7 +549,7 @@ class AppLocalizationsZh extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge comment your worldo';
+    return '$senderName$senderBadge commented on your worldo';
   }
 
   @override
@@ -557,7 +557,7 @@ class AppLocalizationsZh extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge reply to you';
+    return '$senderName$senderBadge replied to you';
   }
 
   @override
@@ -565,7 +565,7 @@ class AppLocalizationsZh extends AppLocalizations {
     required String senderName,
     required String senderBadge,
   }) {
-    return '$senderName$senderBadge like your comment';
+    return '$senderName$senderBadge liked your comment';
   }
 
   @override
@@ -649,7 +649,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String existingAccountSignIn({required String signIn}) {
-    return 'I have an account to $signIn';
+    return 'Already have an account? $signIn';
   }
 
   @override
@@ -1109,8 +1109,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatCopied => 'Copied';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '$count new message';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new messages',
+      one: '1 new message',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1412,7 +1418,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '$count characters: $names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count characters: $names',
+      one: '1 character: $names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1422,37 +1434,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String createSummaryRegion({required int count}) {
-    return 'L1 · Region : $count';
+    return 'L1 · Region: $count';
   }
 
   @override
   String createSummaryBuilding({required int count}) {
-    return 'L2 · Building : $count';
+    return 'L2 · Building: $count';
   }
 
   @override
   String createSummaryRoom({required int count}) {
-    return 'L3 · Room : $count';
+    return 'L3 · Room: $count';
   }
 
   @override
   String createSummaryEvents({required int count}) {
-    return '$count events';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count events',
+      one: '1 event',
+    );
+    return '$_temp0';
   }
 
   @override
   String createSummaryDialogue({required int count}) {
-    return 'Character dialogue : $count';
+    return 'Character dialogue: $count';
   }
 
   @override
   String createSummaryNarrator({required int count}) {
-    return 'Narrator : $count';
+    return 'Narrator: $count';
   }
 
   @override
   String createSummaryImage({required int count}) {
-    return 'Image : $count';
+    return 'Image: $count';
   }
 
   @override
@@ -1815,11 +1833,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get createLocationEveryL2L3Locations =>
-      'Every L2 and L3 locations inside it will be removed too.';
+      'All L2 and L3 locations inside it will be removed too.';
 
   @override
   String get createLocationEveryL3Locations =>
-      'Every L3 locations inside it will be removed too.';
+      'All L3 locations inside it will be removed too.';
 
   @override
   String createLocationDeleteDisplayName({required String displayName}) {
@@ -2145,35 +2163,35 @@ class AppLocalizationsZh extends AppLocalizations {
     required String world,
     required String suffix,
   }) {
-    return '$name request to join $world$suffix';
+    return '$name requested to join $world$suffix';
   }
 
   @override
-  String get inboxCommentWorldo => ' comment your worldo';
+  String get inboxCommentWorldo => ' commented on your worldo';
 
   @override
-  String get inboxReply => ' reply to you';
+  String get inboxReply => ' replied to you';
 
   @override
-  String get inboxLikeComment => ' like your comment';
+  String get inboxLikeComment => ' liked your comment';
 
   @override
   String get inboxLikedComment => 'liked your comment';
 
   @override
-  String get inboxComment2LikeComment => 'like your comment';
+  String get inboxComment2LikeComment => 'liked your comment';
 
   @override
   String get inboxReplied => 'replied to you';
 
   @override
-  String get inboxYou2Reply => 'reply to you';
+  String get inboxYou2Reply => 'replied to you';
 
   @override
   String get inboxCommentedOrigin => 'commented on your origin';
 
   @override
-  String get inboxCommentOrigin => 'comment your origin';
+  String get inboxCommentOrigin => 'commented on your origin';
 
   @override
   String get inboxSentMessage => ' sent you a message';
@@ -3199,9 +3217,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$amount 則訊息',
+      other: 'Messages',
+      one: 'Message',
+      zero: 'Message',
     );
-    return '$_temp0';
+    return '$amount $_temp0';
   }
 
   @override
@@ -3256,10 +3276,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get requestedStatus => '已申請';
 
   @override
-  String get launchAction => '開啟世界';
+  String get launchAction => '啟動世界';
 
   @override
-  String get tickNowAction => '立即推進';
+  String get tickNowAction => '立即 Tick';
 
   @override
   String get writePostHint => '撰寫貼文';
@@ -3292,7 +3312,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get signedOutMeDescription => '暢玩世界、創作 worldo、邀請朋友，\n隨時隨地延續你的故事。';
 
   @override
-  String get gemTaskLaunchWorldHint => '開啟你喜歡的 Worldo，再開啟自己的世界。';
+  String get gemTaskLaunchWorldHint => '開啟你喜歡的 Worldo，再啟動自己的世界。';
 
   @override
   String get gemTaskInviteFriendHint => '開啟一個世界，然後在詳細資料面板點選「邀請」。';
@@ -3307,7 +3327,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get gemTaskSendMessageHint => '在你的世界中傳送訊息。';
 
   @override
-  String get gemTaskProgressWorldHint => '開啟你正在遊玩的世界，然後點選「立即推進」。';
+  String get gemTaskProgressWorldHint => '開啟你正在遊玩的世界，然後點選「立即 Tick」。';
 
   @override
   String get termsOfService => '服務條款';
@@ -3394,11 +3414,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   }
 
   @override
-  String get tickLabel => '回合';
+  String get tickLabel => 'Tick';
 
   @override
   String tickNumber({required String tick, required String suffix}) {
-    return '第 $tick$suffix 回合';
+    return 'Tick $tick$suffix';
   }
 
   @override
@@ -3423,10 +3443,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get gemRecord => '寶石紀錄';
 
   @override
-  String get runATickTask => '推進一回合';
+  String get runATickTask => '執行一次 Tick';
 
   @override
-  String get runATickTaskDescription => '開啟一個你正在遊玩的世界，然後點選「立即推進」。';
+  String get runATickTaskDescription => '開啟一個你正在遊玩的世界，然後點選「立即 Tick」。';
 
   @override
   String get someoneFallback => '某人';
@@ -3581,7 +3601,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String homeMyWorldsEmptyTitle({required String worldo}) {
-    return '開啟一個 $worldo，打造\n屬於你的世界';
+    return '啟動一個 $worldo，打造\n屬於你的世界';
   }
 
   @override
@@ -3609,7 +3629,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String worldoLaunched({required String worldName}) {
-    return 'Worldo $worldName 已開啟！';
+    return 'Worldo $worldName 已啟動！';
   }
 
   @override
@@ -3819,7 +3839,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get homeRetry => '重試';
 
   @override
-  String get homeEmptyDescription => 'Worldo 是藍圖。開啟後，你就能進入親手打造的世界，並讓它持續發展。';
+  String get homeEmptyDescription => 'Worldo 是藍圖。啟動後，你就能進入親手打造的世界，並讓它持續發展。';
 
   @override
   String get homeWorldCharacter => '角色';
@@ -3886,7 +3906,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get searchHint => 'Worldo、角色、標籤';
 
   @override
-  String get worldDetailOnlyWorldsLaunched => '只有你獨自開啟的世界可以刪除。';
+  String get worldDetailOnlyWorldsLaunched => '只有你獨自啟動的世界可以刪除。';
 
   @override
   String get worldDetailDelete => '刪除';
@@ -3931,7 +3951,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get worldDetailRequest => '申請';
 
   @override
-  String get worldDetailLaunchFailed => '開啟失敗';
+  String get worldDetailLaunchFailed => '啟動失敗';
 
   @override
   String get worldDetailNoSavedProfileFound => '找不到已儲存的個人檔案';
@@ -4021,11 +4041,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String worldDetailTickNumber({required String tickNumber}) {
-    return '第 $tickNumber 回合';
+    return 'Tick $tickNumber';
   }
 
   @override
-  String get homeGeneratingFirstTick => '正在生成第一回合';
+  String get homeGeneratingFirstTick => '正在生成第一個 Tick';
 
   @override
   String get worldFirstTickStatusLoadFailed => '無法載入生成狀態。';
@@ -4049,7 +4069,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get chatLocationUnavailable => '無法使用此地點';
 
   @override
-  String get chatRequestApprovalLaunch => '申請核准開啟';
+  String get chatRequestApprovalLaunch => '申請核准啟動';
 
   @override
   String get chatLoading => '載入中';
@@ -4196,8 +4216,14 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get chatCopied => '已複製';
 
   @override
-  String chatCountNewMessage({required String count}) {
-    return '$count 則新訊息';
+  String chatCountNewMessage({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 則新訊息',
+      one: '1 則新訊息',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -4285,7 +4311,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
     required String subTickLabel,
     required String messageCountLabel,
   }) {
-    return '第 $tickCount$subTickLabel 回合 · $messageCountLabel';
+    return 'Tick $tickCount$subTickLabel · $messageCountLabel';
   }
 
   @override
@@ -4362,10 +4388,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get worldoDiscussTitle => '討論區';
 
   @override
-  String get worldoLaunchLocationComesLife => '開啟後，這個地點就會活躍起來。';
+  String get worldoLaunchLocationComesLife => '啟動後，這個地點就會活躍起來。';
 
   @override
-  String get worldoLaunchLaunchWorldoExplore => '開啟這個 Worldo，即可在這裡探索和互動。';
+  String get worldoLaunchLaunchWorldoExplore => '啟動這個 Worldo，即可在這裡探索和互動。';
 
   @override
   String get worldoLaunchRoleUnavailable => '這個角色已無法選用';
@@ -4410,11 +4436,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get worldoLaunchFillMyProfile => '從我的個人檔案填入';
 
   @override
-  String get worldoLaunchLaunch => '開啟世界';
+  String get worldoLaunchLaunch => '啟動世界';
 
   @override
   String worldoLaunchWorldoWorldName({required String worldName}) {
-    return 'Worldo #$worldName 已開啟！';
+    return 'Worldo #$worldName 已啟動！';
   }
 
   @override
@@ -4495,7 +4521,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String createSummaryCharacters({required int count, required String names}) {
-    return '$count 位角色：$names';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 位角色：$names',
+      one: '1 位角色：$names',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -4520,7 +4552,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String createSummaryEvents({required int count}) {
-    return '$count 個事件';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 個事件',
+      one: '1 個事件',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -4686,7 +4724,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get createBasicsMetricInvalid => '指標必須是有效的 JSON。';
 
   @override
-  String get createBasicsEgMainStreet => '例如：Main Street';
+  String get createBasicsEgMainStreet => '例如：主街';
 
   @override
   String get createBasicsWorldoBrief => 'Worldo 簡介 *';
@@ -4699,7 +4737,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get createBasicsEgHalfShopsMain =>
-      '例如：Main Street 上有一半店面已歇業。到了 Labor Day，擁有最值錢店面的人成為小鎮的主人。';
+      '例如：主街上有一半店面已用木板封起。到了勞動節，最有錢的店家將掌控整個小鎮。';
 
   @override
   String get createBasicsCoverImage => '封面圖片 *';
@@ -4834,15 +4872,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get createCharacterGoalOptional => '目標（選填）';
 
   @override
-  String get createCharacterEgRichestOwner =>
-      '例如：在 Labor Day 前成為 Main Street 上最富有的店主';
+  String get createCharacterEgRichestOwner => '例如：在勞動節前成為主街上最富有的店主';
 
   @override
   String get createCharacterBackgroundHidden => '背景－隱藏（選填）';
 
   @override
-  String get createCharacterEgLeftTownYears =>
-      '例如：多年前離開小鎮，如今回到店面荒廢的 Main Street，尋求一次機會。';
+  String get createCharacterEgLeftTownYears => '例如：多年前離開小鎮，如今回到店面荒廢的主街，尋求一次機會。';
 
   @override
   String get createCharacterAddCharacter => '+ 新增角色';
@@ -4896,7 +4932,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get createLocationStatisticsNote =>
-      '你的世界分為 3 個層級：\nL1 · 區域     世界中的一個區域，例如市中心\nL2 · 建築     區域內的一棟建築，例如 Joe\'s Diner\nL3 · 房間     建築內的一個房間，例如後廚房\n每個地點都需要具備這三個層級。房間總數最多 15 個。';
+      '你的世界分為 3 個層級：\nL1 · 區域     世界中的一個區域，例如市中心\nL2 · 建築     區域內的一棟建築，例如喬的小餐館\nL3 · 房間     建築內的一個房間，例如後廚房\n每個地點都需要具備這三個層級。房間總數最多 15 個。';
 
   @override
   String get createLocationL1NameNote => '世界中的一個區域，例如街區、小鎮或森林，而不是單一建築。';
@@ -5258,7 +5294,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String meFollowingCount({required String followingCount}) {
-    return '追蹤中 $followingCount 人';
+    return '$followingCount 追蹤中';
   }
 
   @override
@@ -5665,10 +5701,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get premiumPurchasesNotAllowedDevice =>
-      '此裝置不允許購買。請檢查 Apple Account 與購買限制設定。';
+      '此裝置不允許購買。請檢查 Apple 帳號 與購買限制設定。';
 
   @override
-  String get premiumAppleAccountNotEligible => '你的 Apple Account 不符合這項訂閱優惠資格。';
+  String get premiumAppleAccountNotEligible => '你的 Apple 帳號 不符合這項訂閱優惠資格。';
 
   @override
   String get premiumSubscriptionOffer => '這項訂閱優惠無法使用。請重新整理頁面後再試一次。';
@@ -5684,7 +5720,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get premiumSubscriptionOfferFailed => '無法準備這項訂閱優惠。請重新整理頁面後再試一次。';
 
   @override
-  String get premiumAddPaymentMethodApple => '請先在 Apple Account 新增付款方式，然後再試一次。';
+  String get premiumAddPaymentMethodApple => '請先在 Apple 帳號 新增付款方式，然後再試一次。';
 
   @override
   String get premiumAppCannotMakePurchases => '此 App 無法透過 App Store 購買，請聯絡客服。';
@@ -5695,18 +5731,18 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get premiumAppleCloudServiceAccess =>
-      '無法存取 Apple 雲端服務，請檢查 Apple Account 權限。';
+      '無法存取 Apple 雲端服務，請檢查 Apple 帳號 權限。';
 
   @override
   String get premiumFailedConnectApple => '無法連線至 Apple 服務，請檢查網路連線後再試一次。';
 
   @override
   String get premiumAccess2AppleCloudService =>
-      'Apple 雲端服務的存取權限已遭撤銷，請檢查 Apple Account 設定。';
+      'Apple 雲端服務的存取權限已遭撤銷，請檢查 Apple 帳號 設定。';
 
   @override
   String get premiumAcceptLatestApplePrivacy =>
-      '請先在 Apple Account 同意最新的 Apple 隱私權條款，再試一次。';
+      '請先在 Apple 帳號 同意最新的 Apple 隱私權條款，再試一次。';
 
   @override
   String get premiumAppStoreWindowFailed => '無法設定 App Store 視窗，請聯絡客服。';
@@ -5782,7 +5818,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get premiumDailyCheck => '每日簽到';
 
   @override
-  String get premiumClaimedMonthly => '每月已領取';
+  String get premiumClaimedMonthly => '每月領取';
 
   @override
   String get premiumBilledMonthly => '按月收費';
@@ -5894,7 +5930,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
     required String tickCount,
     required String subTickSuffix,
   }) {
-    return '第 $tickCount$subTickSuffix 回合';
+    return 'Tick $tickCount$subTickSuffix';
   }
 
   @override
@@ -5902,7 +5938,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
     required String tickNumber,
     required String subTickSuffix,
   }) {
-    return '第 $tickNumber$subTickSuffix 回合';
+    return 'Tick $tickNumber$subTickSuffix';
   }
 
   @override
@@ -5911,12 +5947,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
     required String subTickSuffix,
     required String dateSuffix,
   }) {
-    return '第 $tickNumber$subTickSuffix 回合$dateSuffix';
+    return 'Tick $tickNumber$subTickSuffix$dateSuffix';
   }
 
   @override
   String worldFirstTickGenerating({required String progressDots}) {
-    return 'LLM 正在生成第一回合，可能需要一點時間$progressDots';
+    return 'LLM 正在生成第一個 Tick，可能需要一點時間$progressDots';
   }
 
   @override
