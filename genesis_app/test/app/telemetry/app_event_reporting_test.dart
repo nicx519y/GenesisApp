@@ -226,11 +226,18 @@ CREATE TABLE app_event_reports (
       databaseFactoryOverride: databaseFactoryFfiNoIsolate,
       databasePath: databasePath,
     );
-    expect((await store.pending(limit: 20)).map((report) => report.event), [
+    final pending = await store.pending(limit: 20);
+    expect(pending.map((report) => report.event), [
       'purchase',
       'gems_first',
       'subscription_day0',
       'login_first',
+    ]);
+    expect(pending.map((report) => report.reportFirebase), [
+      true,
+      true,
+      true,
+      false,
     ]);
     await store.close();
   });
@@ -277,6 +284,7 @@ CREATE TABLE app_event_reports (
     await reporting.flush();
 
     expect(sent.map((report) => report.event), purchaseEvents);
+    expect(sent.every((report) => report.reportFirebase), isTrue);
     expect(
       sent.every((report) => report.transactionId == 'store-transaction-1'),
       isTrue,

@@ -343,7 +343,14 @@ void main() {
       readIdfa: () async => null,
       readIdfv: () async => null,
       registerDevice:
-          ({required adid, required environment, gpsAdid, idfa, idfv}) async {},
+          ({
+            required adid,
+            required environment,
+            gpsAdid,
+            idfa,
+            idfv,
+            required appInstanceId,
+          }) async {},
     );
 
     await registration.register();
@@ -370,7 +377,14 @@ AdjustDeviceRegistration _registration({
   readNativeGoogleAdId: nativeReader,
   optionalIdTimeout: optionalIdTimeout,
   registerDevice:
-      ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+      ({
+        required adid,
+        required environment,
+        gpsAdid,
+        idfa,
+        idfv,
+        required appInstanceId,
+      }) async {
         requests?.add(gpsAdid);
       },
 );

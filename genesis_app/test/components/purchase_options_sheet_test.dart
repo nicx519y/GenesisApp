@@ -31,7 +31,14 @@ void main() {
       readAdid: (_) async => 'ready-adid',
       readGoogleAdId: () async => 'ready-gaid',
       registerDevice:
-          ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+          ({
+            required adid,
+            required environment,
+            gpsAdid,
+            idfa,
+            idfv,
+            required appInstanceId,
+          }) async {
             requests++;
             await pendingRequest.future;
           },
@@ -72,7 +79,14 @@ void main() {
         readAdid: (_) async => 'ready-adid',
         readGoogleAdId: () async => 'ready-gaid',
         registerDevice:
-            ({required adid, required environment, gpsAdid, idfa, idfv}) async {
+            ({
+              required adid,
+              required environment,
+              gpsAdid,
+              idfa,
+              idfv,
+              required appInstanceId,
+            }) async {
               requests.add(adid);
             },
       );

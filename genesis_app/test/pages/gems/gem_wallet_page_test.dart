@@ -64,6 +64,7 @@ void main() {
                 gpsAdid,
                 idfa,
                 idfv,
+                required appInstanceId,
               }) async {
                 requests.add(adid);
               },

@@ -33,6 +33,11 @@ class AppEventReport {
   final Map<String, String> params;
   final String reportKey;
   final String? transactionId;
+
+  // Derived at send time so already queued events use the current report
+  // contract when retried without a local database migration.
+  bool get reportFirebase =>
+      AppEventReporting.transactionEvents.contains(event);
 }
 
 abstract interface class AppEventReportStore {

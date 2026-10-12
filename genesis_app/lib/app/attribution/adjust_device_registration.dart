@@ -17,6 +17,7 @@ typedef AdjustDeviceRegistrationRequest =
       String? gpsAdid,
       String? idfa,
       String? idfv,
+      required String appInstanceId,
     });
 typedef AdjustDeviceRegistrationRetryCallback = Future<void> Function();
 typedef AdjustAdidFailureReporter =
@@ -78,6 +79,7 @@ class AdjustDeviceRegistration {
     this.readNativeGoogleAdId,
     this.readIdfa = Adjust.getIdfa,
     this.readIdfv = Adjust.getIdfv,
+    this.readAppInstanceId = _emptyAppInstanceId,
     this.localAdidStore = const SharedPreferencesAdjustLocalAdidStore(),
     this.adidTimeout = const Duration(seconds: 5),
     this.optionalIdTimeout = const Duration(seconds: 3),
@@ -98,6 +100,7 @@ class AdjustDeviceRegistration {
   final AdjustOptionalIdReader? readNativeGoogleAdId;
   final AdjustOptionalIdReader readIdfa;
   final AdjustOptionalIdReader readIdfv;
+  final AdjustOptionalIdReader readAppInstanceId;
   final AdjustLocalAdidStore localAdidStore;
   final Duration adidTimeout;
   final Duration optionalIdTimeout;
@@ -210,6 +213,18 @@ class AdjustDeviceRegistration {
     return register();
   }
 
+  /// Recheck once Firebase Analytics finishes configuring. If a registration
+  /// is already in flight, drain another attempt so a late ID is not missed.
+  Future<void> registerAfterFirebaseReady() {
+    if (_disposed) return Future<void>.value();
+    final current = _inFlight;
+    if (current != null) {
+      _rerunRequested = true;
+      return current;
+    }
+    return register();
+  }
+
   Future<void> register({bool force = false}) {
     if (_disposed) return Future<void>.value();
 
@@ -306,12 +321,20 @@ class AdjustDeviceRegistration {
               adid: adid,
               environment: environment,
               gpsAdid: await _readGoogleAdId(environment),
+              appInstanceId: await _readOptional(
+                readAppInstanceId,
+                'Firebase app instance ID',
+              ),
             )
           : _AdjustDeviceIdentifiers(
               adid: adid,
               environment: environment,
               idfa: await _readOptional(readIdfa, 'IDFA'),
               idfv: await _readOptional(readIdfv, 'IDFV'),
+              appInstanceId: await _readOptional(
+                readAppInstanceId,
+                'Firebase app instance ID',
+              ),
             );
       if (!force && identifiers == _lastRegistered) {
         return adid.isEmpty
@@ -325,6 +348,7 @@ class AdjustDeviceRegistration {
         gpsAdid: identifiers.gpsAdid,
         idfa: identifiers.idfa,
         idfv: identifiers.idfv,
+        appInstanceId: identifiers.appInstanceId,
       );
       _lastRegistered = identifiers;
       debugPrint(
@@ -456,6 +480,7 @@ class _AdjustDeviceIdentifiers {
   const _AdjustDeviceIdentifiers({
     required this.adid,
     required this.environment,
+    required this.appInstanceId,
     this.gpsAdid,
     this.idfa,
     this.idfv,
@@ -463,6 +488,7 @@ class _AdjustDeviceIdentifiers {
 
   final String adid;
   final String environment;
+  final String appInstanceId;
   final String? gpsAdid;
   final String? idfa;
   final String? idfv;
@@ -472,11 +498,15 @@ class _AdjustDeviceIdentifiers {
     return other is _AdjustDeviceIdentifiers &&
         other.adid == adid &&
         other.environment == environment &&
+        other.appInstanceId == appInstanceId &&
         other.gpsAdid == gpsAdid &&
         other.idfa == idfa &&
         other.idfv == idfv;
   }
 
   @override
-  int get hashCode => Object.hash(adid, environment, gpsAdid, idfa, idfv);
+  int get hashCode =>
+      Object.hash(adid, environment, appInstanceId, gpsAdid, idfa, idfv);
 }
+
+Future<String?> _emptyAppInstanceId() async => null;

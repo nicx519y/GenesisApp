@@ -87,7 +87,7 @@ Origin detail 增量核对时间：2026-08-05
 | origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | app | GET | `/api/v1/app/config` | App 启动全局配置 |
 | device | POST | `/api/v1/device/setlanguage` | 设置设备及当前登录用户语言 |
-| device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust 和广告标识 |
+| device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust、广告及 Firebase Analytics 标识 |
 | event | POST | `/api/v1/event/report` | 上报归因事件供服务端转发 Adjust S2S |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | origin | GET | `/api/v1/origin/map` | 读取 Origin 2.5D 地图 |
@@ -2676,11 +2676,12 @@ World：
 - `adid` 服务端非必传；客户端暂未取得时传空串，服务端保留已有 ADID，新设备默认空串。客户端继续传 `environment`，与当前进程的 Adjust SDK 环境保持一致：SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`；当前 Apifox 请求体模型未列出该字段，保留现有客户端行为。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`；这些字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。
 - 启动后注册为 best effort，不阻塞首帧。四个标识分别尝试读取，取到就传：ADID 未取得时传空串；Android `gps_adid` 优先使用 Adjust `getGoogleAdId()` 的当前有效值，Adjust 返回空白、全零或读取失败／超时才实时通过 Google Play Services `AdvertisingIdClient` 读取；两者均不可用时传空串，不使用历史 GAID 缓存。iOS `idfa`、`idfv` 未取得（包括 SDK 返回空白、异常或超时）时也传空串。任何一个标识缺失都不阻断本次注册；按当前服务端契约，后三个字段传空串会清除其已有值。后续会话回调、前台恢复等时机可补齐新取得的值，请求失败按有限次数重试。登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册；空 ADID 的成功请求不视为 ADID 已补齐。
 - Gems／订阅共用完整购买页和购买底部弹层，任一标签在该页面／弹层实例中首次展示后，非阻塞地调用一次强制注册，重新读取当前平台的标识并实际发送请求；重建、同实例重复切换和回前台不因该兜底逻辑额外重复发送。重新打开购买页／弹层可再次兜底，不改变购买流程。
-- 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
+- 本接口只保存设备与 Adjust／广告／Firebase Analytics 标识映射，不直接上报归因事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
+- 新增 `app_instance_id` 字符串字段：Android／iOS 均从 Firebase Analytics SDK 读取，去除首尾空白；取不到、返回空白、异常或超时时传 `""`，不阻断本次注册。该字段纳入进程内参数变化去重；Firebase 初始化完成后会再检查一次，后续正常注册触发时也重新读取并补报。它不是 Adjust ADID、Firebase App ID 或 Firebase Installation ID。服务端需确认接收、保存及空串更新语义；客户端代码和本地请求测试不代表服务端已上线该字段。
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 
-- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at` 和字符串 map `params`；购买事件另传 `transaction_id`。`occurred_at` 是事件触发时采集的 UTC Unix 秒时间戳；持久化重试保留原值。
+- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at`、字符串 map `params` 和顶层布尔值 `reportFirebase`；下列 12 个购买事件另传 `transaction_id`，且 `reportFirebase: true`，其余事件为 `false`。`occurred_at` 是事件触发时采集的 UTC Unix 秒时间戳；持久化重试保留原值，`reportFirebase` 在发送时计算，包括已入队的旧事件。客户端不直接向 Firebase 重报购买事件，由后端根据该字段处理。
 - 登录、消息事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`，与 Firebase Analytics 同步。购买事件仅由商店 `purchased` 回调进入本接口，不发送至 Firebase Analytics：`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。不包含 `subscription_renew`。
 - 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`。S2S 的参数名和值与同次 Firebase 调用一致，值按接口要求转为字符串；这四个事件不传 `transaction_id`。
 - 购买事件参数为 `provider/product_id/device_id`，商店价格与三位货币码有效时再传 `value/currency`。`transaction_id` 来自当前商店交易凭据；普通事件按商店购买凭据去重（Google purchase token、Apple transaction ID），`_first` 事件按设备及上报环境只发送一次。Day0 以首次 Gateway 服务端时间同步为锚点，按 UTC+8 自然日判断；旧版事件的一次性标记继续生效，避免升级后重复上报。

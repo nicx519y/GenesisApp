@@ -423,6 +423,7 @@ class ServiceRegistry {
         readNativeGoogleAdId: defaultTargetPlatform == TargetPlatform.android
             ? readGoogleAdvertisingIdFromPlatform
             : null,
+        readAppInstanceId: FirebaseAnalyticsMonitoring.readAppInstanceId,
         localAdidStore: SharedPreferencesAdjustLocalAdidStore(
           environment: AdjustAttributionRuntime.environment,
         ),
@@ -444,6 +445,7 @@ class ServiceRegistry {
               occurredAtSeconds: report.occurredAtSeconds,
               params: report.params,
               transactionId: report.transactionId,
+              reportFirebase: report.reportFirebase,
             ),
           )
         : null;

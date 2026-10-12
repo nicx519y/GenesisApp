@@ -10,6 +10,7 @@ class EventV1Api extends V1ApiResource {
     required int occurredAtSeconds,
     required Map<String, String> params,
     String? transactionId,
+    bool reportFirebase = false,
   }) async {
     final normalizedEvent = event.trim();
     if (normalizedEvent.isEmpty) {
@@ -38,6 +39,7 @@ class EventV1Api extends V1ApiResource {
         'event': normalizedEvent,
         'environment': normalizedEnvironment,
         'occurred_at': occurredAtSeconds,
+        'reportFirebase': reportFirebase,
         if (normalizedTransactionId?.isNotEmpty == true)
           'transaction_id': normalizedTransactionId,
         if (params.isNotEmpty) 'params': params,

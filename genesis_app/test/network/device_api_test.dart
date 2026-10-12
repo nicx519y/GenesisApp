@@ -93,6 +93,7 @@ void main() {
         environment: ' Production ',
         idfa: '',
         idfv: 'idfv-1',
+        appInstanceId: ' firebase-instance-1 ',
       );
 
       expect(captured?.method, 'POST');
@@ -102,6 +103,7 @@ void main() {
         'environment': 'production',
         'idfa': '',
         'idfv': 'idfv-1',
+        'app_instance_id': 'firebase-instance-1',
       });
     },
   );
@@ -133,6 +135,7 @@ void main() {
       'adid': '',
       'environment': 'sandbox',
       'gps_adid': 'gaid-1',
+      'app_instance_id': '',
     });
   });
 
@@ -168,8 +171,19 @@ void main() {
     );
 
     expect(bodies, [
-      {'adid': '', 'environment': 'sandbox', 'gps_adid': ''},
-      {'adid': '', 'environment': 'sandbox', 'idfa': '', 'idfv': ''},
+      {
+        'adid': '',
+        'environment': 'sandbox',
+        'gps_adid': '',
+        'app_instance_id': '',
+      },
+      {
+        'adid': '',
+        'environment': 'sandbox',
+        'idfa': '',
+        'idfv': '',
+        'app_instance_id': '',
+      },
     ]);
   });
 

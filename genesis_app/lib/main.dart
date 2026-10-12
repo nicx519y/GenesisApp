@@ -21,6 +21,7 @@ import 'app/startup/startup_uid_resolution.dart';
 import 'platform/session/method_channel_user_session_store.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
+import 'app/telemetry/telemetry_upload_policy.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/websocket_capture.dart';
@@ -113,6 +114,24 @@ Future<void> main() async {
     }),
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
+  unawaited(
+    telemetryRuntimeInitialization
+        .then((_) async {
+          if (!TelemetryUploadPolicy.state.value.analyticsEnabled) return;
+          final registration = services.adjustDeviceRegistration;
+          if (registration == null) return;
+          // Firebase may finish configuring after the first device registration.
+          // Recheck once it is ready; the registration snapshot skips duplicates.
+          await services.gatewayAuth?.prepare().timeout(
+            const Duration(seconds: 8),
+          );
+          await registration.registerAfterFirebaseReady();
+        })
+        .catchError((Object error, StackTrace stack) {
+          debugPrint('[Firebase][DeviceRegister] late ID check failed: $error');
+          debugPrint('[Firebase][DeviceRegister] stacktrace:\n$stack');
+        }),
+  );
   final startupUidResolution = _resolveStartupUid(services.sessionStore);
   final initialLandingPageFuture = resolveInitialLandingPage(
     uidReadAlreadyBounded: true,

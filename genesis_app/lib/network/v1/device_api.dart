@@ -24,7 +24,8 @@ class DeviceV1Api extends V1ApiResource {
   }
 
   /// Registers the Adjust device identifier and the platform-specific
-  /// advertising identifiers for the current Gateway device identity.
+  /// advertising identifiers and Firebase Analytics app instance ID for the
+  /// current Gateway device identity.
   ///
   /// An empty ADID means it is not available yet; the server preserves any
   /// previously registered ADID and creates a new device with an empty one.
@@ -37,6 +38,7 @@ class DeviceV1Api extends V1ApiResource {
     String? gpsAdid,
     String? idfa,
     String? idfv,
+    String? appInstanceId,
   }) async {
     final normalizedAdid = adid.trim();
     final normalizedEnvironment = environment.trim().toLowerCase();
@@ -56,6 +58,7 @@ class DeviceV1Api extends V1ApiResource {
         'gps_adid': gpsAdid?.trim(),
         'idfa': idfa?.trim(),
         'idfv': idfv?.trim(),
+        'app_instance_id': appInstanceId?.trim() ?? '',
       }),
     );
   }

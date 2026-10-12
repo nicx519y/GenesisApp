@@ -80,6 +80,13 @@ class SharedPreferencesFirebaseAnalyticsMessageSentCounter {
 class FirebaseAnalyticsMonitoring {
   const FirebaseAnalyticsMonitoring._();
 
+  /// An unavailable ID must not prevent the independent device registration.
+  static Future<String?> readAppInstanceId() async {
+    if (!_isEnabled) return null;
+    await FirebaseRuntime.ensureInitialized();
+    return FirebaseAnalytics.instance.appInstanceId;
+  }
+
   static AppAnalyticsClient _client = const _FirebaseAppAnalyticsClient();
   static FirebaseReadiness _readiness = FirebaseRuntime.ensureInitialized;
   static FirebaseAnalyticsOnceEventStore _onceEventStore =

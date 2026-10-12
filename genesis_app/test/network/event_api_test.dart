@@ -29,6 +29,7 @@ void main() {
       environment: 'sandbox',
       occurredAtSeconds: 1767225600,
       transactionId: 'order-1',
+      reportFirebase: true,
       params: const <String, String>{
         'provider': 'google',
         'product_id': 'gems-500',
@@ -44,6 +45,7 @@ void main() {
       'event': 'gems',
       'environment': 'sandbox',
       'occurred_at': 1767225600,
+      'reportFirebase': true,
       'transaction_id': 'order-1',
       'params': {
         'provider': 'google',
@@ -84,6 +86,7 @@ void main() {
       'event': 'login_first',
       'environment': 'production',
       'occurred_at': 1767225600,
+      'reportFirebase': false,
       'params': {'method': 'google', 'device_id': 'device-1'},
     });
   });
