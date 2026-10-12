@@ -101,15 +101,15 @@ class _LanguagePageState extends State<LanguagePage> {
                   children: [
                     const SizedBox(height: 18),
                     for (final entry in const [
-                      (Locale('zh', 'TW'), '繁體中文'),
                       (Locale('en'), 'English'),
-                      (Locale('es'), 'Español'),
-                      (Locale('pt'), 'Português'),
-                      (Locale('fr'), 'Français'),
                       (Locale('de'), 'Deutsch'),
+                      (Locale('es'), 'Español'),
+                      (Locale('fr'), 'Français'),
                       (Locale('it'), 'Italiano'),
+                      (Locale('pt'), 'Português'),
                       (Locale('ja'), '日本語'),
                       (Locale('ko'), '한국어'),
+                      (Locale('zh', 'TW'), '繁體中文'),
                     ]) ...[
                       Semantics(
                         selected: current == entry.$1,

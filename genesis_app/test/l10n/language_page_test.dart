@@ -98,11 +98,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       for (final entry in const [
-        ('es', 'Español', 'Idioma'),
-        ('pt', 'Português', 'Idioma'),
-        ('fr', 'Français', 'Langue'),
         ('de', 'Deutsch', 'Sprache'),
+        ('es', 'Español', 'Idioma'),
+        ('fr', 'Français', 'Langue'),
         ('it', 'Italiano', 'Lingua'),
+        ('pt', 'Português', 'Idioma'),
         ('ja', '日本語', '言語'),
         ('ko', '한국어', '언어'),
       ]) {
@@ -118,7 +118,7 @@ void main() {
         expect(find.text(entry.$3), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
-      expect(saved, ['es', 'pt', 'fr', 'de', 'it', 'ja', 'ko']);
+      expect(saved, ['de', 'es', 'fr', 'it', 'pt', 'ja', 'ko']);
     },
   );
 
