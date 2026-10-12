@@ -321,13 +321,46 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     ];
   }
 
+  _OriginLocationChatDescriptor? _refreshedLocationChatDescriptor(
+    OriginDetail origin,
+  ) {
+    final current = _activeChatLocation;
+    if (current == null) return null;
+    final location = origin.processedLocationTree
+        .nodeById(current.locationId)
+        ?.value;
+    // A removed destination cannot keep showing its stale preview.
+    if (location == null) return null;
+    final messages = _originLocationOpeningPreviewMessages(origin, [
+      current.locationId,
+    ]);
+    return _OriginLocationChatDescriptor(
+      originId: origin.oid,
+      locationId: current.locationId,
+      locationName: location.name,
+      backgroundImageUrl: _resolveAssetUrl(
+        location.icon.trim().isNotEmpty ? location.icon : location.mapUrl,
+      ),
+      backgroundPreviewImageUrl: '',
+      isLeafLocation: location.locations.isEmpty,
+      openingPreviewMessages: messages,
+      openingPreviewEntities: _originLocationOpeningPreviewEntities(
+        origin.characters,
+        messages,
+        current.locationId,
+      ),
+    );
+  }
+
   Widget _buildLocationPreviewContent(
     _OriginLocationChatDescriptor descriptor,
   ) {
-    final opening = _originFirstInitialDialoguePreview(_origin!);
-    final messages = opening?.locationId == descriptor.locationId
-        ? opening!.messages
-        : <ChatMessageVm>[];
+    final messages =
+        _originInitialDialoguePreviewFromMessages(
+          _origin!,
+          descriptor.openingPreviewMessages,
+        )?.messages ??
+        const <ChatMessageVm>[];
     return CustomScrollView(
       key: ValueKey('origin-location-content-${descriptor.locationId}'),
       controller: _locationPreviewScrollController,
@@ -1211,6 +1244,13 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
     origin,
     locationIds,
   );
+  return _originInitialDialoguePreviewFromMessages(origin, sourceMessages);
+}
+
+_OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
+  OriginDetail origin,
+  List<WorldChatroomMessage> sourceMessages,
+) {
   if (!sourceMessages.any((message) => message.senderType != 'tick')) {
     return null;
   }

@@ -587,14 +587,7 @@ void main() {
     );
     expect(find.text('Character destinations'), findsNothing);
     expect(find.byIcon(Icons.directions_walk_rounded), findsNothing);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(routeIconAsset),
-      ),
-      findsNWidgets(2),
-    );
+    expect(find.byType(ChatLocationJumpCard), findsNWidgets(2));
     final firstMovement = find.byKey(
       const ValueKey<String>('chat-character-movement-moved-0'),
     );
@@ -614,29 +607,32 @@ void main() {
     expect(
       find.descendant(
         of: firstMovement,
-        matching: _richTextContaining('has come to'),
+        matching: _richTextContaining('came to'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: secondMovement,
-        matching: _richTextContaining('has gone to'),
+        matching: _richTextContaining('went to'),
       ),
       findsOneWidget,
     );
-    expect(find.text('Cafe'), findsOneWidget);
-    expect(find.text('Harbor'), findsOneWidget);
+    expect(_richTextContaining('Cafe'), findsOneWidget);
+    expect(_richTextContaining('Harbor'), findsOneWidget);
     expect(
       _textFragmentStyle(
         tester.widget<Text>(aliceMovementText),
         'Alice',
       )?.fontWeight,
-      FontWeight.w400,
+      FontWeight.w600,
     );
     expect(
-      tester.widget<Text>(find.text('Cafe')).style?.fontWeight,
-      FontWeight.w400,
+      _textFragmentStyle(
+        tester.widget<Text>(aliceMovementText),
+        'Cafe',
+      )?.fontWeight,
+      FontWeight.w600,
     );
     expect(
       tester.getTopLeft(secondMovement).dy -
@@ -668,14 +664,11 @@ void main() {
     final movedBubble = tester.widget<Container>(
       find.byKey(const ValueKey('chat-characters-moved-message-moved')),
     );
+    expect((movedBubble.decoration as BoxDecoration).color, Colors.transparent);
+    final locationLabel = tester.widget<Text>(bobMovementText);
     expect(
-      (movedBubble.decoration as BoxDecoration).color,
-      kLocationChatStyle.systemMessageBackgroundColor,
-    );
-    final locationLabel = tester.widget<Text>(find.text('Harbor'));
-    expect(
-      locationLabel.style?.color,
-      kLocationChatStyle.systemMessageTextStyle.color,
+      _textFragmentStyle(locationLabel, 'Harbor')?.color,
+      GenesisColors.redSecondary,
     );
     await tester.tap(
       find.byKey(const ValueKey('chat-character-movement-location-moved-1')),
@@ -3654,7 +3647,7 @@ void main() {
         1,
       ),
     );
-    expect(tickText.left, closeTo(expectedBubbleEdge + 14, 1));
+    expect(tickText.left, closeTo(expectedOuterPadding + 15, 1));
   });
 
   testWidgets('underscore markdown remains plain text', (

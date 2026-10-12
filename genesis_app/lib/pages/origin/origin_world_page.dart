@@ -545,6 +545,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           _renderStage != _OriginWorldPageRenderStage.content;
       setState(() {
         _origin = origin;
+        _activeChatLocation = _refreshedLocationChatDescriptor(origin);
         _initialLoadError = null;
         if (shouldStageInitialContent) {
           _renderStage = _OriginWorldPageRenderStage.detailShell;

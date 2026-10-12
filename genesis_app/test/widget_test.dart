@@ -2774,6 +2774,114 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  for (final scenario in ['refresh', 'second', 'empty', 'background']) {
+    final second = scenario == 'second';
+    testWidgets(
+      second
+          ? 'Origin location preview shows the selected destination opening'
+          : scenario == 'background'
+          ? 'Origin location preview refreshes with map background fallback'
+          : scenario == 'empty'
+          ? 'Origin location preview refreshes an empty opening without losing its draft'
+          : 'Origin location preview refreshes server copy without losing its draft',
+      (tester) async {
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        final transport = _OriginPreviewRefreshTransport()
+          ..initiallyEmpty = scenario == 'empty'
+          ..mapBackgroundOnly = scenario == 'background';
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          chatroom: _FakeChatroomClient(),
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: const MaterialApp(
+              home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final map = tester.widget<WorldMap>(find.byType(WorldMap));
+        final target = findWorldMapLocationNode(
+          map.common.locationNodes,
+          second ? 'second' : 'first',
+        )!.point;
+        await map.common.onPointTap!(target);
+        await tester.pumpAndSettle();
+        final panelFinder = find.byType(LocationChatPanel);
+        expect(panelFinder, findsOneWidget);
+        if (scenario == 'background') {
+          expect(
+            tester.widget<LocationChatPanel>(panelFinder).backgroundImageUrl,
+            'assets/images/map_default/l1_default.webp',
+          );
+        }
+        final content = tester
+            .widget<LocationChatPanel>(panelFinder)
+            .previewContent!;
+        final contentFinder = find.byWidget(content);
+        if (second) {
+          expect(
+            find.descendant(
+              of: contentFinder,
+              matching: find.text('Second opening message'),
+            ),
+            findsOneWidget,
+          );
+        } else {
+          final composer = find.descendant(
+            of: panelFinder,
+            matching: find.byType(ChatComposer),
+          );
+          final inputController = tester
+              .widget<ChatComposer>(composer)
+              .controller;
+          inputController.text = 'unsent draft';
+          transport.refreshed = true;
+          await (tester.state(find.byType(OriginWorldPage)) as dynamic)
+              .refreshLanguageData();
+          await tester.pumpAndSettle();
+          final panel = tester.widget<LocationChatPanel>(panelFinder);
+          expect(
+            find.descendant(
+              of: find.byWidget(panel.previewContent!),
+              matching: find.text('更新後對白'),
+            ),
+            findsOneWidget,
+          );
+          expect(panel.locationName, '更新後地點');
+          expect(
+            panel.backgroundImageUrl,
+            scenario == 'background'
+                ? 'assets/images/map_default/l1_default.webp'
+                : 'assets/images/map_default/location_default.webp',
+          );
+          expect(
+            tester.widget<ChatComposer>(composer).controller,
+            same(inputController),
+          );
+          expect(inputController.text, 'unsent draft');
+          expect(
+            panel.openingPreviewEntities.any(
+              (entity) => entity.name == '更新後角色',
+            ),
+            isTrue,
+          );
+          expect(
+            panel.openingPreviewMessages.any((m) => m.content == '更新後對白'),
+            isTrue,
+          );
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
   for (final status in ['none', 'pending', 'approved']) {
     testWidgets('world restricted tabs show join toast for $status', (
       tester,
@@ -39328,5 +39436,79 @@ class _RecapUnreadTransport extends _RecordingV1ListTransport {
       );
     }
     return super.send(request);
+  }
+}
+
+class _OriginPreviewRefreshTransport extends _RecordingV1ListTransport {
+  bool refreshed = false;
+  bool initiallyEmpty = false;
+  bool mapBackgroundOnly = false;
+  @override
+  Map<String, Object?> _originDetail(String oid) {
+    final data = super._originDetail(oid);
+    if (refreshed) {
+      data['characters'] = [
+        for (final c
+            in (data['characters'] as List).cast<Map<String, Object?>>())
+          {...c, 'name': '更新後角色'},
+      ];
+    }
+    data['locations'] = [
+      for (final id in ['first', 'second'])
+        {
+          'location_id': id,
+          'location_pid': '',
+          'level': 1,
+          'location_name': id == 'first' && refreshed
+              ? '更新後地點'
+              : '$id location',
+          'x_percent': id == 'first' ? 30 : 65,
+          'y_percent': 40,
+          'image': refreshed && !mapBackgroundOnly
+              ? 'assets/images/map_default/location_default.webp'
+              : '',
+          'map_url': 'assets/images/map_default/l1_default.webp',
+        },
+    ];
+    data['init_location_group'] = {
+      'location_id': 'first',
+      'initial_dialogue': [
+        {
+          'char_id': 'c_o_test_1',
+          'char_name': refreshed ? '更新後角色' : 'Ada',
+          'content': refreshed ? '更新後對白' : 'First opening message',
+        },
+      ],
+    };
+    data['ticks'] = [
+      {
+        'tick_no': 1,
+        'tick_result': {
+          'location_groups': [
+            for (final id in ['first', 'second'])
+              {
+                'location_id': id,
+                'initial_dialogue': [
+                  {
+                    'char_id': 'c_o_test_1',
+                    'char_name': refreshed ? '更新後角色' : 'Ada',
+                    'content': id == 'first'
+                        ? (refreshed ? '更新後對白' : 'First opening message')
+                        : 'Second opening message',
+                  },
+                ],
+              },
+          ],
+        },
+      },
+    ];
+    if (initiallyEmpty && !refreshed) {
+      data['init_location_group'] = {
+        'location_id': 'first',
+        'initial_dialogue': <Object?>[],
+      };
+      data['ticks'] = <Object?>[];
+    }
+    return data;
   }
 }

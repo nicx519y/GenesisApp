@@ -18,3 +18,15 @@ Validation:
 - Launch error/retry test passed; expected Toast updated to the server-provided `Launch rejected`, preserving existing translated-branch error handling.
 - Related broad Origin/opening selection exposes 12 failures on the source branch itself, including obsolete role/layout expectations, handoff send assertions, disposed notification state, and an opening-scroll boundary. These remain known limitations; this merge is not a claim that the full widget suite passes.
 - No physical-device, backend, or store verification was performed.
+
+## Follow-up: location preview consistency
+
+The merge review reproduced a newly introduced compatibility regression: a second destination with legacy tick opening dialogue was rendered using the first destination's dialogue lookup and appeared blank. Each location preview now converts its own supplied opening messages with the same converter as the Opening Sheet.
+
+The review also reproduced an older refresh defect: Origin detail changed while the open location descriptor retained the old title, background, opening messages, and entities. Successful detail refresh now replaces the descriptor from the fresh Origin data while retaining the location widget identity, composer controller, and unsent draft. If the destination no longer exists, its obsolete preview closes.
+
+Permanent regression tests cover a second destination, refreshed title/background/characters/dialogue, retained composer/draft, and empty-to-populated opening transition. The movement-card and Tick-inset expectations were updated to the incoming card layout, preserving the existing story-event assertions.
+
+Follow-up validation: 5 targeted fix/layout assertions, 4 Origin keyboard/role/launch-retry tests, 50 membership/language-refresh/rich-text tests, and 52 localization checks passed. Static analysis of the changed code and tests reported no issues. Existing unrelated broad-suite failures and the synchronous-send test hang are not resolved by this patch. No user-facing copy or ARB keys changed; the synchronized Feishu translation rows remain applicable. Device validation is still pending.
+
+Background fallback follow-up: refresh now matches map-point entry behavior, preferring a non-empty location image and otherwise using the location map image. The regression test failed before the fix and passed afterward. Four scoped preview tests (including image priority, map fallback, opening refresh and retained draft) and static analysis passed. No localization copy changed.
