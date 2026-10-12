@@ -19263,8 +19263,18 @@ void main() {
     );
     expect(chatPanel, findsOneWidget);
     expect(tester.widget<LocationChatPanel>(chatPanel).showComposer, isTrue);
+    final previewDock = find.byKey(
+      const ValueKey<String>('origin-location-composer-l_o_test_1'),
+    );
+    final roleRegion = find.descendant(
+      of: previewDock,
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-region'),
+      ),
+    );
+    expect(roleRegion, findsOneWidget);
     final composer = find.descendant(
-      of: chatPanel,
+      of: previewDock,
       matching: find.byType(LocationChatComposerInput),
     );
     expect(composer, findsOneWidget);
@@ -19276,8 +19286,35 @@ void main() {
       of: composer,
       matching: find.byKey(const ValueKey('chat-composer-input-surface')),
     );
+    final roleCardsVisibility = find.byKey(
+      const ValueKey<String>('origin-location-role-cards-visibility'),
+    );
     expect(input, findsOneWidget);
     expect(inputSurface, findsOneWidget);
+    expect(roleCardsVisibility, findsOneWidget);
+    final recommendedStart = find.descendant(
+      of: chatPanel,
+      matching: find.byType(ChatLocationJumpCard),
+    );
+    final roleTitle = find.descendant(
+      of: roleCardsVisibility,
+      matching: find.text('Start by selecting your role'),
+    );
+    expect(recommendedStart, findsOneWidget);
+    expect(roleTitle, findsOneWidget);
+    expect(
+      tester.getRect(roleTitle).top - tester.getRect(recommendedStart).bottom,
+      closeTo(originOpeningDialogueRoleGapForTesting, 1),
+      reason: 'The role cards follow the preview content as in Opening Sheet.',
+    );
+    expect(
+      find.descendant(
+        of: roleCardsVisibility,
+        matching: find.byKey(const ValueKey('origin-setup-role-cards')),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity, 1);
     expect(
       tester.getRect(inputSurface).bottom,
       lessThanOrEqualTo(844 - 34 + 1),
@@ -19285,8 +19322,34 @@ void main() {
     );
     await tester.tap(input);
     await tester.pump();
-    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-    for (var frame = 0; frame < 12; frame += 1) {
+    final roleCards = find.descendant(
+      of: roleCardsVisibility,
+      matching: find.byKey(const ValueKey('origin-setup-role-cards')),
+    );
+    final roleCardsTop = tester.getRect(roleCards).top;
+    final roleToInputGap =
+        tester.getRect(inputSurface).top - tester.getRect(roleRegion).bottom;
+    for (final keyboardInset in <double>[100, 200, 300]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(
+        tester.getRect(roleCards).top,
+        closeTo(roleCardsTop, 1),
+        reason:
+            'Opening the keyboard must not reposition the large role cards.',
+      );
+      expect(
+        tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity,
+        0,
+        reason: 'The large role cards fade while the keyboard is open.',
+      );
+      expect(
+        tester.getRect(inputSurface).top - tester.getRect(roleRegion).bottom,
+        closeTo(roleToInputGap, 1),
+        reason: 'The preview role bar and input must move as one dock.',
+      );
+    }
+    for (var frame = 0; frame < 9; frame += 1) {
       await tester.pump(const Duration(milliseconds: 20));
     }
     expect(
@@ -19296,23 +19359,16 @@ void main() {
     );
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity, 1);
+    expect(tester.getRect(roleCards).top, closeTo(roleCardsTop, 1));
     expect(
       tester.getRect(inputSurface).bottom,
       lessThanOrEqualTo(844 - 34 + 1),
       reason: 'The preview input returns above the home indicator.',
     );
     expect(
-      find.descendant(
-        of: chatPanel,
-        matching: find.byKey(
-          const ValueKey<String>('origin-location-chat-role-region'),
-        ),
-      ),
-      findsOneWidget,
-    );
-    expect(
       find.byKey(const ValueKey<String>('location-chat-composer-top-overlay')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(

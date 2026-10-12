@@ -85,7 +85,7 @@ class _OriginLocationChatEmptyState extends StatelessWidget {
       node = tree.nodeById(node.parentId);
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -325,30 +325,29 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
               ],
             ),
           ),
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 24),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 42),
-                child: Builder(
-                  builder: (context) {
-                    final keyboardOpen =
-                        MediaQuery.viewInsetsOf(context).bottom > 0;
-                    return IgnorePointer(
-                      ignoring: keyboardOpen,
-                      child: AnimatedOpacity(
-                        opacity: keyboardOpen ? 0 : 1,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOutCubic,
-                        child: _buildInlineLocationRoles(_origin!),
-                      ),
-                    );
-                  },
-                ),
-              ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(
+              top: originOpeningDialogueRoleGapForTesting,
+              bottom: 42,
+            ),
+            child: Builder(
+              builder: (context) {
+                final keyboardOpen =
+                    MediaQuery.viewInsetsOf(context).bottom > 0;
+                return IgnorePointer(
+                  ignoring: keyboardOpen,
+                  child: AnimatedOpacity(
+                    key: const ValueKey<String>(
+                      'origin-location-role-cards-visibility',
+                    ),
+                    opacity: keyboardOpen ? 0 : 1,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    child: _buildInlineLocationRoles(_origin!),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -404,17 +403,6 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   onBack: _closeLocationChat,
                   showComposer: true,
                   extendComposerBackground: false,
-                  composerTopOverlay: _OriginLocationChatRoleRegion(
-                    role: _locationChatRoleOption(_origin!),
-                    roleAvatarSnapshots: _roleAvatarSnapshots,
-                    enabled: !_launching,
-                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                    style: _originDetailSheetChatComposerStyle,
-                    foregroundColor: originWorldDetailSheetPrimaryTextColor,
-                    mutedColor: originWorldDetailSheetTertiaryTextColor,
-                    backgroundColor: kLocationChatStyle.inputBackgroundColor,
-                    borderRadius: 8,
-                  ),
                   composerReplacement: _OriginLocationChatLaunchComposer(
                     key: ValueKey(
                       'origin-location-composer-${descriptor.locationId}',
@@ -448,7 +436,6 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                     roleBorderRadius: 8,
                     showShortcuts: false,
                     enableMentionSheet: false,
-                    showRoleSelector: false,
                     bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
                   ),
                 ),
@@ -665,7 +652,6 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
     this.showShortcuts = true,
-    this.showRoleSelector = true,
     this.enableMentionSheet = true,
     this.roleBorderRadius = 999,
     this.bottomSafeAreaInset,
@@ -690,7 +676,6 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleMutedColor;
   final Color roleBackgroundColor;
   final bool showShortcuts;
-  final bool showRoleSelector;
   final bool enableMentionSheet;
   final double roleBorderRadius;
   final double? bottomSafeAreaInset;
@@ -848,7 +833,7 @@ class _OriginLocationChatLaunchComposerState
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [if (widget.showRoleSelector) roleRegion, composer],
+      children: [roleRegion, composer],
     );
   }
 }
