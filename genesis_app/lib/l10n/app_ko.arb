@@ -4196,9 +4196,9 @@
   "@developerResetFailed": {
     "description": "Developer version/reset settings failure toast."
   },
-  "developerRecapOff": "끄기(실제 구독 상태)",
+  "developerRecapOff": "끄기(멤버십 상태 따름)",
   "@developerRecapOff": {
-    "description": "Recap debug selector: disable simulated membership and use real subscription status."
+    "description": "Recap debug selector: disable the Recap-specific simulation and follow current membership, including any developer membership override."
   },
   "developerRecapLocked": "잠김 · 구독하지 않음",
   "@developerRecapLocked": {
@@ -4219,5 +4219,83 @@
   "chatEditFreeUsesExhausted": "무료 편집 횟수를 모두 사용했습니다.",
   "@chatEditFreeUsesExhausted": {
     "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
+  },
+  "developerMembershipSetting": "멤버십: {selection}",
+  "@developerMembershipSetting": {
+    "description": "Developer settings button: displays the selected temporary membership override.",
+    "placeholders": {
+      "selection": {
+        "type": "String"
+      }
+    }
+  },
+  "developerMembershipDescription": "모든 화면에서 이 계정의 멤버십 상태를 임시로 변경합니다. 서버에서는 실제 계정 상태를 계속 사용합니다. 앱을 다시 시작하면 원래 상태로 돌아갑니다.",
+  "@developerMembershipDescription": {
+    "description": "Developer membership override selector: explanation that only client display state is overridden, server permissions stay real, and restart resets the override."
+  },
+  "developerMembershipOff": "끄기(실제 멤버십)",
+  "@developerMembershipOff": {
+    "description": "Developer membership override selector: option disabling the override and using real account membership."
+  },
+  "developerMembershipYearly": "Premium · 연간",
+  "@developerMembershipYearly": {
+    "description": "Developer membership override selector: simulates annual Premium membership."
+  },
+  "developerMembershipMonthly": "Premium · 월간",
+  "@developerMembershipMonthly": {
+    "description": "Developer membership override selector: simulates monthly Premium membership."
+  },
+  "developerMembershipNone": "미가입",
+  "@developerMembershipNone": {
+    "description": "Developer membership override selector: simulates a user without membership."
+  },
+  "originStartBySelectingRole": "먼저 내 역할을 선택하세요",
+  "@originStartBySelectingRole": {
+    "description": "Worldo location preview: heading above role selector before starting a world."
+  },
+  "originRecommendedStart": "추천 시작 지점: {locationName}",
+  "@originRecommendedStart": {
+    "description": "Worldo location preview: recommended starting location heading. The location name is dynamic and must remain unchanged.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originStoryOpening": "이야기의 시작",
+  "@originStoryOpening": {
+    "description": "Worldo location preview: fallback name for the recommended starting point when its location has no name."
+  },
+  "originOpeningLocation": "시작 장소",
+  "@originOpeningLocation": {
+    "description": "Worldo location preview: fallback destination label when the opening location is unavailable."
+  },
+  "originCharactersAtLocation": "{count, plural, other{{names}의 현재 위치:\n{locationName}}}",
+  "@originCharactersAtLocation": {
+    "description": "Worldo location recommendation card: complete sentence naming the characters currently at the opening location. Names and location are styled placeholders; retain the line break.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originOpeningJump": "이야기의 시작\n{locationName}",
+  "@originOpeningJump": {
+    "description": "Worldo location recommendation card with no known occupants: title plus dynamic destination on a new line.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCharacterMovement": "캐릭터 이동",
+  "@chatCharacterMovement": {
+    "description": "Tick message: heading above character destination jump cards."
   }
 }

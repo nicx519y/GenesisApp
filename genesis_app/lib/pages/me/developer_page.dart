@@ -19,6 +19,7 @@ import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
+import '../../app/debug/membership_debug_override.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/debug/world_recap_debug_preview.dart';
@@ -1170,6 +1171,21 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           disabledBackgroundColor: GenesisColors.darkFaintFill,
           disabledForegroundColor: GenesisColors.darkTextTertiary,
           foregroundColor: GenesisColors.darkTextPrimary,
+        ),
+        const SizedBox(height: _itemGap),
+        ValueListenableBuilder<MembershipDebugOverride>(
+          valueListenable: membershipDebugOverride,
+          builder: (context, override, _) => GenesisPrimaryButton(
+            key: const ValueKey<String>('developer-membership-override'),
+            label: GenesisL10n.current.developerMembershipSetting(
+              selection: override.label,
+            ),
+            onPressed: _chooseMembershipOverride,
+            backgroundColor: GenesisColors.darkFaintFill,
+            disabledBackgroundColor: GenesisColors.darkFaintFill,
+            disabledForegroundColor: GenesisColors.darkTextTertiary,
+            foregroundColor: GenesisColors.darkTextPrimary,
+          ),
         ),
         const SizedBox(height: _itemGap),
         ValueListenableBuilder<WorldRecapDebugPreview>(

@@ -408,7 +408,11 @@ class LocationChatPanel extends StatefulWidget {
     this.showComposer = true,
     this.composerReplacement,
     this.composerTopOverlay,
+    this.extendComposerBackground = true,
     this.emptyState,
+    this.emptyStateInteractive = false,
+    this.previewContent,
+    this.previewOccupants,
     this.showConnectionStatus = true,
     this.showMoreButton = false,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
@@ -457,7 +461,11 @@ class LocationChatPanel extends StatefulWidget {
   final bool showComposer;
   final Widget? composerReplacement;
   final Widget? composerTopOverlay;
+  final bool extendComposerBackground;
   final Widget? emptyState;
+  final bool emptyStateInteractive;
+  final Widget? previewContent;
+  final List<WorldChatroomEntity>? previewOccupants;
   final bool showConnectionStatus;
   final bool showMoreButton;
   final SystemUiOverlayStyle systemUiOverlayStyle;
@@ -1211,9 +1219,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       debugLocationChatPanelBuildCount++;
       return true;
     }());
-    final occupants = !widget.active && _exitRetainedOccupants != null
-        ? _exitRetainedOccupants!
-        : _roomOccupantsForCurrentLocation(_chatroomState);
+    final occupants =
+        widget.previewOccupants ??
+        (!widget.active && _exitRetainedOccupants != null
+            ? _exitRetainedOccupants!
+            : _roomOccupantsForCurrentLocation(_chatroomState));
     final selfOccupantId = firstNonEmpty([_myUserId, _mySenderId]);
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
     final joined = _chatroomState.joinedLocationId == widget.locationId;
@@ -1455,10 +1465,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                     composer: composer == null
                         ? null
                         : RepaintBoundary(
-                            child: _LocationChatComposerExtension(
-                              style: style,
-                              child: composer,
-                            ),
+                            child: widget.extendComposerBackground
+                                ? _LocationChatComposerExtension(
+                                    style: style,
+                                    child: composer,
+                                  )
+                                : composer,
                           ),
                   ),
                 ),
@@ -1967,6 +1979,7 @@ class _LocationChatKeyboardInsetLayoutState
                         'location-chat-composer-top-overlay',
                       ),
                       left: 0,
+                      right: 0,
                       bottom: 0,
                       child: widget.composerTopOverlay!,
                     ),

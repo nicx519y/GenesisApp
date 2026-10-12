@@ -116,7 +116,7 @@ class ChatTickMessageBubble extends StatelessWidget {
         onLocationTap: onLocationTap,
       );
     }
-    return _ChatTickSurface(
+    final tickSurface = _ChatTickSurface(
       style: style,
       bubbleKey: const ValueKey('chat-tick-message-bubble'),
       onLongPressStart: isProgress ? null : onLongPressStart,
@@ -143,6 +143,7 @@ class ChatTickMessageBubble extends StatelessWidget {
         ),
       ),
     );
+    return tickSurface;
   }
 }
 
@@ -203,12 +204,7 @@ class _ChatTickSurface extends StatelessWidget {
       ),
     );
     final margin = style.systemMessageMargin;
-    final plateMargin = usesScenePlate
-        ? margin.copyWith(
-            left: math.max(margin.left, style.avatarSideSpacerWidth),
-            right: math.max(margin.right, style.avatarSideSpacerWidth),
-          )
-        : margin;
+    final plateMargin = margin;
     return Padding(
       key: bubbleKey,
       padding: plateMargin,
@@ -241,9 +237,11 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final movements = _groupTickCharacterMovements(
-      payload.charactersMoved?.movements ?? const [],
-    );
+    final movements = !payload.isMalformed
+        ? _groupTickCharacterMovements(
+            payload.charactersMoved?.movements ?? const [],
+          )
+        : <ChatCharacterMovementVm>[];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,7 +256,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
           currentTime: message.currentTime,
           messageLocalId: '${message.localId}-tick',
         ),
-        if (!payload.isMalformed && movements.isNotEmpty)
+        if (movements.isNotEmpty)
           _ChatTickMovementSection(
             messageLocalId: '${message.localId}-tick',
             movements: movements,
@@ -437,6 +435,28 @@ class _ChatTickMovementSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _ChatTickFirstLineIcon(
+                textStyle: GenesisTypography.bodyStrong,
+                child: _ChatMovementIcon(
+                  color: GenesisColors.darkTextSecondary,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  GenesisL10n.current.chatCharacterMovement,
+                  key: const ValueKey('chat-tick-movement-title'),
+                  style: GenesisTypography.bodyStrong.copyWith(
+                    color: GenesisColors.darkTextPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           for (var index = 0; index < movements.length; index += 1) ...[
             if (index > 0) const SizedBox(height: 10),
             _ChatCharacterMovementRow(
@@ -462,8 +482,9 @@ String chatTickMessageCopyText(ChatMessageVm message) {
   final payload = message.timelinePayload;
   if (payload is! ChatTickPayloadVm) return _tickAdvanceText(message);
   if (!payload.hasStructuredSections &&
-      payload.fallbackContent.trim() == message.currentTime.trim())
+      payload.fallbackContent.trim() == message.currentTime.trim()) {
     return header;
+  }
   final content = payload.copyText.trim();
   return content.isEmpty ? header : '$header\n$content';
 }

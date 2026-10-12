@@ -74,35 +74,65 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     await showDeveloperForcedLoginPreview(navigator.context);
   }
 
+  /// Picks the membership every screen sees, until the app restarts.
+  Future<void> _chooseMembershipOverride() async {
+    final chosen = await _chooseDebugOption(
+      title: GenesisL10n.current.a11yMembership,
+      note: GenesisL10n.current.developerMembershipDescription,
+      keyPrefix: 'membership-override',
+      options: MembershipDebugOverride.values,
+      current: membershipDebugOverride.value,
+      label: (option) => option.label,
+    );
+    if (chosen != null) membershipDebugOverride.value = chosen;
+  }
+
   /// Picks which recap state the World sheet shows, until the app restarts.
   Future<void> _chooseWorldRecapPreview() async {
-    final chosen = await showDialog<WorldRecapDebugPreview>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(GenesisL10n.current.developerRecapPreview),
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
-            child: Text(GenesisL10n.current.developerRecapPreviewDescription),
-          ),
-          for (final option in WorldRecapDebugPreview.values)
-            SimpleDialogOption(
-              key: ValueKey('world-recap-preview-${option.name}'),
-              onPressed: () => Navigator.of(context).pop(option),
-              child: Text(
-                option.label,
-                style: TextStyle(
-                  fontWeight: option == worldRecapDebugPreview.value
-                      ? FontWeight.w700
-                      : FontWeight.w400,
-                ),
-              ),
-            ),
-        ],
-      ),
+    final chosen = await _chooseDebugOption(
+      title: GenesisL10n.current.developerRecapPreview,
+      note: GenesisL10n.current.developerRecapPreviewDescription,
+      keyPrefix: 'world-recap-preview',
+      options: WorldRecapDebugPreview.values,
+      current: worldRecapDebugPreview.value,
+      label: (option) => option.label,
     );
     if (chosen != null) worldRecapDebugPreview.value = chosen;
   }
+
+  /// One of a debug setting's [options], the [current] one in bold.
+  Future<T?> _chooseDebugOption<T extends Enum>({
+    required String title,
+    required String note,
+    required String keyPrefix,
+    required List<T> options,
+    required T current,
+    required String Function(T option) label,
+  }) => showDialog<T>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(title),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: Text(note),
+        ),
+        for (final option in options)
+          SimpleDialogOption(
+            key: ValueKey('$keyPrefix-${option.name}'),
+            onPressed: () => Navigator.of(context).pop(option),
+            child: Text(
+              label(option),
+              style: TextStyle(
+                fontWeight: option == current
+                    ? FontWeight.w700
+                    : FontWeight.w400,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
 
   Future<void> _showPersonalizationPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);

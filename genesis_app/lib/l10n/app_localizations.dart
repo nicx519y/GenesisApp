@@ -5235,10 +5235,10 @@ abstract class AppLocalizations {
   /// **'Reset failed'**
   String get developerResetFailed;
 
-  /// Recap debug selector: disable simulated membership and use real subscription status.
+  /// Recap debug selector: disable the Recap-specific simulation and follow current membership, including any developer membership override.
   ///
   /// In en, this message translates to:
-  /// **'Off (real membership)'**
+  /// **'Off (follows membership)'**
   String get developerRecapOff;
 
   /// Recap debug selector: simulate a user without a subscription.
@@ -5270,6 +5270,88 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No free edits remaining.'**
   String get chatEditFreeUsesExhausted;
+
+  /// Developer settings button: displays the selected temporary membership override.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership: {selection}'**
+  String developerMembershipSetting({required String selection});
+
+  /// Developer membership override selector: explanation that only client display state is overridden, server permissions stay real, and restart resets the override.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporarily overrides this account’s membership on every screen. The server still uses the real account status. Resets when the app restarts.'**
+  String get developerMembershipDescription;
+
+  /// Developer membership override selector: option disabling the override and using real account membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Off (real membership)'**
+  String get developerMembershipOff;
+
+  /// Developer membership override selector: simulates annual Premium membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium · yearly'**
+  String get developerMembershipYearly;
+
+  /// Developer membership override selector: simulates monthly Premium membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium · monthly'**
+  String get developerMembershipMonthly;
+
+  /// Developer membership override selector: simulates a user without membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Non-member'**
+  String get developerMembershipNone;
+
+  /// Worldo location preview: heading above role selector before starting a world.
+  ///
+  /// In en, this message translates to:
+  /// **'Start by selecting your role'**
+  String get originStartBySelectingRole;
+
+  /// Worldo location preview: recommended starting location heading. The location name is dynamic and must remain unchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended start: {locationName}'**
+  String originRecommendedStart({required String locationName});
+
+  /// Worldo location preview: fallback name for the recommended starting point when its location has no name.
+  ///
+  /// In en, this message translates to:
+  /// **'Story Opening'**
+  String get originStoryOpening;
+
+  /// Worldo location preview: fallback destination label when the opening location is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening location'**
+  String get originOpeningLocation;
+
+  /// Worldo location recommendation card: complete sentence naming the characters currently at the opening location. Names and location are styled placeholders; retain the line break.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{names} is now at\n{locationName}} other{{names} are now at\n{locationName}}}'**
+  String originCharactersAtLocation({
+    required int count,
+    required String names,
+    required String locationName,
+  });
+
+  /// Worldo location recommendation card with no known occupants: title plus dynamic destination on a new line.
+  ///
+  /// In en, this message translates to:
+  /// **'Story Opening\n{locationName}'**
+  String originOpeningJump({required String locationName});
+
+  /// Tick message: heading above character destination jump cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Character movement'**
+  String get chatCharacterMovement;
 }
 
 class _AppLocalizationsDelegate

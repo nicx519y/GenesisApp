@@ -4196,9 +4196,9 @@
   "@developerResetFailed": {
     "description": "Developer version/reset settings failure toast."
   },
-  "developerRecapOff": "オフ（実際のメンバーシップ）",
+  "developerRecapOff": "オフ（メンバーシップに従う）",
   "@developerRecapOff": {
-    "description": "Recap debug selector: disable simulated membership and use real subscription status."
+    "description": "Recap debug selector: disable the Recap-specific simulation and follow current membership, including any developer membership override."
   },
   "developerRecapLocked": "ロック中 · メンバーではない",
   "@developerRecapLocked": {
@@ -4219,5 +4219,83 @@
   "chatEditFreeUsesExhausted": "無料の編集回数が残っていません。",
   "@chatEditFreeUsesExhausted": {
     "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
+  },
+  "developerMembershipSetting": "メンバーシップ：{selection}",
+  "@developerMembershipSetting": {
+    "description": "Developer settings button: displays the selected temporary membership override.",
+    "placeholders": {
+      "selection": {
+        "type": "String"
+      }
+    }
+  },
+  "developerMembershipDescription": "すべての画面で、このアカウントのメンバーシップ状態を一時的に変更します。サーバーでは実際のアカウント状態が使われます。App を再起動すると元に戻ります。",
+  "@developerMembershipDescription": {
+    "description": "Developer membership override selector: explanation that only client display state is overridden, server permissions stay real, and restart resets the override."
+  },
+  "developerMembershipOff": "オフ（実際のメンバーシップ）",
+  "@developerMembershipOff": {
+    "description": "Developer membership override selector: option disabling the override and using real account membership."
+  },
+  "developerMembershipYearly": "Premium · 年払い",
+  "@developerMembershipYearly": {
+    "description": "Developer membership override selector: simulates annual Premium membership."
+  },
+  "developerMembershipMonthly": "Premium · 月払い",
+  "@developerMembershipMonthly": {
+    "description": "Developer membership override selector: simulates monthly Premium membership."
+  },
+  "developerMembershipNone": "未加入",
+  "@developerMembershipNone": {
+    "description": "Developer membership override selector: simulates a user without membership."
+  },
+  "originStartBySelectingRole": "まず自分の役を選びましょう",
+  "@originStartBySelectingRole": {
+    "description": "Worldo location preview: heading above role selector before starting a world."
+  },
+  "originRecommendedStart": "おすすめの開始地点：{locationName}",
+  "@originRecommendedStart": {
+    "description": "Worldo location preview: recommended starting location heading. The location name is dynamic and must remain unchanged.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originStoryOpening": "物語の始まり",
+  "@originStoryOpening": {
+    "description": "Worldo location preview: fallback name for the recommended starting point when its location has no name."
+  },
+  "originOpeningLocation": "開始地点",
+  "@originOpeningLocation": {
+    "description": "Worldo location preview: fallback destination label when the opening location is unavailable."
+  },
+  "originCharactersAtLocation": "{count, plural, other{{names}は現在、\n{locationName}にいます}}",
+  "@originCharactersAtLocation": {
+    "description": "Worldo location recommendation card: complete sentence naming the characters currently at the opening location. Names and location are styled placeholders; retain the line break.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originOpeningJump": "物語の始まり\n{locationName}",
+  "@originOpeningJump": {
+    "description": "Worldo location recommendation card with no known occupants: title plus dynamic destination on a new line.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCharacterMovement": "キャラクターの移動",
+  "@chatCharacterMovement": {
+    "description": "Tick message: heading above character destination jump cards."
   }
 }

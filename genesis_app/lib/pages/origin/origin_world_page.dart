@@ -1,3 +1,4 @@
+import '../../ui/components/genesis_localized_rich_text.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
@@ -62,6 +63,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
+import '../chat/location_chat_scroll_coordinator.dart';
 import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
@@ -166,6 +168,21 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<void> refreshLanguageData() async {
     await _fetchOriginDetail();
   }
+
+  void _setPreviewChatLocation(_OriginLocationChatDescriptor location) {
+    _locationRoleFocusGeneration += 1;
+    _locationComposerFocused.value = false;
+    setState(() => _activeChatLocation = location);
+  }
+
+  final _roleSheetKey = GlobalKey<_OriginDetailDraggableSheetState>();
+  final ScrollController _locationPreviewScrollController = ScrollController(
+    keepScrollOffset: false,
+  );
+  int _locationRoleFocusGeneration = 0;
+  final ValueNotifier<bool> _locationComposerFocused = ValueNotifier<bool>(
+    false,
+  );
 
   static const String _profileLocationChatRoleId = 'current-user';
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
@@ -292,6 +309,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _locationRoleFocusGeneration += 1;
       _localProfileRoleOverride = null;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
@@ -329,6 +347,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _tilemapRestorationController.dispose();
     _tilemapOverlayOcclusionController.dispose();
     _detailSheetRaisedNotifier.dispose();
+    _locationPreviewScrollController.dispose();
+    _locationComposerFocused.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     super.dispose();
   }
@@ -750,6 +770,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
 
     setState(() {
+      _locationRoleFocusGeneration += 1;
+      _locationComposerFocused.value = false;
       _activeChatLocation = _OriginLocationChatDescriptor(
         originId: origin.oid,
         locationId: locationId,
@@ -783,6 +805,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _closeLocationChat() {
     if (_activeChatLocation == null || _launching) return;
+    _locationRoleFocusGeneration += 1;
+    _locationComposerFocused.value = false;
     setState(() => _activeChatLocation = null);
   }
 
@@ -1051,6 +1075,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
+              key: _roleSheetKey,
               origin: origin,
               roleAvatarSnapshots: _roleAvatarSnapshots,
               minChildSize: minChildSize,

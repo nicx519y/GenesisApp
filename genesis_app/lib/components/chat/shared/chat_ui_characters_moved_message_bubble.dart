@@ -30,9 +30,9 @@ class ChatCharactersMovedMessageBubble extends StatelessWidget {
               'chat-characters-moved-message-${message.localId}',
             ),
             width: double.infinity,
-            padding: style.systemMessagePadding,
+            padding: EdgeInsets.zero,
             decoration: BoxDecoration(
-              color: style.systemMessageBackgroundColor,
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(
                 style.systemMessageBorderRadius,
               ),
@@ -86,107 +86,42 @@ class _ChatCharacterMovementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
-    final metadataStyle = style.systemMessageTextStyle.copyWith(
-      color: textColor.withValues(alpha: 0.72),
-    );
-    final locationName = genesisDisplaySafeText(movement.toLocationName);
-    final canOpenLocation =
+    final entry = ChatMentionScope.maybeCatalogOf(
+      context,
+    )?.entryForId(movement.toLocationId);
+    final canOpen =
         onLocationTap != null &&
         movement.toLocationId.trim().isNotEmpty &&
         !movement.isDestinationCurrentLocation;
-    final directionText = usePastTenseDirection
-        ? (movement.isDestinationCurrentLocation
-              ? GenesisL10n.current.cameToDirection
-              : GenesisL10n.current.wentToDirection)
-        : (movement.isDestinationCurrentLocation
-              ? GenesisL10n.current.hasComeToDirection
-              : GenesisL10n.current.hasGoneToDirection);
-    if (scenePlate) {
-      return _ChatTickSceneCharacterMovementRow(
-        messageLocalId: messageLocalId,
-        index: index,
-        movement: movement,
-        onLocationTap: onLocationTap,
-        canOpenLocation: canOpenLocation,
-        locationName: locationName,
-        directionText: directionText,
-      );
-    }
-    return Row(
-      key: ValueKey<String>('chat-character-movement-$messageLocalId-$index'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SvgPicture.asset(
-          routeIconAsset,
-          width: 15,
-          height: 15,
-          colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+    return Padding(
+      // Fill the Tick content column, matching its Global status cards.
+      padding: EdgeInsets.zero,
+      child: ChatLocationJumpCard(
+        key: ValueKey('chat-character-movement-$messageLocalId-$index'),
+        names: genesisDisplaySafeText(movement.characterName),
+        localizedTemplate: GenesisL10n.current.characterMovementSentence(
+          characterName: GenesisLocalizedRichText.placeholder('characterName'),
+          direction: GenesisLocalizedRichText.placeholder('direction'),
+          locationName:
+              '\n${GenesisLocalizedRichText.placeholder('locationName')}',
         ),
-        const SizedBox(width: 5),
-        Expanded(
-          child: ChatStreamingText(
-            child: GenesisLocalizedRichText(
-              template: GenesisL10n.current.characterMovementSentence(
-                characterName: GenesisLocalizedRichText.placeholder(
-                  'characterName',
-                ),
-                direction: GenesisLocalizedRichText.placeholder('direction'),
-                locationName: GenesisLocalizedRichText.placeholder(
-                  'locationName',
-                ),
-              ),
-              placeholders: {
-                'characterName': TextSpan(
-                  text: genesisDisplaySafeText(movement.characterName),
-                  style: style.systemMessageTextStyle.copyWith(
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                'direction': TextSpan(
-                  text: directionText,
-                  style: metadataStyle,
-                ),
-                'locationName': WidgetSpan(
-                  alignment: PlaceholderAlignment.baseline,
-                  baseline: TextBaseline.alphabetic,
-                  child: Semantics(
-                    button: canOpenLocation,
-                    label: canOpenLocation
-                        ? GenesisL10n.current.chatOpenLocation(
-                            locationName: locationName,
-                          )
-                        : locationName,
-                    child: GestureDetector(
-                      key: ValueKey<String>(
-                        'chat-character-movement-location-$messageLocalId-$index',
-                      ),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: canOpenLocation
-                          ? () => onLocationTap!(movement)
-                          : null,
-                      child: Text(
-                        locationName,
-                        style: style.systemMessageTextStyle.copyWith(
-                          fontWeight: FontWeight.w400,
-                          decoration: canOpenLocation
-                              ? TextDecoration.underline
-                              : TextDecoration.none,
-                          decorationColor: textColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              },
-            ),
-          ),
+        action: movement.isDestinationCurrentLocation
+            ? GenesisL10n.current.cameToDirection
+            : GenesisL10n.current.wentToDirection,
+        parentPath: entry?.subtitle ?? '',
+        locationName: genesisDisplaySafeText(movement.toLocationName),
+        imageUrl: entry?.imageUrl ?? '',
+        locationKey: ValueKey(
+          'chat-character-movement-location-$messageLocalId-$index',
         ),
-      ],
+        onTap: canOpen ? () => onLocationTap!(movement) : null,
+      ),
     );
   }
 }
 
+// Retained during migration for comparison with the previous inline presentation.
+// ignore: unused_element
 class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
   const _ChatTickSceneCharacterMovementRow({
     required this.messageLocalId,
@@ -328,11 +263,11 @@ class _ChatMovementIconPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas
-      ..drawCircle(Offset(4 * scale, 4 * scale), 2.2 * scale, paint)
-      ..drawCircle(Offset(10 * scale, 10 * scale), 2.2 * scale, paint)
+      ..drawCircle(Offset(4 * scale, 10 * scale), 2.2 * scale, paint)
+      ..drawCircle(Offset(10 * scale, 4 * scale), 2.2 * scale, paint)
       ..drawLine(
-        Offset(5.8 * scale, 5.8 * scale),
-        Offset(8.2 * scale, 8.2 * scale),
+        Offset(5.8 * scale, 8.2 * scale),
+        Offset(8.2 * scale, 5.8 * scale),
         paint,
       );
   }

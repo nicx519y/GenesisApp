@@ -3035,7 +3035,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get developerResetFailed => '초기화하지 못했습니다';
 
   @override
-  String get developerRecapOff => '끄기(실제 구독 상태)';
+  String get developerRecapOff => '끄기(멤버십 상태 따름)';
 
   @override
   String get developerRecapLocked => '잠김 · 구독하지 않음';
@@ -3051,4 +3051,61 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chatEditFreeUsesExhausted => '무료 편집 횟수를 모두 사용했습니다.';
+
+  @override
+  String developerMembershipSetting({required String selection}) {
+    return '멤버십: $selection';
+  }
+
+  @override
+  String get developerMembershipDescription =>
+      '모든 화면에서 이 계정의 멤버십 상태를 임시로 변경합니다. 서버에서는 실제 계정 상태를 계속 사용합니다. 앱을 다시 시작하면 원래 상태로 돌아갑니다.';
+
+  @override
+  String get developerMembershipOff => '끄기(실제 멤버십)';
+
+  @override
+  String get developerMembershipYearly => 'Premium · 연간';
+
+  @override
+  String get developerMembershipMonthly => 'Premium · 월간';
+
+  @override
+  String get developerMembershipNone => '미가입';
+
+  @override
+  String get originStartBySelectingRole => '먼저 내 역할을 선택하세요';
+
+  @override
+  String originRecommendedStart({required String locationName}) {
+    return '추천 시작 지점: $locationName';
+  }
+
+  @override
+  String get originStoryOpening => '이야기의 시작';
+
+  @override
+  String get originOpeningLocation => '시작 장소';
+
+  @override
+  String originCharactersAtLocation({
+    required int count,
+    required String names,
+    required String locationName,
+  }) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$names의 현재 위치:\n$locationName',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String originOpeningJump({required String locationName}) {
+    return '이야기의 시작\n$locationName';
+  }
+
+  @override
+  String get chatCharacterMovement => '캐릭터 이동';
 }

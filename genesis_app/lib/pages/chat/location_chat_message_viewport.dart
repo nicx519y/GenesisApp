@@ -270,11 +270,16 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
         Positioned.fill(
           child: NotificationListener<ScrollNotification>(
             onNotification: _scrollCoordinator.handleScrollNotification,
-            child: messageList,
+            child: widget.previewContent ?? messageList,
           ),
         ),
         if (widget.emptyState != null)
-          Positioned.fill(child: IgnorePointer(child: widget.emptyState)),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !widget.emptyStateInteractive,
+              child: widget.emptyState,
+            ),
+          ),
         if (_newMessageNoticeCount > 0)
           Positioned(
             left: 0,

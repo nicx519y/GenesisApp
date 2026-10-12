@@ -5022,10 +5022,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "71f4541ca5759dcc8fab598660d98ca52c56a7978bc781a36e2d4cdefdc3a5b0",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "357d1e9e4a4d1087535cccb9ae79e4ade213bbc13c3301229dcbfb2791b0018a",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -5056,6 +5056,84 @@
           "text_hash": "f9c7884d0114a4eb6c04a94663e8d4b30b99440fcd452d143a4648a8e9ffa198",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "3c0b902be33ba9ace0ff037c2ed1f3438bb467ad32c49a578254f2d8a7bb4167",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "83b78c76cdb538bff2e0e4c1eada22d6a73b014798151817479715203c654a02",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "9749e92af8501a56d6f05c108307b02706f57283fc20350d226d73f696c8d6c5",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "75bffdeb23ee9f643fe16ae93d181a32fe75bdbce5f77bac8baef9b269b94081",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "2462c1ec3b0fdf235e86ddf976474571aeead5ade6f5bd29243d21a381a059e0",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "46d2e7fae26f95c24a4d42a211e50c1b06f32c4893a8c577fbbc33dc7e07c807",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "c74c35be3bbacbcff3f1f630aa950c02ef52539e3510d6e213351c89c3021c66",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "723d3067c7a3c1d8ec9eedfdad1a8c31c35948019e2b5479065cefa18af5cab8",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "c91279d23c5ba5896aa4546b6293c9335ad9ff21f69891b8255e8c66f75f34b5",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "e1cc63cd18abc8e4a1dbde9ef8a07e7474e147114c8ccacb2d0334174d93fae9",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "a2bc00f8c54f626afb3efc4e137fd6063eeffee07e5861d3c0c58f56ae2c04a6",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "376ff1bafa1c574e982d70728015736b87984d4baad57fbf539c877481bbc3ef",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "4ec162129f6152ec68d16cc08189bc832eb9656f88c22e6c0765c6ab85742524",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -10079,10 +10157,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "fdd7dc3d9013bdb763d3469bd43ba1db822df65e7c2ecd6a47dc0490a47a81fa",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "24cfcab2fb36a74c5464b85786b5c4110b67280e7155e98f24e48937a88210c8",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -10113,6 +10191,84 @@
           "text_hash": "381338d1b1f93c3ff00d3cb882ce447e4178454cb06ec0dc3d4f9732dfd0c932",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "6160844530f2bfc3ac701c1844e5bee4e064e67c6018a95b066c0134065f31f9",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "0f8be09dcf54ff5be52dc95962833bc7e4c12736849e5239628513736a595bd1",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "1783e31892170dd25559f62f15919139ed4767929000da635cbc6fea50a1683b",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "490fb82794f2fb2959b37a5429d52eee7192b826da977a691024a078b773901c",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "55a96f1cb23efc42ccc96e2c8a5ee9799c87b06ca6bd05d200f8214c3dd430ac",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "319fb4b0207c9dc7f39fdbc039106785a386e451f3fc66eb49c23e4b79949dd0",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "22369eea921b45d7817915b3d8108b4b50fb6573a8cff0cd5669c529d322ba71",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "7b5c4945b5e2302fcca5c4e48023e7ac5e9ffb4a7e4a7d990969556dcf4e9d58",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "55836b29f0e0ce0ebe89a0cc760e99344c0118384e92c79afb2ff231aa555b60",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "8f9b471006782aafec04c96daf9cd8ff9db4e01ada16b66ab1ce95a2478a523f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "81d7e3a7c0bc36e19f80492a7aebee41c187761d025dbe9384c78119eb8f8efd",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "733e72702a81349c65a9d16c6f39a842fbbfb40b4b054c8aae6f5fb0e212f79c",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "932dc859335cde7ca6ce09be04f750a11045163937c0460df17113e6fa0c003a",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -15136,10 +15292,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "99adefe5d07d587a1ba3b689bf19a21c33f2a2208eecbf3d8a50cd342e7ab6e0",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "67d40cc4344113069324692da2656dfe66c341576a6370faedcb831137aec97f",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -15170,6 +15326,84 @@
           "text_hash": "51eef16c851813791d074c488c8bf2750ebd4c63ca49a3e01ac32655ab926382",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "66857c2a0577e462737c29a42b4a9daf9daed86a055daf849c4982ff595f40b5",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "aaa91978977b81f11fe4774b325659026a99d0d8427682f0fe90f78d0de9531e",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "99adefe5d07d587a1ba3b689bf19a21c33f2a2208eecbf3d8a50cd342e7ab6e0",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "490fb82794f2fb2959b37a5429d52eee7192b826da977a691024a078b773901c",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "b7deabdc585a358ce0f0950d7c0d5484216f8d63d20c7bcaa9a1263c7a7db50f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "df4626701fe0d7fed51b6b579d4386fefaaa043e30c1e8304874706779da281a",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "b329e8a87f2f0198bbae8f20c47f7f33dc68df8bc6c66297af92749afe45da1a",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "68e2e76bd06cf7da79a1eabd582b112a44f6223ad891eef954dfd2c19dd83821",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "4f5bc40fa3e05e8577a9d11416ffb2460ef9a08801781eb60e663be69aac5347",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "86aa0e7dd02afc5c5c77209f1fc76304f09c87c30f0a5e5a10dab2a7ea7d156b",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "0463875b21f40a32aa5811bee5a88e9fb293e2a571eabed8fc07744cecdc8ce8",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "1926765820264022197aa06618269f3d5574a9c0ee844ca834a580dc1a78b89d",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "b7e2a24b133cc7692f016e5d4cd7b1c56c1e12499858ecc4e8d37509d9fdef30",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -20193,10 +20427,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "96b286ae9bf64d3c3aed5972f2228fcef27e9863212c6b6056c979c6e994614b",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "dfe415fcbf3aa744562bb095e249010ddcb0a6a60a763239b286ae553bcc1608",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -20227,6 +20461,84 @@
           "text_hash": "a8998ef5e43c48a59ea8eb7aab2f7e8e59bd495c0ea4901d14a0832f1fb64b6f",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "d8d67f348340b32f475cfeed33f0bdf5ea950d6d0bd4717a779dba16d8039b6e",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "57ac05a36c745d2510baa53187184f07415ba8d29b870138c4b246c87950d678",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "96b286ae9bf64d3c3aed5972f2228fcef27e9863212c6b6056c979c6e994614b",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "cb646bbec5d201cac4f10e97d9314f53607a9469b2553abba9d0bc3756db1a72",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "e2ab6a79d215de603155a6d01a5b14bd8121d2921f1ddad794b88c5ced3269e0",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "0dbd438d85de7585933ded978fe7748a5733ffe93ff97e1c22d6e2b783efd314",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "4d00bcd6f1e2dceb01aa6198a8c151760cbc183c655f3e8d46929fbf08526025",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "0c5564733ea76a36f4af6a4760b2bf6740d9f528a3862aa457d4fa2ed9f9c7cf",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "83cf9b939677a7031d671de2d4471a5deff73d601fcd2326b3f14cc90ad3ca46",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "62ae70a45bbd6c2cd293405996d0d484e04735bd5b3acaf82df6eb073479a6db",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "0ab6c0532f9382181331bc62361fd96250d6fd6085b7a9d7184bbcfa7535b3cb",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "0dbe90814bbf60eecaeb622a1859a60c6e6c249be2152ceea123dd6ff3d58216",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "f05240dffc7e714429ec476aa892fba5e621ff6e3e9f676b8de94812870be825",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -25250,10 +25562,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "3f63104c9543585f18cbd3bc3481a65ecf558e3cc789a4d8414fdb00a66eb4da",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "c97c232b668a4d53614cb8663385f316352a2ba56a51753743e547a087e11c38",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -25284,6 +25596,84 @@
           "text_hash": "129082b9df07b47010aaf35a424384eeefd0d63450828eed31b67ec6b9761bd2",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "5291a9f13b60ea04794e9992ec43e80cddc36cf1a9721f1c2e7f45389266e517",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "850b32f27c12c1dccb38118ea1773dc8c685cc57e2785ee23d9d8cf8dfebfac3",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "6b3b5b04281bf29a2e2ea39052be88bd8e2602331f84da9d6090d91c7c5e137d",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "2ff25f1b0d29e75515fb72ad3057dbbfbccedc65eb8f88f34af999c6a752bccc",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "1ce42034019d241969fe950f1d56a5bc1163848455a23346b4eb12e49a072092",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "8af896edc7b169999388a910927a2f057df0da2eba0c6a66a2b1c72b3f99e982",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "1124b1248faf6d97fb4a03a6dc61a2bb7ac85775b76b00b38a5e837de3731b3f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "3a84f6c831ab900a516a9b4dd894d6be5b42fefe8671b9d333b68bd37aabed85",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "b39153268145ac4130646fe582c714771d608db275c69b89f18df926add1274c",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "15713f2edfc708b0492168d88d3d44cf2e10e5ff0abb2ccbe8a8b66418d4f97d",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "5bf70c4ac0c148bb6ffc4a5b088391975ea76c365c3c6fa021aacff554ac022a",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "d1bf917cfb66609379aee1189b273ea3ccf881dd53287d780479e1ea9a44cd5d",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "9f90e0444232c0cad8e4eaad5327a80afc30563ae652887d751f395d8c6b6ab5",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -30307,10 +30697,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "340e112780b7fd8274c5332e4ffa2cca00c37572956c2707eb37ba13bd1a2d48",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "7b77c46311d6458ce353b481f4136e84539318b11330b3d1f0e91f36ee2c2fab",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -30341,6 +30731,84 @@
           "text_hash": "8233749978df1add269574dc3bcfad11f0b364e561e84f1e3144150e469f093c",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "cbc712ed0f5b2e7c8414d402765a3bccc487960a9d12394f97829d9c47f72cc2",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "4c44c53c00aa403e95a7ddbad2ff0f9f9b591455291798c8af813a0aadb32e37",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "340e112780b7fd8274c5332e4ffa2cca00c37572956c2707eb37ba13bd1a2d48",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "38a887b1d38c49db437c5b65b8b1f3c1d98b28c03de7c34334df81a871dca756",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "842f35b68ed1347788c9917ba27f3d83a8f867aa4896013b7b0c79ef9895c3ad",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "229bff7e2c31c5f85652b73f9ecaceb88c6c9bfdb84ffa1f5d05ffd9ff9d64c1",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "0a705b8d9eaac40b322ef44035cd548dab99862d91efda0bc573a954db9762cd",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "69b66a75e0dc5dc3a8240f1d84fa385efbfe0e3956003a30205414c23fa593b4",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "601ad09e852cc7d64a0c826bfbc41e57f464f9bd2dc1a848a11f132451635d9a",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "289334406d996e87941207941235e5e8a7cc825df39f3930d7d94de25ff881e2",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "4e20baddac9c992ef36d25f694ce5ca611d6a8be9a2fd49b5e9969c1900695db",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "74849eeefa3e40aef306488b0719b976d0e72482487e16e41e984e9a75168ca4",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "625566dcf50ea55cc41fb60e86921fcea6e4bfbd271154e1029db81b401316ff",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -35364,10 +35832,10 @@
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "dd69b06fcf419445415e2294407d5a0379af15b916424b55021f045b579dc555",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "3946dfb2f42bc0e4a61380825c1eaac080aecdf1784da98624a37657f027b6ef",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -35398,6 +35866,84 @@
           "text_hash": "345f756c0c5f29bb1cd8bfec261f8865055897b51c427e3a574918daf69f4f6f",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "637cbceb2759e753f4494f8488838d273c4a26401f4990832b1024e815de2227",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "ea9d46c16acc01376852b25a4405595d450b507add800b4471adb46259818cfb",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "dd69b06fcf419445415e2294407d5a0379af15b916424b55021f045b579dc555",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "71f9f6df663d9f17a087af4a36b46feb41bf8f3ed5709da33f87dbca917123da",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "9e33ca1f5aa6804dd95a5c5969690fd70fe8fc7e16e457801bdad6c1b95b6504",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "99ccd325fad481c0212962c38a47e1381ad5cf9cf2787df6b6db142ce3e548a7",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "4f441dfe23dc5e0adb8b3c150f1c13a760d97f1fb9bdf9584ed9c20090d14841",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "c5fb36655eccf707a91790303d545ab0b077952a5de7345cad46cd2db341e4fb",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "d83a34c770c1581eb54f9fd004a2f0bc1154559789dca76935fa4435b9ae20ad",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "c704783266a75deab4b210dd98d842fb3c852996d8bf26020db6dff82cf1e060",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "11778f5d4158fc5ca705c691fa88cc2480dd819196e0edb42d171a71d0a83c94",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "a72af231b9918fa7128ec76a9fac3c4e1839734a851bffded49dc04293e47b70",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "233fb0efaf2152d511e33129dafd7db467ad37a198750ff5a44243cc93d7045a",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     },
@@ -40421,10 +40967,10 @@
           "note": "审校建议 R844（必改）：韩语其余约 800 条都是 합니다체，这批新增条目用了 해요체，统一语气"
         },
         "developerRecapOff": {
-          "source_hash": "cc12bf5578f4e5de2327fbf42c7ae624e3e0f7257644ea3bb81ae78131cd3ea7",
-          "text_hash": "2ecb3f6aa88cf038088e620e80a0b66493a929d3b43582a1e3cba3b9f521f5c4",
+          "source_hash": "c1517a7715c831eb2714c718da866f95cebd97fada0a8f3a28b6b889f2260458",
+          "text_hash": "32e2709f0f3a9418a3e56bbb18e9050b6c8c99d157c5ae4a240900716dcd1882",
           "status": "ai",
-          "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "developerRecapLocked": {
           "source_hash": "387bab5bdb4a21c1aa195276e2cc368fb27cdee8566d0d31e6466d4863fb4865",
@@ -40455,6 +41001,84 @@
           "text_hash": "4fb156a7634dbfdda71cb755cbdc2a56d0248a72af6dbd99f95b936e92f392c9",
           "status": "ai",
           "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
+        },
+        "developerMembershipSetting": {
+          "source_hash": "30a1e92f13a774b23e5f089787be6fd741aa8f550dedd18708cc5ceed0486a0e",
+          "text_hash": "ab4574d2d1390e4afa855d5d9b3967aee81596e2b41c867ec8e2a8ef43abe51f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipDescription": {
+          "source_hash": "da5cd9a39b42b47e992fcdec1cb950c1b68fba3c8c4dc67311b990a2790e345c",
+          "text_hash": "36a0602885db26b9cd020e49f6dcbb4df194bfa808a6cbc1f4ec7e878ca4c153",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipOff": {
+          "source_hash": "0e386001228cb8cdf26871a1279e7b2f0314f2018caccd2407b577c8b981d31e",
+          "text_hash": "2392c8e19d8c04b13e30c7ad42dee3851341f61e6f4f77fa43c969cc87debd9f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipYearly": {
+          "source_hash": "36a0bc89918f57ca11066d4bac10eab185fef10e38b1598abf6bdb5d5c802423",
+          "text_hash": "1708a406f64ab20d2eef2ed27618321cc702a63f93c79e6ca99866d39ea50e9e",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipMonthly": {
+          "source_hash": "c2405aefc0c77a5bd2f271ddb86de6a785d7b01e205c762b815f01d1a093104b",
+          "text_hash": "50e1fd96d34fcf1bcfd580cab7c8b29101306f5a87867feccf8e27e949585f3f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "developerMembershipNone": {
+          "source_hash": "1bd7368b23d4b5af1cff8c4961b6e6190c8026bdfa4066022f1bc3470fa34566",
+          "text_hash": "579ed4c1cb87fc6009a456fa27746a1b376005c76756248e950f4e4e4c7ffa0c",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStartBySelectingRole": {
+          "source_hash": "6a291d0de668b9c30b2d3da59bd0d16f0cf3c1f4676744b3986dabd5df0abd32",
+          "text_hash": "9fab24d9a95fb8204ce32609098fda55c65023b74001b52b934648d97255ba4b",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originRecommendedStart": {
+          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
+          "text_hash": "6cb11594225039c999a802b08f18b0f5d9ceaefb2b4ab579c9009d74a682097f",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originStoryOpening": {
+          "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
+          "text_hash": "e4059a61d66e343dade9477ec2c07969e961a616f60e01a4ccb98a0e4e91daa4",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningLocation": {
+          "source_hash": "dc0717a461be7e38a33fa272e6ee01bfbf3149f65ca4284a12e3043c1a443d95",
+          "text_hash": "953fad03f6ca667586ea91fc739d509f616a6f63e78d7b4fe517e4db63fee093",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originCharactersAtLocation": {
+          "source_hash": "81a2ef1cd591790175dad461388e68a3d1d2e9b228567fb6224bdbba31a74965",
+          "text_hash": "cd7bf0e3167a4e3ab2aeb95db4fdb469c1a230c43740b9d956d8911a2ef5ec23",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "originOpeningJump": {
+          "source_hash": "7a8638a225d3d3c2f233624cf774fd011227edb8682ba57994084b39153021a5",
+          "text_hash": "2b8a5eb8b875301b449d36abe7f514b1c857a984ba9279ca315f83c4e864490b",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+        },
+        "chatCharacterMovement": {
+          "source_hash": "2e416c33e656c5639d426f74826ae86567a501d65035a9fcdb791c16fd148ad3",
+          "text_hash": "e8b1789ece7f94f9981f98731f78c0910fb4077db0b57c39887127fb71676727",
+          "status": "ai",
+          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         }
       }
     }

@@ -4196,9 +4196,9 @@
   "@developerResetFailed": {
     "description": "Developer version/reset settings failure toast."
   },
-  "developerRecapOff": "Aus (echter Abo-Status)",
+  "developerRecapOff": "Aus (gemäß Mitgliedschaft)",
   "@developerRecapOff": {
-    "description": "Recap debug selector: disable simulated membership and use real subscription status."
+    "description": "Recap debug selector: disable the Recap-specific simulation and follow current membership, including any developer membership override."
   },
   "developerRecapLocked": "Gesperrt · ohne Abo",
   "@developerRecapLocked": {
@@ -4219,5 +4219,83 @@
   "chatEditFreeUsesExhausted": "Keine kostenlosen Bearbeitungen mehr übrig.",
   "@chatEditFreeUsesExhausted": {
     "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
+  },
+  "developerMembershipSetting": "Mitgliedschaft: {selection}",
+  "@developerMembershipSetting": {
+    "description": "Developer settings button: displays the selected temporary membership override.",
+    "placeholders": {
+      "selection": {
+        "type": "String"
+      }
+    }
+  },
+  "developerMembershipDescription": "Überschreibt vorübergehend den Mitgliedschaftsstatus dieses Kontos auf allen Seiten. Der Server verwendet weiterhin den tatsächlichen Kontostatus. Beim Neustart der App wird die Einstellung zurückgesetzt.",
+  "@developerMembershipDescription": {
+    "description": "Developer membership override selector: explanation that only client display state is overridden, server permissions stay real, and restart resets the override."
+  },
+  "developerMembershipOff": "Aus (tatsächliche Mitgliedschaft)",
+  "@developerMembershipOff": {
+    "description": "Developer membership override selector: option disabling the override and using real account membership."
+  },
+  "developerMembershipYearly": "Premium · jährlich",
+  "@developerMembershipYearly": {
+    "description": "Developer membership override selector: simulates annual Premium membership."
+  },
+  "developerMembershipMonthly": "Premium · monatlich",
+  "@developerMembershipMonthly": {
+    "description": "Developer membership override selector: simulates monthly Premium membership."
+  },
+  "developerMembershipNone": "Keine Mitgliedschaft",
+  "@developerMembershipNone": {
+    "description": "Developer membership override selector: simulates a user without membership."
+  },
+  "originStartBySelectingRole": "Wähle zuerst deine Figur",
+  "@originStartBySelectingRole": {
+    "description": "Worldo location preview: heading above role selector before starting a world."
+  },
+  "originRecommendedStart": "Empfohlener Start: {locationName}",
+  "@originRecommendedStart": {
+    "description": "Worldo location preview: recommended starting location heading. The location name is dynamic and must remain unchanged.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originStoryOpening": "Beginn der Geschichte",
+  "@originStoryOpening": {
+    "description": "Worldo location preview: fallback name for the recommended starting point when its location has no name."
+  },
+  "originOpeningLocation": "Startort",
+  "@originOpeningLocation": {
+    "description": "Worldo location preview: fallback destination label when the opening location is unavailable."
+  },
+  "originCharactersAtLocation": "{count, plural, one{{names} ist jetzt in\n{locationName}} other{{names} sind jetzt in\n{locationName}}}",
+  "@originCharactersAtLocation": {
+    "description": "Worldo location recommendation card: complete sentence naming the characters currently at the opening location. Names and location are styled placeholders; retain the line break.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originOpeningJump": "Beginn der Geschichte\n{locationName}",
+  "@originOpeningJump": {
+    "description": "Worldo location recommendation card with no known occupants: title plus dynamic destination on a new line.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCharacterMovement": "Figurenbewegung",
+  "@chatCharacterMovement": {
+    "description": "Tick message: heading above character destination jump cards."
   }
 }

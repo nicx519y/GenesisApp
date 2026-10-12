@@ -3029,7 +3029,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get developerResetFailed => 'リセットできませんでした';
 
   @override
-  String get developerRecapOff => 'オフ（実際のメンバーシップ）';
+  String get developerRecapOff => 'オフ（メンバーシップに従う）';
 
   @override
   String get developerRecapLocked => 'ロック中 · メンバーではない';
@@ -3045,4 +3045,61 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chatEditFreeUsesExhausted => '無料の編集回数が残っていません。';
+
+  @override
+  String developerMembershipSetting({required String selection}) {
+    return 'メンバーシップ：$selection';
+  }
+
+  @override
+  String get developerMembershipDescription =>
+      'すべての画面で、このアカウントのメンバーシップ状態を一時的に変更します。サーバーでは実際のアカウント状態が使われます。App を再起動すると元に戻ります。';
+
+  @override
+  String get developerMembershipOff => 'オフ（実際のメンバーシップ）';
+
+  @override
+  String get developerMembershipYearly => 'Premium · 年払い';
+
+  @override
+  String get developerMembershipMonthly => 'Premium · 月払い';
+
+  @override
+  String get developerMembershipNone => '未加入';
+
+  @override
+  String get originStartBySelectingRole => 'まず自分の役を選びましょう';
+
+  @override
+  String originRecommendedStart({required String locationName}) {
+    return 'おすすめの開始地点：$locationName';
+  }
+
+  @override
+  String get originStoryOpening => '物語の始まり';
+
+  @override
+  String get originOpeningLocation => '開始地点';
+
+  @override
+  String originCharactersAtLocation({
+    required int count,
+    required String names,
+    required String locationName,
+  }) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$namesは現在、\n$locationNameにいます',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String originOpeningJump({required String locationName}) {
+    return '物語の始まり\n$locationName';
+  }
+
+  @override
+  String get chatCharacterMovement => 'キャラクターの移動';
 }

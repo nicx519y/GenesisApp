@@ -3126,7 +3126,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get developerResetFailed => 'Reset failed';
 
   @override
-  String get developerRecapOff => 'Off (real membership)';
+  String get developerRecapOff => 'Off (follows membership)';
 
   @override
   String get developerRecapLocked => 'Locked · non-member';
@@ -3142,4 +3142,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatEditFreeUsesExhausted => 'No free edits remaining.';
+
+  @override
+  String developerMembershipSetting({required String selection}) {
+    return 'Membership: $selection';
+  }
+
+  @override
+  String get developerMembershipDescription =>
+      'Temporarily overrides this account’s membership on every screen. The server still uses the real account status. Resets when the app restarts.';
+
+  @override
+  String get developerMembershipOff => 'Off (real membership)';
+
+  @override
+  String get developerMembershipYearly => 'Premium · yearly';
+
+  @override
+  String get developerMembershipMonthly => 'Premium · monthly';
+
+  @override
+  String get developerMembershipNone => 'Non-member';
+
+  @override
+  String get originStartBySelectingRole => 'Start by selecting your role';
+
+  @override
+  String originRecommendedStart({required String locationName}) {
+    return 'Recommended start: $locationName';
+  }
+
+  @override
+  String get originStoryOpening => 'Story Opening';
+
+  @override
+  String get originOpeningLocation => 'Opening location';
+
+  @override
+  String originCharactersAtLocation({
+    required int count,
+    required String names,
+    required String locationName,
+  }) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$names are now at\n$locationName',
+      one: '$names is now at\n$locationName',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String originOpeningJump({required String locationName}) {
+    return 'Story Opening\n$locationName';
+  }
+
+  @override
+  String get chatCharacterMovement => 'Character movement';
 }

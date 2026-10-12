@@ -3176,7 +3176,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get developerResetFailed => 'Échec de la réinitialisation';
 
   @override
-  String get developerRecapOff => 'Désactivé (abonnement réel)';
+  String get developerRecapOff => 'Désactivé (selon l’abonnement)';
 
   @override
   String get developerRecapLocked => 'Verrouillé · sans abonnement';
@@ -3193,4 +3193,63 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get chatEditFreeUsesExhausted =>
       'Vous n’avez plus de modifications gratuites.';
+
+  @override
+  String developerMembershipSetting({required String selection}) {
+    return 'Abonnement : $selection';
+  }
+
+  @override
+  String get developerMembershipDescription =>
+      'Modifie temporairement le statut d’abonnement de ce compte sur tous les écrans. Le serveur utilise toujours le statut réel du compte. Le statut est rétabli au redémarrage de l’app.';
+
+  @override
+  String get developerMembershipOff => 'Désactivé (abonnement réel)';
+
+  @override
+  String get developerMembershipYearly => 'Premium · annuel';
+
+  @override
+  String get developerMembershipMonthly => 'Premium · mensuel';
+
+  @override
+  String get developerMembershipNone => 'Sans abonnement';
+
+  @override
+  String get originStartBySelectingRole =>
+      'Commencez par choisir votre personnage';
+
+  @override
+  String originRecommendedStart({required String locationName}) {
+    return 'Départ recommandé : $locationName';
+  }
+
+  @override
+  String get originStoryOpening => 'Début de l’histoire';
+
+  @override
+  String get originOpeningLocation => 'Lieu de départ';
+
+  @override
+  String originCharactersAtLocation({
+    required int count,
+    required String names,
+    required String locationName,
+  }) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$names se trouvent actuellement à\n$locationName',
+      one: '$names se trouve actuellement à\n$locationName',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String originOpeningJump({required String locationName}) {
+    return 'Début de l’histoire\n$locationName';
+  }
+
+  @override
+  String get chatCharacterMovement => 'Déplacement des personnages';
 }
