@@ -103,13 +103,13 @@ class _LanguagePageState extends State<LanguagePage> {
                     for (final entry in const [
                       (Locale('en'), 'English'),
                       (Locale('de'), 'Deutsch'),
-                      (Locale('es'), 'Español'),
                       (Locale('fr'), 'Français'),
-                      (Locale('it'), 'Italiano'),
-                      (Locale('pt'), 'Português'),
                       (Locale('ja'), '日本語'),
-                      (Locale('ko'), '한국어'),
                       (Locale('zh', 'TW'), '繁體中文'),
+                      (Locale('es'), 'Español'),
+                      (Locale('pt'), 'Português'),
+                      (Locale('it'), 'Italiano'),
+                      (Locale('ko'), '한국어'),
                     ]) ...[
                       Semantics(
                         selected: current == entry.$1,
@@ -121,8 +121,20 @@ class _LanguagePageState extends State<LanguagePage> {
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    entry.$2,
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(text: entry.$2),
+                                        TextSpan(
+                                          text:
+                                              ' (${AppLanguageController.codeForLocale(entry.$1).toUpperCase()})',
+                                          style: const TextStyle(
+                                            color:
+                                                GenesisColors.darkTextSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                     style: const TextStyle(
                                       fontSize: 16,
                                       color: GenesisColors.darkTextPrimary,

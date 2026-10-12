@@ -164,32 +164,40 @@ class _SettingsPageState extends State<SettingsPage> {
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                context.l10n.settingsLanguage,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: GenesisColors.darkTextPrimary,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              const {
-                                    'en': 'English',
-                                    'zh': '繁體中文',
-                                    'es': 'Español',
-                                    'pt': 'Português',
-                                    'fr': 'Français',
-                                    'de': 'Deutsch',
-                                    'it': 'Italiano',
-                                    'ja': '日本語',
-                                    'ko': '한국어',
-                                  }[Localizations.localeOf(
-                                    context,
-                                  ).languageCode] ??
-                                  'English',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: GenesisColors.darkTextTertiary,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      context.l10n.settingsLanguage,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: GenesisColors.darkTextPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    const {
+                                          'en': 'English',
+                                          'zh': '繁體中文',
+                                          'es': 'Español',
+                                          'pt': 'Português',
+                                          'fr': 'Français',
+                                          'de': 'Deutsch',
+                                          'it': 'Italiano',
+                                          'ja': '日本語',
+                                          'ko': '한국어',
+                                        }[Localizations.localeOf(
+                                          context,
+                                        ).languageCode] ??
+                                        'English',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: GenesisColors.darkTextTertiary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const Icon(

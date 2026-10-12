@@ -38,7 +38,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('繁體中文'));
+      await tester.tap(find.text('繁體中文 (ZH-TW)'));
       await tester.pump();
       expect(find.text('Language'), findsOneWidget);
       expect(appLanguageController.settingLanguage, 'en');
@@ -47,14 +47,14 @@ void main() {
       expect(
         find.descendant(
           of: find.ancestor(
-            of: find.text('English'),
+            of: find.text('English (EN)'),
             matching: find.byType(Row),
           ),
           matching: find.byIcon(Icons.check),
         ),
         findsOneWidget,
       );
-      await tester.tap(find.text('繁體中文'));
+      await tester.tap(find.text('繁體中文 (ZH-TW)'));
       expect(requests, 1);
       save.completeError(
         ApiException(
@@ -98,13 +98,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       for (final entry in const [
-        ('de', 'Deutsch', 'Sprache'),
-        ('es', 'Español', 'Idioma'),
-        ('fr', 'Français', 'Langue'),
-        ('it', 'Italiano', 'Lingua'),
-        ('pt', 'Português', 'Idioma'),
-        ('ja', '日本語', '言語'),
-        ('ko', '한국어', '언어'),
+        ('de', 'Deutsch (DE)', 'Sprache'),
+        ('fr', 'Français (FR)', 'Langue'),
+        ('ja', '日本語 (JA)', '言語'),
+        ('es', 'Español (ES)', 'Idioma'),
+        ('pt', 'Português (PT)', 'Idioma'),
+        ('it', 'Italiano (IT)', 'Lingua'),
+        ('ko', '한국어 (KO)', '언어'),
       ]) {
         await tester.scrollUntilVisible(
           find.text(entry.$2),
@@ -118,7 +118,7 @@ void main() {
         expect(find.text(entry.$3), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
-      expect(saved, ['de', 'es', 'fr', 'it', 'pt', 'ja', 'ko']);
+      expect(saved, ['de', 'fr', 'ja', 'es', 'pt', 'it', 'ko']);
     },
   );
 
@@ -149,7 +149,7 @@ void main() {
     await tester.pumpAndSettle();
     final state = tester.state(find.byType(LanguagePage));
     expect(find.text('Language'), findsOneWidget);
-    await tester.tap(find.text('繁體中文'));
+    await tester.tap(find.text('繁體中文 (ZH-TW)'));
     await tester.pump();
     expect(find.byIcon(Icons.hourglass_empty_rounded), findsNothing);
     expect(find.text('Language'), findsOneWidget);
@@ -182,7 +182,7 @@ void main() {
     expect(find.text('語言'), findsOneWidget);
     expect(tester.state(find.byType(LanguagePage)), same(state));
     expect(find.byIcon(Icons.check), findsOneWidget);
-    await tester.tap(find.text('English'));
+    await tester.tap(find.text('English (EN)'));
     await tester.pumpAndSettle();
     expect(find.text('Language'), findsOneWidget);
     expect(
