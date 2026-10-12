@@ -686,19 +686,19 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get navHome => '홈';
+  String get navHome => 'Home';
 
   @override
   String get navWorldo => 'Worldo';
 
   @override
-  String get navCreate => '만들기';
+  String get navCreate => 'Create';
 
   @override
-  String get navInbox => '받은 편지함';
+  String get navInbox => 'Inbox';
 
   @override
-  String get navMe => '내 정보';
+  String get navMe => 'Me';
 
   @override
   String get homeLoadFailed => '불러오기에 실패했습니다';
@@ -3077,9 +3077,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get originStartBySelectingRole => '먼저 내 역할을 선택하세요';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return '추천 시작 지점: $locationName';
-  }
+  String get originRecommendedStart => '추천 시작 지점';
 
   @override
   String get originStoryOpening => '이야기의 시작';

@@ -4,6 +4,8 @@
 
 ## 场景与语义
 
+- 已确认：首页底部导航 Tab 在所有语言下固定使用英文 Home、Worldo、Inbox、Me；中间创建按钮保持仅图标，其无障碍标签 Create 也保留英文。此例外仅适用于 navHome/navWorldo/navCreate/navInbox/navMe，不得全局禁止翻译 Home、Inbox、Me、Create。Inbox 和 Me 页面标题与对应 Tab 共用英文文案，也不翻译。其他页面标题、按钮和正文照常翻译。
+
 - description 说明页面、控件/提示类型、触发条件、对象和歧义。例如 `Settings page: language-save failure toast after the server rejected the selection.`，不能只写 `UI text`。
 - 使用原意和场景进行翻译，不逐词拼接。Worldo 是模板，World 是运行的世界；Save 是保存，Launch 是从模板启动世界，Subscribe 是订阅购买。
 - 同一概念遵循 glossary.json；语种的地区、称呼和句式遵循 language-profiles.json。地区不同的手机仍加载同一语言包，不能自行改变包内地区风格。

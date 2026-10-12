@@ -1170,31 +1170,31 @@ abstract class AppLocalizations {
     required String content,
   });
 
-  /// 首页底部 TAB - Home
+  /// App shell bottom navigation: fixed English label "Home" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English.
   ///
   /// In en, this message translates to:
   /// **'Home'**
   String get navHome;
 
-  /// 首页底部 TAB - Worldo
+  /// App shell bottom navigation: fixed English label "Worldo" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English.
   ///
   /// In en, this message translates to:
   /// **'Worldo'**
   String get navWorldo;
 
-  /// 首页底部 TAB - Create（文案不可见）
+  /// App shell bottom navigation: fixed English label "Create" in every language. Do not translate. Create is icon-only; this text is its accessibility label.
   ///
   /// In en, this message translates to:
   /// **'Create'**
   String get navCreate;
 
-  /// 首页底部 TAB - Inbox
+  /// App shell bottom navigation: fixed English label "Inbox" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English.
   ///
   /// In en, this message translates to:
   /// **'Inbox'**
   String get navInbox;
 
-  /// 首页底部 TAB - Me
+  /// App shell bottom navigation: fixed English label "Me" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English.
   ///
   /// In en, this message translates to:
   /// **'Me'**
@@ -5313,11 +5313,11 @@ abstract class AppLocalizations {
   /// **'Start by selecting your role'**
   String get originStartBySelectingRole;
 
-  /// Worldo location preview: recommended starting location heading. The location name is dynamic and must remain unchanged.
+  /// Worldo location preview: standalone heading above the recommended starting-location card. The destination name is displayed in the card below, not in this heading.
   ///
   /// In en, this message translates to:
-  /// **'Recommended start: {locationName}'**
-  String originRecommendedStart({required String locationName});
+  /// **'Recommended start'**
+  String get originRecommendedStart;
 
   /// Worldo location preview: fallback name for the recommended starting point when its location has no name.
   ///

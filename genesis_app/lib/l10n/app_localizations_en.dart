@@ -3168,9 +3168,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get originStartBySelectingRole => 'Start by selecting your role';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return 'Recommended start: $locationName';
-  }
+  String get originRecommendedStart => 'Recommended start';
 
   @override
   String get originStoryOpening => 'Story Opening';

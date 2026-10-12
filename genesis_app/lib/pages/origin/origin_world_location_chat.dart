@@ -115,11 +115,7 @@ class _OriginLocationChatEmptyState extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: Text(
-                GenesisL10n.current.originRecommendedStart(
-                  locationName: location?.name.trim().isNotEmpty == true
-                      ? location!.name.trim()
-                      : GenesisL10n.current.originStoryOpening,
-                ),
+                GenesisL10n.current.originRecommendedStart,
                 textAlign: TextAlign.center,
                 style: _originLocationPreviewHeadingStyle,
               ),

@@ -3,7 +3,7 @@
   "baseline_note": "Existing catalogs recorded without rewriting translations; baseline is not human review.",
   "languages": {
     "zh-TW": {
-      "guidance_hash": "28d76dad809b69e05ea3611f6d7787ade8a6ca1bc97e54eedaec01cdaf2f1a30",
+      "guidance_hash": "ad67d079ce7816b0c6e1e043712e6c574112543eb0c387abcfee20303742ba7d",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -1002,34 +1002,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "91c441c124bc351d6cb67170a29f3e21b971f0319b1d31beec10ee7f32a0e2cf",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
           "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "d8c062875ef950fb8afee63a7af359d4ec8f3c534192707e33f7e7f2aa5183e6",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "cb4a66c30fef456604e96c2ca6223a63b8d92cc2e36945e4fa48c8d8951e9f38",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -5100,10 +5100,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "723d3067c7a3c1d8ec9eedfdad1a8c31c35948019e2b5479065cefa18af5cab8",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "3b8f1662e58476d11c0ac3a64c9ffdea49662045927472b91a15661eceaa996d",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -5138,7 +5138,7 @@
       }
     },
     "es": {
-      "guidance_hash": "7eb8f08669200c6ccc43858cd288077f84b645340c3a04a043776ad85186da0f",
+      "guidance_hash": "213b685cb6ab671ebc32d92ed3ea723be93a33275f39a67ec239eeb0e27c5a01",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -6137,34 +6137,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "67d71ccb816dfd021dfb3a4008860edc7876408930970586ea011c7066d197d2",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "caf82925e10d389ffe3f027ecbe1c65b2c0b5d21a09722793bd16535dd439ba8",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "d11d46db2da98a1e0290c032200146eb5d048dff43b938175deaf91da65c8f0a",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "2201b206ad2a4c561cefc35a84ead3a5ce7f3147dcd4348a550324148a480de7",
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
           "status": "ai",
-          "note": "审校建议 R8（建议优化）：底部 TAB「Me」直译成代词 Yo/Eu/Moi/Ich/Io 不自然，主流 App 用「个人主页」"
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -10235,10 +10235,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "7b5c4945b5e2302fcca5c4e48023e7ac5e9ffb4a7e4a7d990969556dcf4e9d58",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "8c9a8aedb2a8ace8edf186eea4afbf8a36c188f47f95e8568c51603dea04504b",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -10273,7 +10273,7 @@
       }
     },
     "pt": {
-      "guidance_hash": "262e7efec72caed9f812046427c4f6d5caef285c01477ac8a84c7df8f13d7aab",
+      "guidance_hash": "a799bae340ffdce15114fbc4bab818990aa056e350f80b8916d1f3d073d5783e",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -11272,34 +11272,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "200d0652641f1761fae87b1949e2f677083ff5ee15c90e929646c8f9a1be6be8",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "1c4db4bc40dd94b85df65d441f1eee02c3bcb294885d03a4edabc4307c34247e",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "309c7a425f21386d2e815d2e10bce6d7f822c8b1585199c46889c1e25d7de223",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "2201b206ad2a4c561cefc35a84ead3a5ce7f3147dcd4348a550324148a480de7",
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
           "status": "ai",
-          "note": "审校建议 R8（建议优化）：底部 TAB「Me」直译成代词 Yo/Eu/Moi/Ich/Io 不自然，主流 App 用「个人主页」"
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -15370,10 +15370,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "68e2e76bd06cf7da79a1eabd582b112a44f6223ad891eef954dfd2c19dd83821",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "3a812fc3da6ba190d48785b1f4e9309691de660e2e0663e582f789b983af007d",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -15408,7 +15408,7 @@
       }
     },
     "fr": {
-      "guidance_hash": "740c66bd178ec44b4ccaf026004ce87b02b40633ff162bb65d8939ef0da17eca",
+      "guidance_hash": "e73ec0c29c27b420c107effd7cdf7ea1bc7992b1dcffbba52de0b37db3727bf2",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -16407,34 +16407,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "2ddaeccf5194e62bea78c337cac1040a9bc7de28cb3ce5333096b27b751bd615",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "0d94cc0e64a21491ae3fc2c13ac2ec1f707732ec75376f23ac5fcae5bd21627a",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "8234f689ecfb15781f91dafee55bd46145bb0756e4ee4188253d05da45d66a40",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "d1bebceb4c8ca1aeab919a691e9928a0f235741cd53a22410d7298cb0d46f9e0",
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
           "status": "ai",
-          "note": "审校建议 R8（建议优化）：底部 TAB「Me」直译成代词 Yo/Eu/Moi/Ich/Io 不自然，主流 App 用「个人主页」"
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -20505,10 +20505,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "0c5564733ea76a36f4af6a4760b2bf6740d9f528a3862aa457d4fa2ed9f9c7cf",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "b91d393918b7c5423ced56bb7a4cb505d4736d3a14ad836889d37fa5d4fd4618",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -20543,7 +20543,7 @@
       }
     },
     "de": {
-      "guidance_hash": "381839da1c3faa6416b2911205d7105e2bdc92dfea75392656ad5d54719d3bf2",
+      "guidance_hash": "e52c59818bd4612fdd8dcc89a05325fa3de50d4fb90d2c0d76633be3fd719a80",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -21542,34 +21542,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "217e24e24154ec6821426ac417a8617f351db7c071e5cae24a98475df2f921ec",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "01ec8a30316a47321735dfe1932adaf8edc443d7d79d15d6a85a486dc79b1ae6",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "cc5831d8b0a759bf185b2b633e3fcdd8bcb15672b788d9ac26bc62994d37b4e7",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "d1bebceb4c8ca1aeab919a691e9928a0f235741cd53a22410d7298cb0d46f9e0",
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
           "status": "ai",
-          "note": "审校建议 R8（建议优化）：底部 TAB「Me」直译成代词 Yo/Eu/Moi/Ich/Io 不自然，主流 App 用「个人主页」"
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -25640,10 +25640,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "3a84f6c831ab900a516a9b4dd894d6be5b42fefe8671b9d333b68bd37aabed85",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "6e3cea32ca0de152f5fe706457368361fa79a1bdc63fbf7a67ff55e501d66f1e",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -25678,7 +25678,7 @@
       }
     },
     "it": {
-      "guidance_hash": "4d7b6bb68ec098dc84b66f6aeaebe14fa98214986bff30386f37d8884d2c2a19",
+      "guidance_hash": "b9e7630f3b58ef9350330b02513e2f9d5d5ddc851fed1d9c42fba2272fe8e3a3",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -26677,34 +26677,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
           "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "24717a2659c959a1ea74ca5180340eac0943de6d26e3d9e50a0b75a0799a708e",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "699b707351190e9ca95098416e56e738bc83c713c354f241d66df3f5e5c58e4a",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "6e1abd4982073a98a1c948dfc3bd04fe7fdc17cee5e6d16347ee630c84025409",
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
           "status": "ai",
-          "note": "审校建议 R8（建议优化）：底部 TAB「Me」直译成代词 Yo/Eu/Moi/Ich/Io 不自然，主流 App 用「个人主页」"
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -30775,10 +30775,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "69b66a75e0dc5dc3a8240f1d84fa385efbfe0e3956003a30205414c23fa593b4",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "8e075ebf6c231f63aae0d848cc28139bcae6a1defac66e93949311abf697b26f",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -30813,7 +30813,7 @@
       }
     },
     "ja": {
-      "guidance_hash": "3024f44d5df4b43f0a2b93b1b74a94056704dcc6430e68ef3a10b261f18e47fb",
+      "guidance_hash": "ae0958a522de95dd0c6d7dd3d5f53a67d5ccf64d651c3dd0f64731a1875b4d5c",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -31812,34 +31812,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "40e89f86bf2d1b851da8f82d9f32fd9c0c1f3713cca3d8f8aaff6aefd5c7ac6c",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "65f1c3d6458d7bb34e3b457510764ddd9a2254f552195388c41435405449ae43",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "c0a2396d729a0812ea41d626b4e6756059cc5aaa9853f48bb4c0bae4cdebd63b",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "8ee0b092a1a2245fdd55962efeac006e0536de54308005a552b144ee344aa1e3",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -35910,10 +35910,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "c5fb36655eccf707a91790303d545ab0b077952a5de7345cad46cd2db341e4fb",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "16898a385fb48128116f5ca68941e2abc3399552d2d8693c68122b51721f9fd4",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",
@@ -35948,7 +35948,7 @@
       }
     },
     "ko": {
-      "guidance_hash": "eb277badb54c69b2a762aa3f6441c70722cbfb620fe1f2a059877bac0adf5315",
+      "guidance_hash": "0c2def8cfd31ae6939ceac2dad44500406c0bae1897224902149f002d188a91c",
       "entries": {
         "imageGifUnsupported": {
           "source_hash": "7a86e05b769b30041f420074945b5df6f91cf35f9a04d535417fcfc3ffba0bc0",
@@ -36947,34 +36947,34 @@
           "note": ""
         },
         "navHome": {
-          "source_hash": "88fa2de560006701d08def21b2ebc09f094a977bccf72981f90be6b0c30179aa",
-          "text_hash": "8ddeb2dfb6f260984450ac12a9b22ba5ec7a791772bd612868fa40faa4ccce1f",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7596cfc94d7649aa7de3515d074c50f7dfc3a082145b94d49a7b83314fc665bc",
+          "text_hash": "d2187d527809f5324ca15ce87ab5b2f1364f08638da56782c4111c4a89c2cf43",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navWorldo": {
-          "source_hash": "f4379e8127f7011b3cbd4e92381a917f7152027a68448bf950e8a96de7640f85",
+          "source_hash": "29e2a7e9c89cde4b9d0717202ae4ce602e31e656ebed0eac4209ee9b6dc27ea6",
           "text_hash": "ccc138905ae629accca693b97bf12e5a9a4464cc5aa1ae64df58076d410575d7",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navCreate": {
-          "source_hash": "c4523a0a59b9c04819f63ae5b902e51c4bc3d32c5c754ac895da0e60cbd32f65",
-          "text_hash": "a0f6aa1f23ebcd95335423c37555f90ea459ba0934dd6a91c70454868c3603d4",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "f2d7e033bd9cec9e08fcacad68d68cd998c6bee1210febb96b4ed881ed6fbe32",
+          "text_hash": "88f0bf04a31eeb1799085ca3cb54a8d24d73b47e6d03d49e1c3aa44e736d9c5f",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navInbox": {
-          "source_hash": "303e9667c009536939cc99c4e8ab1dba0590050ee0f5ada30dbb688bbe920c1a",
-          "text_hash": "32a5571358f9dab3b7f5bb597266aab4ef93d3c1c67489c70bf4e47d7e1ce9b2",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "93aee62761ae1655706a0dd841f84465a3e82262a2af728d056a55085a94652d",
+          "text_hash": "c2c0b354370cf87a36c62851529c72042bbbf982b591b6503fe27fc835a63854",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "navMe": {
-          "source_hash": "707c7398bae7f450d28a2baf03c3ba35ccadd2b2be29b25965c83d95f3d5bb0f",
-          "text_hash": "36a2242100e178696b6910da994864e689b118211f1627240bf96d3e6822c0bc",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "e262d4fd200ad77af0db632b05df158ff7313ffa26517ed447c3f28c900ea426",
+          "text_hash": "9e01bfe951d1e18b142bb26f79e1439c02685d2010a6e6292e6494741e8a9337",
+          "status": "ai",
+          "note": "Confirmed fixed English navigation label; Inbox and Me page titles also retain these labels."
         },
         "homeLoadFailed": {
           "source_hash": "4562725eed29e630dd9faecf44d842b9c36b7b1414498eed9cb35c59dd4c3346",
@@ -41045,10 +41045,10 @@
           "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
         },
         "originRecommendedStart": {
-          "source_hash": "7688f13ba41ed1c3e971c56b24087de3cf0bd7f264ac3c7097342cfa2d612a82",
-          "text_hash": "6cb11594225039c999a802b08f18b0f5d9ceaefb2b4ab579c9009d74a682097f",
+          "source_hash": "0b63e564348d39393aa3937ac6d71de86087885baea4b439772528e9c7fc2b7d",
+          "text_hash": "40958f2e16a5cfcfb84699d7fc939487373720464ba6eeb686f2d69328af839f",
           "status": "ai",
-          "note": "Localized for the supplied Worldo preview or developer-setting context; preserves placeholders, line breaks, membership/server boundary and target-language style."
+          "note": "Standalone recommended-start heading; user requested removing the colon and destination name. Destination stays in the card below."
         },
         "originStoryOpening": {
           "source_hash": "4441c4eee38476fdaaa6dd64380495a425445241615dc9255aaaa2a054ac1e77",

@@ -704,19 +704,19 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get navHome => 'Accueil';
+  String get navHome => 'Home';
 
   @override
   String get navWorldo => 'Worldo';
 
   @override
-  String get navCreate => 'Créer';
+  String get navCreate => 'Create';
 
   @override
-  String get navInbox => 'Boîte de réception';
+  String get navInbox => 'Inbox';
 
   @override
-  String get navMe => 'Profil';
+  String get navMe => 'Me';
 
   @override
   String get homeLoadFailed => 'Échec du chargement';
@@ -3220,9 +3220,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Commencez par choisir votre personnage';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return 'Départ recommandé : $locationName';
-  }
+  String get originRecommendedStart => 'Départ recommandé';
 
   @override
   String get originStoryOpening => 'Début de l’histoire';

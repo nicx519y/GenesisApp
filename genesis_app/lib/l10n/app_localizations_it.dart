@@ -707,13 +707,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get navWorldo => 'Worldo';
 
   @override
-  String get navCreate => 'Crea';
+  String get navCreate => 'Create';
 
   @override
-  String get navInbox => 'Posta in arrivo';
+  String get navInbox => 'Inbox';
 
   @override
-  String get navMe => 'Profilo';
+  String get navMe => 'Me';
 
   @override
   String get homeLoadFailed => 'Caricamento non riuscito';
@@ -3223,9 +3223,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Inizia scegliendo il tuo personaggio';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return 'Punto di partenza consigliato: $locationName';
-  }
+  String get originRecommendedStart => 'Punto di partenza consigliato';
 
   @override
   String get originStoryOpening => 'Inizio della storia';

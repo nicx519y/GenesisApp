@@ -7,10 +7,13 @@ void main() {
   final taiwan = lookupAppLocalizations(const Locale('zh', 'TW'));
 
   test(
-    'Taiwan locale uses translated navigation and preserves brand names',
+    'Taiwan locale preserves English navigation and localizes other copy',
     () {
-      expect(taiwan.navHome, '首頁');
+      expect(taiwan.navHome, 'Home');
       expect(taiwan.navWorldo, 'Worldo');
+      expect(taiwan.navInbox, 'Inbox');
+      expect(taiwan.navMe, 'Me');
+      expect(taiwan.navCreate, 'Create');
       expect(taiwan.tickNowAction, '立即 Tick');
       expect(
         taiwan.homeMyWorldsEmptyTitle(worldo: '#Worldo'),
@@ -36,7 +39,7 @@ void main() {
       AppLocalizations.supportedLocales,
     );
     expect(locale, const Locale('zh', 'TW'));
-    expect(lookupAppLocalizations(locale).navHome, '首頁');
+    expect(lookupAppLocalizations(locale).navHome, 'Home');
   });
 
   testWidgets('MaterialApp renders Taiwan copy for zh-Hant-TW', (tester) async {
@@ -50,10 +53,10 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Builder(
-          builder: (context) => Text(AppLocalizations.of(context).navHome),
+          builder: (context) => Text(AppLocalizations.of(context).settingsLanguage),
         ),
       ),
     );
-    expect(find.text('首頁'), findsOneWidget);
+    expect(find.text('語言'), findsOneWidget);
   });
 }

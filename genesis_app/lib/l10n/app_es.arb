@@ -1004,25 +1004,25 @@
       }
     }
   },
-  "navHome": "Inicio",
+  "navHome": "Home",
   "@navHome": {
-    "description": "首页底部 TAB - Home"
+    "description": "App shell bottom navigation: fixed English label \"Home\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
   },
   "navWorldo": "Worldo",
   "@navWorldo": {
-    "description": "首页底部 TAB - Worldo"
+    "description": "App shell bottom navigation: fixed English label \"Worldo\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
   },
-  "navCreate": "Crear",
+  "navCreate": "Create",
   "@navCreate": {
-    "description": "首页底部 TAB - Create（文案不可见）"
+    "description": "App shell bottom navigation: fixed English label \"Create\" in every language. Do not translate. Create is icon-only; this text is its accessibility label."
   },
-  "navInbox": "Bandeja de entrada",
+  "navInbox": "Inbox",
   "@navInbox": {
-    "description": "首页底部 TAB - Inbox"
+    "description": "App shell bottom navigation: fixed English label \"Inbox\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
   },
-  "navMe": "Perfil",
+  "navMe": "Me",
   "@navMe": {
-    "description": "首页底部 TAB - Me"
+    "description": "App shell bottom navigation: fixed English label \"Me\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
   },
   "homeLoadFailed": "No se pudo cargar",
   "@homeLoadFailed": {
@@ -4253,14 +4253,9 @@
   "@originStartBySelectingRole": {
     "description": "Worldo location preview: heading above role selector before starting a world."
   },
-  "originRecommendedStart": "Inicio recomendado: {locationName}",
+  "originRecommendedStart": "Inicio recomendado",
   "@originRecommendedStart": {
-    "description": "Worldo location preview: recommended starting location heading. The location name is dynamic and must remain unchanged.",
-    "placeholders": {
-      "locationName": {
-        "type": "String"
-      }
-    }
+    "description": "Worldo location preview: standalone heading above the recommended starting-location card. The destination name is displayed in the card below, not in this heading."
   },
   "originStoryOpening": "Inicio de la historia",
   "@originStoryOpening": {

@@ -686,19 +686,19 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get navHome => 'ホーム';
+  String get navHome => 'Home';
 
   @override
   String get navWorldo => 'Worldo';
 
   @override
-  String get navCreate => '作成';
+  String get navCreate => 'Create';
 
   @override
-  String get navInbox => '受信箱';
+  String get navInbox => 'Inbox';
 
   @override
-  String get navMe => 'マイページ';
+  String get navMe => 'Me';
 
   @override
   String get homeLoadFailed => '読み込みに失敗しました';
@@ -3071,9 +3071,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get originStartBySelectingRole => 'まず自分の役を選びましょう';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return 'おすすめの開始地点：$locationName';
-  }
+  String get originRecommendedStart => 'おすすめの開始地点';
 
   @override
   String get originStoryOpening => '物語の始まり';

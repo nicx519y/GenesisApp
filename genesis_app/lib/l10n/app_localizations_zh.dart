@@ -3168,9 +3168,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get originStartBySelectingRole => 'Start by selecting your role';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return 'Recommended start: $locationName';
-  }
+  String get originRecommendedStart => 'Recommended start';
 
   @override
   String get originStoryOpening => 'Story Opening';
@@ -3879,7 +3877,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   }
 
   @override
-  String get navHome => '首頁';
+  String get navHome => 'Home';
 
   @override
   String get navWorldo => 'Worldo';
@@ -3888,10 +3886,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get navCreate => 'Create';
 
   @override
-  String get navInbox => '收件匣';
+  String get navInbox => 'Inbox';
 
   @override
-  String get navMe => '我的';
+  String get navMe => 'Me';
 
   @override
   String get homeLoadFailed => '載入失敗';
@@ -6216,9 +6214,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get originStartBySelectingRole => '先選擇你的角色';
 
   @override
-  String originRecommendedStart({required String locationName}) {
-    return '建議起點：$locationName';
-  }
+  String get originRecommendedStart => '建議起點';
 
   @override
   String get originStoryOpening => '故事開場';
