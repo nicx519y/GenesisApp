@@ -5,6 +5,16 @@ ChatUiStyleConfig get _originDetailSheetChatComposerStyle => kLocationChatStyle
 
 const double _originLocationChatRolePillAvatarSize = 22;
 const double _originLocationChatDockRoleOffsetY = -2;
+const double _originLocationChatRoleDockGap = 4;
+
+double _originLocationChatRoleRegionExtent(BuildContext context) {
+  final labelHeight = MediaQuery.textScalerOf(context).scale(12) * 1.2;
+  final pillContentHeight = math.max(
+    _originLocationChatRolePillAvatarSize,
+    math.max(labelHeight, 17),
+  );
+  return kLocationChatStyle.composerPadding.top + pillContentHeight + 12;
+}
 
 TextStyle get _originLocationPreviewHeadingStyle =>
     kLocationChatStyle.bubbleTextStyle.copyWith(
@@ -301,6 +311,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         : <ChatMessageVm>[];
     return CustomScrollView(
       key: ValueKey('origin-location-content-${descriptor.locationId}'),
+      controller: _locationPreviewScrollController,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         if (descriptor.openingPreviewMessages.isEmpty)
@@ -325,31 +336,67 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
               ],
             ),
           ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(
-              top: originOpeningDialogueRoleGapForTesting,
-              bottom: 42,
-            ),
-            child: Builder(
-              builder: (context) {
-                final keyboardOpen =
-                    MediaQuery.viewInsetsOf(context).bottom > 0;
-                return IgnorePointer(
-                  ignoring: keyboardOpen,
-                  child: AnimatedOpacity(
-                    key: const ValueKey<String>(
-                      'origin-location-role-cards-visibility',
+        SliverLayoutBuilder(
+          builder: (context, constraints) {
+            final keyboardInset =
+                context
+                    .dependOnInheritedWidgetOfExactType<
+                      LocationChatKeyboardInsetScope
+                    >()
+                    ?.effectiveInset ??
+                0;
+            // Keep the role-card anchor on the unfocused viewport while the
+            // composer moves above the keyboard.
+            final remainingHeight = math.max(
+              0.0,
+              constraints.viewportMainAxisExtent +
+                  keyboardInset -
+                  constraints.precedingScrollExtent,
+            );
+            return SliverToBoxAdapter(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: remainingHeight),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: originOpeningDialogueRoleGapForTesting,
+                      bottom:
+                          _originLocationChatRoleRegionExtent(context) +
+                          _originLocationChatRoleDockGap,
                     ),
-                    opacity: keyboardOpen ? 0 : 1,
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    child: _buildInlineLocationRoles(_origin!),
+                    child: Builder(
+                      builder: (context) {
+                        return ValueListenableBuilder<bool>(
+                          valueListenable: _locationComposerFocused,
+                          builder: (context, inputFocused, child) {
+                            final keyboardOpen =
+                                MediaQuery.viewInsetsOf(context).bottom > 0;
+                            return IgnorePointer(
+                              ignoring: inputFocused || keyboardOpen,
+                              child: AnimatedOpacity(
+                                key: const ValueKey<String>(
+                                  'origin-location-role-cards-visibility',
+                                ),
+                                // Like Opening Sheet, reveal the cards as soon
+                                // as the composer loses focus, while keeping
+                                // them inactive until the keyboard closes.
+                                opacity: inputFocused && keyboardOpen ? 0 : 1,
+                                duration: const Duration(milliseconds: 250),
+                                curve: Curves.easeOutCubic,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: _buildInlineLocationRoles(_origin!),
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -403,6 +450,20 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   onBack: _closeLocationChat,
                   showComposer: true,
                   extendComposerBackground: false,
+                  composerTopOverlay: SizedBox(
+                    height: _originLocationChatRoleRegionExtent(context),
+                    child: _OriginLocationChatRoleRegion(
+                      role: _locationChatRoleOption(_origin!),
+                      roleAvatarSnapshots: _roleAvatarSnapshots,
+                      enabled: !_launching,
+                      onTap: _focusLocationRoleCards,
+                      style: _originDetailSheetChatComposerStyle,
+                      foregroundColor: originWorldDetailSheetPrimaryTextColor,
+                      mutedColor: originWorldDetailSheetTertiaryTextColor,
+                      backgroundColor: kLocationChatStyle.inputBackgroundColor,
+                      borderRadius: 8,
+                    ),
+                  ),
                   composerReplacement: _OriginLocationChatLaunchComposer(
                     key: ValueKey(
                       'origin-location-composer-${descriptor.locationId}',
@@ -417,8 +478,12 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                       _origin!,
                       selectedRoleId: _effectiveLocationChatRoleId(_origin!),
                     ),
-                    onSelectRole: () =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onSelectRole: _focusLocationRoleCards,
+                    onFocusChanged: (hasFocus) =>
+                        _handleLocationComposerFocusChanged(
+                          descriptor.locationId,
+                          hasFocus,
+                        ),
                     onSend: (message, mentions) => _launchLocationChatMessage(
                       _origin!,
                       locationId: descriptor.locationId,
@@ -426,9 +491,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                       mentionCatalog: mentions,
                     ),
                     style: _originDetailSheetChatComposerStyle.copyWith(
-                      composerBackgroundColor: Colors.transparent,
                       composerBackdropBlurSigma: 0,
                     ),
+                    showRoleRegion: false,
                     roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
                     roleMutedColor: originWorldDetailSheetTertiaryTextColor,
                     roleBackgroundColor:
@@ -442,6 +507,68 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
               ),
       ),
     );
+  }
+
+  void _focusLocationRoleCards() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final descriptor = _activeChatLocation;
+    if (descriptor == null) return;
+    final generation = ++_locationRoleFocusGeneration;
+    unawaited(_scrollToLocationRoleCards(descriptor.locationId, generation));
+  }
+
+  void _handleLocationComposerFocusChanged(String locationId, bool hasFocus) {
+    if (!mounted || _activeChatLocation?.locationId != locationId) return;
+    _locationComposerFocused.value = hasFocus;
+  }
+
+  bool get _locationPreviewKeyboardVisible =>
+      mounted && View.of(context).viewInsets.bottom > 0;
+
+  Future<void> _scrollToLocationRoleCards(
+    String locationId,
+    int generation,
+  ) async {
+    bool isCurrent() =>
+        mounted &&
+        generation == _locationRoleFocusGeneration &&
+        _activeChatLocation?.locationId == locationId;
+
+    // The keyboard owns the viewport until its inset has gone away. Follow
+    // the same handoff as Opening Sheet before measuring the role-card end.
+    for (
+      var frame = 0;
+      frame < 30 && _locationPreviewKeyboardVisible;
+      frame += 1
+    ) {
+      await _waitForLocationRoleFrame();
+      if (!isCurrent()) return;
+    }
+    if (!isCurrent() || _locationPreviewKeyboardVisible) return;
+
+    for (var pass = 0; pass < 4; pass += 1) {
+      if (!_locationPreviewScrollController.hasClients) return;
+      final position = _locationPreviewScrollController.position;
+      final target = position.maxScrollExtent;
+      if ((target - position.pixels).abs() < 0.5) return;
+      await _locationPreviewScrollController.animateTo(
+        target,
+        duration: pass == 0
+            ? const Duration(milliseconds: 260)
+            : const Duration(milliseconds: 80),
+        curve: Curves.easeOutCubic,
+      );
+      if (!isCurrent()) return;
+      await _waitForLocationRoleFrame();
+      if (!isCurrent()) return;
+    }
+  }
+
+  Future<void> _waitForLocationRoleFrame() {
+    final completer = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => completer.complete());
+    WidgetsBinding.instance.ensureVisualUpdate();
+    return completer.future;
   }
 
   String _effectiveLocationChatRoleId(OriginDetail origin) {
@@ -652,6 +779,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
     this.showShortcuts = true,
+    this.showRoleRegion = true,
     this.enableMentionSheet = true,
     this.roleBorderRadius = 999,
     this.bottomSafeAreaInset,
@@ -676,6 +804,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleMutedColor;
   final Color roleBackgroundColor;
   final bool showShortcuts;
+  final bool showRoleRegion;
   final bool enableMentionSheet;
   final double roleBorderRadius;
   final double? bottomSafeAreaInset;
@@ -819,21 +948,24 @@ class _OriginLocationChatLaunchComposerState
       showShortcuts: widget.showShortcuts,
       bottomSafeAreaInset: widget.bottomSafeAreaInset,
     );
-    final roleRegion = _OriginLocationChatRoleRegion(
-      role: widget.role,
-      roleAvatarSnapshots: widget.roleAvatarSnapshots,
-      enabled: !widget.launching,
-      onTap: widget.onSelectRole,
-      style: style,
-      foregroundColor: widget.roleForegroundColor,
-      mutedColor: widget.roleMutedColor,
-      backgroundColor: widget.roleBackgroundColor,
-      borderRadius: widget.roleBorderRadius,
-    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [roleRegion, composer],
+      children: [
+        if (widget.showRoleRegion)
+          _OriginLocationChatRoleRegion(
+            role: widget.role,
+            roleAvatarSnapshots: widget.roleAvatarSnapshots,
+            enabled: !widget.launching,
+            onTap: widget.onSelectRole,
+            style: style,
+            foregroundColor: widget.roleForegroundColor,
+            mutedColor: widget.roleMutedColor,
+            backgroundColor: widget.roleBackgroundColor,
+            borderRadius: widget.roleBorderRadius,
+          ),
+        composer,
+      ],
     );
   }
 }
@@ -874,9 +1006,8 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
       backdropBlurSigma: style.inputBackdropBlurSigma,
       borderRadius: borderRadius,
     );
-    return ColoredBox(
+    return KeyedSubtree(
       key: const ValueKey<String>('origin-location-chat-role-region'),
-      color: Colors.transparent,
       child: Padding(
         padding: EdgeInsets.only(
           left: style.composerPadding.left,
@@ -888,7 +1019,11 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
             'origin-location-chat-dock-role-translation',
           ),
           offset: const Offset(0, _originLocationChatDockRoleOffsetY),
-          child: Align(alignment: Alignment.centerLeft, child: roleSelector),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            heightFactor: 1,
+            child: roleSelector,
+          ),
         ),
       ),
     );

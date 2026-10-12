@@ -201,6 +201,13 @@ class _OriginDetailDraggableSheetState
   PageController get _pageController => _sheetInteraction.pageController;
   int get _currentPage => _sheetInteraction.currentPage;
   double _expandedOpeningComposerReservedHeight(BuildContext context) {
+    // The sheet body extends behind the bottom bar, so reserve its laid-out
+    // height when anchoring the role cards above it.
+    final composer = _expandedOpeningComposerMeasureKey.currentContext
+        ?.findRenderObject();
+    if (composer is RenderBox && composer.hasSize) {
+      return composer.size.height;
+    }
     return _expandedOpeningComposerHeightWithoutSafeArea +
         GenesisSafeAreaInsets.bottom(context);
   }
@@ -1365,64 +1372,86 @@ class _OriginDetailDraggableSheetState
                                 AnimatedBuilder(
                                   animation:
                                       _sheetInteraction.keyboardFrameListenable,
-                                  child: SliverToBoxAdapter(
-                                    child: IgnorePointer(
-                                      key: const ValueKey<String>(
-                                        'origin-opening-role-section',
-                                      ),
-                                      ignoring: _openingKeyboardMode,
-                                      child: Opacity(
-                                        key: const ValueKey<String>(
-                                          'origin-opening-role-section-settled-visibility',
-                                        ),
-                                        opacity:
-                                            _openingKeyboardPhase ==
-                                                _OriginOpeningKeyboardPhase.open
-                                            ? 0
-                                            : 1,
-                                        child: AnimatedOpacity(
+                                  child: SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: Column(
+                                      children: [
+                                        const Spacer(),
+                                        IgnorePointer(
                                           key: const ValueKey<String>(
-                                            'origin-opening-role-section-visibility',
+                                            'origin-opening-role-section',
                                           ),
-                                          opacity: _openingRoleSectionHidden
-                                              ? 0
-                                              : 1,
-                                          duration: const Duration(
-                                            milliseconds: 250,
-                                          ),
-                                          curve: Curves.easeOutCubic,
-                                          child: _OriginSetupRoleSection(
-                                            key: _roleSectionKey,
-                                            characters:
-                                                widget.origin.characters,
-                                            roleAvatarSnapshots:
-                                                widget.roleAvatarSnapshots,
-                                            launchBusy:
-                                                widget.activeLaunchSource !=
-                                                null,
-                                            profileRole: widget.profileRole,
-                                            selectedRoleId:
-                                                widget.locationChatRole.id,
-                                            onSelectedRoleChanged:
-                                                widget.onSelectLocationChatRole,
-                                            onSaveProfileRole:
-                                                _confirmProfileRoleEditing,
-                                            profileCardPositionKey:
-                                                _profileRoleCardPositionKey,
-                                            profileRoleEditing: roleEditing,
-                                            onBeginProfileRoleEditing:
-                                                _beginProfileRoleEditing,
-                                            onCancelProfileRoleEditing:
-                                                _cancelProfileRoleEditing,
-                                            onProfileRoleFocusChanged:
-                                                _handleProfileRoleFocusChanged,
-                                            onProfileRoleInternalInteractionChanged:
-                                                _handleProfileRoleInternalInteractionChanged,
-                                            onResumeProfileRoleInternalInteraction:
-                                                _resumeProfileRoleAfterInternalInteraction,
+                                          ignoring: _openingKeyboardMode,
+                                          child: Opacity(
+                                            key: const ValueKey<String>(
+                                              'origin-opening-role-section-settled-visibility',
+                                            ),
+                                            opacity:
+                                                _openingKeyboardPhase ==
+                                                    _OriginOpeningKeyboardPhase
+                                                        .open
+                                                ? 0
+                                                : 1,
+                                            child: AnimatedOpacity(
+                                              key: const ValueKey<String>(
+                                                'origin-opening-role-section-visibility',
+                                              ),
+                                              opacity: _openingRoleSectionHidden
+                                                  ? 0
+                                                  : 1,
+                                              duration: const Duration(
+                                                milliseconds: 250,
+                                              ),
+                                              curve: Curves.easeOutCubic,
+                                              child: _OriginSetupRoleSection(
+                                                key: _roleSectionKey,
+                                                bottomPadding: 4,
+                                                characters:
+                                                    widget.origin.characters,
+                                                roleAvatarSnapshots:
+                                                    widget.roleAvatarSnapshots,
+                                                launchBusy:
+                                                    widget.activeLaunchSource !=
+                                                    null,
+                                                profileRole: widget.profileRole,
+                                                selectedRoleId:
+                                                    widget.locationChatRole.id,
+                                                onSelectedRoleChanged: widget
+                                                    .onSelectLocationChatRole,
+                                                onSaveProfileRole:
+                                                    _confirmProfileRoleEditing,
+                                                profileCardPositionKey:
+                                                    _profileRoleCardPositionKey,
+                                                profileRoleEditing: roleEditing,
+                                                onBeginProfileRoleEditing:
+                                                    _beginProfileRoleEditing,
+                                                onCancelProfileRoleEditing:
+                                                    _cancelProfileRoleEditing,
+                                                onProfileRoleFocusChanged:
+                                                    _handleProfileRoleFocusChanged,
+                                                onProfileRoleInternalInteractionChanged:
+                                                    _handleProfileRoleInternalInteractionChanged,
+                                                onResumeProfileRoleInternalInteraction:
+                                                    _resumeProfileRoleAfterInternalInteraction,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                        if (openingComposer != null)
+                                          SizedBox(
+                                            key: const ValueKey<String>(
+                                              'origin-opening-docked-composer-bottom-spacer',
+                                            ),
+                                            height: math.max(
+                                              0,
+                                              _expandedOpeningComposerReservedHeight(
+                                                    context,
+                                                  ) +
+                                                  _OriginSetupRoleSection
+                                                      ._composerClearance,
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                   builder: (context, child) {
@@ -1441,24 +1470,6 @@ class _OriginDetailDraggableSheetState
                                     );
                                   },
                                 ),
-                                if (openingComposer != null)
-                                  SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      key: const ValueKey<String>(
-                                        'origin-opening-docked-composer-bottom-spacer',
-                                      ),
-                                      height: math.max(
-                                        0,
-                                        _expandedOpeningComposerReservedHeight(
-                                              context,
-                                            ) -
-                                            _OriginSetupRoleSection
-                                                ._bottomPadding +
-                                            _OriginSetupRoleSection
-                                                ._composerClearance,
-                                      ),
-                                    ),
-                                  ),
                                 if (_openingKeyboardMode ||
                                     _openingKeyboardLayoutSpacerExtent > 0)
                                   AnimatedBuilder(

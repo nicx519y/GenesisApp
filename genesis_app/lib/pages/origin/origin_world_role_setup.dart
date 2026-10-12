@@ -28,7 +28,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
 
   static const double _cardWidth = 240;
   static const double _bottomPadding = 28;
-  static const double _composerClearance = 16;
+  static const double _composerClearance = 4;
 
   final String title;
   final double bottomPadding;
