@@ -2,30 +2,29 @@ part of 'mini_phone_page.dart';
 
 extension _MiniPhoneHome on _MiniPhonePageState {
   Widget _home() => ListenableBuilder(
-    listenable: miniDemoMusic,
+    listenable: miniPhoneMusic,
     builder: (context, _) => _homeContent(),
   );
 
   Widget _homeContent() => Stack(
     fit: StackFit.expand,
     children: [
-      _wallpaperBackground(store.wallpaper, store.wallpaperPhoto),
-      if (store.wallpaper != miniSolidWallpaper || store.wallpaperPhoto != null)
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0x52151517),
-                Color(0x0A151517),
-                Color(0x14151517),
-                Color(0x33151517),
-              ],
-              stops: [0, .37, .68, 1],
-            ),
+      _homeWallpaper(),
+      const DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0x52151517),
+              Color(0x0A151517),
+              Color(0x14151517),
+              Color(0x33151517),
+            ],
+            stops: [0, .37, .68, 1],
           ),
         ),
+      ),
       SafeArea(
         top: false,
         child: LayoutBuilder(
@@ -96,7 +95,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
             final homeNotices = Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (miniDemoMusic.activated) ...[
+                if (miniPhoneMusic.activated) ...[
                   _MiniHomeMusicCard(onOpen: () => _go(MiniPhoneScreen.music)),
                   const SizedBox(height: 12),
                 ],

@@ -10,6 +10,7 @@ import '../../ui/tokens/genesis_spacing.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../ui/components/genesis_dark_close_button.dart';
 import 'mini_phone_demo_store.dart';
+import 'mini_phone_music_service.dart';
 
 const miniBackground = GenesisColors.darkBackground;
 const miniRaised = GenesisColors.darkRaisedBackground;
@@ -208,7 +209,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    miniDemoMusic.addListener(_musicChanged);
+    miniPhoneMusic.addListener(_musicChanged);
     _unread = miniPhoneDemoStore.totalUnread;
     miniPhoneDemoStore.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -221,12 +222,12 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
 
   void _musicChanged() {
     if (!mounted) return;
-    if (miniDemoMusic.playing && !MediaQuery.disableAnimationsOf(context)) {
+    if (miniPhoneMusic.playing && !MediaQuery.disableAnimationsOf(context)) {
       if (!_musicPulse.isAnimating) _musicPulse.repeat();
     } else {
       _musicPulse.stop();
     }
-    if (miniDemoMusic.activated) {
+    if (miniPhoneMusic.activated) {
       _musicOverlay.show();
     } else {
       _musicOverlay.hide();
@@ -247,7 +248,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
   void dispose() {
     miniPhoneDemoStore.removeListener(_changed);
     _arrival.dispose();
-    miniDemoMusic.removeListener(_musicChanged);
+    miniPhoneMusic.removeListener(_musicChanged);
     _musicPulse.dispose();
     super.dispose();
   }
@@ -272,14 +273,14 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                     shape: const CircleBorder(),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      onTap: miniDemoMusic.toggle,
+                      onTap: miniPhoneMusic.toggle,
                       child: Tooltip(
-                        message: miniDemoMusic.playing
+                        message: miniPhoneMusic.playRequested
                             ? 'Pause music'
                             : 'Play music',
                         child: Semantics(
                           button: true,
-                          label: miniDemoMusic.playing
+                          label: miniPhoneMusic.playRequested
                               ? 'Pause music'
                               : 'Play music',
                           child: Stack(
@@ -300,7 +301,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                                     ),
                                     child: Center(
                                       child: MiniIcon(
-                                        miniDemoMusic.playing
+                                        miniPhoneMusic.playRequested
                                             ? 'music-pause'
                                             : 'music-play',
                                         size: 10,
@@ -310,7 +311,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                                 )
                               else
                                 MiniIcon(
-                                  miniDemoMusic.playing
+                                  miniPhoneMusic.playRequested
                                       ? 'music-pause'
                                       : 'music-play',
                                   size: 16,
@@ -340,7 +341,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
               final wave = vibrating
                   ? math.sin(seconds / .76 * math.pi * 8) * (1 - seconds / .76)
                   : 0.0;
-              final music = miniDemoMusic.activated;
+              final music = miniPhoneMusic.activated;
               final visible = _unread > 0 && _arrival.isAnimating;
               final alpha = visible
                   ? (_arrival.value < .1
@@ -396,7 +397,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                         left: 9,
                         child: IgnorePointer(
                           child: Opacity(
-                            opacity: miniDemoMusic.playing
+                            opacity: miniPhoneMusic.playing
                                 ? .9 +
                                       .1 *
                                           math.sin(
@@ -406,12 +407,12 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                             child: Transform.translate(
                               offset: Offset(
                                 0,
-                                miniDemoMusic.playing
+                                miniPhoneMusic.playing
                                     ? math.cos(_musicPulse.value * math.pi * 2)
                                     : 0,
                               ),
                               child: Transform.rotate(
-                                angle: miniDemoMusic.playing
+                                angle: miniPhoneMusic.playing
                                     ? math.sin(
                                             _musicPulse.value * math.pi * 2,
                                           ) *

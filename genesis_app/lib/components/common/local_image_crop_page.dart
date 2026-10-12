@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../ui/system/genesis_system_ui.dart';
@@ -99,6 +100,7 @@ class LocalImageCropPage extends StatefulWidget {
     this.filename = 'crop.png',
     this.contentType = 'image/png',
     this.uploadOnConfirm = true,
+    this.deferUploadPreparation = false,
   });
 
   final Uint8List imageBytes;
@@ -110,6 +112,9 @@ class LocalImageCropPage extends StatefulWidget {
   final String filename;
   final String contentType;
   final bool uploadOnConfirm;
+
+  /// Return a small preview now and prepare the full crop only on submission.
+  final bool deferUploadPreparation;
   final Future<String> Function(LocalImageCropResult result)? onUpload;
 
   @override
@@ -123,6 +128,7 @@ class LocalImageCropResult {
     required this.height,
     required this.filename,
     required this.contentType,
+    this.prepareUpload,
   });
 
   final Uint8List bytes;
@@ -130,6 +136,8 @@ class LocalImageCropResult {
   final int height;
   final String filename;
   final String contentType;
+  final Future<LocalImageCropResult> Function(void Function(double) onProgress)?
+  prepareUpload;
 }
 
 @visibleForTesting
@@ -149,6 +157,7 @@ Future<LocalImageCropResult> createLocalImageCropResult({
   Size? maxOutputSize,
   required String filename,
   required String contentType,
+  void Function(double)? onProgress,
 }) async {
   final targetSize = calculateLocalImageCropOutputSize(
     sourceRect: sourceRect,
@@ -174,6 +183,7 @@ Future<LocalImageCropResult> createLocalImageCropResult({
     targetSize.width,
     targetSize.height,
   );
+  onProgress?.call(.4);
   final byteData = await croppedImage.toByteData(
     format: ui.ImageByteFormat.png,
   );
@@ -183,11 +193,12 @@ Future<LocalImageCropResult> createLocalImageCropResult({
   if (bytes == null || bytes.isEmpty) {
     throw StateError('Crop failed');
   }
-  final uploadImage = await prepareImageForUpload(
-    bytes: bytes,
-    filename: filename,
-    contentType: contentType,
-  );
+  onProgress?.call(.6);
+  final input = (bytes: bytes, filename: filename, contentType: contentType);
+  final uploadImage = onProgress == null
+      ? await _prepareCropForUpload(input)
+      : await compute(_prepareCropForUpload, input);
+  onProgress?.call(1);
   return LocalImageCropResult(
     bytes: uploadImage.bytes,
     width: targetSize.width,
@@ -196,6 +207,14 @@ Future<LocalImageCropResult> createLocalImageCropResult({
     contentType: uploadImage.contentType,
   );
 }
+
+Future<ProcessedUploadImage> _prepareCropForUpload(
+  ({Uint8List bytes, String filename, String contentType}) input,
+) => prepareImageForUpload(
+  bytes: input.bytes,
+  filename: input.filename,
+  contentType: input.contentType,
+);
 
 class _LocalImageCropPageState extends State<LocalImageCropPage> {
   ui.Image? _image;
@@ -518,6 +537,47 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       logicalRect.right / imageViewSize.width * image.width,
       logicalRect.bottom / imageViewSize.height * image.height,
     );
+
+    if (widget.deferUploadPreparation && !widget.uploadOnConfirm) {
+      final sourceBytes = widget.imageBytes;
+      final cropSize = widget.cropSize;
+      final maxOutputSize = widget.maxOutputSize;
+      final filename = widget.filename;
+      final contentType = widget.contentType;
+      final preview = await createLocalImageCropResult(
+        image: image,
+        sourceRect: sourceRect,
+        cropSize: cropSize,
+        maxOutputSize: const Size(600, 600),
+        filename: filename,
+        contentType: contentType,
+      );
+      return LocalImageCropResult(
+        bytes: preview.bytes,
+        width: preview.width,
+        height: preview.height,
+        filename: preview.filename,
+        contentType: preview.contentType,
+        prepareUpload: (onProgress) async {
+          final source = await decodeLocalImageCropImage(sourceBytes);
+          try {
+            onProgress(.25);
+            final result = await createLocalImageCropResult(
+              image: source,
+              sourceRect: sourceRect,
+              cropSize: cropSize,
+              maxOutputSize: maxOutputSize,
+              filename: filename,
+              contentType: contentType,
+              onProgress: (progress) => onProgress(.25 + .75 * progress),
+            );
+            return result;
+          } finally {
+            source.dispose();
+          }
+        },
+      );
+    }
 
     return createLocalImageCropResult(
       image: image,

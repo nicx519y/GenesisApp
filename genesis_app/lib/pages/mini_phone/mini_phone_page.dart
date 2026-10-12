@@ -5,17 +5,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'mini_phone_demo_store.dart';
+import 'mini_phone_music_service.dart';
+import 'mini_phone_music_widgets.dart';
+import 'mini_phone_wallpaper_controller.dart';
+import 'mini_phone_wallpaper_cache.dart';
+import 'mini_phone_wallpaper_background.dart';
+import 'mini_phone_wallpaper_image.dart';
+import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_upload_progress_overlay.dart';
+import '../../components/common/local_image_crop_page.dart';
+import '../../platform/native_image_picker.dart';
+import '../../utils/image_format_guards.dart';
+import '../../ui/components/genesis_refresh_indicator.dart';
+import '../../utils/genesis_image_resource.dart';
+import '../../platform/session/memory_user_session_store.dart';
 import 'mini_phone_ui.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/gems/memory_model_entry_button.dart';
 import '../gems/memory_model_page.dart';
 import '../gems/memory_model_page_cache.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/config/genesis_image_config.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../network/models/gem_model.dart';
 import '../../network/models/user_memory_settings.dart';
+import '../../network/api_exception.dart';
 
 part 'mini_phone_home.dart';
 part 'mini_phone_notifications.dart';
@@ -38,7 +56,7 @@ enum MiniPhoneScreen {
   models,
 }
 
-/// Debug UI prototype with local content/settings and a read-only model catalogue.
+/// Debug UI with local conversations and live wallpaper/model/music APIs.
 Future<void> showMiniPhoneDemo(
   BuildContext context, {
   MiniPhoneScreen? initialScreen,
@@ -82,8 +100,10 @@ Future<void> showMiniPhoneDemo(
   await Navigator.of(context, rootNavigator: true).push<void>(
     MaterialPageRoute(
       settings: const RouteSettings(name: 'debug/mini-phone-demo'),
-      builder: (_) =>
-          MiniPhonePage(initialScreen: initialScreen ?? _miniResume.screen),
+      builder: (_) => MiniPhonePage(
+        worldId: worldId,
+        initialScreen: initialScreen ?? _miniResume.screen,
+      ),
     ),
   );
 }
@@ -103,8 +123,15 @@ class _MiniPhoneResume {
 }
 
 class MiniPhonePage extends StatefulWidget {
-  const MiniPhonePage({super.key, this.initialScreen = MiniPhoneScreen.home});
+  const MiniPhonePage({
+    super.key,
+    this.initialScreen = MiniPhoneScreen.home,
+    this.worldId = '',
+    this.wallpaperController,
+  });
   final MiniPhoneScreen initialScreen;
+  final String worldId;
+  final MiniPhoneWallpaperController? wallpaperController;
   @override
   State<MiniPhonePage> createState() => _MiniPhonePageState();
 }
@@ -142,8 +169,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   final chatScroll = ScrollController();
   final commentsScroll = ScrollController();
   Uint8List? draftPhoto;
-  Uint8List? draftWallpaperPhoto;
-  String draftWallpaper = miniSolidWallpaper;
+  late final MiniPhoneWallpaperController wallpaper;
+  bool _authorizingWallpaper = false;
   String feedback = '';
   final _replyTimers = <Timer>[];
 
@@ -158,7 +185,37 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     draftPhoto = _miniResume.photo;
     store.addListener(_changed);
     messageInput.addListener(_changed);
-    _prepareSettings();
+    final services =
+        widget.worldId.trim().isEmpty || widget.wallpaperController != null
+        ? null
+        : AppServicesScope.read(context);
+    wallpaper =
+        widget.wallpaperController ??
+        MiniPhoneWallpaperController(
+          worldId: widget.worldId,
+          sessionStore: services?.sessionStore ?? MemoryUserSessionStore(),
+          cache: services == null
+              ? null
+              : LocalMiniPhoneWallpaperCache(
+                  namespace: services.platformConfig.apiBaseUrl,
+                ),
+          load: () => services!.api.fetchMiniphoneInfo(worldId: widget.worldId),
+          save: (url) => services!.api.setMiniphoneBackground(
+            worldId: widget.worldId,
+            backgroundImage: url,
+          ),
+          upload: (photo, onProgress) async {
+            final uploaded = await services!.api.v1.upload.image(
+              bytes: photo.bytes,
+              filename: photo.filename,
+              contentType: photo.contentType,
+              onSendProgress: onProgress,
+            );
+            return GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
+          },
+        );
+    wallpaper.addListener(_changed);
+    unawaited(wallpaper.refresh());
     unawaited(
       _ensurePhoneModels()
           .then((_) {
@@ -183,6 +240,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _miniResume.draft = postInput.text;
     _miniResume.photo = draftPhoto;
     store.removeListener(_changed);
+    wallpaper.removeListener(_changed);
+    if (widget.wallpaperController == null) wallpaper.dispose();
     messageInput.removeListener(_changed);
     for (final t in _replyTimers) {
       t.cancel();
@@ -211,31 +270,80 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _update(() {
       screen = next;
       feedback = '';
-      if (next == MiniPhoneScreen.settings) _prepareSettings();
     });
+    if (next == MiniPhoneScreen.settings) _prepareSettings();
     if (next == MiniPhoneScreen.posts) store.markPostsRead();
     if (next == MiniPhoneScreen.chat) _scrollToEnd(chatScroll);
   }
 
-  Widget _wallpaperBackground(String asset, Uint8List? photo) {
-    if (photo != null) {
-      return Image.memory(
-        photo,
-        width: double.infinity,
-        height: double.infinity,
-        fit: BoxFit.cover,
-        alignment: Alignment.center,
-      );
+  Widget _wallpaperBackground(String url, Uint8List? photo) {
+    return MiniPhoneWallpaperImage(
+      key: ValueKey(wallpaper.identityRevision),
+      url: url,
+      photo: photo,
+      cachedBytes: url == wallpaper.displayBackgroundImage
+          ? wallpaper.displayBytes
+          : null,
+    );
+  }
+
+  Widget _homeWallpaper() {
+    if (wallpaper.cache == null) {
+      return _wallpaperBackground(wallpaper.backgroundImage, null);
     }
-    if (asset == miniSolidWallpaper) {
-      return const ColoredBox(color: miniBackground);
-    }
-    return Image.asset('$miniPhoneAssets$asset', fit: BoxFit.cover);
+    if (!wallpaper.cacheReady) return const ColoredBox(color: miniBackground);
+    final bytes = wallpaper.displayBytes;
+    final ImageProvider source = bytes == null
+        ? const AssetImage('${miniPhoneAssets}wallpaper-01.png')
+        : MemoryImage(bytes);
+    final size = MediaQuery.sizeOf(context);
+    final ratio = MediaQuery.devicePixelRatioOf(
+      context,
+    ).clamp(1.0, GenesisImageConfig.maxDevicePixelRatio);
+    final pixels = (size.longestSide * ratio).ceil();
+    return MiniPhoneWallpaperBackground(
+      key: ValueKey(wallpaper.identityRevision),
+      image: ResizeImage(
+        source,
+        width: pixels,
+        height: pixels,
+        policy: ResizeImagePolicy.fit,
+      ),
+    );
   }
 
   void _prepareSettings() {
-    draftWallpaper = store.wallpaper;
-    draftWallpaperPhoto = store.wallpaperPhoto;
+    unawaited(wallpaper.beginEditing());
+  }
+
+  Future<void> _applyWallpaper() async {
+    if (_authorizingWallpaper || wallpaper.saving || !wallpaper.available) {
+      return;
+    }
+    setState(() => _authorizingWallpaper = true);
+    try {
+      final previousUid = await wallpaper.sessionStore.readLoginUid();
+      if (!mounted) return;
+      if (!await ensureGenesisLogin(context)) {
+        if (mounted &&
+            await wallpaper.sessionStore.readLoginUid() != previousUid) {
+          await wallpaper.refresh(resetDraft: true);
+        }
+        return;
+      }
+      if (!mounted) return;
+      final success = await wallpaper.apply();
+      if (mounted && wallpaper.feedback != null) {
+        showGenesisToast(
+          context,
+          wallpaper.feedback!,
+          brightness: Brightness.dark,
+        );
+      }
+      if (success && mounted) setState(() => feedback = '');
+    } finally {
+      if (mounted) setState(() => _authorizingWallpaper = false);
+    }
   }
 
   void _openChat(MiniDemoPerson p) {
@@ -403,10 +511,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       ],
     ),
   );
-  Widget _button(String text, VoidCallback? action, {bool primary = false}) =>
-      primary
+  Widget _button(
+    String text,
+    VoidCallback? action, {
+    bool primary = false,
+    bool isLoading = false,
+  }) => primary
       ? GenesisPrimaryButton(
           label: text,
+          isLoading: isLoading,
           onPressed: action,
           fullWidth: false,
           backgroundColor: miniRed,

@@ -86,6 +86,7 @@ extension _WorldPageLayout on _WorldPageState {
           implementationKey: _tilemapImplementationKey,
           locationId: locationId,
           centerContentInitially: true,
+          animationsPaused: _presentationPaused,
           showVisualModeToggle: false,
           restorationController: _tilemapRestorationController,
           onDisplayReadinessChanged: _handleTilemapDisplayReadinessChanged,
@@ -159,10 +160,13 @@ extension _WorldPageLayout on _WorldPageState {
                         legacyWorldMapZoomControlBottomGap +
                         legacyWorldMapZoomControlHeight +
                         12,
-                    onPressed: () => showMiniPhoneDemo(
+                    onPressed: () => PagePresentationScope.runCovered(
                       context,
-                      worldId: world.worldId,
-                      modelCache: _locationChatPageCache.memoryModelPageCache,
+                      () => showMiniPhoneDemo(
+                        context,
+                        worldId: world.worldId,
+                        modelCache: _locationChatPageCache.memoryModelPageCache,
+                      ),
                     ),
                   ),
                 ),

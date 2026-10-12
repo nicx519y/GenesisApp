@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'chatroom/chatroom_timeline_payload.dart';
 import 'http_transport.dart';
 import 'json_utils.dart';
+import 'models/miniphone_info.dart';
 import 'mock_data/mock_message_data.dart';
 import 'mock_data/mock_origin_data.dart';
 import 'mock_data/mock_profile_data.dart';
@@ -19,6 +20,8 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   final _state = _MockState();
   final _personalizationProfiles = <String, Map<String, Object?>>{};
+  final _miniphoneBackgrounds = <String, String>{};
+  final _musicLikes = <String, Set<String>>{};
 
   @visibleForTesting
   void resetFeatureQuotaUsage() {
@@ -881,6 +884,34 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1WorldContractInfo(query['world_id']));
     }
 
+    if ((method == 'GET' && path == 'world/miniphoneinfo') ||
+        (method == 'POST' && path == 'world/setminiphonebackground')) {
+      final worldId = method == 'GET' ? query['world_id'] : body['world_id'];
+      if (worldId is! String || worldId.trim().isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.hasV1World(worldId.trim())) {
+        return _v1BusinessError(20201, 'ErrorWorldNotExist');
+      }
+      final authenticated = _state.isAuthenticated || requestHasAuthorization;
+      final owner = '${_state.me['uid'] ?? _state.me['id']}';
+      if (method == 'GET') {
+        return _v1Ok({
+          'background_image': authenticated
+              ? (_miniphoneBackgrounds[owner] ?? '')
+              : '',
+          'default_background_images': <Object?>[],
+        });
+      }
+      if (!authenticated) return _v1BusinessError(10001, 'Login required');
+      final background = body['background_image'];
+      if (background is! String || !isValidMiniphoneBackground(background)) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      _miniphoneBackgrounds[owner] = background;
+      return _v1Ok(<String, dynamic>{});
+    }
+
     if (method == 'GET' && path == 'world/tick/list') {
       final worldId = (query['world_id'] ?? '').trim();
       if (worldId.isEmpty) {
@@ -951,6 +982,38 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'gem/products') {
       return _v1Ok(_state.v1GemProducts());
+    }
+
+    if (method == 'GET' && path == 'music/list') {
+      // No bundled mock audio catalogue; an empty list is valid.
+      return _v1Ok(<String, dynamic>{
+        'pre_url': 'https://cdn-001.worldo.ai/predata/music/',
+        'list': <Map<String, dynamic>>[],
+      });
+    }
+
+    if ((method == 'GET' && path == 'music/like_status') ||
+        (method == 'POST' &&
+            (path == 'music/like' || path == 'music/unlike'))) {
+      if (!_state.isAuthenticated && !requestHasAuthorization) {
+        return _v1BusinessError(10001, 'Login required');
+      }
+      final file = method == 'GET' ? query['file'] : body['file'];
+      if (file is! String ||
+          !RegExp(r'^(00[1-9]|0[1-9][0-9]|100)\.mp3$').hasMatch(file)) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      final owner = '${_state.me['uid'] ?? _state.me['id']}';
+      final likes = _musicLikes.putIfAbsent(owner, () => <String>{});
+      if (method == 'GET') {
+        return _v1Ok({'file': file, 'is_liked': likes.contains(file)});
+      }
+      if (path == 'music/like') {
+        likes.add(file);
+      } else {
+        likes.remove(file);
+      }
+      return _v1Ok(<String, dynamic>{});
     }
 
     if (method == 'GET' && path == 'membership/products') {

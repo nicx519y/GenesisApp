@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:genesis_flutter_android/components/common/page_presentation_scope.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -3807,6 +3809,99 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets(
+    'covered chat retains session and draft and reconciles on resume',
+    (tester) async {
+      final harness = await _connectedLocationChatTestService();
+      final presentation = PagePresentationController();
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        presentation.dispose();
+        unawaited(harness.service.dispose());
+      });
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: PagePresentationScope(
+              controller: presentation,
+              child: LocationChatPanel(
+                worldId: 'world-current',
+                locationId: 'location-current',
+                service: harness.service,
+                leaveOnInactive: false,
+                messageQueueInitializationCovered: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.joinedLocationId == 'location-current',
+      );
+      for (var id = 1; id <= 20; id++) {
+        harness.socket.serverV2UserMessage(messageId: id);
+      }
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness
+                .service
+                .state
+                .messagesByLocation['location-current']
+                ?.length ==
+            20,
+      );
+      await tester.pump();
+      LocationChatAnchoredMessageList list() =>
+          tester.widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          );
+      final coordinator = list().coordinator;
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('location-chat-message-list')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.drag(scrollable, const Offset(0, 120));
+      await tester.pumpAndSettle();
+      expect(coordinator.isDetached, isTrue);
+      final position = coordinator.controller.position.pixels;
+      final input = tester.widget<TextField>(find.byType(TextField));
+      input.controller!.text = 'unsent draft';
+      await tester.pump();
+      final before = list().messages.map((m) => m.localId).toList();
+      final resume = presentation.cover();
+      harness.socket.serverV2UserMessage(messageId: 21);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness
+                .service
+                .state
+                .messagesByLocation['location-current']
+                ?.length ==
+            21,
+      );
+      await tester.pump();
+      expect(list().messages.map((m) => m.localId), before);
+      expect(harness.service.state.joinedLocationId, 'location-current');
+      expect(coordinator.controller.position.pixels, closeTo(position, 1));
+      resume();
+      await tester.pump();
+      await tester.pump();
+      expect(list().messages.length, greaterThan(before.length));
+      expect(list().coordinator, same(coordinator));
+      expect(coordinator.isDetached, isTrue);
+      expect(coordinator.controller.position.pixels, closeTo(position, 1));
+      expect(input.controller!.text, 'unsent draft');
+      expect(harness.service.state.joinedLocationId, 'location-current');
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets('streaming messages preserve an unfocused detached viewport', (
     tester,

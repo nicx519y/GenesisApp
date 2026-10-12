@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 
 const miniPhoneAssets = 'assets/mini_phone/';
 const miniSolidWallpaper = 'solid-dark';
@@ -337,76 +336,6 @@ class MiniPhoneDemoStore extends ChangeNotifier {
 
 /// Retained only during the debug process; independent of every production store.
 final miniPhoneDemoStore = MiniPhoneDemoStore();
-
-// Shared, memory-only silent playback preview; independent of production data.
-final miniDemoMusic = MiniDemoMusic();
-
-class MiniDemoMusic extends ChangeNotifier with WidgetsBindingObserver {
-  MiniDemoMusic() {
-    WidgetsBinding.instance.addObserver(this);
-  }
-  static const durations = [228, 196, 254];
-  int index = 0;
-  int position = 42;
-  bool playing = false;
-  bool activated = false;
-  Timer? _timer;
-  void toggle() {
-    activated = true;
-    playing = !playing;
-    _timer?.cancel();
-    if (playing) {
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (++position >= durations[index]) {
-          index = (index + 1) % durations.length;
-          position = 0;
-        }
-        notifyListeners();
-      });
-    }
-    notifyListeners();
-  }
-
-  void resetPausedOnWorldExit() {
-    if (playing || !activated) return;
-    _timer?.cancel();
-    activated = false;
-    index = 0;
-    position = 42;
-    notifyListeners();
-  }
-
-  void seek(int value) {
-    position = value.clamp(0, durations[index]);
-    notifyListeners();
-  }
-
-  void next() {
-    index = (index + 1) % durations.length;
-    position = 0;
-    notifyListeners();
-  }
-
-  void previous() {
-    if (position <= 3) {
-      index = (index + durations.length - 1) % durations.length;
-    }
-    position = 0;
-    notifyListeners();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed && playing) toggle();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-}
 
 // Device-local debug UI preference, separate from fixtures and account data.
 final miniPhoneDockPosition = MiniPhoneDockPosition();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
@@ -41,11 +43,79 @@ void main() {
       ),
     });
 
+    cache.activate(cache.descriptorFor('loc_1')!);
     expect(cache.isReady('loc_1'), isFalse);
     expect(cache.markReady('loc_1'), isTrue);
     expect(cache.isReady('loc_1'), isTrue);
     expect(cache.markReady('loc_1'), isFalse);
   });
+
+  WorldLocationChatPanelDescriptor descriptor(String id) =>
+      WorldLocationChatPanelDescriptor(
+        locationId: id,
+        locationName: id,
+        backgroundImageUrl: 'https://cdn.example.com/$id.webp',
+        backgroundPreviewImageUrl: '',
+        isLeafLocation: true,
+      );
+
+  test('panels are lazy, bounded by recency, and preserve evicted drafts', () {
+    final cache = WorldLocationChatPageCache();
+    addTearDown(cache.dispose);
+    final descriptors = {for (var i = 0; i < 100; i++) '$i': descriptor('$i')};
+    cache.syncDescriptors(descriptors);
+    expect(cache.cachedPanelCount, 0);
+    for (final id in ['0', '1', '2']) {
+      cache.activate(descriptors[id]!);
+      cache.markReady(id);
+    }
+    cache.updateDraftText('1', 'draft with @mention<character-1>');
+    cache.activate(descriptors['0']!);
+    cache.activate(descriptors['3']!);
+    expect(cache.cachedLocationIds, ['2', '0', '3']);
+    expect(cache.activeLocationId, '3');
+    expect(cache.hasPanel('1'), isFalse);
+    expect(cache.isReady('1'), isFalse);
+    expect(cache.markReady('1'), isFalse);
+    expect(cache.draftTextFor('1'), 'draft with @mention<character-1>');
+    cache.syncDescriptors(descriptors);
+    expect(cache.cachedLocationIds, ['2', '0', '3']);
+    cache.activate(descriptors['1']!);
+    expect(cache.cachedLocationIds, ['0', '3', '1']);
+    expect(cache.isReady('1'), isFalse);
+  });
+
+  test(
+    'cover stops queued preview downloads and resumes the current map',
+    () async {
+      final requested = <String>[];
+      final first = Completer<void>();
+      final cache = WorldLocationChatPageCache(
+        backgroundPreloader: LocationChatBackgroundPreloader(
+          maxConcurrent: 1,
+          loadFile: (url) {
+            requested.add(url);
+            return requested.length == 1 ? first.future : Future<void>.value();
+          },
+        ),
+      );
+      addTearDown(cache.dispose);
+      cache.syncDescriptors({
+        for (final id in ['1', '2', '3']) id: descriptor(id),
+      });
+      cache.preloadBackgroundsForTilemap(['1', '2']);
+      expect(requested, hasLength(1));
+      cache.setPresentationPaused(true);
+      cache.preloadBackgroundsForTilemap(['3']);
+      first.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(requested, hasLength(1));
+      cache.setPresentationPaused(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(requested, hasLength(2));
+      expect(requested.last, contains('/3.webp'));
+    },
+  );
 
   test('initial message handoff can be claimed only once', () {
     final cache = WorldLocationChatPageCache();
@@ -192,24 +262,15 @@ void main() {
         )
         .toList(growable: false);
 
-    expect(panels(), hasLength(2));
-    expect(panels().every((panel) => panel.usePreparedEntry), true);
-    expect(panels().where((panel) => panel.renderBackgroundImage), isEmpty);
-    final firstState = tester.state(
-      find.byKey(
-        const ValueKey<String>('world-location-chat-loc_1'),
-        skipOffstage: false,
-      ),
-    );
-    final secondState = tester.state(
-      find.byKey(
-        const ValueKey<String>('world-location-chat-loc_2'),
-        skipOffstage: false,
-      ),
-    );
+    expect(panels(), isEmpty);
 
     rebuildHost(() => cache.activate(first));
     await tester.pump();
+    expect(panels(), hasLength(1));
+    expect(panels().single.usePreparedEntry, true);
+    final firstState = tester.state(
+      find.byKey(const ValueKey<String>('world-location-chat-loc_1')),
+    );
     expect(cache.isReady('loc_1'), false);
     final firstPanel = find.byKey(
       const ValueKey<String>('world-location-chat-loc_1'),
@@ -249,15 +310,7 @@ void main() {
       ),
       same(firstState),
     );
-    expect(
-      tester.state(
-        find.byKey(
-          const ValueKey<String>('world-location-chat-loc_2'),
-          skipOffstage: false,
-        ),
-      ),
-      same(secondState),
-    );
+    expect(panels(), hasLength(2));
     panels()
         .singleWhere((panel) => panel.locationId == 'loc_2')
         .onCharactersMovedLocationTap!(
@@ -269,6 +322,38 @@ void main() {
       ),
     );
     expect(openedMovement?.toLocationId, 'loc_1');
+
+    // Reordering an LRU entry must preserve the actual keyed page State.
+    rebuildHost(() => cache.activate(first));
+    await tester.pump();
+    expect(
+      tester.state(find.byKey(const ValueKey('world-location-chat-loc_1'))),
+      same(firstState),
+    );
+    final draftInput = find.descendant(
+      of: find.byKey(const ValueKey('world-location-chat-loc_1')),
+      matching: find.byType(TextField),
+    );
+    tester.widget<TextField>(draftInput).controller!.text = 'retained draft';
+    await tester.pump();
+    rebuildHost(() => cache.activate(second));
+    await tester.pump();
+    rebuildHost(() => cache.activate(first.copyWith(locationId: 'loc_3')));
+    await tester.pump();
+    rebuildHost(() => cache.activate(first.copyWith(locationId: 'loc_4')));
+    await tester.pump();
+    expect(panels(), hasLength(3));
+    expect(firstState.mounted, isFalse);
+    expect(cache.draftTextFor('loc_1'), 'retained draft');
+    rebuildHost(() => cache.activate(first));
+    await tester.pump();
+    expect(panels(), hasLength(3));
+    final restored = panels().singleWhere((p) => p.locationId == 'loc_1');
+    expect(restored.initialDraftText, 'retained draft');
+    expect(
+      tester.state(find.byKey(const ValueKey('world-location-chat-loc_1'))),
+      isNot(same(firstState)),
+    );
 
     rebuildHost(cache.deactivate);
     await tester.pump();

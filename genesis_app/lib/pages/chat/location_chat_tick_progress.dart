@@ -110,7 +110,9 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
   }
 
   void _scheduleDeferredTickReleaseIfReady() {
-    if (_deferredTickReleaseScheduled || !_deferredTickReadyToDisplay()) {
+    if (_presentationPaused ||
+        _deferredTickReleaseScheduled ||
+        !_deferredTickReadyToDisplay()) {
       return;
     }
     _deferredTickReleaseScheduled = true;
@@ -118,7 +120,9 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (generation != _deferredTickGeneration) return;
       _deferredTickReleaseScheduled = false;
-      if (!mounted || !_deferredTickReadyToDisplay()) return;
+      if (!mounted || _presentationPaused || !_deferredTickReadyToDisplay()) {
+        return;
+      }
       _setLocationChatState(() {
         _clearDeferredTick();
         _syncInspirationView();

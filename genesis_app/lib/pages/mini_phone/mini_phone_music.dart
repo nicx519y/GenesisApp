@@ -1,33 +1,5 @@
 part of 'mini_phone_page.dart';
 
-// UI fixtures only. No audio engine, remote catalogue or production writes.
-const _miniMusicTracks = [
-  (
-    title: 'A Midnight Waltz',
-    handle: 'ashfordensemble',
-    world: 'Ashford Estate',
-    cover: 'loc_1_1_1.jpg',
-    duration: 228,
-    likes: 128,
-  ),
-  (
-    title: 'After the Ball',
-    handle: 'ashfordensemble',
-    world: 'Ashford Estate',
-    cover: 'loc_1_1_2.jpg',
-    duration: 196,
-    likes: 76,
-  ),
-  (
-    title: 'The Quiet Garden',
-    handle: 'noahreed',
-    world: 'Ashford Estate',
-    cover: 'loc_1_2_2.jpg',
-    duration: 254,
-    likes: 43,
-  ),
-];
-
 class _MiniMusicPlayer extends StatefulWidget {
   const _MiniMusicPlayer();
   @override
@@ -35,36 +7,120 @@ class _MiniMusicPlayer extends StatefulWidget {
 }
 
 class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
-  int get _index => miniDemoMusic.index;
-  int get _position => miniDemoMusic.position;
-  bool get _playing => miniDemoMusic.playing;
-  final _liked = <int>{};
+  String? _statusFile;
+  bool _ready = false;
   @override
   void initState() {
     super.initState();
-    miniDemoMusic.addListener(_changed);
+    miniPhoneMusic.addListener(_changed);
+    miniPhoneMusic.likes.addListener(_likesChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _ready = true;
+      _loadCatalog();
+      _loadLikeStatus();
+    });
   }
 
+  void _loadCatalog() => unawaited(
+    miniPhoneMusic.loadCatalog(
+      () => AppServicesScope.read(context).api.fetchMusicCatalog(),
+    ),
+  );
+
   void _changed() {
+    if (!mounted) return;
+    setState(() {});
+    if (_ready) _loadLikeStatus();
+  }
+
+  void _likesChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _loadLikeStatus() {
+    final file = miniPhoneMusic.track?.file;
+    if (file == null || file == _statusFile) return;
+    _statusFile = file;
+    final api = AppServicesScope.read(context).api;
+    unawaited(() async {
+      try {
+        await miniPhoneMusic.likes.loadStatus(
+          file,
+          () => api.fetchMusicLikeStatus(file: file),
+        );
+      } catch (error) {
+        if (mounted && miniPhoneMusic.track?.file == file) _likeError(error);
+      }
+    }());
+  }
+
+  void _likeError(Object error) => showGenesisToast(
+    context,
+    error is ApiException
+        ? error.message
+        : 'Unable to update music like status. Please retry.',
+    brightness: Brightness.dark,
+  );
+
+  Future<void> _toggleLike(String file) async {
+    final api = AppServicesScope.read(context).api;
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    try {
+      await miniPhoneMusic.likes.toggle(
+        file,
+        (liked) =>
+            liked ? api.likeMusic(file: file) : api.unlikeMusic(file: file),
+      );
+    } catch (error) {
+      if (overlay != null && overlay.mounted) {
+        showGenesisToastInOverlay(
+          overlay,
+          error is ApiException
+              ? error.message
+              : 'Unable to update music like status. Please retry.',
+          brightness: Brightness.dark,
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    miniDemoMusic.removeListener(_changed);
+    miniPhoneMusic.removeListener(_changed);
+    miniPhoneMusic.likes.removeListener(_likesChanged);
     super.dispose();
   }
 
-  String _time(int seconds) =>
-      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-  void _next() => miniDemoMusic.next();
-  void _previous() => miniDemoMusic.previous();
-  void _togglePlay() => miniDemoMusic.toggle();
+  void _next() => miniPhoneMusic.next();
+  void _previous() => miniPhoneMusic.previous();
+  void _togglePlay() => miniPhoneMusic.toggle();
 
   @override
   Widget build(BuildContext context) {
-    final track = _miniMusicTracks[_index];
-    final liked = _liked.contains(_index);
+    final track = miniPhoneMusic.track;
+    if (track == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                miniPhoneMusic.catalogLoading
+                    ? 'Loading music...'
+                    : miniPhoneMusic.catalogError ?? 'No music available.',
+                textAlign: TextAlign.center,
+                style: miniStyle(14, FontWeight.w400, miniSecondary),
+              ),
+              if (miniPhoneMusic.catalogError != null)
+                TextButton(onPressed: _loadCatalog, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+    final liked = miniPhoneMusic.likes.isLiked(track.file);
     return LayoutBuilder(
       builder: (context, bounds) {
         final availableWidth = (bounds.maxWidth - 52).clamp(0.0, 320.0);
@@ -78,15 +134,16 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
               constraints: const BoxConstraints(maxWidth: 320),
               child: Column(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      '$miniPhoneAssets${track.cover}',
-                      width: coverWidth,
-                      height: coverWidth * 1.5,
-                      fit: BoxFit.cover,
-                      semanticLabel: '${track.title} cover',
-                    ),
+                  MiniMusicCover(
+                    track: track,
+                    nextTrack: miniPhoneMusic.nextTrack,
+                    preloadNext:
+                        miniPhoneMusic.playing &&
+                        miniPhoneMusic.foreground &&
+                        !miniPhoneMusic.loading,
+                    width: coverWidth,
+                    height: coverWidth * 1.5,
+                    radius: 16,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -95,18 +152,18 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              track.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            MiniMusicMarquee(
+                              identity: (track.file, 'title'),
+                              text: track.title,
                               style: miniStyle(
                                 24,
                                 FontWeight.w700,
                               ).copyWith(height: 1.2, letterSpacing: -.7),
                             ),
                             const SizedBox(height: 6),
-                            Text(
-                              '@${track.handle}',
+                            MiniMusicMarquee(
+                              identity: (track.file, 'artist'),
+                              text: track.artist,
                               style: miniStyle(
                                 12,
                                 FontWeight.w400,
@@ -114,8 +171,10 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                               ),
                             ),
                             const SizedBox(height: 5),
-                            Text(
-                              'From ${track.world}',
+                            MiniMusicMarquee(
+                              identity: (track.file, 'worldo'),
+                              text:
+                                  'From ${originDisplayName(track.sourceWorldoName)}',
                               style: miniStyle(
                                 12,
                                 FontWeight.w400,
@@ -132,13 +191,7 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                         label: '${liked ? 'Unlike' : 'Like'} ${track.title}',
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(() {
-                            if (liked) {
-                              _liked.remove(_index);
-                            } else {
-                              _liked.add(_index);
-                            }
-                          }),
+                          onTap: () => unawaited(_toggleLike(track.file)),
                           child: SizedBox(
                             width: 44,
                             height: 54,
@@ -150,15 +203,6 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                                   size: 23,
                                   color: liked ? miniPink : miniWhite,
                                 ),
-                                const SizedBox(height: 7),
-                                Text(
-                                  '${track.likes + (liked ? 1 : 0)}',
-                                  style: miniStyle(
-                                    12,
-                                    FontWeight.w500,
-                                    liked ? miniPink : miniSecondary,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -167,42 +211,23 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 4,
-                      activeTrackColor: miniWhite,
-                      inactiveTrackColor: const Color(0x29F4F3F6),
-                      thumbColor: miniWhite,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 5,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 12,
-                      ),
-                    ),
-                    child: Slider(
-                      value: _position.toDouble(),
-                      min: 0,
-                      max: track.duration.toDouble(),
-                      padding: EdgeInsets.zero,
-                      semanticFormatterCallback: (value) =>
-                          '${_time(value.toInt())} of ${_time(track.duration)}',
-                      onChanged: (value) => miniDemoMusic.seek(value.round()),
-                    ),
+                  MiniMusicSeekBar(
+                    identity: track.file,
+                    position: miniPhoneMusic.positionDuration,
+                    duration: miniPhoneMusic.durationDuration,
+                    buffered: miniPhoneMusic.bufferedPosition,
+                    enabled: miniPhoneMusic.canSeek,
+                    onSeek: miniPhoneMusic.seekTo,
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _time(_position),
+                  if (miniPhoneMusic.playbackError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        miniPhoneMusic.playbackError!,
+                        textAlign: TextAlign.center,
                         style: miniStyle(12, FontWeight.w400, miniSecondary),
                       ),
-                      Text(
-                        '−${_time(track.duration - _position)}',
-                        style: miniStyle(12, FontWeight.w400, miniSecondary),
-                      ),
-                    ],
-                  ),
+                    ),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -210,8 +235,8 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                       _control('music-backward', 'Previous track', _previous),
                       const SizedBox(width: 38),
                       Semantics(
-                        toggled: _playing,
-                        label: _playing ? 'Pause' : 'Play',
+                        toggled: miniPhoneMusic.playRequested,
+                        label: miniPhoneMusic.playRequested ? 'Pause' : 'Play',
                         button: true,
                         child: IconButton(
                           onPressed: _togglePlay,
@@ -221,9 +246,14 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                             maximumSize: const Size(64, 64),
                           ),
                           icon: Transform.translate(
-                            offset: Offset(_playing ? 0 : 2, 0),
+                            offset: Offset(
+                              miniPhoneMusic.playRequested ? 0 : 2,
+                              0,
+                            ),
                             child: MiniIcon(
-                              _playing ? 'music-pause' : 'music-play',
+                              miniPhoneMusic.playRequested
+                                  ? 'music-pause'
+                                  : 'music-play',
                               size: 30,
                             ),
                           ),
@@ -244,24 +274,21 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
 
   Widget _control(String icon, String label, VoidCallback action) => IconButton(
     tooltip: label,
-    onPressed: action,
+    onPressed: miniPhoneMusic.loading ? null : action,
     constraints: const BoxConstraints.tightFor(width: 44, height: 48),
     padding: EdgeInsets.zero,
     icon: MiniIcon(icon, size: 28),
   );
 }
 
-/// Home controls share the Music app's isolated playback preview state.
+/// Home controls share the Music app's foreground player and catalogue.
 class _MiniHomeMusicCard extends StatelessWidget {
   const _MiniHomeMusicCard({required this.onOpen});
   final VoidCallback onOpen;
 
-  String _time(int seconds) =>
-      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-
   Widget _control(String icon, String label, VoidCallback onTap) => IconButton(
     tooltip: label,
-    onPressed: onTap,
+    onPressed: miniPhoneMusic.loading ? null : onTap,
     constraints: const BoxConstraints.tightFor(width: 48, height: 40),
     padding: EdgeInsets.zero,
     icon: MiniIcon(icon, size: 24),
@@ -269,8 +296,9 @@ class _MiniHomeMusicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final music = miniDemoMusic;
-    final track = _miniMusicTracks[music.index];
+    final music = miniPhoneMusic;
+    final track = music.track;
+    if (track == null) return const SizedBox.shrink();
     return MiniGlass(
       key: const ValueKey('mini-phone-home-music'),
       light: true,
@@ -289,31 +317,29 @@ class _MiniHomeMusicCard extends StatelessWidget {
               onTap: onOpen,
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
-                      '$miniPhoneAssets${track.cover}',
-                      width: 44,
-                      height: 66,
-                      fit: BoxFit.cover,
-                    ),
+                  MiniMusicCover(
+                    track: track,
+                    nextTrack: music.nextTrack,
+                    preloadNext:
+                        music.playing && music.foreground && !music.loading,
+                    width: 44,
+                    height: 66,
+                    radius: 8,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          track.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        MiniMusicMarquee(
+                          identity: (track.file, 'title'),
+                          text: track.title,
                           style: miniStyle(16, FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          '@${track.handle}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        MiniMusicMarquee(
+                          identity: (track.file, 'artist'),
+                          text: track.artist,
                           style: miniStyle(14, FontWeight.w400, miniSecondary),
                         ),
                       ],
@@ -324,51 +350,14 @@ class _MiniHomeMusicCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          SizedBox(
-            height: 22,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    _time(music.position),
-                    style: miniStyle(11, FontWeight.w400, miniSecondary),
-                  ),
-                ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      activeTrackColor: miniWhite,
-                      inactiveTrackColor: const Color(0x29F4F3F6),
-                      thumbColor: miniWhite,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 4,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 10,
-                      ),
-                    ),
-                    child: Slider(
-                      value: music.position.toDouble(),
-                      max: track.duration.toDouble(),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      semanticFormatterCallback: (value) =>
-                          _time(value.round()),
-                      onChanged: (value) => music.seek(value.round()),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 38,
-                  child: Text(
-                    '-${_time(track.duration - music.position)}',
-                    textAlign: TextAlign.right,
-                    style: miniStyle(11, FontWeight.w400, miniSecondary),
-                  ),
-                ),
-              ],
-            ),
+          MiniMusicSeekBar(
+            identity: track.file,
+            compact: true,
+            position: music.positionDuration,
+            duration: music.durationDuration,
+            buffered: music.bufferedPosition,
+            enabled: music.canSeek,
+            onSeek: music.seekTo,
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -376,9 +365,9 @@ class _MiniHomeMusicCard extends StatelessWidget {
               _control('music-backward', 'Previous track', music.previous),
               const SizedBox(width: 20),
               Semantics(
-                toggled: music.playing,
+                toggled: music.playRequested,
                 child: IconButton(
-                  tooltip: music.playing ? 'Pause' : 'Play',
+                  tooltip: music.playRequested ? 'Pause' : 'Play',
                   onPressed: music.toggle,
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -386,9 +375,9 @@ class _MiniHomeMusicCard extends StatelessWidget {
                     maximumSize: const Size(48, 40),
                   ),
                   icon: Transform.translate(
-                    offset: Offset(music.playing ? 0 : 2, 0),
+                    offset: Offset(music.playRequested ? 0 : 2, 0),
                     child: MiniIcon(
-                      music.playing ? 'music-pause' : 'music-play',
+                      music.playRequested ? 'music-pause' : 'music-play',
                       size: 32,
                     ),
                   ),

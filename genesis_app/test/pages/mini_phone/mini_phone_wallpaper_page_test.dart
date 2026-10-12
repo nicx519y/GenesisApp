@@ -1,0 +1,662 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image/image.dart' as img;
+import 'package:genesis_flutter_android/components/common/local_image_crop_page.dart';
+import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
+import 'package:genesis_flutter_android/network/models/miniphone_info.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_controller.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_cache.dart';
+import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
+import 'package:genesis_flutter_android/components/login_sheet.dart';
+
+const oldUrl = 'https://cdn.example/current.png';
+const newUrl = 'https://cdn.example/new.png';
+
+class _PreviewCache implements MiniPhoneWallpaperCache {
+  _PreviewCache(this.bytes);
+  final Uint8List bytes;
+  final savedImage = Completer<Uint8List>();
+
+  @override
+  Future<CachedMiniPhoneWallpaper?> read(String owner, String worldId) async =>
+      null;
+
+  @override
+  Future<Uint8List> loadImage(String url) async =>
+      url == newUrl ? savedImage.future : bytes;
+
+  @override
+  Future<void> write(String owner, String worldId, MiniphoneInfo info) async {}
+
+  @override
+  Future<void> writeImage(
+    String url,
+    Uint8List bytes,
+    String contentType,
+  ) async {}
+}
+
+void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  Future<void> openCrop(WidgetTester tester) async {
+    final source = img.Image(width: 32, height: 64)
+      ..clear(img.ColorRgb8(30, 70, 90));
+    final png = img.encodePng(source);
+    // A valid image with trailing padding also verifies that the old 3 MiB
+    // wallpaper gate no longer rejects input before the shared crop pipeline.
+    final bytes = Uint8List(3 * 1024 * 1024 + png.length)..setAll(0, png);
+    final directory = Directory.systemTemp.createTempSync('wallpaper-crop-');
+    final file = File('${directory.path}/photo.png')..writeAsBytesSync(bytes);
+    const channel = MethodChannel('plugins.flutter.io/image_picker');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (_) async => file.path);
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+      directory.deleteSync(recursive: true);
+    });
+    await tester.tap(find.byIcon(Icons.add_photo_alternate_outlined));
+    for (var i = 0; i < 100; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+      final confirm = find.widgetWithIcon(IconButton, Icons.check);
+      if (confirm.evaluate().isNotEmpty &&
+          tester.widget<IconButton>(confirm).onPressed != null) {
+        break;
+      }
+    }
+    expect(find.byType(LocalImageCropPage), findsOneWidget);
+    await tester.pumpAndSettle();
+  }
+
+  Future<MiniPhoneWallpaperController> mount(
+    WidgetTester tester, {
+    String worldId = 'w_1',
+    MiniPhoneScreen screen = MiniPhoneScreen.settings,
+    Future<MiniphoneInfo> Function()? load,
+    Future<void> Function(String)? save,
+    MiniWallpaperUploader? upload,
+    MiniPhoneWallpaperCache? cache,
+    bool nativePickerFlow = false,
+    bool loggedIn = true,
+    double width = 390,
+    double textScale = 1,
+  }) async {
+    tester.view.physicalSize = Size(width, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final session = MemoryUserSessionStore();
+    if (loggedIn) await session.saveUid('u_test');
+    final services = () {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      // File IO tests do not need the mobile billing plugin during setup.
+      if (nativePickerFlow) {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      }
+      try {
+        return ServiceRegistry.build(
+          config: const AppConfig(useMock: true),
+          sessionStoreOverride: session,
+          chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
+    }();
+    final controller = MiniPhoneWallpaperController(
+      worldId: worldId,
+      sessionStore: session,
+      cache: cache,
+      load:
+          load ??
+          () async => const MiniphoneInfo(
+            backgroundImage: oldUrl,
+            wallpapers: [
+              MiniphoneWallpaper(imageUrl: newUrl, title: 'New wallpaper'),
+            ],
+          ),
+      save: save ?? (_) async {},
+      upload: upload ?? (_, _) async => newUrl,
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: MiniPhonePage(
+            worldId: worldId,
+            initialScreen: screen,
+            wallpaperController: controller,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    return controller;
+  }
+
+  testWidgets(
+    'device picker crops like Location and uploads processed bytes only on Apply',
+    (tester) async {
+      final uploads = <MiniWallpaperPhoto>[];
+      final controller = await mount(
+        tester,
+        nativePickerFlow: true,
+        load: () async =>
+            const MiniphoneInfo(backgroundImage: '', wallpapers: []),
+        upload: (photo, _) async {
+          uploads.add(photo);
+          return newUrl;
+        },
+      );
+      await openCrop(tester);
+      final cropPage = tester.widget<LocalImageCropPage>(
+        find.byType(LocalImageCropPage),
+      );
+      expect(cropPage.cropSize, const Size(1500, 3000));
+      expect(cropPage.maxOutputSize, isNull);
+      expect(cropPage.uploadOnConfirm, isFalse);
+      expect(cropPage.deferUploadPreparation, isTrue);
+      expect(uploads, isEmpty);
+      await tester.tap(find.byIcon(Icons.check));
+      for (var i = 0; i < 100 && controller.draftPhoto == null; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      final photo = controller.draftPhoto!;
+      final decoded = img.decodeImage(photo.bytes)!;
+      expect(decoded.width, lessThanOrEqualTo(600));
+      expect(decoded.height, lessThanOrEqualTo(600));
+      expect(decoded.width / decoded.height, .5);
+      expect(photo.contentType, 'image/jpeg');
+      expect(photo.filename, 'wallpaper.jpg');
+      expect(uploads, isEmpty);
+      expect(controller.backgroundImage, '');
+      await tester.ensureVisible(find.text('Apply wallpaper'));
+      await tester.tap(find.text('Apply wallpaper'));
+      await tester.pump();
+      for (var i = 0; i < 300 && controller.saving; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+      final uploaded = uploads.single;
+      final fullImage = img.decodeImage(uploaded.bytes)!;
+      expect((fullImage.width, fullImage.height), (1500, 3000));
+      expect(uploaded.contentType, 'image/jpeg');
+      expect(controller.displayBytes, same(uploaded.bytes));
+      expect(controller.appliedPreviewBytes, same(photo.bytes));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('canceling wallpaper crop keeps the current draft', (
+    tester,
+  ) async {
+    final controller = await mount(
+      tester,
+      nativePickerFlow: true,
+      load: () async =>
+          const MiniphoneInfo(backgroundImage: '', wallpapers: []),
+    );
+    final asset = await rootBundle.load('assets/images/default_list_image.png');
+    final previous = MiniWallpaperPhoto(
+      bytes: asset.buffer.asUint8List(),
+      filename: 'previous.png',
+      contentType: 'image/png',
+    );
+    controller.selectPhoto(previous);
+    await tester.pump();
+    await openCrop(tester);
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(controller.draftPhoto, same(previous));
+    expect(controller.backgroundImage, '');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('account changes discard a pending wallpaper crop result', (
+    tester,
+  ) async {
+    final controller = await mount(
+      tester,
+      nativePickerFlow: true,
+      load: () async =>
+          const MiniphoneInfo(backgroundImage: '', wallpapers: []),
+    );
+    await openCrop(tester);
+    await controller.sessionStore.saveUid('another-user');
+    await controller.refresh();
+    Navigator.of(tester.element(find.byType(LocalImageCropPage))).pop(
+      LocalImageCropResult(
+        bytes: Uint8List(0),
+        width: 1500,
+        height: 3000,
+        filename: 'wallpaper.jpg',
+        contentType: 'image/jpeg',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.draftPhoto, isNull);
+    expect(controller.draftImage, '');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'Settings reads server titles, previews selection and Apply updates Home',
+    (tester) async {
+      final saved = <String>[];
+      final pending = Completer<void>();
+      final controller = await mount(
+        tester,
+        save: (url) {
+          saved.add(url);
+          return pending.future;
+        },
+      );
+      expect(find.text('New wallpaper'), findsOneWidget);
+      expect(find.text('Upload'), findsOneWidget);
+      expect(find.text('Choose from device'), findsNothing);
+      expect(find.text('Reset phone'), findsNothing);
+      final preview = find.ancestor(
+        of: find.text('01:04'),
+        matching: find.byType(AspectRatio),
+      );
+      expect(preview, findsOneWidget);
+      final previewSize = tester.getSize(preview);
+      expect(previewSize.width, 190);
+      expect(previewSize.width / previewSize.height, closeTo(9 / 16, .001));
+      expect(find.text('Mist Forest'), findsNothing);
+      expect(
+        tester
+            .widgetList<GenesisListImage>(find.byType(GenesisListImage))
+            .map((w) => w.imageUrl),
+        contains(oldUrl),
+      );
+      await tester.tap(find.text('New wallpaper'));
+      await tester.pump();
+      expect(controller.draftImage, newUrl);
+      expect(controller.backgroundImage, oldUrl);
+      await tester.ensureVisible(find.text('Apply wallpaper'));
+      await tester.tap(find.text('Apply wallpaper'));
+      await tester.pump();
+      await tester.pump();
+      expect(saved, [newUrl]);
+      expect(
+        tester
+            .widget<InkWell>(
+              find.ancestor(
+                of: find.byIcon(Icons.add_photo_alternate_outlined),
+                matching: find.byType(InkWell),
+              ),
+            )
+            .onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(find.byType(GenesisPrimaryButton))
+            .isLoading,
+        isTrue,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(GenesisPrimaryButton),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(find.byType(GenesisPrimaryButton))
+            .onPressed,
+        isNull,
+      );
+      pending.complete();
+      await tester.pumpAndSettle();
+      expect(controller.backgroundImage, newUrl);
+      // The page's back action returns from Settings to Home.
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      expect(find.text('Apply wallpaper'), findsNothing);
+      expect(
+        tester
+            .widgetList<GenesisListImage>(find.byType(GenesisListImage))
+            .map((w) => w.imageUrl),
+        contains(newUrl),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'saving a catalogue wallpaper keeps its preview mounted after cache completes',
+    (tester) async {
+      final asset = await rootBundle.load(
+        'assets/images/default_list_image.png',
+      );
+      final cache = _PreviewCache(asset.buffer.asUint8List());
+      final controller = await mount(tester, cache: cache);
+      await tester.tap(find.text('New wallpaper'));
+      await tester.pump();
+      final preview = find.ancestor(
+        of: find.text('01:04'),
+        matching: find.byType(AspectRatio),
+      );
+      final image = find.descendant(
+        of: preview,
+        matching: find.byType(GenesisListImage),
+      );
+      final originalElement = tester.element(image);
+      await tester.ensureVisible(find.text('Apply wallpaper'));
+      await tester.tap(find.text('Apply wallpaper'));
+      await tester.pump();
+      await tester.pump();
+      expect(controller.backgroundImage, newUrl);
+      expect(tester.element(image), same(originalElement));
+      cache.savedImage.complete(cache.bytes);
+      await tester.pump();
+      await tester.pump();
+      expect(controller.displayBackgroundImage, newUrl);
+      expect(controller.displayBytes, same(cache.bytes));
+      expect(tester.element(image), same(originalElement));
+      expect(tester.widget<GenesisListImage>(image).imageUrl, newUrl);
+      // The retained source must still follow an actual new selection.
+      controller.select(oldUrl);
+      await tester.pump();
+      expect(tester.widget<GenesisListImage>(image).imageUrl, oldUrl);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'device photo previews in memory; Apply stays loading through upload and submit',
+    (tester) async {
+      final events = <String>[];
+      final uploadDone = Completer<String>();
+      final saveDone = Completer<void>();
+      final controller = await mount(
+        tester,
+        upload: (_, _) {
+          events.add('upload');
+          return uploadDone.future;
+        },
+        save: (_) {
+          events.add('save');
+          return saveDone.future;
+        },
+      );
+      final asset = await rootBundle.load(
+        'assets/images/default_list_image.png',
+      );
+      final bytes = asset.buffer.asUint8List();
+      controller.selectPhoto(
+        MiniWallpaperPhoto(
+          bytes: bytes,
+          filename: 'wallpaper.png',
+          contentType: 'image/png',
+        ),
+      );
+      await tester.pump();
+      bool usesSelectedBytes(Image widget) =>
+          widget.image is MemoryImage &&
+          identical((widget.image as MemoryImage).bytes, bytes);
+      expect(
+        tester.widgetList<Image>(find.byType(Image)).any(usesSelectedBytes),
+        isTrue,
+      );
+      final photoPreview = tester
+          .widgetList<Image>(find.byType(Image))
+          .firstWhere(usesSelectedBytes);
+      expect(photoPreview.width, double.infinity);
+      expect(photoPreview.height, double.infinity);
+      expect(photoPreview.fit, BoxFit.cover);
+      expect(photoPreview.alignment, Alignment.center);
+      final previewImage = find.byWidgetPredicate(
+        (widget) => widget is Image && usesSelectedBytes(widget),
+      );
+      final originalImageState = tester.state(previewImage);
+      await tester.runAsync(() async {
+        await precacheImage(photoPreview.image, tester.element(previewImage));
+      });
+      await tester.pump();
+      final rawPreview = find.descendant(
+        of: previewImage,
+        matching: find.byType(RawImage),
+      );
+      final decodedFrame = tester.widget<RawImage>(rawPreview).image;
+      expect(decodedFrame, isNotNull);
+      expect(events, isEmpty);
+      expect(find.text('Reset phone'), findsNothing);
+      await tester.ensureVisible(find.text('Apply wallpaper'));
+      await tester.tap(find.text('Apply wallpaper'));
+      await tester.pump();
+      await tester.pump();
+      final button = find.byType(GenesisPrimaryButton);
+      expect(events, ['upload']);
+      expect(tester.widget<GenesisPrimaryButton>(button).isLoading, isTrue);
+      final overlay = find.byType(GenesisUploadProgressOverlay);
+      expect(
+        tester.widget<GenesisUploadProgressOverlay>(overlay).showIndicator,
+        isFalse,
+      );
+      expect(
+        tester.widget<GenesisUploadProgressOverlay>(overlay).revealFromBottom,
+        isTrue,
+      );
+      expect(
+        find.descendant(of: overlay, matching: find.byType(Text)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: overlay,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+      await tester.tap(button);
+      await tester.pump();
+      expect(events, ['upload']);
+      uploadDone.complete(newUrl);
+      await tester.pump();
+      await tester.pump();
+      expect(events, ['upload', 'save']);
+      expect(tester.widget<GenesisPrimaryButton>(button).isLoading, isTrue);
+      expect(
+        tester.widgetList<Image>(find.byType(Image)).any(usesSelectedBytes),
+        isTrue,
+      );
+      saveDone.complete();
+      await tester.pump();
+      expect(tester.state(previewImage), same(originalImageState));
+      expect(tester.widget<RawImage>(rawPreview).image, same(decodedFrame));
+      await tester.pumpAndSettle();
+      expect(tester.widget<GenesisPrimaryButton>(button).isLoading, isFalse);
+      expect(controller.displayBytes, same(bytes));
+      expect(
+        tester.widgetList<Image>(find.byType(Image)).any(usesSelectedBytes),
+        isTrue,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('failed save preserves draft and shows retry feedback', (
+    tester,
+  ) async {
+    final controller = await mount(
+      tester,
+      save: (_) async => throw StateError('offline'),
+    );
+    await tester.tap(find.text('New wallpaper'));
+    await tester.ensureVisible(find.text('Apply wallpaper'));
+    await tester.tap(find.text('Apply wallpaper'));
+    await tester.pumpAndSettle();
+    expect(controller.backgroundImage, oldUrl);
+    expect(controller.draftImage, newUrl);
+    expect(
+      find.text('Unable to save wallpaper. Please retry.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<GenesisPrimaryButton>(find.byType(GenesisPrimaryButton))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('guest Apply opens shared login and never posts automatically', (
+    tester,
+  ) async {
+    final saved = <String>[];
+    final controller = await mount(
+      tester,
+      loggedIn: false,
+      save: (url) async {
+        saved.add(url);
+      },
+    );
+    await tester.tap(find.text('New wallpaper'));
+    await tester.ensureVisible(find.text('Apply wallpaper'));
+    await tester.tap(find.text('Apply wallpaper'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginSheet), findsOneWidget);
+    expect(saved, isEmpty);
+    Navigator.of(tester.element(find.byType(LoginSheet))).pop(false);
+    await tester.pumpAndSettle();
+    expect(saved, isEmpty);
+    expect(controller.backgroundImage, oldUrl);
+    expect(controller.draftImage, newUrl);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('unscoped preview makes no request and disables Apply', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      worldId: '',
+      load: () async {
+        fail('Unexpected GET');
+      },
+    );
+    expect(
+      find.text('Open Mini phone from a World to change its wallpaper.'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Apply wallpaper'));
+    expect(
+      tester
+          .widget<GenesisPrimaryButton>(find.byType(GenesisPrimaryButton))
+          .onPressed,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('empty catalogue keeps device picker and fallback preview', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      load: () async =>
+          const MiniphoneInfo(backgroundImage: '', wallpapers: []),
+    );
+    expect(
+      find.text('No wallpapers available. Choose a photo from your device.'),
+      findsOneWidget,
+    );
+    expect(find.text('Upload'), findsOneWidget);
+    final preview = tester.widget<GenesisListImage>(
+      find.byType(GenesisListImage),
+    );
+    expect(preview.imageUrl, isEmpty);
+    expect(preview.placeholderAsset, 'assets/mini_phone/wallpaper-01.png');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('read error exposes retry which restores server catalogue', (
+    tester,
+  ) async {
+    var attempts = 0;
+    await mount(
+      tester,
+      load: () async {
+        if (attempts++ == 0) throw StateError('offline');
+        return const MiniphoneInfo(backgroundImage: newUrl, wallpapers: []);
+      },
+    );
+    expect(
+      find.text('Unable to load wallpapers. Please retry.'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('Retry'));
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.text('Unable to load wallpapers. Please retry.'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('many long wallpaper titles wrap on narrow large-text Settings', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      width: 320,
+      textScale: 2,
+      load: () async => MiniphoneInfo(
+        backgroundImage: '',
+        wallpapers: [
+          for (var i = 0; i < 8; i++)
+            MiniphoneWallpaper(
+              imageUrl: 'https://cdn.example/$i.png',
+              title: 'A long wallpaper title number $i',
+            ),
+        ],
+      ),
+    );
+    await tester.ensureVisible(find.text('A long wallpaper title number 7'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}

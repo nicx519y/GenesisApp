@@ -38,13 +38,25 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    _wallpaperBackground(draftWallpaper, draftWallpaperPhoto),
+                    _wallpaperBackground(
+                      wallpaper.draftImage,
+                      wallpaper.draftPhoto?.bytes ??
+                          wallpaper.appliedPreviewBytes,
+                    ),
                     const ColoredBox(color: Color(0x22000000)),
                     Column(
                       children: [
                         const SizedBox(height: 25),
-                        Text('Day 2', style: miniStyle(14)),
-                        Text('01:04', style: miniStyle(38, FontWeight.w600)),
+                        Text(
+                          'Day 2',
+                          textScaler: TextScaler.noScaling,
+                          style: miniStyle(14),
+                        ),
+                        Text(
+                          '01:04',
+                          textScaler: TextScaler.noScaling,
+                          style: miniStyle(38, FontWeight.w600),
+                        ),
                         const Spacer(),
                         Padding(
                           padding: const EdgeInsets.all(12),
@@ -70,6 +82,15 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
                         ),
                       ],
                     ),
+                    if (wallpaper.saving || wallpaper.saveProgress == 1)
+                      IgnorePointer(
+                        child: GenesisUploadProgressOverlay(
+                          progress: wallpaper.saveProgress,
+                          showIndicator: false,
+                          revealFromBottom: true,
+                          animationDuration: const Duration(milliseconds: 180),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -79,60 +100,34 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
         const SizedBox(height: 22),
         Text('Wallpaper', style: miniStyle(14, FontWeight.w600)),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(11),
-                        border: Border.all(
-                          width: 2,
-                          color: draftWallpaperPhoto != null
-                              ? miniPink
-                              : Colors.transparent,
-                        ),
-                      ),
-                      child: Material(
-                        color: GenesisColors.darkCardBackground,
-                        borderRadius: BorderRadius.circular(8),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () => _pickPhoto(wallpaper: true),
-                          child: SizedBox(
-                            height: 100,
-                            width: double.infinity,
-                            child: const Center(
-                              child: Icon(
-                                Icons.add_photo_alternate_outlined,
-                                size: 24,
-                                color: miniPink,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text('Upload', style: miniStyle(14)),
-                  ],
-                ),
-              ),
-            ),
-            for (final w in miniDemoWallpapers.entries)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => _update(() {
-                      draftWallpaper = w.key;
-                      draftWallpaperPhoto = null;
-                      feedback = '';
-                    }),
+        if (!wallpaper.available)
+          Text(
+            'Open Mini phone from a World to change its wallpaper.',
+            style: miniStyle(14),
+          ),
+        if (wallpaper.loading) const Center(child: GenesisLoadingIndicator()),
+        if (wallpaper.loadError != null) ...[
+          Text(wallpaper.loadError!, style: miniStyle(14)),
+          _button('Retry', () => unawaited(wallpaper.refresh())),
+        ],
+        if (wallpaper.loaded && wallpaper.wallpapers.isEmpty)
+          Text(
+            'No wallpapers available. Choose a photo from your device.',
+            style: miniStyle(14),
+          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth < 280 ? 2 : 3;
+            final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: width,
+                  child: Semantics(
+                    button: true,
+                    selected: wallpaper.draftPhoto != null,
                     child: Column(
                       children: [
                         Container(
@@ -141,36 +136,109 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
                             borderRadius: BorderRadius.circular(11),
                             border: Border.all(
                               width: 2,
-                              color:
-                                  draftWallpaperPhoto == null &&
-                                      draftWallpaper == w.key
+                              color: wallpaper.draftPhoto != null
                                   ? miniPink
                                   : Colors.transparent,
                             ),
                           ),
-                          child: ClipRRect(
+                          child: Material(
+                            color: GenesisColors.darkCardBackground,
                             borderRadius: BorderRadius.circular(8),
-                            child: SizedBox(
-                              height: 100,
-                              width: double.infinity,
-                              child: _wallpaperBackground(w.key, null),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap:
+                                  !wallpaper.available ||
+                                      wallpaper.saving ||
+                                      _authorizingWallpaper
+                                  ? null
+                                  : () => _pickPhoto(wallpaper: true),
+                              child: const SizedBox(
+                                height: 100,
+                                width: double.infinity,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 24,
+                                    color: miniPink,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 5),
-                        Text(w.value, style: miniStyle(14)),
+                        Text('Upload', style: miniStyle(14)),
                       ],
                     ),
                   ),
                 ),
-              ),
-          ],
+                for (final w in wallpaper.wallpapers)
+                  SizedBox(
+                    width: width,
+                    child: Semantics(
+                      button: true,
+                      selected:
+                          wallpaper.draftPhoto == null &&
+                          wallpaper.draftImage == w.imageUrl,
+                      child: InkWell(
+                        onTap: wallpaper.saving || _authorizingWallpaper
+                            ? null
+                            : () {
+                                wallpaper.select(w.imageUrl);
+                                _update(() => feedback = '');
+                              },
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(11),
+                                border: Border.all(
+                                  width: 2,
+                                  color:
+                                      wallpaper.draftPhoto == null &&
+                                          wallpaper.draftImage == w.imageUrl
+                                      ? miniPink
+                                      : Colors.transparent,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: SizedBox(
+                                  height: 100,
+                                  width: double.infinity,
+                                  child: _wallpaperBackground(w.imageUrl, null),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              w.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: miniStyle(14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 14),
-        _button('Apply wallpaper', () {
-          store.applyWallpaper(draftWallpaper, draftWallpaperPhoto);
-          _update(() => feedback = 'Wallpaper applied. See it on Home.');
-        }, primary: true),
+        _button(
+          'Apply wallpaper',
+          !wallpaper.available ||
+                  wallpaper.saving ||
+                  _authorizingWallpaper ||
+                  (!wallpaper.loaded && wallpaper.draftPhoto == null)
+              ? null
+              : _applyWallpaper,
+          primary: true,
+          isLoading: wallpaper.saving,
+        ),
         if (feedback.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 10),
@@ -186,7 +254,9 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
   );
 
   Future<void> _pickPhoto({required bool wallpaper}) async {
+    if (wallpaper) return _pickWallpaperPhoto();
     final target = screen;
+    if (!mounted) return;
     try {
       final file = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (file == null || !mounted || screen != target) return;
@@ -221,15 +291,76 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
       codec.dispose();
       if (!mounted || screen != target) return;
       _update(() {
-        if (wallpaper) {
-          draftWallpaperPhoto = bytes;
-        } else {
-          draftPhoto = bytes;
-        }
+        draftPhoto = bytes;
         feedback = '';
       });
     } catch (_) {
       if (mounted && screen == target) {
+        _update(
+          () => feedback = 'Could not open this photo. Please try another.',
+        );
+      }
+    }
+  }
+
+  Future<void> _pickWallpaperPhoto() async {
+    final target = screen;
+    final revision = wallpaper.identityRevision;
+    final owner = await wallpaper.sessionStore.readLoginUid();
+    bool isCurrent() =>
+        mounted &&
+        screen == target &&
+        wallpaper.identityRevision == revision &&
+        !wallpaper.saving &&
+        !_authorizingWallpaper;
+    if (!isCurrent()) return;
+    try {
+      final picked = await pickGenesisImages(limit: 1);
+      if (picked.isEmpty || !mounted || !isCurrent()) return;
+      final crop = await Navigator.of(context).push<LocalImageCropResult>(
+        MaterialPageRoute<LocalImageCropResult>(
+          builder: (_) => LocalImageCropPage(
+            imageBytes: picked.first.bytes,
+            // Match the Location cover's crop, scaling and encoding pipeline.
+            cropSize: const Size(1500, 3000),
+            filename: 'wallpaper.png',
+            contentType: 'image/png',
+            uploadOnConfirm: false,
+            deferUploadPreparation: true,
+          ),
+        ),
+      );
+      if (crop == null || !isCurrent()) return;
+      final currentOwner = await wallpaper.sessionStore.readLoginUid();
+      if (currentOwner != owner || !isCurrent()) return;
+      _update(() {
+        wallpaper.selectPhoto(
+          MiniWallpaperPhoto(
+            bytes: crop.bytes,
+            filename: crop.filename,
+            contentType: crop.contentType,
+            prepareUpload: crop.prepareUpload == null
+                ? null
+                : (onProgress) async {
+                    // Paint the full cover before starting image preparation.
+                    await WidgetsBinding.instance.endOfFrame;
+                    final prepared = await crop.prepareUpload!(onProgress);
+                    return MiniWallpaperPhoto(
+                      bytes: prepared.bytes,
+                      filename: prepared.filename,
+                      contentType: prepared.contentType,
+                    );
+                  },
+          ),
+        );
+        feedback = '';
+      });
+    } on UnsupportedGifImageException {
+      if (isCurrent()) {
+        _update(() => feedback = unsupportedGifImageMessage);
+      }
+    } catch (_) {
+      if (isCurrent()) {
         _update(
           () => feedback = 'Could not open this photo. Please try another.',
         );

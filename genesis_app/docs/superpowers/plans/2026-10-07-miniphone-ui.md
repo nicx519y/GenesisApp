@@ -18,3 +18,5 @@
 - [x] Format and analyze touched files; build/install final internal debug APK. Check runtime startup and provide the new hot reload working directory. User reviews styles before system-wide regression.
 
 **Isolation contract:** Entry points and the route require kDebugMode. UI identifies Demo in navigation; Settings explains that no messages/posts are sent to the server. IDs start mini-demo-. No API client, session data, server world ID, backend endpoint, network images or production database is referenced.
+
+**2026-10-10 music integration:** The original isolation contract now has a read-only music exception: `/api/v1/music/list` supplies the catalogue and network cover images; `just_audio` plays the returned CDN URLs through a shared foreground service. Track duration and progress come from the decoder. Non-resumed app lifecycle states pause playback, with no automatic resume or background playback service. Music likes remain local with no fabricated counts or backend writes. The existing debug-only entry points remain in place. See `docs/apifox-http-api-contract.md` for the music contract.
