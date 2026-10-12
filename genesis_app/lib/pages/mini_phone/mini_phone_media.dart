@@ -33,43 +33,45 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
             borderRadius: BorderRadius.circular(22),
             child: SizedBox(
               width: 190,
-              height: 265,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _wallpaperBackground(draftWallpaper, draftWallpaperPhoto),
-                  const ColoredBox(color: Color(0x22000000)),
-                  Column(
-                    children: [
-                      const SizedBox(height: 25),
-                      Text('Day 2', style: miniStyle(14)),
-                      Text('01:04', style: miniStyle(38, FontWeight.w600)),
-                      const Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            for (final i in [
-                              'messages',
-                              'posts',
-                              'photos',
-                              'settings',
-                            ])
-                              Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: miniRaised,
-                                  borderRadius: BorderRadius.circular(8),
+              child: AspectRatio(
+                aspectRatio: 9 / 16,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _wallpaperBackground(draftWallpaper, draftWallpaperPhoto),
+                    const ColoredBox(color: Color(0x22000000)),
+                    Column(
+                      children: [
+                        const SizedBox(height: 25),
+                        Text('Day 2', style: miniStyle(14)),
+                        Text('01:04', style: miniStyle(38, FontWeight.w600)),
+                        const Spacer(),
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              for (final i in [
+                                'messages',
+                                'posts',
+                                'photos',
+                                'settings',
+                              ])
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: miniRaised,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: MiniIcon(i, size: 18),
                                 ),
-                                child: MiniIcon(i, size: 18),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -79,6 +81,48 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
         const SizedBox(height: 12),
         Row(
           children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          width: 2,
+                          color: draftWallpaperPhoto != null
+                              ? miniPink
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Material(
+                        color: GenesisColors.darkCardBackground,
+                        borderRadius: BorderRadius.circular(8),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => _pickPhoto(wallpaper: true),
+                          child: SizedBox(
+                            height: 100,
+                            width: double.infinity,
+                            child: const Center(
+                              child: Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 24,
+                                color: miniPink,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text('Upload', style: miniStyle(14)),
+                  ],
+                ),
+              ),
+            ),
             for (final w in miniDemoWallpapers.entries)
               Expanded(
                 child: Padding(
@@ -123,20 +167,6 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
           ],
         ),
         const SizedBox(height: 14),
-        InkWell(
-          onTap: () => _pickPhoto(wallpaper: true),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('Choose from device', style: miniStyle(14)),
-                ),
-                const MiniIcon('image', size: 20),
-              ],
-            ),
-          ),
-        ),
         _button('Apply wallpaper', () {
           store.applyWallpaper(draftWallpaper, draftWallpaperPhoto);
           _update(() => feedback = 'Wallpaper applied. See it on Home.');
@@ -149,8 +179,6 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
               style: miniStyle(12, FontWeight.w400, miniPink),
             ),
           ),
-        const SizedBox(height: 26),
-        _button('Reset phone', _confirmReset),
         const SizedBox(height: 20),
       ],
     ),
@@ -207,46 +235,6 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
         );
       }
     }
-  }
-
-  Future<void> _confirmReset() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: miniRaised,
-        title: Text('Reset phone?', style: miniPageTitle),
-        content: Text(
-          'Clear this phone’s messages, posts, comments and wallpaper.',
-          style: miniStyle(14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    for (final timer in _replyTimers) {
-      timer.cancel();
-    }
-    _replyTimers.clear();
-    store.reset();
-    postInput.clear();
-    messageInput.clear();
-    commentInput.clear();
-    draftPhoto = null;
-    authorFilter = null;
-    expandedNotificationGroups.clear();
-    homePagerPosition = 0;
-    if (homePages.hasClients) homePages.jumpToPage(0);
-    typing = false;
-    _go(MiniPhoneScreen.home);
   }
 
   Future<void> _viewPhoto({

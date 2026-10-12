@@ -218,7 +218,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   }
 
   Widget _wallpaperBackground(String asset, Uint8List? photo) {
-    if (photo != null) return Image.memory(photo, fit: BoxFit.cover);
+    if (photo != null) {
+      return Image.memory(
+        photo,
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+      );
+    }
     if (asset == miniSolidWallpaper) {
       return const ColoredBox(color: miniBackground);
     }

@@ -115,3 +115,19 @@ User authorized publishing current changes to team origin/miniphone. Includes dr
 
 ## 2026-10-10 Publication: Home music and notification gestures
 User approved publishing this preview to team origin/miniphone. Includes Home music controls, portrait cover/type refinements, message square avatars, per-card bottom-anchored expand/fold, tap/up/down gestures, and horizontal-cancel guard. Fresh dart analyze lib/pages/mini_phone passed; diff --check passed. Latest phone hot restart confirmed6,622ms. No automated regression tests run; SDK/IDE analysis_options.yaml/pubspec.lock excluded.
+
+## 2026-10-12 Settings wallpaper upload tile
+- Replaced separate Choose from device row with first gallery tile. Same Expanded width and 100px portrait interior, padding2/border2/radius8 as defaults. Full tile tap reuses _pickPhoto(wallpaper:true), pink selected ring for custom image. Apply unchanged.
+- Branch miniphone; no commit/push requested. Local analysis_options.yaml and pubspec.lock preserved. Debug preview being launched from this worktree.
+- Verification complete: targeted Dart analyze no issues, diff check clean. Internal debug APK built and installed on V2121A; Flutter preview session93440 active. No commit/push this round.
+
+## 2026-10-12 Wallpaper settings follow-up
+- Preview now190px wide at9:16 AspectRatio. Custom wallpaper Image.memory explicitly fills bounds with centered cover crop (home/preview shared). Removed Reset phone button and now-unreachable confirmation action. Upload icon matches Create add_photo_alternate_outlined24 and darkTextSecondary gray.
+- No backend or image-byte transformation. No commit/push requested.
+
+- Upload icon color changed from darkTextSecondary to miniPink per follow-up; size24/layout unchanged.
+
+## Settings update publication 2026-10-12
+- User authorized publishing this iteration to team origin/miniphone. Includes wallpaper upload tile, 9:16 preview, cover fill, Reset removal and pink upload icon.
+- Fresh targeted Dart analyze no issues; diff check clean; phone hot restart previously completed. No tests run.
+- Excludes local analysis_options.yaml/pubspec.lock. Push is regular fast-forward, never forced.
