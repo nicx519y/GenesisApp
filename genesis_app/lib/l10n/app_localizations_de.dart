@@ -2136,10 +2136,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageCropUploadFailed => 'Upload fehlgeschlagen';
 
   @override
-  String get inboxNotifications => 'Benachrichtigungen';
+  String get inboxNotifications => 'Mitteilungen';
 
   @override
-  String get inboxNoNotificationsYet => 'Noch keine Benachrichtigungen.';
+  String get inboxNoNotificationsYet => 'Noch keine Mitteilungen.';
 
   @override
   String get inboxFollowers => 'Follower';

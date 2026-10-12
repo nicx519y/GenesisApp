@@ -2884,11 +2884,11 @@
   "@imageCropUploadFailed": {
     "description": "首页 - Create → 图片裁剪/上传页，图片裁剪或上传失败"
   },
-  "inboxNotifications": "Benachrichtigungen",
+  "inboxNotifications": "Mitteilungen",
   "@inboxNotifications": {
     "description": "首页 - Inbox，Notifications 消息分类入口；Notifications 分类页顶部标题"
   },
-  "inboxNoNotificationsYet": "Noch keine Benachrichtigungen.",
+  "inboxNoNotificationsYet": "Noch keine Mitteilungen.",
   "@inboxNoNotificationsYet": {
     "description": "首页 - Inbox → Notifications 分类页，无通知时的空状态"
   },
