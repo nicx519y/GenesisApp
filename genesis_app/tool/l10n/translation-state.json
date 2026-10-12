@@ -5050,6 +5050,12 @@
           "text_hash": "36c7bf1dfa4511f14eda381e917e835eb11705cdd752b61a437ad61b75951279",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "f9c7884d0114a4eb6c04a94663e8d4b30b99440fcd452d143a4648a8e9ffa198",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -10101,6 +10107,12 @@
           "text_hash": "33a2dd7dca8a0215214a62aaa77314d0559af7fc5d4083acac26086a0c11fae2",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "381338d1b1f93c3ff00d3cb882ce447e4178454cb06ec0dc3d4f9732dfd0c932",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -15152,6 +15164,12 @@
           "text_hash": "3db3bd683852ca6fe930fdae75344178f448fa1e657e618a7754ee9c3156fb1a",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "51eef16c851813791d074c488c8bf2750ebd4c63ca49a3e01ac32655ab926382",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -20203,6 +20221,12 @@
           "text_hash": "ab00e1abd3ac678966e9334c8fe6ece665f814c8b113064a1e9d47e9464e6236",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "a8998ef5e43c48a59ea8eb7aab2f7e8e59bd495c0ea4901d14a0832f1fb64b6f",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -25254,6 +25278,12 @@
           "text_hash": "5eb0032107f4fc80dff3ba3428b092ee24b951da32c5ad7d56e8643523afdbb7",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "129082b9df07b47010aaf35a424384eeefd0d63450828eed31b67ec6b9761bd2",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -30305,6 +30335,12 @@
           "text_hash": "2d06b1442840a92dc151c9a495711ec0e25df301e2d78cd3a68489a5144bae40",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "8233749978df1add269574dc3bcfad11f0b364e561e84f1e3144150e469f093c",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -35356,6 +35392,12 @@
           "text_hash": "e592e4e1738a568c3714f09b148e300dfe75dba0e7100c4b89a589a85ce0dfc0",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "345f756c0c5f29bb1cd8bfec261f8865055897b51c427e3a574918daf69f4f6f",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     },
@@ -40407,6 +40449,12 @@
           "text_hash": "f03b43f62fbb7685ba73137339f9c0061986aae80c24a5187eb6b6c81ffa56af",
           "status": "ai",
           "note": "Incremental audit: concrete UI context, period select and dynamic placeholders preserved."
+        },
+        "chatEditFreeUsesExhausted": {
+          "source_hash": "c3e63fcac2a0cd51e402082accb8241993901baf3d40ae49851dd46f766e6ac5",
+          "text_hash": "4fb156a7634dbfdda71cb755cbdc2a56d0248a72af6dbd99f95b936e92f392c9",
+          "status": "ai",
+          "note": "Localized editor-save quota exhaustion toast; explicitly preserves free edit uses and follows target language style."
         }
       }
     }

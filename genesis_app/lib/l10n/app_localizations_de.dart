@@ -3193,4 +3193,8 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get developerRecapLive => 'Mit Abo · tatsächlicher Rückblick';
+
+  @override
+  String get chatEditFreeUsesExhausted =>
+      'Keine kostenlosen Bearbeitungen mehr übrig.';
 }

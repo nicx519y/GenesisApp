@@ -4215,5 +4215,9 @@
   "developerRecapLive": "Mit Abo · tatsächlicher Rückblick",
   "@developerRecapLive": {
     "description": "Recap debug selector: simulate subscription but load actual server recap content."
+  },
+  "chatEditFreeUsesExhausted": "Keine kostenlosen Bearbeitungen mehr übrig.",
+  "@chatEditFreeUsesExhausted": {
+    "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
   }
 }

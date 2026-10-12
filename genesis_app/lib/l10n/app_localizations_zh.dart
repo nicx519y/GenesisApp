@@ -3139,6 +3139,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get developerRecapLive => 'Member · live recap';
+
+  @override
+  String get chatEditFreeUsesExhausted => 'No free edits remaining.';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6126,4 +6129,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get developerRecapLive => '會員 · 實際回顧';
+
+  @override
+  String get chatEditFreeUsesExhausted => '免費編輯次數不足';
 }

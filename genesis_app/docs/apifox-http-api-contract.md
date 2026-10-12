@@ -1489,7 +1489,7 @@ Inspiration 及正式/候选 batch 在 HTTP 200 envelope 的 `data` 同级返回
 
 成功结果模型提供可选 `ChatroomFeatureQuota quota`。`remaining=0` 的最后一次操作仍已成功，不撤销正文或灵感；缺失、格式错误或功能不匹配的可选 quota 不把已提交成功改成失败。真实 POST 开始时捕获 `ChatroomHttpApi.onFeatureQuotaRequest` 回调，在合法成功/2030 响应中更新对应额度；GET 和灵感缓存复用不调用该回调，缓存序列化也不保存旧 quota。
 
-`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），英文文案为 `Feature quota exhausted`。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
+`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），异常保留服务端响应供诊断；Edit 保存的用户提示使用本地化 `chatEditFreeUsesExhausted`（英文 `No free edits remaining.`，繁中 `免費編輯次數不足`）。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并拉起订阅 sheet（来源 `from_chat_edit_quota`），保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
 
 ### POST `/aitown-chat/api/v1/worlds/{world_id}/locations/{location_id}/inspiration`
 
@@ -2801,3 +2801,7 @@ Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
 对应聊天消息采用既有映射 `narrator → global`、`paragraphs → story_events`；客户端不使用模型原始的 `when/global对象/locations` 作为 HTTP 别名。支持全局 2 条状态、每地点 6 条状态、P1/P1i 10/6 个地点；空数组和空 clue 合法，客户端不再次按原提示词目标截断。World/Origin 映射完整保留新增字段，World Events 和聊天共用章节内容组件。请求、分页、错误、计价及 Tick 异步触发形状不变。该扩展需以服务端实际返回完成联调确认。
 
 章节的 `global_status`，以及每个地点项（HTTP `paragraphs[]` / 聊天 `story_events[]`）的 `cast`、`status` 均为独立可选数组，可分别省略或同时省略；模型层统一按空数组处理，保留章节旁白、地点叙述和线索，不因此把整条 Tick 判为损坏。字段存在时仍校验数组类型及元素结构（`null` 不视为空数组）。适用于实时 Tick、历史消息、缓存恢复以及 World / Origin 地点段落；旧结构识别和可见性规则不变。
+
+### 2026-10-12 编辑页额度不足与历史轮次保存
+
+编辑页保存不再要求目标是当前最新轮次，不因 Tick 或轮次变化在客户端取消提交；仍用打开编辑页时的世界、地点、轮次及候选卡片 ID。服务端校验权限、可编辑状态和额度；无改动不请求，不能全删，消息 ID 校验和防重复提交继续保留。2030 展示一次本地化免费编辑次数不足 Toast，并打开会员 sheet；关闭或订阅后保留草稿，用户再次点击保存，不自动重试。其他错误仍按现有通路处理。

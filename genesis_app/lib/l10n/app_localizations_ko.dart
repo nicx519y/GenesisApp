@@ -3048,4 +3048,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get developerRecapLive => '구독 중 · 실제 요약';
+
+  @override
+  String get chatEditFreeUsesExhausted => '무료 편집 횟수를 모두 사용했습니다.';
 }

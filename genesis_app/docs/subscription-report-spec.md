@@ -22,3 +22,7 @@
 由于没有跨事件关联 ID，单靠现有 Collect 事件不能准确计算“点击后成功率”“访问购买转化率”“同一次购买先失败后成功”“游客购买到 claim 的订单级转化”，也不能将某次成功归给特定的 yearly / monthly 点击。若报表需要这些指标，应关联服务端订单数据并另行定义可验证的关联契约。claim 一次可能覆盖多笔游客购买，不得把 claim.completed 次数当作绑定成功订单数。
 
 report 请求失败率、服务端发货成功率、收入和退款仍需使用请求监控与服务端订单数据；购买结果 `pay_event` 不再包含 report 状态。上线时分别验收 Android / iOS 回调、pending 后购买成功、重复回调、游客登录前后 UID、缺交易号和晚到事件。
+
+## 编辑保存额度不足入口（2026-10-12）
+
+新增来源 `from_chat_edit_quota`：编辑页保存接口返回 2030 时，显示本地化免费编辑次数不足 Toast 并打开会员 sheet。页面类型复用 `subscription_sheet`，每次打开生成新的 pageId；不新增页面类型。`subscription_page_show`、`subscription_click` 及后续购买结果的 object1 使用该来源；object2/object3 继续既有事件口径。已有聊天功能入口 `from_chat_feature_quota` 保持原含义。编辑日志 `location_chat_edit` 的 `save_quota_insufficient|轮次ID` 保留；sheet 关闭或购买成功不自动提交编辑草稿。

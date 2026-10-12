@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/chatroom/chatroom_feature_quota_models.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -33,6 +34,7 @@ Future<void> openEditor(
   List<ChatMessageVm>? messages,
   int? cardId,
   GlobalKey<NavigatorState>? navigatorKey,
+  Future<void> Function(BuildContext)? onQuotaExhausted,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -62,6 +64,7 @@ Future<void> openEditor(
                         ],
                     style: kLocationChatStyle,
                     onSave: onSave,
+                    onQuotaExhausted: onQuotaExhausted,
                   ),
                 ),
               ),
@@ -423,6 +426,39 @@ void main() {
   );
 
   testWidgets(
+    '2030 shows localized free edit toast and one sheet while keeping draft',
+    (tester) async {
+      var sheets = 0;
+      final closed = Completer<void>();
+      await openEditor(
+        tester,
+        onSave: (_) async => throw ChatroomFeatureQuotaException(),
+        onQuotaExhausted: (_) {
+          sheets++;
+          return closed.future;
+        },
+      );
+      final field = find.byKey(const ValueKey('chat-message-editor-reply'));
+      await tester.enterText(field, 'Preserved text.');
+      await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+      await tester.pump();
+      expect(find.text('No free edits remaining.'), findsOneWidget);
+      expect(sheets, 1);
+      await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+      await tester.pump();
+      expect(sheets, 1);
+      closed.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(LocationChatEditPage), findsOneWidget);
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'Preserved text.',
+      );
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
     'business save failure only shows the global toast and retains the draft',
     (tester) async {
       final navigatorKey = GlobalKey<NavigatorState>();
@@ -545,7 +581,7 @@ void main() {
       expect(find.byType(LocationChatEditPage), findsOneWidget);
       expect(
         find.text('Exception: The reply could not be saved.'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('location-chat-edit-status')),

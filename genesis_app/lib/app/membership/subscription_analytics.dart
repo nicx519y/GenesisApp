@@ -11,6 +11,7 @@ enum SubscriptionSource {
   mePinkGems('from_me_pink_gems'),
   dailyCheckIn('from_daily_check_in'),
   chatFeatureQuota('from_chat_feature_quota'),
+  chatEditQuota('from_chat_edit_quota'),
   onboarding('from_onboarding'),
   buyGemsTab('from_buy_gems_tab'),
   worldRecap('from_world_recap'),

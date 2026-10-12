@@ -4215,5 +4215,9 @@
   "developerRecapLive": "구독 중 · 실제 요약",
   "@developerRecapLive": {
     "description": "Recap debug selector: simulate subscription but load actual server recap content."
+  },
+  "chatEditFreeUsesExhausted": "무료 편집 횟수를 모두 사용했습니다.",
+  "@chatEditFreeUsesExhausted": {
+    "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
   }
 }

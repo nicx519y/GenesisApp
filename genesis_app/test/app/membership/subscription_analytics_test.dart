@@ -28,6 +28,31 @@ void main() {
   });
 
   test(
+    'edit quota sheet and purchase use a distinct source with existing surface',
+    () {
+      analytics.pageShow(
+        'edit-page',
+        SubscriptionSurface.sheet,
+        SubscriptionSource.chatEditQuota,
+      );
+      final click = analytics.click(
+        'edit-page',
+        SubscriptionSurface.sheet,
+        SubscriptionSource.chatEditQuota,
+        isYearly: true,
+      );
+      analytics.failed(click, 'query_failed');
+      expect(events.every((e) => e.object1 == 'from_chat_edit_quota'), isTrue);
+      expect(events.first.object2, isEmpty);
+      expect(events.first.object3, 'subscription_sheet');
+      expect(
+        SubscriptionSource.parse('from_chat_edit_quota'),
+        SubscriptionSource.chatEditQuota,
+      );
+    },
+  );
+
+  test(
     'purchase events omit object2 and clicks keep private operation IDs',
     () {
       analytics.pageShow(

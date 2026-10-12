@@ -5264,6 +5264,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Member · live recap'**
   String get developerRecapLive;
+
+  /// Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact.
+  ///
+  /// In en, this message translates to:
+  /// **'No free edits remaining.'**
+  String get chatEditFreeUsesExhausted;
 }
 
 class _AppLocalizationsDelegate

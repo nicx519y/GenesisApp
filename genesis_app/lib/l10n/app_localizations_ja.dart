@@ -3042,4 +3042,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get developerRecapLive => 'メンバー · 実際の振り返り';
+
+  @override
+  String get chatEditFreeUsesExhausted => '無料の編集回数が残っていません。';
 }

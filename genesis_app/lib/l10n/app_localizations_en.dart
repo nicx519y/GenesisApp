@@ -3139,4 +3139,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get developerRecapLive => 'Member · live recap';
+
+  @override
+  String get chatEditFreeUsesExhausted => 'No free edits remaining.';
 }

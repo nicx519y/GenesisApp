@@ -1,3 +1,5 @@
+import '../../l10n/genesis_localizations.dart';
+import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../../../../../../../l10n/genesis_l10n.dart';
 import 'dart:async';

@@ -3193,4 +3193,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get developerRecapLive => 'Abbonato · riepilogo reale';
+
+  @override
+  String get chatEditFreeUsesExhausted => 'Hai esaurito le modifiche gratuite.';
 }
