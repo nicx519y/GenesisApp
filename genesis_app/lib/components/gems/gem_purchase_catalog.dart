@@ -324,6 +324,7 @@ class GemProductCard extends StatelessWidget {
                             ),
                       onPressed: enabled ? onPurchase : null,
                       height: kGemPriceButtonHeight,
+                      shrinkLabelToFit: true,
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
