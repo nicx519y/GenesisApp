@@ -799,6 +799,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       ),
       child: GenesisPrimaryButton(
         key: const ValueKey('pro-subscribe-button'),
+        shrinkLabelToFit: true,
         backgroundColor: Colors.transparent,
         foregroundColor: premiumInkOnGold,
         label: subscribed
@@ -1249,15 +1250,19 @@ class _ProPlanCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    note,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.25,
-                      fontWeight: FontWeight.w400,
-                      color: GenesisColors.darkTextTertiary,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      note,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.25,
+                        fontWeight: FontWeight.w400,
+                        color: GenesisColors.darkTextTertiary,
+                      ),
                     ),
                   ),
                 ],
