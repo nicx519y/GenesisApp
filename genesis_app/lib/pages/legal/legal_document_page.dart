@@ -1,4 +1,5 @@
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/app_language_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,12 @@ enum LegalDocument {
   const LegalDocument({required this.url});
 
   final String url;
+
+  Uri uriForSettingLanguage(String? language) {
+    final base = Uri.parse(url);
+    if (language == null || language.isEmpty) return base;
+    return base.replace(queryParameters: {'language': language});
+  }
 
   String get title => switch (this) {
     LegalDocument.terms => GenesisL10n.current.termsOfService,
@@ -49,6 +56,21 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
   var _styleReady = false;
   var _loadGeneration = 0;
   Completer<bool>? _paintCompleter;
+  String? _settingLanguage;
+
+  void _onLanguageChanged() {
+    final language = appLanguageController.settingLanguage;
+    if (language == _settingLanguage) return;
+    _settingLanguage = language;
+    _cancelPaintWait();
+    setState(() {
+      _styleReady = false;
+      _hasError = false;
+      _loadingProgress = 0;
+      _loadGeneration++;
+    });
+    _initializeController();
+  }
 
   void _cancelPaintWait() {
     final completer = _paintCompleter;
@@ -58,6 +80,7 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
 
   @override
   void dispose() {
+    appLanguageController.removeListener(_onLanguageChanged);
     _cancelPaintWait();
     super.dispose();
   }
@@ -65,6 +88,8 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
   @override
   void initState() {
     super.initState();
+    _settingLanguage = appLanguageController.settingLanguage;
+    appLanguageController.addListener(_onLanguageChanged);
     _initializeController();
   }
 
@@ -153,7 +178,9 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
         ),
       );
       if (!mounted || _controller != controller) return;
-      await controller.loadRequest(Uri.parse(widget.document.url));
+      await controller.loadRequest(
+        widget.document.uriForSettingLanguage(_settingLanguage),
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _hasError = true);
@@ -218,7 +245,9 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
                     ),
                   if (_hasError)
                     _LegalWebErrorView(
-                      url: widget.document.url,
+                      url: widget.document
+                          .uriForSettingLanguage(_settingLanguage)
+                          .toString(),
                       onRetry: _retry,
                     ),
                 ],
@@ -246,9 +275,7 @@ class _LegalWebErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              GenesisL10n
-                  .current
-                  .homeLoadFailed,
+              GenesisL10n.current.homeLoadFailed,
               style: TextStyle(
                 fontSize: 16,
                 color: GenesisColors.darkTextPrimary,
@@ -273,9 +300,7 @@ class _LegalWebErrorView extends StatelessWidget {
                 foregroundColor: GenesisColors.darkTextPrimary,
                 side: const BorderSide(color: GenesisColors.darkFaintFill),
               ),
-              child: Text(
-                GenesisL10n.current.homeRetry,
-              ),
+              child: Text(GenesisL10n.current.homeRetry),
             ),
           ],
         ),

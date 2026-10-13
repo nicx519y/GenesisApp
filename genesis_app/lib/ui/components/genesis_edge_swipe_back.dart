@@ -13,11 +13,14 @@ class GenesisEdgeSwipeBack extends StatefulWidget {
     required this.child,
     required this.onBack,
     this.enabled = true,
+    this.maintainStackWhenDisabled = false,
   });
 
   final Widget child;
   final VoidCallback onBack;
   final bool enabled;
+  /// Preserves the child's element tree when [enabled] changes.
+  final bool maintainStackWhenDisabled;
 
   @override
   State<GenesisEdgeSwipeBack> createState() => _GenesisEdgeSwipeBackState();
@@ -33,7 +36,9 @@ class _GenesisEdgeSwipeBackState extends State<GenesisEdgeSwipeBack> {
     if (!widget.enabled ||
         (platform != TargetPlatform.iOS &&
             defaultTargetPlatform != TargetPlatform.iOS)) {
-      return widget.child;
+      return widget.maintainStackWhenDisabled
+          ? Stack(children: [widget.child])
+          : widget.child;
     }
     final direction = Directionality.of(context);
     final padding = MediaQuery.paddingOf(context);

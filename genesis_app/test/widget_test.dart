@@ -13597,6 +13597,72 @@ void main() {
     );
   });
 
+  testWidgets('Origin detail sheet takes back and edge swipe before its page', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await originWorldSheetDebugSettings.setExpandOnEntry(true);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.of(context).pushNamed(
+                  RouteNames.originWorld,
+                  arguments: const <String, Object?>{'oid': 'o_test_1'},
+                ),
+                child: const Text('Open Origin'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open Origin'));
+    await tester.pumpAndSettle();
+
+    final surface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final draggableSheet = find.byType(DraggableScrollableSheet);
+    final sheet = tester.widget<DraggableScrollableSheet>(draggableSheet);
+    final collapsedTop = 844 * (1 - sheet.minChildSize);
+    expect(tester.getTopLeft(surface).dy, lessThan(collapsedTop - 20));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(OriginWorldPage), findsOneWidget);
+    expect(tester.getTopLeft(surface).dy, closeTo(collapsedTop, 1));
+
+    sheet.controller!.jumpTo(sheet.maxChildSize);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(surface).dy, lessThan(collapsedTop - 20));
+    final swipe = await tester.startGesture(const Offset(2, 400));
+    await swipe.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await swipe.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await swipe.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await swipe.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(OriginWorldPage), findsOneWidget);
+    expect(tester.getTopLeft(surface).dy, closeTo(collapsedTop, 1));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(OriginWorldPage), findsNothing);
+    expect(find.text('Open Origin'), findsOneWidget);
+  });
+
   testWidgets(
     'Origin app config true uses expanded height on first sheet frame',
     (WidgetTester tester) async {

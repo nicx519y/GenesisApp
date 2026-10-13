@@ -44,6 +44,36 @@ void main() {
 
     expect(backCount, 0);
   });
+
+  testWidgets('stable container keeps child state when gesture toggles', (
+    tester,
+  ) async {
+    final enabled = ValueNotifier<bool>(false);
+    addTearDown(enabled.dispose);
+    final child = StatefulBuilder(builder: (_, _) => const SizedBox.expand());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: ValueListenableBuilder<bool>(
+          valueListenable: enabled,
+          builder: (context, isEnabled, _) => GenesisEdgeSwipeBack(
+            enabled: isEnabled,
+            maintainStackWhenDisabled: true,
+            onBack: () {},
+            child: child,
+          ),
+        ),
+      ),
+    );
+
+    final originalState = tester.state(find.byType(StatefulBuilder));
+    enabled.value = true;
+    await tester.pump();
+    expect(tester.state(find.byType(StatefulBuilder)), same(originalState));
+    enabled.value = false;
+    await tester.pump();
+    expect(tester.state(find.byType(StatefulBuilder)), same(originalState));
+  });
 }
 
 class _EdgeSwipeHarness extends StatelessWidget {

@@ -817,8 +817,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _handleOriginPopBlocked() {
-    if (_activeChatLocation == null) return;
-    _closeLocationChat();
+    if (_activeChatLocation != null) {
+      _closeLocationChat();
+      return;
+    }
+    if (_detailSheetRaisedNotifier.value) {
+      _roleSheetKey.currentState?._collapseToMinChildSize();
+    }
   }
 
   void _enterLaunchedWorld(
@@ -1065,53 +1070,59 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             ),
           );
 
-    return PopScope(
-      canPop: _activeChatLocation == null,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleOriginPopBlocked();
-      },
-      child: _buildMapOnlyScaffold(
-        topPadding: topPadding,
-        mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
-        bottomSheetOverlayBuilder: (minChildSize) =>
-            _OriginDetailDraggableSheet(
-              key: _roleSheetKey,
-              origin: origin,
-              roleAvatarSnapshots: _roleAvatarSnapshots,
-              minChildSize: minChildSize,
-              initiallyExpanded: widget.showOpeningSheetOnEntry,
-              autoExpansionPending: _waitingForOpeningSheetExpansion,
-              onRaisedChanged: _handleDetailSheetRaisedChanged,
-              onOverlayVisibleHeightChanged:
-                  _tilemapOverlayOcclusionController.setVisibleHeight,
-              onFullyExpanded: _handleOpeningSheetFullyExpanded,
-              onAutoExpansionInterrupted:
-                  _handleOpeningSheetExpansionInterrupted,
-              onOriginChanged: _refreshOriginDetail,
-              activeLaunchSource: _activeLaunchSource,
-              launchedPresetRoles: _launchedPresetRolesData,
-              onEnterLaunchedWorld: (role) {
-                final worldId = role.worldId.trim();
-                if (worldId.isEmpty) return;
-                _enterLaunchedWorld(worldId);
-              },
-              profileRole: _openingProfileRole,
-              onSaveProfileRole: _saveProfileRoleLocally,
-              locationChatRole: _locationChatRoleOption(origin),
-              onSelectLocationChatRole: (roleId) =>
-                  _selectLocationChatRole(roleId),
-              onSendLocationChatMessage:
-                  (locationId, message, mentionCatalog) =>
-                      _launchLocationChatMessage(
-                        origin,
-                        locationId: locationId,
-                        message: message,
-                        mentionCatalog: mentionCatalog,
-                      ),
+    final page = _buildMapOnlyScaffold(
+      topPadding: topPadding,
+      mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
+      bottomSheetOverlayBuilder: (minChildSize) => _OriginDetailDraggableSheet(
+        key: _roleSheetKey,
+        origin: origin,
+        roleAvatarSnapshots: _roleAvatarSnapshots,
+        minChildSize: minChildSize,
+        initiallyExpanded: widget.showOpeningSheetOnEntry,
+        autoExpansionPending: _waitingForOpeningSheetExpansion,
+        onRaisedChanged: _handleDetailSheetRaisedChanged,
+        onOverlayVisibleHeightChanged:
+            _tilemapOverlayOcclusionController.setVisibleHeight,
+        onFullyExpanded: _handleOpeningSheetFullyExpanded,
+        onAutoExpansionInterrupted: _handleOpeningSheetExpansionInterrupted,
+        onOriginChanged: _refreshOriginDetail,
+        activeLaunchSource: _activeLaunchSource,
+        launchedPresetRoles: _launchedPresetRolesData,
+        onEnterLaunchedWorld: (role) {
+          final worldId = role.worldId.trim();
+          if (worldId.isEmpty) return;
+          _enterLaunchedWorld(worldId);
+        },
+        profileRole: _openingProfileRole,
+        onSaveProfileRole: _saveProfileRoleLocally,
+        locationChatRole: _locationChatRoleOption(origin),
+        onSelectLocationChatRole: (roleId) => _selectLocationChatRole(roleId),
+        onSendLocationChatMessage: (locationId, message, mentionCatalog) =>
+            _launchLocationChatMessage(
+              origin,
+              locationId: locationId,
+              message: message,
+              mentionCatalog: mentionCatalog,
             ),
-        topOverlay: _buildLocationChatOverlay(),
-        map: WorldKeepAlivePage(child: map),
+      ),
+      topOverlay: _buildLocationChatOverlay(),
+      map: WorldKeepAlivePage(child: map),
+    );
+    return ValueListenableBuilder<bool>(
+      valueListenable: _detailSheetRaisedNotifier,
+      child: page,
+      builder: (context, detailSheetRaised, child) => PopScope(
+        canPop: _activeChatLocation == null && !detailSheetRaised,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleOriginPopBlocked();
+        },
+        child: GenesisEdgeSwipeBack(
+          enabled: detailSheetRaised && _activeChatLocation == null,
+          maintainStackWhenDisabled: true,
+          onBack: _handleOriginPopBlocked,
+          child: child!,
+        ),
       ),
     );
   }

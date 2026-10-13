@@ -36,13 +36,15 @@ extension _LocationChatLayout on _LocationChatPanelState {
         : velocity;
     if (logicalVelocity >= _locationChatEdgeSwipeTriggerVelocity) {
       _triggerEdgeSwipeBack();
+      _resetEdgeSwipeBack();
       return;
     }
     _resetEdgeSwipeBack();
   }
 
   void _triggerEdgeSwipeBack() {
-    if (_edgeSwipeBackTriggered) return;
+    // The mention route owns back gestures while it is visible.
+    if (_mentionSheetOpen || _edgeSwipeBackTriggered) return;
     _edgeSwipeBackTriggered = true;
     _composerFocusNode.unfocus();
     widget.onBack?.call();

@@ -12,6 +12,27 @@ import 'package:genesis_flutter_android/pages/legal/legal_document_dark_style.da
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
+  test('legal URLs use only the explicit setting-language protocol value', () {
+    for (final document in LegalDocument.values) {
+      expect(document.uriForSettingLanguage(null).toString(), document.url);
+      expect(document.uriForSettingLanguage('').toString(), document.url);
+      for (final language in [
+        'en',
+        'zh-TW',
+        'es',
+        'pt',
+        'fr',
+        'de',
+        'it',
+        'ja',
+        'ko',
+      ]) {
+        final uri = document.uriForSettingLanguage(language);
+        expect(uri.toString(), '${document.url}?language=$language');
+        expect(isWorldoLegalDocument(uri.toString()), isTrue);
+      }
+    }
+  });
   late _WebPlatform platform;
   setUp(() {
     platform = _WebPlatform();

@@ -182,6 +182,7 @@ class _OriginDetailDraggableSheetState
   var _currentUid = '';
   var _isFullyExpanded = false;
   var _isRaised = false;
+  bool _hasReportedRaisedState = false;
   var _extentCommandGeneration = 0;
   var _sheetReadyCheckScheduled = false;
   var _autoExpansionInterruptionScheduled = false;
@@ -710,7 +711,8 @@ class _OriginDetailDraggableSheetState
   }
 
   void _updateRaisedState(bool isRaised) {
-    if (isRaised == _isRaised) return;
+    if (_hasReportedRaisedState && isRaised == _isRaised) return;
+    _hasReportedRaisedState = true;
     _isRaised = isRaised;
     widget.onRaisedChanged(isRaised);
   }
