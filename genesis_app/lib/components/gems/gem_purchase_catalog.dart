@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../utils/gem_amount.dart';
+import '../../utils/store_price_display_policy.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import 'gem_assets.dart';
 import 'gem_balance_text.dart';
@@ -317,7 +318,7 @@ class GemProductCard extends StatelessWidget {
                       label: isSoldOut
                           ? GenesisL10n.current.meSoldOut
                           : product.displaysStorePrice
-                          ? product.storeFormattedPrice!
+                          ? trimZeroPriceDecimals(product.storeFormattedPrice!)
                           : formatGemPrice(
                               product.priceAmount,
                               product.priceCurrencyCode,
@@ -325,7 +326,7 @@ class GemProductCard extends StatelessWidget {
                       onPressed: enabled ? onPurchase : null,
                       height: kGemPriceButtonHeight,
                       shrinkLabelToFit: true,
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       fontSize: 14,

@@ -976,7 +976,7 @@ void main() {
     },
   );
 
-  testWidgets('store KRW uses server prices for cards and the selected button', (
+  testWidgets('store KRW prices fill cards and the selected button', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1008,13 +1008,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-    expect(find.textContaining('12,000', findRichText: true), findsNothing);
+    expect(find.text('Yearly: ₩120,000'), findsOneWidget);
+    expect(find.textContaining('10,000', findRichText: true), findsWidgets);
     expect(find.text('Save 17%'), findsOneWidget);
-    expect(find.textContaining(r'$99.99', findRichText: true), findsWidgets);
+    expect(find.textContaining(r'$99.99', findRichText: true), findsNothing);
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.pump();
-    expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+    expect(find.text('Monthly: ₩12,000'), findsOneWidget);
   });
 
   testWidgets('a single unpriced monthly product supplies its own display', (
@@ -1180,7 +1180,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text(r'Yearly: $120.00'), findsOneWidget);
+        expect(find.text(r'Yearly: $120'), findsOneWidget);
         expect(h.restoreQueries, 0);
         await tester.pumpWidget(const SizedBox.shrink());
         h.service.dispose();
@@ -1287,16 +1287,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(r'$10.00/mo', findRichText: true), findsOneWidget);
-      expect(find.text(r'Yearly: $120.00'), findsOneWidget);
+      expect(find.text(r'$10/mo', findRichText: true), findsOneWidget);
+      expect(find.text(r'Yearly: $120'), findsOneWidget);
       expect(find.text('Save 50%'), findsOneWidget);
       await tester.tap(find.byKey(buttonKey));
       await tester.pumpAndSettle();
       expect(selected.single.priceAmount, 12000);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text(r'Monthly: $20.00'), findsOneWidget);
-      expect(find.text(r'$20.00/mo', findRichText: true), findsOneWidget);
+      expect(find.text(r'Monthly: $20'), findsOneWidget);
+      expect(find.text(r'$20/mo', findRichText: true), findsOneWidget);
     },
   );
 

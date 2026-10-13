@@ -14,6 +14,25 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   for (final example in [
+    ('JPY', '¥13,999', 13999000000, '¥1,167'),
+    ('KRW', '₩139,999', 139999000000, '₩11,667'),
+    ('TWD', 'NT\$3,990', 3990000000, 'NT\$333'),
+    ('TWD', 'NT\$3,990.00', 3990000000, 'NT\$332.50'),
+  ]) {
+    test('monthly equivalent keeps ${example.$1} precision', () {
+      final price = MembershipDisplayPrice.fromStore(
+        MembershipStorePrice(
+          formattedPrice: example.$2,
+          amountMicros: example.$3,
+          currencyCode: example.$1,
+          currencySymbol: '',
+        ),
+      );
+      expect(price.monthlyEquivalent('en', 12), example.$4);
+    });
+  }
+
+  for (final example in [
     ('CAD', 'CA\$139.99', 'CA\$11.67'),
     ('AUD', 'A\$139.99', 'A\$11.67'),
     ('GBP', '£139.99', '£11.67'),
@@ -51,7 +70,15 @@ void main() {
     test(
       'display price policy for $currency applies to subscriptions and Gems',
       () {
-        final allowed = ['EUR', 'GBP', 'AUD', 'CAD'].contains(currency);
+        final allowed = [
+          'EUR',
+          'GBP',
+          'AUD',
+          'CAD',
+          'JPY',
+          'TWD',
+          'KRW',
+        ].contains(currency);
         final offer = MembershipOffer(
           product: membershipProduct(currency: 'USD', priceAmount: 999),
           storePrice: MembershipStorePrice(
