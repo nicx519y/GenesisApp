@@ -772,6 +772,8 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
             senderId: selectedRoleId,
             senderName: role.name,
             avatarUrl: role.avatarSnapshotSourceKey,
+            avatarSnapshot: _roleAvatarSnapshots
+                .imageFor(role.avatarSnapshotSourceKey)?.clone(),
             isPlayerControlledRole: true,
             text: message,
             isMe: true,

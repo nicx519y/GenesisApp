@@ -856,7 +856,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         tickProgressChanged ||
         tickProgressResolved;
     final shouldRebuild = messageViewportChanged || visibleChatroomStateChanged;
-    if (visibleChatroomStateChanged) {
+    if (visibleChatroomStateChanged ||
+        _composerSpeakerReadyFor(_chatroomState) !=
+            _composerSpeakerReadyFor(state)) {
       _setLocationChatState(() {
         _chatroomState = state;
       });

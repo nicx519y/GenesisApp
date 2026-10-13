@@ -16,6 +16,38 @@ String resolveLocationChatAvatarUrlForTesting({
 }
 
 extension _LocationChatIdentity on _LocationChatPanelState {
+  bool get _composerSpeakerReady => _composerSpeakerReadyFor(_chatroomState);
+
+  bool _composerSpeakerReadyFor(WorldChatroomState state) {
+    if (_initialComposerSpeaker != null) return true;
+    if (!_waitForComposerSpeaker) return true;
+    return state.joinedLocationId == widget.locationId &&
+        state.latestHistoryLoads.containsKey(widget.locationId) &&
+        _composerRoleIdentity(state).name.isNotEmpty;
+  }
+
+  String get _composerSpeakerName => _initialComposerSpeaker?.name ?? (_waitForComposerSpeaker
+      ? _composerRoleIdentity(_chatroomState).name
+      : _localSelfDisplayName());
+
+  String get _composerSpeakerAvatar => _initialComposerSpeaker?.avatar ?? (_waitForComposerSpeaker
+      ? _composerRoleIdentity(_chatroomState).avatar
+      : _localSelfAvatarUrl());
+
+  ({String name, String avatar}) _composerRoleIdentity(WorldChatroomState state) {
+    final keys = [_myUserId, _mySenderId]
+        .map(_chatroomIdentityKey).where((key) => key.isNotEmpty).toSet();
+    // Resolve both fields from the same authoritative World character. Account
+    // profiles, occupancy snapshots and preview identities are not substitutes.
+    for (final candidate in state.world?.characters ?? const <Map<String, dynamic>>[]) {
+      final name = _roleNameFromCharacterCandidate(candidate, keys);
+      if (name.isNotEmpty) {
+        return (name: name, avatar: _roleAvatarFromCharacterCandidate(candidate, keys));
+      }
+    }
+    return (name: '', avatar: '');
+  }
+
   bool _isSelectedOpeningPlayerMessage(WorldChatroomMessage message) {
     final characterId = _chatroomIdentityKey(widget.openingPlayerCharacterId);
     if (characterId.isEmpty) return false;

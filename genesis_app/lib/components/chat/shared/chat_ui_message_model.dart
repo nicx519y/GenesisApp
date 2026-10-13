@@ -17,6 +17,7 @@ class ChatMessageVm {
     required this.senderId,
     required this.senderName,
     this.avatarUrl = '',
+    this.avatarSnapshot,
     this.imageUrl = '',
     this.timelinePayload,
     this.isPlayerControlledRole = false,
@@ -68,6 +69,8 @@ class ChatMessageVm {
   final String senderId;
   String senderName;
   String avatarUrl;
+  /// Display-only decoded handoff image; the launching route owns this handle.
+  final ui.Image? avatarSnapshot;
   String imageUrl;
   ChatTimelinePayloadVm? timelinePayload;
   bool isPlayerControlledRole;

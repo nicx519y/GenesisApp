@@ -16,6 +16,8 @@ class LocationChatComposerInput extends StatelessWidget {
     this.hintText,
     this.selfName = '',
     this.selfAvatarUrl = '',
+    this.selfAvatarSnapshot,
+    this.showSpeakerIdentity = true,
     this.style,
     this.bottomSafeAreaInset,
     this.composerHeader,
@@ -42,6 +44,8 @@ class LocationChatComposerInput extends StatelessWidget {
   /// The character the player speaks as, which the toggle and hint name.
   final String selfName;
   final String selfAvatarUrl;
+  final ui.Image? selfAvatarSnapshot;
+  final bool showSpeakerIdentity;
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
   final Widget? composerHeader;
@@ -60,7 +64,9 @@ class LocationChatComposerInput extends StatelessWidget {
     final narrating = messageType == chatroomNarrationMessageType;
     final name = selfName.trim();
     // The hint says who the next message speaks as, and changes with the toggle.
-    final resolvedHint = narrating
+    final resolvedHint = !showSpeakerIdentity
+        ? ''
+        : narrating
         ? GenesisL10n.current.chatMessageAsNarrator
         : name.isEmpty
         ? (hintText ?? GenesisL10n.current.chatText)
@@ -87,12 +93,13 @@ class LocationChatComposerInput extends StatelessWidget {
           onHeightChanged: onHeightChanged,
           bottomSafeAreaInset: bottomSafeAreaInset,
           composerHeader: composerHeader,
-          inputLeading: onToggleMessageType == null
+          inputLeading: !showSpeakerIdentity || onToggleMessageType == null
               ? null
               : _SpeakerToggle(
                   narrating: narrating,
                   selfName: name,
                   selfAvatarUrl: selfAvatarUrl,
+                  selfAvatarSnapshot: selfAvatarSnapshot,
                   plateColor: (style ?? ChatUiStyleConfig.standard)
                       .composerSendButtonDisabledColor,
                   onPressed: inputEnabled && !sending
@@ -125,6 +132,7 @@ class _SpeakerToggle extends StatelessWidget {
     required this.narrating,
     required this.selfName,
     required this.selfAvatarUrl,
+    this.selfAvatarSnapshot,
     required this.plateColor,
     required this.onPressed,
   });
@@ -132,6 +140,7 @@ class _SpeakerToggle extends StatelessWidget {
   final bool narrating;
   final String selfName;
   final String selfAvatarUrl;
+  final ui.Image? selfAvatarSnapshot;
 
   /// The grey the composer's other controls rest on.
   final Color plateColor;
@@ -205,6 +214,17 @@ class _SpeakerToggle extends StatelessWidget {
                                 GenesisColors.darkTextPrimary,
                                 BlendMode.srcIn,
                               ),
+                            ),
+                          )
+                        : selfAvatarSnapshot != null
+                        ? ClipRRect(
+                            key: const ValueKey('speaker-character-snapshot'),
+                            borderRadius: BorderRadius.circular(_radius),
+                            child: RawImage(
+                              image: selfAvatarSnapshot,
+                              width: _mark,
+                              height: _mark,
+                              fit: BoxFit.cover,
                             ),
                           )
                         : GenesisCharacterAvatar(

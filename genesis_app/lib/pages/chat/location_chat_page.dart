@@ -3,6 +3,7 @@ import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../../../../../../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -698,6 +699,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
   bool _initialMessageSendPending = false;
+  bool _waitForComposerSpeaker = false;
+  ({String name, String avatar})? _initialComposerSpeaker;
+  ui.Image? _initialComposerAvatarImage;
   ChatMessageVm? _initialOutgoingMessage;
   bool _initialOutgoingMessageReconciled = false;
   bool _ignoreInheritedKeyboardInset = false;
@@ -973,6 +977,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
     final initialMessageToSend = widget.initialMessageToSend;
     _initialOutgoingMessage = widget.initialOutgoingMessage;
+    final initialSpeaker = _initialOutgoingMessage;
+    _initialComposerAvatarImage = initialSpeaker?.avatarSnapshot?.clone();
+    if (initialSpeaker != null &&
+        initialSpeaker.isPlayerControlledRole &&
+        initialSpeaker.senderName.trim().isNotEmpty &&
+        (initialSpeaker.avatarUrl.trim().isNotEmpty ||
+            _initialComposerAvatarImage != null)) {
+      // The selected Origin role is already known before navigation. Capture
+      // immutable fields because message reconciliation mutates the outgoing VM.
+      _initialComposerSpeaker = (
+        name: initialSpeaker.senderName.trim(),
+        avatar: initialSpeaker.avatarUrl.trim(),
+      );
+    }
     // Sheet sends close their composer while this page is already visible.
     // Its keyboard belongs to the previous page until our composer is focused.
     _ignoreInheritedKeyboardInset = _initialOutgoingMessage != null;
@@ -992,6 +1010,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (outgoingMessage != null) _messages.add(outgoingMessage);
     _initialMessageSendPending =
         outgoingMessage != null || initialMessageToSend.trim().isNotEmpty;
+    _waitForComposerSpeaker = _initialMessageSendPending;
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -1021,6 +1040,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _initialComposerAvatarImage?.dispose();
     _clearAckLoading();
     _unbindFeatureQuotas();
     locationChatHeaderEffectSettings.removeListener(
@@ -1268,8 +1288,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
               focusNode: _composerFocusNode,
               onInputTap: _handleComposerInputTap,
               hintText: GenesisL10n.current.chatText,
-              selfName: _localSelfDisplayName(),
-              selfAvatarUrl: _localSelfAvatarUrl(),
+              showSpeakerIdentity: _composerSpeakerReady,
+              selfName: _composerSpeakerName,
+              selfAvatarUrl: _composerSpeakerAvatar,
+              selfAvatarSnapshot: _initialComposerAvatarImage,
               messageType: _composerMessageType,
               onToggleMessageType:
                   _messageAppVersion < chatroomNarrationMinAppVersion
