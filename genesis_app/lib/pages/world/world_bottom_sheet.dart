@@ -1,4 +1,5 @@
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_dark_close_button.dart';
 // ignore_for_file: use_key_in_widget_constructors
 
@@ -48,7 +49,7 @@ class WorldBottomTags extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = worldBottomTagItems;
+    final items = worldBottomTagItemsFor(context.l10n);
     return Container(
       height: worldMainTabsHeight,
       color: GenesisColors.darkBackground,
@@ -257,7 +258,8 @@ class WorldSingleSectionBottomSheetState
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
 
-  List<WorldBottomTagItem> get _tabItems => worldBottomTagItems;
+  List<WorldBottomTagItem> get _tabItems =>
+      worldBottomTagItemsFor(context.l10n);
 
   bool _canAccess(WorldBottomSheetKind kind) =>
       canAccessWorldSection(kind, _currentWorld.relationStatus);
@@ -287,7 +289,9 @@ class WorldSingleSectionBottomSheetState
     super.initState();
     _sheetController = DraggableScrollableController();
     _pageController = PageController(
-      initialPage: _pageForKind(_selection.kind),
+      initialPage: worldBottomTagItems.indexWhere(
+        (item) => item.kind == _selection.kind,
+      ).clamp(0, worldBottomTagItems.length - 1),
     );
     _previewScrollControllers = List<ScrollController>.generate(
       worldBottomTagItems.length,

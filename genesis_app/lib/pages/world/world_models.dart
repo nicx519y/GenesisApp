@@ -1,4 +1,5 @@
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'world_constants.dart';
@@ -111,29 +112,32 @@ WorldNewUserJoinNotice? worldLatestPlayerJoinNotice(
   return WorldNewUserJoinNotice.fromCharacter(latestCharacter);
 }
 
-final worldBottomTagItems = <WorldBottomTagItem>[
+List<WorldBottomTagItem> get worldBottomTagItems =>
+    worldBottomTagItemsFor(GenesisL10n.current);
+
+List<WorldBottomTagItem> worldBottomTagItemsFor(AppLocalizations l10n) => [
   WorldBottomTagItem(
-    label: GenesisL10n.current.worldModelsDetail,
+    label: l10n.worldModelsDetail,
     kind: WorldBottomSheetKind.detail,
     asset: worldDetailIconAsset,
   ),
   WorldBottomTagItem(
-    label: GenesisL10n.current.worldModelsLocations,
+    label: l10n.worldModelsLocations,
     kind: WorldBottomSheetKind.locations,
     icon: Icons.place_outlined,
   ),
   WorldBottomTagItem(
-    label: GenesisL10n.current.worldModelsEvents,
+    label: l10n.worldModelsEvents,
     kind: WorldBottomSheetKind.events,
     asset: worldSectionEventsIconAsset,
   ),
   WorldBottomTagItem(
-    label: GenesisL10n.current.worldRecap,
+    label: l10n.worldRecap,
     kind: WorldBottomSheetKind.recap,
     icon: Icons.auto_stories_outlined,
   ),
   WorldBottomTagItem(
-    label: GenesisL10n.current.worldModelsStatus,
+    label: l10n.worldModelsStatus,
     kind: WorldBottomSheetKind.status,
     asset: worldSectionStatusIconAsset,
   ),
