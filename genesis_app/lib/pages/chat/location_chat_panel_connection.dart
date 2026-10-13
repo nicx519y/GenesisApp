@@ -810,6 +810,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         !_joiningLocation) {
       unawaited(_joinLocation(service));
     }
+    // Keep connection recovery above alive, but reconcile the latest service
+    // snapshot only once when the covering page closes.
+    if (_presentationPaused) return;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];

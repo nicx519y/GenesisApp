@@ -553,6 +553,7 @@ extension _WorldPageLocationChat on _WorldPageState {
   }
 
   void _scheduleLocationChatPrecache() {
+    if (_presentationPaused) return;
     final descriptors = _locationChatDescriptors.values
         .where((descriptor) => descriptor.isLeafLocation)
         .where((descriptor) => descriptor.locationId.trim().isNotEmpty)
@@ -641,9 +642,13 @@ extension _WorldPageLocationChat on _WorldPageState {
         if (!expectedIds.every(_preloadedLocationMessageIds.contains)) return;
         _setWorldPageState(() {
           _mapBubbleMessagesReady = true;
-          _replaceMapBubbleCandidates(
-            _buildMapBubbleCandidates(chatroom.state, _world),
-          );
+          if (_presentationPaused) {
+            _deferredBottomSheetMapChatroomState = chatroom.state;
+          } else {
+            _replaceMapBubbleCandidates(
+              _buildMapBubbleCandidates(chatroom.state, _world),
+            );
+          }
         });
         _logLocationChatMetric(
           'map bubble messages ready locations=${expectedIds.length}',

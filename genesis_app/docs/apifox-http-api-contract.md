@@ -31,6 +31,7 @@
 - V2 Origin 完整编辑详情：`/Users/ionix/Downloads/foredit_v2.md`
 - 查询我 launch 过的 preset 角色：`/Users/ionix/Downloads/launched.md`
 - App 版本升级检查：`/Users/ionix/Downloads/version_check.md`
+- 音乐目录接口：`/Users/ionix/Downloads/music-list.md`（2026-10-10）
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
 提取时间：2026-06-15
@@ -45,11 +46,15 @@ Origin detail 增量核对时间：2026-08-05
 
 ## 总览
 
-本文档当前覆盖 59 个接口，分为 `app`、`用户`、`device`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十四组：
+本文档当前覆盖 60 个接口，分为 `app`、`用户`、`device`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect`、`music` 和 `upload` 十五组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
 | app | POST | `/api/v1/app/version/check` | App 版本升级检查 |
+| music | GET | `/api/v1/music/list` | 游客可用的完整音乐目录，无参数、不分页 |
+| music | GET | `/api/v1/music/like_status` | 登录用户的单首音乐点赞状态，query 为精确的 file |
+| music | POST | `/api/v1/music/like` | 登录用户点赞音乐，JSON body 为 file，幂等 |
+| music | POST | `/api/v1/music/unlike` | 登录用户取消点赞，JSON body 为 file，幂等 |
 | 用户 | POST | `/api/v1/user/oauth/google` | Google login |
 | 用户 | POST | `/api/v1/user/logout` | Logout current session |
 | 用户 | POST | `/api/v1/user/delete` | 删除当前账号 |
@@ -2805,3 +2810,66 @@ Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
 ### 2026-10-12 编辑页额度不足与历史轮次保存
 
 编辑页保存不再要求目标是当前最新轮次，不因 Tick 或轮次变化在客户端取消提交；仍用打开编辑页时的世界、地点、轮次及候选卡片 ID。服务端校验权限、可编辑状态和额度；无改动不请求，不能全删，消息 ID 校验和防重复提交继续保留。2030 展示一次本地化免费编辑次数不足 Toast，并打开会员 sheet；关闭或订阅后保留草稿，用户再次点击保存，不自动重试。其他错误仍按现有通路处理。
+
+## 音乐目录（2026-10-10）
+
+`GET /api/v1/music/list` 游客可用，无参数、不分页。响应为标准
+`{err_no, err_msg, data}` envelope，`data` 含必填 `pre_url` 字符串和
+`list` 数组。文档描述静态目录包含 100 首，按 `file` 升序；客户端按服务端
+返回顺序使用，不硬编码数量，允许空列表。
+
+曲目必填字段：`file`、`source_worldo_id`、`source_worldo_name`、`artist`、
+`title`、`cover_url`。音频地址直接拼接 `pre_url + file`。`cover_url` 为来源
+Worldo 的 XL 封面，移除首个 `?` 及其后的查询参数。不返回歌词、时长或点赞数。
+
+实现：`GenesisApi.fetchMusicCatalog()` → `GenesisV1Api.music.list()` →
+`MusicCatalog` / `MusicTrack`。目录请求复用已有 API client 和 Gateway 签名链路，
+不额外要求登录或 world_id；CDN 音频由 `just_audio` 直接读取。
+
+Mini phone 的音乐页使用返回的曲目、歌手、来源 Worldo 和封面。共享
+`MiniPhoneMusicService` 在首次播放时才创建原生播放器，最多保留当前播放和下一首
+待播放两个单曲 `just_audio` 实例。实际播放后才准备下一首开头，目标缓冲约 5 秒，
+实际缓冲量由平台决定；不下载完整文件。切到下一首时复用待播放实例，目录末尾循环，
+单曲目录只复用一个实例。提供真实时长、播放/缓冲进度、暂停、seek 和切歌；
+在前台点击上一首／下一首会自动播放，即使原先暂停或尚未开始播放。上一首在
+进度超过 3 秒时先回到当前曲首并播放，否则切换上一首。
+预加载失败不影响当前播放。进入非 resumed 生命周期即暂停并取消未完成的音频预加载，
+返回前台不自动恢复。未接入后台播放服务、媒体通知或锁屏控制。
+爱心接入以下点赞接口，不展示接口未提供的点赞数。Mock 模式明确返回空目录，
+不注入可播放的生产或演示曲目。
+
+完整音乐页和 Home 卡片复用单行往返滚动文字、48px 点击/拖动进度条及封面过渡组件。
+封面作为 XL 资源按显示宽度和上限 1.5 的 DPR 选择项目 CDN 档位，并用相同 URL、
+缓存及解码尺寸预取下一首封面。切歌立即切换封面目标，旧图最多淡出 200ms；
+新图未就绪或加载失败时展示同尺寸占位，加载成功后淡入。仅音乐组件隔离保留上一帧
+行为，其他共享图片组件不变。系统减少动画时文字静止、封面直接切换。
+
+### 音乐点赞（2026-10-12）
+
+来源：用户提供的 `music_like.md`。
+
+- `GET /api/v1/music/like_status?file=001.mp3`：返回
+  `data: {file: string, is_liked: boolean}`，无有效点赞时为 false。
+- `POST /api/v1/music/like` 与 `POST /api/v1/music/unlike`：JSON body
+  为 `{file: string}`，成功返回 `data: {}`；重复点赞、重复取消均成功，
+  点赞最多计一次，取消后允许重新点赞。
+- 三个接口均需登录，使用已有 session 和 Gateway 签名链路。`file` 必须精确
+  匹配目录（当前 `001.mp3`–`100.mp3`），不传音频 URL、路径或大小写别名。
+  所有响应沿用 `{err_no, err_msg, data}`；HTTP 200 的非零 `err_no`
+  仍是失败（未登录 10001、非法文件 4004、数据库错误沿用既有错误码）。
+- `MusicLikeStatus` 严格读取 file/is_liked，`MusicV1Api` 提供
+  like/unlike/likeStatus，`GenesisApi` 提供对应 facade。
+- MiniPhone 打开播放器及切歌时拉取当前歌曲状态；点击立即改变爱心，并提交
+  like/unlike。每首歌的提交串行执行，读取旧响应不能覆盖点击后的状态。
+  最新操作失败时回滚到最后一次服务端确认状态，用共享 toast 展示原始
+  `err_msg`；无业务响应的网络失败使用通用重试提示。切歌后旧歌曲的失败
+  只回滚旧歌曲，连续操作中旧失败不覆盖新操作。
+
+
+## MiniPhone wallpaper
+
+Source: supplied `wallpaper.md` contract.
+
+- `GET /api/v1/world/miniphoneinfo?world_id=...`: required nonblank World ID; uses `world/info` visibility and permits guests. Returns `{background_image: string, default_background_images: [{image_url: string, title: string}]}` inside the standard `{err_no, err_msg, data}` envelope. Background is shared across Worlds for the current user; guests/unset backgrounds return `""`. An unconfigured catalogue returns `[]`.
+- `POST /api/v1/world/setminiphonebackground`: JSON `{world_id: string, background_image: string}`; logged-in, non-banned users only, visible World required, ownership is not required. Background belongs to the authenticated UID, not the World. Empty string clears it; otherwise use a credential-free HTTP/HTTPS URL of at most 512 characters, with no leading/trailing whitespace. Do not omit the field or send null. Repeated saves succeed. Success data is `{}`; nonzero `err_no` is an error even with HTTP 200.
+- MiniPhone requests on every opening while restoring account/environment-scoped local background and World-scoped catalogue data first; Settings reuses that result and exposes retry on failure. Background image files use the shared disk cache. An unchanged URL keeps the current image; a changed URL replaces it with a 300 ms crossfade only after the new image is downloaded and decoded. Request/image failures retain the last usable cached background. Selection is a draft until Apply succeeds. Device images use `POST /api/v1/upload/image` (multipart `file`) before saving the returned URL. Empty backgrounds, or unavailable backgrounds without a usable cache, display the bundled `wallpaper-01.png`; bundled images are not substituted for the server catalogue. The Reset phone action is not shown. Device selections use the shared Location-cover crop pipeline (1:2, crop size 1500 × 3000, decode longest edge ≤4096 and ≤16 million pixels, JPEG quality 90 or PNG when transparent, GIF rejected). There is no MiniPhone-specific 3 MiB input limit. Crop confirmation generates only a small in-memory preview. Apply prepares the full crop from the original selection, then uploads and saves it. The preview keeps its decoded image while a translucent black mask reveals the picture from bottom to top, without numbers or a spinner. Overall progress reserves 0–20% for image preparation, maps upload bytes to 21–90%, and starts at 91% during the background setter, then slowly simulates progress toward a 99% ceiling until actual success reaches 100%. Simulation stops on failure, account change, or page disposal. The button remains loading through submission. Successful preparation/upload is reused on retry. After the setter succeeds, full-resolution upload bytes are written to the shared disk cache under the returned URL, followed by account metadata; the on-screen preview is retained and no image re-download is required.

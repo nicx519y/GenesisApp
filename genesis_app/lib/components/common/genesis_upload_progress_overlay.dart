@@ -8,6 +8,9 @@ class GenesisUploadProgressOverlay extends StatelessWidget {
     this.label,
     this.coverColor = const Color(0x7A000000),
     this.labelColor = const Color(0x85000000),
+    this.showIndicator = true,
+    this.revealFromBottom = false,
+    this.animationDuration = Duration.zero,
   });
 
   final double progress;
@@ -15,6 +18,9 @@ class GenesisUploadProgressOverlay extends StatelessWidget {
   final String? label;
   final Color coverColor;
   final Color labelColor;
+  final bool showIndicator;
+  final bool revealFromBottom;
+  final Duration animationDuration;
 
   @override
   Widget build(BuildContext context) {
@@ -29,53 +35,64 @@ class GenesisUploadProgressOverlay extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FractionallySizedBox(
-                widthFactor: 1,
-                heightFactor: coverFactor,
-                child: ColoredBox(color: coverColor),
-              ),
-            ),
-            Center(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: labelColor,
-                  borderRadius: BorderRadius.circular(999),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 1, end: coverFactor),
+              duration: normalized == 0 ? Duration.zero : animationDuration,
+              builder: (context, factor, child) => Align(
+                alignment: revealFromBottom
+                    ? Alignment.topCenter
+                    : Alignment.bottomCenter,
+                child: FractionallySizedBox(
+                  widthFactor: 1,
+                  heightFactor: factor,
+                  child: child,
                 ),
-                child: Padding(
-                  padding: processing
-                      ? const EdgeInsets.all(7)
-                      : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  child: processing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
+              ),
+              child: ColoredBox(color: coverColor),
+            ),
+            if (showIndicator)
+              Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: labelColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Padding(
+                    padding: processing
+                        ? const EdgeInsets.all(7)
+                        : const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
                           ),
-                        )
-                      : ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: maxLabelWidth < 1 ? 1 : maxLabelWidth,
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              displayLabel,
-                              maxLines: 1,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                    child: processing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxLabelWidth < 1 ? 1 : maxLabelWidth,
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                displayLabel,
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
               ),
-            ),
           ],
         );
       },

@@ -4,6 +4,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
   void _loadPastHiddenInitialHistoryIfNeeded() {
     if (!_messageAppVersionLoaded ||
         !widget.active ||
+        _presentationPaused ||
         !widget.isLeafLocation ||
         _loadingOlderMessages ||
         !_hasMoreOlderMessages) {
@@ -30,6 +31,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !widget.active ||
+          _presentationPaused ||
           widget.locationId != location ||
           !identical(_service, service) ||
           _loadingOlderMessages) {
@@ -45,6 +47,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       return;
     }
     if (!widget.active ||
+        _presentationPaused ||
         !widget.isLeafLocation ||
         _loadingOlderMessages ||
         !_hasMoreOlderMessages) {
@@ -80,7 +83,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       return;
     }
     if (!locationChatShouldLoadOlderMessagesForTesting(
-      active: widget.active,
+      active: widget.active && !_presentationPaused,
       isLeafLocation: widget.isLeafLocation,
       loading: _loadingOlderMessages,
       hasMore: _hasMoreOlderMessages,

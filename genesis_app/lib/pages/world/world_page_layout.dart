@@ -86,6 +86,7 @@ extension _WorldPageLayout on _WorldPageState {
           implementationKey: _tilemapImplementationKey,
           locationId: locationId,
           centerContentInitially: true,
+          animationsPaused: _presentationPaused,
           showVisualModeToggle: false,
           restorationController: _tilemapRestorationController,
           onDisplayReadinessChanged: _handleTilemapDisplayReadinessChanged,
@@ -143,6 +144,32 @@ extension _WorldPageLayout on _WorldPageState {
                   .toDouble();
           return Stack(
             children: [
+              if (kDebugMode &&
+                  world != null &&
+                  _worldMainTabIndex == 0 &&
+                  _activeChatLocationId.isEmpty)
+                Positioned.fill(
+                  child: MiniPhoneEdgeDock(
+                    positionStore: miniPhoneMapDockPosition,
+                    topInset:
+                        top + worldMapBackButtonTop + worldMapTabsHeight + 8,
+                    leftBottomInset:
+                        worldCollapsedPanelHeightFor(context, world: world) + 8,
+                    bottomInset:
+                        worldCollapsedPanelHeightFor(context, world: world) +
+                        legacyWorldMapZoomControlBottomGap +
+                        legacyWorldMapZoomControlHeight +
+                        12,
+                    onPressed: () => PagePresentationScope.runCovered(
+                      context,
+                      () => showMiniPhoneDemo(
+                        context,
+                        worldId: world.worldId,
+                        modelCache: _locationChatPageCache.memoryModelPageCache,
+                      ),
+                    ),
+                  ),
+                ),
               if (_worldMainTabIndex == 0)
                 Positioned(
                   left: worldMapBackButtonLeft,

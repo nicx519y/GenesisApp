@@ -3,23 +3,24 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../ui/tokens/genesis_colors.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../world_map_contract.dart';
+import '../world_map_exit_location_button.dart';
 import '../world_map_interaction_notification.dart';
 
 const double legacyWorldMapMinScale = 1;
 const double legacyWorldMapMaxScale = 2;
 const double legacyWorldMapZoomControlRightGap = 12;
 const double legacyWorldMapZoomControlBottomGap = 30;
-const double legacyWorldMapZoomControlWidth = 30;
+const double legacyWorldMapZoomControlWidth = 34;
 const double legacyWorldMapZoomControlHeight = 68;
-const double legacyWorldMapZoomControlRadius = 8;
+const double legacyWorldMapZoomControlRadius = worldMapControlRadius;
 const double legacyWorldMapZoomHitAreaWidth = 48;
 const double legacyWorldMapZoomHitAreaHeight = 88;
 const double legacyWorldMapZoomDragExtent = 96;
-const Color legacyWorldMapZoomControlBackgroundColor = Color(0x99151517);
+const Color legacyWorldMapZoomControlBackgroundColor =
+    worldMapControlBackground;
 const Color legacyWorldMapZoomControlEnabledColor = Color(0xFFFFFFFF);
 const Color legacyWorldMapZoomControlDisabledColor = Color(0xFF777777);
 const String legacyWorldMapZoomInIconAsset =
@@ -577,13 +578,7 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
               borderRadius: BorderRadius.circular(
                 legacyWorldMapZoomControlRadius,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              border: Border.fromBorderSide(worldMapControlBorder),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(
@@ -625,15 +620,13 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(
-                      width: 14,
-                      height: 11,
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          key: ValueKey<String>(
-                            'world-map-zoom-drag-indicator',
-                          ),
-                          painter: _MapZoomGripPainter(),
+                    const IgnorePointer(
+                      child: SizedBox(
+                        width: 20,
+                        child: Divider(
+                          height: .5,
+                          thickness: .5,
+                          color: Color(0x26FFFFFF),
                         ),
                       ),
                     ),
@@ -646,41 +639,6 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
       ),
     );
   }
-}
-
-class _MapZoomGripPainter extends CustomPainter {
-  const _MapZoomGripPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3)),
-      Paint()..color = Colors.transparent,
-    );
-    final paint = Paint()
-      ..color = GenesisColors.darkTextSecondary
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round;
-    final center = size.center(Offset.zero);
-    canvas.drawLine(
-      Offset(center.dx - 3, center.dy - 2.5),
-      Offset(center.dx + 3, center.dy - 2.5),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx - 4.5, center.dy),
-      Offset(center.dx + 4.5, center.dy),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx - 3, center.dy + 2.5),
-      Offset(center.dx + 3, center.dy + 2.5),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MapZoomGripPainter oldDelegate) => false;
 }
 
 class _MapZoomButton extends StatelessWidget {

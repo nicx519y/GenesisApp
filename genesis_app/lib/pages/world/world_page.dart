@@ -22,12 +22,15 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/common/page_presentation_scope.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
+import '../../components/legacy_world_map/legacy_world_map_gesture.dart'
+    show legacyWorldMapZoomControlBottomGap, legacyWorldMapZoomControlHeight;
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/api_client.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
@@ -44,6 +47,10 @@ import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'world_bottom_sheet.dart';
+import '../mini_phone/mini_phone_page.dart';
+import '../mini_phone/mini_phone_ui.dart';
+import '../mini_phone/mini_phone_demo_store.dart';
+import '../mini_phone/mini_phone_music_service.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_location_chat_host.dart';
@@ -173,6 +180,9 @@ class _WorldPageState extends State<WorldPage>
   bool _openEventsAfterTickDone = false;
   bool _eventsUnread = false;
   bool _recapUnread = false;
+  final _presentation = PagePresentationController();
+  bool get _presentationPaused => _presentation.paused;
+
   bool _worldBottomSheetOpen = false;
   bool _hasUnreadNewUserJoin = false;
   bool _openEventsAfterCurrentBottomSheetClosed = false;
@@ -234,7 +244,20 @@ class _WorldPageState extends State<WorldPage>
   static const _worldTickLockPollInterval = Duration(seconds: 10);
 
   void _setWorldPageState(VoidCallback callback) {
-    setState(callback);
+    if (_presentationPaused) {
+      callback();
+    } else {
+      setState(callback);
+    }
+  }
+
+  void _handlePresentationChanged() {
+    if (!mounted) return;
+    _locationChatPageCache.setPresentationPaused(_presentationPaused);
+    setState(() {
+      if (!_presentationPaused) _applyDeferredBottomSheetMapChatroomState();
+    });
+    if (!_presentationPaused) _scheduleLocationChatPrecache();
   }
 
   Widget _buildWorldLocationChatHost() {
@@ -438,6 +461,7 @@ class _WorldPageState extends State<WorldPage>
   @override
   void initState() {
     super.initState();
+    _presentation.addListener(_handlePresentationChanged);
     recentWorldChatStore.listenable.addListener(
       _handleRecentWorldChatStoreChanged,
     );
@@ -516,6 +540,8 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
+    _presentation.dispose();
+    if (kDebugMode) scheduleMicrotask(miniPhoneMusic.resetPausedOnWorldExit);
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _stopWorldTickLockPolling();
@@ -559,7 +585,15 @@ class _WorldPageState extends State<WorldPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PagePresentationScope(
+    controller: _presentation,
+    child: TickerMode(
+      enabled: !_presentationPaused,
+      child: _buildWorldContent(context),
+    ),
+  );
+
+  Widget _buildWorldContent(BuildContext context) {
     final topPadding = GenesisSafeAreaInsets.top(context);
     final world = _world;
     if (world == null) {
@@ -690,7 +724,8 @@ class _WorldPageState extends State<WorldPage>
                   _mapBubbleMessagesReady
               ? _mapMessageBubbles
               : const <WorldMapMessageBubble>[],
-          messageBubblePlaybackPaused: mapPausedForLocationChat,
+          messageBubblePlaybackPaused:
+              _presentationPaused || mapPausedForLocationChat,
           onDrillIntoLocation: _showMapTab,
           onMapTap: _recordWorldMapClick,
           onPointTap: _openChatForPoint,
@@ -724,9 +759,14 @@ class _WorldPageState extends State<WorldPage>
           centerContentInitially: true,
           recentChatLocationIds: recentMapLocationIds,
           eventLocationIds: eventMapLocationIds,
-          animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,
+          animationsPaused:
+              _presentationPaused ||
+              _worldBottomSheetOpen ||
+              mapPausedForLocationChat,
           keepProgressiveTileMountingWhilePaused:
-              _worldBottomSheetOpen && !mapPausedForLocationChat,
+              _worldBottomSheetOpen &&
+              !mapPausedForLocationChat &&
+              !_presentationPaused,
           reloadRevision: _tilemapReloadRevision,
           visualModeToggleTop:
               topPadding + worldMapBackButtonTop + worldMapTabsHeight + 8,

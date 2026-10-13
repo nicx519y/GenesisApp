@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_ui.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
@@ -36940,6 +36942,47 @@ void main() {
     );
   });
 
+  testWidgets('MiniPhone pauses World presentation and restores the same map', (
+    tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    WorldMap map() =>
+        tester.widget<WorldMap>(find.byType(WorldMap, skipOffstage: false));
+    final worldState = tester.state(find.byType(WorldPage));
+    final restoration = map().tilemap.restorationController;
+    expect(map().tilemap.animationsPaused, isFalse);
+    tester
+        .widget<MiniPhoneEdgeDock>(find.byType(MiniPhoneEdgeDock))
+        .onPressed();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(MiniPhonePage), findsOneWidget);
+    expect(map().tilemap.animationsPaused, isTrue);
+    expect(map().tilemap.keepProgressiveTileMountingWhilePaused, isFalse);
+    expect(map().common.messageBubblePlaybackPaused, isTrue);
+    expect(map().tilemap.restorationController, same(restoration));
+    Navigator.of(tester.element(find.byType(MiniPhonePage))).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(MiniPhonePage), findsNothing);
+    expect(tester.state(find.byType(WorldPage)), same(worldState));
+    expect(map().tilemap.animationsPaused, isFalse);
+    expect(map().tilemap.restorationController, same(restoration));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('world location chat shows skeleton before first panel frame', (
     WidgetTester tester,
   ) async {
@@ -37243,17 +37286,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Location (2)'));
-    await tester.pumpAndSettle();
-    final childRow = find.ancestor(
-      of: find.text('Child Location').last,
-      matching: find.byType(InkWell),
-    );
-    await tester.tap(childRow.last);
-    await tester.pump();
+    final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+    final childPoint =
+        worldMap.common.locationNodes.single.children.single.point;
+    await worldMap.common.onPointTap!(childPoint);
     await tester.pumpAndSettle();
 
-    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    final panel = find.byKey(
+      const ValueKey('world-location-chat-l_w_test_1_child'),
+    );
+    expect(panel, findsOneWidget);
     expect(chatroom.session.joinCount, 1);
 
     await tester.binding.handlePopRoute();
@@ -37262,7 +37304,7 @@ void main() {
 
     expect(observer.popCount, 0);
     expect(find.byType(WorldPage), findsOneWidget);
-    expect(_visibleText('Child Location (1)'), findsNothing);
+    expect(panel, findsNothing);
     expect(chatroom.session.leaveCount, 1);
   });
 

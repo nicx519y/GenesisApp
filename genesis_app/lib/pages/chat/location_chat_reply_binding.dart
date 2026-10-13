@@ -67,7 +67,9 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   }
 
   void _onPreparedEntryChanged() {
-    if (!mounted || _service == null || !widget.active) return;
+    if (!mounted || _presentationPaused || _service == null || !widget.active) {
+      return;
+    }
     // A build caused by activation synchronously reads the same snapshot.
     _replyProjectionEpoch++;
     _syncFromServiceState(_service!);
@@ -76,13 +78,14 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
 
   void _onReplyActionsChanged() {
     _syncReplyAnalyticsOutcomes();
+    if (_presentationPaused) return;
     if (_replyRebuildScheduled) return;
     _replyRebuildScheduled = true;
     final binding = _replyBindingGeneration;
     scheduleMicrotask(() {
       if (binding != _replyBindingGeneration) return;
       _replyRebuildScheduled = false;
-      if (mounted && widget.active) {
+      if (mounted && widget.active && !_presentationPaused) {
         _syncInspirationView();
         final error = _replyController?.stateFor(widget.locationId)?.error;
         if (error != null &&

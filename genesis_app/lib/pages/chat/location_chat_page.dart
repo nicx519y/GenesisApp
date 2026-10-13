@@ -1,9 +1,13 @@
 import '../../l10n/genesis_localizations.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../l10n/language_data_refresh.dart';
-import '../../../../../../../../l10n/genesis_l10n.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
+
+import '../../components/common/page_presentation_scope.dart';
+import '../mini_phone/mini_phone_page.dart';
+import '../mini_phone/mini_phone_ui.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -525,6 +529,23 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         : _replyController?.presentationStateFor(widget.locationId);
   }
 
+  PagePresentationController? _presentation;
+  bool get _presentationPaused => _presentation?.paused ?? false;
+
+  void _handlePresentationChanged() {
+    if (!mounted) return;
+    if (_presentationPaused) {
+      _cancelOlderMessagesLoadSchedule();
+      return;
+    }
+    final service = _service;
+    if (widget.active && service != null) {
+      _syncFromServiceState(service, forceMessageReconcile: true);
+      _onReplyActionsChanged();
+    }
+    _setLocationChatState(() {});
+  }
+
   late final LocationChatScrollCoordinator _scrollCoordinator;
   ScrollController get _scrollController => _scrollCoordinator.controller;
   late final LocationChatMentionEditingController _textController;
@@ -874,6 +895,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       );
 
   void _setLocationChatState(VoidCallback callback) {
+    if (_presentationPaused) {
+      callback();
+      _replyProjectionEpoch++;
+      return;
+    }
     setState(() {
       callback();
       _replyProjectionEpoch++;
@@ -881,13 +907,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _notifyMessageViewport({bool invalidateReplyProjection = true}) {
-    if (!mounted) return;
+    if (!mounted || _presentationPaused) return;
     if (invalidateReplyProjection) _replyProjectionEpoch++;
     _messageViewportRevision.value++;
   }
 
   void _setReplyControlsState(VoidCallback callback) {
     callback();
+    if (_presentationPaused) return;
     _replyControlsRevision.value++;
     _scheduleDeferredTickReleaseIfReady();
   }
@@ -1041,6 +1068,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void dispose() {
     _initialComposerAvatarImage?.dispose();
+    _presentation?.removeListener(_handlePresentationChanged);
     _clearAckLoading();
     _unbindFeatureQuotas();
     locationChatHeaderEffectSettings.removeListener(
@@ -1209,6 +1237,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final presentation = PagePresentationScope.maybeRead(context);
+    if (!identical(presentation, _presentation)) {
+      _presentation?.removeListener(_handlePresentationChanged);
+      _presentation = presentation;
+      _presentation?.addListener(_handlePresentationChanged);
+    }
     _bindFeatureQuotas(AppServicesScope.of(context));
     final userInfoRevision = AppServicesScope.of(
       context,
@@ -1479,7 +1513,26 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                             );
                           }
                         : null,
-                    messageViewport: messageViewport,
+                    messageViewport: Stack(
+                      children: [
+                        Positioned.fill(child: messageViewport),
+                        if (kDebugMode && widget.active)
+                          Positioned.fill(
+                            child: MiniPhoneEdgeDock(
+                              topInset: 4,
+                              bottomInset: 8,
+                              onPressed: () => PagePresentationScope.runCovered(
+                                context,
+                                () => showMiniPhoneDemo(
+                                  context,
+                                  worldId: _modelWorldId,
+                                  modelCache: _modelRequestCache,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     header: header,
                     composerTopOverlay: widget.showComposer
                         ? widget.composerTopOverlay

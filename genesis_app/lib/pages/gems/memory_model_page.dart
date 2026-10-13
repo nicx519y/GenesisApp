@@ -44,6 +44,7 @@ class MemoryModelPage extends StatefulWidget {
     this.memorySettingsLoader,
     this.memorySettingsUpdater,
     this.pageCache,
+    this.onBack,
   });
 
   final String worldId;
@@ -53,6 +54,7 @@ class MemoryModelPage extends StatefulWidget {
   final UserMemorySettingsLoader? memorySettingsLoader;
   final UserMemorySettingsUpdater? memorySettingsUpdater;
   final MemoryModelPageCache? pageCache;
+  final VoidCallback? onBack;
 
   @override
   State<MemoryModelPage> createState() => _MemoryModelPageState();
@@ -733,7 +735,11 @@ class _MemoryModelPageState extends State<MemoryModelPage>
 
   void _closePage() {
     _flushPendingOnExit();
-    Navigator.of(context).pop(_confirmedModelCode);
+    if (widget.onBack != null) {
+      widget.onBack!();
+    } else {
+      Navigator.of(context).pop(_confirmedModelCode);
+    }
   }
 
   @override

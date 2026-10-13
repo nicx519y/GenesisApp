@@ -63,6 +63,7 @@ import '../../network/models/app_version_check.dart';
 import 'about_us_page.dart';
 import 'developer_personalization_preview.dart';
 import 'developer_forced_login_preview.dart';
+import '../mini_phone/mini_phone_page.dart';
 
 part 'developer_endpoint_actions.dart';
 part 'developer_version_actions.dart';
@@ -1172,6 +1173,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           disabledForegroundColor: GenesisColors.darkTextTertiary,
           foregroundColor: GenesisColors.darkTextPrimary,
         ),
+        if (kDebugMode) ...[
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            key: const ValueKey<String>('developer-mini-phone-preview'),
+            label: 'Preview Mini phone',
+            onPressed: _showMiniPhonePreview,
+            backgroundColor: GenesisColors.darkFaintFill,
+            foregroundColor: GenesisColors.darkTextPrimary,
+          ),
+        ],
         const SizedBox(height: _itemGap),
         ValueListenableBuilder<MembershipDebugOverride>(
           valueListenable: membershipDebugOverride,

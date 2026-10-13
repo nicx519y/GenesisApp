@@ -124,9 +124,13 @@ class WorldLocationChatPanelDescriptor {
 class WorldLocationChatPageCache {
   WorldLocationChatPageCache({
     LocationChatBackgroundPreloader? backgroundPreloader,
-  }) : _backgroundPreloader =
+    this.maxCachedPanels = 3,
+  }) : assert(maxCachedPanels > 0),
+       _backgroundPreloader =
            backgroundPreloader ?? LocationChatBackgroundPreloader();
 
+  final int maxCachedPanels;
+  bool _presentationPaused = false;
   final LocationChatBackgroundPreloader _backgroundPreloader;
   final MemoryModelPageCache memoryModelPageCache = MemoryModelPageCache();
   final Map<String, WorldLocationChatPanelDescriptor> _descriptors =
@@ -161,11 +165,6 @@ class WorldLocationChatPageCache {
     _descriptors
       ..clear()
       ..addAll(descriptors);
-    _cachedLocationIds.addAll(
-      descriptors.values
-          .where((descriptor) => descriptor.isLeafLocation)
-          .map((descriptor) => descriptor.locationId),
-    );
     _cachedLocationIds.removeWhere((locationId) {
       return !descriptors.containsKey(locationId);
     });
@@ -191,6 +190,7 @@ class WorldLocationChatPageCache {
   }
 
   void _preloadCurrentTilemapBackgrounds() {
+    if (_presentationPaused) return;
     _backgroundPreloader.preload(
       _currentTilemapLocationIds
           .map((locationId) => _descriptors[locationId]?.backgroundImageUrl)
@@ -200,8 +200,16 @@ class WorldLocationChatPageCache {
 
   void activate(WorldLocationChatPanelDescriptor descriptor) {
     _descriptors[descriptor.locationId] = descriptor;
+    // Insertion order is recency order. Keep only the current and two recent
+    // page trees; descriptors and drafts are inexpensive and survive eviction.
+    _cachedLocationIds.remove(descriptor.locationId);
     _cachedLocationIds.add(descriptor.locationId);
     activeLocationId = descriptor.locationId;
+    while (_cachedLocationIds.length > maxCachedPanels) {
+      final evicted = _cachedLocationIds.first;
+      _cachedLocationIds.remove(evicted);
+      _readyLocationIds.remove(evicted);
+    }
     if (_currentTilemapLocationIds.contains(descriptor.locationId)) {
       _preloadCurrentTilemapBackgrounds();
     }
@@ -216,7 +224,19 @@ class WorldLocationChatPageCache {
   }
 
   bool markReady(String locationId) {
+    if (!_cachedLocationIds.contains(locationId)) return false;
     return _readyLocationIds.add(locationId);
+  }
+
+  void setPresentationPaused(bool paused) {
+    if (_presentationPaused == paused) return;
+    _presentationPaused = paused;
+    if (paused) {
+      // Running downloads may finish, but no queued download should start.
+      _backgroundPreloader.preload(const []);
+    } else {
+      _preloadCurrentTilemapBackgrounds();
+    }
   }
 
   String draftTextFor(String locationId) {
@@ -408,6 +428,7 @@ class WorldLocationChatRouterHostState
     final visible = descriptor.locationId == displayLocationId;
     final ready = widget.cache.isReady(descriptor.locationId);
     return IgnorePointer(
+      key: ValueKey('world-location-chat-cached-${descriptor.locationId}'),
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,

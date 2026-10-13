@@ -256,7 +256,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       _lastAppliedChatroomWorldProgressRevision =
           state.latestSocketCurrentTimeRevision;
     }
-    final deferMapVisuals = _worldBottomSheetOpen;
+    final deferMapVisuals = _worldBottomSheetOpen || _presentationPaused;
     List<WorldMapBubbleCandidate>? preparedMapBubbleCandidates;
     var mapVisualsChanged = false;
     if (deferMapVisuals) {
@@ -346,7 +346,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
   }
 
   void _prefetchTilemapUpdateForLocationChat(WorldDetail? world) {
-    if (world == null ||
+    if (_presentationPaused ||
+        world == null ||
         world.definitionVersion != 2 ||
         _activeChatLocationId.isEmpty ||
         _initialLocationChatEntry) {
@@ -369,6 +370,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
   }
 
   void _applyDeferredBottomSheetMapChatroomState() {
+    if (_presentationPaused || _worldBottomSheetOpen) return;
     final state = _deferredBottomSheetMapChatroomState;
     _deferredBottomSheetMapChatroomState = null;
     if (state == null) return;

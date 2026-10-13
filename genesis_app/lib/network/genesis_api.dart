@@ -11,6 +11,8 @@ import 'gateway_auth.dart';
 import 'json_utils.dart';
 import 'local_mock_runtime.dart';
 import 'models/location_tree.dart';
+import 'models/music.dart';
+import 'models/miniphone_info.dart';
 import 'models/origin.dart';
 import 'models/paged_response.dart';
 import 'models/tilemap_definition.dart';
@@ -86,6 +88,27 @@ class GenesisApi extends _GenesisApiContext
     super.onSessionExpired,
     super.onChatroomMessageMutationError,
   });
+
+  Future<MusicCatalog> fetchMusicCatalog() => v1.music.list();
+
+  Future<MusicLikeStatus> fetchMusicLikeStatus({required String file}) =>
+      v1.music.likeStatus(file: file);
+
+  Future<void> likeMusic({required String file}) => v1.music.like(file: file);
+
+  Future<void> unlikeMusic({required String file}) =>
+      v1.music.unlike(file: file);
+
+  Future<MiniphoneInfo> fetchMiniphoneInfo({required String worldId}) =>
+      v1.world.miniphoneInfo(worldId: worldId);
+
+  Future<void> setMiniphoneBackground({
+    required String worldId,
+    required String backgroundImage,
+  }) => v1.world.setMiniphoneBackground(
+    worldId: worldId,
+    backgroundImage: backgroundImage,
+  );
 }
 
 final Map<int, String> _originIdToWorldview = <int, String>{};

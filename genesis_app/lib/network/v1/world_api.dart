@@ -1,8 +1,36 @@
 import '../api_client.dart';
+import '../models/miniphone_info.dart';
 import 'v1_api_resource.dart';
 
 class WorldV1Api extends V1ApiResource {
   const WorldV1Api(super.client);
+
+  Future<MiniphoneInfo> miniphoneInfo({required String worldId}) async {
+    final id = worldId.trim();
+    if (id.isEmpty) throw ArgumentError.value(worldId, 'worldId');
+    return MiniphoneInfo.fromJson(
+      await getMap('world/miniphoneinfo', {'world_id': id}),
+    );
+  }
+
+  Future<void> setMiniphoneBackground({
+    required String worldId,
+    required String backgroundImage,
+  }) {
+    final id = worldId.trim();
+    if (id.isEmpty) throw ArgumentError.value(worldId, 'worldId');
+    if (!isValidMiniphoneBackground(backgroundImage)) {
+      throw ArgumentError.value(
+        backgroundImage,
+        'backgroundImage',
+        'Invalid background URL',
+      );
+    }
+    return postVoid('world/setminiphonebackground', {
+      'world_id': id,
+      'background_image': backgroundImage,
+    });
+  }
 
   /// GET /api/v1/world/recent_summary. Fixed 10-item cursor pages;
   /// the server owns ordering and the cursor must be returned unchanged.
