@@ -51,11 +51,36 @@ class MembershipDisplayPrice {
 
   double get amount => (amountMicros ?? amountCent * 10000) / 1000000;
 
-  String monthlyEquivalent(String locale, int months) =>
-      NumberFormat.simpleCurrency(
-        locale: locale,
-        name: currencyCode,
-      ).format(amount / months);
+  String monthlyEquivalent(String locale, int months) {
+    if (months <= 0) throw ArgumentError.value(months, 'months');
+    final monthlyAmount = amount / months;
+    final storePrice = storeFormattedPrice;
+    if (storePrice != null) {
+      // Keep the store's currency prefix/suffix and spacing. A simple currency
+      // formatter can collapse CAD/AUD to '$', losing the store's distinction.
+      final number = RegExp(
+        r'[0-9](?:[0-9.,\u00a0\u202f ]*[0-9])?',
+      ).firstMatch(storePrice);
+      if (number != null) {
+        final digits = number.group(0)!;
+        final commaDecimal = RegExp(r',\d{2}$').hasMatch(digits);
+        final formatter = NumberFormat('#,##0.00', commaDecimal ? 'de' : 'en');
+        var formatted = formatter.format(monthlyAmount);
+        final spaceGroup = RegExp(r'[\u00a0\u202f ]').firstMatch(digits);
+        if (spaceGroup != null) {
+          formatted = formatted.replaceAll(
+            commaDecimal ? '.' : ',',
+            spaceGroup.group(0)!,
+          );
+        }
+        return storePrice.replaceRange(number.start, number.end, formatted);
+      }
+    }
+    return NumberFormat.simpleCurrency(
+      locale: locale,
+      name: currencyCode,
+    ).format(monthlyAmount);
+  }
 
   String get formattedPrice =>
       storeFormattedPrice ??

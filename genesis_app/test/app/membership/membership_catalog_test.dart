@@ -13,6 +13,30 @@ import '../../support/membership_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final example in [
+    ('CAD', 'CA\$139.99', 'CA\$11.67'),
+    ('AUD', 'A\$139.99', 'A\$11.67'),
+    ('GBP', '£139.99', '£11.67'),
+    ('EUR', '139,99 €', '11,67 €'),
+    ('CAD', '139,99 \$CA', '11,67 \$CA'),
+  ]) {
+    test(
+      'monthly equivalent preserves store currency format ${example.$2}',
+      () {
+        final price = MembershipDisplayPrice.fromStore(
+          MembershipStorePrice(
+            formattedPrice: example.$2,
+            amountMicros: 139990000,
+            currencyCode: example.$1,
+            currencySymbol: '\$',
+          ),
+        );
+        expect(price.monthlyEquivalent('zh_TW', 12), example.$3);
+        expect(price.formattedPrice, example.$2);
+      },
+    );
+  }
+
   for (final currency in [
     'EUR',
     'GBP',
