@@ -27,7 +27,7 @@ void main() {
     test(
       'display price policy for $currency applies to subscriptions and Gems',
       () {
-        final allowed = ['EUR', 'GBP', 'USD', 'AUD', 'CAD'].contains(currency);
+        final allowed = ['EUR', 'GBP', 'AUD', 'CAD'].contains(currency);
         final offer = MembershipOffer(
           product: membershipProduct(currency: 'USD', priceAmount: 999),
           storePrice: MembershipStorePrice(

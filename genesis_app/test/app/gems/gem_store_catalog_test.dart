@@ -126,7 +126,7 @@ void main() {
       store.formatted = '₩13,000';
       expect(await source.confirm(displayed), isNotNull);
       expect(source.cached!.single.storeFormattedPrice, '₩13,000');
-      store.currency = 'USD';
+      store.currency = 'EUR';
       expect(await source.confirm(displayed), isNull);
     },
   );

@@ -3,7 +3,6 @@
 bool useStorePriceForDisplay(String? currencyCode) => const {
   'EUR',
   'GBP',
-  'USD',
   'AUD',
   'CAD',
 }.contains(currencyCode?.trim().toUpperCase());
