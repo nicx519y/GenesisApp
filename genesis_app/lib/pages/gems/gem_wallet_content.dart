@@ -321,43 +321,48 @@ class _TaskRow extends StatelessWidget {
             SizedBox(
               key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
               width: 96,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        '+${formatWholeGemCent(task.rewardGemsCent)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 16 / 14,
-                          fontWeight: FontWeight.w600,
-                          color: GenesisColors.darkTextPrimary,
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '+${formatWholeGemCent(task.rewardGemsCent)}',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 16 / 14,
+                            fontWeight: FontWeight.w600,
+                            color: GenesisColors.darkTextPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      SvgPicture.asset(
-                        gemIconAsset,
-                        key: ValueKey<String>(
-                          'gem-task-reward-icon-${task.taskCode}',
+                        const SizedBox(height: 2),
+                        _TaskActionButton(
+                          task: task,
+                          status: status,
+                          isLoading: isLoading,
+                          onTap: onTap,
+                          width: 96 - gemSmallIconSize - 2,
+                          height: 24,
+                          borderRadius: 10,
+                          textHeight: 14 / 12,
+                          alignment: Alignment.centerRight,
+                          textAlign: TextAlign.right,
                         ),
-                        width: gemSmallIconSize,
-                        height: gemSmallIconSize,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 2),
-                  _TaskActionButton(
-                    task: task,
-                    status: status,
-                    isLoading: isLoading,
-                    onTap: onTap,
-                    width: 64,
-                    height: 24,
-                    borderRadius: 10,
-                    textHeight: 14 / 12,
-                    alignment: Alignment.centerRight,
+                  const SizedBox(width: 2),
+                  SvgPicture.asset(
+                    gemIconAsset,
+                    key: ValueKey<String>(
+                      'gem-task-reward-icon-${task.taskCode}',
+                    ),
+                    width: gemSmallIconSize,
+                    height: gemSmallIconSize,
                   ),
                 ],
               ),
