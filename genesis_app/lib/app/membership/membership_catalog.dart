@@ -63,8 +63,19 @@ class MembershipDisplayPrice {
       ).firstMatch(storePrice);
       if (number != null) {
         final digits = number.group(0)!;
-        final commaDecimal = RegExp(r',\d{2}$').hasMatch(digits);
-        final formatter = NumberFormat('#,##0.00', commaDecimal ? 'de' : 'en');
+        final hasDecimals = RegExp(r'[.,]\d{2}$').hasMatch(digits);
+        final decimalDigits =
+            currencyCode == 'JPY' ||
+                currencyCode == 'KRW' ||
+                (currencyCode == 'TWD' && !hasDecimals)
+            ? 0
+            : 2;
+        final commaDecimal =
+            decimalDigits > 0 && RegExp(r',\d{2}$').hasMatch(digits);
+        final formatter = NumberFormat(
+          decimalDigits == 0 ? '#,##0' : '#,##0.00',
+          commaDecimal ? 'de' : 'en',
+        );
         var formatted = formatter.format(monthlyAmount);
         final spaceGroup = RegExp(r'[\u00a0\u202f ]').firstMatch(digits);
         if (spaceGroup != null) {
@@ -73,21 +84,26 @@ class MembershipDisplayPrice {
             spaceGroup.group(0)!,
           );
         }
-        return storePrice.replaceRange(number.start, number.end, formatted);
+        return trimZeroPriceDecimals(
+          storePrice.replaceRange(number.start, number.end, formatted),
+        );
       }
     }
-    return NumberFormat.simpleCurrency(
-      locale: locale,
-      name: currencyCode,
-    ).format(monthlyAmount);
+    return trimZeroPriceDecimals(
+      NumberFormat.simpleCurrency(
+        locale: locale,
+        name: currencyCode,
+      ).format(monthlyAmount),
+    );
   }
 
-  String get formattedPrice =>
-      storeFormattedPrice ??
-      NumberFormat.simpleCurrency(
-        name: currencyCode,
-        decimalDigits: 2,
-      ).format(amountCent / 100);
+  String get formattedPrice => trimZeroPriceDecimals(
+    storeFormattedPrice ??
+        NumberFormat.simpleCurrency(
+          name: currencyCode,
+          decimalDigits: 2,
+        ).format(amountCent / 100),
+  );
 }
 
 class MembershipCatalogData {

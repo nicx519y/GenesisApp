@@ -124,7 +124,7 @@ void main() {
       expect(await source.confirm(displayed), isNotNull);
       store.amount = 13000000000;
       store.formatted = '₩13,000';
-      expect(await source.confirm(displayed), isNotNull);
+      expect(await source.confirm(displayed), isNull);
       expect(source.cached!.single.storeFormattedPrice, '₩13,000');
       store.currency = 'EUR';
       expect(await source.confirm(displayed), isNull);
