@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../../network/models/membership_product.dart';
+import '../../utils/store_price_display_policy.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
 import '../../platform/billing/membership_product_store.dart';
 
@@ -18,7 +19,8 @@ class MembershipOffer {
   final MembershipStorePrice? storePrice;
   final bool requiresStorePrice;
   final MembershipProduct product;
-  MembershipDisplayPrice? get price => storePrice != null
+  MembershipDisplayPrice? get price =>
+      storePrice != null && useStorePriceForDisplay(storePrice!.currencyCode)
       ? MembershipDisplayPrice.fromStore(storePrice!)
       : product.priceAmount == null
       ? null

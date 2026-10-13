@@ -316,11 +316,12 @@ class GemProductCard extends StatelessWidget {
                       ),
                       label: isSoldOut
                           ? GenesisL10n.current.meSoldOut
-                          : product.storeFormattedPrice ??
-                                formatGemPrice(
-                                  product.priceAmount,
-                                  product.priceCurrencyCode,
-                                ),
+                          : product.displaysStorePrice
+                          ? product.storeFormattedPrice!
+                          : formatGemPrice(
+                              product.priceAmount,
+                              product.priceCurrencyCode,
+                            ),
                       onPressed: enabled ? onPurchase : null,
                       height: kGemPriceButtonHeight,
                       padding: EdgeInsets.zero,

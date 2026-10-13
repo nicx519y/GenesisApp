@@ -1,5 +1,6 @@
 import '../json_utils.dart';
 import '../../utils/gem_amount.dart';
+import '../../utils/store_price_display_policy.dart';
 
 class GemProductList {
   const GemProductList({required this.products});
@@ -100,6 +101,9 @@ class GemProduct {
   final int? storeAmountMicros;
   final String? storeCurrencyCode;
   final bool requiresStorePrice;
+
+  bool get displaysStorePrice =>
+      storeFormattedPrice != null && useStorePriceForDisplay(storeCurrencyCode);
 
   Map<String, Object?> toJson() => {
     'product_id': productId,

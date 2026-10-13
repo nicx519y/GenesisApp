@@ -5,11 +5,62 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_catalog_cache.dart';
+import 'package:genesis_flutter_android/platform/billing/membership_product_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_product.dart';
 
 import '../../support/membership_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final currency in [
+    'EUR',
+    'GBP',
+    'USD',
+    'AUD',
+    'CAD',
+    'KRW',
+    'JPY',
+    'TWD',
+    '',
+  ]) {
+    test(
+      'display price policy for $currency applies to subscriptions and Gems',
+      () {
+        final allowed = ['EUR', 'GBP', 'USD', 'AUD', 'CAD'].contains(currency);
+        final offer = MembershipOffer(
+          product: membershipProduct(currency: 'USD', priceAmount: 999),
+          storePrice: MembershipStorePrice(
+            formattedPrice: 'store price',
+            amountMicros: 20000000,
+            currencyCode: currency,
+            currencySymbol: '',
+          ),
+        );
+        expect(offer.price!.amount, allowed ? 20 : 9.99);
+        expect(offer.price!.currencyCode, allowed ? currency : 'USD');
+        expect(
+          offer.price!.storeFormattedPrice,
+          allowed ? 'store price' : null,
+        );
+        final gems =
+            GemProduct.fromJson({
+              'product_id': 'test',
+              'base_gems_cent': 10000,
+              'bonus_gems_cent': 0,
+              'price_amount': 999,
+              'price_currency_code': 'USD',
+            }).withStorePrice(
+              formatted: 'store price',
+              micros: 20000000,
+              currency: currency,
+            );
+        expect(gems.displaysStorePrice, allowed);
+        expect(gems.storeCurrencyCode, currency);
+        expect(gems.priceAmount, 999);
+      },
+    );
+  }
 
   for (final provider in MembershipProvider.values) {
     test(

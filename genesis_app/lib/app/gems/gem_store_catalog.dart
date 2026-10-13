@@ -180,8 +180,12 @@ class GemStoreCatalog {
       if (p.productId == displayed.productId &&
           p.canPurchase &&
           p.storeFormattedPrice != null &&
-          p.storeAmountMicros == displayed.storeAmountMicros &&
-          p.storeCurrencyCode == displayed.storeCurrencyCode &&
+          p.displaysStorePrice == displayed.displaysStorePrice &&
+          (p.displaysStorePrice
+              ? p.storeAmountMicros == displayed.storeAmountMicros &&
+                    p.storeCurrencyCode == displayed.storeCurrencyCode
+              : p.priceAmount == displayed.priceAmount &&
+                    p.priceCurrencyCode == displayed.priceCurrencyCode) &&
           p.appleProductId == displayed.appleProductId &&
           p.googleProductId == displayed.googleProductId &&
           p.googleOfferId == displayed.googleOfferId &&

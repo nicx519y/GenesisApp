@@ -976,7 +976,7 @@ void main() {
     },
   );
 
-  testWidgets('store KRW prices fill both cards and the selected button', (
+  testWidgets('store KRW uses server prices for cards and the selected button', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1008,13 +1008,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Yearly: ₩120,000'), findsOneWidget);
-    expect(find.textContaining('12,000', findRichText: true), findsWidgets);
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(find.textContaining('12,000', findRichText: true), findsNothing);
     expect(find.text('Save 17%'), findsOneWidget);
-    expect(find.textContaining(r'$99.99', findRichText: true), findsNothing);
+    expect(find.textContaining(r'$99.99', findRichText: true), findsWidgets);
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.pump();
-    expect(find.text('Monthly: ₩12,000'), findsOneWidget);
+    expect(find.text(r'Monthly: $9.99'), findsOneWidget);
   });
 
   testWidgets('a single unpriced monthly product supplies its own display', (
