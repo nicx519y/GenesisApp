@@ -922,53 +922,49 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: SizedBox.square(
-                    dimension: 30,
-                    child: Material(
-                      key: ValueKey<String>(
-                        'origin-setup-role-edit-surface-$stableId',
+                  child: Material(
+                    key: ValueKey<String>(
+                      'origin-setup-role-edit-surface-$stableId',
+                    ),
+                    color: Colors.black.withValues(alpha: 0.68),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.16),
                       ),
-                      color: const Color(0xCC151517),
-                      borderRadius: BorderRadius.circular(8),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        key: ValueKey<String>(
-                          'origin-setup-role-edit-$stableId',
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      key: ValueKey<String>('origin-setup-role-edit-$stableId'),
+                      onTap: widget.busy ? null : _toggleEditing,
+                      child: Center(
+                        widthFactor: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            // Include the label's 1px border inset.
+                            horizontal: 9,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            _editing
+                                ? GenesisL10n.current.worldoLaunchDone
+                                : GenesisL10n.current.chatEdit,
+                            key: ValueKey<String>(
+                              _editing
+                                  ? 'origin-setup-role-edit-done-label-$stableId'
+                                  : 'origin-setup-role-edit-label-$stableId',
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                              color: editActionAvailable
+                                  ? GenesisColors.redSecondary
+                                  : Colors.white.withValues(alpha: 0.35),
+                            ),
+                          ),
                         ),
-                        onTap: widget.busy ? null : _toggleEditing,
-                        child: _editing
-                            ? Icon(
-                                Icons.check_rounded,
-                                key: ValueKey<String>(
-                                  'origin-setup-role-edit-done-icon-$stableId',
-                                ),
-                                size: 16,
-                                color: editActionAvailable
-                                    ? GenesisColors.darkTextPrimary
-                                    : Colors.white.withValues(alpha: 0.35),
-                              )
-                            : Center(
-                                child: Transform.scale(
-                                  // Match the previous edit icon within its existing layout slot.
-                                  scale: 32 / 37.36,
-                                  child: SvgPicture.asset(
-                                    editSquareIconAsset,
-                                    key: ValueKey<String>(
-                                      'origin-setup-role-edit-icon-$stableId',
-                                    ),
-                                    width: 16,
-                                    height: 16,
-                                    colorFilter: ColorFilter.mode(
-                                      editActionAvailable
-                                          ? GenesisColors.darkTextPrimary
-                                          : Colors.white.withValues(
-                                              alpha: 0.35,
-                                            ),
-                                      BlendMode.srcIn,
-                                    ),
-                                  ),
-                                ),
-                              ),
                       ),
                     ),
                   ),

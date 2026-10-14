@@ -2220,6 +2220,12 @@ abstract class AppLocalizations {
   /// **'Your Profile'**
   String get worldoLaunchProfile;
 
+  /// Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get worldoLaunchDone;
+
   /// 首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签
   ///
   /// In en, this message translates to:

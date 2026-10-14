@@ -1300,6 +1300,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get worldoLaunchProfile => 'Your Profile';
 
   @override
+  String get worldoLaunchDone => 'Done';
+
+  @override
   String get worldoLaunchSuggested => 'Suggested';
 
   @override
@@ -4460,6 +4463,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get worldoLaunchProfile => '你的角色資料';
+
+  @override
+  String get worldoLaunchDone => '完成';
 
   @override
   String get worldoLaunchSuggested => '建議';

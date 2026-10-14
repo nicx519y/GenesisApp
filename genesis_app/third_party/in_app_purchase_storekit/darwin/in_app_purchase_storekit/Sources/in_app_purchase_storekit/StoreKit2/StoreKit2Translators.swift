@@ -8,6 +8,7 @@ import StoreKit
 @available(iOS 15.0, macOS 12.0, *)
 extension Product {
   var convertToPigeon: SK2ProductMessage {
+    let currency = storeKitPriceCurrency(for: priceFormatStyle)
 
     return SK2ProductMessage(
       id: id,
@@ -17,7 +18,10 @@ extension Product {
       displayPrice: displayPrice,
       type: type.convertToPigeon,
       subscription: subscription?.convertToPigeon,
-      priceLocale: priceFormatStyle.locale.convertToPigeon
+      priceLocale: SK2PriceLocaleMessage(
+        currencyCode: currency.code,
+        currencySymbol: currency.symbol
+      )
     )
   }
 }

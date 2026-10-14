@@ -1277,6 +1277,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get worldoLaunchProfile => '내 프로필';
 
   @override
+  String get worldoLaunchDone => '완료';
+
+  @override
   String get worldoLaunchSuggested => '추천';
 
   @override

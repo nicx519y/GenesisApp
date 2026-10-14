@@ -1533,6 +1533,10 @@
   "@worldoLaunchProfile": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
   },
+  "worldoLaunchDone": "Done",
+  "@worldoLaunchDone": {
+    "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
   "worldoLaunchSuggested": "Suggested",
   "@worldoLaunchSuggested": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
