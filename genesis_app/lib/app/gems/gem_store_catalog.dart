@@ -23,11 +23,13 @@ class GemStoreCatalog {
   Future<List<GemProduct>>? _loading;
   DateTime? _loadedAt;
   Future<void> _writes = Future.value();
+  Map<String, String> lastStoreLookupStatuses = const {};
   void reset() {
     _generation++;
     cached = null;
     _loading = null;
     _loadedAt = null;
+    lastStoreLookupStatuses = const {};
   }
 
   String _key(String? owner) =>
@@ -80,6 +82,7 @@ class GemStoreCatalog {
                   formatted: price['formatted'],
                   micros: price['micros'],
                   currency: price['currency'],
+                  symbol: price['symbol'] is String ? price['symbol'] : null,
                 )
               : product.withStorePrice(),
         );
@@ -103,13 +106,25 @@ class GemStoreCatalog {
   Future<List<GemProduct>> _fetch(int generation) async {
     final owner = await readOwner();
     final products = await loadProducts();
+    final lookupStatuses = <String, String>{};
     var available = false;
     try {
       available = await platform.isAvailable();
-    } catch (_) {}
+    } catch (error) {
+      for (final product in products) {
+        lookupStatuses[product.productId] =
+            'availability error: ${error.runtimeType}';
+      }
+    }
     final result = await Future.wait(
       products.map((product) async {
-        if (!available) return product.withStorePrice();
+        if (!available) {
+          lookupStatuses.putIfAbsent(
+            product.productId,
+            () => 'store unavailable',
+          );
+          return product.withStorePrice();
+        }
         try {
           final google = platform.provider == BillingProvider.googlePlay;
           final discount =
@@ -127,19 +142,29 @@ class GemStoreCatalog {
               price.priceAmountMicros <= 0 ||
               price.formattedPrice.isEmpty ||
               !RegExp(r'^[A-Z]{3}$').hasMatch(price.priceCurrencyCode)) {
+            lookupStatuses[product.productId] = price == null
+                ? 'query failed: ${response.errorSource ?? 'store'}/${response.errorCode ?? 'product missing'}'
+                : 'invalid store price';
             return product.withStorePrice();
           }
+          lookupStatuses[product.productId] = 'ok';
           return product.withStorePrice(
             formatted: price.formattedPrice,
             micros: price.priceAmountMicros,
             currency: price.priceCurrencyCode,
+            symbol: price.priceCurrencySymbol.trim().isEmpty
+                ? null
+                : price.priceCurrencySymbol,
           );
-        } catch (_) {
+        } catch (error) {
+          lookupStatuses[product.productId] =
+              'query exception: ${error.runtimeType}';
           return product.withStorePrice();
         }
       }),
     );
     if (generation == _generation && await readOwner() == owner) {
+      lastStoreLookupStatuses = Map.unmodifiable(lookupStatuses);
       cached = List.unmodifiable(result);
       _loadedAt = DateTime.now();
       final body = jsonEncode({
@@ -153,6 +178,7 @@ class GemStoreCatalog {
                   'formatted': p.storeFormattedPrice,
                   'micros': p.storeAmountMicros,
                   'currency': p.storeCurrencyCode,
+                  'symbol': p.storeCurrencySymbol,
                 },
             },
         ],

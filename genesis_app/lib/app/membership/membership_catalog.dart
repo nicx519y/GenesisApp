@@ -137,6 +137,7 @@ class MembershipCatalog {
   MembershipProductList? _checkoutProducts;
   String? _checkoutOwner;
   Future<MembershipCatalogData>? _loading;
+  String? lastStoreLookupError;
   int _session = 0;
   int _loadGeneration = 0;
 
@@ -145,6 +146,7 @@ class MembershipCatalog {
   void resetForSession() {
     _session++;
     _cached = null;
+    lastStoreLookupError = null;
     invalidate();
   }
 
@@ -264,10 +266,12 @@ class MembershipCatalog {
     final owner = await readOwnerUid?.call();
     final response = await loadProducts(platform);
     Map<String, MembershipStorePrice> prices = {};
+    String? lookupError;
     if (loadStorePrices != null) {
       try {
         prices = await loadStorePrices!(response.products);
       } catch (error) {
+        lookupError = 'store lookup exception: ${error.runtimeType}';
         debugPrint(
           '[Membership] store price lookup failed: ${error.runtimeType}',
         );
@@ -275,6 +279,7 @@ class MembershipCatalog {
     }
     final result = _catalog(response, platform, prices);
     if (session == _session && generation == _loadGeneration) {
+      lastStoreLookupError = lookupError;
       _checkoutProducts = MembershipProductList(
         lastAccountUuid: response.lastAccountUuid,
         hasSubscriptionOrder: response.hasSubscriptionOrder,

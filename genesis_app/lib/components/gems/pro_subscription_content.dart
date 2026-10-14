@@ -8,6 +8,7 @@ import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/membership/membership_catalog.dart';
+import '../../app/debug/billing_price_diagnostics.dart';
 import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
@@ -248,7 +249,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     setState(() {
       if (!silent) {
         _loading = cached == null;
-        _applyCatalog(cached ?? const MembershipCatalogData());
+        _applyCatalog(
+          cached ?? const MembershipCatalogData(),
+          snapshotSource: 'memory cache',
+        );
       }
     });
     var freshApplied = false;
@@ -263,7 +267,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
             return;
           }
           setState(() {
-            _applyCatalog(snapshot);
+            _applyCatalog(snapshot, snapshotSource: 'disk cache');
             _loading = false;
           });
         } catch (error) {
@@ -283,7 +287,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       freshApplied = true;
       _hasFreshCatalog = true;
       setState(() {
-        _applyCatalog(catalog);
+        _applyCatalog(catalog, snapshotSource: 'fresh');
         _loading = false;
       });
       _prepareSelectedCheckout();
@@ -291,11 +295,25 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       if (!mounted || request != _requestGeneration) return;
       debugPrint('[Membership] catalog load failed: ${error.runtimeType}');
       setState(() => _loading = false);
+      billingPriceDiagnostics.recordFailure('Subscription', error);
     }
   }
 
-  void _applyCatalog(MembershipCatalogData catalog) {
+  void _applyCatalog(
+    MembershipCatalogData catalog, {
+    required String snapshotSource,
+  }) {
     _offers = catalog.offers;
+    if (catalog.offers.isNotEmpty) {
+      billingPriceDiagnostics.recordMembership(
+        surface: 'Subscription',
+        snapshotSource: snapshotSource,
+        offers: catalog.offers,
+        lookupError: snapshotSource == 'fresh'
+            ? _catalog?.lastStoreLookupError
+            : null,
+      );
+    }
     if (_offerFor(_plan) == null && _offers.isNotEmpty) {
       _plan = _ProPlan.values.firstWhere(
         (plan) => _offerFor(plan) != null,

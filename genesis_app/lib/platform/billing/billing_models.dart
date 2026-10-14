@@ -67,6 +67,7 @@ class BillingStoreProduct {
     this.formattedPrice = '',
     this.priceAmountMicros = 0,
     this.priceCurrencyCode = '',
+    this.priceCurrencySymbol = '',
   });
 
   final String id;
@@ -78,6 +79,7 @@ class BillingStoreProduct {
   final String formattedPrice;
   final int priceAmountMicros;
   final String priceCurrencyCode;
+  final String priceCurrencySymbol;
 }
 
 @immutable

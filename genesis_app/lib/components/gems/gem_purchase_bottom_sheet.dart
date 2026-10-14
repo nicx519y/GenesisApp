@@ -7,6 +7,7 @@ import 'subscription_tracking_scope.dart';
 import '../../app/membership/subscription_analytics.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/debug/billing_price_diagnostics.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
@@ -211,6 +212,11 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         setState(() {
           _products = snapshot;
         });
+        billingPriceDiagnostics.recordGems(
+          surface: 'Buy Gems sheet',
+          snapshotSource: 'cache',
+          products: snapshot,
+        );
       }());
     }
     try {
@@ -220,12 +226,19 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         _products = products;
         _productsLoading = false;
       });
+      billingPriceDiagnostics.recordGems(
+        surface: 'Buy Gems sheet',
+        snapshotSource: 'fresh',
+        products: products,
+        lookupStatuses: catalog?.lastStoreLookupStatuses ?? const {},
+      );
     } catch (error) {
       if (!mounted || generation != _productsRequestGeneration) return;
       setState(() {
         _productsError = error;
         _productsLoading = false;
       });
+      billingPriceDiagnostics.recordFailure('Buy Gems sheet', error);
     }
   }
 
@@ -243,6 +256,14 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         setState(() {
           _products = catalog.cached;
         });
+        if (catalog.cached case final products?) {
+          billingPriceDiagnostics.recordGems(
+            surface: 'Buy Gems sheet',
+            snapshotSource: 'fresh',
+            products: products,
+            lookupStatuses: catalog.lastStoreLookupStatuses,
+          );
+        }
         if (fresh == null) return;
         product = fresh;
       } catch (_) {

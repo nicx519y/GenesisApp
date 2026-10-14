@@ -1,5 +1,6 @@
 import '../gems/gem_store_catalog.dart';
 import '../../platform/billing/membership_product_store.dart';
+import '../../platform/billing/store_price_query_diagnostics.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_language_controller.dart';
 import 'dart:async';
@@ -29,6 +30,7 @@ import '../config/app_config.dart';
 import '../config/app_global_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
+import '../debug/billing_price_diagnostics.dart';
 import '../gems/gem_wallet_store.dart';
 import '../membership/membership_catalog.dart';
 import '../membership/membership_access_store.dart';
@@ -254,6 +256,8 @@ class AppServices {
   }
 
   void _membershipSessionChanged() {
+    billingPriceDiagnostics.clear();
+    storePriceQueryDiagnostics.clear();
     personalization.resetForSession();
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
@@ -653,6 +657,8 @@ class ServiceRegistry {
     String reason = 'config_change',
   }) {
     if (kDebugMode) debugPrint('[AppServices] rebuild; reason=$reason');
+    billingPriceDiagnostics.clear();
+    storePriceQueryDiagnostics.clear();
     final updated = build(
       config: config,
       deviceIdOverride: current.deviceId,

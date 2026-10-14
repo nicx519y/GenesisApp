@@ -179,6 +179,7 @@ class GooglePlayBillingPlatform implements BillingPlatform {
                 (product.rawPrice * 1000000).round(),
             priceCurrencyCode:
                 selectedOffer?.priceCurrencyCode ?? product.currencyCode,
+            priceCurrencySymbol: product.currencySymbol,
           ),
         );
       }

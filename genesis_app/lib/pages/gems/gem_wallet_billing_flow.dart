@@ -43,6 +43,14 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         _updateState(() {
           _products = catalog.cached;
         });
+        if (catalog.cached case final products?) {
+          billingPriceDiagnostics.recordGems(
+            surface: 'Gems wallet',
+            snapshotSource: 'fresh',
+            products: products,
+            lookupStatuses: catalog.lastStoreLookupStatuses,
+          );
+        }
         if (fresh == null) return;
         product = fresh;
       } catch (_) {

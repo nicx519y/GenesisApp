@@ -37,6 +37,7 @@ class GemProduct {
     this.storeFormattedPrice,
     this.storeAmountMicros,
     this.storeCurrencyCode,
+    this.storeCurrencySymbol,
     this.requiresStorePrice = false,
   });
 
@@ -100,6 +101,7 @@ class GemProduct {
   final String? storeFormattedPrice;
   final int? storeAmountMicros;
   final String? storeCurrencyCode;
+  final String? storeCurrencySymbol;
   final bool requiresStorePrice;
 
   bool get displaysStorePrice =>
@@ -126,6 +128,7 @@ class GemProduct {
     String? formatted,
     int? micros,
     String? currency,
+    String? symbol,
   }) => GemProduct(
     productId: productId,
     appleProductId: appleProductId,
@@ -144,6 +147,7 @@ class GemProduct {
     storeFormattedPrice: formatted,
     storeAmountMicros: micros,
     storeCurrencyCode: currency,
+    storeCurrencySymbol: symbol,
     requiresStorePrice: true,
   );
 

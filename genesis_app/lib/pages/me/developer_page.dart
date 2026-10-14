@@ -16,6 +16,7 @@ import '../../app/config/app_endpoint_overrides.dart';
 import '../../app/config/app_config.dart';
 import '../../app/config/app_global_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
+import '../../app/debug/billing_price_diagnostics.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
@@ -41,14 +42,17 @@ import '../../app/telemetry/telemetry_upload_policy.dart';
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
+import '../../app/membership/membership_catalog.dart';
 import '../../network/models/gem_wallet.dart';
 import '../../network/models/world_history_settings.dart';
 import '../../network/network_capture.dart';
 import '../../network/websocket_capture.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/app/app_version_override_store.dart';
+import '../../platform/channels/genesis_method_channels.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../platform/billing/store_price_query_diagnostics.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../utils/gem_amount.dart';
@@ -69,6 +73,7 @@ part 'developer_version_actions.dart';
 part 'developer_previews.dart';
 part 'developer_components.dart';
 part 'developer_app_config_section.dart';
+part 'developer_billing_price_section.dart';
 part 'developer_capture_components.dart';
 part 'developer_network_tab.dart';
 part 'developer_websocket_tab.dart';
@@ -645,6 +650,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         ..._buildEndpointSection(),
         const SizedBox(height: 18),
         ..._buildVersionOverrideSection(),
+        const SizedBox(height: 18),
+        const _DeveloperBillingPriceSection(),
         const SizedBox(height: 18),
         const _DeveloperAppConfigSection(),
       ],

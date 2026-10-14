@@ -13,6 +13,7 @@ import '../../components/gems/subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug_page_tracker.dart';
+import '../../app/debug/billing_price_diagnostics.dart';
 import '../../app/gems/gem_task_analytics.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/membership/membership_catalog.dart';

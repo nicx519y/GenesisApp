@@ -8,6 +8,7 @@ import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import '../../app/telemetry/storekit2_transaction_analytics.dart';
 import 'billing_models.dart';
 import 'google_play_billing_platform.dart';
+import 'store_price_query_diagnostics.dart';
 
 class AppStoreBillingPlatform implements BillingPlatform {
   AppStoreBillingPlatform({
@@ -104,6 +105,11 @@ class AppStoreBillingPlatform implements BillingPlatform {
       final response = await _inAppPurchase.queryProductDetails({
         storeProductId,
       });
+      storePriceQueryDiagnostics.recordResponse(
+        group: 'Gems',
+        requestedIds: {storeProductId},
+        response: response,
+      );
       if (response.error != null) {
         debugPrint(
           '[Billing][AppStore] product query failed id=$storeProductId '
@@ -130,11 +136,17 @@ class AppStoreBillingPlatform implements BillingPlatform {
             formattedPrice: product.price,
             priceAmountMicros: (product.rawPrice * 1000000).round(),
             priceCurrencyCode: product.currencyCode,
+            priceCurrencySymbol: product.currencySymbol,
           ),
         );
       }
       return const BillingProductQueryResult.failure('product_not_found');
     } on Object catch (error) {
+      storePriceQueryDiagnostics.recordUnavailable(
+        group: 'Gems',
+        requestedIds: {storeProductId},
+        status: 'query exception: ${error.runtimeType}',
+      );
       throw BillingPlatformException('query_product_failed', '$error');
     }
   }

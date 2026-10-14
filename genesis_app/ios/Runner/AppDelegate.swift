@@ -436,6 +436,18 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
         result("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
       case "getTimeZone":
         result(TimeZone.current.identifier)
+      case "getStorefrontDiagnostics":
+        if #available(iOS 15.0, *) {
+          Task { @MainActor in
+            let storefront = await Storefront.current
+            result([
+              "country_code": storefront?.countryCode ?? "",
+              "storefront_id": storefront?.id ?? "",
+            ])
+          }
+        } else {
+          result(["country_code": "", "storefront_id": ""])
+        }
       case "requestTrackingAuthorization":
         self.requestTrackingAuthorization(result: result)
       case "trackingAuthorizationStatus":

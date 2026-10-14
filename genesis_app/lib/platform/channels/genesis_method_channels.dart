@@ -24,6 +24,7 @@ class GenesisMethodChannels {
   static const getAppVersion = 'getAppVersion';
   static const getSystemUserAgent = 'getSystemUserAgent';
   static const getTimeZone = 'getTimeZone';
+  static const getStorefrontDiagnostics = 'getStorefrontDiagnostics';
   static const requestTrackingAuthorization = 'requestTrackingAuthorization';
   static const trackingAuthorizationStatus = 'trackingAuthorizationStatus';
   static const openExternalUrl = 'openExternalUrl';

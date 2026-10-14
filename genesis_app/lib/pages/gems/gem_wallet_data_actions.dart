@@ -45,6 +45,11 @@ extension _GemWalletDataActions on _GemWalletPageState {
           _products = snapshot;
           _primaryLoading = false;
         });
+        billingPriceDiagnostics.recordGems(
+          surface: 'Gems wallet',
+          snapshotSource: 'cache',
+          products: snapshot,
+        );
       }());
     }
     try {
@@ -55,6 +60,16 @@ extension _GemWalletDataActions on _GemWalletPageState {
         _productsError = null;
         _productsLoading = false;
       });
+      billingPriceDiagnostics.recordGems(
+        surface: 'Gems wallet',
+        snapshotSource: 'fresh',
+        products: products,
+        lookupStatuses:
+            AppServicesScope.maybeRead(
+              context,
+            )?.gemStoreCatalog.lastStoreLookupStatuses ??
+            const {},
+      );
       _startStoreRecovery(products);
     } catch (error) {
       if (!mounted || generation != _productsRequestGeneration) return;
@@ -62,6 +77,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
         _productsError = error;
         _productsLoading = false;
       });
+      billingPriceDiagnostics.recordFailure('Gems wallet', error);
     }
   }
 

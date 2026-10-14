@@ -38,6 +38,7 @@ class Store implements BillingPlatform {
         formattedPrice: formatted,
         priceAmountMicros: amount,
         priceCurrencyCode: currency,
+        priceCurrencySymbol: '₩',
       ),
     );
   }
@@ -75,6 +76,7 @@ void main() {
         final source = create();
         await source.preload();
         expect(source.cached!.single.storeFormattedPrice, '₩12,000');
+        expect(source.cached!.single.storeCurrencySymbol, '₩');
         expect(
           store.id,
           provider == BillingProvider.googlePlay ? 'google-pack' : 'apple-pack',
@@ -87,6 +89,7 @@ void main() {
         expect(store.calls, 1);
         final restored = await create().loadCached();
         expect(restored!.single.storeAmountMicros, 12000000000);
+        expect(restored.single.storeCurrencySymbol, '₩');
         expect(store.calls, 1);
         expect(await create('b').loadCached(), isNull);
         final prefs = await SharedPreferences.getInstance();
@@ -107,8 +110,10 @@ void main() {
     );
     expect((await source.load()).single.storeFormattedPrice, isNull);
     expect(source.cached!.single.requiresStorePrice, isTrue);
+    expect(source.lastStoreLookupStatuses['pack'], 'store unavailable');
     store.available = true;
     expect((await source.load()).single.storeCurrencyCode, 'KRW');
+    expect(source.lastStoreLookupStatuses['pack'], 'ok');
   });
   test(
     'price changes update catalog and require another confirmation',

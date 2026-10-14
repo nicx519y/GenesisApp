@@ -3,6 +3,7 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../../network/models/membership_product.dart';
+import 'store_price_query_diagnostics.dart';
 
 class MembershipStorePrice {
   const MembershipStorePrice({
@@ -36,9 +37,20 @@ class MembershipProductStore {
   ) async {
     if (products.isEmpty) return {};
     final store = _store ?? InAppPurchase.instance;
-    if (!await store.isAvailable()) return {};
-    final response = await store.queryProductDetails(
-      products.map((product) => product.storeProductId).toSet(),
+    final ids = products.map((product) => product.storeProductId).toSet();
+    if (!await store.isAvailable()) {
+      storePriceQueryDiagnostics.recordUnavailable(
+        group: 'Subscription',
+        requestedIds: ids,
+        status: 'store unavailable',
+      );
+      return {};
+    }
+    final response = await store.queryProductDetails(ids);
+    storePriceQueryDiagnostics.recordResponse(
+      group: 'Subscription',
+      requestedIds: ids,
+      response: response,
     );
     // Preserve successfully returned products even when another product failed.
     return {
