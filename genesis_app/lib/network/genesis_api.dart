@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
+import 'mini_phone/mini_phone_api.dart';
 import 'api_exception.dart';
 import 'app_request_headers.dart';
 import 'chatroom/chatroom_http_api.dart';

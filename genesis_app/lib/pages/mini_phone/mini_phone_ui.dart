@@ -1,3 +1,4 @@
+import '../../ui/components/genesis_avatar.dart';
 import 'dart:async';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -11,6 +12,7 @@ import '../../ui/tokens/genesis_radii.dart';
 import '../../ui/components/genesis_dark_close_button.dart';
 import 'mini_phone_demo_store.dart';
 import 'mini_phone_music_service.dart';
+import 'mini_phone_page.dart' show MiniPhoneSession, MiniPhoneSessionScope;
 
 const miniBackground = GenesisColors.darkBackground;
 const miniRaised = GenesisColors.darkRaisedBackground;
@@ -63,17 +65,24 @@ class MiniAvatar extends StatelessWidget {
   final double size;
   final double? borderRadius;
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(borderRadius ?? size / 2),
-    child: Image.asset(
-      '$miniPhoneAssets${person.image}',
-      width: size,
-      height: size,
-      fit: BoxFit.cover,
-      alignment: const Alignment(0, -.6),
-      semanticLabel: person.name,
-    ),
-  );
+  Widget build(BuildContext context) => person.role == 'live'
+      ? GenesisAvatar(
+          url: person.image,
+          name: person.name,
+          size: size,
+          borderRadius: borderRadius ?? size / 2,
+        )
+      : ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius ?? size / 2),
+          child: Image.asset(
+            '$miniPhoneAssets${person.image}',
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0, -.6),
+            semanticLabel: person.name,
+          ),
+        );
 }
 
 class MiniGlass extends StatelessWidget {
@@ -185,7 +194,8 @@ class MiniIconButton extends StatelessWidget {
 }
 
 class MiniPhoneDemoEntry extends StatefulWidget {
-  const MiniPhoneDemoEntry({super.key, required this.onPressed});
+  const MiniPhoneDemoEntry({super.key, required this.onPressed, this.session});
+  final MiniPhoneSession? session;
   final VoidCallback onPressed;
   @override
   State<MiniPhoneDemoEntry> createState() => _MiniPhoneDemoEntryState();
@@ -197,10 +207,29 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
   late final AnimationController _musicPulse;
   final _musicOverlay = OverlayPortalController();
   final _entryLink = LayerLink();
+  late final MiniPhoneSession _session;
+  late final bool _ownsSession;
+  MiniPhoneMusicService get _music => _session.music;
+  MiniPhoneDemoStore get _store => _session.store;
   int _unread = 0;
+  int get _currentUnread => _session.data?.unread.count ?? _store.totalUnread;
+  Widget get _arrivalAvatar {
+    final data = _session.data;
+    if (data == null) return MiniAvatar(miniDemoPeople.first, size: 32);
+    final person = data.person(data.unread.charId ?? '');
+    return GenesisAvatar(
+      url: person.avatar,
+      name: person.name,
+      size: 32,
+      borderRadius: 16,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    _ownsSession = widget.session == null;
+    _session = widget.session ?? MiniPhoneSession();
     _arrival = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -209,9 +238,10 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    miniPhoneMusic.addListener(_musicChanged);
-    _unread = miniPhoneDemoStore.totalUnread;
-    miniPhoneDemoStore.addListener(_changed);
+    _music.addListener(_musicChanged);
+    _unread = _currentUnread;
+    _store.addListener(_changed);
+    _session.data?.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _musicChanged();
       if (mounted && _unread > 0 && !MediaQuery.disableAnimationsOf(context)) {
@@ -222,12 +252,13 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
 
   void _musicChanged() {
     if (!mounted) return;
-    if (miniPhoneMusic.playing && !MediaQuery.disableAnimationsOf(context)) {
+    if (_music.playing && !MediaQuery.disableAnimationsOf(context)) {
       if (!_musicPulse.isAnimating) _musicPulse.repeat();
     } else {
       _musicPulse.stop();
     }
-    if (miniPhoneMusic.activated) {
+    if (_music.activated) {
+      if (_music.track == null) _session.ensureMusicCatalog();
       _musicOverlay.show();
     } else {
       _musicOverlay.hide();
@@ -236,7 +267,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
   }
 
   void _changed() {
-    final unread = miniPhoneDemoStore.totalUnread;
+    final unread = _currentUnread;
     if (unread > _unread && !MediaQuery.disableAnimationsOf(context)) {
       _arrival.forward(from: 0);
     }
@@ -246,10 +277,12 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
 
   @override
   void dispose() {
-    miniPhoneDemoStore.removeListener(_changed);
+    _store.removeListener(_changed);
+    _session.data?.removeListener(_changed);
     _arrival.dispose();
-    miniPhoneMusic.removeListener(_musicChanged);
+    _music.removeListener(_musicChanged);
     _musicPulse.dispose();
+    if (_ownsSession) _session.dispose();
     super.dispose();
   }
 
@@ -273,21 +306,21 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                     shape: const CircleBorder(),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      onTap: miniPhoneMusic.toggle,
+                      onTap: _music.toggle,
                       child: Tooltip(
-                        message: miniPhoneMusic.playRequested
+                        message: _music.playRequested
                             ? 'Pause music'
                             : 'Play music',
                         child: Semantics(
                           button: true,
-                          label: miniPhoneMusic.playRequested
+                          label: _music.playRequested
                               ? 'Pause music'
                               : 'Play music',
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
                               if (_unread > 0 && _arrival.isAnimating)
-                                MiniAvatar(miniDemoPeople.first, size: 32),
+                                _arrivalAvatar,
                               if (_unread > 0 && _arrival.isAnimating)
                                 Positioned(
                                   right: 0,
@@ -301,7 +334,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                                     ),
                                     child: Center(
                                       child: MiniIcon(
-                                        miniPhoneMusic.playRequested
+                                        _music.playRequested
                                             ? 'music-pause'
                                             : 'music-play',
                                         size: 10,
@@ -311,7 +344,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                                 )
                               else
                                 MiniIcon(
-                                  miniPhoneMusic.playRequested
+                                  _music.playRequested
                                       ? 'music-pause'
                                       : 'music-play',
                                   size: 16,
@@ -341,7 +374,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
               final wave = vibrating
                   ? math.sin(seconds / .76 * math.pi * 8) * (1 - seconds / .76)
                   : 0.0;
-              final music = miniPhoneMusic.activated;
+              final music = _music.activated;
               final visible = _unread > 0 && _arrival.isAnimating;
               final alpha = visible
                   ? (_arrival.value < .1
@@ -397,7 +430,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                         left: 9,
                         child: IgnorePointer(
                           child: Opacity(
-                            opacity: miniPhoneMusic.playing
+                            opacity: _music.playing
                                 ? .9 +
                                       .1 *
                                           math.sin(
@@ -407,12 +440,12 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                             child: Transform.translate(
                               offset: Offset(
                                 0,
-                                miniPhoneMusic.playing
+                                _music.playing
                                     ? math.cos(_musicPulse.value * math.pi * 2)
                                     : 0,
                               ),
                               child: Transform.rotate(
-                                angle: miniPhoneMusic.playing
+                                angle: _music.playing
                                     ? math.sin(
                                             _musicPulse.value * math.pi * 2,
                                           ) *
@@ -438,12 +471,7 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
                             opacity: alpha.clamp(0.0, 1.0),
                             child: Transform.translate(
                               offset: Offset(0, (1 - alpha) * 8),
-                              child: _MiniPhonePopup(
-                                child: MiniAvatar(
-                                  miniDemoPeople.first,
-                                  size: 32,
-                                ),
-                              ),
+                              child: _MiniPhonePopup(child: _arrivalAvatar),
                             ),
                           ),
                         ),
@@ -594,17 +622,21 @@ class MiniPhoneEdgeDock extends StatefulWidget {
     required this.bottomInset,
     required this.onPressed,
     this.positionStore,
+    this.worldId = '',
     this.leftBottomInset,
   });
+  final String worldId;
   final double topInset, bottomInset;
   final double? leftBottomInset;
   final MiniPhoneDockPosition? positionStore;
-  final VoidCallback onPressed;
+  final void Function(MiniPhoneSession session) onPressed;
   @override
   State<MiniPhoneEdgeDock> createState() => _MiniPhoneEdgeDockState();
 }
 
 class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
+  late final MiniPhoneSession _session;
+  late final bool _ownsSession;
   late bool _right;
   late double _vertical;
   MiniPhoneDockPosition get _positionStore =>
@@ -614,6 +646,9 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   @override
   void initState() {
     super.initState();
+    final inherited = MiniPhoneSessionScope.read(context);
+    _ownsSession = inherited == null;
+    _session = inherited ?? MiniPhoneSession.forWorld(context, widget.worldId);
     _right = _positionStore.right;
     _vertical = _positionStore.vertical;
     unawaited(
@@ -625,6 +660,12 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
         });
       }),
     );
+  }
+
+  @override
+  void dispose() {
+    if (_ownsSession) _session.dispose();
+    super.dispose();
   }
 
   @override
@@ -688,7 +729,10 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
               }),
               onPanEnd: (_) => snap(),
               onPanCancel: snap,
-              child: MiniPhoneDemoEntry(onPressed: widget.onPressed),
+              child: MiniPhoneDemoEntry(
+                session: _session,
+                onPressed: () => widget.onPressed(_session),
+              ),
             ),
           ),
         ],

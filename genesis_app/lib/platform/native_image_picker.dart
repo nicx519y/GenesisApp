@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../utils/image_format_guards.dart';
+import 'system_image_picker_activity.dart';
 
 const MethodChannel _nativeDiscussImagePickerChannel = MethodChannel(
   'com.worldo.ai/discuss_image_picker',
@@ -101,6 +102,16 @@ Future<GenesisImagePickResult> pickGenesisImageResult({
 Future<List<XFile>> pickGenesisImageFiles({
   required int limit,
   bool normalizeForUpload = false,
+}) => systemImagePickerActivity.run(
+  () => _pickGenesisImageFiles(
+    limit: limit,
+    normalizeForUpload: normalizeForUpload,
+  ),
+);
+
+Future<List<XFile>> _pickGenesisImageFiles({
+  required int limit,
+  required bool normalizeForUpload,
 }) async {
   if (normalizeForUpload && (Platform.isAndroid || Platform.isIOS)) {
     return _pickNativeImageFiles(limit: limit, normalizeForUpload: true);

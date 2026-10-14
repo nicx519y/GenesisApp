@@ -80,6 +80,10 @@ extension _MiniPhonePosts on _MiniPhonePageState {
     ),
   );
   void _openComments(MiniDemoPost post) {
+    if (phone != null) {
+      _openLivePost(int.parse(post.id.split(':').first));
+      return;
+    }
     activePost = post;
     store.markPostRead(post);
     commentInput.clear();

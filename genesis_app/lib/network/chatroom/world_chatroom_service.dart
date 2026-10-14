@@ -406,6 +406,8 @@ class WorldChatroomService {
   final Duration _conversationRoundTimeout;
   final bool _refreshInitialSnapshotOnConnect;
   final _states = StreamController<WorldChatroomState>.broadcast();
+  final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
+  Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _balanceAlerts = StreamController<GemBalanceAlert>.broadcast();
   final _summaryUpdates =
@@ -1567,6 +1569,7 @@ class WorldChatroomService {
     _userLocationsRefreshPending = false;
     _latestWorldMessagesRefreshPending = false;
     await disconnect();
+    await _phoneEvents.close();
     await _states.close();
     await _failures.close();
     await _balanceAlerts.close();

@@ -30,6 +30,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
   void _attachWorldChatroom(WorldChatroomService service) {
     _deferredBottomSheetMapChatroomState = null;
     _worldChatroom = service;
+    _miniPhoneSession.data?.attach(service);
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
     _worldChatroomFailureSub = bindChatroomFailureToast(
       context,

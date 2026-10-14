@@ -9,7 +9,6 @@ import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dar
 import '../../support/mini_phone_music_services.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_music_service.dart';
 
 void main() {
   setUp(
@@ -40,7 +39,9 @@ void main() {
         services: musicTestServices(api),
         child: MaterialApp(home: page),
       );
-      await miniPhoneMusic.loadCatalog(
+      final phone = MiniPhoneSession();
+      addTearDown(phone.dispose);
+      await phone.music.loadCatalog(
         () async => const MusicCatalog(
           preUrl: 'https://cdn.example/music/',
           tracks: [
@@ -57,7 +58,9 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        host(const MiniPhonePage(initialScreen: MiniPhoneScreen.music)),
+        host(
+          MiniPhonePage(session: phone, initialScreen: MiniPhoneScreen.music),
+        ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
@@ -70,9 +73,9 @@ void main() {
       expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
-      miniPhoneMusic.activated = true;
-      addTearDown(() => miniPhoneMusic.activated = false);
-      await tester.pumpWidget(host(const MiniPhonePage()));
+      phone.music.activated = true;
+      addTearDown(() => phone.music.activated = false);
+      await tester.pumpWidget(host(MiniPhonePage(session: phone)));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       final homeCard = find.byKey(const ValueKey('mini-phone-home-music'));

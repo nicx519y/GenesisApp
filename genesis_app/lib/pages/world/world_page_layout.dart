@@ -144,8 +144,7 @@ extension _WorldPageLayout on _WorldPageState {
                   .toDouble();
           return Stack(
             children: [
-              if (kDebugMode &&
-                  world != null &&
+              if (world != null &&
                   _worldMainTabIndex == 0 &&
                   _activeChatLocationId.isEmpty)
                 Positioned.fill(
@@ -160,10 +159,11 @@ extension _WorldPageLayout on _WorldPageState {
                         legacyWorldMapZoomControlBottomGap +
                         legacyWorldMapZoomControlHeight +
                         12,
-                    onPressed: () => PagePresentationScope.runCovered(
+                    onPressed: (phone) => PagePresentationScope.runCovered(
                       context,
                       () => showMiniPhoneDemo(
                         context,
+                        session: phone,
                         worldId: world.worldId,
                         modelCache: _locationChatPageCache.memoryModelPageCache,
                       ),

@@ -1037,3 +1037,13 @@ Query：
 - 此处为客户端目标契约与兼容行为，真实服务端发布状态需联调确认。
 
 章节的 `global_status`，以及每个地点项（HTTP `paragraphs[]` / 聊天 `story_events[]`）的 `cast`、`status` 均为独立可选数组，可分别省略或同时省略；模型层统一按空数组处理，保留章节旁白、地点叙述和线索，不因此把整条 Tick 判为损坏。字段存在时仍校验数组类型及元素结构（`null` 不视为空数组）。适用于实时 Tick、历史消息、缓存恢复以及 World / Origin 地点段落；旧结构识别和可见性规则不变。
+
+
+## MiniPhone V2 extension (client, 2026-10-13)
+
+The existing world connection also routes `phone.messages.delivered`,
+`phone.reply.updated` and `phone.post.notification.created`. Their business IDs,
+request correlation, event ID, message batches and failure/notification data
+remain in `payload`. They require no location and do not become LocationChat
+messages. See `mini-phone-chat-client-api-2026-10-12.md` and
+`mini-phone-client-integration.md` for the draft and outstanding replay contract.

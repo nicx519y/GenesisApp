@@ -258,7 +258,9 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
     final target = screen;
     if (!mounted) return;
     try {
-      final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+      final file = await systemImagePickerActivity.run(
+        () => ImagePicker().pickImage(source: ImageSource.gallery),
+      );
       if (file == null || !mounted || screen != target) return;
       final bytes = await file.readAsBytes();
       if (!mounted || screen != target) return;
@@ -317,7 +319,8 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
     try {
       final picked = await pickGenesisImages(limit: 1);
       if (picked.isEmpty || !mounted || !isCurrent()) return;
-      final crop = await Navigator.of(context).push<LocalImageCropResult>(
+      final crop = await _session.push<LocalImageCropResult>(
+        context,
         MaterialPageRoute<LocalImageCropResult>(
           builder: (_) => LocalImageCropPage(
             imageBytes: picked.first.bytes,
@@ -395,17 +398,20 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
   Future<void> _openPhotoGallery(List<_MiniPhotoItem> photos, int index) async {
     _miniResume.viewerPhotos = photos;
     _miniResume.viewerIndex = index;
-    await showDialog<void>(
-      context: context,
-      useSafeArea: false,
-      builder: (dialogContext) => _MiniPhotoGallery(
-        photos: photos,
-        initialIndex: index,
-        onIndex: (index) => _miniResume.viewerIndex = index,
-        onClose: () {
-          Navigator.of(dialogContext).pop();
-          _close();
-        },
+    await _session.push<void>(
+      context,
+      DialogRoute<void>(
+        context: context,
+        useSafeArea: false,
+        builder: (dialogContext) => _MiniPhotoGallery(
+          photos: photos,
+          initialIndex: index,
+          onIndex: (index) => _miniResume.viewerIndex = index,
+          onClose: () {
+            Navigator.of(dialogContext).pop();
+            _close();
+          },
+        ),
       ),
     );
     if (!_closing) _miniResume.viewerPhotos = null;

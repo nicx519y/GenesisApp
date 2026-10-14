@@ -79,7 +79,7 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 ## Theme
 
-全局主题由 `GenesisTheme.light()` 提供，并在 `lib/app/genesis_app.dart` 的 `MaterialApp.theme` 中使用。主题负责基础 Material 控件默认值，例如：
+全局默认主题由 `GenesisTheme.dark()` 提供，并在 `lib/app/genesis_app.dart` 的 `MaterialApp.theme` 中使用，不随系统切换浅色；已有明确的局部浅色场景继续保持隔离。主题负责基础 Material 控件默认值，例如：
 
 - `ColorScheme`
 - `scaffoldBackgroundColor`
@@ -242,3 +242,13 @@ Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurcha
 交互 / 提交 Sheet 的正文公共布局，左右外边距固定 16。`GenesisActionSheetHeader.inset` 与正文引用同一个常量；普通深色 `GenesisBottomSheetPanel` 自动应用。购买 Tab 和新用户多步骤容器设置 `insetBody: false`，每页正文使用一次 `GenesisActionSheetBody`。发帖 / 回复等独立弹层也直接使用该控件。
 
 标准边界覆盖表单、登录按钮、角色选择区、订阅权益卡、套餐和底部主按钮。订阅内容使用 `horizontalInset: 0` 接受外层布局，Wallet 完整页面使用 `horizontalInset: 16`，正文左右边距为 16。卡片内部留白及卡片间距不受此规范影响。
+
+
+### Shared chat keyboard layout
+
+`ChatKeyboardInsetLayout` now owns the keyboard/composer geometry previously
+private to LocationChat. LocationChat retains its existing inset and frozen
+mention-sheet behavior. MiniPhone uses the same layout with its private-chat
+style and `LocationChatScrollCoordinator`, keeps keyboard focus on Send, and
+disables reply-reserve positioning. Scroll notifications must be routed to the
+coordinator to preserve a detached reader when new bubbles arrive.

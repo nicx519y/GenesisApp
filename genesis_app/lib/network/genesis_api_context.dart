@@ -91,6 +91,7 @@ abstract class _GenesisApiContext {
     );
     v2 = GenesisV2Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
+    miniPhone = MiniPhoneApi(_chatroomHttpClient);
   }
 
   late final ApiClient _apiClient;
@@ -99,6 +100,7 @@ abstract class _GenesisApiContext {
   late final GenesisV1Api v1;
   late final GenesisV2Api v2;
   late final ChatroomHttpApi chatroomHttp;
+  late final MiniPhoneApi miniPhone;
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;

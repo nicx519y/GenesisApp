@@ -70,6 +70,7 @@ class MainActivity : FlutterActivity() {
     private var pendingDiscussImagePickerLimit = 0
     private var pendingDiscussImagePickerNormalizeForUpload = false
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
+    private var imagePickerLifecycleChannel: ImagePickerLifecycleChannel? = null
     private var appLifecycleBinding: ProcessAppLifecycleChannel.Binding? = null
     private var networkAvailabilityChannel: NetworkAvailabilityChannel? = null
     private var keyboardAnimationEventSink: EventChannel.EventSink? = null
@@ -86,6 +87,8 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        imagePickerLifecycleChannel?.dispose()
+        imagePickerLifecycleChannel = ImagePickerLifecycleChannel(this, flutterEngine.dartExecutor.binaryMessenger)
         appLifecycleBinding?.dispose()
         appLifecycleBinding = ProcessAppLifecycleChannel.bind(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -257,6 +260,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        imagePickerLifecycleChannel?.dispose()
+        imagePickerLifecycleChannel = null
         appLifecycleBinding?.dispose()
         appLifecycleBinding = null
         networkAvailabilityChannel?.dispose()

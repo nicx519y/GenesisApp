@@ -1,7 +1,8 @@
 part of 'mini_phone_page.dart';
 
 class _MiniMusicPlayer extends StatefulWidget {
-  const _MiniMusicPlayer();
+  const _MiniMusicPlayer({required this.music});
+  final MiniPhoneMusicService music;
   @override
   State<_MiniMusicPlayer> createState() => _MiniMusicPlayerState();
 }
@@ -9,11 +10,12 @@ class _MiniMusicPlayer extends StatefulWidget {
 class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
   String? _statusFile;
   bool _ready = false;
+  MiniPhoneMusicService get _music => widget.music;
   @override
   void initState() {
     super.initState();
-    miniPhoneMusic.addListener(_changed);
-    miniPhoneMusic.likes.addListener(_likesChanged);
+    _music.addListener(_changed);
+    _music.likes.addListener(_likesChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _ready = true;
@@ -23,7 +25,7 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
   }
 
   void _loadCatalog() => unawaited(
-    miniPhoneMusic.loadCatalog(
+    _music.loadCatalog(
       () => AppServicesScope.read(context).api.fetchMusicCatalog(),
     ),
   );
@@ -39,18 +41,18 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
   }
 
   void _loadLikeStatus() {
-    final file = miniPhoneMusic.track?.file;
+    final file = _music.track?.file;
     if (file == null || file == _statusFile) return;
     _statusFile = file;
     final api = AppServicesScope.read(context).api;
     unawaited(() async {
       try {
-        await miniPhoneMusic.likes.loadStatus(
+        await _music.likes.loadStatus(
           file,
           () => api.fetchMusicLikeStatus(file: file),
         );
       } catch (error) {
-        if (mounted && miniPhoneMusic.track?.file == file) _likeError(error);
+        if (mounted && _music.track?.file == file) _likeError(error);
       }
     }());
   }
@@ -67,7 +69,7 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
     final api = AppServicesScope.read(context).api;
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     try {
-      await miniPhoneMusic.likes.toggle(
+      await _music.likes.toggle(
         file,
         (liked) =>
             liked ? api.likeMusic(file: file) : api.unlikeMusic(file: file),
@@ -87,18 +89,18 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
 
   @override
   void dispose() {
-    miniPhoneMusic.removeListener(_changed);
-    miniPhoneMusic.likes.removeListener(_likesChanged);
+    _music.removeListener(_changed);
+    _music.likes.removeListener(_likesChanged);
     super.dispose();
   }
 
-  void _next() => miniPhoneMusic.next();
-  void _previous() => miniPhoneMusic.previous();
-  void _togglePlay() => miniPhoneMusic.toggle();
+  void _next() => _music.next();
+  void _previous() => _music.previous();
+  void _togglePlay() => _music.toggle();
 
   @override
   Widget build(BuildContext context) {
-    final track = miniPhoneMusic.track;
+    final track = _music.track;
     if (track == null) {
       return Center(
         child: Padding(
@@ -107,20 +109,20 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                miniPhoneMusic.catalogLoading
+                _music.catalogLoading
                     ? 'Loading music...'
-                    : miniPhoneMusic.catalogError ?? 'No music available.',
+                    : _music.catalogError ?? 'No music available.',
                 textAlign: TextAlign.center,
                 style: miniStyle(14, FontWeight.w400, miniSecondary),
               ),
-              if (miniPhoneMusic.catalogError != null)
+              if (_music.catalogError != null)
                 TextButton(onPressed: _loadCatalog, child: const Text('Retry')),
             ],
           ),
         ),
       );
     }
-    final liked = miniPhoneMusic.likes.isLiked(track.file);
+    final liked = _music.likes.isLiked(track.file);
     return LayoutBuilder(
       builder: (context, bounds) {
         final availableWidth = (bounds.maxWidth - 52).clamp(0.0, 320.0);
@@ -136,11 +138,9 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                 children: [
                   MiniMusicCover(
                     track: track,
-                    nextTrack: miniPhoneMusic.nextTrack,
+                    nextTrack: _music.nextTrack,
                     preloadNext:
-                        miniPhoneMusic.playing &&
-                        miniPhoneMusic.foreground &&
-                        !miniPhoneMusic.loading,
+                        _music.playing && _music.foreground && !_music.loading,
                     width: coverWidth,
                     height: coverWidth * 1.5,
                     radius: 16,
@@ -213,17 +213,17 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                   const SizedBox(height: 12),
                   MiniMusicSeekBar(
                     identity: track.file,
-                    position: miniPhoneMusic.positionDuration,
-                    duration: miniPhoneMusic.durationDuration,
-                    buffered: miniPhoneMusic.bufferedPosition,
-                    enabled: miniPhoneMusic.canSeek,
-                    onSeek: miniPhoneMusic.seekTo,
+                    position: _music.positionDuration,
+                    duration: _music.durationDuration,
+                    buffered: _music.bufferedPosition,
+                    enabled: _music.canSeek,
+                    onSeek: _music.seekTo,
                   ),
-                  if (miniPhoneMusic.playbackError != null)
+                  if (_music.playbackError != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        miniPhoneMusic.playbackError!,
+                        _music.playbackError!,
                         textAlign: TextAlign.center,
                         style: miniStyle(12, FontWeight.w400, miniSecondary),
                       ),
@@ -235,8 +235,8 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                       _control('music-backward', 'Previous track', _previous),
                       const SizedBox(width: 38),
                       Semantics(
-                        toggled: miniPhoneMusic.playRequested,
-                        label: miniPhoneMusic.playRequested ? 'Pause' : 'Play',
+                        toggled: _music.playRequested,
+                        label: _music.playRequested ? 'Pause' : 'Play',
                         button: true,
                         child: IconButton(
                           onPressed: _togglePlay,
@@ -246,12 +246,9 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
                             maximumSize: const Size(64, 64),
                           ),
                           icon: Transform.translate(
-                            offset: Offset(
-                              miniPhoneMusic.playRequested ? 0 : 2,
-                              0,
-                            ),
+                            offset: Offset(_music.playRequested ? 0 : 2, 0),
                             child: MiniIcon(
-                              miniPhoneMusic.playRequested
+                              _music.playRequested
                                   ? 'music-pause'
                                   : 'music-play',
                               size: 30,
@@ -274,7 +271,7 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
 
   Widget _control(String icon, String label, VoidCallback action) => IconButton(
     tooltip: label,
-    onPressed: miniPhoneMusic.loading ? null : action,
+    onPressed: _music.loading ? null : action,
     constraints: const BoxConstraints.tightFor(width: 44, height: 48),
     padding: EdgeInsets.zero,
     icon: MiniIcon(icon, size: 28),
@@ -283,12 +280,13 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
 
 /// Home controls share the Music app's foreground player and catalogue.
 class _MiniHomeMusicCard extends StatelessWidget {
-  const _MiniHomeMusicCard({required this.onOpen});
+  const _MiniHomeMusicCard({required this.onOpen, required this.music});
+  final MiniPhoneMusicService music;
   final VoidCallback onOpen;
 
   Widget _control(String icon, String label, VoidCallback onTap) => IconButton(
     tooltip: label,
-    onPressed: miniPhoneMusic.loading ? null : onTap,
+    onPressed: music.loading ? null : onTap,
     constraints: const BoxConstraints.tightFor(width: 48, height: 40),
     padding: EdgeInsets.zero,
     icon: MiniIcon(icon, size: 24),
@@ -296,7 +294,6 @@ class _MiniHomeMusicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final music = miniPhoneMusic;
     final track = music.track;
     if (track == null) return const SizedBox.shrink();
     return MiniGlass(

@@ -46,7 +46,6 @@ import 'world_bottom_sheet.dart';
 import '../mini_phone/mini_phone_page.dart';
 import '../mini_phone/mini_phone_ui.dart';
 import '../mini_phone/mini_phone_demo_store.dart';
-import '../mini_phone/mini_phone_music_service.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_location_chat_host.dart';
@@ -87,6 +86,7 @@ class WorldPage extends StatefulWidget {
     this.onRetryInitialLaunch,
     this.initialDefinitionVersion = 0,
     this.initialMapLocationId = '',
+    this.miniPhoneSession,
   });
 
   final String wid;
@@ -103,6 +103,7 @@ class WorldPage extends StatefulWidget {
   final VoidCallback? onRetryInitialLaunch;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
+  final MiniPhoneSession? miniPhoneSession;
 
   @override
   State<WorldPage> createState() => _WorldPageState();
@@ -122,6 +123,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
   late final TabController _mainTabController;
+  late MiniPhoneSession _miniPhoneSession;
   WorldDetail? _world;
   Object? _initialLoadError;
   _WorldPageRenderStage _renderStage = _WorldPageRenderStage.framework;
@@ -448,6 +450,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _miniPhoneSession =
+        widget.miniPhoneSession ??
+        MiniPhoneSession.forWorld(context, widget.wid);
     _presentation.addListener(_handlePresentationChanged);
     recentWorldChatStore.listenable.addListener(
       _handleRecentWorldChatStoreChanged,
@@ -502,6 +507,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(WorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.wid != widget.wid) {
+      _miniPhoneSession.dispose();
+      _miniPhoneSession = MiniPhoneSession.forWorld(context, widget.wid);
+    }
     if (oldWidget.wid.isEmpty && widget.wid.isNotEmpty) {
       _startWorldChatroom();
       _scheduleInitialWorldLoadAfterFrameworkFrame();
@@ -528,7 +537,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _presentation.dispose();
-    if (kDebugMode) scheduleMicrotask(miniPhoneMusic.resetPausedOnWorldExit);
+    _miniPhoneSession.dispose();
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _stopWorldTickLockPolling();
@@ -572,11 +581,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   @override
-  Widget build(BuildContext context) => PagePresentationScope(
-    controller: _presentation,
-    child: TickerMode(
-      enabled: !_presentationPaused,
-      child: _buildWorldContent(context),
+  Widget build(BuildContext context) => MiniPhoneSessionScope(
+    session: _miniPhoneSession,
+    child: PagePresentationScope(
+      controller: _presentation,
+      child: TickerMode(
+        enabled: !_presentationPaused,
+        child: _buildWorldContent(context),
+      ),
     ),
   );
 

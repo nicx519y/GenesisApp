@@ -335,7 +335,6 @@ class MiniPhoneDemoStore extends ChangeNotifier {
 }
 
 /// Retained only during the debug process; independent of every production store.
-final miniPhoneDemoStore = MiniPhoneDemoStore();
 
 // Device-local debug UI preference, separate from fixtures and account data.
 final miniPhoneDockPosition = MiniPhoneDockPosition();

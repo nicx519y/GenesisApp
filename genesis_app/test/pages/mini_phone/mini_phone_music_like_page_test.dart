@@ -11,7 +11,6 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_music_service.dart';
 import '../../support/mini_phone_music_services.dart';
 
 TransportResponse response(
@@ -69,7 +68,9 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await miniPhoneMusic.loadCatalog(
+      final phone = MiniPhoneSession();
+      addTearDown(phone.dispose);
+      await phone.music.loadCatalog(
         () async => const MusicCatalog(
           preUrl: 'https://cdn.example/',
           tracks: [
@@ -96,8 +97,11 @@ void main() {
       await tester.pumpWidget(
         AppServicesScope(
           services: musicTestServices(api),
-          child: const MaterialApp(
-            home: MiniPhonePage(initialScreen: MiniPhoneScreen.music),
+          child: MaterialApp(
+            home: MiniPhonePage(
+              session: phone,
+              initialScreen: MiniPhoneScreen.music,
+            ),
           ),
         ),
       );

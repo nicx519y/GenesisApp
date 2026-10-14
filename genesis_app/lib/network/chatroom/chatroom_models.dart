@@ -1,3 +1,4 @@
+import '../mini_phone/mini_phone_models.dart';
 import 'dart:convert';
 
 import '../../utils/gem_amount.dart';
@@ -9,6 +10,7 @@ import 'chatroom_timeline_payload.dart';
 
 export 'chatroom_llm_cards.dart';
 part 'chatroom_card_events.dart';
+part 'chatroom_phone_events.dart';
 part '../../features/location_chat_reply/go_on/src/chatroom_go_on_models.dart';
 
 class ChatroomProtocolException implements Exception {
@@ -2589,6 +2591,8 @@ class ChatroomMessageHandlers {
   void handle(ChatroomEvent event) {
     onEvent?.call(event);
     switch (event) {
+      case ChatroomPhoneEvent():
+        break;
       case ChatroomLlmCardStream e:
         onLlmCardStream?.call(e);
       case ChatroomLlmCardGenerationEnd e:
@@ -2720,6 +2724,10 @@ ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
   }
 
   switch (message.type) {
+    case 'phone.messages.delivered':
+    case 'phone.reply.updated':
+    case 'phone.post.notification.created':
+      return ChatroomPhoneEvent.fromV2Message(message);
     case 'world_summary_updated':
       return ChatroomWorldSummaryUpdated.fromV2Message(message);
     case 'llm_message_updated':
@@ -2776,6 +2784,8 @@ ChatroomEvent chatroomEventFromEnvelope(
 
 String chatroomEventType(ChatroomEvent event) {
   switch (event) {
+    case ChatroomPhoneEvent e:
+      return e.type;
     case ChatroomLlmCardStream():
       return 'llm_card_stream';
     case ChatroomLlmCardGenerationEnd():

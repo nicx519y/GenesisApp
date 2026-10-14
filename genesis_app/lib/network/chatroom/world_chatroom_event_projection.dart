@@ -3,6 +3,8 @@ part of 'world_chatroom_service.dart';
 extension _WorldChatroomEventProjection on WorldChatroomService {
   Future<void> _handleEvent(ChatroomEvent event) async {
     switch (event) {
+      case ChatroomPhoneEvent e:
+        if (e.worldId == _worldId) _phoneEvents.add(e);
       case ChatroomLlmCardStream():
       case ChatroomLlmCardGenerationEnd():
         // Candidate protocol events are exposed by the session only.

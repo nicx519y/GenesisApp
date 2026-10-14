@@ -2,7 +2,7 @@ part of 'mini_phone_page.dart';
 
 extension _MiniPhoneHome on _MiniPhonePageState {
   Widget _home() => ListenableBuilder(
-    listenable: miniPhoneMusic,
+    listenable: _music,
     builder: (context, _) => _homeContent(),
   );
 
@@ -33,34 +33,70 @@ extension _MiniPhoneHome on _MiniPhonePageState {
             final compact = bounds.maxHeight < 700;
             final narrow = bounds.maxWidth < 350;
             final messages =
-                <({MiniDemoPerson person, String text, String time})>[];
-            for (final p in miniDemoPeople) {
-              for (var i = 0; i < store.unread(p); i++) {
+                <
+                  ({
+                    Object sourceId,
+                    MiniDemoPerson person,
+                    String text,
+                    String time,
+                  })
+                >[];
+            final posts = <MiniDemoPost>[];
+            if (phone != null) {
+              for (final m in phone!.home.messages) {
+                final p = phone!.person(m.senderId);
                 messages.add((
-                  person: p,
-                  text: i == 0
-                      ? p.preview
-                      : 'You slipped away before the last song.',
-                  time: i == 0 ? p.time : '4m',
+                  sourceId: ('message', m.id),
+                  person: _livePersonPresentation(p),
+                  text: m.content,
+                  time: m.currentTime,
                 ));
               }
-            }
-            messages.sort(
-              (a, b) =>
-                  (a.time == 'now'
-                          ? 0
-                          : a.time == '2m'
-                          ? 1
-                          : 2)
-                      .compareTo(
-                        b.time == 'now'
+              for (var i = 0; i < phone!.home.notifications.length; i++) {
+                final n = phone!.home.notifications[i];
+                posts.add(
+                  MiniDemoPost(
+                    '${n.postId}:$i',
+                    _livePersonPresentation(
+                      phone!.person(n.actorId, type: n.actorType),
+                    ),
+                    _notificationText(n),
+                    n.currentTime,
+                    0,
+                  ),
+                );
+              }
+            } else {
+              for (final p in miniDemoPeople) {
+                for (var i = 0; i < store.unread(p); i++) {
+                  messages.add((
+                    sourceId: ('message', p.id, i),
+                    person: p,
+                    text: i == 0
+                        ? p.preview
+                        : 'You slipped away before the last song.',
+                    time: i == 0 ? p.time : '4m',
+                  ));
+                }
+              }
+              messages.sort(
+                (a, b) =>
+                    (a.time == 'now'
                             ? 0
-                            : b.time == '2m'
+                            : a.time == '2m'
                             ? 1
-                            : 2,
-                      ),
-            );
-            final posts = store.unreadPosts;
+                            : 2)
+                        .compareTo(
+                          b.time == 'now'
+                              ? 0
+                              : b.time == '2m'
+                              ? 1
+                              : 2,
+                        ),
+              );
+
+              posts.addAll(store.unreadPosts);
+            }
             final kinds = <String>[
               if (messages.isNotEmpty) 'Messages',
               if (posts.isNotEmpty) 'Posts',
@@ -73,7 +109,12 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                 Padding(
                   padding: const EdgeInsets.only(top: 9),
                   child: Text(
-                    'Day 2 · Ashford Estate',
+                    phone == null
+                        ? 'Day 2 · Ashford Estate'
+                        : [
+                            phone!.worldDay,
+                            phone!.worldName,
+                          ].where((part) => part.isNotEmpty).join(' · '),
                     style: miniStyle(
                       compact ? 18 : 20,
                       FontWeight.w500,
@@ -95,15 +136,28 @@ extension _MiniPhoneHome on _MiniPhonePageState {
             final homeNotices = Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (miniPhoneMusic.activated) ...[
-                  _MiniHomeMusicCard(onOpen: () => _go(MiniPhoneScreen.music)),
+                if (_music.activated) ...[
+                  AppLaunchSource(
+                    id: 'home-music-card',
+                    borderRadius: 21,
+                    child: _MiniHomeMusicCard(
+                      music: _music,
+                      onOpen: () => _launchFrom(
+                        'home-music-card',
+                        MiniPhoneScreen.music,
+                        () => _go(MiniPhoneScreen.music),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                 ],
+                if (phone != null && phone!.errors['home'] != null)
+                  _liveStatus('home', phone!.refreshSummary),
                 if (kinds.isNotEmpty) ...[
                   if (messages.isNotEmpty)
                     _noticeGroup(
                       'Messages',
-                      messages.length,
+                      phone?.home.dmUnread ?? messages.length,
                       [
                         for (final n in messages)
                           _homeNotice(
@@ -111,6 +165,8 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                             n.text,
                             n.time,
                             () => _openChat(n.person),
+                            sourceId: n.sourceId,
+                            app: MiniPhoneScreen.messages,
                             squareAvatar: true,
                           ),
                       ],
@@ -126,7 +182,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                   if (posts.isNotEmpty)
                     _noticeGroup(
                       'Posts',
-                      posts.length,
+                      phone?.home.postUnread ?? posts.length,
                       [
                         for (final p in posts)
                           _homeNotice(
@@ -134,6 +190,8 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                             p.text,
                             p.time,
                             () => _openComments(p),
+                            sourceId: ('post', p.id),
+                            app: MiniPhoneScreen.posts,
                           ),
                       ],
                       allExpanded: allExpanded,
@@ -148,6 +206,25 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                           : null,
                     ),
                 ],
+                if (phone != null && kinds.isNotEmpty)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (phone!.home.dmUnread > 0)
+                        TextButton(
+                          onPressed: () {
+                            phone!.unreadSessionsOnly = true;
+                            _go(MiniPhoneScreen.messages);
+                          },
+                          child: const Text('More messages'),
+                        ),
+                      if (phone!.home.postUnread > 0)
+                        TextButton(
+                          onPressed: () => _go(MiniPhoneScreen.notifications),
+                          child: const Text('More notifications'),
+                        ),
+                    ],
+                  ),
               ],
             );
             // Reserve space in scroll content, rather than clipping it above the dock.
@@ -360,14 +437,15 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                                 'Messages',
                                 MiniPhoneScreen.messages,
                                 size: narrow ? 56 : 62,
-                                badge: store.totalUnread,
+                                badge:
+                                    phone?.home.dmUnread ?? store.totalUnread,
                               ),
                               _homeApp(
                                 'posts',
                                 'Posts',
                                 MiniPhoneScreen.posts,
                                 size: narrow ? 56 : 62,
-                                badge: posts.length,
+                                badge: phone?.home.postUnread ?? posts.length,
                               ),
                               _homeApp(
                                 'photos',
@@ -416,7 +494,10 @@ extension _MiniPhoneHome on _MiniPhonePageState {
           ],
           stops: [0, .3, .58, 1],
         ).createShader(rect),
-        child: Text('01:04', style: style.copyWith(color: Colors.white)),
+        child: Text(
+          phone == null ? '01:04' : phone!.clockTime,
+          style: style.copyWith(color: Colors.white),
+        ),
       ),
     );
   }
@@ -502,48 +583,59 @@ extension _MiniPhoneHome on _MiniPhonePageState {
     String text,
     String time,
     VoidCallback action, {
+    required Object sourceId,
+    required MiniPhoneScreen app,
     bool squareAvatar = false,
-  }) => GestureDetector(
-    onTap: action,
-    child: MiniGlass(
-      light: true,
-      outlined: false,
-      opacity: .36,
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 54),
-        child: Row(
-          children: [
-            MiniAvatar(person, size: 36, borderRadius: squareAvatar ? 8 : null),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          person.short,
-                          style: miniStyle(12, FontWeight.w600),
-                        ),
-                      ),
-                      Text(
-                        time,
-                        style: miniStyle(10, FontWeight.w400, miniSecondary),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    text,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: miniStyle(12),
-                  ),
-                ],
+  }) => AppLaunchSource(
+    key: ValueKey(sourceId),
+    id: sourceId,
+    borderRadius: 21,
+    child: GestureDetector(
+      onTap: () => _launchFrom(sourceId, app, action),
+      child: MiniGlass(
+        light: true,
+        outlined: false,
+        opacity: .36,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 54),
+          child: Row(
+            children: [
+              MiniAvatar(
+                person,
+                size: 36,
+                borderRadius: squareAvatar ? 8 : null,
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            person.short,
+                            style: miniStyle(12, FontWeight.w600),
+                          ),
+                        ),
+                        Text(
+                          time,
+                          style: miniStyle(10, FontWeight.w400, miniSecondary),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: miniStyle(12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -559,22 +651,34 @@ extension _MiniPhoneHome on _MiniPhonePageState {
     label: label,
     button: true,
     child: GestureDetector(
-      onTap: () => _go(target),
+      onTap: () => _launchFrom(target, target, () => _go(target)),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: const Color(0xFF232228),
-              borderRadius: BorderRadius.circular(17),
-            ),
-            child: Center(
+          AppLaunchSource(
+            id: target,
+            borderRadius: 17,
+            surfaceColor: const Color(0xFF232228),
+            preview: Center(
               child: MiniIcon(
                 icon.startsWith('music-') ? icon : 'flat-$icon',
                 size: 33,
                 color: miniWhite,
+              ),
+            ),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: const Color(0xFF232228),
+                borderRadius: BorderRadius.circular(17),
+              ),
+              child: Center(
+                child: MiniIcon(
+                  icon.startsWith('music-') ? icon : 'flat-$icon',
+                  size: 33,
+                  color: miniWhite,
+                ),
               ),
             ),
           ),

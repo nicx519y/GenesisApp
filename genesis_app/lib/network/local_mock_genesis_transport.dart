@@ -111,6 +111,58 @@ class LocalMockGenesisTransport implements HttpTransport {
       );
     }
 
+    // Explicit empty phone fixtures. Writes fail rather than pretending that a
+    // server accepted a message for which this transport cannot deliver events.
+    if (apiPath.startsWith('aitown-chat/api/v1/phone/')) {
+      if (!_requestHasAuthorization(request)) {
+        return _ok({
+          'err_no': 10001,
+          'err_msg': 'Sign in required',
+          'data': {},
+        });
+      }
+      final phonePath = apiPath.substring('aitown-chat/api/v1/phone/'.length);
+      if (method == 'GET' && phonePath == 'home') {
+        return _ok({
+          'err_no': 0,
+          'data': {
+            'dms': {'unread_count': 0, 'list': []},
+            'posts': {'unread_count': 0, 'list': []},
+          },
+        });
+      }
+      if (method == 'GET' && phonePath == 'unread') {
+        return _ok({
+          'err_no': 0,
+          'data': {'unread_count': 0, 'char_id': null},
+        });
+      }
+      if (method == 'GET' &&
+          {
+            'dm_sessions',
+            'messages',
+            'posts',
+            'comments',
+            'album',
+            'post/notifications',
+          }.contains(phonePath)) {
+        return _ok({
+          'err_no': 0,
+          'data': {
+            'list': [],
+            'total': 0,
+            'pn': int.tryParse(query['pn'] ?? '') ?? 1,
+            'rn': int.tryParse(query['rn'] ?? '') ?? 10,
+          },
+        });
+      }
+      if (method == 'POST' &&
+          {'dm_session/read', 'post/notifications/read'}.contains(phonePath)) {
+        return _ok({'err_no': 0, 'data': {}});
+      }
+      return _error(501, 'MiniPhone operation requires a live Chat backend');
+    }
+
     if (apiPath.startsWith('aitown-chat/')) {
       return _handleChatroomHttp(method, apiPath, query, body);
     }

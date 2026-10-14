@@ -1156,16 +1156,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           disabledForegroundColor: GenesisColors.darkTextTertiary,
           foregroundColor: GenesisColors.darkTextPrimary,
         ),
-        if (kDebugMode) ...[
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            key: const ValueKey<String>('developer-mini-phone-preview'),
-            label: 'Preview Mini phone',
-            onPressed: _showMiniPhonePreview,
-            backgroundColor: GenesisColors.darkFaintFill,
-            foregroundColor: GenesisColors.darkTextPrimary,
-          ),
-        ],
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          key: const ValueKey<String>('developer-mini-phone-preview'),
+          label: 'Preview Mini phone',
+          onPressed: _showMiniPhonePreview,
+          backgroundColor: GenesisColors.darkFaintFill,
+          foregroundColor: GenesisColors.darkTextPrimary,
+        ),
         const SizedBox(height: _itemGap),
         ValueListenableBuilder<WorldRecapDebugPreview>(
           valueListenable: worldRecapDebugPreview,
