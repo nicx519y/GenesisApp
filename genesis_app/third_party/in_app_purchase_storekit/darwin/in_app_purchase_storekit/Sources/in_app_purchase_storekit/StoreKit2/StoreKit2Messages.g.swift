@@ -422,6 +422,9 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
   var subscription: SK2SubscriptionInfoMessage? = nil
   /// The currency and locale information for this product
   var priceLocale: SK2PriceLocaleMessage
+  /// The currency used by Product.priceFormatStyle, which may differ from
+  /// priceFormatStyle.locale.currencyCode.
+  var priceFormatStyleCurrencyCode: String? = nil
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> SK2ProductMessage? {
@@ -433,6 +436,7 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
     let type = pigeonVar_list[5] as! SK2ProductTypeMessage
     let subscription: SK2SubscriptionInfoMessage? = nilOrValue(pigeonVar_list[6])
     let priceLocale = pigeonVar_list[7] as! SK2PriceLocaleMessage
+    let priceFormatStyleCurrencyCode: String? = nilOrValue(pigeonVar_list[8])
 
     return SK2ProductMessage(
       id: id,
@@ -442,7 +446,8 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
       displayPrice: displayPrice,
       type: type,
       subscription: subscription,
-      priceLocale: priceLocale
+      priceLocale: priceLocale,
+      priceFormatStyleCurrencyCode: priceFormatStyleCurrencyCode
     )
   }
   func toList() -> [Any?] {
@@ -455,6 +460,7 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
       type,
       subscription,
       priceLocale,
+      priceFormatStyleCurrencyCode,
     ]
   }
   static func == (lhs: SK2ProductMessage, rhs: SK2ProductMessage) -> Bool {
@@ -470,6 +476,8 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.type, rhs.type)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.subscription, rhs.subscription)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.priceLocale, rhs.priceLocale)
+      && StoreKit2MessagesPigeonInternal.deepEquals(
+        lhs.priceFormatStyleCurrencyCode, rhs.priceFormatStyleCurrencyCode)
   }
 
   func hash(into hasher: inout Hasher) {
@@ -482,11 +490,12 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
     StoreKit2MessagesPigeonInternal.deepHash(value: type, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: subscription, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: priceLocale, hasher: &hasher)
+    StoreKit2MessagesPigeonInternal.deepHash(value: priceFormatStyleCurrencyCode, hasher: &hasher)
   }
 
   public var description: String {
     return
-      "SK2ProductMessage(id: \(String(describing: id)), displayName: \(String(describing: displayName)), localizedDescription: \(String(describing: localizedDescription)), price: \(String(describing: price)), displayPrice: \(String(describing: displayPrice)), type: \(String(describing: type)), subscription: \(String(describing: subscription)), priceLocale: \(String(describing: priceLocale)))"
+      "SK2ProductMessage(id: \(String(describing: id)), displayName: \(String(describing: displayName)), localizedDescription: \(String(describing: localizedDescription)), price: \(String(describing: price)), displayPrice: \(String(describing: displayPrice)), type: \(String(describing: type)), subscription: \(String(describing: subscription)), priceLocale: \(String(describing: priceLocale)), priceFormatStyleCurrencyCode: \(String(describing: priceFormatStyleCurrencyCode)))"
   }
 }
 

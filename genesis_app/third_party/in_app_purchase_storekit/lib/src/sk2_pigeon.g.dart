@@ -331,6 +331,7 @@ class SK2ProductMessage {
     required this.type,
     this.subscription,
     required this.priceLocale,
+    this.priceFormatStyleCurrencyCode,
   });
 
   /// The unique product identifier.
@@ -357,6 +358,10 @@ class SK2ProductMessage {
   /// The currency and locale information for this product
   SK2PriceLocaleMessage priceLocale;
 
+  /// The currency used by Product.priceFormatStyle, which may differ from
+  /// priceFormatStyle.locale.currencyCode.
+  String? priceFormatStyleCurrencyCode;
+
   List<Object?> _toList() {
     return <Object?>[
       id,
@@ -367,6 +372,7 @@ class SK2ProductMessage {
       type,
       subscription,
       priceLocale,
+      priceFormatStyleCurrencyCode,
     ];
   }
 
@@ -385,6 +391,7 @@ class SK2ProductMessage {
       type: result[5]! as SK2ProductTypeMessage,
       subscription: result[6] as SK2SubscriptionInfoMessage?,
       priceLocale: result[7]! as SK2PriceLocaleMessage,
+      priceFormatStyleCurrencyCode: result[8] as String?,
     );
   }
 
@@ -404,7 +411,8 @@ class SK2ProductMessage {
         _deepEquals(displayPrice, other.displayPrice) &&
         _deepEquals(type, other.type) &&
         _deepEquals(subscription, other.subscription) &&
-        _deepEquals(priceLocale, other.priceLocale);
+        _deepEquals(priceLocale, other.priceLocale) &&
+        _deepEquals(priceFormatStyleCurrencyCode, other.priceFormatStyleCurrencyCode);
   }
 
   @override
@@ -413,7 +421,7 @@ class SK2ProductMessage {
 
   @override
   String toString() {
-    return 'SK2ProductMessage(id: $id, displayName: $displayName, localizedDescription: $localizedDescription, price: $price, displayPrice: $displayPrice, type: $type, subscription: $subscription, priceLocale: $priceLocale)';
+    return 'SK2ProductMessage(id: $id, displayName: $displayName, localizedDescription: $localizedDescription, price: $price, displayPrice: $displayPrice, type: $type, subscription: $subscription, priceLocale: $priceLocale, priceFormatStyleCurrencyCode: $priceFormatStyleCurrencyCode)';
   }
 }
 

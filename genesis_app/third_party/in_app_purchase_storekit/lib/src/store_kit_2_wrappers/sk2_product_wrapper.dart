@@ -349,6 +349,7 @@ class SK2Product {
     required this.type,
     required this.priceLocale,
     this.subscription,
+    this.priceFormatStyleCurrencyCode,
   });
 
   /// The unique product identifier.
@@ -374,6 +375,10 @@ class SK2Product {
 
   /// The locale and currency information for this product.
   final SK2PriceLocale priceLocale;
+
+  /// The actual currency code used by StoreKit's price format style.
+  /// Diagnostic only; [priceLocale] retains the plugin's existing behavior.
+  final String? priceFormatStyleCurrencyCode;
 
   /// https://developer.apple.com/documentation/storekit/product/3851116-products
   /// Given a list of identifiers, return a list of products
@@ -434,6 +439,7 @@ class SK2Product {
       localizedDescription: description,
       price: price,
       priceLocale: priceLocale.convertToPigeon(),
+      priceFormatStyleCurrencyCode: priceFormatStyleCurrencyCode,
       type: type.convertToPigeon(),
     );
   }
@@ -450,6 +456,7 @@ extension on SK2ProductMessage {
       type: type.convertFromPigeon(),
       subscription: subscription?.convertFromPigeon(),
       priceLocale: priceLocale.convertFromPigeon(),
+      priceFormatStyleCurrencyCode: priceFormatStyleCurrencyCode,
     );
   }
 }

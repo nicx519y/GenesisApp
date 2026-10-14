@@ -135,6 +135,8 @@ class StorePriceQueryDiagnostics extends ChangeNotifier {
         'price': native.price,
         'displayPrice': native.displayPrice,
         'type': native.type.name,
+        'priceFormatStyleCurrencyCode': native.priceFormatStyleCurrencyCode,
+        'priceFormatStyleLocaleCurrencyCode': native.priceLocale.currencyCode,
         'priceLocale': {
           'currencyCode': native.priceLocale.currencyCode,
           'currencySymbol': native.priceLocale.currencySymbol,

@@ -88,6 +88,7 @@ class SK2ProductMessage {
     required this.priceLocale,
     required this.type,
     this.subscription,
+    this.priceFormatStyleCurrencyCode,
   });
 
   /// The unique product identifier.
@@ -113,6 +114,10 @@ class SK2ProductMessage {
 
   /// The currency and locale information for this product
   final SK2PriceLocaleMessage priceLocale;
+
+  /// The currency used by Product.priceFormatStyle, which may differ from
+  /// priceFormatStyle.locale.currencyCode.
+  final String? priceFormatStyleCurrencyCode;
 }
 
 class SK2PriceLocaleMessage {

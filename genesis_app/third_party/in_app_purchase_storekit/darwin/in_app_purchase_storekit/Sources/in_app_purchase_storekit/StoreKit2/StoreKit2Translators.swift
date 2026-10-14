@@ -17,7 +17,8 @@ extension Product {
       displayPrice: displayPrice,
       type: type.convertToPigeon,
       subscription: subscription?.convertToPigeon,
-      priceLocale: priceFormatStyle.locale.convertToPigeon
+      priceLocale: priceFormatStyle.locale.convertToPigeon,
+      priceFormatStyleCurrencyCode: priceFormatStyle.currencyCode
     )
   }
 }
