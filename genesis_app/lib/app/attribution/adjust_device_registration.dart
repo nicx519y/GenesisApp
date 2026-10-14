@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:adjust_sdk/adjust.dart';
 import 'package:flutter/foundation.dart';
@@ -21,7 +22,11 @@ typedef AdjustDeviceRegistrationRequest =
     });
 typedef AdjustDeviceRegistrationRetryCallback = Future<void> Function();
 typedef AdjustAdidFailureReporter =
-    void Function(String source, TargetPlatform platform);
+    void Function(
+      String source,
+      TargetPlatform platform,
+      Map<String, Object?> identifiers,
+    );
 typedef AdjustDeviceRegistrationRetryScheduler =
     VoidCallback Function(
       Duration delay,
@@ -52,12 +57,17 @@ VoidCallback _scheduleRetryWithTimer(
   return timer.cancel;
 }
 
-void _reportAdidFailure(String source, TargetPlatform platform) {
+void _reportAdidFailure(
+  String source,
+  TargetPlatform platform,
+  Map<String, Object?> identifiers,
+) {
   GenesisTelemetry.collectLog(
     actionType: 'monitor',
     action: 'get_adid_failed',
     object1: source,
     object2: platform.name,
+    object3: jsonEncode(identifiers),
   );
 }
 
@@ -118,6 +128,7 @@ class AdjustDeviceRegistration {
   int _retryGeneration = 0;
   bool _disposed = false;
   bool _adidFailureReported = false;
+  bool _adidFailureCheckPending = false;
   bool _lastAdidReadWasEmpty = false;
   bool _lastAdidReadFailed = false;
   AdjustDeviceRegistrationResult? _lastResult;
@@ -180,17 +191,32 @@ class AdjustDeviceRegistration {
       return;
     }
 
-    await register();
+    _adidFailureCheckPending = localReadSucceeded;
+    try {
+      await register();
+    } finally {
+      _adidFailureCheckPending = false;
+    }
+  }
+
+  void _reportPendingAdidFailure(_AdjustDeviceIdentifiers identifiers) {
     if (_disposed ||
-        !localReadSucceeded ||
+        !_adidFailureCheckPending ||
         _adidFailureReported ||
         (_knownAdid?.isNotEmpty ?? false) ||
         !_lastAdidReadWasEmpty) {
       return;
     }
     _adidFailureReported = true;
+    final payload = <String, Object?>{
+      'adid': identifiers.adid,
+      'app_instance_id': identifiers.appInstanceId,
+      if (platform == TargetPlatform.android) 'gps_adid': identifiers.gpsAdid,
+      if (platform == TargetPlatform.iOS) 'idfa': identifiers.idfa,
+      if (platform == TargetPlatform.iOS) 'idfv': identifiers.idfv,
+    };
     try {
-      reportAdidFailure('startup_delayed_check', platform);
+      reportAdidFailure('startup_delayed_check', platform, payload);
     } catch (error) {
       debugPrint('[Adjust][DeviceRegister] ADID failure report failed: $error');
     }
@@ -336,6 +362,7 @@ class AdjustDeviceRegistration {
                 'Firebase app instance ID',
               ),
             );
+      _reportPendingAdidFailure(identifiers);
       if (!force && identifiers == _lastRegistered) {
         return adid.isEmpty
             ? missingAdidResult

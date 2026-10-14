@@ -10,6 +10,63 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    test(
+      'ADID failure reports register identifiers before HTTP completes on ${platform.name}',
+      () async {
+        final reports = <Map<String, Object?>>[];
+        final request = Completer<void>();
+        Map<String, Object?>? registered;
+        final registration = AdjustDeviceRegistration(
+          platform: platform,
+          environmentProvider: () => 'sandbox',
+          readAdid: (_) async => null,
+          readGoogleAdId: () async => 'gaid-test',
+          readIdfa: () async => '00000000-0000-0000-0000-000000000000',
+          readIdfv: () async => 'idfv-test',
+          readAppInstanceId: () async => 'instance-test',
+          reportAdidFailure: (source, platform, ids) => reports.add(ids),
+          registerDevice:
+              ({
+                required adid,
+                required environment,
+                gpsAdid,
+                idfa,
+                idfv,
+                required appInstanceId,
+              }) async {
+                registered = {
+                  'adid': adid,
+                  'app_instance_id': appInstanceId,
+                  if (platform == TargetPlatform.android) 'gps_adid': gpsAdid,
+                  if (platform == TargetPlatform.iOS) 'idfa': idfa,
+                  if (platform == TargetPlatform.iOS) 'idfv': idfv,
+                };
+                await request.future;
+              },
+        );
+        final check = registration.checkAdidAfterStartup();
+        for (var i = 0; registered == null && i < 100; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(registered, isNotNull);
+        expect(reports, [registered]);
+        expect(reports.single['app_instance_id'], 'instance-test');
+        expect(
+          reports.single[platform == TargetPlatform.android
+              ? 'gps_adid'
+              : 'idfv'],
+          platform == TargetPlatform.android ? 'gaid-test' : 'idfv-test',
+        );
+        request.complete();
+        await check;
+        await registration.checkAdidAfterStartup();
+        expect(reports, hasLength(1));
+        registration.dispose();
+      },
+    );
+  }
+
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
   tearDown(AdjustAttributionRuntime.resetForTesting);
 
@@ -635,7 +692,8 @@ void main() {
             ? unansweredRead.future
             : Future<String?>.value('later-adid'),
         readGoogleAdId: () async => null,
-        reportAdidFailure: (source, platform) => reports.add(source),
+        reportAdidFailure: (source, platform, identifiers) =>
+            reports.add(source),
         registerDevice:
             ({
               required adid,
@@ -736,7 +794,7 @@ void main() {
         readCount++;
         return null;
       },
-      reportAdidFailure: (source, platform) => reports.add(source),
+      reportAdidFailure: (source, platform, identifiers) => reports.add(source),
       registerDevice:
           ({
             required adid,
@@ -774,7 +832,7 @@ void main() {
       readAdid: (_) async => throw StateError('Adjust must not be read'),
       readIdfa: () async => null,
       readIdfv: () async => null,
-      reportAdidFailure: (source, platform) => reports.add(source),
+      reportAdidFailure: (source, platform, identifiers) => reports.add(source),
       registerDevice:
           ({
             required adid,
@@ -849,7 +907,7 @@ void main() {
       environmentProvider: () => 'sandbox',
       localAdidStore: _MemoryAdjustLocalAdidStore(failRead: true),
       readAdid: (_) async => null,
-      reportAdidFailure: (source, platform) => reports.add(source),
+      reportAdidFailure: (source, platform, identifiers) => reports.add(source),
       registerDevice:
           ({
             required adid,
@@ -881,7 +939,8 @@ void main() {
         readAdid: (_) async => 'adid-after-session-failure',
         readIdfa: () async => null,
         readIdfv: () async => null,
-        reportAdidFailure: (source, platform) => reports.add(source),
+        reportAdidFailure: (source, platform, identifiers) =>
+            reports.add(source),
         registerDevice:
             ({
               required adid,
@@ -919,7 +978,8 @@ void main() {
         readAdid: (_) async => ++readCount == 1 ? null : 'adid-later',
         readIdfa: () async => null,
         readIdfv: () async => null,
-        reportAdidFailure: (source, platform) => reports.add(source),
+        reportAdidFailure: (source, platform, identifiers) =>
+            reports.add(source),
         registerDevice:
             ({
               required adid,
@@ -958,7 +1018,8 @@ void main() {
             : Future<String?>.value('adid-after-failure'),
         readIdfa: () async => null,
         readIdfv: () async => null,
-        reportAdidFailure: (source, platform) => reports.add(source),
+        reportAdidFailure: (source, platform, identifiers) =>
+            reports.add(source),
         registerDevice:
             ({
               required adid,
