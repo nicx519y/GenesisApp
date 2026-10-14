@@ -51,7 +51,7 @@ void main() {
     expect(line.currenciesDiffer, isFalse);
   });
 
-  test('records store-selected quote and cache origin', () {
+  test('records KRW quote while UI uses backend price', () {
     billingPriceDiagnostics.recordGems(
       surface: 'Buy Gems sheet',
       snapshotSource: 'cache',
@@ -59,10 +59,11 @@ void main() {
     );
 
     final line = billingPriceDiagnostics.captures.single.lines.single;
-    expect(line.displayText, '₩12,000');
-    expect(line.displayCurrency, 'KRW');
-    expect(line.displaySource, 'store (cache)');
-    expect(line.displayReason, 'store currency allowed by display policy');
+    expect(line.storeFormatted, '₩12,000');
+    expect(line.displayText, r'$9.99');
+    expect(line.displayCurrency, 'USD');
+    expect(line.displaySource, 'backend (cache)');
+    expect(line.displayReason, 'store currency excluded by display policy');
     expect(line.currenciesDiffer, isTrue);
     expect(line.storeLookup, 'not queried for this snapshot');
   });
@@ -94,7 +95,7 @@ void main() {
             .lines
             .single
             .displayText,
-        '₩12,000',
+        r'$9.99',
       );
       expect(
         billingPriceDiagnostics.captures
@@ -133,7 +134,8 @@ void main() {
     expect(capture.lines.single.backendAmount, '9999');
     expect(capture.lines.single.storeCurrency, 'KRW');
     expect(capture.lines.single.storeSymbol, '₩');
-    expect(capture.lines.single.displayText, '₩120,000');
-    expect(capture.lines.single.displaySource, 'store (fresh)');
+    expect(capture.lines.single.storeFormatted, '₩120,000');
+    expect(capture.lines.single.displayText, r'$99.99');
+    expect(capture.lines.single.displaySource, 'backend (fresh)');
   });
 }

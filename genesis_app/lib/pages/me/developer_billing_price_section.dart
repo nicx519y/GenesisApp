@@ -19,6 +19,7 @@ class _DeveloperBillingPriceSectionState
   String? _storefrontError;
   AppVersionInfo? _buildVersion;
   bool _readingStorefront = false;
+  Map<String, dynamic> _purchaseQueries = {};
   late List<BillingPriceCapture> _captures;
   late List<StorePriceQueryCapture> _rawQueries;
 
@@ -43,6 +44,17 @@ class _DeveloperBillingPriceSectionState
               GenesisMethodChannels.getStorefrontDiagnostics,
             )
             .timeout(const Duration(seconds: 10));
+        try {
+          _purchaseQueries =
+              await const MethodChannel('worldo/storekit_purchase_handoff')
+                  .invokeMapMethod<String, dynamic>(
+                    'getPurchasePriceDiagnostics',
+                  )
+                  .timeout(const Duration(seconds: 3)) ??
+              {};
+        } catch (_) {
+          // Diagnostics are optional on older native builds.
+        }
         country = data?['country_code']?.trim().isNotEmpty == true
             ? data!['country_code']!
             : '(unavailable)';
@@ -76,6 +88,7 @@ class _DeveloperBillingPriceSectionState
         initiallyExpanded: true,
         onExpansionChanged: (expanded) {
           if (!expanded) return;
+          unawaited(_refreshStorefront());
           setState(() {
             _captures = billingPriceDiagnostics.captures;
             _rawQueries = storePriceQueryDiagnostics.captures;
@@ -182,6 +195,11 @@ class _DeveloperBillingPriceSectionState
                 .take(1)) ...[
           _priceDataBlock('Store', _rawQueryReport(query, productId: id)),
         ],
+        if (_purchaseQueries[id] != null)
+          _priceDataBlock(
+            'Checkout',
+            const JsonEncoder.withIndent('  ').convert(_purchaseQueries[id]),
+          ),
         for (final surface
             in (group == 'Subscription'
                 ? const ['Subscription']

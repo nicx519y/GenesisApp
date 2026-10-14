@@ -33,7 +33,8 @@ void main() {
           currency: 'KRW',
         ),
       );
-      expect(find.text('₩12,000'), findsOneWidget);
+      expect(find.text('₩12,000'), findsNothing);
+      expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
       await show(
         _product().withStorePrice(
           formatted: '€2.00',

@@ -1,5 +1,6 @@
 /// Store prices are displayed only for the agreed currencies. This does not
-/// change the native store quote or the amount charged at checkout.
+/// stop product lookup, change the native store quote, or the amount charged
+/// at checkout.
 bool useStorePriceForDisplay(String? currencyCode) => const {
   'EUR',
   'GBP',
@@ -7,7 +8,6 @@ bool useStorePriceForDisplay(String? currencyCode) => const {
   'CAD',
   'JPY',
   'TWD',
-  'KRW',
 }.contains(currencyCode?.trim().toUpperCase());
 
 /// Remove only an all-zero decimal portion of a formatted price. Three-digit

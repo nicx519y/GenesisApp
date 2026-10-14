@@ -26,24 +26,21 @@ void main() {
     ),
     loadStorePrices: loader,
   );
-  test(
-    'store currency and prices replace API display values and savings',
-    () async {
-      final source = catalog(
-        (_) async => {'pro_yearly': yearlyPrice, 'pro_monthly': monthlyPrice},
-      );
-      final result = await source.load();
-      expect(result.offers.first.price!.formattedPrice, '₩120,000');
-      expect(result.offers.last.price!.formattedPrice, '₩12,000');
-      expect(result.offers.first.price!.monthlyEquivalent('ko', 12), '₩10,000');
-      expect(membershipYearlySavings(result.offers.first, result.offers), 17);
-      // Checkout identities and server data are preserved separately.
-      expect(
-        (await source.readCheckoutProducts()).products.first.priceCurrencyCode,
-        'USD',
-      );
-    },
-  );
+  test('KRW store quotes keep server display values and savings', () async {
+    final source = catalog(
+      (_) async => {'pro_yearly': yearlyPrice, 'pro_monthly': monthlyPrice},
+    );
+    final result = await source.load();
+    expect(result.offers.first.price!.formattedPrice, r'$99.99');
+    expect(result.offers.last.price!.formattedPrice, r'$9.99');
+    expect(result.offers.first.price!.monthlyEquivalent('ko', 12), r'$8.33');
+    expect(membershipYearlySavings(result.offers.first, result.offers), 17);
+    // Checkout identities and server data are preserved separately.
+    expect(
+      (await source.readCheckoutProducts()).products.first.priceCurrencyCode,
+      'USD',
+    );
+  });
   test(
     'partial store result falls back to API price for missing plan',
     () async {
@@ -52,11 +49,8 @@ void main() {
       ).load();
       expect(result.offers.first.price!.currencyCode, 'USD');
       expect(result.offers.first.storePrice, isNull);
-      expect(result.offers.last.price!.currencyCode, 'KRW');
-      expect(
-        membershipYearlySavings(result.offers.first, result.offers),
-        isNull,
-      );
+      expect(result.offers.last.price!.currencyCode, 'USD');
+      expect(membershipYearlySavings(result.offers.first, result.offers), 17);
     },
   );
   test('store failure exposes server price and entry retries lookup', () async {
@@ -74,7 +68,7 @@ void main() {
     );
     expect(
       (await source.loadForEntry()).offers.first.price!.currencyCode,
-      'KRW',
+      'USD',
     );
   });
 }

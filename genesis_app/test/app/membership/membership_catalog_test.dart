@@ -77,7 +77,6 @@ void main() {
           'CAD',
           'JPY',
           'TWD',
-          'KRW',
         ].contains(currency);
         final offer = MembershipOffer(
           product: membershipProduct(currency: 'USD', priceAmount: 999),

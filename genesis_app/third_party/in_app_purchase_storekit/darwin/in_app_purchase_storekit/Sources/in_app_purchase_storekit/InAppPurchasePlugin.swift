@@ -44,6 +44,8 @@ public class InAppPurchasePlugin: NSObject, FlutterPlugin, FIAInAppPurchaseAPI {
 
   var transactionCallbackAPI: InAppPurchase2CallbackAPIProtocol? = nil
   var purchaseHandoffChannel: FlutterMethodChannel?
+  // Display-only snapshots; never used to prepare or authorize a purchase.
+  var purchasePriceDiagnostics: [String: [String: Any]] = [:]
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     #if os(iOS)
@@ -58,6 +60,13 @@ public class InAppPurchasePlugin: NSObject, FlutterPlugin, FIAInAppPurchaseAPI {
     let instance = InAppPurchasePlugin(registrar: registrar)
     instance.purchaseHandoffChannel = FlutterMethodChannel(
       name: "worldo/storekit_purchase_handoff", binaryMessenger: messenger)
+    instance.purchaseHandoffChannel?.setMethodCallHandler { [weak instance] call, result in
+      guard call.method == "getPurchasePriceDiagnostics" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(instance?.purchasePriceDiagnostics ?? [:])
+    }
     registrar.addMethodCallDelegate(instance, channel: channel)
     registrar.addApplicationDelegate(instance)
     SetUpFIAInAppPurchaseAPI(messenger, instance)

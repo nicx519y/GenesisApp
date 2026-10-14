@@ -53,6 +53,26 @@ extension InAppPurchasePlugin: InAppPurchase2API {
           return completion(.failure(error))
         }
 
+        // Capture the exact native product used below, without another product request.
+        let captureId = UUID().uuidString
+        self.purchasePriceDiagnostics[id] = [
+          "captureId": captureId,
+          "queriedAt": ISO8601DateFormatter().string(from: Date()),
+          "product": [
+            "id": product.id,
+            "price": NSDecimalNumber(decimal: product.price).stringValue,
+            "displayPrice": product.displayPrice,
+            "currencyCode": product.priceFormatStyle.currencyCode,
+          ],
+        ]
+
+        Task { @MainActor [weak self] in
+          let storefront = await Storefront.current
+          guard self?.purchasePriceDiagnostics[id]?["captureId"] as? String == captureId else { return }
+          self?.purchasePriceDiagnostics[id]?["storefront"] = storefront?.countryCode ?? ""
+          self?.purchasePriceDiagnostics[id]?["storefrontId"] = storefront?.id ?? ""
+        }
+
         var purchaseOptions: Set<Product.PurchaseOption> = []
 
         if let appAccountToken = options?.appAccountToken,
