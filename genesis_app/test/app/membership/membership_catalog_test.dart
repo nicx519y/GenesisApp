@@ -77,7 +77,6 @@ void main() {
           'CAD',
           'JPY',
           'TWD',
-          'KRW',
         ].contains(currency);
         final offer = MembershipOffer(
           product: membershipProduct(currency: 'USD', priceAmount: 999),
@@ -112,6 +111,38 @@ void main() {
       },
     );
   }
+
+  test('KRW uses the server amount and currency despite a store quote', () {
+    final offer = MembershipOffer(
+      product: membershipProduct(currency: 'KRW', priceAmount: 99900),
+      storePrice: const MembershipStorePrice(
+        formattedPrice: '₩120,000',
+        amountMicros: 120000000000,
+        currencyCode: 'KRW',
+        currencySymbol: '₩',
+      ),
+    );
+    expect(offer.storePrice!.formattedPrice, '₩120,000');
+    expect(offer.price!.amountCent, 99900);
+    expect(offer.price!.currencyCode, 'KRW');
+    expect(offer.price!.storeFormattedPrice, isNull);
+
+    final gems =
+        GemProduct.fromJson({
+          'product_id': 'test',
+          'base_gems_cent': 10000,
+          'bonus_gems_cent': 0,
+          'price_amount': 99900,
+          'price_currency_code': 'KRW',
+        }).withStorePrice(
+          formatted: '₩120,000',
+          micros: 120000000000,
+          currency: 'KRW',
+        );
+    expect(gems.displaysStorePrice, isFalse);
+    expect(gems.priceAmount, 99900);
+    expect(gems.priceCurrencyCode, 'KRW');
+  });
 
   for (final provider in MembershipProvider.values) {
     test(

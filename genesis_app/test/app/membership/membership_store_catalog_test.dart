@@ -5,16 +5,16 @@ import 'package:genesis_flutter_android/platform/billing/membership_product_stor
 import '../../support/membership_fixtures.dart';
 
 const yearlyPrice = MembershipStorePrice(
-  formattedPrice: '₩120,000',
-  amountMicros: 120000000000,
-  currencyCode: 'KRW',
-  currencySymbol: '₩',
+  formattedPrice: '€120.00',
+  amountMicros: 120000000,
+  currencyCode: 'EUR',
+  currencySymbol: '€',
 );
 const monthlyPrice = MembershipStorePrice(
-  formattedPrice: '₩12,000',
-  amountMicros: 12000000000,
-  currencyCode: 'KRW',
-  currencySymbol: '₩',
+  formattedPrice: '€12.00',
+  amountMicros: 12000000,
+  currencyCode: 'EUR',
+  currencySymbol: '€',
 );
 
 void main() {
@@ -33,9 +33,9 @@ void main() {
         (_) async => {'pro_yearly': yearlyPrice, 'pro_monthly': monthlyPrice},
       );
       final result = await source.load();
-      expect(result.offers.first.price!.formattedPrice, '₩120,000');
-      expect(result.offers.last.price!.formattedPrice, '₩12,000');
-      expect(result.offers.first.price!.monthlyEquivalent('ko', 12), '₩10,000');
+      expect(result.offers.first.price!.formattedPrice, '€120');
+      expect(result.offers.last.price!.formattedPrice, '€12');
+      expect(result.offers.first.price!.monthlyEquivalent('en', 12), '€10');
       expect(membershipYearlySavings(result.offers.first, result.offers), 17);
       // Checkout identities and server data are preserved separately.
       expect(
@@ -52,7 +52,7 @@ void main() {
       ).load();
       expect(result.offers.first.price!.currencyCode, 'USD');
       expect(result.offers.first.storePrice, isNull);
-      expect(result.offers.last.price!.currencyCode, 'KRW');
+      expect(result.offers.last.price!.currencyCode, 'EUR');
       expect(
         membershipYearlySavings(result.offers.first, result.offers),
         isNull,
@@ -74,7 +74,7 @@ void main() {
     );
     expect(
       (await source.loadForEntry()).offers.first.price!.currencyCode,
-      'KRW',
+      'EUR',
     );
   });
 }

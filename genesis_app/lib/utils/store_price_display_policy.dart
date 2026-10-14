@@ -7,7 +7,6 @@ bool useStorePriceForDisplay(String? currencyCode) => const {
   'CAD',
   'JPY',
   'TWD',
-  'KRW',
 }.contains(currencyCode?.trim().toUpperCase());
 
 /// Remove only an all-zero decimal portion of a formatted price. Three-digit

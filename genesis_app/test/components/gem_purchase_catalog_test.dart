@@ -8,7 +8,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
 void main() {
   testWidgets(
-    'store price is shown verbatim and failed lookup shows API price',
+    'KRW store price is ignored; allowed store and API fallback still display',
     (tester) async {
       Future<void> show(GemProduct product) => tester.pumpWidget(
         MaterialApp(
@@ -33,7 +33,8 @@ void main() {
           currency: 'KRW',
         ),
       );
-      expect(find.text('₩12,000'), findsOneWidget);
+      expect(find.text('₩12,000'), findsNothing);
+      expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
       await show(
         _product().withStorePrice(
           formatted: '€2.00',

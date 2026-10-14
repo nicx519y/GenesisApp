@@ -10,7 +10,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
-    'restart restores exact store display price but not checkout credentials',
+    'cached KRW quote remains stored but displays server price after restart',
     () async {
       final products = MembershipProductList(
         products: [membershipProduct(yearly: true)],
@@ -39,11 +39,9 @@ void main() {
         },
       );
       final cached = await source.loadCached();
-      expect(cached!.offers.single.price!.formattedPrice, '₩120,000');
-      expect(
-        cached.offers.single.price!.monthlyEquivalent('ko', 12),
-        '₩10,000',
-      );
+      expect(cached!.offers.single.storePrice!.formattedPrice, '₩120,000');
+      expect(cached.offers.single.price!.currencyCode, 'USD');
+      expect(cached.offers.single.price!.amountCent, 9999);
       expect(calls, 0);
       await expectLater(source.readCheckoutProducts(), throwsStateError);
       expect(
