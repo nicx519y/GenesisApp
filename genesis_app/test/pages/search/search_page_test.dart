@@ -145,7 +145,7 @@ void main() {
     },
   );
 
-  testWidgets('does not request search before three letters or chinese chars', (
+  testWidgets('does not request search before two letters or chinese chars', (
     tester,
   ) async {
     final transport = _SearchPageTransport();
@@ -174,12 +174,9 @@ void main() {
     expect(transport.searchRequests, isEmpty);
 
     await tester.enterText(find.byType(TextField), 'ab');
-    await tester.pump(const Duration(milliseconds: 700));
-
+    await tester.pump(const Duration(milliseconds: 599));
     expect(transport.searchRequests, isEmpty);
-
-    await tester.enterText(find.byType(TextField), 'abc');
-    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 101));
     await tester.pump();
 
     expect(
@@ -189,12 +186,17 @@ void main() {
     expect(transport.searchRequests, hasLength(1));
     expect(
       transport.searchRequests.single.uri.queryParameters['keyword'],
-      'abc',
+      'ab',
     );
     expect(
       transport.searchRequests.single.uri.queryParameters['type'],
       'origin',
     );
+    await tester.enterText(find.byType(TextField), '你好');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+    expect(transport.searchRequests, hasLength(2));
+    expect(transport.searchRequests.last.uri.queryParameters['keyword'], '你好');
   });
 
   testWidgets('uses the compact Search History capsule style', (tester) async {
