@@ -4292,5 +4292,9 @@
   "chatCharacterMovement": "Spostamento dei personaggi",
   "@chatCharacterMovement": {
     "description": "Tick message: heading above character destination jump cards."
+  },
+  "worldoLaunchDone": "Fine",
+  "@worldoLaunchDone": {
+    "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
   }
 }

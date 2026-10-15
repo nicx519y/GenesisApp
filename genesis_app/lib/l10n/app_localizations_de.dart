@@ -1320,6 +1320,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get worldoLaunchProfile => 'Dein Profil';
 
   @override
+  String get worldoLaunchDone => 'Fertig';
+
+  @override
   String get worldoLaunchSuggested => 'Vorschläge';
 
   @override

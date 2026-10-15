@@ -1300,6 +1300,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get worldoLaunchProfile => 'Your Profile';
 
   @override
+  String get worldoLaunchDone => 'Done';
+
+  @override
   String get worldoLaunchSuggested => 'Suggested';
 
   @override

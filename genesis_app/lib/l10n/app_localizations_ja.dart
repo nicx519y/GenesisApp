@@ -1276,6 +1276,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldoLaunchProfile => 'あなたのプロフィール';
 
   @override
+  String get worldoLaunchDone => '完了';
+
+  @override
   String get worldoLaunchSuggested => 'おすすめ';
 
   @override

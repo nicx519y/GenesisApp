@@ -1314,6 +1314,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get worldoLaunchProfile => 'Seu perfil';
 
   @override
+  String get worldoLaunchDone => 'Concluído';
+
+  @override
   String get worldoLaunchSuggested => 'Sugerido';
 
   @override
