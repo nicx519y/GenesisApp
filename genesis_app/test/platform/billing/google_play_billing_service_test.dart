@@ -420,14 +420,34 @@ void main() {
     expect(call.provider, 'google');
     expect(call.productId, 'worldo_gems_500');
     expect(call.purchaseIdentity, 'purchase-token-1');
-    expect(call.transactionIdentity, 'purchase-token-1');
+    expect(call.transactionIdentity, 'GPA.1');
     expect(call.priceAmountMicros, 1490000);
     expect(call.priceCurrencyCode, 'USD');
 
-    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    platform.emit(
+      _purchase(BillingPurchaseStatus.purchased, transactionId: 'GPA.2'),
+    );
     await _settle();
     expect(purchaseEvents.calls, hasLength(1));
   });
+
+  test(
+    'Gems purchase report falls back to token without store order ID',
+    () async {
+      await service.purchaseGem(_product);
+      platform.emit(
+        _purchase(BillingPurchaseStatus.purchased, transactionId: '   '),
+      );
+      await _settle();
+
+      expect(purchaseEvents.calls, hasLength(1));
+      expect(
+        purchaseEvents.calls.single.transactionIdentity,
+        'purchase-token-1',
+      );
+      expect(purchaseEvents.calls.single.purchaseIdentity, 'purchase-token-1');
+    },
+  );
 
   for (final outcome in [
     'rejected',

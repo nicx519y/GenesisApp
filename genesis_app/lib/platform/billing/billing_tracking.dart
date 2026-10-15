@@ -362,7 +362,9 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
           productId: purchase.productId,
           kind: PurchaseEventKind.gems,
           purchaseIdentity: purchase.purchaseToken,
-          transactionIdentity: receipt,
+          transactionIdentity: purchase.transactionId.trim().isNotEmpty
+              ? purchase.transactionId.trim()
+              : purchase.purchaseToken.trim(),
           priceAmountMicros: priceAmountMicros,
           priceCurrencyCode: priceCurrencyCode,
         ),
