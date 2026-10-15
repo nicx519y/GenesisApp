@@ -1,9 +1,42 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_network_recovery.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('network subscribers share one native listen and cancel', () async {
+    const channel = MethodChannel('com.worldo.ai/network_availability');
+    final listened = Completer<void>();
+    final cancelled = Completer<void>();
+    var listens = 0;
+    var cancels = 0;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'listen') {
+        listens++;
+        listened.complete();
+      } else if (call.method == 'cancel') {
+        cancels++;
+        cancelled.complete();
+      }
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final first = NetworkAvailabilityEvents.changes.listen((_) {});
+    final second = NetworkAvailabilityEvents.changes.listen((_) {});
+    await listened.future;
+    expect(listens, 1);
+    await first.cancel();
+    expect(cancels, 0);
+    await second.cancel();
+    await cancelled.future;
+    expect(cancels, 1);
+  });
+
   test(
     'network recovery runs once for each offline-to-online transition',
     () async {

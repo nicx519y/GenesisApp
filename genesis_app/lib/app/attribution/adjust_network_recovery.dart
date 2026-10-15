@@ -11,10 +11,12 @@ class NetworkAvailabilityEvents {
     'com.worldo.ai/network_availability',
   );
 
-  static Stream<bool> get changes => _channel
+  static final Stream<bool> _changes = _channel
       .receiveBroadcastStream()
       .where((event) => event is bool)
       .cast<bool>();
+
+  static Stream<bool> get changes => _changes;
 }
 
 /// Coalesces the initial network snapshot and offline-to-online transitions.
