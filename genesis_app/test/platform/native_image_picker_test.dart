@@ -9,6 +9,21 @@ void main() {
     );
   });
 
+  test('Posts enables native normalization and static GIF conversion', () {
+    expect(
+      genesisNativeImagePickerArguments(
+        limit: 1,
+        normalizeForUpload: true,
+        allowGif: true,
+      ),
+      <String, Object>{
+        'limit': 1,
+        'normalizeForUpload': true,
+        'allowGif': true,
+      },
+    );
+  });
+
   test('native picker leaves normal image selection unchanged', () {
     expect(
       genesisNativeImagePickerArguments(limit: 6, normalizeForUpload: false),

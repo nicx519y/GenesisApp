@@ -100,6 +100,11 @@ extension _MiniPhoneLive on _MiniPhonePageState {
         }
       }
     }
+    if (phone != null &&
+        screen == MiniPhoneScreen.create &&
+        postDraft.error != null) {
+      errors['post-photo'] = postDraft.error!;
+    }
     if (screen == MiniPhoneScreen.settings &&
         !wallpaper.loading &&
         wallpaper.loadError != null) {
@@ -292,50 +297,47 @@ extension _MiniPhoneLive on _MiniPhonePageState {
       () => phone!.refreshPosts(next: true),
       GenesisRefreshIndicator(
         onRefresh: () => _refreshPhoneList('posts', phone!.refreshPosts),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                miniPageInset,
-                4,
-                miniPageInset,
-                16,
-              ),
-              child: LayoutBuilder(
-                builder: (context, bounds) {
-                  final authors = phone!.authors.toList();
-                  final width = (bounds.maxWidth / (authors.length + 1)).clamp(
-                    64.0,
-                    double.infinity,
-                  );
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: width,
-                          child: _authorShortcut(_liveMe, create: true),
-                        ),
-                        for (final person in authors)
-                          SizedBox(
-                            width: width,
-                            child: _authorShortcut(person),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+        child: MiniPhonePostFeed(
+          posts: phone!.posts,
+          resetKey: (phone!.accountGeneration, phone!.authorFilter),
+          active: screen == MiniPhoneScreen.posts && phone!.foreground,
+          itemBuilder: _livePostCard,
+          header: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              miniPageInset,
+              4,
+              miniPageInset,
+              16,
             ),
-            for (final p in phone!.posts) _livePostCard(p),
-            _liveLoading(
-              'posts',
-              also: const ['postAuthors'],
-              showLoading: phone!.posts.isEmpty,
+            child: LayoutBuilder(
+              builder: (context, bounds) {
+                final authors = phone!.authors.toList();
+                final width = (bounds.maxWidth / (authors.length + 1)).clamp(
+                  64.0,
+                  double.infinity,
+                );
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: width,
+                        child: _authorShortcut(_liveMe, create: true),
+                      ),
+                      for (final person in authors)
+                        SizedBox(width: width, child: _authorShortcut(person)),
+                    ],
+                  ),
+                );
+              },
             ),
-          ],
+          ),
+          footer: _liveLoading(
+            'posts',
+            also: const ['postAuthors'],
+            showLoading: phone!.posts.isEmpty,
+          ),
         ),
       ),
     ),
@@ -482,11 +484,21 @@ extension _MiniPhoneLive on _MiniPhonePageState {
               const SizedBox(height: 4),
               if (text.isNotEmpty) Text(text, style: miniStyle(14)),
               if (image.isNotEmpty)
-                _liveImage(
-                  image,
-                  maxWidth: detail ? 170 : 290,
-                  maxHeight: detail ? 180 : 300,
-                ),
+                if (detail)
+                  _liveImage(image, maxWidth: 170, maxHeight: 180)
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: MiniPhonePostThumbnail(
+                      imageUrl: image,
+                      onTap: (preview, source) => showGenesisImageViewer(
+                        context,
+                        imageUrls: [image],
+                        previewImageProviders: [preview],
+                        source: source,
+                      ),
+                    ),
+                  ),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
@@ -791,88 +803,46 @@ extension _MiniPhoneLive on _MiniPhonePageState {
     );
   }
 
-  Future<void> _chooseLivePhoto() async {
-    final data = phone!;
-    if (uploadingPostPhoto || data.unresolved('post:new')) return;
-    final generation = data.accountGeneration;
-    final previousPhoto = draftPhoto;
-    final previousUrl = selectedPostPhoto;
-    bool current() => mounted && generation == data.accountGeneration;
-    _update(() {
-      uploadingPostPhoto = true;
-      postPhotoProgress = 0;
-    });
-    try {
-      final files = await pickGenesisImageFiles(limit: 1);
-      if (files.isEmpty || !current()) return;
-      final file = files.first;
-      final bytes = await file.readAsBytes();
-      if (!mounted || !current()) return;
-      if (bytes.length > 10 * 1024 * 1024) {
-        showGenesisToast(context, 'Choose an image no larger than 10 MiB.');
-        return;
-      }
-      _update(() => draftPhoto = bytes);
-      final result = await AppServicesScope.read(context).api.v1.upload.image(
-        bytes: bytes,
+  Future<void> _chooseLivePhoto() => postDraft.choose(() async {
+    final files = await pickGenesisImageFiles(
+      limit: 1,
+      normalizeForUpload: true,
+      allowGif: true,
+    );
+    if (files.isEmpty) return null;
+    final file = files.first;
+    return fitPreparedUploadImage(
+      ProcessedUploadImage(
+        bytes: await file.readAsBytes(),
         filename: imageFilename(file),
-        contentType:
-            file.mimeType ??
-            (file.name.toLowerCase().endsWith('.heic')
-                ? 'image/heic'
-                : file.name.toLowerCase().endsWith('.heif')
-                ? 'image/heif'
-                : guessImageContentType(file.name)),
-        onSendProgress: (sent, total) {
-          if (current() && total > 0) {
-            _update(() => postPhotoProgress = sent / total);
-          }
-        },
-      );
-      if (!mounted || !current()) return;
-      final url = GenesisImageResourceRegistry.resolve(result).displayUrl;
-      if (url.isEmpty) {
-        throw const FormatException('Missing uploaded image URL');
-      }
-      _update(() {
-        selectedPostPhoto = url;
-        postPhotoProgress = 1;
-      });
-    } catch (error) {
-      if (mounted && current()) {
-        _update(() {
-          draftPhoto = previousPhoto;
-          selectedPostPhoto = previousUrl;
-        });
-        showGenesisToast(
-          context,
-          error is ApiException
-              ? error.message
-              : 'Unable to upload this photo. Please try again.',
-        );
-      }
-    } finally {
-      if (current()) _update(() => uploadingPostPhoto = false);
-    }
-  }
+        contentType: file.mimeType ?? guessImageContentType(file.name),
+      ),
+    );
+  });
 
   Future<void> _publishLivePost() async {
-    final pending = phone!.pending['post:new'];
-    final retry = pending != null && !pending.rejected;
-    final text = retry ? pending.content : postInput.text;
-    final ok = await phone!.write(
-      'post',
-      'new',
-      text,
-      image: selectedPostPhoto,
-      retry: retry,
-    );
-    if (!mounted || !ok) return;
-    if (postInput.text == text) postInput.clear();
-    selectedPostPhoto = null;
-    draftPhoto = null;
-    phone!.authorFilter = null;
-    _go(MiniPhoneScreen.posts);
+    final data = phone!;
+    final generation = data.accountGeneration;
+    final ok = await postDraft.submit((photo) async {
+      final api = AppServicesScope.read(context).api;
+      final result = await api.v1.upload.image(
+        bytes: photo.bytes,
+        filename: photo.filename,
+        contentType: photo.contentType,
+      );
+      return GenesisImageResourceRegistry.resolve(result).displayUrl;
+    });
+    if (!mounted ||
+        _session.isDisposed ||
+        generation != data.accountGeneration ||
+        !ok) {
+      return;
+    }
+    // Navigation remains available while sending; don't pull the user back.
+    if (screen == MiniPhoneScreen.create) {
+      data.authorFilter = null;
+      _go(MiniPhoneScreen.posts);
+    }
   }
 
   Widget _liveCreate() => SafeArea(
@@ -910,12 +880,9 @@ extension _MiniPhoneLive on _MiniPhonePageState {
               ),
               _button(
                 'Post',
-                postInput.text.trim().isEmpty ||
-                        uploadingPostPhoto ||
-                        phone!.busy.contains('post:new')
-                    ? null
-                    : _publishLivePost,
-                isLoading: phone!.busy.contains('post:new'),
+                postDraft.canSubmit ? _publishLivePost : null,
+                isLoading: postDraft.submitting,
+                showLoadingIndicator: true,
                 primary: true,
               ),
               const SizedBox(width: 8),
@@ -957,9 +924,13 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                 const SizedBox(height: 16),
                 TextField(
                   controller: postInput,
+                  readOnly: postDraft.locked,
                   minLines: 6,
                   maxLines: 10,
-                  onChanged: (_) => _update(() {}),
+                  onChanged: (value) {
+                    postDraft.setText(value);
+                    _update(() {});
+                  },
                   style: miniStyle(14),
                   decoration: InputDecoration(
                     hintText: 'What’s on your mind?',
@@ -1003,37 +974,26 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                       child: CustomPaint(
                         painter: _MiniUploadBorder(),
                         child: InkWell(
-                          onTap:
-                              uploadingPostPhoto ||
-                                  phone!.unresolved('post:new')
+                          onTap: postDraft.locked || postDraft.preparing
                               ? null
                               : _chooseLivePhoto,
                           borderRadius: BorderRadius.circular(13),
-                          child: draftPhoto != null
+                          child: postDraft.photo != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(13),
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      Image.memory(
-                                        draftPhoto!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Center(
-                                          child: Icon(Icons.image_outlined),
-                                        ),
-                                      ),
-                                      if (uploadingPostPhoto)
-                                        GenesisUploadProgressOverlay(
-                                          progress: postPhotoProgress,
-                                        ),
-                                    ],
+                                  child: Image.memory(
+                                    postDraft.photo!.bytes,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(Icons.image_outlined),
+                                    ),
                                   ),
                                 )
-                              : selectedPostPhoto != null
+                              : postDraft.uploadedUrl != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(13),
                                   child: GenesisListImage(
-                                    imageUrl: selectedPostPhoto!,
+                                    imageUrl: postDraft.uploadedUrl!,
                                     fit: BoxFit.cover,
                                   ),
                                 )
@@ -1072,23 +1032,19 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                               miniSecondary,
                             ),
                           ),
-                          if (selectedPostPhoto != null) ...[
+                          if (postDraft.photo != null ||
+                              postDraft.uploadedUrl != null) ...[
                             _button(
                               'Replace photo',
-                              uploadingPostPhoto ||
-                                      phone!.unresolved('post:new')
+                              postDraft.locked || postDraft.preparing
                                   ? null
                                   : _chooseLivePhoto,
                             ),
                             _button(
                               'Remove photo',
-                              uploadingPostPhoto ||
-                                      phone!.unresolved('post:new')
+                              postDraft.locked || postDraft.preparing
                                   ? null
-                                  : () => _update(() {
-                                      selectedPostPhoto = null;
-                                      draftPhoto = null;
-                                    }),
+                                  : postDraft.removePhoto,
                             ),
                           ],
                         ],
@@ -1114,28 +1070,10 @@ extension _MiniPhoneLive on _MiniPhonePageState {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverGrid(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final a = phone!.album[index];
-                return InkWell(
-                  onTap: a.image.isEmpty
-                      ? null
-                      : () {
-                          showGenesisImageViewer(
-                            context,
-                            imageUrls: phone!.album
-                                .map((e) => e.image)
-                                .toList(),
-                            initialIndex: index,
-                          );
-                        },
-                  child: GenesisListImage(
-                    imageUrl: a.thumbnail.isEmpty ? a.image : a.thumbnail,
-                    borderRadius: BorderRadius.zero,
-                    fit: BoxFit.cover,
-                    placeholder: const ColoredBox(color: Color(0x1FFFFFFF)),
-                  ),
-                );
-              }, childCount: phone!.album.length),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _livePhotoTile(phone!.album[index]),
+                childCount: phone!.album.length,
+              ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
               ),
@@ -1148,6 +1086,57 @@ extension _MiniPhoneLive on _MiniPhonePageState {
       ),
     ),
   );
+  Widget _livePhotoTile(PhoneAlbumAsset asset) => LayoutBuilder(
+    builder: (context, bounds) {
+      final thumbnail = asset.thumbnail.isEmpty ? asset.image : asset.thumbnail;
+      final image = GenesisListImage(
+        imageUrl: thumbnail,
+        borderRadius: BorderRadius.zero,
+        fit: BoxFit.cover,
+        placeholder: const ColoredBox(color: Color(0x1FFFFFFF)),
+      );
+      final preview = genesisImageViewerListPreviewProvider(
+        context,
+        source: thumbnail,
+        logicalWidth: bounds.maxWidth,
+        logicalHeight: bounds.maxHeight,
+        fit: BoxFit.cover,
+      );
+      if (asset.image.trim().isEmpty || preview == null) return image;
+      return GenesisImageViewerSourceAnchor(
+        key: ValueKey('mini-phone-album-${asset.id}'),
+        previewImageProvider: preview,
+        fit: BoxFit.cover,
+        onTap: (source) {
+          final photos = phone!.album
+              .where((a) => a.image.trim().isNotEmpty)
+              .toList();
+          final initialIndex = photos.indexWhere((a) => a.id == asset.id);
+          if (initialIndex < 0) return;
+          showGenesisImageViewer(
+            context,
+            imageUrls: [for (final photo in photos) photo.image],
+            previewImageProviders: [
+              for (final photo in photos)
+                genesisImageViewerListPreviewProvider(
+                  context,
+                  source: photo.thumbnail.isEmpty
+                      ? photo.image
+                      : photo.thumbnail,
+                  logicalWidth: bounds.maxWidth,
+                  logicalHeight: bounds.maxHeight,
+                  fit: BoxFit.cover,
+                ),
+            ],
+            initialIndex: initialIndex,
+            source: source,
+          );
+        },
+        child: image,
+      );
+    },
+  );
+
   String _notificationText(PhoneNotification n) => switch (n.eventType) {
     'post' => 'Published a post',
     'like' => 'Liked a post',

@@ -244,6 +244,7 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
   private let prefs = UserDefaults.standard
   private var pendingDiscussImagePickerResult: FlutterResult?
   private var pendingDiscussImagePickerNormalizeForUpload = false
+  private var pendingDiscussImagePickerAllowGif = false
   private var storeKit2AnalyticsInFlightIds = Set<UInt64>()
   private var cachedDeviceIdResolution: DeviceIdResolution?
   private var keyboardAnimationStreamHandler: GenesisKeyboardAnimationStreamHandler?
@@ -542,6 +543,7 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
         self.pickDiscussImages(
           limit: limit,
           normalizeForUpload: normalizeForUpload,
+          allowGif: args?["allowGif"] as? Bool ?? false,
           result: result
         )
       default:
@@ -553,6 +555,7 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
   private func pickDiscussImages(
     limit: Int,
     normalizeForUpload: Bool,
+    allowGif: Bool,
     result: @escaping FlutterResult
   ) {
     guard #available(iOS 14, *) else {
@@ -570,6 +573,7 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
 
     pendingDiscussImagePickerResult = result
     pendingDiscussImagePickerNormalizeForUpload = normalizeForUpload
+    pendingDiscussImagePickerAllowGif = allowGif
 
     var config = PHPickerConfiguration(photoLibrary: .shared())
     config.filter = .images
@@ -602,8 +606,10 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
       return
     }
     let normalizeForUpload = pendingDiscussImagePickerNormalizeForUpload
+    let allowGif = pendingDiscussImagePickerAllowGif
     pendingDiscussImagePickerResult = nil
     pendingDiscussImagePickerNormalizeForUpload = false
+    pendingDiscussImagePickerAllowGif = false
 
     guard !results.isEmpty else {
       result([])
@@ -632,7 +638,8 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
       let item = results[index]
       saveDiscussPickedImage(
         item.itemProvider,
-        normalizeForUpload: normalizeForUpload
+        normalizeForUpload: normalizeForUpload,
+        allowGif: allowGif
       ) { path, error in
         if let path = path {
           paths[index] = path
@@ -651,9 +658,10 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
   private func saveDiscussPickedImage(
     _ provider: NSItemProvider,
     normalizeForUpload: Bool,
+    allowGif: Bool,
     completion: @escaping (String?, String?) -> Void
   ) {
-    if normalizeForUpload,
+    if normalizeForUpload && !allowGif,
        provider.hasItemConformingToTypeIdentifier(UTType.gif.identifier) {
       completion(nil, "GIF images are not supported.")
       return
@@ -661,7 +669,7 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
 
     loadNormalizedDiscussImageRepresentation(
       provider,
-      allowGif: !normalizeForUpload,
+      allowGif: allowGif || !normalizeForUpload,
       completion: completion
     )
   }

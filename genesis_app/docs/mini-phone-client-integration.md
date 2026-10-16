@@ -25,9 +25,14 @@ use server counts, never event counts or the length of a 20-item Home list.
 
 Write journals persist request IDs and original content in account/environment/
 world-scoped preferences. Retries preserve the complete operation, including
-image URL and reply target. Requests are not automatically resent. A sent user
-bubble is created only from a delivery or history query, not a successful empty
-HTTP response. Automatic DMs cannot finish an unrelated request. Final failures
+image URL and reply target. Requests are not automatically resent. DM submission
+immediately shows a separate temporary user bubble and clears
+the submitted input without a Send spinner. Delivery/history reconciles that
+bubble by request ID; an empty HTTP success only confirms acceptance. Explicit
+rejection removes the temporary bubble and restores the submitted draft if the
+input is still empty. Uncertain failures retain the bubble and original request
+ID, and newer drafts are never overwritten. Automatic DMs cannot finish an
+unrelated request. Final failures
 preserve committed user messages. Pending AI replies have no timeout-based
 failure rule.
 
@@ -57,6 +62,11 @@ rather than merge: two indistinguishable facts about one post remain two rows.
   waiting-for-reply indicator for AI only. Player peers (`peer_uid` nonempty)
   have no AI status. Message direction always compares sender_id to login UID;
   another player's user message belongs on the peer side.
+  New reply batches reveal the first bubble immediately and subsequent bubbles
+  at one-second intervals, retaining AI typing until the queue drains. Existing
+  history/pagination appears immediately; refreshes and duplicate pushes cannot
+  bypass a pending reveal. The top history spinner is reserved for upward
+  pagination, never automatic recovery or refreshing existing content.
 - Read DM on successful foreground conversation load and newly delivered
   content while that conversation is visible, then query authoritative counts.
 - Entering Posts and successfully loading it marks all current world Post
@@ -69,15 +79,59 @@ rather than merge: two indistinguishable facts about one post remain two rows.
   page 1 and discards old in-flight pages. Feed refreshes also refresh authors
   without clearing the selected filter; tapping the active shortcut restores all.
   Errors use the shared Toast and existing pull-to-refresh.
+- Posts Feed uses a lazy variable-height list and builds only rows around the
+  viewport (200 logical pixels of render cache). Rows keep their identity by
+  post ID, and account/author changes reset the scroll position. Feed photos
+  reserve exactly 200 logical pixels before loading and after failure, retain
+  the existing width bound/aspect fit with left-aligned image content and square
+  corners, and show only background when loading or
+  failed: no placeholder asset, error icon, text, spinner or Toast. Thumbnail
+  requests replace the existing OSS transform with fixed-height resize plus
+  WebP (`image/resize,h_{ceil(200 * cappedDpr)}/format,webp`), retaining unrelated
+  query parameters. The rendered and prefetched thumbnails share identical
+  URL/decode/cache keys; tapping opens the original image URL and passes the
+  displayed thumbnail provider to the shared viewer, so its cached frame is
+  shown immediately until the full image loads (and retained if that fails). The
+  shared source anchor also captures the left-aligned painted thumbnail bounds
+  for the viewer's 320 ms easeOutCubic opening expansion. The original tile is
+  hidden only during flight; full-image loading continues underneath. Missing
+  cached frames fall back to fade, and reduced motion opens directly.
+  After layout/scroll, inspect the actual visible row bounds and prefetch images
+  from the five posts immediately below the last visible post (text-only posts
+  count toward five; this is not five extra rendered rows). Prefetch work is
+  bounded to five concurrent loads, deduplicated within the moving window, and
+  stops queuing while Posts is covered/inactive. Details keep their own image
+  sizing. Existing pull refresh, scroll pagination and author shortcuts remain.
 - Post publishing requires nonblank UTF-8 text (up to 65535 bytes) and accepts an
-  optional locally selected image uploaded through the existing API image upload
-  (up to 10 MiB). Preserve the complete returned xl_url including query parameters.
-  An uncertain post retries its original request ID/content/URL without reupload.
+  optional locally selected image. Android/iOS enable the shared native image
+  preparation: preserve aspect ratio, never enlarge, longest edge <=4096 and
+  <=16 million pixels (older Android retains its lower memory safety cap), PNG
+  for transparent pixels or JPEG quality 90 otherwise. GIF selections become a
+  static first frame. If encoded bytes exceed 10 MiB, reduce dimensions again
+  while retaining format/JPEG quality until the file fits. Byte-limit encoding
+  runs off the UI isolate. Selection only prepares and previews locally, without
+  progress UI or an upload. Only Post starts upload followed by post/create;
+  the Post button shows its spinner throughout both stages and keeps its color.
+  Text, picture selection/replacement/removal are locked while sending; no
+  page-wide blocker prevents back, close or navigation. The World-owned draft
+  continues submission across phone close/reopen, discards account-stale work,
+  and retains the draft on failure. Preserve the complete returned xl_url
+  including query parameters, reuse an uploaded URL on retry until the image
+  changes, and retry uncertain posts with their original request ID/content/URL.
   Photos remains a read-only world album; image upload is independent of it.
 - Post detail displays all detail comments. Reply selection queries the
   independent comments endpoint for real IDs; it never guesses IDs by text or
   position. Likes are serialized per post and queried after uncertain results.
-- Photos uses the server album and shared image viewer. Home's world time comes
+- Photos uses the server album and shared image viewer. Each tile passes the
+  exact grid thumbnail provider and a cover-fit source anchor to the common
+  viewer, enabling the same cached-preview/320 ms opening expansion as Posts.
+  The gallery snapshot filters empty original URLs and locates the selected
+  asset by ID so the initial image and all preview providers stay aligned.
+  Opening and each page change prefetch the immediately previous/next full
+  images; bounds checks avoid wrapping at either end. Full-image prefetch uses
+  the same screen width, DPR, CDN transform, decode width and fitWidth cache key
+  as display, so swiping reuses the loaded frame. Failures remain silent.
+  Home's world time comes
   from the world snapshot and existing world socket state, not device time.
 
 World-backed routes use live data even on errors. The developer's explicit
@@ -118,6 +172,20 @@ AI replies.
 - Source/static/controlled UI evidence only; no authenticated dev end-to-end,
   physical-device keyboard, upload-readability or wallet settlement acceptance
   was performed in this change. Historical device records below remain historical.
+
+## 2026-10-16 Messages presentation validation
+
+- DM submission uses temporary outgoing rows reconciled by request ID; explicit
+  rejection rolls back, uncertain transport results retain the original request,
+  and delivery before HTTP wins over a late HTTP error.
+- Live reply batches reveal one bubble per second after the first immediate row.
+  Existing history is immediate; refresh/duplicate delivery cannot bypass the queue.
+  Only upward pagination uses the top history-loading placeholder.
+- `flutter test --no-pub test/network/mini_phone test/pages/mini_phone`: **169 passed**.
+  Includes keyboard retention, history anchoring, first-session promotion, retry
+  identity, rollback/new draft preservation and pending reveal disposal.
+- Controlled client tests only; authenticated backend and physical-device
+  acceptance remain unverified.
 
 ## Client maintenance reference
 
@@ -213,13 +281,13 @@ AI replies.
 - Messages 仅用 `/dm_sessions` 返回条目，保持服务端顺序，按 world_id + char_id 合并分页；多个 ID 为 0 的虚拟条目互不覆盖，跳过历史和已读查询，首次发送取得正数 ID 后替换。已有条目的消息摘要可随送达更新，不在客户端按消息 ID 或 updated_at 重排。
 - 数据和写请求按环境、账号、世界隔离；上下文改变后丢弃旧请求结果，清除旧草稿和恢复页面引用。
 - 保存写请求 ID 与原始正文、图片和回复目标；同一次操作重试复用原请求，不建立自动重发队列。超时／断线保持待确认状态，不能据此判定 AI 最终失败。
-- DM 正式气泡只来自送达事件或历史查询；支持推送先于 HTTP 响应，按完整 int64 消息 ID 去重、升序展示。空成功响应只表示操作受理／成功。
+- DM 提交即显示本地临时气泡并清空原输入，Send 不转圈；正式消息来自送达／历史，按请求键合并临时气泡，按完整 int64 消息 ID 去重、升序展示。明确拒绝撤回临时气泡、空输入时恢复草稿；不确定失败保留气泡和原请求键。空成功响应只表示受理。新回复首条立即显示，后续每隔一秒显示一条；已有历史／分页不延迟，补查和重复推送不能提前展示排队消息。顶部历史加载占位只在向上翻页时出现。
 - HTTP 200 下非零 `err_no` 仍为业务错误；展示原始 `ApiException.message`／`err_msg`，失败保留草稿。区分 Feed 的 `text` 和详情／提交的 `content`。
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
 - Posts 作者列表来自 `/post/authors`，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；通知刷新保留筛选并刷新作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
-- 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图上传（最大 10 MiB），保留完整 xl_url；纯文字也可提交，正文不超过 65535 UTF-8 字节。
+- 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交，正文不超过 65535 UTF-8 字节。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry，通过下拉刷新重试；Posts 恢复头像叠加号、等分作者栏（角色较多时可横滑），再次点击选中作者取消筛选，不再增加 All。发帖恢复右上角 Post、动态作者及世界信息、虚线选图区；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，按 UTF-8 字节限制，不恢复演示的 500 字或 3 MiB 限制。
 - 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情摘要缺少 comment_id 时只展示，不伪造回复目标；真实评论列表从 `/comments` 获取。昵称、时间等缺失字段不使用演示占位值填充。
 - 会话、Feed、评论、相册通过滚动加载下一页，不增加 Load more 按钮。首次空列表合并其依赖请求为一个 loading，下拉刷新使用既有刷新指示器，有内容后台刷新不追加转圈；私聊首次 loading 和历史页 loading 互斥。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。

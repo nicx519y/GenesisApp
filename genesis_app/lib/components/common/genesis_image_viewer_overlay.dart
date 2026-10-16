@@ -7,6 +7,9 @@ import '../../app/config/genesis_image_config.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import 'genesis_modal_routes.dart';
+import 'genesis_image_viewer_transition.dart';
+export 'genesis_image_viewer_transition.dart'
+    show GenesisImageViewerSource, GenesisImageViewerSourceAnchor;
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_safe_area.dart';
 
@@ -81,6 +84,7 @@ Future<void> showGenesisImageViewer(
       const <ImageProvider<Object>?>[],
   int initialIndex = 0,
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+  GenesisImageViewerSource? source,
 }) {
   final urls = <String>[];
   final previews = <ImageProvider<Object>?>[];
@@ -96,23 +100,44 @@ Future<void> showGenesisImageViewer(
   }
   if (urls.isEmpty) return Future<void>.value();
 
-  return showGenesisGeneralDialog<void>(
+  final startIndex = initialIndex.clamp(0, urls.length - 1);
+  if (source != null && previews[startIndex] == null) {
+    previews[startIndex] = source.previewImageProvider;
+  }
+
+  final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+  final animateSource = source != null && source.isValid && !reducedMotion;
+  if (animateSource) source.onOpeningChanged?.call(true);
+
+  final opened = showGenesisGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 120),
+    transitionDuration: reducedMotion
+        ? Duration.zero
+        : animateSource
+        ? genesisImageViewerOpenDuration
+        : const Duration(milliseconds: 120),
     pageBuilder: (context, animation, secondaryAnimation) {
       return GenesisImageViewerOverlay(
         imageUrls: urls,
         previewImageProviders: previews,
-        initialIndex: initialIndex.clamp(0, urls.length - 1),
+        initialIndex: startIndex,
         maxDevicePixelRatio: maxDevicePixelRatio,
       );
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
+      if (animateSource) {
+        return GenesisImageViewerOpenTransition(
+          animation: animation,
+          source: source,
+          child: child,
+        );
+      }
       return FadeTransition(opacity: animation, child: child);
     },
   );
+  return opened.whenComplete(() => source?.onOpeningChanged?.call(false));
 }
 
 class GenesisImageViewerOverlay extends StatefulWidget {
@@ -191,36 +216,35 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
 
   void _precacheImageAt(int index) {
     if (index < 0 || index >= widget.imageUrls.length) return;
-    final imageUrl = _selectedViewerImageUrl(widget.imageUrls[index]);
-    if (imageUrl.isEmpty || !_preloadedImageUrls.add(imageUrl)) return;
-    final imageProvider = _viewerImageProvider(imageUrl);
-    final precache = debugGenesisImageViewerPrecacheImage;
-    final future = precache == null
-        ? precacheImage(
-            imageProvider,
-            context,
-            onError: (exception, stackTrace) {},
-          )
-        : precache(imageProvider, context);
-    unawaited(future);
-  }
-
-  String _selectedViewerImageUrl(String source) {
     final mediaQuery = MediaQuery.maybeOf(context);
-    final size = mediaQuery?.size;
-    final logicalWidth = size != null && size.width.isFinite
-        ? size.width / _pageViewportFraction
-        : null;
-    final logicalHeight = size != null && size.height.isFinite
-        ? size.height
-        : null;
-    return _selectViewerImageUrl(
-      source,
+    final logicalWidth = mediaQuery?.size.width;
+    final devicePixelRatio = mediaQuery?.devicePixelRatio ?? 1;
+    // The page slot cancels PageView's >1 viewport fraction: displayed images
+    // use the full screen width, not screen width / viewportFraction.
+    final imageUrl = _selectViewerImageUrl(
+      widget.imageUrls[index],
       logicalWidth: logicalWidth,
-      logicalHeight: logicalHeight,
-      devicePixelRatio: mediaQuery?.devicePixelRatio ?? 1,
+      logicalHeight: null,
+      devicePixelRatio: devicePixelRatio,
       maxDevicePixelRatio: widget.maxDevicePixelRatio,
     );
+    if (imageUrl.isEmpty || !_preloadedImageUrls.add(imageUrl)) return;
+    final ImageProvider<Object> imageProvider = imageUrl.startsWith('assets/')
+        ? AssetImage(imageUrl)
+        : GenesisStaticNetworkImageProvider(
+            imageUrl: imageUrl,
+            cacheWidth: _viewerDecodePixelDimension(
+              logicalWidth,
+              devicePixelRatio,
+              maxDevicePixelRatio: widget.maxDevicePixelRatio,
+            ),
+            fit: BoxFit.fitWidth,
+          );
+    final precache = debugGenesisImageViewerPrecacheImage;
+    final future = precache == null
+        ? precacheImage(imageProvider, context, onError: (_, _) {})
+        : precache(imageProvider, context);
+    unawaited(future.catchError((Object _, StackTrace _) {}));
   }
 
   void _handlePointerUp(PointerUpEvent event) {
@@ -410,11 +434,6 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
       ),
     );
   }
-}
-
-ImageProvider<Object> _viewerImageProvider(String url) {
-  if (url.startsWith('assets/')) return AssetImage(url);
-  return GenesisStaticNetworkImageProvider(imageUrl: url);
 }
 
 int? _viewerDecodePixelDimension(

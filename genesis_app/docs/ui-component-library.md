@@ -51,6 +51,16 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 新增样式时先判断是否是全局语义。如果多个页面会共用，放入 token；如果只是某个业务卡片的个性样式，保留在对应业务组件内。
 
+## 通用大图浏览与缩略图过渡
+
+统一使用 `showGenesisImageViewer`／`GenesisImageViewerOverlay`。调用方传原图 URL 和实际显示的缩略图 `ImageProvider`（含相同 URL、解码尺寸和 fit），公共组件先复用缩略图缓存，大图加载完成后替换，失败时保留缩略图。
+
+有缩略图来源的入口使用 `GenesisImageViewerSourceAnchor` 包装缩略图，将回调中的 `source` 传给 `showGenesisImageViewer`。包装器基于已缓存帧、实际 `BoxFit` 和 `alignment` 捕获绘制区域，并转换为根 Overlay 坐标；不要把固定图片占位区域中的空白算进起始图片尺寸。
+
+公共打开动画位于 `genesis_image_viewer_transition.dart`：320ms、`easeOutCubic`，背景逐渐变黑，当前缓存帧从来源位置放大到大图的 fitWidth 布局；横图居中，超长竖图顶端对齐。飞行期间隐藏来源图片但保留布局和缓存，浏览器在下层正常加载大图，动画结束再接管绘制。中途关闭或完成后恢复来源；关闭继续使用通用浏览器现有交互和淡出。没有已加载缩略图／有效来源时保留淡入入口，系统开启减少动态效果时直接打开。业务页面不复制动画。
+
+多图浏览在打开和当前页变化时预加载前后各一张大图，首尾不循环。预加载按最终页面的完整宽度（不除以 PageView 的分页间隔系数）、同一 DPR 和 CDN 规则选择图片；网络图片的解码宽度及 `BoxFit.fitWidth` 与显示组件一致，以复用同一个内存缓存键。预加载失败不打断浏览或弹出提示。
+
 ## 公共头像与默认头像
 
 用户/通用头像使用 `GenesisAvatar`，角色头像使用 `GenesisCharacterAvatar`。两者在无头像或图片加载失败时使用公共 `GenesisAvatarFallback`，实现集中在 `lib/ui/components/genesis_avatar.dart`。Private Chat、Location Chat 非 NPC 消息、Tick 角色列表、地图、资料与列表等场景均遵循此规则。

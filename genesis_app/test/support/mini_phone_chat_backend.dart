@@ -121,10 +121,10 @@ class PhoneBackend implements HttpTransport {
   );
   final revision = ValueNotifier(0);
   String? uid = 'u';
-  MiniPhoneStore store() => MiniPhoneStore(
+  MiniPhoneStore store({String namespace = 'test'}) => MiniPhoneStore(
     api: api,
     worldId: 'w',
-    namespace: 'test',
+    namespace: namespace,
     readUid: () async => uid,
     loadWorld: () async => WorldDetail.fromJson({
       'name': 'World',

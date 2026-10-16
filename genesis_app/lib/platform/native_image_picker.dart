@@ -102,19 +102,26 @@ Future<GenesisImagePickResult> pickGenesisImageResult({
 Future<List<XFile>> pickGenesisImageFiles({
   required int limit,
   bool normalizeForUpload = false,
+  bool allowGif = false,
 }) => systemImagePickerActivity.run(
   () => _pickGenesisImageFiles(
     limit: limit,
     normalizeForUpload: normalizeForUpload,
+    allowGif: allowGif,
   ),
 );
 
 Future<List<XFile>> _pickGenesisImageFiles({
   required int limit,
   required bool normalizeForUpload,
+  bool allowGif = false,
 }) async {
   if (normalizeForUpload && (Platform.isAndroid || Platform.isIOS)) {
-    return _pickNativeImageFiles(limit: limit, normalizeForUpload: true);
+    return _pickNativeImageFiles(
+      limit: limit,
+      normalizeForUpload: true,
+      allowGif: allowGif,
+    );
   }
   if (limit <= 1) {
     final file = await _pickSingleImageFile();
@@ -134,12 +141,14 @@ Future<List<XFile>> _pickGenesisImageFiles({
 Future<List<XFile>> _pickNativeImageFiles({
   required int limit,
   bool normalizeForUpload = false,
+  bool allowGif = false,
 }) async {
   final paths = await _nativeDiscussImagePickerChannel.invokeListMethod<String>(
     'pickImages',
     genesisNativeImagePickerArguments(
       limit: limit,
       normalizeForUpload: normalizeForUpload,
+      allowGif: allowGif,
     ),
   );
   return (paths ?? const <String>[])
@@ -152,10 +161,12 @@ Future<List<XFile>> _pickNativeImageFiles({
 Map<String, Object> genesisNativeImagePickerArguments({
   required int limit,
   required bool normalizeForUpload,
+  bool allowGif = false,
 }) {
   return <String, Object>{
     'limit': limit,
     'normalizeForUpload': normalizeForUpload,
+    if (allowGif) 'allowGif': true,
   };
 }
 

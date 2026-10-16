@@ -263,11 +263,8 @@ void main() {
         isNotNull,
       );
       await tester.pump(const Duration(seconds: 3));
-      await tester.enterText(
-        find.byType(TextField),
-        'Edited while awaiting confirmation',
-      );
-      await tester.pump();
+      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      expect(find.text('Original request'), findsOneWidget);
       fail = false;
       await tester.runAsync(() => tester.tap(find.text('Post')));
       await settleLayout(tester);
@@ -454,7 +451,8 @@ void main() {
       final writes = backend.calls('dm/send');
       expect(writes, hasLength(2));
       expect(backend.body(writes[1]), backend.body(writes[0]));
-      expect(find.byType(ChatMessageRow), findsNothing);
+      expect(find.byType(ChatMessageRow), findsOneWidget);
+      expect(find.text('Original message'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.runAsync(() => store.writesSaved);
       store.dispose();
@@ -515,8 +513,10 @@ void main() {
         find.byType(GenesisPrimaryButton),
       );
       expect(action.isLoading, isTrue);
-      expect(action.showLoadingIndicator, isFalse);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(action.showLoadingIndicator, isTrue);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      await capture(tester, 'create-sending');
       await tester.runAsync(() async {
         post.complete(ok({}));
       });

@@ -203,6 +203,40 @@ String resizeGenesisImageUrl(
   return '${_stripUrlParams(source)}$_ossResizeProcessPrefix$width$_ossResizeProcessSuffix';
 }
 
+/// Fixed-height thumbnails retain unrelated URL parameters and replace any
+/// previous image processing, rather than composing another resize on top.
+String resizeGenesisImageUrlToHeight(
+  String url, {
+  required double logicalHeight,
+  required double devicePixelRatio,
+  double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+}) {
+  final resource = GenesisImageResourceRegistry.resolve(url);
+  final source = resource.displayUrl;
+  final uri = Uri.tryParse(source);
+  final pixels = _requiredPixels(
+    logicalHeight,
+    devicePixelRatio,
+    maxDevicePixelRatio,
+  );
+  if (uri == null ||
+      !{'https', 'http'}.contains(uri.scheme) ||
+      uri.host.isEmpty ||
+      pixels == null) {
+    return source;
+  }
+  final height = pixels.ceil().clamp(1, 16384);
+  return uri
+      .removeFragment()
+      .replace(
+        queryParameters: <String, dynamic>{
+          ...uri.queryParametersAll,
+          'x-oss-process': 'image/resize,h_$height/format,webp',
+        },
+      )
+      .toString();
+}
+
 int _ceilImageWidthTier(double requiredWidth) {
   for (final tier in _imageResizeWidthTiers) {
     if (requiredWidth < tier) return tier;

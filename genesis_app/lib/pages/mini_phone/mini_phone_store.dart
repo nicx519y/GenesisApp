@@ -141,6 +141,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   final _seenEvents = <String>{};
   final pending = <String, PhoneWrite>{};
+  // Presentation only: never insert temporary IDs into server history/counts.
+  final _outgoingDm = <String, PhoneWrite>{};
+  Iterable<PhoneWrite> outgoingDm(String charId) =>
+      _outgoingDm.values.where((w) => w.target == charId);
   final replyFailures = <String, String>{};
   StreamSubscription<ChatroomPhoneEvent>? _events;
   StreamSubscription<WorldChatroomState>? _states;
@@ -182,6 +186,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         for (final value in jsonDecode(raw) as List) {
           final write = PhoneWrite.fromJson(phoneMap(value));
           pending[write.key] = write;
+          if (write.kind == 'dm' && !write.rejected) {
+            _outgoingDm[write.id] = write;
+          }
         }
       }
     } catch (_) {
@@ -212,6 +219,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     details.clear();
     comments.clear();
     pending.clear();
+    _outgoingDm.clear();
     replyFailures.clear();
     _sessionByChar.clear();
     _peerByChar.clear();
@@ -449,6 +457,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           : m;
       if (m.senderType == 'char') _sessionByChar[m.senderId] = id;
       if (m.senderType == 'user' && m.senderId == uid && m.requestId != null) {
+        _outgoingDm.remove(m.requestId);
         for (final w in pending.values.toList()) {
           if (w.id == m.requestId && w.kind == 'dm') {
             _sessionByChar[w.target] = id;
@@ -693,6 +702,15 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           replyTo: replyTo,
         );
     pending[key] = w;
+    if (kind == 'dm' &&
+        !history(target).any(
+          (m) =>
+              m.senderType == 'user' &&
+              m.senderId == uid &&
+              m.requestId == w.id,
+        )) {
+      _outgoingDm[w.id] = w;
+    }
     w.rejected = false;
     busy.add(key);
     errors.remove(key);
@@ -749,6 +767,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         } else {
           w.uncertain = true;
         }
+        if (kind == 'dm' && w.rejected) _outgoingDm.remove(w.id);
         await _save();
       }
       return w.accepted;

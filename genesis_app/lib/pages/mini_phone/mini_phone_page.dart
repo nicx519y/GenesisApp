@@ -1,4 +1,9 @@
 import 'mini_phone_store.dart';
+import 'mini_phone_post_draft.dart';
+import 'mini_phone_post_feed.dart';
+import 'mini_phone_post_thumbnail.dart';
+import '../../utils/image_upload_processing.dart';
+import '../../utils/upload_image_byte_limit.dart';
 import 'mini_phone_live_chat.dart';
 import '../../network/mini_phone/mini_phone_models.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -177,6 +182,9 @@ class MiniPhoneSession {
   final String worldId;
   final MiniPhoneMusicService music;
   final MiniPhoneStore? data;
+  late final MiniPhonePostDraft? postDraft = data == null
+      ? null
+      : MiniPhonePostDraft(data!);
   final MiniPhoneDemoStore store;
   final Future<MusicCatalog> Function()? _musicLoader;
   final _resume = _MiniPhoneResume();
@@ -217,6 +225,7 @@ class MiniPhoneSession {
     _phoneReferenceLoader = null;
     _phoneSourceCatalog = null;
     music.dispose();
+    postDraft?.dispose();
     data?.dispose();
     store.dispose();
     final routes = _routes.entries.toList().reversed.toList();
@@ -255,7 +264,6 @@ class _MiniPhoneResume {
   String draft = '';
   PhonePerson? liveContact;
   int? livePostId;
-  String? selectedPostPhoto;
   Uint8List? photo;
   List<_MiniPhotoItem>? viewerPhotos;
   int viewerIndex = 0;
@@ -303,9 +311,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   PhonePerson? liveContact;
   int? livePostId;
   PhoneComment? replyToComment;
-  String? selectedPostPhoto;
-  bool uploadingPostPhoto = false;
-  double postPhotoProgress = 0;
+  MiniPhonePostDraft get postDraft => _session.postDraft!;
   String? _phoneOwner;
 
   MiniPhoneMusicService get _music => _session.music;
@@ -374,7 +380,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (accountChanged) {
       _miniResume.liveContact = null;
       _miniResume.livePostId = null;
-      _miniResume.selectedPostPhoto = null;
       _miniResume.draft = '';
       _miniResume.photo = null;
       _miniResume.viewerPhotos = null;
@@ -395,14 +400,14 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     contact = _miniResume.contact;
     liveContact = _miniResume.liveContact;
     livePostId = _miniResume.livePostId;
-    selectedPostPhoto = _miniResume.selectedPostPhoto;
     activePost = _miniResume.post;
     authorFilter = _miniResume.filter;
-    postInput.text = _miniResume.draft;
+    postInput.text = phone == null ? _miniResume.draft : postDraft.text;
     draftPhoto = _miniResume.photo;
     store.addListener(_changed);
     _phoneOwner = phone?.uid;
     phone?.addListener(_changed);
+    _session.postDraft?.addListener(_changed);
     if (phone != null) {
       phone!.phoneVisible = true;
       phone!.ready.then((_) {
@@ -472,7 +477,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _miniResume.contact = contact;
     _miniResume.liveContact = liveContact;
     _miniResume.livePostId = livePostId;
-    _miniResume.selectedPostPhoto = selectedPostPhoto;
     _miniResume.post = activePost;
     _miniResume.filter = authorFilter;
     _miniResume.homePage = homePagerPosition;
@@ -480,6 +484,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _miniResume.photo = draftPhoto;
     store.removeListener(_changed);
     phone?.removeListener(_changed);
+    _session.postDraft?.removeListener(_changed);
     if (phone != null) {
       phone!.phoneVisible = false;
       phone!.activeCharId = null;
@@ -514,12 +519,13 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       liveContact = null;
       livePostId = null;
       replyToComment = null;
-      selectedPostPhoto = null;
       draftPhoto = null;
-      uploadingPostPhoto = false;
       postInput.clear();
       commentInput.clear();
       messageInput.clear();
+    }
+    if (phone != null && postInput.text != postDraft.text) {
+      postInput.text = postDraft.text;
     }
     if (mounted) {
       _notifyPhoneErrors();
@@ -882,11 +888,12 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     VoidCallback? action, {
     bool primary = false,
     bool isLoading = false,
+    bool showLoadingIndicator = false,
   }) => primary
       ? GenesisPrimaryButton(
           label: text,
           isLoading: isLoading,
-          showLoadingIndicator: false,
+          showLoadingIndicator: showLoadingIndicator,
           onPressed: action,
           fullWidth: false,
           backgroundColor: miniRed,

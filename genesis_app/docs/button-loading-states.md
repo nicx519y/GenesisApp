@@ -25,6 +25,7 @@
 | 普通登录 / 新用户登录 / 强制登录 | Google / Apple 登录 | 原有 22px 圆环替换左侧图标，保留文字 | 原登录底色 | `login_provider_button.dart` |
 | 聊天输入框 | Send | 保留原有圆环；原调用关闭发送动画时保留图标 / 文字 | 原发送底色 | `chat_ui_composer.dart` |
 | Location Chat 回复工具 | Go on / Inspiration / Regenerate / Edit | busy 时原有 17px 圆环 | 原透明底 | `reply_feature_button.dart` |
+| MiniPhone Create post | Post | 上传及发帖全程标准圆环 | 原品牌红 | `mini_phone_live.dart` → `GenesisPrimaryButton`；只锁定正文和图片，导航不阻塞 |
 | 发帖 / 回复编辑弹层 | Send | 原有 18px 品牌红圆环 | 原透明底 | `discuss_composer_panel.dart` |
 | Gems 任务 | Check in / 领取等接口下发操作 | 原文字，不加圆环 | 原透明底 | `gem_wallet_state_panels.dart` |
 | 图片裁剪 | 确认 | 按钮禁用，原工具栏中间显示 24px 圆环 | 原透明底 | `local_image_crop_page.dart` |

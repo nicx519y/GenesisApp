@@ -69,6 +69,7 @@ class MainActivity : FlutterActivity() {
     private var pendingDiscussImagePickerResult: MethodChannel.Result? = null
     private var pendingDiscussImagePickerLimit = 0
     private var pendingDiscussImagePickerNormalizeForUpload = false
+    private var pendingDiscussImagePickerAllowGif = false
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
     private var imagePickerLifecycleChannel: ImagePickerLifecycleChannel? = null
     private var appLifecycleBinding: ProcessAppLifecycleChannel.Binding? = null
@@ -252,7 +253,8 @@ class MainActivity : FlutterActivity() {
                     val limit = maxOf(1, call.argument<Int>("limit") ?: 6)
                     val normalizeForUpload =
                         call.argument<Boolean>("normalizeForUpload") ?: false
-                    pickDiscussImages(limit, normalizeForUpload, result)
+                    val allowGif = call.argument<Boolean>("allowGif") ?: false
+                    pickDiscussImages(limit, normalizeForUpload, allowGif, result)
                 }
                 else -> result.notImplemented()
             }
@@ -584,6 +586,7 @@ class MainActivity : FlutterActivity() {
     private fun pickDiscussImages(
         limit: Int,
         normalizeForUpload: Boolean,
+        allowGif: Boolean,
         result: MethodChannel.Result,
     ) {
         if (pendingDiscussImagePickerResult != null) {
@@ -594,6 +597,7 @@ class MainActivity : FlutterActivity() {
         pendingDiscussImagePickerResult = result
         pendingDiscussImagePickerLimit = limit
         pendingDiscussImagePickerNormalizeForUpload = normalizeForUpload
+        pendingDiscussImagePickerAllowGif = allowGif
 
         val request = PickVisualMediaRequest.Builder()
             .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -610,6 +614,7 @@ class MainActivity : FlutterActivity() {
             pendingDiscussImagePickerResult = null
             pendingDiscussImagePickerLimit = 0
             pendingDiscussImagePickerNormalizeForUpload = false
+            pendingDiscussImagePickerAllowGif = false
             result.error("picker_unavailable", error.message ?: "Cannot open image picker.", null)
         }
     }
@@ -628,9 +633,11 @@ class MainActivity : FlutterActivity() {
         val result = pendingDiscussImagePickerResult ?: return
         val limit = pendingDiscussImagePickerLimit
         val normalizeForUpload = pendingDiscussImagePickerNormalizeForUpload
+        val allowGif = pendingDiscussImagePickerAllowGif
         pendingDiscussImagePickerResult = null
         pendingDiscussImagePickerLimit = 0
         pendingDiscussImagePickerNormalizeForUpload = false
+        pendingDiscussImagePickerAllowGif = false
 
         if (resultCode != Activity.RESULT_OK || data == null) {
             result.success(emptyList<String>())
@@ -646,7 +653,7 @@ class MainActivity : FlutterActivity() {
         Thread {
             val paths = uris.mapIndexedNotNull { index, uri ->
                 runCatching {
-                    saveDiscussPickedImage(uri, index, normalizeForUpload)
+                    saveDiscussPickedImage(uri, index, normalizeForUpload, allowGif)
                 }.getOrNull()
             }
             runOnUiThread {
@@ -712,10 +719,11 @@ class MainActivity : FlutterActivity() {
         uri: Uri,
         index: Int,
         normalizeForUpload: Boolean,
+        allowGif: Boolean,
     ): String {
         val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
         if (normalizeForUpload) {
-            require(!isGifImage(uri, mimeType)) { "GIF images are not supported." }
+            require(allowGif || !isGifImage(uri, mimeType)) { "GIF images are not supported." }
             return saveNormalizedDiscussImage(uri, index)
         }
         val extension = MimeTypeMap.getSingleton()

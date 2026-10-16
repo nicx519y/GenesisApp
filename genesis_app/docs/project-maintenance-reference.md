@@ -151,6 +151,7 @@ WebSocket 当前协议规则：
 - `displayUrl` 优先级是 `xl_url -> sm_url -> legacy url`。
 - `GenesisImageResourceRegistry` 会用 legacy/sm/xl/object key/display url 建索引；如果后续 UI 只拿到其中一个 key，可以回查完整资源。
 - `selectGenesisImageUrl` 有 `xl_url` 和组件逻辑宽度时，会按 `逻辑宽度 * DPR` 匹配 `45/90/180/360/720/1080/2160` 中刚好大于所需宽度的阶梯，并基于清空参数后的 `xl_url` 生成 `?x-oss-process=image/resize,w_{width},image/format,webp`；没有 `xl_url` 或没有宽度信息时回退到旧 display/candidate 兼容逻辑。
+- 固定高度缩略图使用 `resizeGenesisImageUrlToHeight`：按展示高度乘 DPR（受现有上限约束）请求 OSS `image/resize,h_{height}/format,webp`，替换旧处理参数，保留其他 URL 查询参数。MiniPhone Posts Feed 采用此入口并固定占高 200。
 
 HTTP 映射层的图片规则：
 

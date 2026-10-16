@@ -391,6 +391,8 @@ post/authors 只返回已发帖作者的去重 char_id，包含玩家和 AI；ch
 
 图片来自玩家手机本地选择，**可不选图片**。有图时先通过现有上传能力获得 OSS/CDN 完整 URL，再提交：
 
+客户端选图阶段仅做本地统一预处理和预览，不上传、不显示处理进度：最长边 ≤4096px、总像素 ≤1600 万（旧 Android 保留更低的内存安全上限），不放大小图，透明像素保留 PNG，否则 JPEG 质量 90%；编码超过 10 MiB 时继续等比缩小至上限内。GIF 按静态首帧处理。点击 Post 后才上传并提交帖子，按钮全程 loading、正文和图片操作锁定；返回和关闭仍可用，World 会话继续持有发送。失败保留草稿和已上传 URL，未确认帖子重试仍遵循请求幂等规则。
+
 ```json
 {"world_id":"world_1","client_request_id":"post_req_001","content":"今天的风景。","image":"https://cdn.example.com/uploads/photo.jpg?x-oss-process=image/format,webp"}
 ```

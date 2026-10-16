@@ -11,6 +11,8 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
+import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import '../../support/mini_phone_chat_backend.dart';
@@ -120,8 +122,9 @@ void main() {
             find.byType(LocationChatAnchoredMessageList),
           )
           .messages;
-      expect(rows.single.isMe, isFalse);
-      expect(rows.single.senderName, 'Character');
+      final peer = rows.singleWhere((row) => !row.isMe);
+      expect(peer.senderName, 'Character');
+      expect(rows.where((row) => row.isMe).single.text, 'Hello player');
       expect(find.textContaining('is typing'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       s.dispose();
@@ -145,7 +148,11 @@ void main() {
       const picker = MethodChannel('plugins.flutter.io/image_picker');
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(picker, (_) async => file.path);
+      var pickerCalls = 0;
+      messenger.setMockMethodCallHandler(picker, (_) async {
+        pickerCalls++;
+        return file.path;
+      });
       addTearDown(() {
         messenger.setMockMethodCallHandler(picker, null);
         directory.deleteSync(recursive: true);
@@ -154,12 +161,10 @@ void main() {
       const image =
           'https://cdn.example/photo.png?x-oss-process=image/format,webp';
       var fail = true;
+      final upload = Completer<Object?>();
       b.respond = (r) {
         if (r.uri.path.endsWith('/upload/image')) {
-          return ok({
-            'xl_url': image,
-            'sm_url': 'https://cdn.example/small.png',
-          });
+          return upload.future;
         }
         if (r.uri.path.endsWith('/post/create') && fail) {
           throw TimeoutException('Unknown outcome');
@@ -178,17 +183,16 @@ void main() {
         return s;
       }))!;
       final session = MiniPhoneSession(data: s);
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: MaterialApp(
-            home: MiniPhonePage(
-              session: session,
-              initialScreen: MiniPhoneScreen.create,
-            ),
+      final app = AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: MiniPhonePage(
+            session: session,
+            initialScreen: MiniPhoneScreen.create,
           ),
         ),
       );
+      await tester.pumpWidget(app);
       await settle(tester);
       await tester.enterText(find.byType(TextField), 'Local image post');
       await tester.ensureVisible(find.text('Choose photo'));
@@ -198,20 +202,71 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 10)),
         );
         await tester.pump();
-        if (b.calls('upload/image').isNotEmpty &&
-            find.text('Replace photo').evaluate().isNotEmpty) {
+        if (find.text('Replace photo').evaluate().isNotEmpty) {
           break;
         }
       }
       await settle(tester);
-      expect(b.calls('upload/image'), hasLength(1));
+      expect(b.calls('upload/image'), isEmpty);
+      expect(find.byType(GenesisUploadProgressOverlay), findsNothing);
       expect(b.calls('album'), isEmpty);
       expect(find.text('Replace photo'), findsOneWidget);
       await tester.ensureVisible(find.text('Post'));
       await tester.tap(find.text('Post'));
+      await tester.pump();
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+      expect(b.calls('upload/image'), hasLength(1));
+      expect(b.calls('post/create'), isEmpty);
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(find.byType(GenesisPrimaryButton))
+            .isLoading,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(find.byType(GenesisPrimaryButton))
+            .showLoadingIndicator,
+        isTrue,
+      );
+      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      await tester.ensureVisible(find.text('Replace photo'));
+      await tester.tap(find.text('Replace photo'));
+      await tester.tap(find.text('Remove photo'));
+      final preview = find.byWidgetPredicate(
+        (w) => w is Image && w.image is MemoryImage,
+      );
+      await tester.tap(preview);
+      await tester.pump();
+      expect(pickerCalls, 1);
+      expect(find.text('Remove photo'), findsOneWidget);
+      // Returning to Posts remains available during the upload.
+      await tester.ensureVisible(find.text('Create post'));
+      await tester.tap(find.text('Create post'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Posts'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('mini-phone-post-author-create')),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      await tester.pumpWidget(
+        AppServicesScope(services: services, child: const SizedBox.shrink()),
+      );
+      upload.complete(
+        ok({'xl_url': image, 'sm_url': 'https://cdn.example/small.png'}),
+      );
       await settle(tester);
       final first = b.body(b.calls('post/create').single);
       expect(first['image'], image);
+      await tester.pumpWidget(app);
+      await settle(tester);
+      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      expect(find.text('Local image post'), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
       fail = false;
       await tester.tap(find.text('Post'));

@@ -171,7 +171,7 @@ void main() {
     },
   );
   testWidgets(
-    'send keeps keyboard, creates no optimistic bubble, shows and ends typing',
+    'send keeps keyboard, shows optimistic bubble and reconciles delivery',
     (tester) async {
       final b = PhoneBackend();
       final s = (await tester.runAsync(() async {
@@ -224,6 +224,15 @@ void main() {
         isFalse,
       );
       expect(s.history('c'), isEmpty);
+      expect(find.text('Hello'), findsOneWidget);
+      expect(
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).controller.text,
+        isEmpty,
+      );
+      expect(
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sending,
+        isFalse,
+      );
       final id = s.waiting('c')!.id;
       await tester.runAsync(() async {
         s.receive(
@@ -236,6 +245,7 @@ void main() {
       });
       await settle(tester);
       expect(find.text('Character is typing…'), findsNothing);
+      expect(find.text('Hello'), findsNothing);
       expect(find.text('Message 1'), findsOneWidget);
       expect(find.text('Message 2'), findsOneWidget);
       expect(tester.takeException(), isNull);

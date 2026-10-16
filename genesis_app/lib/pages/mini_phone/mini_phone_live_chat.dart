@@ -34,11 +34,18 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   bool ready = false;
   String? owner;
   String? _shownError;
+  bool _loadingHistory = false;
+  int _accountGeneration = 0;
+  int _latestMessageId = 0;
+  final _seenMessages = <int>{};
+  final _revealQueue = <int>[];
+  Timer? _revealTimer;
   MiniPhoneStore get store => widget.store;
   @override
   void initState() {
     super.initState();
     owner = store.uid;
+    _accountGeneration = store.accountGeneration;
     coordinator.enter();
     store.addListener(_changed);
     coordinator.addListener(_changed);
@@ -53,16 +60,36 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
         if (mounted) setState(() => sdk = v);
       }),
     );
-    unawaited(
-      store.ready.then((_) async {
-        if (!mounted) return;
-        await store.refreshMessages(widget.person.id);
-        if (mounted) setState(() => ready = true);
-      }),
-    );
+    unawaited(_loadInitialMessages(_accountGeneration));
+  }
+
+  Future<void> _loadInitialMessages(int generation) async {
+    await store.ready;
+    if (!mounted || generation != store.accountGeneration) return;
+    await store.refreshMessages(widget.person.id);
+    if (mounted && generation == store.accountGeneration) {
+      setState(() => ready = true);
+    }
   }
 
   void _changed() {
+    if (_accountGeneration != store.accountGeneration) {
+      _accountGeneration = store.accountGeneration;
+      _revealTimer?.cancel();
+      _revealTimer = null;
+      _revealQueue.clear();
+      _seenMessages.clear();
+      _latestMessageId = 0;
+      _loadingHistory = false;
+      ready = false;
+      input.clear();
+      final generation = _accountGeneration;
+      // The account-change notification precedes replacement of store.ready.
+      scheduleMicrotask(() {
+        if (mounted) unawaited(_loadInitialMessages(generation));
+      });
+    }
+    _syncReplies();
     if (store.uid != owner) {
       owner = store.uid;
       input.clear();
@@ -84,6 +111,37 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       }
       setState(() {});
     }
+  }
+
+  void _syncReplies() {
+    final history = store.history(widget.person.id);
+    final fresh = history
+        .where(
+          (m) =>
+              ready &&
+              m.id > _latestMessageId &&
+              !_seenMessages.contains(m.id) &&
+              !(m.senderType == 'user' && m.senderId == store.uid),
+        )
+        .toList();
+    for (final message in history) {
+      _seenMessages.add(message.id);
+      if (message.id > _latestMessageId) _latestMessageId = message.id;
+    }
+    // Existing history appears immediately. Only live tail additions are paced.
+    if (fresh.isEmpty) return;
+    if (_revealTimer == null) fresh.removeAt(0);
+    _revealQueue.addAll(fresh.map((m) => m.id));
+    _revealQueue.sort();
+    if (_revealQueue.isEmpty || _revealTimer != null) return;
+    _revealTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _revealQueue.removeAt(0);
+      if (_revealQueue.isEmpty) {
+        _revealTimer?.cancel();
+        _revealTimer = null;
+      }
+      if (mounted) setState(() {});
+    });
   }
 
   String? get _error {
@@ -111,31 +169,60 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     if (coordinator.isReadingHistory &&
         coordinator.controller.position.pixels <= 64 &&
         store.hasMore[key] == true &&
+        !_loadingHistory &&
         !store.busy.contains(key) &&
         !store.errors.containsKey(key)) {
-      unawaited(store.refreshMessages(widget.person.id, next: true));
+      unawaited(_loadOlderMessages());
+    }
+  }
+
+  Future<void> _loadOlderMessages() async {
+    final generation = store.accountGeneration;
+    setState(() => _loadingHistory = true);
+    try {
+      await store.refreshMessages(widget.person.id, next: true);
+    } finally {
+      if (mounted && generation == store.accountGeneration) {
+        setState(() => _loadingHistory = false);
+      }
     }
   }
 
   Future<void> _send() async {
     final text = input.text;
-    if (text.trim().isEmpty) return;
+    final waiting = store.waiting(widget.person.id);
+    if (!ready ||
+        text.trim().isEmpty ||
+        _revealQueue.isNotEmpty ||
+        store.busy.contains('dm:${widget.person.id}') ||
+        waiting != null && !(waiting.uncertain && !waiting.accepted)) {
+      return;
+    }
+    final generation = store.accountGeneration;
     _follow();
     final pending = store.pending['dm:${widget.person.id}'];
     final retry = pending != null && !pending.accepted && !pending.rejected;
     final submitted = retry ? pending.content : text;
+    // Show the outgoing row at submission time, preserving a newer retry draft.
+    if (input.text == submitted) input.clear();
     final result = await store.write(
       'dm',
       widget.person.id,
       submitted,
       retry: retry,
     );
-    if (mounted && result && input.text == submitted) input.clear();
+    if (mounted &&
+        generation == store.accountGeneration &&
+        !result &&
+        input.text.isEmpty) {
+      input.text = submitted;
+    }
     // Keep focus and the existing keyboard, including while waiting for a reply.
   }
 
   @override
   void dispose() {
+    _revealTimer?.cancel();
     store.removeListener(_changed);
     coordinator.removeListener(_changed);
     coordinator.controller.removeListener(_scroll);
@@ -149,12 +236,19 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   @override
   Widget build(BuildContext context) {
     final person = widget.person, waiting = store.waiting(person.id);
-    final key = 'messages:${store.sessionFor(person.id)}';
-    final rows = store
+    final visibleMessages = store
         .history(person.id)
+        .where((m) => !_revealQueue.contains(m.id))
+        .toList();
+    final rows = visibleMessages
         .map(
           (m) => ChatMessageVm(
-            localId: 'phone:${m.id}',
+            localId:
+                m.senderType == 'user' &&
+                    m.senderId == store.uid &&
+                    m.requestId != null
+                ? 'phone:request:${m.requestId}'
+                : 'phone:${m.id}',
             senderId: m.senderId,
             senderName: m.senderId == store.uid ? 'You' : person.name,
             avatarUrl: m.senderId == store.uid
@@ -167,6 +261,29 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
           ),
         )
         .toList();
+    for (final outgoing in store.outgoingDm(person.id)) {
+      final row = ChatMessageVm(
+        localId: 'phone:request:${outgoing.id}',
+        clientMsgId: outgoing.id,
+        senderId: store.uid ?? '',
+        senderName: 'You',
+        avatarUrl: store.person(store.uid ?? '', type: 1).avatar,
+        text: outgoing.content,
+        isMe: true,
+        status: outgoing.accepted
+            ? 'sent'
+            : outgoing.uncertain
+            ? 'Awaiting confirmation'
+            : 'sending',
+      );
+      final reply = visibleMessages
+          .where((m) => m.requestId == outgoing.id)
+          .firstOrNull;
+      final replyIndex = reply == null
+          ? -1
+          : rows.indexWhere((m) => m.localId == 'phone:${reply.id}');
+      rows.insert(replyIndex < 0 ? rows.length : replyIndex, row);
+    }
     final managed =
         Theme.of(context).platform == TargetPlatform.iOS ||
         Theme.of(context).platform == TargetPlatform.android &&
@@ -214,7 +331,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                           miniTertiary,
                         ),
                       ),
-                      oldestEdgeLoading: ready && store.busy.contains(key),
+                      oldestEdgeLoading: ready && _loadingHistory,
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                     ),
@@ -243,7 +360,8 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (waiting != null && !store.isPlayerChat(person.id))
+                if ((waiting != null || _revealQueue.isNotEmpty) &&
+                    !store.isPlayerChat(person.id))
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -253,7 +371,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                       children: [
                         Expanded(
                           child: Text(
-                            waiting.uncertain
+                            waiting?.uncertain == true
                                 ? 'Reconnecting… Waiting for confirmation'
                                 : '${person.name} is typing…',
                             style: miniStyle(
@@ -273,11 +391,13 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                   onInputTapAlwaysCalled: true,
                   inputEnabled: true,
                   sendEnabled:
+                      ready &&
+                      _revealQueue.isEmpty &&
                       (waiting == null ||
                           waiting.uncertain && !waiting.accepted) &&
                       !store.busy.contains('dm:${person.id}') &&
                       input.text.trim().isNotEmpty,
-                  sending: store.busy.contains('dm:${person.id}'),
+                  sending: false,
                   sendLabel: 'Send',
                   onSend: _send,
                   hintText: 'Message ${person.name}…',
