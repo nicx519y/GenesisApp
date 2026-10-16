@@ -333,7 +333,7 @@ void main() {
           of: find.byType(GenesisPrimaryButton),
           matching: find.byType(CircularProgressIndicator),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         tester
@@ -579,7 +579,7 @@ void main() {
     );
     expect(
       find.text('Open Mini phone from a World to change its wallpaper.'),
-      findsOneWidget,
+      findsNothing,
     );
     await tester.ensureVisible(find.text('Apply wallpaper'));
     expect(
@@ -602,7 +602,7 @@ void main() {
     );
     expect(
       find.text('No wallpapers available. Choose a photo from your device.'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Upload'), findsOneWidget);
     final preview = tester.widget<GenesisListImage>(
@@ -613,28 +613,40 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('read error exposes retry which restores server catalogue', (
-    tester,
-  ) async {
-    var attempts = 0;
-    await mount(
-      tester,
-      load: () async {
-        if (attempts++ == 0) throw StateError('offline');
-        return const MiniphoneInfo(backgroundImage: newUrl, wallpapers: []);
-      },
-    );
-    expect(
-      find.text('Unable to load wallpapers. Please retry.'),
-      findsOneWidget,
-    );
-    await tester.ensureVisible(find.text('Retry'));
-    await tester.tap(find.text('Retry'));
-    await tester.pumpAndSettle();
-    expect(attempts, 2);
-    expect(find.text('Unable to load wallpapers. Please retry.'), findsNothing);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  testWidgets(
+    'read error uses a toast and pull refresh restores server catalogue',
+    (tester) async {
+      var attempts = 0;
+      await mount(
+        tester,
+        load: () async {
+          if (attempts++ == 0) throw StateError('offline');
+          return const MiniphoneInfo(backgroundImage: newUrl, wallpapers: []);
+        },
+      );
+      expect(
+        find.text('Unable to load wallpapers. Please retry.'),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.text('Unable to load wallpapers. Please retry.'),
+        ),
+        findsNothing,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await tester.pumpAndSettle();
+      expect(attempts, 2);
+      expect(
+        find.text('Unable to load wallpapers. Please retry.'),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('many long wallpaper titles wrap on narrow large-text Settings', (
     tester,

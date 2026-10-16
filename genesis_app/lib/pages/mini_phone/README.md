@@ -1,6 +1,6 @@
 # MiniPhone
 
-## Live Messages, Posts and Photos (2026-10-13)
+## Live Messages, Posts and Photos (2026-10-16)
 
 World-backed sessions use `GenesisApi.miniPhone` and `MiniPhoneStore`, with the
 existing World WebSocket distributing three phone event types. Home, unread
@@ -11,13 +11,31 @@ existing services.
 
 Chat shares LocationChat's anchored list, scroll coordinator and extracted
 keyboard layout, with the existing MiniPhone style. Send keeps the keyboard,
-uses no large reply reserve, and retains the waiting-for-reply indicator.
-Posts preserves author filtering/comment previews through the documented backend
-extension. Photos also supplies the existing-image picker for publishing.
+uses no large reply reserve, and shows reply waiting only for AI peers.
+Messages follows server order, supports virtual session ID 0, and merges pages by
+world/character. Player messages use sender UID for direction. AI reply status
+recovers through request-filtered HTTP history; pushes are not replayed offline.
+Posts preserves author filtering and uses local image selection plus upload for
+publishing. Photos remains the read-only world album. Optional legacy Feed
+comment previews are used only if returned; replies use real comment IDs.
 
 See `docs/mini-phone-client-integration.md` for behavior, backend contract gaps
 and verification boundaries. The older notes below describe prior iterations
 and do not establish live API or device acceptance for this change.
+
+## Internal page navigation (2026-10-16)
+
+Messages → chat and other in-app detail pages use an internal Navigator with
+`GenesisDarkPageRoute`, sharing the app's Android/iOS page transitions in both
+directions. Back restores the existing list and its scroll position; iOS swipe
+back updates MiniPhone navigation state. The fixed Close button exits the whole
+phone, including during an internal transition. Home icon/card expansion remains
+owned by the independent app-launch transition host.
+
+Most MiniPhone screens share the local `_panel` / `_navigation` layout helpers;
+chat uses the shared chat keyboard/viewport layout with that navigation header,
+and Create uses a dedicated action header. These are not a replacement for the
+app-wide `GenesisBackAppBar`.
 
 ## Shared launch transitions (2026-10-12)
 

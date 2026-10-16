@@ -42,7 +42,21 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   bool notificationsVisible = false, postsVisible = false, albumVisible = false;
   bool unreadSessionsOnly = false, unreadNotificationsOnly = true;
   bool _postReadOnLoad = false;
-  PhonePerson? authorFilter;
+  String? _authorFilter;
+  String? get authorFilter => _authorFilter;
+  set authorFilter(String? charId) {
+    final value = charId == '' ? null : charId;
+    if (_authorFilter == value) return;
+    _authorFilter = value;
+    // Invalidate in-flight pages before another author's first page starts.
+    _versions['posts'] = (_versions['posts'] ?? 0) + 1;
+    posts = [];
+    pages.remove('posts');
+    hasMore.remove('posts');
+    errors.remove('posts');
+    busy.remove('posts');
+  }
+
   PhoneHome home = const PhoneHome();
   PhoneUnread unread = const PhoneUnread(0, null);
   String worldName = '', currentTime = '';
@@ -60,11 +74,35 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   final people = <String, PhonePerson>{};
   final users = <String, PhonePerson>{};
   final playerCharIds = <String>{};
-  final authors = <String, PhonePerson>{};
+  List<String> postAuthorIds = [];
+  Iterable<PhonePerson> get authors =>
+      postAuthorIds.map((id) => people[id] ?? PhonePerson(id, id, ''));
   Iterable<PhonePerson> get contacts =>
       people.values.where((p) => !playerCharIds.contains(p.id));
   final drafts = <String, String>{};
   List<PhoneSession> sessions = [];
+
+  /// Only server-listed sessions create rows; cached messages update previews.
+  List<MiniPhoneConversation> get conversations {
+    final byChar = {for (final s in sessions) s.person.id: s};
+    final rows = <MiniPhoneConversation>[];
+    for (final session in byChar.values) {
+      final p = people[session.person.id] ?? session.person;
+      final unreadCount = session.unreadCount;
+      if (unreadSessionsOnly && unreadCount == 0) continue;
+      final id = sessionFor(p.id);
+      PhoneMessage? latest = session.lastMessage;
+      for (final m in [
+        ...?messages[id],
+        ...home.messages.where((m) => m.sessionId == id),
+      ]) {
+        if (latest == null || m.id > latest.id) latest = m;
+      }
+      rows.add(MiniPhoneConversation(p, unreadCount, latest));
+    }
+    return rows;
+  }
+
   List<PhonePost> posts = [];
   List<PhoneAlbumAsset> album = [];
   PhonePage<PhoneNotification>? notifications;
@@ -77,12 +115,38 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   final busy = <String>{};
   final _versions = <String, int>{};
   final _sessionByChar = <String, int>{};
+  final _peerByChar = <String, String>{};
+  final _knownSessionChars = <String>{};
+  final _replyStates = <String, ({String status, String? failure})>{};
+  final _appliedReplyTerminals = <String>{};
+  bool isPlayerChat(String charId) => (_peerByChar[charId] ?? '').isNotEmpty;
+  PhonePerson personForMessage(PhoneMessage message) {
+    if (message.senderType == 'char') return person(message.senderId);
+    for (final entry in _peerByChar.entries) {
+      if (entry.value == message.senderId) return person(entry.key);
+    }
+    return person(message.senderId, type: 1);
+  }
+
+  String? charForMessage(PhoneMessage message) {
+    for (final entry in _sessionByChar.entries) {
+      if (entry.value == message.sessionId) return entry.key;
+    }
+    if (message.senderType == 'char') return message.senderId;
+    for (final entry in _peerByChar.entries) {
+      if (entry.value == message.senderId) return entry.key;
+    }
+    return null;
+  }
+
   final _seenEvents = <String>{};
   final pending = <String, PhoneWrite>{};
   final replyFailures = <String, String>{};
   StreamSubscription<ChatroomPhoneEvent>? _events;
   StreamSubscription<WorldChatroomState>? _states;
   Timer? _refreshTimer;
+  Timer? _replyPollTimer;
+  int _replyPollSeconds = 2;
   bool _refreshing = false, _dirty = false;
   bool _wasConnected = false;
   static final _journalWrites = <String, Future<void>>{};
@@ -141,7 +205,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     notifications = null;
     people.clear();
     users.clear();
-    authors.clear();
+    postAuthorIds = [];
     playerCharIds.clear();
     drafts.clear();
     messages.clear();
@@ -150,6 +214,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     pending.clear();
     replyFailures.clear();
     _sessionByChar.clear();
+    _peerByChar.clear();
+    _knownSessionChars.clear();
+    _replyStates.clear();
+    _appliedReplyTerminals.clear();
+    _replyPollTimer?.cancel();
+    _replyPollTimer = null;
+    _replyPollSeconds = 2;
     _seenEvents.clear();
     _likeIntent.clear();
     _likeRunning.clear();
@@ -225,10 +296,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         final playerUid = field(['player_uid', 'user_id', 'uid']);
         if (playerUid.isNotEmpty) {
           playerCharIds.add(id);
+          _peerByChar[id] = playerUid;
           users[playerUid] = PhonePerson(playerUid, p.name, p.avatar, type: 1);
-          authors['1:$playerUid'] = users[playerUid]!;
-        } else {
-          authors[p.key] = p;
         }
       }
     }
@@ -256,20 +325,26 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       key,
       () => api.sessions(worldId, pn: pn, unreadOnly: unreadSessionsOnly),
       (page) {
-        final merged = <int, PhoneSession>{
+        final merged = <(String, String), PhoneSession>{
           if (next)
-            for (final s in sessions) s.id: s,
-          for (final s in page.list) s.id: s,
+            for (final s in sessions) s.key: s,
+          for (final s in page.list) s.key: s,
         };
         sessions = merged.values.toList();
         for (final s in page.list) {
-          _sessionByChar[s.person.id] = s.id;
-          people[s.person.id] = s.person;
+          _rememberSession(s);
         }
         pages[key] = pn;
         hasMore[key] = page.hasMore;
       },
     );
+  }
+
+  void _rememberSession(PhoneSession session) {
+    _knownSessionChars.add(session.person.id);
+    _peerByChar[session.person.id] = session.peerUid;
+    if (session.id > 0) _sessionByChar[session.person.id] = session.id;
+    people[session.person.id] = session.person;
   }
 
   int? sessionFor(String charId) => _sessionByChar[charId];
@@ -298,28 +373,109 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       pending[key] != null && !pending[key]!.rejected;
   PhoneWrite? waiting(String charId) =>
       unresolved('dm:$charId') ? pending['dm:$charId'] : null;
-  void _mergeMessages(int id, List<PhoneMessage> incoming) {
-    final all = <int, PhoneMessage>{
-      for (final m in messages[id] ?? <PhoneMessage>[]) m.id: m,
-      for (final m in incoming) m.id: m,
-    };
-    messages[id] = all.values.toList()..sort((a, b) => a.id.compareTo(b.id));
-    for (final m in incoming) {
-      if (m.senderType == 'char') _sessionByChar[m.senderId] = id;
-      if (m.senderType == 'user' && m.requestId != null) {
-        for (final w in pending.values) {
-          if (w.id == m.requestId && w.kind == 'dm') {
-            _sessionByChar[w.target] = id;
-            w.accepted = true;
-            w.rejected = false;
-          }
-        }
+  bool _terminal(String? state) => state == 'completed' || state == 'failed';
+
+  void _applyReplyState(
+    String requestId,
+    String status,
+    String? failure,
+    int sessionId,
+  ) {
+    final previous = _replyStates[requestId];
+    if (_terminal(previous?.status) &&
+        _appliedReplyTerminals.contains(requestId)) {
+      return;
+    }
+    final state =
+        _terminal(previous?.status) ||
+            previous?.status == 'generating' && status == 'pending'
+        ? previous!
+        : (status: status, failure: failure);
+    _replyStates[requestId] = state;
+    String? charId;
+    for (final entry in _sessionByChar.entries) {
+      if (entry.value == sessionId) charId = entry.key;
+    }
+    for (final w in pending.values.toList()) {
+      if (w.kind == 'dm' && w.id == requestId) charId = w.target;
+    }
+    if (charId == null || isPlayerChat(charId)) return;
+    _sessionByChar[charId] = sessionId;
+    final key = 'dm:$charId';
+    final write = pending[key];
+    if (_terminal(state.status)) {
+      _appliedReplyTerminals.add(requestId);
+      if (write?.id == requestId) pending.remove(key);
+      if (state.status == 'failed' &&
+          (write == null || write.id == requestId)) {
+        replyFailures[charId] = state.failure ?? 'Reply generation failed.';
+      }
+    } else {
+      final source = messages[sessionId]
+          ?.where(
+            (m) =>
+                m.senderType == 'user' &&
+                m.senderId == uid &&
+                m.requestId == requestId,
+          )
+          .firstOrNull;
+      if (write?.id == requestId) {
+        write!
+          ..accepted = true
+          ..uncertain = false
+          ..rejected = false;
+      } else if (write == null && source != null) {
+        pending[key] = PhoneWrite(requestId, 'dm', charId, source.content)
+          ..accepted = true;
       }
     }
   }
 
+  void _mergeMessages(int id, List<PhoneMessage> incoming) {
+    final all = <int, PhoneMessage>{
+      for (final m in messages[id] ?? <PhoneMessage>[]) m.id: m,
+    };
+    for (final m in incoming) {
+      final old = all[m.id];
+      final state = _replyStates[m.requestId];
+      final preserve = _terminal(state?.status)
+          ? state
+          : _terminal(old?.replyStatus)
+          ? (status: old!.replyStatus!, failure: old.failure)
+          : null;
+      all[m.id] =
+          preserve != null && m.senderType == 'user' && m.senderId == uid
+          ? PhoneMessage.withReplyState(m, preserve.status, preserve.failure)
+          : m;
+      if (m.senderType == 'char') _sessionByChar[m.senderId] = id;
+      if (m.senderType == 'user' && m.senderId == uid && m.requestId != null) {
+        for (final w in pending.values.toList()) {
+          if (w.id == m.requestId && w.kind == 'dm') {
+            _sessionByChar[w.target] = id;
+            w.accepted = true;
+            w.rejected = false;
+            if (isPlayerChat(w.target)) pending.remove(w.key);
+          }
+        }
+      }
+    }
+    messages[id] = all.values.toList()..sort((a, b) => a.id.compareTo(b.id));
+    for (final m in messages[id]!) {
+      if (m.senderType == 'user' &&
+          m.senderId == uid &&
+          m.requestId != null &&
+          m.replyStatus != null) {
+        _applyReplyState(m.requestId!, m.replyStatus!, m.failure, id);
+      }
+    }
+    _scheduleReplyPoll();
+  }
+
   Future<bool> _resolveSession(String charId) async {
-    if (sessionFor(charId) != null) return true;
+    if (sessionFor(charId) != null ||
+        _knownSessionChars.contains(charId) && !unresolved('dm:$charId')) {
+      return true;
+    }
     final g = _generation;
     return load(
       'session:$charId',
@@ -338,8 +494,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       },
       (session) {
         if (session != null) {
-          _sessionByChar[charId] = session.id;
-          people[charId] = session.person;
+          _rememberSession(session);
         }
       },
     );
@@ -347,6 +502,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> refreshMessages(String charId, {bool next = false}) async {
     final generation = _generation;
+    final journalBefore = jsonEncode(
+      pending.values.map((w) => w.toJson()).toList(),
+    );
     if (!await _resolveSession(charId) || !_current(generation)) return false;
     final id = sessionFor(charId);
     if (id == null) return true;
@@ -376,6 +534,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         hasMore[key] = page.hasMore;
       },
     );
+    if (ok &&
+        _current(generation) &&
+        journalBefore !=
+            jsonEncode(pending.values.map((w) => w.toJson()).toList())) {
+      unawaited(_save().catchError((Object _) {}));
+    }
+    if (!_current(generation)) return false;
     if (ok && !next && activeCharId == charId && foreground && phoneVisible) {
       await markSessionRead(id);
     }
@@ -385,6 +550,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   final _reads = <int, Future<void>>{};
   final _readAgain = <int>{};
   Future<void> markSessionRead(int id, {bool newDelivery = false}) {
+    if (id <= 0) return Future<void>.value();
     if (newDelivery && _reads.containsKey(id)) _readAgain.add(id);
     final g = _generation;
     return _reads[id] ??=
@@ -407,12 +573,22 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     if (ok) await Future.wait([refreshSessions(), refreshSummary()]);
   }
 
+  Future<bool> refreshPostAuthors() => load(
+    'postAuthors',
+    () => api.postAuthors(worldId),
+    (ids) => postAuthorIds = ids,
+  );
+
   Future<bool> refreshPosts({bool next = false, bool markRead = false}) async {
+    if (next && (busy.contains('posts') || hasMore['posts'] != true)) {
+      return false;
+    }
     if (markRead) _postReadOnLoad = true;
+    final authorsRefresh = next ? null : refreshPostAuthors();
     final pn = next ? (pages['posts'] ?? 1) + 1 : 1;
     final ok = await load(
       'posts',
-      () => api.posts(worldId, pn: pn, author: authorFilter),
+      () => api.posts(worldId, pn: pn, charId: authorFilter),
       (page) {
         posts = <int, PhonePost>{
           if (next)
@@ -420,7 +596,6 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           for (final p in page.list) p.id: p,
         }.values.toList();
         for (final p in page.list) {
-          authors[p.author.key] = p.author;
           if (p.author.type == 1) users[p.author.id] = p.author;
         }
         pages['posts'] = pn;
@@ -439,6 +614,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         if (notificationsVisible) await refreshNotifications();
       }
     }
+    await authorsRefresh;
     return ok;
   }
 
@@ -546,7 +722,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (kind != 'dm') pending.remove(key);
       await _save();
       if (!_current(g)) return false;
-      if (kind == 'post') await refreshPosts();
+      if (kind == 'dm') scheduleRefresh();
+      if (kind == 'post') await Future.wait([refreshPosts(), refreshSummary()]);
       if (kind == 'comment') {
         await Future.wait([
           refreshDetail(int.parse(target)),
@@ -560,8 +737,15 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       // A delivery can precede an HTTP failure. Committed evidence wins.
       if (!w.accepted) {
         errors[key] = errorText(e);
-        if (e is ApiException && e.kind == ApiExceptionKind.business) {
+        if (e is ArgumentError || e is FormatException) {
           w.rejected = true;
+        } else if (e is ApiException && e.kind == ApiExceptionKind.business) {
+          if (e.code == 2062 && kind == 'dm') {
+            w.uncertain = true;
+            scheduleRefresh();
+          } else {
+            w.rejected = true;
+          }
         } else {
           w.uncertain = true;
         }
@@ -658,9 +842,17 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           _sessionByChar[w.target] = event.sessionId!;
           w.accepted = true;
           w.rejected = false;
-          if (event.requestId == w.id &&
-              event.messages.any((m) => m.senderType == 'char')) {
+          if (isPlayerChat(w.target) &&
+              event.messages.any(
+                (m) =>
+                    m.senderType == 'user' &&
+                    m.senderId == uid &&
+                    m.requestId == w.id,
+              )) {
             pending.remove(w.key);
+          } else if (event.requestId == w.id &&
+              event.messages.any((m) => m.senderType == 'char')) {
+            _applyReplyState(w.id, 'completed', null, event.sessionId!);
           }
         }
       }
@@ -670,12 +862,28 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           sessionFor(activeCharId!) == event.sessionId) {
         unawaited(markSessionRead(event.sessionId!, newDelivery: true));
       }
+      // A complete correlated AI batch can precede both HTTP and its source message.
+      if (event.requestId != null &&
+          event.messages.any((m) => m.senderType == 'char')) {
+        _applyReplyState(event.requestId!, 'completed', null, event.sessionId!);
+      }
     } else if (event.type == 'phone.reply.updated') {
-      for (final w in pending.values.toList()) {
-        if (w.kind == 'dm' && w.id == event.requestId) {
-          pending.remove(w.key);
-          replyFailures[w.target] = event.failure!;
-        }
+      _applyReplyState(
+        event.requestId!,
+        event.jobStatus!,
+        event.failure,
+        event.sessionId!,
+      );
+      final history = messages[event.sessionId];
+      if (history != null) {
+        final state = _replyStates[event.requestId]!;
+        messages[event.sessionId!] = [
+          for (final m in history)
+            if (m.id == event.sourceMessageId && m.senderId == uid)
+              PhoneMessage.withReplyState(m, state.status, state.failure)
+            else
+              m,
+        ];
       }
     }
     unawaited(_save().catchError((Object _) {}));
@@ -716,11 +924,58 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
             if (write.kind == 'dm' && !write.rejected) write.target,
         };
         await Future.wait(targets.map(refreshMessages));
+        if (!_current(g)) return;
+        await Future.wait([
+          for (final write in pending.values.toList())
+            if (write.kind == 'dm' && !write.rejected) _recoverRequest(write),
+        ]);
       }
     } finally {
       _refreshing = false;
       if (_dirty && !_disposed) scheduleRefresh();
+      _scheduleReplyPoll();
     }
+  }
+
+  void _scheduleReplyPoll() {
+    if (_disposed || !foreground) return;
+    final writes = pending.values.where(
+      (w) => w.kind == 'dm' && !w.rejected && !isPlayerChat(w.target),
+    );
+    if (writes.isEmpty) {
+      _replyPollTimer?.cancel();
+      _replyPollTimer = null;
+      _replyPollSeconds = 2;
+      return;
+    }
+    if (_replyPollTimer != null) return;
+    _replyPollTimer = Timer(Duration(seconds: _replyPollSeconds), () async {
+      _replyPollTimer = null;
+      if (_disposed || !foreground) return;
+      _replyPollSeconds = (_replyPollSeconds * 2).clamp(2, 30);
+      final generation = _generation;
+      for (final write in writes.toList()) {
+        await _resolveSession(write.target);
+        if (!_current(generation)) return;
+        await _recoverRequest(write);
+        if (!_current(generation)) return;
+      }
+      _scheduleReplyPoll();
+    });
+  }
+
+  Future<void> _recoverRequest(PhoneWrite write) async {
+    final generation = _generation;
+    final id = sessionFor(write.target);
+    if (id == null) return;
+    await load(
+      'request:${write.id}',
+      () => api.messages(worldId, id, clientRequestId: write.id),
+      (page) {
+        _mergeMessages(id, page.list);
+      },
+    );
+    if (_current(generation)) await _save();
   }
 
   @override
@@ -739,10 +994,18 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     accountRevision.removeListener(_accountChanged);
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
+    _replyPollTimer?.cancel();
     _events?.cancel();
     _states?.cancel();
     super.dispose();
   }
+}
+
+class MiniPhoneConversation {
+  const MiniPhoneConversation(this.person, this.unreadCount, this.lastMessage);
+  final PhonePerson person;
+  final int unreadCount;
+  final PhoneMessage? lastMessage;
 }
 
 class PhoneWrite {

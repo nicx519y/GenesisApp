@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../network/mini_phone/mini_phone_models.dart';
@@ -33,6 +33,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   int? sdk;
   bool ready = false;
   String? owner;
+  String? _shownError;
   MiniPhoneStore get store => widget.store;
   @override
   void initState() {
@@ -66,7 +67,32 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       owner = store.uid;
       input.clear();
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      final error = _error;
+      if (error != _shownError) {
+        _shownError = error;
+        if (error != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted &&
+                _error == error &&
+                store.phoneVisible &&
+                store.foreground) {
+              showGenesisToast(context, error);
+            }
+          });
+        }
+      }
+      setState(() {});
+    }
+  }
+
+  String? get _error {
+    final id = widget.person.id;
+    return store.errors['messages:${store.sessionFor(id)}'] ??
+        store.errors['request:${store.waiting(id)?.id}'] ??
+        store.errors['session:$id'] ??
+        store.errors['dm:$id'] ??
+        store.replyFailures[id];
   }
 
   void _focus() {
@@ -85,7 +111,8 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     if (coordinator.isReadingHistory &&
         coordinator.controller.position.pixels <= 64 &&
         store.hasMore[key] == true &&
-        !store.busy.contains(key)) {
+        !store.busy.contains(key) &&
+        !store.errors.containsKey(key)) {
       unawaited(store.refreshMessages(widget.person.id, next: true));
     }
   }
@@ -94,8 +121,16 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     final text = input.text;
     if (text.trim().isEmpty) return;
     _follow();
-    final result = await store.write('dm', widget.person.id, text);
-    if (mounted && result && input.text == text) input.clear();
+    final pending = store.pending['dm:${widget.person.id}'];
+    final retry = pending != null && !pending.accepted && !pending.rejected;
+    final submitted = retry ? pending.content : text;
+    final result = await store.write(
+      'dm',
+      widget.person.id,
+      submitted,
+      retry: retry,
+    );
+    if (mounted && result && input.text == submitted) input.clear();
     // Keep focus and the existing keyboard, including while waiting for a reply.
   }
 
@@ -115,19 +150,14 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   Widget build(BuildContext context) {
     final person = widget.person, waiting = store.waiting(person.id);
     final key = 'messages:${store.sessionFor(person.id)}';
-    final error =
-        store.errors[key] ??
-        store.errors['session:${person.id}'] ??
-        store.errors['dm:${person.id}'] ??
-        store.replyFailures[person.id];
     final rows = store
         .history(person.id)
         .map(
           (m) => ChatMessageVm(
             localId: 'phone:${m.id}',
             senderId: m.senderId,
-            senderName: m.senderType == 'user' ? 'You' : person.name,
-            avatarUrl: m.senderType == 'user'
+            senderName: m.senderId == store.uid ? 'You' : person.name,
+            avatarUrl: m.senderId == store.uid
                 ? store.person(m.senderId, type: 1).avatar
                 : person.avatar,
             text: m.content,
@@ -159,40 +189,35 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
               Positioned.fill(
                 child: NotificationListener<ScrollNotification>(
                   onNotification: coordinator.handleScrollNotification,
-                  child: LocationChatAnchoredMessageList(
-                    coordinator: coordinator,
-                    messages: rows,
-                    topTitle: '',
-                    initialContentReady: ready,
-                    restoreInitialCompletedContent: true,
-                    replyWaitingPositioningEnabled: false,
-                    replyActionsVisible: false,
-                    showDateDividers: false,
-                    style: kPrivateChatStyle,
-                    oldestEdgeLoading: store.busy.contains(key),
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    onMessageLongPressStart: (context, message, details) {
-                      final p = details.globalPosition;
-                      showMenu<String>(
-                        context: context,
-                        color: const Color(0xFF666666),
-                        position: RelativeRect.fromLTRB(p.dx, p.dy, p.dx, p.dy),
-                        items: const [
-                          PopupMenuItem(
-                            value: 'copy',
-                            child: Text(
-                              'Copy',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ).then((value) {
-                        if (value == 'copy') {
-                          Clipboard.setData(ClipboardData(text: message.text));
-                        }
-                      });
+                  child: GenesisRefreshIndicator(
+                    onRefresh: () async {
+                      await store.refreshMessages(person.id);
                     },
+                    child: LocationChatAnchoredMessageList(
+                      coordinator: coordinator,
+                      messages: rows,
+                      topTitle: [
+                        store.worldDay,
+                        'Private conversation',
+                      ].where((s) => s.isNotEmpty).join(' · '),
+                      initialContentReady: ready,
+                      restoreInitialCompletedContent: true,
+                      replyWaitingPositioningEnabled: false,
+                      replyActionsVisible: false,
+                      showDateDividers: false,
+                      style: kPrivateChatStyle.copyWith(
+                        messageListPadding: const EdgeInsets.all(miniPageInset),
+                        topTitleBottomPadding: 22,
+                        topTitleTextStyle: miniStyle(
+                          11,
+                          FontWeight.w400,
+                          miniTertiary,
+                        ),
+                      ),
+                      oldestEdgeLoading: ready && store.busy.contains(key),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                    ),
                   ),
                 ),
               ),
@@ -218,7 +243,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (waiting != null)
+                if (waiting != null && !store.isPlayerChat(person.id))
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -238,36 +263,6 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                             ),
                           ),
                         ),
-                        if (waiting.uncertain && !waiting.accepted)
-                          TextButton(
-                            onPressed: store.busy.contains(waiting.key)
-                                ? null
-                                : () => store.write(
-                                    'dm',
-                                    person.id,
-                                    waiting.content,
-                                    retry: true,
-                                  ),
-                            child: const Text('Retry'),
-                          ),
-                      ],
-                    ),
-                  ),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            error,
-                            style: miniStyle(12, FontWeight.w400, miniPink),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => store.refreshMessages(person.id),
-                          child: const Text('Refresh'),
-                        ),
                       ],
                     ),
                   ),
@@ -277,7 +272,11 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                   onInputTap: _follow,
                   onInputTapAlwaysCalled: true,
                   inputEnabled: true,
-                  sendEnabled: waiting == null && input.text.trim().isNotEmpty,
+                  sendEnabled:
+                      (waiting == null ||
+                          waiting.uncertain && !waiting.accepted) &&
+                      !store.busy.contains('dm:${person.id}') &&
+                      input.text.trim().isNotEmpty,
                   sending: store.busy.contains('dm:${person.id}'),
                   sendLabel: 'Send',
                   onSend: _send,

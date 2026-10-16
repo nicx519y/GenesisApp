@@ -1046,4 +1046,7 @@ The existing world connection also routes `phone.messages.delivered`,
 request correlation, event ID, message batches and failure/notification data
 remain in `payload`. They require no location and do not become LocationChat
 messages. See `mini-phone-chat-client-api-2026-10-12.md` and
-`mini-phone-client-integration.md` for the draft and outstanding replay contract.
+`mini-phone-client-integration.md` for the 2026-10-16 current dev contract.
+Reply events support generating (nullable failure) and failed. Messages carry
+request-correlated reply_status/failure for HTTP recovery; pushes have no offline
+replay guarantee. Player peers do not emit AI reply-state events.

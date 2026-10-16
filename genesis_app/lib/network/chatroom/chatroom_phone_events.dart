@@ -19,7 +19,13 @@ class ChatroomPhoneEvent extends ChatroomEvent {
               'world_id': message.worldId,
             })
           : null,
-      failure = message.type == 'phone.reply.updated'
+      jobStatus = message.payload['job_status'] as String?,
+      sourceMessageId = message.type == 'phone.reply.updated'
+          ? phoneId(message.payload['message_id'])
+          : null,
+      failure =
+          message.type == 'phone.reply.updated' &&
+              message.payload['failure'] != null
           ? phoneText(phoneMap(message.payload['failure'])['message'])
           : null {
     if (message.streamType.isNotEmpty ||
@@ -28,13 +34,12 @@ class ChatroomPhoneEvent extends ChatroomEvent {
         message.errNo != 0) {
       throw const FormatException('Invalid phone event envelope');
     }
-    if (type == 'phone.reply.updated') phoneId(message.payload['message_id']);
     if (type == 'phone.reply.updated' &&
-        (message.payload['job_status'] != 'failed' ||
+        (!{'generating', 'failed'}.contains(jobStatus) ||
             sessionId == null ||
-            failure!.isEmpty ||
+            jobStatus == 'failed' && (failure ?? '').isEmpty ||
             (requestId ?? '').isEmpty)) {
-      throw const FormatException('Invalid phone failure event');
+      throw const FormatException('Invalid phone reply event');
     }
     if (type == 'phone.messages.delivered' &&
         (sessionId == null ||
@@ -45,8 +50,8 @@ class ChatroomPhoneEvent extends ChatroomEvent {
     }
   }
   final String type, worldId, eventId;
-  final String? requestId, failure;
-  final int? sessionId;
+  final String? requestId, failure, jobStatus;
+  final int? sessionId, sourceMessageId;
   final List<PhoneMessage> messages;
   final PhoneNotification? notification;
 }

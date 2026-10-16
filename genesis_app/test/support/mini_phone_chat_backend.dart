@@ -32,6 +32,7 @@ Map<String, dynamic> phoneSession({int unread = 0}) => {
   'char_name': 'Character',
   'char_avatar_url': '',
   'unread_count': unread,
+  'peer_uid': '',
   'last_message': null,
   'updated_at': '2026-10-12T08:00:00Z',
 };
@@ -84,6 +85,7 @@ ChatroomPhoneEvent phoneEvent(
   String? requestId,
   String? failure,
   String world = 'w',
+  int session = 9,
 }) =>
     chatroomEventFromV2Message(
           ChatroomV2Message.fromJson({
@@ -98,7 +100,7 @@ ChatroomPhoneEvent phoneEvent(
             'err_msg': '',
             'payload': {
               'event_id': eventId,
-              'dm_session_id': 9,
+              'dm_session_id': session,
               'client_request_id': requestId,
               if (failure == null) 'messages': messages,
               if (failure != null) ...{
@@ -129,6 +131,7 @@ class PhoneBackend implements HttpTransport {
       'current_time': 'Day 2/10:00',
       'characters': [
         {'char_id': 'c', 'name': 'Character'},
+        {'char_id': 'player-char', 'name': 'Player', 'player_uid': 'u'},
       ],
     }),
     accountRevision: revision,
@@ -155,6 +158,11 @@ class PhoneBackend implements HttpTransport {
     }
     if (suffix == 'unread') return ok({'unread_count': 0, 'char_id': null});
     if (suffix == 'post/detail') return ok(phoneDetail());
+    if (suffix == 'post/authors') {
+      return ok({
+        'list': ['c'],
+      });
+    }
     return ok(
       page(
         suffix == 'dm_sessions'

@@ -15,6 +15,229 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'Messages stays empty when the session API returns no conversations',
+    () async {
+      final b = PhoneBackend();
+      b.respond = (r) =>
+          r.uri.path.endsWith('/dm_sessions') ? ok(page([])) : null;
+      final s = b.store();
+      addTearDown(s.dispose);
+      await s.ready;
+      expect(s.sessions, isEmpty);
+      expect(s.people.keys, containsAll(['c', 'player-char']));
+      expect(s.conversations, isEmpty);
+      expect(s.sessionFor('c'), isNull);
+      expect(s.sessionFor('player-char'), isNull);
+      s.unreadSessionsOnly = true;
+      expect(s.conversations, isEmpty);
+      s.unreadSessionsOnly = false;
+      await s.refreshSessions();
+      expect(s.conversations, isEmpty);
+    },
+  );
+  test('Messages keeps server order while delivered previews update', () async {
+    const newerId = 9007199254740994;
+    final b = PhoneBackend();
+    b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
+        ? ok(
+            page([
+              {...phoneSession(), 'last_message': phoneMessage(newerId - 1)},
+              {
+                ...phoneSession(unread: 2),
+                'dm_session_id': 10,
+                'char_id': 'player-char',
+                'char_name': 'Player',
+                'last_message': {
+                  ...phoneMessage(newerId, session: 10),
+                  'sender_id': 'player-char',
+                },
+              },
+            ]),
+          )
+        : null;
+    final s = b.store();
+    addTearDown(s.dispose);
+    await s.ready;
+    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
+    expect(s.conversations.last.unreadCount, 2);
+    s.receive(phoneEvent('latest', [phoneMessage(newerId + 1)]));
+    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
+    expect(
+      s.conversations.first.lastMessage!.content,
+      'Message ${newerId + 1}',
+    );
+    // An older batch, duplicate event and lagging HTTP snapshot cannot undo it.
+    s.receive(phoneEvent('older', [phoneMessage(1)]));
+    s.receive(phoneEvent('latest', [phoneMessage(newerId + 2)]));
+    await s.refreshSessions();
+    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
+    expect(s.conversations.first.lastMessage!.id, newerId + 1);
+    s.unreadSessionsOnly = true;
+    expect(s.conversations.map((c) => c.person.id), ['player-char']);
+    expect(s.conversations.single.unreadCount, 2);
+    await s.writesSaved;
+  });
+  test(
+    'new conversations appear only after the session API lists them',
+    () async {
+      final b = PhoneBackend();
+      b.respond = (r) =>
+          r.uri.path.endsWith('/dm_sessions') ? ok(page([])) : null;
+      final s = b.store();
+      addTearDown(s.dispose);
+      await s.ready;
+      s.receive(
+        phoneEvent('first-player', [
+          {...phoneMessage(7, session: 10), 'sender_id': 'player-char'},
+        ], session: 10),
+      );
+      expect(s.conversations, isEmpty);
+      expect(s.sessionFor('player-char'), 10);
+      b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
+          ? {'err_no': 4004, 'err_msg': 'Sessions unavailable', 'data': {}}
+          : null;
+      expect(await s.refreshSessions(), isFalse);
+      expect(s.errors['sessions'], 'Sessions unavailable');
+      expect(s.conversations, isEmpty);
+      b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
+          ? ok(
+              page([
+                {
+                  ...phoneSession(),
+                  'dm_session_id': 10,
+                  'char_id': 'player-char',
+                  'char_name': 'Player',
+                },
+              ]),
+            )
+          : null;
+      expect(await s.refreshSessions(), isTrue);
+      expect(s.conversations.map((c) => c.person.id), ['player-char']);
+      expect(s.conversations.single.lastMessage!.id, 7);
+      b.respond = (r) =>
+          r.uri.path.endsWith('/dm_sessions') ? ok(page([])) : null;
+      await s.refreshSessions();
+      expect(s.conversations, isEmpty);
+      await s.writesSaved;
+      b.uid = null;
+      b.revision.value++;
+      await s.ready;
+      expect(s.conversations, isEmpty);
+    },
+  );
+  test(
+    'authors come from the world-wide endpoint and resolve player character IDs',
+    () async {
+      final b = PhoneBackend(), s = b.store();
+      addTearDown(s.dispose);
+      await s.ready;
+      expect(s.authors, isEmpty);
+      b.respond = (r) => r.uri.path.endsWith('/post/authors')
+          ? ok({
+              'list': ['player-char', 'unknown-char'],
+            })
+          : null;
+      await s.refreshPosts();
+      expect(s.authors.map((p) => p.id), ['player-char', 'unknown-char']);
+      expect(s.authors.map((p) => p.name), ['Player', 'unknown-char']);
+      expect(s.posts.single.author.id, 'c'); // Feed does not add authors.
+      await s.refreshPeople();
+      expect(s.authors.map((p) => p.id), ['player-char', 'unknown-char']);
+      b.respond = (r) =>
+          r.uri.path.endsWith('/post/authors') ? ok({'list': []}) : null;
+      await s.refreshPostAuthors();
+      expect(s.authors, isEmpty);
+    },
+  );
+  test(
+    'switching authors resets pages and discards an old in-flight next page',
+    () async {
+      final b = PhoneBackend(), s = b.store(), gate = Completer<Object?>();
+      addTearDown(s.dispose);
+      await s.ready;
+      b.respond = (r) {
+        if (!r.uri.path.endsWith('/posts')) return null;
+        final pn = int.parse(r.uri.queryParameters['pn']!);
+        if (pn == 2) return gate.future;
+        final player = r.uri.queryParameters['char_id'] == 'player-char';
+        return ok(
+          page([
+            {
+              ...phonePost(),
+              'post_id': player ? 20 : 8,
+              if (player) ...{'author_type': 1, 'author_id': 'u'},
+            },
+          ], total: player ? 1 : 20),
+        );
+      };
+      await s.refreshPosts();
+      final oldPage = s.refreshPosts(next: true);
+      await flush();
+      s.authorFilter = 'player-char';
+      expect(s.posts, isEmpty);
+      expect(s.hasMore['posts'], isNull);
+      await s.refreshPosts();
+      gate.complete(
+        ok(
+          page(
+            [
+              {...phonePost(), 'post_id': 9},
+            ],
+            pn: 2,
+            total: 20,
+          ),
+        ),
+      );
+      expect(await oldPage, isFalse);
+      expect(s.posts.map((p) => p.id), [20]);
+      expect(s.pages['posts'], 1);
+      expect(s.hasMore['posts'], isFalse);
+      expect(b.calls('posts').last.uri.queryParameters, {
+        'world_id': 'w',
+        'char_id': 'player-char',
+        'pn': '1',
+        'rn': '10',
+      });
+      s.authorFilter = null;
+      await s.refreshPosts();
+      expect(
+        b.calls('posts').last.uri.queryParameters.containsKey('char_id'),
+        isFalse,
+      );
+      expect(s.posts.map((p) => p.id), [8]);
+    },
+  );
+  test(
+    'author errors retain server text and account changes discard pending author lists',
+    () async {
+      final b = PhoneBackend(), s = b.store(), gate = Completer<Object?>();
+      addTearDown(s.dispose);
+      await s.ready;
+      b.respond = (r) => r.uri.path.endsWith('/post/authors')
+          ? {'err_no': 4004, 'err_msg': 'Authors unavailable', 'data': {}}
+          : null;
+      expect(await s.refreshPosts(), isTrue);
+      expect(s.errors['postAuthors'], 'Authors unavailable');
+      expect(s.authors, isEmpty);
+      b.respond = (r) =>
+          r.uri.path.endsWith('/post/authors') ? gate.future : null;
+      final old = s.refreshPostAuthors();
+      await flush();
+      s.authorFilter = 'c';
+      b.uid = 'other';
+      b.revision.value++;
+      await s.ready;
+      gate.complete(
+        ok({
+          'list': ['c'],
+        }),
+      );
+      expect(await old, isFalse);
+      expect(s.authors, isEmpty);
+      expect(s.authorFilter, isNull);
+    },
+  );
+  test(
     'delivery before HTTP, duplicate and out-of-order batches produce canonical messages once',
     () async {
       final b = PhoneBackend(), gate = Completer<Object?>();
@@ -166,6 +389,14 @@ void main() {
       expect(b.calls('post/notifications/read'), isEmpty);
       await s.refreshPosts(markRead: true);
       expect(b.calls('post/notifications/read').length, 1);
+      s.authorFilter = 'player-char';
+      await s.refreshPosts();
+      final authorCalls = b.calls('post/authors').length;
+      b.respond = (r) => r.uri.path.endsWith('/post/authors')
+          ? ok({
+              'list': ['c', 'player-char'],
+            })
+          : null;
       s.receive(
         chatroomEventFromV2Message(
               ChatroomV2Message.fromJson({
@@ -180,6 +411,13 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 250));
       expect(b.calls('post/notifications/read').length, 1);
+      expect(b.calls('post/authors').length, greaterThan(authorCalls));
+      expect(s.postAuthorIds, ['c', 'player-char']);
+      expect(s.authorFilter, 'player-char');
+      expect(
+        b.calls('posts').last.uri.queryParameters['char_id'],
+        'player-char',
+      );
       s.dispose();
     },
   );

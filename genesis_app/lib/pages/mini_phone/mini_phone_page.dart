@@ -3,10 +3,8 @@ import 'mini_phone_live_chat.dart';
 import '../../network/mini_phone/mini_phone_models.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/genesis_count_badge.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
-import '../../components/common/genesis_bottom_sheet_panel.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
@@ -17,6 +15,7 @@ import '../../ui/components/genesis_primary_button.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/animations/app_launch_transition/app_launch_transition.dart';
+import '../../ui/navigation/genesis_dark_page_route.dart';
 import 'mini_phone_demo_store.dart';
 import 'mini_phone_music_service.dart';
 import 'mini_phone_music_progress.dart';
@@ -68,7 +67,6 @@ enum MiniPhoneScreen {
   settings,
   music,
   models,
-  notifications,
 }
 
 /// World-backed MiniPhone; worldless calls retain the explicit style preview.
@@ -257,10 +255,28 @@ class _MiniPhoneResume {
   String draft = '';
   PhonePerson? liveContact;
   int? livePostId;
-  PhoneAlbumAsset? selectedPostPhoto;
+  String? selectedPostPhoto;
   Uint8List? photo;
   List<_MiniPhotoItem>? viewerPhotos;
   int viewerIndex = 0;
+}
+
+/// Uses the same platform route transitions as the rest of the app.
+class _MiniPhoneRoutePage extends Page<void> {
+  const _MiniPhoneRoutePage({
+    required this.screen,
+    required this.child,
+    required super.key,
+  });
+  final MiniPhoneScreen screen;
+  final Widget child;
+
+  @override
+  Route<void> createRoute(BuildContext context) => GenesisDarkPageRoute<void>(
+    settings: this,
+    builder: (context) =>
+        (ModalRoute.of(context)!.settings as _MiniPhoneRoutePage).child,
+  );
 }
 
 class MiniPhonePage extends StatefulWidget {
@@ -287,8 +303,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   PhonePerson? liveContact;
   int? livePostId;
   PhoneComment? replyToComment;
-  PhoneAlbumAsset? selectedPostPhoto;
-  bool selectingPostPhoto = false;
+  String? selectedPostPhoto;
+  bool uploadingPostPhoto = false;
+  double postPhotoProgress = 0;
   String? _phoneOwner;
 
   MiniPhoneMusicService get _music => _session.music;
@@ -298,6 +315,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _session._miniModelReturnScreen = value;
   String get _miniPhoneModelLabel => _session._miniPhoneModelLabel;
   late MiniPhoneScreen screen;
+  final _pageNavigatorKey = GlobalKey<NavigatorState>();
   late final AppLaunchTransitionController _launchTransition;
   MiniPhoneScreen? _launchApp;
   MiniDemoPerson contact = miniDemoPeople.first;
@@ -333,6 +351,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   late final MiniPhoneWallpaperController wallpaper;
   bool _authorizingWallpaper = false;
   String feedback = '';
+  final _refreshingPhoneLists = <String>{};
+  final _shownPhoneErrors = <String, String>{};
+  bool _phoneErrorToastScheduled = false;
   final _replyTimers = <Timer>[];
 
   @override
@@ -355,6 +376,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _miniResume.livePostId = null;
       _miniResume.selectedPostPhoto = null;
       _miniResume.draft = '';
+      _miniResume.photo = null;
       _miniResume.viewerPhotos = null;
       _miniResume.viewerIndex = 0;
     }
@@ -493,14 +515,20 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       livePostId = null;
       replyToComment = null;
       selectedPostPhoto = null;
+      draftPhoto = null;
+      uploadingPostPhoto = false;
       postInput.clear();
       commentInput.clear();
       messageInput.clear();
     }
-    if (mounted) _update(() {});
+    if (mounted) {
+      _notifyPhoneErrors();
+      _update(() {});
+    }
   }
 
   void _go(MiniPhoneScreen next) {
+    if (next == screen) return;
     FocusManager.instance.primaryFocus?.unfocus();
     if (next == MiniPhoneScreen.home && _launchTransition.hasPage) {
       _launchTransition.close(fallbackSourceId: _launchApp);
@@ -634,13 +662,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   }
 
   void _back() {
-    if (phone != null &&
-        screen == MiniPhoneScreen.photos &&
-        selectingPostPhoto) {
-      selectingPostPhoto = false;
-      _go(MiniPhoneScreen.create);
-      return;
-    }
     if (_launchTransition.isAnimating) {
       _launchTransition.close(fallbackSourceId: _launchApp);
       return;
@@ -702,7 +723,33 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                     home: _home(),
                     page: screen == MiniPhoneScreen.home
                         ? null
-                        : KeyedSubtree(key: ValueKey(screen), child: _screen()),
+                        : Navigator(
+                            key: _pageNavigatorKey,
+                            pages: [
+                              for (final destination in _pageStack(screen))
+                                _MiniPhoneRoutePage(
+                                  key: ValueKey((
+                                    destination,
+                                    destination == MiniPhoneScreen.chat
+                                        ? (phone == null
+                                              ? contact.id
+                                              : liveContact?.id)
+                                        : null,
+                                  )),
+                                  screen: destination,
+                                  child: ColoredBox(
+                                    color: miniBackground,
+                                    child: _screen(destination),
+                                  ),
+                                ),
+                            ],
+                            onDidRemovePage: (page) {
+                              if (page is _MiniPhoneRoutePage &&
+                                  page.screen == screen) {
+                                _back();
+                              }
+                            },
+                          ),
                   ),
                 ),
               ),
@@ -718,7 +765,22 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     );
   }
 
-  Widget _screen() => switch (screen) {
+  List<MiniPhoneScreen> _pageStack(MiniPhoneScreen destination) =>
+      switch (destination) {
+        MiniPhoneScreen.chat => [
+          MiniPhoneScreen.messages,
+          MiniPhoneScreen.chat,
+        ],
+        MiniPhoneScreen.models => [
+          ..._pageStack(_miniModelReturnScreen),
+          MiniPhoneScreen.models,
+        ],
+        MiniPhoneScreen.comments ||
+        MiniPhoneScreen.create => [MiniPhoneScreen.posts, destination],
+        _ => [destination],
+      };
+
+  Widget _screen(MiniPhoneScreen destination) => switch (destination) {
     MiniPhoneScreen.home => _home(),
     MiniPhoneScreen.messages => phone == null ? _messages() : _liveMessages(),
     MiniPhoneScreen.chat =>
@@ -730,7 +792,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
               key: ValueKey(liveContact!.id),
               store: phone!,
               person: liveContact!,
-              header: _navigation(liveContact!.name),
+              header: _navigation(liveContact!.name, showModel: true),
             ),
     MiniPhoneScreen.posts => phone == null ? _posts() : _livePosts(),
     MiniPhoneScreen.comments => phone == null ? _comments() : _liveComments(),
@@ -739,10 +801,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     MiniPhoneScreen.settings => _settings(),
     MiniPhoneScreen.music => _panel('Music', _MiniMusicPlayer(music: _music)),
     MiniPhoneScreen.models => _models(),
-    MiniPhoneScreen.notifications => _liveNotifications(),
   };
 
-  Widget _navigation(String title) => Padding(
+  Widget _navigation(String title, {bool showModel = false}) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: miniPageInset),
     child: SizedBox(
       height: 56,
@@ -772,7 +833,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
               ),
             ),
           ),
-          if (screen == MiniPhoneScreen.chat) ...[
+          if (showModel) ...[
             MemoryModelEntryButton(
               modelLabel: _miniPhoneModelLabel,
               variant: MemoryModelEntryButtonVariant.roomHeader,
@@ -825,6 +886,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       ? GenesisPrimaryButton(
           label: text,
           isLoading: isLoading,
+          showLoadingIndicator: false,
           onPressed: action,
           fullWidth: false,
           backgroundColor: miniRed,

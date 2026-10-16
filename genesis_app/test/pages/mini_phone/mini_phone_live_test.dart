@@ -18,6 +18,158 @@ Future<void> settle(WidgetTester tester) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('Messages renders only sessions returned by the API', (
+    tester,
+  ) async {
+    final b = PhoneBackend();
+    b.respond = (r) =>
+        r.uri.path.endsWith('/dm_sessions') ? ok(page([])) : null;
+    final s = (await tester.runAsync(() async {
+      final s = b.store();
+      await s.ready;
+      return s;
+    }))!;
+    final session = MiniPhoneSession(data: s);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: MiniPhonePage(
+          session: session,
+          initialScreen: MiniPhoneScreen.messages,
+        ),
+      ),
+    );
+    await settle(tester);
+    final character = find.byKey(const ValueKey('mini-phone-conversation-c'));
+    final player = find.byKey(
+      const ValueKey('mini-phone-conversation-player-char'),
+    );
+    expect(character, findsNothing);
+    expect(player, findsNothing);
+    expect(find.text('Nothing here yet.'), findsNothing);
+    await tester.runAsync(() async {
+      s.receive(
+        phoneEvent('first', [
+          {...phoneMessage(7, session: 10), 'sender_id': 'player-char'},
+        ], session: 10),
+      );
+      await s.writesSaved;
+    });
+    await settle(tester);
+    expect(character, findsNothing);
+    expect(player, findsNothing);
+    expect(find.text('Message 7'), findsNothing);
+    b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
+        ? ok(
+            page([
+              {
+                ...phoneSession(),
+                'dm_session_id': 10,
+                'char_id': 'player-char',
+                'char_name': 'Player',
+              },
+            ]),
+          )
+        : null;
+    await tester.runAsync(s.refreshSessions);
+    await settle(tester);
+    expect(character, findsNothing);
+    expect(player, findsOneWidget);
+    expect(find.text('Message 7'), findsOneWidget);
+    await tester.tap(player);
+    await tester.pump();
+    await settle(tester);
+    expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+    expect(s.activeCharId, 'player-char');
+    expect(s.sessionFor('player-char'), 10);
+    expect(find.byType(ChatComposer), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    session.dispose();
+  });
+  testWidgets(
+    'Posts authors retry and tapping the selected author restores all posts',
+    (tester) async {
+      final b = PhoneBackend();
+      var failAuthors = true;
+      b.respond = (r) {
+        if (r.uri.path.endsWith('/post/authors')) {
+          return failAuthors
+              ? {'err_no': 4004, 'err_msg': 'Authors unavailable', 'data': {}}
+              : ok({
+                  'list': ['player-char'],
+                });
+        }
+        if (r.uri.path.endsWith('/posts') &&
+            r.uri.queryParameters['char_id'] != null) {
+          return ok(
+            page([
+              {
+                ...phonePost(),
+                'text': 'Player post',
+                'author_type': 1,
+                'author_id': 'u',
+              },
+            ]),
+          );
+        }
+        return null;
+      };
+      final s = (await tester.runAsync(() async {
+        final s = b.store();
+        await s.ready;
+        return s;
+      }))!;
+      final session = MiniPhoneSession(data: s);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(),
+          home: MiniPhonePage(
+            session: session,
+            initialScreen: MiniPhoneScreen.posts,
+          ),
+        ),
+      );
+      await settle(tester);
+      expect(find.text('Authors unavailable'), findsOneWidget);
+      expect(find.text('Post body'), findsOneWidget);
+      failAuthors = false;
+      await tester.pump(const Duration(seconds: 3));
+      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await settle(tester);
+      expect(find.text('Authors unavailable'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('mini-phone-post-author-c')),
+        findsNothing,
+      );
+      expect(find.text('Player'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('mini-phone-post-author-player-char')),
+      );
+      await settle(tester);
+      expect(find.text('Player post'), findsOneWidget);
+      expect(find.text('Post body'), findsNothing);
+      expect(b.calls('posts').last.uri.queryParameters, {
+        'world_id': 'w',
+        'char_id': 'player-char',
+        'pn': '1',
+        'rn': '10',
+      });
+      await tester.tap(
+        find.byKey(const ValueKey('mini-phone-post-author-player-char')),
+      );
+      await settle(tester);
+      expect(find.text('Post body'), findsOneWidget);
+      expect(
+        b.calls('posts').last.uri.queryParameters.containsKey('char_id'),
+        isFalse,
+      );
+      expect(b.calls('post/notifications/read').length, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      session.dispose();
+    },
+  );
   testWidgets(
     'send keeps keyboard, creates no optimistic bubble, shows and ends typing',
     (tester) async {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import '../api_client.dart';
 import '../api_exception.dart';
 import '../v1/v1_api_resource.dart';
@@ -23,6 +24,17 @@ class MiniPhoneApi {
           (entry.value is! String || (entry.value as String).trim().isEmpty)) {
         throw ArgumentError.value(entry.value, entry.key, 'Must not be empty');
       }
+      if ({'world_id', 'char_id', 'client_request_id'}.contains(entry.key)) {
+        final value = entry.value as String;
+        final limit = entry.key == 'client_request_id' ? 128 : 64;
+        if (value != value.trim() || value.length > limit) {
+          throw ArgumentError.value(value, entry.key, 'Invalid identifier');
+        }
+      }
+      if (entry.key == 'content' &&
+          utf8.encode(entry.value as String).length > 65535) {
+        throw ArgumentError('Phone text must not exceed 65535 UTF-8 bytes');
+      }
       if ({
         'dm_session_id',
         'post_id',
@@ -31,6 +43,22 @@ class MiniPhoneApi {
         'rn',
       }.contains(entry.key)) {
         phoneId(entry.value);
+      }
+      if (entry.key == 'rn' && (entry.value as int) > 100) {
+        throw ArgumentError('Phone page size must not exceed 100');
+      }
+      if (entry.key == 'image') {
+        final value = entry.value as String;
+        final uri = Uri.tryParse(value);
+        if (value.length > 2048 ||
+            value != value.trim() ||
+            uri == null ||
+            !{'http', 'https'}.contains(uri.scheme) ||
+            uri.host.isEmpty ||
+            uri.userInfo.isNotEmpty ||
+            uri.hasFragment) {
+          throw ArgumentError('Invalid phone image URL');
+        }
       }
     }
     final Object? raw = post
@@ -80,9 +108,14 @@ class MiniPhoneApi {
     int sessionId, {
     int pn = 1,
     int rn = 10,
+    String? clientRequestId,
   }) => _page(
     'messages',
-    {'world_id': worldId, 'dm_session_id': sessionId},
+    {
+      'world_id': worldId,
+      'dm_session_id': sessionId,
+      if (clientRequestId != null) 'client_request_id': clientRequestId,
+    },
     PhoneMessage.fromJson,
     pn,
     rn,
@@ -114,24 +147,42 @@ class MiniPhoneApi {
   );
   Future<void> readPosts(String worldId) =>
       _write('post/notifications/read', {'world_id': worldId});
+  Future<List<String>> postAuthors(String worldId) async {
+    final data = phoneMap(
+      await _request('post/authors', {'world_id': worldId}),
+    );
+    final list = data['list'];
+    if (list is! List || list.any((id) => id is! String || id.isEmpty)) {
+      throw const FormatException('Expected post author character IDs');
+    }
+    return List<String>.unmodifiable(list);
+  }
+
   Future<PhonePage<PhonePost>> posts(
     String worldId, {
     int pn = 1,
     int rn = 10,
-    PhonePerson? author,
-  }) => _page(
-    'posts',
-    {
-      'world_id': worldId,
-      if (author != null) ...{
-        'author_type': author.type,
-        'author_id': author.id,
+    String? charId,
+  }) {
+    if (charId != null && charId.length > 64) {
+      throw ArgumentError.value(
+        charId,
+        'charId',
+        'Must be at most 64 characters',
+      );
+    }
+    return _page(
+      'posts',
+      {
+        'world_id': worldId,
+        if (charId != null && charId.isNotEmpty) 'char_id': charId,
       },
-    },
-    PhonePost.fromJson,
-    pn,
-    rn,
-  );
+      PhonePost.fromJson,
+      pn,
+      rn,
+    );
+  }
+
   Future<PhonePostDetail> detail(String worldId, int postId) async =>
       PhonePostDetail.fromJson(
         phoneMap(

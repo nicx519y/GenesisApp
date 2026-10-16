@@ -30,6 +30,9 @@ class _MiniPhoneWallpaperBackgroundState
   }
 
   Future<void> _prepare() async {
+    // Home stays mounted under app pages with its tickers disabled. Defer
+    // replacements until Home is visible so the fade cannot elapse offstage.
+    if (_visible != null && !TickerMode.valuesOf(context).enabled) return;
     final image = widget.image;
     if (_requested == image) return;
     _requested = image;
@@ -38,6 +41,10 @@ class _MiniPhoneWallpaperBackgroundState
     await precacheImage(image, context, onError: (_, _) => failed = true);
     if (!mounted || generation != _generation) return;
     if (failed) {
+      _requested = null;
+      return;
+    }
+    if (_visible != null && !TickerMode.valuesOf(context).enabled) {
       _requested = null;
       return;
     }

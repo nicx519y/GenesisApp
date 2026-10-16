@@ -122,6 +122,12 @@ class LocalMockGenesisTransport implements HttpTransport {
         });
       }
       final phonePath = apiPath.substring('aitown-chat/api/v1/phone/'.length);
+      if (method == 'GET' && phonePath == 'post/authors') {
+        return _ok({
+          'err_no': 0,
+          'data': {'list': <String>[]},
+        });
+      }
       if (method == 'GET' && phonePath == 'home') {
         return _ok({
           'err_no': 0,

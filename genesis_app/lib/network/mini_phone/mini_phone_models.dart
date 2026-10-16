@@ -60,14 +60,40 @@ class PhoneMessage {
       content = phoneText(j['content']),
       currentTime = phoneText(j['current_time']),
       deliveredAt = phoneText(j['delivered_at']),
-      requestId = j['client_request_id'] as String? {
+      requestId = j['client_request_id'] as String?,
+      replyStatus = j['reply_status'] as String?,
+      failure = j['failure'] == null
+          ? null
+          : phoneText(phoneMap(j['failure'])['message']) {
     if (!{'user', 'char'}.contains(senderType) || j['type'] != 'text') {
       throw const FormatException('Unsupported phone message');
     }
+    if (replyStatus != null &&
+        !{
+          'pending',
+          'generating',
+          'completed',
+          'failed',
+        }.contains(replyStatus)) {
+      throw const FormatException('Unsupported phone reply status');
+    }
   }
+  PhoneMessage.withReplyState(
+    PhoneMessage source,
+    this.replyStatus,
+    this.failure,
+  ) : id = source.id,
+      sessionId = source.sessionId,
+      worldId = source.worldId,
+      senderType = source.senderType,
+      senderId = source.senderId,
+      content = source.content,
+      currentTime = source.currentTime,
+      deliveredAt = source.deliveredAt,
+      requestId = source.requestId;
   final int id, sessionId;
   final String worldId, senderType, senderId, content, currentTime, deliveredAt;
-  final String? requestId;
+  final String? requestId, replyStatus, failure;
 }
 
 class PhonePerson {
@@ -79,7 +105,7 @@ class PhonePerson {
 
 class PhoneSession {
   PhoneSession.fromJson(Map<String, dynamic> j)
-    : id = phoneId(j['dm_session_id']),
+    : id = phoneCount(j['dm_session_id']),
       worldId = phoneText(j['world_id']),
       person = PhonePerson(
         phoneText(j['char_id']),
@@ -87,12 +113,14 @@ class PhoneSession {
         phoneText(j['char_avatar_url']),
       ),
       unreadCount = phoneCount(j['unread_count']),
+      peerUid = phoneText(j['peer_uid']),
       updatedAt = phoneText(j['updated_at']),
       lastMessage = j['last_message'] == null
           ? null
           : PhoneMessage.fromJson(phoneMap(j['last_message']));
   final int id, unreadCount;
-  final String worldId, updatedAt;
+  final String worldId, updatedAt, peerUid;
+  (String, String) get key => (worldId, person.id);
   final PhonePerson person;
   final PhoneMessage? lastMessage;
 }

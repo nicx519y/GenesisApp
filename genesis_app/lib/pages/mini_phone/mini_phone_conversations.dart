@@ -90,7 +90,7 @@ extension _MiniPhoneConversations on _MiniPhonePageState {
   Widget _chat() => SafeArea(
     child: Column(
       children: [
-        _navigation(contact.name),
+        _navigation(contact.name, showModel: true),
         Expanded(
           child: ListView(
             controller: chatScroll,

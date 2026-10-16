@@ -36,6 +36,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                 <
                   ({
                     Object sourceId,
+                    String? liveCharId,
                     MiniDemoPerson person,
                     String text,
                     String time,
@@ -44,9 +45,10 @@ extension _MiniPhoneHome on _MiniPhonePageState {
             final posts = <MiniDemoPost>[];
             if (phone != null) {
               for (final m in phone!.home.messages) {
-                final p = phone!.person(m.senderId);
+                final p = phone!.personForMessage(m);
                 messages.add((
                   sourceId: ('message', m.id),
+                  liveCharId: phone!.charForMessage(m),
                   person: _livePersonPresentation(p),
                   text: m.content,
                   time: m.currentTime,
@@ -71,6 +73,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                 for (var i = 0; i < store.unread(p); i++) {
                   messages.add((
                     sourceId: ('message', p.id, i),
+                    liveCharId: null,
                     person: p,
                     text: i == 0
                         ? p.preview
@@ -151,8 +154,6 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                   ),
                   const SizedBox(height: 12),
                 ],
-                if (phone != null && phone!.errors['home'] != null)
-                  _liveStatus('home', phone!.refreshSummary),
                 if (kinds.isNotEmpty) ...[
                   if (messages.isNotEmpty)
                     _noticeGroup(
@@ -164,7 +165,15 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                             n.person,
                             n.text,
                             n.time,
-                            () => _openChat(n.person),
+                            () {
+                              if (phone == null) {
+                                _openChat(n.person);
+                              } else if (n.liveCharId != null) {
+                                _openLiveChat(phone!.person(n.liveCharId!));
+                              } else {
+                                _go(MiniPhoneScreen.messages);
+                              }
+                            },
                             sourceId: n.sourceId,
                             app: MiniPhoneScreen.messages,
                             squareAvatar: true,
@@ -206,25 +215,6 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                           : null,
                     ),
                 ],
-                if (phone != null && kinds.isNotEmpty)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (phone!.home.dmUnread > 0)
-                        TextButton(
-                          onPressed: () {
-                            phone!.unreadSessionsOnly = true;
-                            _go(MiniPhoneScreen.messages);
-                          },
-                          child: const Text('More messages'),
-                        ),
-                      if (phone!.home.postUnread > 0)
-                        TextButton(
-                          onPressed: () => _go(MiniPhoneScreen.notifications),
-                          child: const Text('More notifications'),
-                        ),
-                    ],
-                  ),
               ],
             );
             // Reserve space in scroll content, rather than clipping it above the dock.

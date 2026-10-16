@@ -4,13 +4,13 @@
 
 ## 按任务阅读
 
-- 修改前核对正式调用代码和接口契约；手机接口稿 `docs/mini-phone-chat-client-api-2026-10-12.md` 是草案。
+- 修改前核对正式调用代码和接口契约；手机接口以 `docs/mini-phone-chat-client-api-2026-10-12.md` 的 2026-10-16 当前 dev 契约为准；它替代旧草案，日期增量稿只保留历史范围。源码契约对齐不等于真实账号端到端验收。
 - [集成文档](../../../docs/mini-phone-client-integration.md) 保留待联调项目和历史验证；修改对应行为时按下表读取相关章节，不把客户端实现或受控测试解释为服务端已验收。
 
 | 本次任务 | 集成文档中的阅读入口 |
 | --- | --- |
 | 定位模块职责 | [代码入口](../../../docs/mini-phone-client-integration.md#code-entry-points) |
-| Messages／Posts／通知／相册 HTTP | [16 个手机接口](../../../docs/mini-phone-client-integration.md#phone-http-routes)及手机接口草案相关章节 |
+| Messages／Posts／通知／相册 HTTP | [手机接口](../../../docs/mini-phone-client-integration.md#phone-http-routes)及当前 dev 手机接口相关章节 |
 | 音乐、壁纸、上传、角色／用户资料、模型及采集 | [10 个复用接口](../../../docs/mini-phone-client-integration.md#reused-http-routes) |
 | World 绑定、手机事件、恢复及未读刷新 | [世界连接与事件](../../../docs/mini-phone-client-integration.md#world-websocket-events) |
 | 聊天、分页、点赞、通知或发帖交互 | [客户端行为](../../../docs/mini-phone-client-integration.md#required-client-behavior) |
@@ -26,11 +26,14 @@
 - 复用现有签名 HTTP client 与 World 的 V2 Socket，不创建手机独立连接、不为手机事件加入地点；手机事件不得进入 LocationChat 时间线或地点队列，不在页面硬编码环境地址。
 - 事件按 `event_id` 去重，未读以 HTTP 结果为准，不按事件次数增减；合并刷新保留刷新期间的新事件。手机关闭继续处理世界事件，退出世界释放订阅；初始化、重连及返回前台执行恢复查询。Home 使用世界时间。
 - 聊天复用共享锚点列表、滚动协调器、`ChatMessageRow`、`ChatComposer` 和 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘、不预留回复空白；阅读历史保留锚点和返回最新入口。
-- “正在输入”是本地请求等待提示；同一角色等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；关联 AI 回复或最终失败结束等待。
-- Posts 作者筛选先由服务端执行再分页，切换作者重置分页。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
+- “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；按请求键查询历史中的 reply_status/failure，关联完整 AI 批次或服务端终态结束等待，终态不回退。peer_uid 非空的玩家互发不显示 AI 输入状态，气泡方向比较 sender_id 与当前 UID。
+- Messages 仅用 `/dm_sessions` 返回的条目生成列表，不由 World／Home／消息缓存补齐；保持服务端顺序，按 world_id + char_id 合并分页。允许多个 dm_session_id=0 的虚拟条目；进入空聊天页，跳过消息和已读查询，仍按 char_id 发送，取得正数 ID 后替换对应条目。未读数量取服务端；保留既有标题和列表、下拉刷新及公共错误 Toast。
+- Posts 作者仅取 `/post/authors` 的全世界发帖角色 ID，以角色资料补充名称与头像；筛选只传 `char_id`（玩家也用角色 ID），全部作者省略参数。切换作者重置分页并丢弃旧响应；通知刷新保留筛选并刷新作者列表。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
-- 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖只选择服务器图片，正文必填，不添加未确认的字数限制。
-- 保持现有样式、导航、启动动画、音乐和壁纸行为；共享聊天修改回归 LocationChat。真实请求错误展示错误／重试，演示数据仅用于明确的无世界预览。
+- 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖可从本机选择图片并通过已有 upload/image 上传，保留完整 xl_url 及查询参数，允许纯文字。正文必填，按 65535 UTF-8 字节限制；上传不超过 10 MiB。未确认写请求重试保留原图片 URL，不重新上传替换已提交内容。
+- 布局与样式以 `c6b7600e` 的 MiniPhone 为基准；接入真实数据不新增常驻操作栏、筛选按钮或分页按钮，不移动既有主按钮。Posts 重复点击当前作者取消筛选；Create 保留右上角 Post、作者信息和虚线选图区；评论保留原帖布局、分隔线与输入头像。动态分页由滚动触发，页面级首次加载只显示一个状态，有内容刷新不追加转圈；私聊首次加载与历史分页 loading 互斥。
+- 手机桌面图标／通知卡片到应用的展开继续使用 `AppLaunchTransitionHost`；应用内会话、评论、发帖和模型等子页通过内部 Navigator 复用 `GenesisDarkPageRoute`，与手机外页面采用同一套平台进出动画。返回保留底层列表状态，关闭按钮退出整个 MiniPhone。
+- 保持现有样式、导航、启动动画、音乐和壁纸行为；共享聊天修改回归 LocationChat。新增动态请求的错误统一使用公共 Toast，不向 Home、列表、发帖表单或聊天输入区插入错误段落和 Retry／Refresh 按钮；读操作保留下拉刷新，Post／评论／私聊使用原提交按钮重试未确认请求并复用原 ID 和原始内容；已受理 DM 仍禁止重复发送。演示数据仅用于明确的无世界预览。
 - 当前模型和记忆 Token 选择仅更新本地 `MiniPhoneSession`；选择、折扣展示及采集事件不证明后端设置或计费生效。原生 Dart 保留 int64；JavaScript 目标需先解决无损 JSON ID 传输。
 
 ## 验证与维护
@@ -38,5 +41,5 @@
 - 按改动选择集成文档的验证命令；Dart 修改只格式化涉及文件，静态检查包含实际修改的目录外文件。纯文档修改检查路径、接口表、Markdown 和 `git diff --check`。
 - 重点覆盖重复／乱序推送、推送先于 HTTP、首次私聊、历史锚点、同请求重试、账号切换旧响应、快速点赞、通知分页和 Posts 进入已读。
 - 受控测试、真实后端及 Android／iOS 真机结果分别报告。键盘、多行、窄屏、大字体、横屏和断线恢复需对应证据，历史通过记录不能代替本次验证。
-- 接口或行为改变同步本文件及相关文档；草案扩展、请求终态重放及最终 DTO 等待联调事项保持显式标记。
+- 接口或行为改变同步本文件及相关文档；不依赖离线事件重放；推送仅即时尝试，断线后以 HTTP 请求关联状态恢复。真实环境及设备待验收事项保持显式标记。
 - 使用普通 Markdown 与目录级指令；长接口表、DTO、测试命令和运行记录留在文档中，不需要 YAML front matter 或自定义加载脚本。遵循 [OpenAI AGENTS.md 指南](https://learn.chatgpt.com/docs/agent-configuration/agents-md)，从工程根目录处理本模块时按入口读取本文件。

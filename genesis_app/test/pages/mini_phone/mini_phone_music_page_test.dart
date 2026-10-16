@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +11,23 @@ import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dar
 import '../../support/mini_phone_music_services.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+
+class _UnavailableMusicTransport implements HttpTransport {
+  int requests = 0;
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests++;
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {},
+      body: jsonEncode({
+        'err_no': 5001,
+        'err_msg': 'Music unavailable',
+        'data': {},
+      }),
+    );
+  }
+}
 
 void main() {
   setUp(
@@ -104,6 +123,57 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('From #My Hero Academia'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'music catalog failure uses Toast and pull refresh without an error panel',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final transport = _UnavailableMusicTransport();
+      final api = GenesisApi(
+        useMock: false,
+        apiClient: ApiClient(
+          baseUrl: 'https://api.example/api/',
+          transport: transport,
+          defaultHeaders: {'Authorization': 'Bearer test-music-session'},
+        ),
+      );
+      final phone = MiniPhoneSession();
+      addTearDown(phone.dispose);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: musicTestServices(api),
+          child: MaterialApp(
+            home: MiniPhonePage(
+              session: phone,
+              initialScreen: MiniPhoneScreen.music,
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      const error = 'Unable to load music. Please retry.';
+      expect(find.text(error), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      expect(
+        find.descendant(of: find.byType(ListView), matching: find.text(error)),
+        findsNothing,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text(error), findsNothing);
+      final before = transport.requests;
+      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(transport.requests, greaterThan(before));
+      expect(find.text(error), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

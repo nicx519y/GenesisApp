@@ -10,6 +10,7 @@ class _MiniMusicPlayer extends StatefulWidget {
 class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
   String? _statusFile;
   bool _ready = false;
+  String? _shownMusicError;
   MiniPhoneMusicService get _music => widget.music;
   @override
   void initState() {
@@ -24,14 +25,17 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
     });
   }
 
-  void _loadCatalog() => unawaited(
-    _music.loadCatalog(
-      () => AppServicesScope.read(context).api.fetchMusicCatalog(),
-    ),
+  Future<void> _loadCatalog() => _music.loadCatalog(
+    () => AppServicesScope.read(context).api.fetchMusicCatalog(),
   );
 
   void _changed() {
     if (!mounted) return;
+    final error = _music.catalogError ?? _music.playbackError;
+    if (error != _shownMusicError) {
+      _shownMusicError = error;
+      if (error != null) showGenesisToast(context, error);
+    }
     setState(() {});
     if (_ready) _loadLikeStatus();
   }
@@ -102,23 +106,17 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
   Widget build(BuildContext context) {
     final track = _music.track;
     if (track == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(26),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _music.catalogLoading
-                    ? 'Loading music...'
-                    : _music.catalogError ?? 'No music available.',
-                textAlign: TextAlign.center,
-                style: miniStyle(14, FontWeight.w400, miniSecondary),
+      return GenesisRefreshIndicator(
+        onRefresh: _loadCatalog,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            if (_music.catalogLoading)
+              const Padding(
+                padding: EdgeInsets.all(26),
+                child: Center(child: GenesisLoadingIndicator()),
               ),
-              if (_music.catalogError != null)
-                TextButton(onPressed: _loadCatalog, child: const Text('Retry')),
-            ],
-          ),
+          ],
         ),
       );
     }
@@ -129,138 +127,135 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
         final coverWidth = ((bounds.maxHeight - 250) / 1.5)
             .clamp(80.0, 320.0)
             .clamp(0.0, availableWidth);
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(26, 4, 26, 12),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: Column(
-                children: [
-                  MiniMusicCover(
-                    track: track,
-                    nextTrack: _music.nextTrack,
-                    preloadNext:
-                        _music.playing && _music.foreground && !_music.loading,
-                    width: coverWidth,
-                    height: coverWidth * 1.5,
-                    radius: 16,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            MiniMusicMarquee(
-                              identity: (track.file, 'title'),
-                              text: track.title,
-                              style: miniStyle(
-                                24,
-                                FontWeight.w700,
-                              ).copyWith(height: 1.2, letterSpacing: -.7),
-                            ),
-                            const SizedBox(height: 6),
-                            MiniMusicMarquee(
-                              identity: (track.file, 'artist'),
-                              text: track.artist,
-                              style: miniStyle(
-                                12,
-                                FontWeight.w400,
-                                miniSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            MiniMusicMarquee(
-                              identity: (track.file, 'worldo'),
-                              text:
-                                  'From ${originDisplayName(track.sourceWorldoName)}',
-                              style: miniStyle(
-                                12,
-                                FontWeight.w400,
-                                miniSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Semantics(
-                        button: true,
-                        toggled: liked,
-                        label: '${liked ? 'Unlike' : 'Like'} ${track.title}',
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => unawaited(_toggleLike(track.file)),
-                          child: SizedBox(
-                            width: 44,
-                            height: 54,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                MiniIcon(
-                                  'heart',
-                                  size: 23,
-                                  color: liked ? miniPink : miniWhite,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  MiniMusicSeekBar(
-                    identity: track.file,
-                    position: _music.positionDuration,
-                    duration: _music.durationDuration,
-                    buffered: _music.bufferedPosition,
-                    enabled: _music.canSeek,
-                    onSeek: _music.seekTo,
-                  ),
-                  if (_music.playbackError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        _music.playbackError!,
-                        textAlign: TextAlign.center,
-                        style: miniStyle(12, FontWeight.w400, miniSecondary),
-                      ),
+        return GenesisRefreshIndicator(
+          onRefresh: _loadCatalog,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(26, 4, 26, 12),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Column(
+                  children: [
+                    MiniMusicCover(
+                      track: track,
+                      nextTrack: _music.nextTrack,
+                      preloadNext:
+                          _music.playing &&
+                          _music.foreground &&
+                          !_music.loading,
+                      width: coverWidth,
+                      height: coverWidth * 1.5,
+                      radius: 16,
                     ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _control('music-backward', 'Previous track', _previous),
-                      const SizedBox(width: 38),
-                      Semantics(
-                        toggled: _music.playRequested,
-                        label: _music.playRequested ? 'Pause' : 'Play',
-                        button: true,
-                        child: IconButton(
-                          onPressed: _togglePlay,
-                          style: IconButton.styleFrom(
-                            backgroundColor: miniRed,
-                            minimumSize: const Size(64, 64),
-                            maximumSize: const Size(64, 64),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MiniMusicMarquee(
+                                identity: (track.file, 'title'),
+                                text: track.title,
+                                style: miniStyle(
+                                  24,
+                                  FontWeight.w700,
+                                ).copyWith(height: 1.2, letterSpacing: -.7),
+                              ),
+                              const SizedBox(height: 6),
+                              MiniMusicMarquee(
+                                identity: (track.file, 'artist'),
+                                text: track.artist,
+                                style: miniStyle(
+                                  12,
+                                  FontWeight.w400,
+                                  miniSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              MiniMusicMarquee(
+                                identity: (track.file, 'worldo'),
+                                text:
+                                    'From ${originDisplayName(track.sourceWorldoName)}',
+                                style: miniStyle(
+                                  12,
+                                  FontWeight.w400,
+                                  miniSecondary,
+                                ),
+                              ),
+                            ],
                           ),
-                          icon: Transform.translate(
-                            offset: Offset(_music.playRequested ? 0 : 2, 0),
-                            child: MiniIcon(
-                              _music.playRequested
-                                  ? 'music-pause'
-                                  : 'music-play',
-                              size: 30,
+                        ),
+                        const SizedBox(width: 14),
+                        Semantics(
+                          button: true,
+                          toggled: liked,
+                          label: '${liked ? 'Unlike' : 'Like'} ${track.title}',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => unawaited(_toggleLike(track.file)),
+                            child: SizedBox(
+                              width: 44,
+                              height: 54,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  MiniIcon(
+                                    'heart',
+                                    size: 23,
+                                    color: liked ? miniPink : miniWhite,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 38),
-                      _control('music-forward', 'Next track', _next),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    MiniMusicSeekBar(
+                      identity: track.file,
+                      position: _music.positionDuration,
+                      duration: _music.durationDuration,
+                      buffered: _music.bufferedPosition,
+                      enabled: _music.canSeek,
+                      onSeek: _music.seekTo,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _control('music-backward', 'Previous track', _previous),
+                        const SizedBox(width: 38),
+                        Semantics(
+                          toggled: _music.playRequested,
+                          label: _music.playRequested ? 'Pause' : 'Play',
+                          button: true,
+                          child: IconButton(
+                            onPressed: _togglePlay,
+                            style: IconButton.styleFrom(
+                              backgroundColor: miniRed,
+                              minimumSize: const Size(64, 64),
+                              maximumSize: const Size(64, 64),
+                            ),
+                            icon: Transform.translate(
+                              offset: Offset(_music.playRequested ? 0 : 2, 0),
+                              child: MiniIcon(
+                                _music.playRequested
+                                    ? 'music-pause'
+                                    : 'music-play',
+                                size: 30,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 38),
+                        _control('music-forward', 'Next track', _next),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

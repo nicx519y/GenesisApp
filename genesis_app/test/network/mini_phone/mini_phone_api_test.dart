@@ -1,12 +1,74 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
-import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import '../../support/mini_phone_chat_backend.dart';
 
 void main() {
   test(
-    'all 16 routes use Chat prefix, typed reads and empty write responses',
+    'request recovery query, virtual IDs and byte limits follow current dev',
+    () async {
+      final b = PhoneBackend();
+      await b.api.messages('w', 9, clientRequestId: 'request');
+      expect(
+        b.requests.last.uri.queryParameters['client_request_id'],
+        'request',
+      );
+      final virtual = PhoneSession.fromJson({
+        ...phoneSession(),
+        'dm_session_id': 0,
+        'peer_uid': 'peer',
+      });
+      expect(virtual.id, 0);
+      expect(virtual.peerUid, 'peer');
+      await expectLater(b.api.messages('w', 0), throwsFormatException);
+      await expectLater(b.api.readSession(0), throwsFormatException);
+      await expectLater(b.api.sessions('w', rn: 101), throwsArgumentError);
+      await expectLater(
+        b.api.send('w', 'c', 'request', '界' * 21846),
+        throwsArgumentError,
+      );
+      await b.api.send('w', 'c', 'request', '界' * 21845);
+      const image = 'https://cdn.example/x.png?x-oss-process=image/format,webp';
+      await b.api.createPost('w', 'post', 'Body', image: image);
+      expect(b.body(b.requests.last)['image'], image);
+      await expectLater(
+        b.api.createPost(
+          'w',
+          'post',
+          'Body',
+          image: 'https://user:pass@cdn.example/x',
+        ),
+        throwsArgumentError,
+      );
+      final asset = PhoneAlbumAsset.fromJson({
+        'asset_id': 1,
+        'thumbnail_url': null,
+        'image_url': image,
+      });
+      expect(asset.thumbnail, isEmpty);
+      expect(asset.image, image);
+    },
+  );
+  test('local mock author list is empty and requires authentication', () async {
+    final client = ApiClient(
+      baseUrl: 'https://phone.example/',
+      transport: LocalMockGenesisTransport.instance,
+    );
+    await expectLater(
+      MiniPhoneApi(client).postAuthors('w'),
+      throwsA(isA<ApiException>()),
+    );
+    final api = MiniPhoneApi(
+      client.copyWith(defaultHeaders: {'Authorization': 'Bearer test'}),
+    );
+    expect(await api.postAuthors('w'), isEmpty);
+    expect((await api.posts('w', charId: 'player-char')).list, isEmpty);
+  });
+  test(
+    'all 17 routes use Chat prefix, typed reads and empty write responses',
     () async {
       final b = PhoneBackend(), a = PhoneBackend();
       final api = b.api;
@@ -19,6 +81,7 @@ void main() {
       await api.notifications('w');
       await api.readPosts('w');
       await api.posts('w');
+      await api.postAuthors('w');
       await api.detail('w', 8);
       await api.createPost('w', 'post', 'Text');
       await api.like('w', 8);
@@ -32,7 +95,7 @@ void main() {
         replyToCommentId: 9007199254740993,
       );
       await api.album('w');
-      expect(b.requests.length, 16);
+      expect(b.requests.length, 17);
       expect(
         b.requests.every(
           (r) => r.uri.path.startsWith('/aitown-chat/api/v1/phone/'),
@@ -63,15 +126,10 @@ void main() {
     'filter is sent to server before pagination; text/content and album URL stay distinct',
     () async {
       final b = PhoneBackend();
-      final posts = await b.api.posts(
-        'w',
-        pn: 3,
-        author: const PhonePerson('u', 'Player', '', type: 1),
-      );
+      final posts = await b.api.posts('w', pn: 3, charId: 'player-char');
       expect(b.requests.single.uri.queryParameters, {
         'world_id': 'w',
-        'author_type': '1',
-        'author_id': 'u',
+        'char_id': 'player-char',
         'pn': '3',
         'rn': '10',
       });
@@ -89,6 +147,60 @@ void main() {
         'image': 'https://image.example/x',
       });
       expect((await b.api.detail('w', 8)).content, 'Post body');
+    },
+  );
+  test(
+    'author IDs are an unpaginated string list; All omits char_id',
+    () async {
+      final b = PhoneBackend();
+      b.respond = (r) => r.uri.path.endsWith('/post/authors')
+          ? ok({
+              'list': ['c', 'player-char'],
+            })
+          : null;
+      expect(await b.api.postAuthors('w'), ['c', 'player-char']);
+      expect(b.calls('post/authors').single.uri.queryParameters, {
+        'world_id': 'w',
+      });
+      for (final charId in <String?>[null, '']) {
+        await b.api.posts('w', charId: charId);
+        expect(b.requests.last.uri.queryParameters, {
+          'world_id': 'w',
+          'pn': '1',
+          'rn': '10',
+        });
+      }
+      expect(b.calls('post/notifications/read'), isEmpty);
+      expect(() => b.api.posts('w', charId: 'c' * 65), throwsArgumentError);
+      b.respond = (_) => ok({'list': []});
+      expect(await b.api.postAuthors('w'), isEmpty);
+      for (final value in <Object?>[
+        null,
+        {},
+        [1],
+        [
+          {'char_id': 'c'},
+        ],
+        [''],
+      ]) {
+        b.respond = (_) => ok({'list': value});
+        await expectLater(b.api.postAuthors('w'), throwsFormatException);
+      }
+      b.respond = (_) => {
+        'err_no': 4004,
+        'err_msg': 'World unavailable',
+        'data': {},
+      };
+      await expectLater(
+        b.api.postAuthors('w'),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            'World unavailable',
+          ),
+        ),
+      );
     },
   );
   test(
