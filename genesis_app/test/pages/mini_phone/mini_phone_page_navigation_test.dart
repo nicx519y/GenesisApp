@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_live_chat.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/ui/navigation/genesis_dark_page_route.dart';
 import '../../support/mini_phone_chat_backend.dart';
 
@@ -72,6 +72,58 @@ void main() {
     await settle(tester);
     return session;
   }
+
+  testWidgets('content refresh leaves the shell Navigator unchanged', (
+    tester,
+  ) async {
+    final session = await mount(tester, TargetPlatform.android);
+    final navigator = find.descendant(
+      of: find.byType(MiniPhonePage),
+      matching: find.byType(Navigator),
+    );
+    final before = tester.widget<Navigator>(navigator);
+    await tester.runAsync(() => session.data!.refreshPosts());
+    await settle(tester);
+    expect(session.data!.posts, isNotEmpty);
+    expect(tester.widget<Navigator>(navigator), same(before));
+    expect(find.text('Person 0'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('preview reply survives returning from chat to Messages', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final session = MiniPhoneSession();
+    addTearDown(session.dispose);
+    final person = session.resume.contact;
+    final before = session.store.chats[person.id]!.length;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MiniPhonePage(
+          session: session,
+          initialScreen: MiniPhoneScreen.chat,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Preview navigation');
+    await tester.pump();
+    await tester.tap(find.text('Send'));
+    await tester.pump();
+    expect(session.store.chats[person.id], hasLength(before + 1));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(session.store.chats[person.id], hasLength(before + 2));
+    expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets(

@@ -60,7 +60,7 @@ import '../../network/models/app_version_check.dart';
 import 'about_us_page.dart';
 import 'developer_personalization_preview.dart';
 import 'developer_forced_login_preview.dart';
-import '../mini_phone/mini_phone_page.dart';
+import '../mini_phone/mini_phone.dart';
 
 part 'developer_endpoint_actions.dart';
 part 'developer_version_actions.dart';

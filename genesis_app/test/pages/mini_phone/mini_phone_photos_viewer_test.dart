@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 import '../../support/mini_phone_chat_backend.dart';

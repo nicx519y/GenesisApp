@@ -10,7 +10,7 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import '../../support/mini_phone_music_services.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 
 class _UnavailableMusicTransport implements HttpTransport {
   int requests = 0;

@@ -2,8 +2,7 @@ import 'dart:async';
 import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 
 import '../../components/common/page_presentation_scope.dart';
-import '../mini_phone/mini_phone_page.dart';
-import '../mini_phone/mini_phone_ui.dart';
+import '../mini_phone/mini_phone.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -1476,7 +1475,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                               onPressed: (phone) =>
                                   PagePresentationScope.runCovered(
                                     context,
-                                    () => showMiniPhoneDemo(
+                                    () => showMiniPhone(
                                       context,
                                       session: phone,
                                       worldId: _modelWorldId,

@@ -71,7 +71,7 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
       await widget.onDismissBeforePreview?.call();
     }
     if (!navigator.mounted) return;
-    await showMiniPhoneDemo(navigator.context);
+    await showMiniPhonePreview(navigator.context);
   }
 
   Future<void> _showForcedLoginPreview() async {

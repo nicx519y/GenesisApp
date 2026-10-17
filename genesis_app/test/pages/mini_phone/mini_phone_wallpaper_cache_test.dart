@@ -5,7 +5,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/network/models/miniphone_info.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_cache.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/settings/wallpaper/mini_phone_wallpaper_cache.dart';
 
 class _Images implements BaseCacheManager {
   _Images(this.file);

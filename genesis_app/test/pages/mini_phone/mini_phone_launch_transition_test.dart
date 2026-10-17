@@ -10,12 +10,12 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_demo_store.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/preview/mini_phone_demo_store.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/ui/animations/app_launch_transition/app_launch_transition.dart';
 import '../../support/mini_phone_music_services.dart';
 import '../../support/mini_phone_audio_player.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_music_service.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
 
 class _TransitionTransport implements HttpTransport {
   @override

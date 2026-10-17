@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_live_chat.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_ui.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/shared/mini_phone_ui.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import '../../support/mini_phone_chat_backend.dart';
 

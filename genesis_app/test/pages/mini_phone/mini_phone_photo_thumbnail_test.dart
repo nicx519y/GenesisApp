@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_photo_thumbnail.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/photos/mini_phone_photo_thumbnail.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {

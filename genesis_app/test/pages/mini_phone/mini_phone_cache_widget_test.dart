@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_cache.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_live_chat.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
 import '../../support/mini_phone_chat_backend.dart';
 import '../../support/mini_phone_memory_cache.dart';
 

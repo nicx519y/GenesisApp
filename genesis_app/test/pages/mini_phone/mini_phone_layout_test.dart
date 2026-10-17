@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/pages/mini_phone/shared/mini_phone_controls.dart';
 import '../../support/mini_phone_memory_cache.dart';
 import 'dart:async';
 import 'dart:io';
@@ -12,10 +13,10 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_live_chat.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_store.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_ui.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/shared/mini_phone_ui.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
@@ -484,9 +485,7 @@ void main() {
       expect(find.text('World'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
-          (w) =>
-              w is CustomPaint &&
-              w.painter.runtimeType.toString() == '_MiniUploadBorder',
+          (w) => w is CustomPaint && w.painter is MiniPhoneUploadBorder,
         ),
         findsOneWidget,
       );

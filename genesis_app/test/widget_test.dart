@@ -1,5 +1,4 @@
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_ui.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
@@ -36380,9 +36379,10 @@ void main() {
     final worldState = tester.state(find.byType(WorldPage));
     final restoration = map().tilemap.restorationController;
     expect(map().tilemap.animationsPaused, isFalse);
+    final phoneDock = find.byType(MiniPhoneEdgeDock);
     tester
-        .widget<MiniPhoneEdgeDock>(find.byType(MiniPhoneEdgeDock))
-        .onPressed();
+        .widget<MiniPhoneEdgeDock>(phoneDock)
+        .onPressed(MiniPhoneSessionScope.read(tester.element(phoneDock))!);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(MiniPhonePage), findsOneWidget);
@@ -36396,6 +36396,10 @@ void main() {
     expect(tester.state(find.byType(WorldPage)), same(worldState));
     expect(map().tilemap.animationsPaused, isFalse);
     expect(map().tilemap.restorationController, same(restoration));
+    // This World transport omits phone endpoints; finish any shared error Toast
+    // before tearing down its overlay, after verifying presentation restoration.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

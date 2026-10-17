@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/miniphone_info.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_controller.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/settings/wallpaper/mini_phone_wallpaper_controller.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 const oldUrl = 'https://cdn.example/old.png';

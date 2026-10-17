@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_music_widgets.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_widgets.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 MusicTrack song(String id) => MusicTrack(

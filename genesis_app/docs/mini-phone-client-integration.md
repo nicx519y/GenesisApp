@@ -328,19 +328,38 @@ AI replies.
 
 ### Code entry points
 
+以下页面路径均相对 `lib/pages/mini_phone/`。完整目录与依赖规则见 [模块 README](../lib/pages/mini_phone/README.md)。
+
 | 入口 | 职责 |
 | --- | --- |
-| `mini_phone_page.dart` | 页面导航、`MiniPhoneSession`、世界级服务装配和恢复页面状态 |
-| `mini_phone_store.dart` | 服务端数据、分页、未读、事件合并、请求日志、账号隔离和恢复查询 |
-| `mini_phone_live.dart` | Messages、Posts、评论、通知、相册及发帖选图 |
-| `mini_phone_live_chat.dart` | 私聊列表、输入框、键盘、历史翻页和等待回复展示 |
-| `mini_phone_home.dart`、`mini_phone_ui.dart` | Home 通知、世界时钟、应用角标和手机入口 |
-| `mini_phone_music*.dart` | 音乐目录、播放、点赞和本地播放进度 |
-| `mini_phone_wallpaper*.dart`、`mini_phone_media.dart` | 壁纸缓存、设备选图、上传、保存和图片查看 |
-| `mini_phone_models.dart` | 模型目录展示及本地模型／记忆长度设置 |
-| `lib/network/mini_phone/mini_phone_api.dart`、`mini_phone_models.dart` | 手机 HTTP resource 和 DTO，经 `GenesisApi.miniPhone` 暴露 |
+| `mini_phone.dart` | World、LocationChat 与 Developer 的公开入口 |
+| `mini_phone_page.dart` | 手机外壳、页面路由、可见页面错误反馈 |
+| `session/mini_phone_session.dart` | 世界级服务装配、恢复状态与生命周期 |
+| `state/mini_phone_store.dart` | 账号初始化、聚合、事件分发、写请求日志、恢复调度及兼容业务入口 |
+| `state/mini_phone_requests.dart` | 共享账号代次、请求版本与进行中请求合并 |
+| `messages/mini_phone_messages_controller.dart` | 消息投影、会话、历史、回复状态与持久化已读 |
+| `messages/mini_phone_messages_page.dart`、`messages/mini_phone_live_chat.dart` | Messages 列表、私聊与独立页面状态 |
+| `posts/mini_phone_posts_controller.dart`、`posts/mini_phone_posts_page.dart` | Posts、评论、作者、点赞与页面输入状态 |
+| `posts/mini_phone_post_draft.dart` | World 持有的帖子草稿、上传和发送 |
+| `photos/mini_phone_photos_controller.dart`、`photos/mini_phone_photos_page.dart` | 相册分页和页面展示 |
+| `home/`、`entry/`、`shared/` | 桌面与通知布局、手机入口、基础 UI 和列表辅助 |
+| `music/` | 音乐目录、播放、点赞和本地进度 |
+| `settings/mini_phone_settings_page.dart`、`settings/wallpaper/` | 壁纸编辑、选图、上传、保存和缓存 |
+| `settings/mini_phone_model_settings.dart`、`settings/mini_phone_model_settings_page.dart` | AI 模型目录及会话内模型／记忆长度设置 |
+| `preview/` | 独立预览数据、页面和图片查看 |
+| `lib/network/mini_phone/` | 手机 HTTP、DTO、消息投影 reducer 与 SQLite 存储 |
 | `lib/network/chatroom/chatroom_phone_events.dart` | V2 手机事件模型，解析入口在 `chatroom_models.dart` |
-| `lib/pages/world/world_page_chatroom_session.dart` | 将 World 的现有 Socket 服务绑定到手机 Store |
+| `lib/pages/world/world_page_chatroom_session.dart` | 将 World 既有 Socket 绑定到手机 Store |
+
+2026-10-17 目录重构保留 HTTP 契约、数据库和缓存键、World 生命周期及请求调度规则。正式页面不再通过 `part` 访问外壳 State；预览的局部 `part` 仅位于 `preview/`。外部业务调用使用公开入口，控制器共用请求协调器。
+
+### Validation record — 2026-10-17 structure refactor
+
+- `flutter test --no-pub test/network/mini_phone test/pages/mini_phone test/ui/animations/app_launch_transition_test.dart test/pages/world/world_location_chat_host_test.dart`: **258 passed**. Includes six new boundary/navigation checks, independent page state, preview reply lifetime, and unchanged message recovery/cache behavior.
+- The focused `test/widget_test.dart` case `MiniPhone pauses World presentation and restores the same map` passed. Its existing dock callback invocation now supplies the World session, and the harness lets the shared error Toast expire before teardown.
+- Static analysis covers MiniPhone, its network directory, World/LocationChat/Developer callers and changed tests. Formatting and `git diff --check` completed.
+- Extended `world_page_layout_source_test.dart` has **15 passed / 8 failed**. The identical eight failures reproduce against source snapshots from the pre-refactor HEAD; they are existing source-string expectations concerning World shell/layout, Cast, keyboard metrics, bubbles and image prefetch. This refactor does not claim that suite passes.
+- No APK build, physical-device run, live backend acceptance or frame-time benchmark was performed for this directory refactor.
 
 ### Phone HTTP routes
 

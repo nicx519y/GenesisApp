@@ -1,83 +1,40 @@
-import 'mini_phone_store.dart';
-import 'mini_phone_post_draft.dart';
-import 'mini_phone_post_feed.dart';
-import 'mini_phone_post_thumbnail.dart';
-import 'mini_phone_photo_thumbnail.dart';
-import '../../ui/components/genesis_static_network_image.dart';
-import '../../utils/image_upload_processing.dart';
-import '../../utils/upload_image_byte_limit.dart';
-import 'mini_phone_live_chat.dart';
+import 'preview/mini_phone_preview.dart';
+import 'preview/mini_phone_preview_activity.dart';
+import 'preview/mini_phone_preview_gallery.dart';
+import 'settings/mini_phone_settings_page.dart';
+import 'home/mini_phone_home.dart';
+import 'messages/mini_phone_messages_page.dart';
+import 'photos/mini_phone_photos_page.dart';
+import 'posts/mini_phone_posts_page.dart';
+import 'shared/mini_phone_panel.dart';
+import 'state/mini_phone_store.dart';
+import 'posts/mini_phone_post_draft.dart';
+import 'messages/mini_phone_live_chat.dart';
 import '../../network/mini_phone/mini_phone_models.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/genesis_character_avatar.dart';
-import '../../components/common/genesis_image_viewer_overlay.dart';
 import 'dart:async';
-import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../utils/display_name_formatter.dart';
-import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/animations/app_launch_transition/app_launch_transition.dart';
 import '../../ui/navigation/genesis_dark_page_route.dart';
-import 'mini_phone_demo_store.dart';
-import 'mini_phone_music_service.dart';
-import 'mini_phone_music_progress.dart';
-import '../../platform/system_image_picker_activity.dart';
-import 'mini_phone_music_widgets.dart';
-import 'mini_phone_wallpaper_controller.dart';
-import 'mini_phone_wallpaper_cache.dart';
-import 'mini_phone_wallpaper_background.dart';
-import 'mini_phone_wallpaper_image.dart';
-import '../../components/auth/login_guard.dart';
+import 'preview/mini_phone_demo_store.dart';
+import 'music/mini_phone_music_service.dart';
+import 'settings/wallpaper/mini_phone_wallpaper_controller.dart';
+import 'settings/wallpaper/mini_phone_wallpaper_cache.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_upload_progress_overlay.dart';
-import '../../components/common/local_image_crop_page.dart';
-import '../../platform/native_image_picker.dart';
-import '../../utils/image_format_guards.dart';
-import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../platform/session/memory_user_session_store.dart';
-import 'mini_phone_ui.dart';
-import '../../components/chat/shared/chat_ui.dart';
+import 'shared/mini_phone_ui.dart';
 import '../../components/gems/memory_model_entry_button.dart';
-import '../gems/memory_model_page.dart';
 import '../gems/memory_model_page_cache.dart';
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../app/config/genesis_image_config.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../network/models/gem_model.dart';
-import '../../network/models/user_memory_settings.dart';
-import '../../network/models/music.dart';
-import '../../network/api_exception.dart';
-
-part 'mini_phone_home.dart';
-part 'mini_phone_live.dart';
-part 'mini_phone_notifications.dart';
-part 'mini_phone_conversations.dart';
-part 'mini_phone_posts.dart';
-part 'mini_phone_media.dart';
-part 'mini_phone_music.dart';
-part 'mini_phone_models.dart';
-
-enum MiniPhoneScreen {
-  home,
-  messages,
-  chat,
-  posts,
-  comments,
-  create,
-  photos,
-  settings,
-  music,
-  models,
-}
+import 'music/mini_phone_music.dart';
+import 'settings/mini_phone_model_settings_page.dart';
+import 'session/mini_phone_session.dart';
+import 'session/mini_phone_screen.dart';
 
 /// World-backed MiniPhone; worldless calls retain the explicit style preview.
-Future<void> showMiniPhoneDemo(
+Future<void> showMiniPhone(
   BuildContext context, {
   MiniPhoneScreen? initialScreen,
   String worldId = '',
@@ -93,7 +50,9 @@ Future<void> showMiniPhoneDemo(
     final cached = modelCache?.modelCatalog;
     if (cached != null) return cached;
     if (worldId.isEmpty) {
-      if (phone._phoneSourceCatalog != null) return phone._phoneSourceCatalog!;
+      if (phone.modelSettings.sourceCatalog != null) {
+        return phone.modelSettings.sourceCatalog!;
+      }
       throw StateError('Open Mini phone from a World to view its models.');
     }
     final services = AppServicesScope.read(context);
@@ -113,25 +72,20 @@ Future<void> showMiniPhoneDemo(
     return catalog;
   }
 
-  phone._phoneReferenceLoader = loadCatalog;
-  phone._phoneReferenceGeneration++;
-  if (phone._phoneReferenceWorldId != worldId) {
-    phone._phoneSourceCatalog = null;
-    phone._phoneSourceInitialized = false;
-    phone._phoneReferenceWorldId = worldId;
-  }
-  phone._phoneSourceCatalog =
-      modelCache?.modelCatalog ?? phone._phoneSourceCatalog;
-  phone._phoneReferencePending = null;
+  phone.modelSettings.configure(
+    worldId: worldId,
+    loader: loadCatalog,
+    cached: modelCache?.modelCatalog,
+  );
   try {
     await phone.push<void>(
       context,
       MaterialPageRoute(
-        settings: const RouteSettings(name: 'debug/mini-phone-demo'),
+        settings: const RouteSettings(name: 'mini-phone'),
         builder: (_) => MiniPhonePage(
           worldId: worldId,
           session: phone,
-          initialScreen: initialScreen ?? phone._resume.screen,
+          initialScreen: initialScreen ?? phone.resume.screen,
         ),
       ),
     );
@@ -140,136 +94,11 @@ Future<void> showMiniPhoneDemo(
   }
 }
 
-/// Owned by a World route, shared by its map, location chats and MiniPhone route.
-class MiniPhoneSession {
-  MiniPhoneSession({
-    this.worldId = '',
-    this.data,
-    MiniPhoneMusicService? music,
-    MiniPhoneDemoStore? store,
-    Future<MusicCatalog> Function()? musicLoader,
-  }) : music = music ?? MiniPhoneMusicService(),
-       store = store ?? MiniPhoneDemoStore(),
-       _musicLoader = musicLoader;
-
-  factory MiniPhoneSession.forWorld(BuildContext context, String worldId) {
-    final services = AppServicesScope.read(context);
-    return MiniPhoneSession(
-      worldId: worldId,
-      data: worldId.isEmpty
-          ? null
-          : MiniPhoneStore(
-              api: services.api.miniPhone,
-              worldId: worldId,
-              namespace: services.config.chatroomHttpBaseUrl,
-              readUid: services.sessionStore.readLoginUid,
-              loadWorld: () => services.api.getWorld(worldId),
-              loadUser: services.api.getUser,
-              accountRevision: services.sessionRevision,
-            ),
-      music: MiniPhoneMusicService(
-        progressStore: worldId.isEmpty
-            ? null
-            : LocalMiniPhoneMusicProgressStore(
-                namespace: services.platformConfig.apiBaseUrl,
-                worldId: worldId,
-                owner: services.sessionStore.readLoginUid().catchError(
-                  (Object _) => null,
-                ),
-              ),
-      ),
-      musicLoader: services.api.fetchMusicCatalog,
-    );
-  }
-  final String worldId;
-  final MiniPhoneMusicService music;
-  final MiniPhoneStore? data;
-  late final MiniPhonePostDraft? postDraft = data == null
-      ? null
-      : MiniPhonePostDraft(data!);
-  final MiniPhoneDemoStore store;
-  final Future<MusicCatalog> Function()? _musicLoader;
-  final _resume = _MiniPhoneResume();
-  final _routes = <Route<dynamic>, NavigatorState>{};
-  bool _disposed = false;
-  bool get isDisposed => _disposed;
-  MiniPhoneScreen _miniModelReturnScreen = MiniPhoneScreen.chat;
-  GemModelCatalog? _phoneSourceCatalog;
-  String _phoneReferenceWorldId = '';
-  int _phoneReferenceGeneration = 0;
-  Future<GemModelCatalog> Function()? _phoneReferenceLoader;
-  Future<void>? _phoneReferencePending;
-  bool _phoneSourceInitialized = false;
-  String _miniPhoneModelCode = '';
-  int _miniPhoneTokens = 8000;
-
-  void ensureMusicCatalog() {
-    if (!_disposed && _musicLoader != null) {
-      unawaited(music.loadCatalog(_musicLoader));
-    }
-  }
-
-  Future<T?> push<T>(BuildContext context, Route<T> route) async {
-    if (_disposed) return null;
-    final navigator = Navigator.of(context, rootNavigator: true);
-    _routes[route] = navigator;
-    try {
-      return await navigator.push(route);
-    } finally {
-      _routes.remove(route);
-    }
-  }
-
-  void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    _phoneReferenceGeneration++;
-    _phoneReferenceLoader = null;
-    _phoneSourceCatalog = null;
-    music.dispose();
-    postDraft?.dispose();
-    data?.dispose();
-    store.dispose();
-    final routes = _routes.entries.toList().reversed.toList();
-    _routes.clear();
-    scheduleMicrotask(() {
-      for (final entry in routes) {
-        if (entry.value.mounted && entry.key.isActive) {
-          entry.value.removeRoute(entry.key);
-        }
-      }
-    });
-  }
-}
-
-class MiniPhoneSessionScope extends InheritedWidget {
-  const MiniPhoneSessionScope({
-    super.key,
-    required this.session,
-    required super.child,
-  });
-  final MiniPhoneSession session;
-  static MiniPhoneSession? read(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<MiniPhoneSessionScope>()?.session;
-  @override
-  bool updateShouldNotify(MiniPhoneSessionScope oldWidget) =>
-      oldWidget.session != session;
-}
-
-class _MiniPhoneResume {
-  int? accountGeneration;
-  MiniPhoneScreen screen = MiniPhoneScreen.home;
-  MiniDemoPerson contact = miniDemoPeople.first;
-  MiniDemoPost? post;
-  String? filter;
-  int homePage = 0;
-  String draft = '';
-  PhonePerson? liveContact;
-  int? livePostId;
-  Uint8List? photo;
-  List<_MiniPhotoItem>? viewerPhotos;
-  int viewerIndex = 0;
-}
+/// Explicit developer preview; live World callers use showMiniPhone.
+Future<void> showMiniPhonePreview(
+  BuildContext context, {
+  MiniPhoneScreen? initialScreen,
+}) => showMiniPhone(context, initialScreen: initialScreen);
 
 /// Uses the same platform route transitions as the rest of the app.
 class _MiniPhoneRoutePage extends Page<void> {
@@ -308,61 +137,28 @@ class MiniPhonePage extends StatefulWidget {
 class _MiniPhonePageState extends State<MiniPhonePage> {
   late final MiniPhoneSession _session;
   late final bool _ownsSession;
+  final _previewActivity = MiniPhonePreviewActivity();
   MiniPhoneDemoStore get store => _session.store;
   MiniPhoneStore? get phone => _session.data;
   PhonePerson? liveContact;
   int? livePostId;
-  PhoneComment? replyToComment;
   MiniPhonePostDraft get postDraft => _session.postDraft!;
   String? _phoneOwner;
 
   MiniPhoneMusicService get _music => _session.music;
-  _MiniPhoneResume get _miniResume => _session._resume;
-  MiniPhoneScreen get _miniModelReturnScreen => _session._miniModelReturnScreen;
+  MiniPhoneResume get _miniResume => _session.resume;
+  MiniPhoneScreen get _miniModelReturnScreen => _session.modelReturnScreen;
   set _miniModelReturnScreen(MiniPhoneScreen value) =>
-      _session._miniModelReturnScreen = value;
-  String get _miniPhoneModelLabel => _session._miniPhoneModelLabel;
+      _session.modelReturnScreen = value;
+  String get _miniPhoneModelLabel => _session.modelSettings.label;
   late MiniPhoneScreen screen;
   final _pageNavigatorKey = GlobalKey<NavigatorState>();
   late final AppLaunchTransitionController _launchTransition;
   MiniPhoneScreen? _launchApp;
-  MiniDemoPerson contact = miniDemoPeople.first;
-  MiniDemoPost? activePost;
-  String? authorFilter;
-  final expandedNotificationGroups = <String>{};
-  late int homePagerPosition;
-  late final PageController homePages;
-  final homeNoticeScroll = ScrollController(keepScrollOffset: false);
-  double? _homeNoticeDragProgress;
-  double _homeNoticeDragDistance = 0;
-  bool _homeNoticeDragActive = false;
-  double _homeNoticeDragInitialProgress = 0;
-  final _homeNoticeDragInitialGroups = <String>{};
   bool _closing = false;
-  void _selectHomePage(int page) {
-    if (homePages.hasClients) {
-      homePages.animateToPage(
-        page,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  bool typing = false;
-  final messageInput = TextEditingController();
-  final commentInput = TextEditingController();
-  final postInput = TextEditingController();
-  final chatScroll = ScrollController();
-  final commentsScroll = ScrollController();
-  Uint8List? draftPhoto;
   late final MiniPhoneWallpaperController wallpaper;
-  bool _authorizingWallpaper = false;
-  String feedback = '';
-  final _refreshingPhoneLists = <String>{};
   final _shownPhoneErrors = <String, String>{};
   bool _phoneErrorToastScheduled = false;
-  final _replyTimers = <Timer>[];
 
   @override
   void initState() {
@@ -387,8 +183,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _miniResume.viewerPhotos = null;
       _miniResume.viewerIndex = 0;
     }
-    homePagerPosition = _miniResume.homePage;
-    homePages = PageController(initialPage: homePagerPosition);
     screen = widget.initialScreen;
     if (accountChanged &&
         (screen == MiniPhoneScreen.chat ||
@@ -399,13 +193,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _launchTransition = AppLaunchTransitionController(
       initiallyOpen: screen != MiniPhoneScreen.home,
     );
-    contact = _miniResume.contact;
     liveContact = _miniResume.liveContact;
     livePostId = _miniResume.livePostId;
-    activePost = _miniResume.post;
-    authorFilter = _miniResume.filter;
-    postInput.text = phone == null ? _miniResume.draft : postDraft.text;
-    draftPhoto = _miniResume.photo;
     store.addListener(_changed);
     _phoneOwner = phone?.uid;
     phone?.addListener(_changed);
@@ -429,7 +218,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         _loadLiveScreen(screen);
       });
     }
-    messageInput.addListener(_changed);
     final services =
         widget.worldId.trim().isEmpty || widget.wallpaperController != null
         ? null
@@ -462,8 +250,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     wallpaper.addListener(_changed);
     unawaited(wallpaper.refresh());
     unawaited(
-      _session
-          ._ensurePhoneModels()
+      _session.modelSettings
+          .ensureLoaded()
           .then((_) {
             if (mounted) setState(() {});
           })
@@ -471,7 +259,13 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _miniResume.viewerPhotos != null) {
-        _openPhotoGallery(_miniResume.viewerPhotos!, _miniResume.viewerIndex);
+        showMiniPhonePreviewGallery(
+          context,
+          _session,
+          _miniResume.viewerPhotos!,
+          _miniResume.viewerIndex,
+          onClose: _close,
+        );
       }
     });
   }
@@ -486,17 +280,12 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
 
   @override
   void dispose() {
+    _previewActivity.dispose();
     _launchTransition.dispose();
     _miniResume.accountGeneration = phone?.accountGeneration;
     _miniResume.screen = screen;
-    _miniResume.contact = contact;
     _miniResume.liveContact = liveContact;
     _miniResume.livePostId = livePostId;
-    _miniResume.post = activePost;
-    _miniResume.filter = authorFilter;
-    _miniResume.homePage = homePagerPosition;
-    _miniResume.draft = postInput.text;
-    _miniResume.photo = draftPhoto;
     store.removeListener(_changed);
     phone?.removeListener(_changed);
     _session.postDraft?.removeListener(_changed);
@@ -509,17 +298,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     }
     wallpaper.removeListener(_changed);
     if (widget.wallpaperController == null) wallpaper.dispose();
-    messageInput.removeListener(_changed);
-    for (final t in _replyTimers) {
-      t.cancel();
-    }
-    homePages.dispose();
-    homeNoticeScroll.dispose();
-    messageInput.dispose();
-    commentInput.dispose();
-    postInput.dispose();
-    chatScroll.dispose();
-    commentsScroll.dispose();
     if (_ownsSession) _session.dispose();
     super.dispose();
   }
@@ -529,22 +307,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   }
 
   void _changed() {
-    if (phone != null && _phoneOwner != phone!.uid) {
+    final identityChanged = phone != null && _phoneOwner != phone!.uid;
+    if (identityChanged) {
       _phoneOwner = phone!.uid;
       liveContact = null;
       livePostId = null;
-      replyToComment = null;
-      draftPhoto = null;
-      postInput.clear();
-      commentInput.clear();
-      messageInput.clear();
-    }
-    if (phone != null && postInput.text != postDraft.text) {
-      postInput.text = postDraft.text;
     }
     if (mounted) {
       _notifyPhoneErrors();
-      _update(() {});
+      if (identityChanged) _update(() {});
     }
   }
 
@@ -561,14 +332,12 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (next == MiniPhoneScreen.models) _miniModelReturnScreen = screen;
     _update(() {
       screen = next;
-      feedback = '';
     });
     if (next == MiniPhoneScreen.settings) _prepareSettings();
     if (phone != null) {
       _loadLiveScreen(next);
     } else {
       if (next == MiniPhoneScreen.posts) store.markPostsRead();
-      if (next == MiniPhoneScreen.chat) _scrollToEnd(chatScroll);
     }
   }
 
@@ -587,87 +356,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       screen = MiniPhoneScreen.home;
       if (phone != null) _loadLiveScreen(MiniPhoneScreen.home);
       _launchApp = null;
-      feedback = '';
     });
-  }
-
-  Widget _wallpaperBackground(
-    String url,
-    Uint8List? photo, {
-    bool settingsPreview = false,
-  }) {
-    return MiniPhoneWallpaperImage(
-      key: ValueKey(wallpaper.identityRevision),
-      url: url,
-      photo: photo,
-      settingsPreview: settingsPreview,
-      cachedBytes: url == wallpaper.displayBackgroundImage
-          ? wallpaper.displayBytes
-          : null,
-    );
-  }
-
-  Widget _homeWallpaper() {
-    if (wallpaper.cache == null) {
-      return _wallpaperBackground(wallpaper.backgroundImage, null);
-    }
-    if (!wallpaper.cacheReady) return const ColoredBox(color: miniBackground);
-    final bytes = wallpaper.displayBytes;
-    final ImageProvider source = bytes == null
-        ? const AssetImage('${miniPhoneAssets}wallpaper-01.png')
-        : MemoryImage(bytes);
-    final size = MediaQuery.sizeOf(context);
-    final ratio = MediaQuery.devicePixelRatioOf(
-      context,
-    ).clamp(1.0, GenesisImageConfig.maxDevicePixelRatio);
-    final pixels = (size.longestSide * ratio).ceil();
-    return MiniPhoneWallpaperBackground(
-      key: ValueKey(wallpaper.identityRevision),
-      image: ResizeImage(
-        source,
-        width: pixels,
-        height: pixels,
-        policy: ResizeImagePolicy.fit,
-      ),
-    );
   }
 
   void _prepareSettings() {
     unawaited(wallpaper.beginEditing());
-  }
-
-  Future<void> _applyWallpaper() async {
-    if (_authorizingWallpaper || wallpaper.saving || !wallpaper.available) {
-      return;
-    }
-    setState(() => _authorizingWallpaper = true);
-    try {
-      final previousUid = await wallpaper.sessionStore.readLoginUid();
-      if (!mounted) return;
-      if (!await ensureGenesisLogin(context)) {
-        if (mounted &&
-            await wallpaper.sessionStore.readLoginUid() != previousUid) {
-          await wallpaper.refresh(resetDraft: true);
-        }
-        return;
-      }
-      if (!mounted) return;
-      final success = await wallpaper.apply();
-      if (mounted && wallpaper.feedback != null) {
-        showGenesisToast(
-          context,
-          wallpaper.feedback!,
-          brightness: Brightness.dark,
-        );
-      }
-      if (success && mounted) setState(() => feedback = '');
-    } catch (error) {
-      if (mounted) {
-        showGenesisToast(context, MiniPhoneStore.errorText(error));
-      }
-    } finally {
-      if (mounted) setState(() => _authorizingWallpaper = false);
-    }
   }
 
   void _openChat(MiniDemoPerson p) {
@@ -675,9 +368,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _openLiveChat(phone!.person(p.id));
       return;
     }
-    contact = p;
-    typing = false;
-    messageInput.clear();
+    _miniResume.contact = p;
     store.markRead(p);
     _go(MiniPhoneScreen.chat);
   }
@@ -719,18 +410,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       default:
         _go(MiniPhoneScreen.home);
     }
-  }
-
-  void _scrollToEnd(ScrollController controller) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && controller.hasClients) {
-        controller.animateTo(
-          controller.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   @override
@@ -776,7 +455,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                                     destination,
                                     destination == MiniPhoneScreen.chat
                                         ? (phone == null
-                                              ? contact.id
+                                              ? _miniResume.contact.id
                                               : liveContact?.id)
                                         : null,
                                   )),
@@ -828,28 +507,100 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         _ => [destination],
       };
 
+  Widget _home() => MiniPhoneHome(
+    session: _session,
+    wallpaper: wallpaper,
+    onNavigate: _go,
+    onLaunch: _launchFrom,
+    onOpenChat: _openChat,
+    onOpenLiveChat: _openLiveChat,
+    onOpenComments: _openComments,
+  );
+
   Widget _screen(MiniPhoneScreen destination) => switch (destination) {
     MiniPhoneScreen.home => _home(),
-    MiniPhoneScreen.messages => phone == null ? _messages() : _liveMessages(),
+    MiniPhoneScreen.messages =>
+      phone == null
+          ? _preview(destination)
+          : MiniPhoneMessagesPage(
+              store: phone!,
+              header: _navigation('Messages'),
+              onOpenChat: _openLiveChat,
+            ),
     MiniPhoneScreen.chat =>
       phone == null
-          ? _chat()
+          ? _preview(destination)
           : liveContact == null
-          ? _liveMessages()
+          ? MiniPhoneMessagesPage(
+              store: phone!,
+              header: _navigation('Messages'),
+              onOpenChat: _openLiveChat,
+            )
           : MiniPhoneLiveChat(
               key: ValueKey(liveContact!.id),
               store: phone!,
               person: liveContact!,
               header: _navigation(liveContact!.name, showModel: true),
             ),
-    MiniPhoneScreen.posts => phone == null ? _posts() : _livePosts(),
-    MiniPhoneScreen.comments => phone == null ? _comments() : _liveComments(),
-    MiniPhoneScreen.create => phone == null ? _create() : _liveCreate(),
-    MiniPhoneScreen.photos => phone == null ? _photos() : _livePhotos(),
-    MiniPhoneScreen.settings => _settings(),
-    MiniPhoneScreen.music => _panel('Music', _MiniMusicPlayer(music: _music)),
-    MiniPhoneScreen.models => _models(),
+    MiniPhoneScreen.posts =>
+      phone == null ? _preview(destination) : _postsPage(destination),
+    MiniPhoneScreen.comments =>
+      phone == null ? _preview(destination) : _postsPage(destination),
+    MiniPhoneScreen.create =>
+      phone == null ? _preview(destination) : _postsPage(destination),
+    MiniPhoneScreen.photos =>
+      phone == null
+          ? _preview(destination)
+          : MiniPhonePhotosPage(store: phone!, header: _navigation('Photos')),
+    MiniPhoneScreen.settings => MiniPhoneSettingsPage(
+      session: _session,
+      wallpaper: wallpaper,
+      header: _navigation('Settings'),
+      active: screen == MiniPhoneScreen.settings,
+    ),
+    MiniPhoneScreen.music => _panel(
+      'Music',
+      MiniPhoneMusicPlayer(music: _music),
+    ),
+    MiniPhoneScreen.models => MiniPhoneModelSettingsPage(
+      settings: _session.modelSettings,
+      onBack: _back,
+    ),
   };
+
+  Widget _preview(MiniPhoneScreen destination) => MiniPhonePreview(
+    session: _session,
+    activity: _previewActivity,
+    screen: destination,
+    active: screen == destination,
+    headerBuilder: _navigation,
+    onNavigate: _go,
+    onBack: _back,
+    onClose: _close,
+  );
+  void _openComments(MiniDemoPost post) {
+    if (phone != null) {
+      _openLivePost(int.parse(post.id.split(':').first));
+      return;
+    }
+    _miniResume.post = post;
+    store.markPostRead(post);
+    _go(MiniPhoneScreen.comments);
+  }
+
+  Widget _postsPage(MiniPhoneScreen destination) => MiniPhonePostsPage(
+    session: _session,
+    screen: destination,
+    active: screen == destination,
+    postId: livePostId,
+    header: _navigation(
+      destination == MiniPhoneScreen.comments ? 'Comments' : 'Posts',
+    ),
+    onBack: _back,
+    onCreate: () => _go(MiniPhoneScreen.create),
+    onPublished: () => _go(MiniPhoneScreen.posts),
+    onOpenPost: _openLivePost,
+  );
 
   Widget _navigation(String title, {bool showModel = false}) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: miniPageInset),
@@ -900,114 +651,132 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     Widget body, {
     String? subtitle,
     Widget? footer,
-  }) => SafeArea(
-    child: Column(
-      children: [
-        _navigation(title),
-        if (subtitle != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              miniPageInset,
-              0,
-              miniPageInset,
-              12,
-            ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                subtitle,
-                style: miniStyle(12, FontWeight.w400, miniSecondary),
-              ),
-            ),
-          ),
-        Expanded(child: body),
-        if (footer != null) footer,
-      ],
-    ),
+  }) => miniPhonePanel(
+    _navigation(title),
+    body,
+    subtitle: subtitle,
+    footer: footer,
   );
-  Widget _button(
-    String text,
-    VoidCallback? action, {
-    bool primary = false,
-    bool isLoading = false,
-    bool showLoadingIndicator = false,
-  }) => primary
-      ? GenesisPrimaryButton(
-          label: text,
-          isLoading: isLoading,
-          showLoadingIndicator: showLoadingIndicator,
-          onPressed: action,
-          fullWidth: false,
-          backgroundColor: miniRed,
-          foregroundColor: miniWhite,
-          disabledBackgroundColor: GenesisColors.darkButtonDisabledBackground,
-          disabledForegroundColor: GenesisColors.darkButtonDisabledForeground,
-        )
-      : TextButton(
-          onPressed: action,
-          style: TextButton.styleFrom(
-            backgroundColor: primary ? miniRed : null,
-            foregroundColor: miniPink,
-            disabledBackgroundColor: primary
-                ? miniRed.withValues(alpha: .35)
-                : null,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: const RoundedRectangleBorder(borderRadius: miniButtonRadius),
-          ),
-          child: Text(
-            text,
-            style: miniStyle(
-              14,
-              FontWeight.w600,
-              primary ? (action == null ? miniSecondary : miniWhite) : miniPink,
-            ),
-          ),
-        );
-  Widget _input(
-    TextEditingController controller,
-    String hint, {
-    int? limit = 500,
-    int maxLines = 4,
-  }) => TextField(
-    controller: controller,
-    maxLength: limit,
-    minLines: 1,
-    maxLines: maxLines,
-    style: miniStyle(14),
-    onChanged: (_) => _update(() {}),
-    decoration: InputDecoration(
-      hintText: hint,
-      counterText: '',
-      isDense: true,
-      hintStyle: miniStyle(14, FontWeight.w400, miniPlaceholder),
-      filled: true,
-      fillColor: GenesisColors.darkFaintFill,
-      border: const OutlineInputBorder(
-        borderRadius: miniInputRadius,
-        borderSide: BorderSide.none,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: miniInputRadius,
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: miniInputRadius,
-        borderSide: BorderSide.none,
-      ),
-    ),
-  );
-  Widget _sendButton(VoidCallback? action) => IconButton(
-    tooltip: 'Send',
-    onPressed: action,
-    style: IconButton.styleFrom(
-      backgroundColor: miniRed,
-      disabledBackgroundColor: miniRed.withValues(alpha: .35),
-    ),
-    icon: MiniIcon(
-      'send',
-      size: 16,
-      color: action == null ? miniSecondary : miniWhite,
-    ),
-  );
+  void _loadLiveScreen(MiniPhoneScreen next) {
+    final data = phone!;
+    data.activeCharId = next == MiniPhoneScreen.chat ? liveContact?.id : null;
+    data.activePostId = next == MiniPhoneScreen.comments ? livePostId : null;
+    data.postsVisible = next == MiniPhoneScreen.posts;
+    data.notificationsVisible = false;
+    data.albumVisible = next == MiniPhoneScreen.photos;
+    switch (next) {
+      case MiniPhoneScreen.home:
+        data.scheduleRefresh(recoverChats: false);
+      case MiniPhoneScreen.messages:
+        data.unreadSessionsOnly = false;
+        unawaited(data.refreshSessions());
+        unawaited(data.refreshPeople());
+      case MiniPhoneScreen.chat:
+        // The chat owns its initial history request.
+        break;
+      case MiniPhoneScreen.posts:
+        unawaited(data.refreshPosts(markRead: true));
+      case MiniPhoneScreen.comments:
+        if (livePostId != null) {
+          unawaited(data.refreshDetail(livePostId!));
+          unawaited(data.refreshComments(livePostId!));
+        }
+      case MiniPhoneScreen.photos:
+        unawaited(data.refreshAlbum());
+      default:
+        break;
+    }
+  }
+
+  void _openLiveChat(PhonePerson p) {
+    liveContact = p;
+    _go(MiniPhoneScreen.chat);
+  }
+
+  void _openLivePost(int id) {
+    livePostId = id;
+    _go(MiniPhoneScreen.comments);
+  }
+
+  Map<String, String> get _visiblePhoneErrors {
+    final data = phone;
+    final errors = <String, String>{};
+    if (_session.isDisposed ||
+        data != null && (!data.phoneVisible || !data.foreground)) {
+      return errors;
+    }
+    final keys = [
+      'cache',
+      'journal',
+      'identity',
+      ...switch (screen) {
+        MiniPhoneScreen.home => ['home', 'unread', 'people', 'postSummary'],
+        MiniPhoneScreen.messages => ['sessions', 'people'],
+        MiniPhoneScreen.posts => [
+          'posts',
+          'postAuthors',
+          'postSummary',
+          'readPosts',
+          for (final p in data?.posts ?? <PhonePost>[]) 'like:${p.id}',
+        ],
+        MiniPhoneScreen.comments => [
+          'detail:$livePostId',
+          'comments:$livePostId',
+          'comment:$livePostId',
+          'like:$livePostId',
+        ],
+        MiniPhoneScreen.create => ['post:new'],
+        MiniPhoneScreen.photos => ['album'],
+        _ => <String>[],
+      },
+    ];
+    if (data != null) {
+      // Wait for the two Messages requests so a shared failure is shown once.
+      final messagesLoading =
+          screen == MiniPhoneScreen.messages &&
+          (data.busy.contains('sessions') || data.busy.contains('people'));
+      if (!messagesLoading) {
+        for (final key in keys) {
+          final message = data.errors[key];
+          if (message != null && !data.busy.contains(key)) {
+            errors['${screen.name}:$key'] = message;
+          }
+        }
+      }
+    }
+    if (phone != null &&
+        screen == MiniPhoneScreen.create &&
+        postDraft.error != null) {
+      errors['post-photo'] = postDraft.error!;
+    }
+    if (screen == MiniPhoneScreen.settings &&
+        !wallpaper.loading &&
+        wallpaper.loadError != null) {
+      errors['wallpaper'] = wallpaper.loadError!;
+    }
+    return errors;
+  }
+
+  void _notifyPhoneErrors() {
+    final current = _visiblePhoneErrors;
+    _shownPhoneErrors.removeWhere((key, value) => current[key] != value);
+    if (current.isEmpty || _phoneErrorToastScheduled) return;
+    _phoneErrorToastScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _phoneErrorToastScheduled = false;
+      if (!mounted || _session.isDisposed) return;
+      final errors = _visiblePhoneErrors;
+      final shown = _shownPhoneErrors.values.toSet();
+      final fresh = errors.entries
+          .where(
+            (entry) =>
+                _shownPhoneErrors[entry.key] != entry.value &&
+                !shown.contains(entry.value),
+          )
+          .map((entry) => entry.value)
+          .toSet();
+      _shownPhoneErrors.addAll(errors);
+      if (fresh.isNotEmpty) showGenesisToast(context, fresh.join('\n'));
+    });
+  }
 }

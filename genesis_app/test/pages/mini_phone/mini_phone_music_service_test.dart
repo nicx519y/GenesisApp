@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_music_service.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
 import '../../support/mini_phone_audio_player.dart';
 
 MusicCatalog catalog([int count = 3]) => MusicCatalog(

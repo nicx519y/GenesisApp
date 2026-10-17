@@ -44,8 +44,8 @@ Run from `genesis_app/`. The focused suite includes existing music, wallpaper,
 like-status and shared music widget regressions as well as the launch tests.
 
 ```sh
-dart format lib/ui/animations/app_launch_transition lib/pages/mini_phone/mini_phone_page.dart lib/pages/mini_phone/mini_phone_home.dart test/ui/animations/app_launch_transition_test.dart test/pages/mini_phone/mini_phone_launch_transition_test.dart
-flutter analyze --no-pub lib/ui/animations/app_launch_transition lib/pages/mini_phone/mini_phone_page.dart lib/pages/mini_phone/mini_phone_home.dart test/ui/animations/app_launch_transition_test.dart test/pages/mini_phone/mini_phone_launch_transition_test.dart
+dart format lib/ui/animations/app_launch_transition lib/pages/mini_phone/mini_phone_page.dart lib/pages/mini_phone/home/mini_phone_home.dart test/ui/animations/app_launch_transition_test.dart test/pages/mini_phone/mini_phone_launch_transition_test.dart
+flutter analyze --no-pub lib/ui/animations/app_launch_transition lib/pages/mini_phone/mini_phone_page.dart lib/pages/mini_phone/home/mini_phone_home.dart test/ui/animations/app_launch_transition_test.dart test/pages/mini_phone/mini_phone_launch_transition_test.dart
 flutter test --no-pub test/ui/animations/app_launch_transition_test.dart test/pages/mini_phone/mini_phone_launch_transition_test.dart test/pages/mini_phone/mini_phone_music_page_test.dart test/pages/mini_phone/mini_phone_wallpaper_page_test.dart test/pages/mini_phone/mini_phone_music_widgets_test.dart test/pages/mini_phone/mini_phone_music_like_page_test.dart
 flutter run --no-pub --debug --flavor production -d 1A101FDF6006AX
 ```

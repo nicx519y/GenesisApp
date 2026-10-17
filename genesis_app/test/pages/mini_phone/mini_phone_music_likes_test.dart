@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_music_likes.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_likes.dart';
 
 const file = '001.mp3';
 MusicLikeStatus status(bool liked, [String name = file]) =>

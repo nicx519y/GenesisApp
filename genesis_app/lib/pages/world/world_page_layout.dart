@@ -161,7 +161,7 @@ extension _WorldPageLayout on _WorldPageState {
                         12,
                     onPressed: (phone) => PagePresentationScope.runCovered(
                       context,
-                      () => showMiniPhoneDemo(
+                      () => showMiniPhone(
                         context,
                         session: phone,
                         worldId: world.worldId,

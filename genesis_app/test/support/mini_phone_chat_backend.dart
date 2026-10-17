@@ -8,7 +8,7 @@ import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_store.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
 
 Map<String, dynamic> phoneMessage(
   int id, {

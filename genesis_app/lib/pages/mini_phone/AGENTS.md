@@ -17,6 +17,13 @@
 | 后端联调或验收判断 | [契约边界](../../../docs/mini-phone-client-integration.md#backend-contract-boundaries)及该文档的 Backend dependencies before acceptance |
 | 选择模块或跨模块回归用例 | [验证命令](../../../docs/mini-phone-client-integration.md#verification-commands) |
 
+## 目录与依赖边界
+
+- 当前目录与职责见 [README](README.md)。模块外调用统一从 `mini_phone.dart` 导入；World 持有 `session/` 会话，`mini_phone_page.dart` 负责外壳与路由。
+- 正式功能在 `home/`、`messages/`、`posts/`、`photos/`、`music/`、`settings/` 使用独立 Widget；禁止重新以 `part` 共享手机外壳的私有 State。预览代码单独位于 `preview/`。
+- Messages／Posts／Photos 控制器共用 `state/mini_phone_requests.dart` 的账号和请求版本，不反向依赖 Store 或页面；Store 负责跨功能协调和恢复，保持一个写请求日志和一套 World Socket。
+- `shared/` 基础样式与控件不得导入页面、Session 或入口；有会话副作用的 Dock 放在 `entry/`。网络、SQLite 和通用动画继续遵循原目录职责。
+
 ## 必须保持的约束
 
 - 关闭操作只执行一次，并在延迟退出前确认目标 MiniPhone 路由仍为当前页；关闭与系统返回交错不得退出下层页面。账号读取及请求日志保存失败走公共 Toast，不产生未处理异步异常；身份初始化失败仍结束本地等待，重新进入或返回前台可重试。请求日志保存成功前不发送写请求，失败保留原请求键和草稿。
