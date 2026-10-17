@@ -44,7 +44,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                 >[];
             final posts = <MiniDemoPost>[];
             if (phone != null) {
-              for (final m in phone!.home.messages) {
+              for (final m in phone!.unreadMessages) {
                 final p = phone!.personForMessage(m);
                 messages.add((
                   sourceId: ('message', m.id),
@@ -158,7 +158,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                   if (messages.isNotEmpty)
                     _noticeGroup(
                       'Messages',
-                      phone?.home.dmUnread ?? messages.length,
+                      phone?.dmUnreadCount ?? messages.length,
                       [
                         for (final n in messages)
                           _homeNotice(
@@ -428,7 +428,7 @@ extension _MiniPhoneHome on _MiniPhonePageState {
                                 MiniPhoneScreen.messages,
                                 size: narrow ? 56 : 62,
                                 badge:
-                                    phone?.home.dmUnread ?? store.totalUnread,
+                                    phone?.dmUnreadCount ?? store.totalUnread,
                               ),
                               _homeApp(
                                 'posts',

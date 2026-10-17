@@ -286,15 +286,15 @@ void main() {
               as GenesisStaticNetworkImageProvider;
       expect(
         small.imageUrl,
-        'https://covers.test/a.jpg?x-oss-process=image/resize,w_90,image/format,webp',
+        'https://covers.test/a.jpg?x-oss-process=image/resize,w_90/format,webp',
       );
-      expect(small.cacheWidth, 66);
-      expect(small.cacheHeight, 99);
+      expect(small.cacheWidth, 88);
+      expect(small.cacheHeight, 132);
       final large =
           miniMusicCoverProvider(song('a'), const Size(200, 300), 3)
               as GenesisStaticNetworkImageProvider;
-      expect(large.imageUrl, contains('resize,w_360'));
-      expect(large.cacheWidth, 300);
+      expect(large.imageUrl, contains('resize,w_720'));
+      expect(large.cacheWidth, 400);
     },
   );
 

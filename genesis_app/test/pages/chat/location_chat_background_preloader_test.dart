@@ -37,7 +37,7 @@ void main() {
       expect(
         startedUrls.first,
         'https://cdn.example.com/location-xl.webp'
-        '?x-oss-process=image/resize,w_180,image/format,webp',
+        '?x-oss-process=image/resize,w_180/format,webp',
       );
 
       completions[startedUrls.first]!.complete();

@@ -223,7 +223,7 @@ void main() {
       await tester.pumpAndSettle();
 
       const expectedSuffix =
-          '?x-oss-process=image/resize,w_2160,image/format,webp';
+          '?old_query=true&x-oss-process=image/resize,w_2160/format,webp';
       const expectedFullUrl =
           'https://cdn.example.com/first-xl.png$expectedSuffix';
       final previewImage = tester.widget<GenesisStaticNetworkImage>(
@@ -252,7 +252,7 @@ void main() {
   ) async {
     const thumbnail =
         'https://cdn.example.com/legacy.png'
-        '?x-oss-process=image/resize,w_180,image/format,webp';
+        '?x-oss-process=image/resize,w_180/format,webp';
 
     await _pumpViewerHost(tester, const [thumbnail]);
     await tester.tap(find.text('Open'));
@@ -277,7 +277,7 @@ void main() {
     expect(
       fullImage.imageUrl,
       'https://cdn.example.com/legacy.png'
-      '?x-oss-process=image/resize,w_2160,image/format,webp',
+      '?x-oss-process=image/resize,w_2160/format,webp',
     );
   });
 

@@ -94,6 +94,21 @@ class PhoneMessage {
   final int id, sessionId;
   final String worldId, senderType, senderId, content, currentTime, deliveredAt;
   final String? requestId, replyStatus, failure;
+
+  Map<String, dynamic> toJson() => {
+    'message_id': id,
+    'dm_session_id': sessionId,
+    'world_id': worldId,
+    'sender_type': senderType,
+    'sender_id': senderId,
+    'type': 'text',
+    'content': content,
+    'current_time': currentTime,
+    'delivered_at': deliveredAt,
+    'client_request_id': requestId,
+    'reply_status': replyStatus,
+    'failure': failure == null ? null : {'message': failure},
+  };
 }
 
 class PhonePerson {
@@ -118,11 +133,30 @@ class PhoneSession {
       lastMessage = j['last_message'] == null
           ? null
           : PhoneMessage.fromJson(phoneMap(j['last_message']));
+  PhoneSession.withUnreadCount(PhoneSession source, this.unreadCount)
+    : id = source.id,
+      worldId = source.worldId,
+      person = source.person,
+      peerUid = source.peerUid,
+      updatedAt = source.updatedAt,
+      lastMessage = source.lastMessage;
   final int id, unreadCount;
   final String worldId, updatedAt, peerUid;
   (String, String) get key => (worldId, person.id);
   final PhonePerson person;
   final PhoneMessage? lastMessage;
+
+  Map<String, dynamic> toJson() => {
+    'dm_session_id': id,
+    'world_id': worldId,
+    'char_id': person.id,
+    'char_name': person.name,
+    'char_avatar_url': person.avatar,
+    'unread_count': unreadCount,
+    'peer_uid': peerUid,
+    'updated_at': updatedAt,
+    'last_message': lastMessage?.toJson(),
+  };
 }
 
 class PhoneComment {

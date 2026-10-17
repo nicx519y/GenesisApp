@@ -5683,7 +5683,7 @@ void main() {
         devicePixelRatio: 3,
       ),
       'https://cdn.example.com/avatar_1024.jpg?x-oss-process='
-      'image/resize,w_90,image/format,webp',
+      'image/resize,w_90/format,webp',
     );
   });
 
@@ -13832,7 +13832,7 @@ void main() {
     expect(
       sourceProvider.imageUrl,
       'https://cdn.example.com/avatar_1080x1080.jpg'
-      '?x-oss-process=image/resize,w_720,image/format,webp',
+      '?x-oss-process=image/resize,w_720/format,webp',
     );
     expect(provider.outputSize, 360);
     expect(sourceProvider.cacheWidth, 360);
@@ -21540,7 +21540,7 @@ void main() {
         devicePixelRatio: 2,
       ),
       'https://cdn.example.com/me_avatar_800_600.webp'
-      '?x-oss-process=image/resize,w_360,image/format,webp',
+      '?x-oss-process=image/resize,w_360/format,webp',
     );
   });
 

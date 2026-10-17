@@ -5,7 +5,6 @@ import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../network/mini_phone/mini_phone_models.dart';
 import '../../platform/device/android_sdk_version.dart';
-import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../chat/location_chat_scroll_coordinator.dart';
 import 'mini_phone_store.dart';
@@ -64,8 +63,19 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   }
 
   Future<void> _loadInitialMessages(int generation) async {
-    await store.ready;
+    await store.localReady;
     if (!mounted || generation != store.accountGeneration) return;
+    if (store.history(widget.person.id).isNotEmpty) {
+      _syncReplies();
+      setState(() => ready = true);
+    }
+    final id = store.sessionFor(widget.person.id);
+    if (id != null &&
+        store.foreground &&
+        store.phoneVisible &&
+        store.activeCharId == widget.person.id) {
+      unawaited(store.markSessionRead(id));
+    }
     await store.refreshMessages(widget.person.id);
     if (mounted && generation == store.accountGeneration) {
       setState(() => ready = true);
@@ -306,39 +316,32 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
               Positioned.fill(
                 child: NotificationListener<ScrollNotification>(
                   onNotification: coordinator.handleScrollNotification,
-                  child: GenesisRefreshIndicator(
-                    onRefresh: () async {
-                      await store.refreshMessages(person.id);
-                    },
-                    child: LocationChatAnchoredMessageList(
-                      coordinator: coordinator,
-                      messages: rows,
-                      topTitle: [
-                        store.worldDay,
-                        'Private conversation',
-                      ].where((s) => s.isNotEmpty).join(' · '),
-                      initialContentReady: ready,
-                      restoreInitialCompletedContent: true,
-                      replyWaitingPositioningEnabled: false,
-                      replyActionsVisible: false,
-                      showDateDividers: false,
-                      style: kPrivateChatStyle.copyWith(
-                        messageListPadding: const EdgeInsets.all(miniPageInset),
-                        topTitleBottomPadding: 22,
-                        topTitleTextStyle: miniStyle(
-                          11,
-                          FontWeight.w400,
-                          miniTertiary,
-                        ),
+                  child: LocationChatAnchoredMessageList(
+                    coordinator: coordinator,
+                    messages: rows,
+                    topTitle: [
+                      store.worldDay,
+                      'Private conversation',
+                    ].where((s) => s.isNotEmpty).join(' · '),
+                    initialContentReady: ready,
+                    restoreInitialCompletedContent: true,
+                    replyWaitingPositioningEnabled: false,
+                    replyActionsVisible: false,
+                    showDateDividers: false,
+                    style: kPrivateChatStyle.copyWith(
+                      messageListPadding: const EdgeInsets.all(miniPageInset),
+                      topTitleBottomPadding: 22,
+                      topTitleTextStyle: miniStyle(
+                        11,
+                        FontWeight.w400,
+                        miniTertiary,
                       ),
-                      oldestEdgeLoading: ready && _loadingHistory,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
                     ),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                   ),
                 ),
               ),
-              if (!ready) const Center(child: GenesisLoadingIndicator()),
               if (coordinator.isReadingHistory &&
                   coordinator.hasMessageContentBelowViewport)
                 Positioned(

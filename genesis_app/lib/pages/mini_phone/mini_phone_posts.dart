@@ -16,6 +16,13 @@ extension _MiniPhonePosts on _MiniPhonePageState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _personShortcut(miniDemoMe, create: true),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _allAuthorsShortcut(
+                  selected: authorFilter == null,
+                  onTap: () => _update(() => authorFilter = null),
+                ),
+              ),
               for (final p in miniDemoPeople) _personShortcut(p),
             ],
           ),
@@ -25,6 +32,41 @@ extension _MiniPhonePosts on _MiniPhonePageState {
         ))
           _post(p),
       ],
+    ),
+  );
+  Widget _allAuthorsShortcut({
+    required bool selected,
+    required VoidCallback onTap,
+  }) => Semantics(
+    label: 'All authors',
+    button: true,
+    selected: selected,
+    child: GestureDetector(
+      key: const ValueKey('mini-phone-post-author-all'),
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? miniPink : const Color(0x33FFFFFF),
+              ),
+            ),
+            child: Container(
+              width: 54,
+              height: 54,
+              decoration: const BoxDecoration(
+                color: miniRaised,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text('all', style: miniStyle(16, FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
     ),
   );
   Widget _personShortcut(MiniDemoPerson p, {bool create = false}) => Expanded(

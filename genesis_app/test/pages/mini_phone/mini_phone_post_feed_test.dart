@@ -39,7 +39,7 @@ void main() {
       );
       expect(
         result.queryParameters['x-oss-process'],
-        'image/resize,h_300/format,webp',
+        'image/resize,h_400/format,webp',
       );
       expect(result.queryParameters['token'], 'abc');
       expect(result.queryParametersAll['tag'], ['one', 'two']);

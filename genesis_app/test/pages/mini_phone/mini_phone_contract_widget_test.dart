@@ -209,7 +209,7 @@ void main() {
       await settle(tester);
       expect(b.calls('upload/image'), isEmpty);
       expect(find.byType(GenesisUploadProgressOverlay), findsNothing);
-      expect(b.calls('album'), isEmpty);
+      expect(b.calls('album'), hasLength(1)); // Phone-entry warm-up only.
       expect(find.text('Replace photo'), findsOneWidget);
       await tester.ensureVisible(find.text('Post'));
       await tester.tap(find.text('Post'));

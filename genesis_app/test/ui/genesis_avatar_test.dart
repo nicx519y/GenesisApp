@@ -119,7 +119,7 @@ void main() {
     expect(
       image.imageUrl,
       'https://cdn.example.com/avatar_800_600.webp'
-      '?x-oss-process=image/resize,w_720,image/format,webp',
+      '?x-oss-process=image/resize,w_720/format,webp',
     );
   });
 

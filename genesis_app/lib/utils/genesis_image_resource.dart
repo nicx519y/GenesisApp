@@ -164,9 +164,6 @@ const List<int> _imageResizeWidthTiers = <int>[
   2160,
 ];
 
-const String _ossResizeProcessPrefix = '?x-oss-process=image/resize,w_';
-const String _ossResizeProcessSuffix = ',image/format,webp';
-
 const Map<String, String> _backendDefaultMapImageAssets = <String, String>{
   'l1_default': 'assets/images/map_default/l1_default.webp',
   'l2_default': 'assets/images/map_default/l2_default.webp',
@@ -188,6 +185,8 @@ String resizeGenesisImageUrl(
   required double? logicalWidth,
   required double devicePixelRatio,
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+  // With custom tiers, match the closest width and prefer larger on a tie.
+  List<int>? nearestWidthTiers,
 }) {
   final source = url.trim();
   if (source.isEmpty || source.startsWith('assets/')) return '';
@@ -199,12 +198,47 @@ String resizeGenesisImageUrl(
     maxDevicePixelRatio,
   );
   if (requiredWidth == null) return '';
-  final width = _ceilImageWidthTier(requiredWidth);
-  return '${_stripUrlParams(source)}$_ossResizeProcessPrefix$width$_ossResizeProcessSuffix';
+  final width = nearestWidthTiers == null || nearestWidthTiers.isEmpty
+      ? _ceilImageWidthTier(requiredWidth)
+      : nearestWidthTiers.reduce((best, candidate) {
+          final bestDistance = (best - requiredWidth).abs();
+          final distance = (candidate - requiredWidth).abs();
+          return distance < bestDistance ||
+                  (distance == bestDistance && candidate > best)
+              ? candidate
+              : best;
+        });
+  return buildGenesisCdnResizeUrl(source, width: width);
 }
 
-/// Fixed-height thumbnails retain unrelated URL parameters and replace any
-/// previous image processing, rather than composing another resize on top.
+/// Builds the shared OSS resize/WebP chain for an already selected pixel size.
+/// Keep unrelated query parameters, replace old processing, and drop fragments.
+String buildGenesisCdnResizeUrl(String url, {int? width, int? height}) {
+  if ((width == null) == (height == null)) {
+    throw ArgumentError('Specify exactly one of width or height');
+  }
+  final pixels = width ?? height!;
+  if (pixels < 1 || pixels > 16384) {
+    throw RangeError.range(pixels, 1, 16384, 'pixels');
+  }
+  final source = url.trim();
+  final uri = Uri.tryParse(source);
+  if (uri == null ||
+      !{'https', 'http'}.contains(uri.scheme) ||
+      uri.host.isEmpty) {
+    return source;
+  }
+  final parameters = <String, dynamic>{...uri.queryParametersAll}
+    ..remove('x-oss-process');
+  final query = parameters.isEmpty
+      ? ''
+      : Uri(queryParameters: parameters).query;
+  final dimension = width != null ? 'w_$width' : 'h_$height';
+  return '${_stripUrlParams(source)}?${query.isEmpty ? '' : '$query&'}'
+      'x-oss-process=image/resize,$dimension/format,webp';
+}
+
+/// Fixed-height thumbnails use the same URL builder as width-tier images.
 String resizeGenesisImageUrlToHeight(
   String url, {
   required double logicalHeight,
@@ -213,28 +247,14 @@ String resizeGenesisImageUrlToHeight(
 }) {
   final resource = GenesisImageResourceRegistry.resolve(url);
   final source = resource.displayUrl;
-  final uri = Uri.tryParse(source);
   final pixels = _requiredPixels(
     logicalHeight,
     devicePixelRatio,
     maxDevicePixelRatio,
   );
-  if (uri == null ||
-      !{'https', 'http'}.contains(uri.scheme) ||
-      uri.host.isEmpty ||
-      pixels == null) {
-    return source;
-  }
+  if (pixels == null) return source;
   final height = pixels.ceil().clamp(1, 16384);
-  return uri
-      .removeFragment()
-      .replace(
-        queryParameters: <String, dynamic>{
-          ...uri.queryParametersAll,
-          'x-oss-process': 'image/resize,h_$height/format,webp',
-        },
-      )
-      .toString();
+  return buildGenesisCdnResizeUrl(source, height: height);
 }
 
 int _ceilImageWidthTier(double requiredWidth) {

@@ -4,7 +4,9 @@
 
 World-backed sessions use `GenesisApi.miniPhone` and `MiniPhoneStore`, with the
 existing World WebSocket distributing three phone event types. Home, unread
-badges, conversations, posts, notifications and album data come from Chat.
+badges, conversations, posts, notifications and album data originate from Chat.
+Messages and its Home inbox now render a SQLite-backed local projection; HTTPS
+and World WebSocket data merge into this shared cache before persistence.
 The explicit worldless developer preview remains local; live failures never
 fall back to its fixtures. Music, model settings and wallpaper retain their
 existing services.
@@ -12,12 +14,24 @@ existing services.
 Chat shares LocationChat's anchored list, scroll coordinator and extracted
 keyboard layout, with the existing MiniPhone style. Send keeps the keyboard,
 uses no large reply reserve, and shows reply waiting only for AI peers.
-Messages follows server order, supports virtual session ID 0, and merges pages by
-world/character. Player messages use sender UID for direction. AI reply status
+Messages merges API-listed rows by world/character and ranks them by the latest
+message's delivered_at, then full message_id, both descending. Chat deliveries
+and history update the cached list immediately; empty rows retain server order
+after message-bearing rows. Virtual session ID 0 is supported.
+Player messages use sender UID for direction. AI reply status
 recovers through request-filtered HTTP history; pushes are not replayed offline.
 Posts preserves author filtering and uses local image selection plus upload for
 publishing. Photos remains the read-only world album. Optional legacy Feed
 comment previews are used only if returned; replies use real comment IDs.
+
+The independent `genesis_mini_phone.db` scopes DM messages, sessions, unread
+baselines and queued read receipts by environment/account/world. Cached history
+is readable before network completion, and reading clears the local inbox even
+offline. Receipts retry after durable storage, without automatically resending
+messages. Each Home entry rebases from `/home`, retaining concurrent local
+changes and the count of unread items omitted by its 20-item limit. The latest
+1000 ordinary historical messages per session are retained, plus unread,
+unsettled and latest-message records. Posts notification behavior is unchanged.
 
 See `docs/mini-phone-client-integration.md` for behavior, backend contract gaps
 and verification boundaries. The older notes below describe prior iterations
@@ -78,7 +92,7 @@ Validation: touched Dart files formatted/analyzed without issues; internal arm64
 
 2026-10-09 local iteration: MP–11B Music is available on Home's second page (Music is unlocked; the other placeholders remain locked). The portrait player has three local fixture tracks, likes, seek, previous/play/pause/next and a silent progress timer. Playback stops on leaving the page or backgrounding the app; no audio or backend service is connected. Removed the custom bottom strip from subpages and made the handset fill solid #232228. Relevant static analysis and internal arm64 debug build passed; installed to the test phone. This iteration remains uncommitted.
 
-2026-10-12 Music supersedes the fixture implementation above: the catalogue uses the formal Music API, and foreground playback uses a World-owned just_audio service. The service owns at most two single-track players, prepares roughly five seconds of the next song after playback starts, promotes that player on next/completion, and pauses without auto-resuming after backgrounding. No background service or full-file audio download is added. The full player and Home card share single-line bounce-scrolling metadata, buffered seek bars with 48px interaction areas, and 200ms cover transitions that immediately remove the previous song's target. Music covers use the project's XL CDN size selection with DPR capped at 1.5; next-cover prefetch uses the same provider and decoder dimensions as rendering. Reduced motion disables scrolling and cover fades. Catalogue and playback failure/retry states remain; loading/buffering text is hidden.
+2026-10-12 Music supersedes the fixture implementation above: the catalogue uses the formal Music API, and foreground playback uses a World-owned just_audio service. The service owns at most two single-track players, prepares roughly five seconds of the next song after playback starts, promotes that player on next/completion, and pauses without auto-resuming after backgrounding. No background service or full-file audio download is added. The full player and Home card share single-line bounce-scrolling metadata, buffered seek bars with 48px interaction areas, and 200ms cover transitions that immediately remove the previous song's target. Music covers use the project's XL CDN size selection with DPR capped at 2; next-cover prefetch uses the same provider and decoder dimensions as rendering. Reduced motion disables scrolling and cover fades. Catalogue and playback failure/retry states remain; loading/buffering text is hidden.
 
 Music validation (2026-10-12): 60 focused service/page/widget/shared-image tests passed, targeted analysis found no issues, and the production-flavour Android arm64 debug APK built successfully. Pixel 6 checks confirmed real catalogue playback, single-line bounce motion, buffered progress, track taps and enlarged-area dragging, Home controls, previous-to-start, manual/automatic next, standby promotion, and background pause without auto-resume. The standby remained silent; its observed buffer was 32.731 seconds because the platform reads chunks despite the five-second target. Delayed/failed cover loading, 200ms removal, rapid switches, stale image results, reduced motion, large text and hidden prefetch were covered by controlled widget/service tests; no device network-fault injection or acoustic gap measurement was performed.
 

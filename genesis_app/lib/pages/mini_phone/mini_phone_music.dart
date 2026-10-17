@@ -110,13 +110,7 @@ class _MiniMusicPlayerState extends State<_MiniMusicPlayer> {
         onRefresh: _loadCatalog,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            if (_music.catalogLoading)
-              const Padding(
-                padding: EdgeInsets.all(26),
-                child: Center(child: GenesisLoadingIndicator()),
-              ),
-          ],
+          children: const [],
         ),
       );
     }

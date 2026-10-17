@@ -1,3 +1,4 @@
+import '../../support/mini_phone_memory_cache.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -85,7 +86,7 @@ void main() {
   }
 
   testWidgets(
-    'Messages errors use one transient toast and pull refresh retries without a footer',
+    'Messages errors use one transient toast and pulling does not refresh',
     (tester) async {
       final backend = PhoneBackend();
       var fail = false;
@@ -95,6 +96,7 @@ void main() {
           : null;
       final store = (await tester.runAsync(() async {
         final store = MiniPhoneStore(
+          cacheStorage: MemoryMiniPhoneCacheStorage(),
           api: backend.api,
           worldId: 'w',
           namespace: 'messages-error-layout',
@@ -106,6 +108,7 @@ void main() {
           },
         );
         await store.ready;
+        await store.refreshSessions();
         return store;
       }))!;
       final session = MiniPhoneSession(data: store);
@@ -132,17 +135,9 @@ void main() {
       final attempts = backend.calls('dm_sessions').length;
       await tester.drag(find.byType(ListView), const Offset(0, 350));
       await settleLayout(tester);
-      expect(backend.calls('dm_sessions').length, greaterThan(attempts));
-      expect(find.text(error), findsOneWidget);
-      expect(find.text('Retry'), findsNothing);
-      await tester.pump(const Duration(seconds: 3));
-
-      fail = false;
-      await tester.drag(find.byType(ListView), const Offset(0, 350));
-      await settleLayout(tester);
-      expect(store.errors, isNot(contains('sessions')));
-      expect(store.errors, isNot(contains('people')));
+      expect(backend.calls('dm_sessions').length, attempts);
       expect(find.text(error), findsNothing);
+      expect(find.text('Retry'), findsNothing);
       expect(row, findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -279,7 +274,7 @@ void main() {
   );
 
   testWidgets(
-    'Messages combines concurrent initial loads and preserves cached rows during refresh',
+    'Messages hides initial loading icons and preserves cached rows during refresh',
     (tester) async {
       final backend = PhoneBackend();
       var hold = false;
@@ -289,6 +284,7 @@ void main() {
           hold && r.uri.path.endsWith('/dm_sessions') ? sessions.future : null;
       final store = (await tester.runAsync(() async {
         final store = MiniPhoneStore(
+          cacheStorage: MemoryMiniPhoneCacheStorage(),
           api: backend.api,
           worldId: 'w',
           namespace: 'layout',
@@ -312,7 +308,7 @@ void main() {
       );
       await tester.pump();
       expect(store.busy, containsAll(['sessions', 'people']));
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('Unread'), findsNothing);
       expect(find.text('New message'), findsNothing);
       expect(find.text('Nothing here yet.'), findsNothing);
@@ -362,7 +358,7 @@ void main() {
   );
 
   testWidgets(
-    'initial private chat shows one loader, not a history pagination loader too',
+    'initial private chat hides loading icons while history is pending',
     (tester) async {
       final backend = PhoneBackend();
       final store = (await tester.runAsync(() async {
@@ -387,7 +383,7 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );
       await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       await tester.runAsync(() async {
         history.complete(ok(page([])));
       });

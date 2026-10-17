@@ -111,6 +111,7 @@ void main() {
       addTearDown(s.dispose);
       await s.ready;
       expect(s.errors, isEmpty);
+      await s.refreshSessions();
       expect(s.conversations.map((c) => c.person.id), [
         for (var i = 1; i <= 6; i++) 'char_$i',
       ]);
@@ -159,6 +160,7 @@ void main() {
       final s = b.store();
       addTearDown(s.dispose);
       await s.ready;
+      await s.refreshSessions();
       await s.refreshSessions(next: true);
       expect(s.sessions.map((v) => v.person.id), ['a', 'b']);
       expect(s.sessionFor('a'), 22);
@@ -180,6 +182,7 @@ void main() {
       final s = b.store();
       addTearDown(s.dispose);
       await s.ready;
+      await s.refreshSessions();
       await s.write('dm', 'c', 'Hi player');
       final requestId = s.waiting('c')!.id;
       s.receive(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,8 +17,11 @@ import 'package:genesis_flutter_android/network/models/miniphone_info.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_controller.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_cache.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_wallpaper_image.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 
@@ -95,10 +99,14 @@ void main() {
     bool nativePickerFlow = false,
     bool loggedIn = true,
     double width = 390,
+    double devicePixelRatio = 1,
     double textScale = 1,
   }) async {
-    tester.view.physicalSize = Size(width, 844);
-    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = Size(
+      width * devicePixelRatio,
+      844 * devicePixelRatio,
+    );
+    tester.view.devicePixelRatio = devicePixelRatio;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final session = MemoryUserSessionStore();
@@ -156,6 +164,168 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     return controller;
+  }
+
+  testWidgets(
+    'wallpaper tiles use preview-sized CDN URLs, show dark blocks while loading or failed and save the original URL',
+    (tester) async {
+      final pending = <String, Completer<ImageInfo>>{};
+      debugGenesisStaticNetworkImageCompleter = (provider) =>
+          OneFrameImageStreamCompleter(
+            (pending[provider.imageUrl] ??= Completer<ImageInfo>()).future,
+          );
+      addTearDown(() {
+        debugGenesisStaticNetworkImageCompleter = null;
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+      });
+      final urls = List.generate(
+        3,
+        (i) =>
+            'https://cdn.example/wallpaper-$i.png?token=abc&x-oss-process=image/resize,w_999',
+      );
+      final saved = <String>[];
+      await mount(
+        tester,
+        load: () async => MiniphoneInfo(
+          backgroundImage: oldUrl,
+          wallpapers: [
+            for (var i = 0; i < urls.length; i++)
+              MiniphoneWallpaper(imageUrl: urls[i], title: 'Wallpaper $i'),
+          ],
+        ),
+        save: (url) async => saved.add(url),
+      );
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3;
+      await tester.pump();
+      for (final url in urls) {
+        final thumbnail = find.byKey(ValueKey(url));
+        final image = tester.widget<Image>(
+          find.descendant(of: thumbnail, matching: find.byType(Image)),
+        );
+        final provider = image.image as GenesisStaticNetworkImageProvider;
+        final resized = Uri.parse(provider.imageUrl);
+        expect(resized.path, Uri.parse(url).path);
+        expect(resized.queryParameters['token'], 'abc');
+        expect(
+          resized.queryParameters['x-oss-process'],
+          'image/resize,h_676/format,webp',
+        );
+        expect(provider.cacheWidth, 380);
+        expect(provider.cacheHeight, 676);
+        expect(tester.getSize(thumbnail).height, 100);
+        expect(
+          tester
+              .widget<ColoredBox>(
+                find.descendant(
+                  of: thumbnail,
+                  matching: find.byType(ColoredBox),
+                ),
+              )
+              .color,
+          GenesisColors.darkRaisedBackground,
+        );
+        expect(
+          find.descendant(of: thumbnail, matching: find.byType(RawImage)),
+          findsNothing,
+        );
+        pending[provider.imageUrl]!.completeError(StateError('Unavailable'));
+      }
+      await tester.pump();
+      for (final url in urls) {
+        expect(
+          tester
+              .widget<ColoredBox>(
+                find.descendant(
+                  of: find.byKey(ValueKey(url)),
+                  matching: find.byType(ColoredBox),
+                ),
+              )
+              .color,
+          GenesisColors.darkRaisedBackground,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey(url)),
+            matching: find.byType(RawImage),
+          ),
+          findsNothing,
+        );
+      }
+      await tester.tap(find.text('Wallpaper 1'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Apply wallpaper'));
+      await tester.tap(find.text('Apply wallpaper'));
+      await tester.pump();
+      await tester.pump();
+      expect(saved, [urls[1]]);
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  for (final ratio in [1.0, 3.0]) {
+    testWidgets(
+      'selecting a loaded wallpaper reuses the tile frame without another load at DPR $ratio',
+      (tester) async {
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawColor(Colors.pink, BlendMode.src);
+        final picture = recorder.endRecording();
+        final frame = (await tester.runAsync(() => picture.toImage(16, 32)))!;
+        picture.dispose();
+        final loads = <GenesisStaticNetworkImageProvider>[];
+        debugGenesisStaticNetworkImageCompleter = (provider) {
+          loads.add(provider);
+          return OneFrameImageStreamCompleter(
+            SynchronousFuture(ImageInfo(image: frame.clone())),
+          );
+        };
+        addTearDown(() {
+          debugGenesisStaticNetworkImageCompleter = null;
+          PaintingBinding.instance.imageCache.clear();
+          PaintingBinding.instance.imageCache.clearLiveImages();
+          frame.dispose();
+        });
+        await mount(tester, devicePixelRatio: ratio);
+        final tile = find.byKey(const ValueKey(newUrl));
+        final tileProvider =
+            tester
+                    .widget<Image>(
+                      find.descendant(of: tile, matching: find.byType(Image)),
+                    )
+                    .image
+                as GenesisStaticNetworkImageProvider;
+        expect(tileProvider.cacheWidth, ratio == 1 ? 190 : 380);
+        expect(tileProvider.cacheHeight, ratio == 1 ? 338 : 676);
+        final loadCount = loads.length;
+        expect(
+          loads.where((provider) => provider == tileProvider),
+          hasLength(1),
+        );
+        await tester.tap(find.text('New wallpaper'));
+        await tester.pump();
+        final preview = find.ancestor(
+          of: find.text('01:04'),
+          matching: find.byType(AspectRatio),
+        );
+        final previewProvider = tester
+            .widget<Image>(
+              find.descendant(of: preview, matching: find.byType(Image)),
+            )
+            .image;
+        expect(previewProvider, tileProvider);
+        expect(loads, hasLength(loadCount));
+        final rendered = tester.widget<RawImage>(
+          find.descendant(of: preview, matching: find.byType(RawImage)),
+        );
+        expect(rendered.image, isNotNull);
+        expect(rendered.image!.isCloneOf(frame), isTrue);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
 
   testWidgets(
@@ -298,8 +468,10 @@ void main() {
       expect(find.text('Mist Forest'), findsNothing);
       expect(
         tester
-            .widgetList<GenesisListImage>(find.byType(GenesisListImage))
-            .map((w) => w.imageUrl),
+            .widgetList<MiniPhoneWallpaperPreview>(
+              find.byType(MiniPhoneWallpaperPreview),
+            )
+            .map((w) => w.url),
         contains(oldUrl),
       );
       await tester.tap(find.text('New wallpaper'));
@@ -376,7 +548,7 @@ void main() {
       );
       final image = find.descendant(
         of: preview,
-        matching: find.byType(GenesisListImage),
+        matching: find.byType(MiniPhoneWallpaperPreview),
       );
       final originalElement = tester.element(image);
       await tester.ensureVisible(find.text('Apply wallpaper'));
@@ -391,11 +563,11 @@ void main() {
       expect(controller.displayBackgroundImage, newUrl);
       expect(controller.displayBytes, same(cache.bytes));
       expect(tester.element(image), same(originalElement));
-      expect(tester.widget<GenesisListImage>(image).imageUrl, newUrl);
+      expect(tester.widget<MiniPhoneWallpaperPreview>(image).url, newUrl);
       // The retained source must still follow an actual new selection.
       controller.select(oldUrl);
       await tester.pump();
-      expect(tester.widget<GenesisListImage>(image).imageUrl, oldUrl);
+      expect(tester.widget<MiniPhoneWallpaperPreview>(image).url, oldUrl);
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox());
     },

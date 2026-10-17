@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +6,7 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone_ui.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import '../../support/mini_phone_chat_backend.dart';
 
@@ -18,6 +20,86 @@ Future<void> settle(WidgetTester tester) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final (label, route) in [
+    ('Messages', 'dm_sessions'),
+    ('Posts', 'posts'),
+    ('Photos', 'album'),
+  ]) {
+    testWidgets(
+      'opening phone caches all lists; entering $label refreshes once and retains cache on failure',
+      (tester) async {
+        final b = PhoneBackend();
+        final s = (await tester.runAsync(() async {
+          final store = b.store();
+          await store.ready;
+          return store;
+        }))!;
+        final session = MiniPhoneSession(data: s);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark(),
+            home: MiniPhonePage(session: session),
+          ),
+        );
+        await settle(tester);
+        for (final endpoint in ['dm_sessions', 'posts', 'album']) {
+          expect(b.calls(endpoint).length, 1, reason: endpoint);
+        }
+        expect(s.sessions.single.person.id, 'c');
+        expect(s.posts.single.text, 'Post body');
+        expect(s.album, isEmpty);
+        expect(b.calls('post/notifications/read'), isEmpty);
+        final cachedSessions = s.sessions;
+        final cachedPosts = s.posts;
+        final cachedAlbum = s.album;
+        final response = Completer<Object?>();
+        b.respond = (request) =>
+            request.uri.path.endsWith('/$route') ? response.future : null;
+        await tester.tap(find.bySemanticsLabel(label));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(b.calls(route).length, 2);
+        expect(s.sessions, same(cachedSessions));
+        expect(s.posts, same(cachedPosts));
+        expect(s.album, same(cachedAlbum));
+        response.complete({
+          'err_no': 5001,
+          'err_msg': 'Refresh unavailable',
+          'data': {},
+        });
+        await settle(tester);
+        expect(s.sessions, same(cachedSessions));
+        expect(s.posts, same(cachedPosts));
+        expect(s.album, same(cachedAlbum));
+        await tester.pump(const Duration(seconds: 3));
+        await tester.tap(find.widgetWithText(TextButton, label));
+        await settle(tester);
+        expect(b.calls(route).length, 2);
+        await tester.tap(find.bySemanticsLabel(label));
+        await tester.pump();
+        await settle(tester);
+        expect(b.calls(route).length, 3);
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpWidget(const SizedBox.shrink());
+        // Reopening the same world session warms every list again.
+        b.respond = null;
+        await tester.pumpWidget(
+          MaterialApp(home: MiniPhonePage(session: session)),
+        );
+        await settle(tester);
+        for (final endpoint in ['dm_sessions', 'posts', 'album']) {
+          expect(
+            b.calls(endpoint).length,
+            endpoint == route ? 4 : 2,
+            reason: endpoint,
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        session.dispose();
+      },
+    );
+  }
   testWidgets('Messages renders only sessions returned by the API', (
     tester,
   ) async {
@@ -88,7 +170,86 @@ void main() {
     session.dispose();
   });
   testWidgets(
-    'Posts authors retry and tapping the selected author restores all posts',
+    'chat delivery reorders the underlying Messages page before returning',
+    (tester) async {
+      final b = PhoneBackend();
+      b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
+          ? ok(
+              page([
+                {
+                  ...phoneSession(),
+                  'dm_session_id': 10,
+                  'char_id': 'player-char',
+                  'char_name': 'Player',
+                  'last_message': {
+                    ...phoneMessage(2, session: 10),
+                    'sender_id': 'player-char',
+                    'delivered_at': '2026-10-12T08:01:00Z',
+                  },
+                },
+                {...phoneSession(), 'last_message': phoneMessage(1)},
+              ]),
+            )
+          : null;
+      final s = (await tester.runAsync(() async {
+        final s = b.store();
+        await s.ready;
+        return s;
+      }))!;
+      final session = MiniPhoneSession(data: s);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(),
+          home: MiniPhonePage(
+            session: session,
+            initialScreen: MiniPhoneScreen.messages,
+          ),
+        ),
+      );
+      await settle(tester);
+      const characterKey = ValueKey('mini-phone-conversation-c');
+      const playerKey = ValueKey('mini-phone-conversation-player-char');
+      List<Key?> rowKeys() => tester
+          .widgetList<InkWell>(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is InkWell && (w.key == characterKey || w.key == playerKey),
+              skipOffstage: false,
+            ),
+          )
+          .map((w) => w.key)
+          .toList();
+      expect(rowKeys(), [playerKey, characterKey]);
+      await tester.tap(find.byKey(characterKey));
+      await tester.pump();
+      await settle(tester);
+      expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+      final sessionRequests = b.calls('dm_sessions').length;
+      await tester.runAsync(() async {
+        s.receive(
+          phoneEvent('chat-reorder', [
+            {...phoneMessage(3), 'delivered_at': '2026-10-12T08:02:00Z'},
+          ]),
+        );
+        await s.writesSaved;
+      });
+      await settle(tester);
+      expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+      expect(rowKeys(), [characterKey, playerKey]);
+      expect(b.calls('dm_sessions').length, sessionRequests);
+      await tester.tap(find.widgetWithText(TextButton, 'Character'));
+      await tester.pump();
+      await settle(tester);
+      expect(find.byKey(characterKey), findsOneWidget);
+      expect(rowKeys(), [characterKey, playerKey]);
+      expect(find.text('Message 3'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      session.dispose();
+    },
+  );
+  testWidgets(
+    'Create precedes the spaced author filters and circular all clears the filter while selected authors still toggle',
     (tester) async {
       final b = PhoneBackend();
       var failAuthors = true;
@@ -131,6 +292,38 @@ void main() {
         ),
       );
       await settle(tester);
+      final all = find.byKey(const ValueKey('mini-phone-post-author-all'));
+      expect(all, findsOneWidget);
+      expect(
+        find.descendant(of: all, matching: find.text('all')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSize(
+          find.descendant(of: all, matching: find.byType(Container)).first,
+        ),
+        const Size(62, 62),
+      );
+      expect(
+        tester.getTopLeft(all).dx -
+            tester
+                .getTopRight(
+                  find.byKey(const ValueKey('mini-phone-post-author-create')),
+                )
+                .dx,
+        12,
+      );
+      BoxDecoration allDecoration() =>
+          tester
+                  .widget<Container>(
+                    find
+                        .descendant(of: all, matching: find.byType(Container))
+                        .first,
+                  )
+                  .decoration!
+              as BoxDecoration;
+      expect(allDecoration().shape, BoxShape.circle);
+      expect(allDecoration().border!.top.color, miniPink);
       expect(find.text('Authors unavailable'), findsOneWidget);
       expect(find.text('Post body'), findsOneWidget);
       failAuthors = false;
@@ -155,6 +348,25 @@ void main() {
         'pn': '1',
         'rn': '10',
       });
+      expect(allDecoration().border!.top.color, const Color(0x33FFFFFF));
+      await tester.tap(all);
+      await settle(tester);
+      expect(s.authorFilter, isNull);
+      expect(find.text('Post body'), findsOneWidget);
+      expect(b.calls('posts').last.uri.queryParameters, {
+        'world_id': 'w',
+        'pn': '1',
+        'rn': '10',
+      });
+      expect(allDecoration().border!.top.color, miniPink);
+      final requestCount = b.calls('posts').length;
+      await tester.tap(all);
+      await settle(tester);
+      expect(b.calls('posts').length, requestCount);
+      await tester.tap(
+        find.byKey(const ValueKey('mini-phone-post-author-player-char')),
+      );
+      await settle(tester);
       await tester.tap(
         find.byKey(const ValueKey('mini-phone-post-author-player-char')),
       );

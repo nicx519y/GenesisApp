@@ -20,8 +20,12 @@ account and world. `WorldPage` binds it to `WorldChatroomService.phoneEvents`.
 The existing V2 connection parses the three phone event types without a
 location join. Phone events never enter LocationChat's visible timeline.
 Closing the phone keeps the world session alive; leaving the world disposes it.
-Requests from a replaced account are discarded. Home, badges and unread lists
-use server counts, never event counts or the length of a 20-item Home list.
+Requests from a replaced account are discarded. Messages uses an independent
+SQLite cache keyed by environment/account/world. Home supplies the initial DM
+list/count baseline; unique new deliveries and local reading subsequently update
+that projection. The unrepresented remainder of the server count is retained
+separately from the at-most-20 returned rows. Posts notifications retain their
+existing HTTP behavior. The phone entry combines local DM and current Post counts.
 
 Write journals persist request IDs and original content in account/environment/
 world-scoped preferences. Retries preserve the complete operation, including
@@ -44,14 +48,25 @@ rather than merge: two indistinguishable facts about one post remain two rows.
 
 ## User behavior
 
+- Opening MiniPhone warms the first pages of Messages, Posts (including authors), and Photos concurrently in the world-owned session cache. Opening directly to an app shares that app entry request with warm-up. Each later app entry refreshes its own first page once, keeping cached content visible until success and retaining it on failure. Closing/reopening keeps the cache and warms it again; account/world/environment isolation is unchanged. Posts/Photos pull-to-refresh, author changes and scroll pagination remain explicit requests. Messages lists and DM conversations do not offer pull-to-refresh; entry synchronization, automatic message synchronization and history pagination remain available. Timers, pushes, reconnects, foreground recovery, read receipts and writes do not refresh these app lists. Home/unread summaries remain independent; per-request DM status recovery and foreground chat history are separate from app-list refresh. Liking uses the queried post detail for the visible interaction state instead of reloading Feed.
+
+- Page/list reads show no standalone loading icons in Messages, Posts, comments,
+  Photos, Music or private chat (including initial history and older-message
+  pagination). Existing content, static skeletons, pull-to-refresh indicators and
+  submission/upload progress remain available.
+
 - In-app navigation uses a nested Navigator and `GenesisDarkPageRoute`, matching
   app-wide Android/iOS push/pop transitions. Returning from chat retains the
   Messages list instance/scroll position; iOS swipe back updates the screen state.
   The fixed Close exits the outer phone route. Home app-entry expansion remains
   in `AppLaunchTransitionHost`, independent of these page transitions.
 
-- Messages renders only `/dm_sessions` entries in server order, merging pages by
-  `(world_id, char_id)`. Multiple virtual entries with `dm_session_id=0` remain
+- Messages renders only `/dm_sessions` entries, merging pages by
+  `(world_id, char_id)`. Existing rows combine the API preview with cached
+  deliveries/history and sort by latest delivered_at descending, then full
+  message_id descending. Chat updates reorder the underlying list immediately
+  without another session-list request. Empty rows retain their server order
+  after rows with messages. Multiple virtual entries with `dm_session_id=0` remain
   separate. Opening a virtual entry shows an empty chat without history/read
   requests; sending uses `char_id`, and a later real ID replaces that entry.
   Positive IDs remain real even when `last_message=null`.
@@ -65,10 +80,13 @@ rather than merge: two indistinguishable facts about one post remain two rows.
   New reply batches reveal the first bubble immediately and subsequent bubbles
   at one-second intervals, retaining AI typing until the queue drains. Existing
   history/pagination appears immediately; refreshes and duplicate pushes cannot
-  bypass a pending reveal. The top history spinner is reserved for upward
-  pagination, never automatic recovery or refreshing existing content.
-- Read DM on successful foreground conversation load and newly delivered
-  content while that conversation is visible, then query authoritative counts.
+  bypass a pending reveal. Initial reads and history pagination show no loading
+  icon; request guards and scroll anchoring remain unchanged.
+- Read DM locally as soon as a foreground conversation loads its cache, and on
+  new deliveries while it is visible. Persist the read boundary and queued
+  receipt before sending `/dm_session/read`. Failures retain the local read and
+  retry on reopen, reconnect or foreground recovery. Successful receipts rebase
+  Home without erasing messages received after the submitted read revision.
 - Entering Posts and successfully loading it marks all current world Post
   notifications read once. Later events while remaining in Posts do not clear
   newly arrived notifications.
@@ -122,9 +140,19 @@ rather than merge: two indistinguishable facts about one post remain two rows.
 - Post detail displays all detail comments. Reply selection queries the
   independent comments endpoint for real IDs; it never guesses IDs by text or
   position. Likes are serialized per post and queried after uncertain results.
-- Photos uses the server album and shared image viewer. Each tile passes the
-  exact grid thumbnail provider and a cover-fit source anchor to the common
-  viewer, enabling the same cached-preview/320 ms opening expansion as Posts.
+- Photos uses the server album and a lazy three-column grid. Album list loading
+  does not show a loading icon; existing content stays visible, and pull-to-refresh
+  retains its refresh indicator. Grid thumbnails
+  resize from image_url (falling back to thumbnail_url only when the original
+  is empty), using the shared OSS width/WebP URL rule. Match grid width times
+  capped DPR (maximum 2) to the nearest of 90/180/360/720/1080 pixels; ties
+  prefer the larger tier. Both Photos width and Posts fixed-height URLs use
+  buildGenesisCdnResizeUrl: one readable OSS resize/format chain, replacing old
+  processing and preserving unrelated query parameters. Posts retains its fixed
+  200-high thumbnail resize.
+  Each tile passes the exact CDN grid thumbnail provider and a cover-fit source
+  anchor to the common viewer, enabling the same cached-preview/320 ms opening
+  expansion as Posts.
   The gallery snapshot filters empty original URLs and locates the selected
   asset by ID so the initial image and all preview providers stay aligned.
   Opening and each page change prefetch the immediately previous/next full
@@ -140,6 +168,53 @@ is not a fallback for live requests. The local mock transport returns explicit
 empty reads and refuses unsupported writes instead of simulating successful
 AI replies.
 
+## Local DM cache and unread reconciliation
+
+- `lib/network/mini_phone/mini_phone_cache.dart` is the shared reducer;
+  `mini_phone_cache_storage.dart` provides injectable storage and the production
+  SQLite adapter. `MiniPhoneStore.localReady` completes after local restoration,
+  independently of network `ready`; cached chat content does not await HTTPS.
+- Database `genesis_mini_phone.db`, schema version 1, contains `phone_messages`,
+  `phone_sessions`, `phone_sync` and `phone_pending_reads`. Scope keys encode
+  environment, login UID and World; message/session IDs use SQLite INTEGER and
+  native Dart int64. Multiple virtual session ID 0 rows remain keyed by character.
+- Message payloads, inbox membership, snapshot revisions, read boundaries,
+  event/message-delivery deduplication and queued receipts commit together in a transaction.
+  Store writes are serialized per immutable scope; unchanged message rows are
+  not rewritten. Initialization failure prevents overwriting an unread database;
+  write failure exposes a shared Toast and does not claim durable success.
+- `/home`, `/messages`, session previews and WebSocket deliveries share message
+  merging. HTTP history alone never creates unread. Received unique deliveries
+  create inbox entries unless already counted/read; own messages never do.
+  A terminal reply state cannot regress to pending/generating after restoration.
+- Each Home entry rebases DM inbox membership from `dms.list`; messages omitted
+  from the new inbox stay in history, without inferring a server read state.
+  Operations after request dispatch are preserved by revision and message ID.
+  DM delivery does not itself refetch Home. Initial load, reconnection,
+  foreground recovery, explicit Home entry and successful read receipts remain
+  reconciliation points. Posts mutations/events keep their existing summaries.
+- DM count = known local unread rows + the baseline's unrepresented remainder.
+  Reading removes known rows immediately; unassignable excess is not guessed.
+  The remainder is recalibrated by the next successful Home response. Session
+  counts use API baselines plus local changes and never fall below known unread.
+  Session preview boundaries prevent a later WS delivery already included in an
+  HTTP session count from increasing that count twice.
+- Read receipts are durable, serial per conversation and versioned. An old
+  acknowledgement cannot remove a newer receipt or erase later local unread.
+  Offline reads are not rolled back; only read receipts retry automatically,
+  not message sends. Existing request-ID journals remain in preferences.
+- Initial history restores the latest 50 cached messages, and upward pagination
+  loads cached batches before HTTP. Remote pagination skips overlap with retained
+  history. Retention keeps the latest 1000 ordinary messages per session plus
+  unread, pending/generating/request-protected and latest-message records.
+  Read boundaries survive pruning. Closing the phone or world does not clear DB.
+- No backend API fields are added. `/home` has no consistent snapshot revision,
+  and `/dm_session/read` marks an entire conversation rather than a cursor.
+  Local changes are immediate and server calibration is eventual; simultaneous
+  multi-device state is not strongly consistent. No full unread-history recovery
+  beyond the Home limit is introduced. Native SQLite tests do not establish live
+  backend or Android/iOS device acceptance.
+
 ## Current recovery and acceptance boundaries
 
 - HTTP history includes `reply_status` and `failure` on the player's AI source
@@ -151,7 +226,7 @@ AI replies.
 - Pending AI requests use foreground backoff queries (2 to 30 seconds), stop on
   server terminal state and never infer failure from empty results or errors.
 - Phone pushes are immediate attempts only, with no offline replay guarantee.
-  Reconnect/foreground recovery refreshes sessions, message history and counts.
+  Reconnect/foreground recovery refreshes unread summaries and known-session message history, without fetching app lists. Unknown first-send session IDs wait for explicit chat/list entry or delivery; reply polling never discovers sessions through `/dm_sessions`.
 - The optional legacy Feed `comments_preview` extension is still consumed if
   present. Current dev does not define it; absent previews cause no per-post
   requests and do not supply comment IDs. Real replies use `/comments`.
@@ -218,16 +293,16 @@ AI replies.
 
 | 方法与相对路径 | 当前使用场景 |
 | --- | --- |
-| `GET /home` | Home 的 DM／Post 未读数及各自最多 20 条明细；通知卡片和应用角标；初始化、Home 展示、事件、已读成功及恢复时刷新 |
-| `GET /unread` | DM 与 Post 合计未读数、最新未读作者；地图和 LocationChat 手机入口提示；与 Home 聚合刷新 |
+| `GET /home` | 重建本地 DM 未读基准，保留并发阅读／推送；Post 未读数及明细沿用原逻辑；初始化、Home 展示、已读成功及恢复时校准 |
+| `GET /unread` | 保留服务端合计及作者参考；入口显示使用本地 DM 计数加当前 Post 计数，不覆盖本地已读 |
 | `GET /dm_sessions` | Messages 会话列表、未读筛选、刷新和分页；首次私聊恢复时跨页查找角色的会话 ID，查找不受未读筛选限制 |
 | `GET /messages` | 真实会话历史、分页及恢复；client_request_id 查询旧请求状态，按消息 ID 合并；虚拟会话不调用 |
 | `POST /dm/send` | 发送角色私聊及首次私聊；提交 `world_id/char_id/client_request_id/content`；空成功响应不生成气泡 |
-| `POST /dm_session/read` | 前台会话成功加载或收到新消息后标记该会话已读；只提交 `dm_session_id`，成功后重查会话和未读 |
+| `POST /dm_session/read` | 前台会话成功加载或收到新消息后标记该会话已读；只提交 `dm_session_id`，成功后清除缓存会话的未读并重查未读聚合，不重拉会话列表 |
 | `GET /post/authors` | 只传 `world_id`，获取全世界已发帖角色 ID，不分页；关联世界角色名称和头像；Feed 刷新时一并更新 |
-| `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；发帖、评论、点赞后刷新；读取 `comments_preview` 展示前三条评论 |
+| `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；写操作不顺带刷新 Feed（发布／评论返回 Posts 时走正常页面入口刷新）；读取 `comments_preview` 展示前三条评论 |
 | `GET /post/detail` | 打开帖子或通知详情，展示正文和完整评论；点赞后查询实际状态；详情可见时随事件刷新 |
-| `POST /post/create` | 发布文字／图文帖子；提交 `content` 和可选相册图片 URL 字段 `image`，成功后刷新 Feed |
+| `POST /post/create` | 发布文字／图文帖子；提交 `content` 和可选相册图片 URL 字段 `image`，成功后刷新未读，返回 Posts 时按页面入口刷新 Feed |
 | `POST /post/like` | 点赞；同帖操作串行，随后查询详情确认状态 |
 | `POST /post/unlike` | 取消点赞；与点赞共用串行处理和状态查询 |
 | `GET /comments` | 选择具体评论进行回复及分页，取得真实 `comment_id`；评论提交后刷新；普通详情的完整评论来自 `/post/detail` |
@@ -249,11 +324,12 @@ AI replies.
 | `GET /api/v1/world/miniphoneinfo` | 打开手机时读取当前世界壁纸配置 |
 | `POST /api/v1/world/setminiphonebackground` | 保存壁纸／恢复默认；提交 `world_id/background_image` |
 | `POST /api/v1/upload/image` | 壁纸设备选图上传；multipart 字段为 `file`，取得 URL 后保存壁纸配置 |
-| `GET /api/v1/world/detail` | 世界角色、名称、头像和世界时间；初始化、前台恢复时获取，供首次私聊、作者入口和 Home 时钟使用 |
+| `GET /api/v1/world/detail` | 世界角色、名称、头像和世界时间；初始化及进入 Messages 时获取，供首次私聊、作者入口和 Home 时钟使用 |
 | `GET /api/v1/user/info` | 按 UID 补充用户名称和头像，主要用于世界资料未覆盖的 Post 通知作者 |
 | `GET /api/v1/gem/model/list` | 读取世界模型目录；优先复用已有缓存，供 MiniPhone 模型页展示 |
 
 - Home 壁纸在设置页覆盖期间保留旧画面；返回桌面且新图片解码就绪后，以 300ms 淡入淡出切换，加载失败保留旧背景。
+- Settings 壁纸选项使用接口 `default_background_images[].image_url`，列表与上方预览共用 190 × (190 × 16/9) 逻辑尺寸，经公共 CDN 高度缩放入口按预览高度 × DPR（上限 2）加载（1× 高 338px、2× 高 676px）。两处 URL、解码尺寸和 `BoxFit.cover` 缓存键一致，点击已加载选项直接复用解码帧。列表显示高度仍为 100，加载中／失败显示静态深色块（`miniRaised`），不显示默认壁纸占位图。上方预览保留默认壁纸回退和本地图片预览；选择与保存仍使用接口原始 URL。
 - 音乐实现见 `lib/network/v1/music_api.dart`；壁纸、上传、角色和用户资料分别见 `world_api.dart`、`upload_api.dart`、`user_api.dart`；模型目录见 `gem_api.dart`。
 - 当前模型选择和记忆 Token 修改仅更新本地 `MiniPhoneSession`。不要将页面上的选择或折扣展示解释为后端设置／计费已生效。
 - 音频、封面、头像和相册图片还请求返回的媒体 URL；它们不计入上面的业务接口数。
@@ -272,25 +348,25 @@ AI replies.
 | `phone.post.notification.created` | Post 新通知；触发聚合刷新；Posts、相关详情和通知页可见时刷新相应数据 |
 
 - 三类事件均按 `event_id` 去重。聚合刷新包括 Home、未读和会话；列表、详情和通知根据当前可见状态刷新，当前会话及待确认私聊另执行历史恢复。
-- 未读数使用 HTTP 查询结果，不按事件次数增减。密集事件合并刷新；刷新期间新事件必须保留下一轮刷新。
+- DM 未读采用 Home 基准加本地唯一消息／阅读变化，保留未返回明细的数量差额；不按事件次数累加。Home 请求期间的消息与阅读不可被响应覆盖；Posts 聚合继续由 HTTP 校准。
 - 手机关闭后继续处理当前世界事件；退出世界释放订阅。首次初始化、Socket 重连和返回前台恢复查询。
-- Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。
+- Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。世界时间为空或无法解析时，对应的日期／时间文字留空，不显示占位符。
 
 ### Required client behavior
 
-- Messages 仅用 `/dm_sessions` 返回条目，保持服务端顺序，按 world_id + char_id 合并分页；多个 ID 为 0 的虚拟条目互不覆盖，跳过历史和已读查询，首次发送取得正数 ID 后替换。已有条目的消息摘要可随送达更新，不在客户端按消息 ID 或 updated_at 重排。
+- Messages 仅用 `/dm_sessions` 返回条目，按 world_id + char_id 合并分页；多个 ID 为 0 的虚拟条目互不覆盖，跳过历史和已读查询，首次发送取得正数 ID 后替换。已有条目结合接口摘要、送达和历史缓存选取最新消息，并按 delivered_at 倒序、同时间按完整 message_id 倒序排序；聊天页中的更新立即反映到外层列表，不等返回 Messages 或额外拉取会话列表。无消息条目排在有消息条目后，保持服务端相对顺序；不按 current_time 或 updated_at 排序。时间缺失／无效的消息排在时间有效的消息后，两者均无有效时间时回退到消息 ID。
 - 数据和写请求按环境、账号、世界隔离；上下文改变后丢弃旧请求结果，清除旧草稿和恢复页面引用。
 - 保存写请求 ID 与原始正文、图片和回复目标；同一次操作重试复用原请求，不建立自动重发队列。超时／断线保持待确认状态，不能据此判定 AI 最终失败。
-- DM 提交即显示本地临时气泡并清空原输入，Send 不转圈；正式消息来自送达／历史，按请求键合并临时气泡，按完整 int64 消息 ID 去重、升序展示。明确拒绝撤回临时气泡、空输入时恢复草稿；不确定失败保留气泡和原请求键。空成功响应只表示受理。新回复首条立即显示，后续每隔一秒显示一条；已有历史／分页不延迟，补查和重复推送不能提前展示排队消息。顶部历史加载占位只在向上翻页时出现。
+- DM 提交即显示本地临时气泡并清空原输入，Send 不转圈；正式消息来自送达／历史，按请求键合并临时气泡，按完整 int64 消息 ID 去重、升序展示。明确拒绝撤回临时气泡、空输入时恢复草稿；不确定失败保留气泡和原请求键。空成功响应只表示受理。新回复首条立即显示，后续每隔一秒显示一条；已有历史／分页不延迟，补查和重复推送不能提前展示排队消息。首次读取与向上加载历史均不显示 loading 图标。
 - HTTP 200 下非零 `err_no` 仍为业务错误；展示原始 `ApiException.message`／`err_msg`，失败保留草稿。区分 Feed 的 `text` 和详情／提交的 `content`。
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
-- Posts 作者列表来自 `/post/authors`，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；通知刷新保留筛选并刷新作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
+- Posts 作者列表来自 `/post/authors`，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交，正文不超过 65535 UTF-8 字节。
-- 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry，通过下拉刷新重试；Posts 恢复头像叠加号、等分作者栏（角色较多时可横滑），再次点击选中作者取消筛选，不再增加 All。发帖恢复右上角 Post、动态作者及世界信息、虚线选图区；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，按 UTF-8 字节限制，不恢复演示的 500 字或 3 MiB 限制。
+- 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、等分作者栏（角色较多时可横滑），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。发帖恢复右上角 Post、动态作者及世界信息、虚线选图区；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，按 UTF-8 字节限制，不恢复演示的 500 字或 3 MiB 限制。
 - 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情摘要缺少 comment_id 时只展示，不伪造回复目标；真实评论列表从 `/comments` 获取。昵称、时间等缺失字段不使用演示占位值填充。
-- 会话、Feed、评论、相册通过滚动加载下一页，不增加 Load more 按钮。首次空列表合并其依赖请求为一个 loading，下拉刷新使用既有刷新指示器，有内容后台刷新不追加转圈；私聊首次 loading 和历史页 loading 互斥。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
+- 会话、Feed、评论、相册通过滚动加载下一页，不增加 Load more 按钮。MiniPhone 页面和列表读取均不显示独立 loading 图标，包含首次读取与私聊历史分页；保留已有内容、静态骨架、提交／上传进度和已有下拉刷新指示器，Messages 列表和私聊会话页不提供下拉刷新。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
 - 保持现有 MiniPhone 样式、导航、启动动画、音乐和壁纸行为；共享聊天修改须回归 LocationChat。动态请求错误使用公共 Toast；演示数据仅用于明确的无世界预览。
 
 ### MiniPhone 原版布局复核（2026-10-16）
@@ -300,14 +376,14 @@ AI replies.
 | 页面 | 本轮复核与修正 |
 | --- | --- |
 | Home | 删除首页通知区上方的接口错误段落与 Retry，错误只用 Toast，不挤动时钟和通知卡片。 |
-| Messages / Posts / Photos | 删除列表内的错误／重试和通用空数据段落，保留原标题、列表／三列图片网格，以及下拉刷新与滚动分页。 |
+| Messages / Posts / Photos | 删除列表内的错误／重试和通用空数据段落，保留原标题、列表／三列图片网格及滚动分页；Posts／Photos 保留下拉刷新，Messages 列表及私聊会话页取消下拉刷新。 |
 | Comments / Create | 删除写入状态／Retry same request 占位区；原 Send／Post 按钮复用未确认请求 ID、正文、图片和回复 ID。评论回复目标仅改变原输入框提示，再点同一评论取消，不增加一行回复栏。 |
 | Private chat | 删除输入区的错误／Refresh 和等待区 Retry；保留正在输入提示与历史锚点，未确认且未受理的请求由原 Send 按钮重试。恢复动态世界日期的 Private conversation 标题，去掉额外的自制长按复制菜单。 |
 | Settings | 删除新增的错误／重试、不可用／空目录提示段落，读取失败使用 Toast 与下拉刷新；正常宽度恢复原版最多四项一排，窄屏和更多动态选项允许换行。Apply 及现有图片裁剪和保存进度保持。 |
 | Music | 删除目录错误／Retry 与播放错误段落，读取失败使用 Toast 与下拉刷新，播放失败仍可用原播放按钮重试；现有封面、长标题滚动、进度和点赞逻辑保留。 |
 | Models / 图片查看器 | 延用原版共享页面及查看器的结构，不改其公共样式。 |
 
-动态头像、作者数量、时间和正文取接口；没有真实音乐点赞数量或用户 handle 时不补演示数字和账号。首次空内容的网络加载、聊天等待与阅读历史返回最新入口属于真实数据交互状态，不表示新增常驻操作栏。
+动态头像、作者数量、时间和正文取接口；没有真实音乐点赞数量或用户 handle 时不补演示数字和账号。网络读取不显示独立 loading 图标；聊天等待与阅读历史返回最新入口继续保留，不表示新增常驻操作栏。
 
 ### Backend contract boundaries
 

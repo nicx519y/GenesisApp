@@ -87,7 +87,7 @@ void main() {
         expect(
           image.imageUrl,
           'https://cdn.example.com/location.png'
-          '?x-oss-process=image/resize,w_${entry.$2},image/format,webp',
+          '?old=true&x-oss-process=image/resize,w_${entry.$2}/format,webp',
         );
         expect(image.width, 64);
         expect(image.height, 64);

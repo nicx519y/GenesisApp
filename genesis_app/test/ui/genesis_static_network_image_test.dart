@@ -37,8 +37,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(capturedProvider?.cacheWidth, 60);
-    expect(capturedProvider?.cacheHeight, 45);
+    expect(capturedProvider?.cacheWidth, 80);
+    expect(capturedProvider?.cacheHeight, 60);
     expect(tester.takeException(), isNull);
   });
 

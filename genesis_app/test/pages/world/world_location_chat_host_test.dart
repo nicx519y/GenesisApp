@@ -201,7 +201,7 @@ void main() {
 
     expect(requestedUrls, [
       'https://cdn.example.com/location-2-xl.webp'
-          '?x-oss-process=image/resize,w_180,image/format,webp',
+          '?x-oss-process=image/resize,w_180/format,webp',
     ]);
     cache.dispose();
   });

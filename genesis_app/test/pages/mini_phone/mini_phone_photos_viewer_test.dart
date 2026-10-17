@@ -23,6 +23,37 @@ void main() {
     PaintingBinding.instance.imageCache.clearLiveImages();
   });
 
+  testWidgets('Photos requests CDN thumbnails even without thumbnail URLs', (
+    tester,
+  ) async {
+    final probe = await _mount(tester, [
+      {..._photo(1), 'thumbnail_url': null},
+      {..._photo(2), 'thumbnail_url': 'https://cdn.example/tiny-2.png'},
+      _photo(3),
+    ], devicePixelRatio: 3);
+    for (var id = 1; id <= 3; id++) {
+      final tile = find.byKey(ValueKey('mini-phone-album-$id'));
+      final provider =
+          tester
+                  .widget<Image>(
+                    find.descendant(of: tile, matching: find.byType(Image)),
+                  )
+                  .image
+              as GenesisStaticNetworkImageProvider;
+      expect(Uri.parse(provider.imageUrl).path, '/full-$id.png');
+      expect(
+        Uri.parse(provider.imageUrl).queryParameters['x-oss-process'],
+        'image/resize,w_180/format,webp',
+      );
+      expect(provider.cacheWidth, (tester.getSize(tile).width * 2).ceil());
+      expect(provider.fit, BoxFit.cover);
+    }
+    expect(probe.prefetched, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    probe.session.dispose();
+  });
+
   testWidgets(
     'Photos expands the selected tile and reuses adjacent full-image preloads',
     (tester) async {
@@ -134,7 +165,7 @@ void main() {
       expect(
         (viewer.previewImageProviders[1] as GenesisStaticNetworkImageProvider)
             .imageUrl,
-        contains('/thumb-3.png'),
+        contains('/full-3.png'),
       );
       expect(probe.prefetched.map((p) => Uri.parse(p.imageUrl).path), [
         '/full-2.png',
@@ -178,9 +209,16 @@ Future<
     List<GenesisStaticNetworkImageProvider> loaded,
   })
 >
-_mount(WidgetTester tester, List<Map<String, dynamic>> photos) async {
-  tester.view.physicalSize = const Size(360, 720);
-  tester.view.devicePixelRatio = 1;
+_mount(
+  WidgetTester tester,
+  List<Map<String, dynamic>> photos, {
+  double devicePixelRatio = 1,
+}) async {
+  tester.view.physicalSize = Size(
+    360 * devicePixelRatio,
+    720 * devicePixelRatio,
+  );
+  tester.view.devicePixelRatio = devicePixelRatio;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final recorder = ui.PictureRecorder();

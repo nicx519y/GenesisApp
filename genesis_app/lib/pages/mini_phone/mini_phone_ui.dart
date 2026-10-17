@@ -212,11 +212,12 @@ class _MiniPhoneDemoEntryState extends State<MiniPhoneDemoEntry>
   MiniPhoneMusicService get _music => _session.music;
   MiniPhoneDemoStore get _store => _session.store;
   int _unread = 0;
-  int get _currentUnread => _session.data?.unread.count ?? _store.totalUnread;
+  int get _currentUnread =>
+      _session.data?.totalUnreadCount ?? _store.totalUnread;
   Widget get _arrivalAvatar {
     final data = _session.data;
     if (data == null) return MiniAvatar(miniDemoPeople.first, size: 32);
-    final person = data.person(data.unread.charId ?? '');
+    final person = data.person(data.latestUnreadCharId ?? '');
     return GenesisAvatar(
       url: person.avatar,
       name: person.name,

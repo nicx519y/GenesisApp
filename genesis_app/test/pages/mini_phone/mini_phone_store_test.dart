@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
@@ -14,6 +15,61 @@ Future<void> flush() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'background recovery, foreground, notifications and writes do not refresh cached app lists',
+    () async {
+      final b = PhoneBackend(), s = b.store();
+      addTearDown(s.dispose);
+      await s.ready;
+      b.respond = (r) => r.uri.path.endsWith('/album')
+          ? ok(
+              page([
+                {'asset_id': 1, 'world_id': 'w', 'image_url': ''},
+              ]),
+            )
+          : null;
+      expect(b.calls('dm_sessions'), isEmpty);
+      expect(b.calls('posts'), isEmpty);
+      expect(b.calls('album'), isEmpty);
+      await Future.wait([
+        s.refreshSessions(),
+        s.refreshPosts(),
+        s.refreshAlbum(),
+      ]);
+      final counts = {
+        for (final route in ['dm_sessions', 'posts', 'album', 'post/authors'])
+          route: b.calls(route).length,
+      };
+      final unreadCount = b.calls('unread').length;
+      s.phoneVisible = s.postsVisible = s.albumVisible = true;
+      s.scheduleRefresh();
+      s.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      s.receive(
+        chatroomEventFromV2Message(
+              ChatroomV2Message.fromJson({
+                'type': 'phone.post.notification.created',
+                'stream_type': '',
+                'world_id': 'w',
+                'err_no': 0,
+                'payload': {...phoneNotification(), 'event_id': 'cached-lists'},
+              }),
+            )
+            as ChatroomPhoneEvent,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await s.markSessionRead(9);
+      await s.setLiked(8, true);
+      await s.write('comment', '8', 'Comment');
+      await s.write('post', 'new', 'New post');
+      for (final entry in counts.entries) {
+        expect(b.calls(entry.key).length, entry.value, reason: entry.key);
+      }
+      expect(b.calls('unread').length, greaterThan(unreadCount));
+      expect(s.sessions.single.unreadCount, 0);
+      expect(s.posts.single.id, 8);
+      expect(s.album.single.id, 1);
+    },
+  );
   test(
     'Messages stays empty when the session API returns no conversations',
     () async {
@@ -35,13 +91,17 @@ void main() {
       expect(s.conversations, isEmpty);
     },
   );
-  test('Messages keeps server order while delivered previews update', () async {
+  test('Messages reorders cached sessions by latest delivery time', () async {
     const newerId = 9007199254740994;
     final b = PhoneBackend();
     b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
         ? ok(
             page([
-              {...phoneSession(), 'last_message': phoneMessage(newerId - 1)},
+              {
+                ...phoneSession(),
+                'updated_at': '2026-10-12T12:00:00Z',
+                'last_message': phoneMessage(newerId - 1),
+              },
               {
                 ...phoneSession(unread: 2),
                 'dm_session_id': 10,
@@ -49,6 +109,59 @@ void main() {
                 'char_name': 'Player',
                 'last_message': {
                   ...phoneMessage(newerId, session: 10),
+                  'sender_id': 'player-char',
+                  'delivered_at': '2026-10-12T08:01:00Z',
+                },
+              },
+            ]),
+          )
+        : null;
+    final s = b.store();
+    addTearDown(s.dispose);
+    await s.ready;
+    await s.refreshSessions();
+    expect(s.conversations.map((c) => c.person.id), ['player-char', 'c']);
+    expect(s.conversations.first.unreadCount, 2);
+    final sessionRequests = b.calls('dm_sessions').length;
+    s.phoneVisible = true;
+    s.activeCharId = 'c';
+    // Delivery time takes precedence even over a larger ID/world clock value.
+    s.receive(
+      phoneEvent('latest', [
+        {
+          ...phoneMessage(7),
+          'delivered_at': '2026-10-12T08:02:00Z',
+          'current_time': 'Day 1/01:00',
+        },
+      ]),
+    );
+    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
+    expect(s.conversations.first.lastMessage!.content, 'Message 7');
+    expect(b.calls('dm_sessions').length, sessionRequests);
+    // An older batch, duplicate event and lagging HTTP snapshot cannot undo it.
+    s.receive(phoneEvent('older', [phoneMessage(newerId + 3)]));
+    s.receive(phoneEvent('latest', [phoneMessage(newerId + 2)]));
+    await s.refreshSessions();
+    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
+    expect(s.conversations.first.lastMessage!.id, 7);
+    s.unreadSessionsOnly = true;
+    expect(s.conversations.map((c) => c.person.id), ['player-char']);
+    expect(s.conversations.single.unreadCount, 2);
+    await s.writesSaved;
+  });
+  test('Messages breaks delivery-time ties with full message IDs', () async {
+    const largeId = 9007199254740994;
+    final b = PhoneBackend();
+    b.respond = (r) => r.uri.path.endsWith('/dm_sessions')
+        ? ok(
+            page([
+              {...phoneSession(), 'last_message': phoneMessage(largeId)},
+              {
+                ...phoneSession(),
+                'dm_session_id': 10,
+                'char_id': 'player-char',
+                'last_message': {
+                  ...phoneMessage(largeId + 1, session: 10),
                   'sender_id': 'player-char',
                 },
               },
@@ -58,25 +171,80 @@ void main() {
     final s = b.store();
     addTearDown(s.dispose);
     await s.ready;
-    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
-    expect(s.conversations.last.unreadCount, 2);
-    s.receive(phoneEvent('latest', [phoneMessage(newerId + 1)]));
-    expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
-    expect(
-      s.conversations.first.lastMessage!.content,
-      'Message ${newerId + 1}',
-    );
-    // An older batch, duplicate event and lagging HTTP snapshot cannot undo it.
-    s.receive(phoneEvent('older', [phoneMessage(1)]));
-    s.receive(phoneEvent('latest', [phoneMessage(newerId + 2)]));
     await s.refreshSessions();
+    expect(s.conversations.map((c) => c.person.id), ['player-char', 'c']);
+    s.receive(phoneEvent('tie', [phoneMessage(largeId + 2)]));
     expect(s.conversations.map((c) => c.person.id), ['c', 'player-char']);
-    expect(s.conversations.first.lastMessage!.id, newerId + 1);
-    s.unreadSessionsOnly = true;
-    expect(s.conversations.map((c) => c.person.id), ['player-char']);
-    expect(s.conversations.single.unreadCount, 2);
     await s.writesSaved;
   });
+  test(
+    'chat history and first own delivery reorder existing virtual rows',
+    () async {
+      final b = PhoneBackend();
+      b.respond = (r) {
+        if (r.uri.path.endsWith('/dm_sessions')) {
+          return ok(
+            page([
+              {...phoneSession(), 'dm_session_id': 0, 'char_id': 'empty-a'},
+              {...phoneSession(), 'dm_session_id': 0, 'char_id': 'empty-b'},
+              phoneSession(),
+              {
+                ...phoneSession(),
+                'dm_session_id': 0,
+                'char_id': 'player-char',
+                'peer_uid': 'peer-user',
+              },
+            ]),
+          );
+        }
+        if (r.uri.path.endsWith('/messages')) {
+          return ok(page([phoneMessage(1)]));
+        }
+        return null;
+      };
+      final s = b.store();
+      addTearDown(s.dispose);
+      await s.ready;
+      await s.refreshSessions();
+      final sessionRequests = b.calls('dm_sessions').length;
+      await s.refreshMessages('c');
+      expect(s.conversations.map((c) => c.person.id), [
+        'c',
+        'empty-a',
+        'empty-b',
+        'player-char',
+      ]);
+      await s.write('dm', 'player-char', 'First message');
+      final requestId = s.pending['dm:player-char']!.id;
+      s.receive(
+        phoneEvent(
+          'own-delivery',
+          [
+            {
+              ...phoneMessage(
+                2,
+                sender: 'user',
+                session: 10,
+                requestId: requestId,
+              ),
+              'delivered_at': '2026-10-12T08:01:00Z',
+            },
+          ],
+          session: 10,
+          requestId: requestId,
+        ),
+      );
+      expect(s.conversations.map((c) => c.person.id), [
+        'player-char',
+        'c',
+        'empty-a',
+        'empty-b',
+      ]);
+      expect(s.conversations.first.lastMessage!.id, 2);
+      expect(b.calls('dm_sessions').length, sessionRequests);
+      await s.writesSaved;
+    },
+  );
   test(
     'new conversations appear only after the session API lists them',
     () async {
@@ -411,8 +579,8 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 250));
       expect(b.calls('post/notifications/read').length, 1);
-      expect(b.calls('post/authors').length, greaterThan(authorCalls));
-      expect(s.postAuthorIds, ['c', 'player-char']);
+      expect(b.calls('post/authors').length, authorCalls);
+      expect(s.postAuthorIds, ['c']);
       expect(s.authorFilter, 'player-char');
       expect(
         b.calls('posts').last.uri.queryParameters['char_id'],
@@ -501,30 +669,36 @@ void main() {
     },
   );
   test(
-    'events arriving during refresh retain a second authoritative query',
+    'delivery during Home refresh preserves the local inbox without refetching',
     () async {
-      final b = PhoneBackend();
-      final s = b.store();
+      final b = PhoneBackend(), s = b.store();
+      addTearDown(s.dispose);
       await s.ready;
+      s.receive(phoneEvent('a', [phoneMessage(1)]));
       final gate = Completer<Object?>();
       var refreshes = 0;
-      Object summary(int count) => ok({
-        'dms': {'unread_count': count, 'list': []},
-        'posts': {'unread_count': 0, 'list': []},
-      });
       b.respond = (r) {
         if (!r.uri.path.endsWith('/home')) return null;
         refreshes++;
-        return refreshes == 1 ? gate.future : summary(7);
+        return gate.future;
       };
-      s.receive(phoneEvent('a', [phoneMessage(1)]));
-      await Future<void>.delayed(const Duration(milliseconds: 210));
+      final refresh = s.refreshSummary();
+      await flush();
       s.receive(phoneEvent('b', [phoneMessage(2)]));
-      gate.complete(summary(1));
-      await Future<void>.delayed(const Duration(milliseconds: 230));
-      expect(refreshes, greaterThanOrEqualTo(2));
-      expect(s.home.dmUnread, 7);
-      s.dispose();
+      gate.complete(
+        ok({
+          'dms': {
+            'unread_count': 1,
+            'list': [phoneMessage(1)],
+          },
+          'posts': {'unread_count': 0, 'list': []},
+        }),
+      );
+      await refresh;
+      expect(refreshes, 1);
+      expect(s.dmUnreadCount, 2);
+      expect(s.unreadMessages.map((m) => m.id), [2, 1]);
+      await s.cacheSaved;
     },
   );
   test(
@@ -555,7 +729,7 @@ void main() {
   );
 
   test(
-    'first-send recovery resolves older read sessions before querying history',
+    'background recovery does not fetch session lists; chat entry resolves an unknown first-send session',
     () async {
       final b = PhoneBackend();
       b.respond = (r) =>
@@ -594,6 +768,9 @@ void main() {
       };
       s.scheduleRefresh();
       await Future<void>.delayed(const Duration(milliseconds: 260));
+      expect(s.sessionFor('c'), isNull);
+      expect(b.calls('dm_sessions'), isEmpty);
+      await s.refreshMessages('c');
       expect(s.sessionFor('c'), 9);
       expect(s.history('c').map((m) => m.id), [1]);
       expect(
@@ -615,7 +792,7 @@ void main() {
       s.currentTime = 'Day 2/10:00';
       expect(s.clockTime, '10:00');
       s.currentTime = '';
-      expect(s.clockTime, '—');
+      expect(s.clockTime, '');
       s.dispose();
     },
   );

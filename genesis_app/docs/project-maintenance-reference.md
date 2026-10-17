@@ -150,7 +150,10 @@ WebSocket 当前协议规则：
 - map 支持 `url`、`image_url`、`image`、`avatar`、`cover`、`sm_url`、`xl_url`、`object_key`。
 - `displayUrl` 优先级是 `xl_url -> sm_url -> legacy url`。
 - `GenesisImageResourceRegistry` 会用 legacy/sm/xl/object key/display url 建索引；如果后续 UI 只拿到其中一个 key，可以回查完整资源。
-- `selectGenesisImageUrl` 有 `xl_url` 和组件逻辑宽度时，会按 `逻辑宽度 * DPR` 匹配 `45/90/180/360/720/1080/2160` 中刚好大于所需宽度的阶梯，并基于清空参数后的 `xl_url` 生成 `?x-oss-process=image/resize,w_{width},image/format,webp`；没有 `xl_url` 或没有宽度信息时回退到旧 display/candidate 兼容逻辑。
+- 公共图片 CDN 选尺寸和本地解码使用 `min(设备 DPR, 2)`；聊天／地图头像的现有独立倍率配置另行保留。
+- `selectGenesisImageUrl` 有 `xl_url` 和组件逻辑宽度时，会按 `逻辑宽度 * DPR` 匹配 `45/90/180/360/720/1080/2160` 中刚好大于所需宽度的阶梯，并基于 `xl_url` 生成 `x-oss-process=image/resize,w_{width}/format,webp`；没有 `xl_url` 或没有宽度信息时回退到旧 display/candidate 兼容逻辑。
+- `resizeGenesisImageUrl` 也接受 `nearestWidthTiers`：传入时按逻辑宽度 × 受限 DPR 取最近阶梯，等距取较大档；不传时保持原有下一较大宽度规则。MiniPhone Photos 使用 90/180/360/720/1080 五档，列表显示和大图预览共用同一缩略图 provider。
+- 宽度和高度入口统一调用 `buildGenesisCdnResizeUrl` 拼接 OSS 缩放 URL：`image/resize,w_{width}/format,webp` 或 `image/resize,h_{height}/format,webp`，处理指令统一可读格式，替换旧 `x-oss-process`，保留其他查询参数（含重复值），移除 fragment。
 - 固定高度缩略图使用 `resizeGenesisImageUrlToHeight`：按展示高度乘 DPR（受现有上限约束）请求 OSS `image/resize,h_{height}/format,webp`，替换旧处理参数，保留其他 URL 查询参数。MiniPhone Posts Feed 采用此入口并固定占高 200。
 
 HTTP 映射层的图片规则：

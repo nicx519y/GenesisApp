@@ -2,6 +2,8 @@ import 'mini_phone_store.dart';
 import 'mini_phone_post_draft.dart';
 import 'mini_phone_post_feed.dart';
 import 'mini_phone_post_thumbnail.dart';
+import 'mini_phone_photo_thumbnail.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/image_upload_processing.dart';
 import '../../utils/upload_image_byte_limit.dart';
 import 'mini_phone_live_chat.dart';
@@ -411,7 +413,19 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (phone != null) {
       phone!.phoneVisible = true;
       phone!.ready.then((_) {
-        if (mounted) _loadLiveScreen(screen);
+        if (!mounted) return;
+        // Warm the other apps without waiting for their network requests.
+        // The visible app loads through its normal entry path below.
+        if (screen != MiniPhoneScreen.messages) {
+          unawaited(phone!.refreshSessions());
+        }
+        if (screen != MiniPhoneScreen.posts) {
+          unawaited(phone!.refreshPosts());
+        }
+        if (screen != MiniPhoneScreen.photos) {
+          unawaited(phone!.refreshAlbum());
+        }
+        _loadLiveScreen(screen);
       });
     }
     messageInput.addListener(_changed);
@@ -576,11 +590,16 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     });
   }
 
-  Widget _wallpaperBackground(String url, Uint8List? photo) {
+  Widget _wallpaperBackground(
+    String url,
+    Uint8List? photo, {
+    bool settingsPreview = false,
+  }) {
     return MiniPhoneWallpaperImage(
       key: ValueKey(wallpaper.identityRevision),
       url: url,
       photo: photo,
+      settingsPreview: settingsPreview,
       cachedBytes: url == wallpaper.displayBackgroundImage
           ? wallpaper.displayBytes
           : null,

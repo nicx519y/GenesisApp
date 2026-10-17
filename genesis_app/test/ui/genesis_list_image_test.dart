@@ -7,8 +7,8 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
-  test('global image DPR cap is 1.5', () {
-    expect(GenesisImageConfig.maxDevicePixelRatio, 1.5);
+  test('global image DPR cap is 2', () {
+    expect(GenesisImageConfig.maxDevicePixelRatio, 2);
     expect(
       genesisImageDevicePixelRatio(3),
       GenesisImageConfig.maxDevicePixelRatio,
@@ -98,7 +98,7 @@ void main() {
     expect(
       image.imageUrl,
       'https://cdn.example.com/photo_800_600.webp'
-      '?x-oss-process=image/resize,w_180,image/format,webp',
+      '?x-oss-process=image/resize,w_360/format,webp',
     );
   });
 
@@ -134,7 +134,7 @@ void main() {
     expect(
       image.imageUrl,
       'https://cdn.example.com/list-surface.webp'
-      '?x-oss-process=image/resize,w_360,image/format,webp',
+      '?x-oss-process=image/resize,w_360/format,webp',
     );
   });
 
@@ -164,25 +164,28 @@ void main() {
     expect(loadedCount, 1);
   });
 
-  test('selectGenesisImageUrl strips xl query before adding resize params', () {
-    final resource = GenesisImageResourceRegistry.register(
-      const GenesisImageResource(
-        smUrl: 'https://cdn.example.com/photo-sm.webp',
-        xlUrl: 'https://cdn.example.com/photo-xl.webp?old=true#frag',
-      ),
-    );
+  test(
+    'selectGenesisImageUrl preserves query and drops fragment when resizing',
+    () {
+      final resource = GenesisImageResourceRegistry.register(
+        const GenesisImageResource(
+          smUrl: 'https://cdn.example.com/photo-sm.webp',
+          xlUrl: 'https://cdn.example.com/photo-xl.webp?old=true#frag',
+        ),
+      );
 
-    expect(
-      selectGenesisImageUrl(
-        resource.displayUrl,
-        logicalWidth: 44,
-        logicalHeight: 44,
-        devicePixelRatio: 1,
-      ),
-      'https://cdn.example.com/photo-xl.webp'
-      '?x-oss-process=image/resize,w_45,image/format,webp',
-    );
-  });
+      expect(
+        selectGenesisImageUrl(
+          resource.displayUrl,
+          logicalWidth: 44,
+          logicalHeight: 44,
+          devicePixelRatio: 1,
+        ),
+        'https://cdn.example.com/photo-xl.webp'
+        '?old=true&x-oss-process=image/resize,w_45/format,webp',
+      );
+    },
+  );
 
   test('selectGenesisImageUrl uses the next greater width tier', () {
     final resource = GenesisImageResourceRegistry.register(
@@ -199,7 +202,7 @@ void main() {
         devicePixelRatio: 1,
       ),
       'https://cdn.example.com/exact-tier.webp'
-      '?x-oss-process=image/resize,w_180,image/format,webp',
+      '?x-oss-process=image/resize,w_180/format,webp',
     );
   });
 
@@ -211,7 +214,7 @@ void main() {
         devicePixelRatio: 3,
       ),
       'https://cdn.example.com/map.webp'
-      '?x-oss-process=image/resize,w_360,image/format,webp',
+      '?old=true&x-oss-process=image/resize,w_720/format,webp',
     );
   });
 

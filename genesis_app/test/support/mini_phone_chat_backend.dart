@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'mini_phone_memory_cache.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_cache_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -121,7 +123,11 @@ class PhoneBackend implements HttpTransport {
   );
   final revision = ValueNotifier(0);
   String? uid = 'u';
-  MiniPhoneStore store({String namespace = 'test'}) => MiniPhoneStore(
+  MiniPhoneStore store({
+    String namespace = 'test',
+    MiniPhoneCacheStorage? cacheStorage,
+  }) => MiniPhoneStore(
+    cacheStorage: cacheStorage ?? MemoryMiniPhoneCacheStorage(),
     api: api,
     worldId: 'w',
     namespace: namespace,

@@ -18,7 +18,7 @@ extension _MiniPhoneLive on _MiniPhonePageState {
         unawaited(data.refreshSessions());
         unawaited(data.refreshPeople());
       case MiniPhoneScreen.chat:
-        // The chat owns its initial history request and its loading state.
+        // The chat owns its initial history request.
         break;
       case MiniPhoneScreen.posts:
         unawaited(data.refreshPosts(markRead: true));
@@ -67,25 +67,28 @@ extension _MiniPhoneLive on _MiniPhonePageState {
         data != null && (!data.phoneVisible || !data.foreground)) {
       return errors;
     }
-    final keys = switch (screen) {
-      MiniPhoneScreen.home => ['home', 'unread', 'people'],
-      MiniPhoneScreen.messages => ['sessions', 'people'],
-      MiniPhoneScreen.posts => [
-        'posts',
-        'postAuthors',
-        'readPosts',
-        for (final p in data?.posts ?? <PhonePost>[]) 'like:${p.id}',
-      ],
-      MiniPhoneScreen.comments => [
-        'detail:$livePostId',
-        'comments:$livePostId',
-        'comment:$livePostId',
-        'like:$livePostId',
-      ],
-      MiniPhoneScreen.create => ['post:new'],
-      MiniPhoneScreen.photos => ['album'],
-      _ => <String>[],
-    };
+    final keys = [
+      'cache',
+      ...switch (screen) {
+        MiniPhoneScreen.home => ['home', 'unread', 'people'],
+        MiniPhoneScreen.messages => ['sessions', 'people'],
+        MiniPhoneScreen.posts => [
+          'posts',
+          'postAuthors',
+          'readPosts',
+          for (final p in data?.posts ?? <PhonePost>[]) 'like:${p.id}',
+        ],
+        MiniPhoneScreen.comments => [
+          'detail:$livePostId',
+          'comments:$livePostId',
+          'comment:$livePostId',
+          'like:$livePostId',
+        ],
+        MiniPhoneScreen.create => ['post:new'],
+        MiniPhoneScreen.photos => ['album'],
+        _ => <String>[],
+      },
+    ];
     if (data != null) {
       // Wait for the two Messages requests so a shared failure is shown once.
       final messagesLoading =
@@ -136,21 +139,6 @@ extension _MiniPhoneLive on _MiniPhonePageState {
     });
   }
 
-  Widget _liveLoading(
-    String key, {
-    bool showLoading = true,
-    List<String> also = const [],
-  }) {
-    final busy = [key, ...also].any(phone!.busy.contains);
-    if (busy && showLoading && !_refreshingPhoneLists.contains(key)) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: GenesisLoadingIndicator()),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
   Future<void> _refreshPhoneList(
     String key,
     Future<dynamic> Function() load,
@@ -192,99 +180,88 @@ extension _MiniPhoneLive on _MiniPhonePageState {
     _pagedPhoneList(
       'sessions',
       () => phone!.refreshSessions(next: true),
-      GenesisRefreshIndicator(
-        onRefresh: () => _refreshPhoneList(
-          'sessions',
-          () => Future.wait([phone!.refreshSessions(), phone!.refreshPeople()]),
-        ),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            for (final s in phone!.conversations)
-              InkWell(
-                key: ValueKey('mini-phone-conversation-${s.person.id}'),
-                onTap: () => _openLiveChat(s.person),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
+      ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          for (final s in phone!.conversations)
+            InkWell(
+              key: ValueKey('mini-phone-conversation-${s.person.id}'),
+              onTap: () => _openLiveChat(s.person),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _phoneAvatar(s.person, 48, radius: 8),
+                        if (s.unreadCount > 0)
+                          Positioned(
+                            right: -3,
+                            top: -3,
+                            child: MiniBadge(s.unreadCount),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _phoneAvatar(s.person, 48, radius: 8),
-                          if (s.unreadCount > 0)
-                            Positioned(
-                              right: -3,
-                              top: -3,
-                              child: MiniBadge(s.unreadCount),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 13),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    s.person.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: miniStyle(14, FontWeight.w600),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 112,
-                                  ),
-                                  child: Text(
-                                    s.lastMessage?.currentTime ?? '',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: miniStyle(
-                                      11,
-                                      FontWeight.w400,
-                                      miniTertiary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: const EdgeInsets.only(right: 60),
-                              child: Text(
-                                '${s.lastMessage?.senderId == phone!.uid ? 'You: ' : ''}${s.lastMessage?.content ?? ''}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: miniStyle(
-                                  12,
-                                  FontWeight.w400,
-                                  miniSecondary,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  s.person.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: miniStyle(14, FontWeight.w600),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 112,
+                                ),
+                                child: Text(
+                                  s.lastMessage?.currentTime ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: miniStyle(
+                                    11,
+                                    FontWeight.w400,
+                                    miniTertiary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 60),
+                            child: Text(
+                              '${s.lastMessage?.senderId == phone!.uid ? 'You: ' : ''}${s.lastMessage?.content ?? ''}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: miniStyle(
+                                12,
+                                FontWeight.w400,
+                                miniSecondary,
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            _liveLoading(
-              'sessions',
-              also: const ['people'],
-              showLoading: phone!.conversations.isEmpty,
             ),
-          ],
-        ),
+        ],
       ),
     ),
   );
@@ -299,6 +276,7 @@ extension _MiniPhoneLive on _MiniPhonePageState {
         onRefresh: () => _refreshPhoneList('posts', phone!.refreshPosts),
         child: MiniPhonePostFeed(
           posts: phone!.posts,
+          footer: const SizedBox.shrink(),
           resetKey: (phone!.accountGeneration, phone!.authorFilter),
           active: screen == MiniPhoneScreen.posts && phone!.foreground,
           itemBuilder: _livePostCard,
@@ -312,10 +290,8 @@ extension _MiniPhoneLive on _MiniPhonePageState {
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final authors = phone!.authors.toList();
-                final width = (bounds.maxWidth / (authors.length + 1)).clamp(
-                  64.0,
-                  double.infinity,
-                );
+                final width = ((bounds.maxWidth - 12) / (authors.length + 2))
+                    .clamp(64.0, double.infinity);
                 return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -325,6 +301,18 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                         width: width,
                         child: _authorShortcut(_liveMe, create: true),
                       ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: width,
+                        child: _allAuthorsShortcut(
+                          selected: phone!.authorFilter == null,
+                          onTap: () {
+                            if (phone!.authorFilter == null) return;
+                            phone!.authorFilter = null;
+                            unawaited(phone!.refreshPosts());
+                          },
+                        ),
+                      ),
                       for (final person in authors)
                         SizedBox(width: width, child: _authorShortcut(person)),
                     ],
@@ -332,11 +320,6 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                 );
               },
             ),
-          ),
-          footer: _liveLoading(
-            'posts',
-            also: const ['postAuthors'],
-            showLoading: phone!.posts.isEmpty,
           ),
         ),
       ),
@@ -425,9 +408,9 @@ extension _MiniPhoneLive on _MiniPhonePageState {
     text: p.text,
     image: p.image,
     time: p.currentTime,
-    likeCount: p.likeCount,
-    isLiked: p.isLiked,
-    commentCount: p.commentCount,
+    likeCount: phone!.details[p.id]?.likeCount ?? p.likeCount,
+    isLiked: phone!.details[p.id]?.isLiked ?? p.isLiked,
+    commentCount: phone!.details[p.id]?.commentCount ?? p.commentCount,
     previews: p.commentsPreview,
   );
 
@@ -735,11 +718,6 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                       c.content,
                     ),
               ],
-              _liveLoading(
-                'detail:$id',
-                also: ['comments:$id'],
-                showLoading: d == null,
-              ),
             ],
           ),
         ),
@@ -1078,9 +1056,6 @@ extension _MiniPhoneLive on _MiniPhonePageState {
                 crossAxisCount: 3,
               ),
             ),
-            SliverToBoxAdapter(
-              child: _liveLoading('album', showLoading: phone!.album.isEmpty),
-            ),
           ],
         ),
       ),
@@ -1088,21 +1063,23 @@ extension _MiniPhoneLive on _MiniPhonePageState {
   );
   Widget _livePhotoTile(PhoneAlbumAsset asset) => LayoutBuilder(
     builder: (context, bounds) {
-      final thumbnail = asset.thumbnail.isEmpty ? asset.image : asset.thumbnail;
-      final image = GenesisListImage(
-        imageUrl: thumbnail,
-        borderRadius: BorderRadius.zero,
-        fit: BoxFit.cover,
-        placeholder: const ColoredBox(color: Color(0x1FFFFFFF)),
-      );
-      final preview = genesisImageViewerListPreviewProvider(
-        context,
-        source: thumbnail,
-        logicalWidth: bounds.maxWidth,
-        logicalHeight: bounds.maxHeight,
+      final thumbnail = asset.image.trim().isEmpty
+          ? asset.thumbnail
+          : asset.image;
+      final preview = miniPhonePhotoThumbnailProvider(
+        thumbnail,
+        width: bounds.maxWidth,
+        height: bounds.maxHeight,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         fit: BoxFit.cover,
       );
-      if (asset.image.trim().isEmpty || preview == null) return image;
+      final image = GenesisStaticNetworkImage(
+        imageUrl: preview.imageUrl,
+        fit: BoxFit.cover,
+        placeholder: (_) => const ColoredBox(color: Color(0x1FFFFFFF)),
+        errorWidget: (_, _) => const ColoredBox(color: Color(0x1FFFFFFF)),
+      );
+      if (asset.image.trim().isEmpty) return image;
       return GenesisImageViewerSourceAnchor(
         key: ValueKey('mini-phone-album-${asset.id}'),
         previewImageProvider: preview,
@@ -1118,13 +1095,11 @@ extension _MiniPhoneLive on _MiniPhonePageState {
             imageUrls: [for (final photo in photos) photo.image],
             previewImageProviders: [
               for (final photo in photos)
-                genesisImageViewerListPreviewProvider(
-                  context,
-                  source: photo.thumbnail.isEmpty
-                      ? photo.image
-                      : photo.thumbnail,
-                  logicalWidth: bounds.maxWidth,
-                  logicalHeight: bounds.maxHeight,
+                miniPhonePhotoThumbnailProvider(
+                  photo.image,
+                  width: bounds.maxWidth,
+                  height: bounds.maxHeight,
+                  devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                   fit: BoxFit.cover,
                 ),
             ],

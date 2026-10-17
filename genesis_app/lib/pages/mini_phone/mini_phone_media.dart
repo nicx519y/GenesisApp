@@ -35,7 +35,7 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: SizedBox(
-                width: 190,
+                width: miniPhoneWallpaperPreviewWidth,
                 child: AspectRatio(
                   aspectRatio: 9 / 16,
                   child: Stack(
@@ -45,6 +45,7 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
                         wallpaper.draftImage,
                         wallpaper.draftPhoto?.bytes ??
                             wallpaper.appliedPreviewBytes,
+                        settingsPreview: true,
                       ),
                       const ColoredBox(color: Color(0x22000000)),
                       Column(
@@ -202,9 +203,12 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
                                     child: SizedBox(
                                       height: 100,
                                       width: double.infinity,
-                                      child: _wallpaperBackground(
-                                        w.imageUrl,
-                                        null,
+                                      child: MiniPhoneWallpaperPreview(
+                                        key: ValueKey(w.imageUrl),
+                                        url: w.imageUrl,
+                                        placeholder: const ColoredBox(
+                                          color: miniRaised,
+                                        ),
                                       ),
                                     ),
                                   ),
