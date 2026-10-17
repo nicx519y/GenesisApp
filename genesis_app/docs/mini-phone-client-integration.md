@@ -41,10 +41,53 @@ preserve committed user messages. Pending AI replies have no timeout-based
 failure rule.
 
 Reads, refreshes and incoming events are independent. Event refreshes coalesce
-and retain a dirty flag during an in-flight refresh. Message recovery crosses
+and retain separate summary, Posts and DM-recovery dirty flags during a refresh.
+Posts has its own dispatch loop and does not wait for a slow DM recovery.
+Message recovery crosses
 pages until it reaches a known boundary. Existing history and delivered batches
 merge by ID; display order is numeric ascending. Notification pages replace
 rather than merge: two indistinguishable facts about one post remain two rows.
+
+## Request scheduling (2026-10-17)
+
+- Restore account/local cache first. Phone app-list entry and warm-up wait only
+  for `localReady`, independently of Home, world profiles and queued read receipts.
+  DM submissions and restored pending-request recovery also start after local readiness.
+  Initialization starts these remote tasks concurrently.
+- Equivalent in-flight reads share dispatch/application within one account and
+  world. Page/filter arguments participate in identity; changing filters invalidates
+  obsolete flights. Post-write detail/comment confirmation requires a fresh read.
+  Home/unread share a flight; receipts completed after its dispatch request one
+  trailing calibration, preserving concurrent deliveries and local reading.
+- Home entry schedules only the aggregate. Reconnection/foreground recovery may
+  synchronize the visible chat and pending DM requests, without refreshing app lists.
+- A Post notification, successful publication or successful Post read uses only
+  `/post/notifications?pn=1&rn=20&unread_only=true`: total and rows replace the
+  Post inbox/count. It never queries Home/unread, DM history/status or read receipts.
+  Home and independent Post snapshots cannot overwrite a newer Post refresh.
+- Unchanged read boundaries with no new unread reuse the queued receipt or do
+  nothing after acknowledgement. Read receipts remain durable and serial.
+- Accepted and uncertain DM submissions both start read-only recovery; no send
+  is automatically replayed. Missing first-send session IDs are discovered by
+  paging unfiltered `/dm_sessions` only for pending targets; this does not replace
+  the displayed Messages list. Request-ID queries then restore acceptance/reply.
+- Pending DM recovery backs off 2/4/8/16/30 seconds after each whole round finishes,
+  never overlaps another recovery round, and does not infer failure from errors
+  or empty results. Player sends stop after their own committed message is found;
+  AI sends stop on terminal reply state/correlated complete delivery.
+- Backgrounding cancels scheduled refresh/recovery timers and defers new reads.
+  Incoming events still update durable local state; dirty scopes/read receipts
+  resume in the foreground. Post-write detail/comment confirmation is deferred too,
+  then resumed independently. Already-dispatched requests and user submissions may finish.
+
+Validation for this scheduling change:
+
+- `flutter test --no-pub test/pages/mini_phone test/network/mini_phone`: **231 passed**.
+- `flutter analyze --no-pub lib/pages/mini_phone test/pages/mini_phone/mini_phone_store_test.dart test/pages/mini_phone/mini_phone_request_timing_test.dart`: **no issues**.
+- Controlled coverage includes Post/DM isolation even during a blocked recovery,
+  in-flight coalescing and post-write freshness, duplicate read boundaries,
+  uncertain/first/player sends, foreground recovery, blocked initialization and
+  stale Home/Post response ordering. Live backend/device acceptance is unverified.
 
 ## User behavior
 
@@ -170,10 +213,18 @@ AI replies.
 
 ## Local DM cache and unread reconciliation
 
+- Phone dismissal is idempotent and verifies the original route before a deferred
+  pop, including a competing system back. Identity-read failures settle local
+  readiness with an error; reopening the phone or returning to the foreground
+  retries initialization. Wallpaper identity checks also fail safely and preserve
+  the existing draft. Request-journal failures (including a false storage result)
+  surface through the shared Toast and never escape error handling or interrupt
+  recovery scheduling. A write is dispatched only after its original request ID
+  and content have been saved; failed saves retain that operation for manual retry.
 - `lib/network/mini_phone/mini_phone_cache.dart` is the shared reducer;
   `mini_phone_cache_storage.dart` provides injectable storage and the production
   SQLite adapter. `MiniPhoneStore.localReady` completes after local restoration,
-  independently of network `ready`; cached chat content does not await HTTPS.
+  independently of network `ready`; chat and phone app lists do not await HTTPS.
 - Database `genesis_mini_phone.db`, schema version 1, contains `phone_messages`,
   `phone_sessions`, `phone_sync` and `phone_pending_reads`. Scope keys encode
   environment, login UID and World; message/session IDs use SQLite INTEGER and
@@ -201,8 +252,8 @@ AI replies.
   HTTP session count from increasing that count twice.
 - Read receipts are durable, serial per conversation and versioned. An old
   acknowledgement cannot remove a newer receipt or erase later local unread.
-  Offline reads are not rolled back; only read receipts retry automatically,
-  not message sends. Existing request-ID journals remain in preferences.
+  Offline reads are not rolled back; unchanged boundaries do not create duplicate
+  receipts. Only read receipts retry automatically, not message sends. Existing request-ID journals remain in preferences.
 - Initial history restores the latest 50 cached messages, and upward pagination
   loads cached batches before HTTP. Remote pagination skips overlap with retained
   history. Retention keeps the latest 1000 ordinary messages per session plus
@@ -223,10 +274,14 @@ AI replies.
   pending/generating. Full correlated AI delivery batches also confirm completion.
 - Generating WS events allow `failure=null`; final failure retains the source
   bubble. Automatic DMs and player messages cannot complete an unrelated request.
-- Pending AI requests use foreground backoff queries (2 to 30 seconds), stop on
-  server terminal state and never infer failure from empty results or errors.
+- Pending DM requests use foreground backoff queries (2 to 30 seconds). AI
+  requests stop on server terminal state; player sends stop on committed source
+  evidence. Neither infers failure from empty results or errors.
 - Phone pushes are immediate attempts only, with no offline replay guarantee.
-  Reconnect/foreground recovery refreshes unread summaries and known-session message history, without fetching app lists. Unknown first-send session IDs wait for explicit chat/list entry or delivery; reply polling never discovers sessions through `/dm_sessions`.
+  Reconnect/foreground recovery refreshes unread summaries, the visible chat and
+  pending request states without refreshing app lists. Pending first sends may
+  discover their real IDs through paged `/dm_sessions`; ordinary recovery with no
+  pending unknown target never scans that endpoint.
 - The optional legacy Feed `comments_preview` extension is still consumed if
   present. Current dev does not define it; absent previews cause no per-post
   requests and do not supply comment IDs. Real replies use `/comments`.
@@ -301,13 +356,13 @@ AI replies.
 | `POST /dm_session/read` | 前台会话成功加载或收到新消息后标记该会话已读；只提交 `dm_session_id`，成功后清除缓存会话的未读并重查未读聚合，不重拉会话列表 |
 | `GET /post/authors` | 只传 `world_id`，获取全世界已发帖角色 ID，不分页；关联世界角色名称和头像；Feed 刷新时一并更新 |
 | `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；写操作不顺带刷新 Feed（发布／评论返回 Posts 时走正常页面入口刷新）；读取 `comments_preview` 展示前三条评论 |
-| `GET /post/detail` | 打开帖子或通知详情，展示正文和完整评论；点赞后查询实际状态；详情可见时随事件刷新 |
-| `POST /post/create` | 发布文字／图文帖子；提交 `content` 和可选相册图片 URL 字段 `image`，成功后刷新未读，返回 Posts 时按页面入口刷新 Feed |
+| `GET /post/detail` | 打开帖子／通知详情或下拉刷新；评论成功及点赞操作后查询实际状态，不随通知推送刷新 |
+| `POST /post/create` | 发布文字／图文帖子；提交 `content` 和可选图片 `image`，成功后只刷新帖子通知聚合，返回 Posts 时按页面入口刷新 Feed |
 | `POST /post/like` | 点赞；同帖操作串行，随后查询详情确认状态 |
 | `POST /post/unlike` | 取消点赞；与点赞共用串行处理和状态查询 |
 | `GET /comments` | 选择具体评论进行回复及分页，取得真实 `comment_id`；评论提交后刷新；普通详情的完整评论来自 `/post/detail` |
-| `POST /comment/create` | 发布评论／回复；回复携带 `reply_to_comment_id`，成功后刷新详情、评论列表和 Feed |
-| `GET /post/notifications` | Home 的查看更多、通知页、未读筛选、刷新和分页；通知点击按 `post_id` 打开详情 |
+| `POST /comment/create` | 发布评论／回复；回复携带 `reply_to_comment_id`，成功后刷新详情与评论列表；Feed 由后续页面入口刷新 |
+| `GET /post/notifications` | 帖子通知／发帖／Post 已读后以 unread_only=true、rn=20 独立更新 Home 帖子聚合；保留分页方法，无独立通知页入口 |
 | `POST /post/notifications/read` | 进入 Posts 并成功加载后清除当前世界全部 Post 未读；只提交 `world_id`；停留期间不持续清除新通知 |
 | `GET /album` | Photos 三列只读世界相册、刷新和分页；发帖独立使用本机图片上传 |
 
@@ -343,11 +398,11 @@ AI replies.
 
 | 下行事件 | 当前使用场景及处理 |
 | --- | --- |
-| `phone.messages.delivered` | 玩家送达消息、AI 回复及角色主动私聊；批量合并消息、确定会话 ID；关联 AI 回复结束等待；当前前台会话收到消息后提交已读；触发聚合刷新 |
-| `phone.reply.updated` | 处理关联请求的 generating（failure 可空）和 failed；终态优先、失败保留玩家源消息；触发聚合刷新 |
-| `phone.post.notification.created` | Post 新通知；触发聚合刷新；Posts、相关详情和通知页可见时刷新相应数据 |
+| `phone.messages.delivered` | 批量合并私聊、绑定会话 ID、关联 AI 终态；当前前台会话按需提交已读；推送本身不重查聚合，已读成功后校准 |
+| `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；不触发聚合或应用列表请求 |
+| `phone.post.notification.created` | 仅查询帖子未读通知并更新帖子聚合；不涉及私聊，也不刷新 Feed、作者或详情 |
 
-- 三类事件均按 `event_id` 去重。聚合刷新包括 Home、未读和会话；列表、详情和通知根据当前可见状态刷新，当前会话及待确认私聊另执行历史恢复。
+- 三类事件均按 `event_id` 去重；Posts 与 DM 请求范围独立。初始化、重连及前台恢复执行聚合校准和必要 DM 恢复；Home 入口只校准聚合。推送不刷新应用列表。
 - DM 未读采用 Home 基准加本地唯一消息／阅读变化，保留未返回明细的数量差额；不按事件次数累加。Home 请求期间的消息与阅读不可被响应覆盖；Posts 聚合继续由 HTTP 校准。
 - 手机关闭后继续处理当前世界事件；退出世界释放订阅。首次初始化、Socket 重连和返回前台恢复查询。
 - Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。世界时间为空或无法解析时，对应的日期／时间文字留空，不显示占位符。

@@ -412,7 +412,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _session.postDraft?.addListener(_changed);
     if (phone != null) {
       phone!.phoneVisible = true;
-      phone!.ready.then((_) {
+      unawaited(phone!.retryInitialization());
+      phone!.localReady.then((_) {
         if (!mounted) return;
         // Warm the other apps without waiting for their network requests.
         // The visible app loads through its normal entry path below.
@@ -660,6 +661,10 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         );
       }
       if (success && mounted) setState(() => feedback = '');
+    } catch (error) {
+      if (mounted) {
+        showGenesisToast(context, MiniPhoneStore.errorText(error));
+      }
     } finally {
       if (mounted) setState(() => _authorizingWallpaper = false);
     }
@@ -678,22 +683,32 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   }
 
   void _close() {
+    if (!mounted || _closing) return;
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+    final navigator = Navigator.of(context);
+    setState(() => _closing = true);
     FocusManager.instance.primaryFocus?.unfocus();
     _launchTransition.finish();
-    setState(() => _closing = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      if (route.isCurrent) {
+        navigator.pop();
+      } else if (route.isActive) {
+        setState(() => _closing = false);
+      }
     });
   }
 
   void _back() {
+    if (!mounted || _closing) return;
     if (_launchTransition.isAnimating) {
       _launchTransition.close(fallbackSourceId: _launchApp);
       return;
     }
     switch (screen) {
       case MiniPhoneScreen.home:
-        Navigator.of(context).pop();
+        _close();
       case MiniPhoneScreen.models:
         _go(_miniModelReturnScreen);
       case MiniPhoneScreen.chat:
@@ -723,7 +738,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     return PopScope(
       canPop: _closing || screen == MiniPhoneScreen.home,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _back();
+        if (didPop) {
+          _closing = true;
+        } else {
+          _back();
+        }
       },
       child: Theme(
         data: Theme.of(context).copyWith(
@@ -781,7 +800,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
               Positioned(
                 top: MediaQuery.paddingOf(context).top + 14,
                 right: miniPageInset,
-                child: MiniIconButton('close', 'Close mini phone', _close),
+                child: MiniIconButton(
+                  'close',
+                  'Close mini phone',
+                  _closing ? null : _close,
+                ),
               ),
             ],
           ),

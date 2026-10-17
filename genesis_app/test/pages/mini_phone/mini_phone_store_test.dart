@@ -729,7 +729,7 @@ void main() {
   );
 
   test(
-    'background recovery does not fetch session lists; chat entry resolves an unknown first-send session',
+    'pending first-send recovery discovers a real session without refreshing the app list',
     () async {
       final b = PhoneBackend();
       b.respond = (r) =>
@@ -768,8 +768,9 @@ void main() {
       };
       s.scheduleRefresh();
       await Future<void>.delayed(const Duration(milliseconds: 260));
-      expect(s.sessionFor('c'), isNull);
-      expect(b.calls('dm_sessions'), isEmpty);
+      expect(s.sessionFor('c'), 9);
+      expect(b.calls('dm_sessions'), hasLength(2));
+      expect(s.sessions, isEmpty);
       await s.refreshMessages('c');
       expect(s.sessionFor('c'), 9);
       expect(s.history('c').map((m) => m.id), [1]);

@@ -304,7 +304,6 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
   Future<void> _pickWallpaperPhoto() async {
     final target = screen;
     final revision = wallpaper.identityRevision;
-    final owner = await wallpaper.sessionStore.readLoginUid();
     bool isCurrent() =>
         mounted &&
         screen == target &&
@@ -313,6 +312,8 @@ extension _MiniPhoneMedia on _MiniPhonePageState {
         !_authorizingWallpaper;
     if (!isCurrent()) return;
     try {
+      final owner = await wallpaper.sessionStore.readLoginUid();
+      if (!isCurrent()) return;
       final picked = await pickGenesisImages(limit: 1);
       if (picked.isEmpty || !mounted || !isCurrent()) return;
       final crop = await _session.push<LocalImageCropResult>(

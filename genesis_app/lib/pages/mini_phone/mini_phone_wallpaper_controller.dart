@@ -82,9 +82,26 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
 
   void _sessionChanged() => unawaited(refresh());
 
-  Future<void> _syncIdentity() async {
-    final uid = await sessionStore.readLoginUid();
-    if (_disposed || (_identityKnown && _uid == uid)) return;
+  static const _identityError =
+      'Unable to read your account. Please try again.';
+
+  Future<bool> _syncIdentity() async {
+    final epoch = _epoch;
+    String? uid;
+    try {
+      uid = await sessionStore.readLoginUid();
+    } catch (_) {
+      if (!_disposed && epoch == _epoch) {
+        loadError = feedback = _identityError;
+        _cacheReady = true;
+        _notify();
+      }
+      return false;
+    }
+    if (_disposed || epoch != _epoch) return false;
+    if (loadError == _identityError) loadError = null;
+    if (feedback == _identityError) feedback = null;
+    if (_identityKnown && _uid == uid) return true;
     _identityKnown = true;
     _uid = uid;
     _stopSubmissionProgress();
@@ -106,17 +123,17 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
     loaded = loading = saving = uploading = preparing = false;
     loadError = feedback = null;
     _notify();
+    return true;
   }
 
   Future<bool> _current(int epoch) async {
     if (_disposed || epoch != _epoch) return false;
-    await _syncIdentity();
-    return !_disposed && epoch == _epoch;
+    return await _syncIdentity() && !_disposed && epoch == _epoch;
   }
 
   Future<void> refresh({bool resetDraft = false}) async {
     if (_disposed || !available) return;
-    await _syncIdentity();
+    if (!await _syncIdentity()) return;
     if (_disposed || saving) return;
     if (resetDraft) discardDraft();
     final pending = _pendingRead;
@@ -294,7 +311,7 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
   Future<bool> apply() async {
     if (_disposed || saving || !available) return false;
     final selectedVersion = _draftVersion;
-    await _syncIdentity();
+    if (!await _syncIdentity()) return false;
     if (_disposed || saving || selectedVersion != _draftVersion) return false;
     if (_uid == null) return false;
     final epoch = _epoch;

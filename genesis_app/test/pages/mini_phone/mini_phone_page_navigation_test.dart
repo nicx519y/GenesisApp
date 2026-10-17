@@ -152,4 +152,33 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'repeated close before the next frame preserves the parent route',
+    (tester) async {
+      await mount(tester, TargetPlatform.android, outerRoute: true);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(MiniPhonePage), findsNothing);
+      expect(find.text('Open phone'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('system back after close does not pop the parent route twice', (
+    tester,
+  ) async {
+    await mount(tester, TargetPlatform.android, outerRoute: true);
+    await tester.tap(find.byTooltip('Close'));
+    // The close callback is waiting for the next frame; emulate a competing pop.
+    final context = tester.element(find.byType(MiniPhonePage));
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(MiniPhonePage), findsNothing);
+    expect(find.text('Open phone'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

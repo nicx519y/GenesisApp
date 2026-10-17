@@ -12,7 +12,7 @@ extension _MiniPhoneLive on _MiniPhonePageState {
     data.albumVisible = next == MiniPhoneScreen.photos;
     switch (next) {
       case MiniPhoneScreen.home:
-        data.scheduleRefresh();
+        data.scheduleRefresh(recoverChats: false);
       case MiniPhoneScreen.messages:
         data.unreadSessionsOnly = false;
         unawaited(data.refreshSessions());
@@ -69,12 +69,15 @@ extension _MiniPhoneLive on _MiniPhonePageState {
     }
     final keys = [
       'cache',
+      'journal',
+      'identity',
       ...switch (screen) {
-        MiniPhoneScreen.home => ['home', 'unread', 'people'],
+        MiniPhoneScreen.home => ['home', 'unread', 'people', 'postSummary'],
         MiniPhoneScreen.messages => ['sessions', 'people'],
         MiniPhoneScreen.posts => [
           'posts',
           'postAuthors',
+          'postSummary',
           'readPosts',
           for (final p in data?.posts ?? <PhonePost>[]) 'like:${p.id}',
         ],

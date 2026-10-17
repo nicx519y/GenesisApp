@@ -249,6 +249,15 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _replyPollTimer;
   int _replyPollSeconds = 2;
   bool _refreshing = false, _dirty = false, _refreshHome = false;
+  bool _refreshChats = false, _postDirty = false, _postRefreshing = false;
+  Timer? _postRefreshTimer;
+  int? _replyPollingGeneration;
+  Future<bool>? _summaryTask;
+  bool _summaryAgain = false;
+  int? _summaryRevision;
+  int _postSummaryRevision = 0;
+  final _loads = <String, ({int version, Future<bool> future})>{};
+  final _deferredPostReads = <String, Future<bool> Function()>{};
   bool _wasConnected = false;
   static final _journalWrites = <String, Future<void>>{};
   Future<void> get writesSaved =>
@@ -265,8 +274,19 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _initialize() async {
     final g = _generation;
-    final owner = await readUid();
+    String? owner;
+    try {
+      owner = await readUid();
+    } catch (_) {
+      if (_current(g)) {
+        errors['identity'] = 'Unable to read your account. Please try again.';
+        if (!_localReady.isCompleted) _localReady.complete();
+        _notify();
+      }
+      return;
+    }
     if (!_current(g)) return;
+    errors.remove('identity');
     uid = owner;
     if (owner == null || owner.isEmpty || worldId.isEmpty) {
       if (!_localReady.isCompleted) _localReady.complete();
@@ -327,7 +347,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (journalBeforeRestore !=
         jsonEncode(pending.values.map((w) => w.toJson()).toList())) {
-      unawaited(_save().catchError((Object _) {}));
+      unawaited(_save());
     }
     _hydrated = true;
     if (!_localReady.isCompleted) _localReady.complete();
@@ -337,10 +357,26 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       receive(event);
     }
     _notify();
-    await _retryPendingReads();
-    if (!_current(g)) return;
-    await Future.wait([refreshSummary(), refreshPeople()]);
-    if (_current(g) && pending.isNotEmpty) scheduleRefresh();
+    if (_dirty || pending.isNotEmpty) {
+      scheduleRefresh(
+        refreshHome: _refreshHome,
+        recoverChats: _refreshChats || pending.isNotEmpty,
+      );
+    }
+    // Remote reconciliation must not hold the independently hydrated pages.
+    await Future.wait([
+      refreshSummary(),
+      refreshPeople(),
+      _retryPendingReads(),
+    ]);
+  }
+
+  /// Retry only a failed identity read, preserving normal request scheduling.
+  Future<void> retryInitialization() {
+    if (_disposed || !errors.containsKey('identity')) return ready;
+    errors.remove('identity');
+    _localReady = Completer<void>();
+    return ready = _initialize();
   }
 
   void _accountChanged() {
@@ -353,7 +389,17 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     _earlyEvents.clear();
     _refreshTimer?.cancel();
     _refreshTimer = null;
-    _dirty = _refreshHome = false;
+    _dirty = _refreshHome = _refreshChats = _postDirty = false;
+    _refreshing = _postRefreshing = false;
+    _postRefreshTimer?.cancel();
+    _postRefreshTimer = null;
+    _loads.clear();
+    _deferredPostReads.clear();
+    _summaryTask = null;
+    _summaryAgain = false;
+    _summaryRevision = null;
+    _postSummaryRevision = 0;
+    _replyPollingGeneration = null;
     uid = null;
     _postReadOnLoad = false;
     authorFilter = null;
@@ -397,42 +443,80 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     ready = _initialize();
   }
 
-  Future<void> _save() {
-    final key = _storageKey;
+  Future<bool> _save() {
+    final key = _storageKey, g = _generation;
     final content = jsonEncode(pending.values.map((w) => w.toJson()).toList());
-    return _journalWrites[key] = (_journalWrites[key] ?? Future<void>.value())
+    final result = (_journalWrites[key] ?? Future<void>.value())
         .catchError((Object _) {})
         .then((_) async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(key, content);
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            if (!await prefs.setString(key, content)) {
+              throw StateError('Phone request journal was not saved');
+            }
+            if (_current(g) && errors.remove('journal') != null) _notify();
+            return true;
+          } catch (_) {
+            if (_current(g)) {
+              errors['journal'] =
+                  'Unable to save phone requests on this device. Please try again.';
+              _notify();
+            }
+            return false;
+          }
         });
+    _journalWrites[key] = result.then((_) {});
+    return result;
   }
 
   Future<bool> load<T>(
     String key,
     Future<T> Function() fetch,
-    void Function(T) apply,
-  ) async {
-    if (_disposed || uid == null) return false;
+    void Function(T) apply, {
+    String requestKey = '',
+    bool deduplicate = true,
+    bool allowBackground = false,
+  }) {
+    if (_disposed || uid == null || (!foreground && !allowBackground)) {
+      return Future.value(false);
+    }
+    final flightKey = '$key:$requestKey';
+    final existing = _loads[flightKey];
+    if (deduplicate && existing != null && existing.version == _versions[key]) {
+      return existing.future;
+    }
     final g = _generation, v = (_versions[key] ?? 0) + 1;
     _versions[key] = v;
+    // Register before notifying listeners; equivalent requests share dispatch
+    // and application, but superseded parameters never reuse an obsolete flight.
+    late final Future<bool> task;
+    task = Future<bool>.microtask(() async {
+      try {
+        if (!_current(g) || (!foreground && !allowBackground)) return false;
+        final result = await fetch();
+        if (!_current(g) || _versions[key] != v) return false;
+        apply(result);
+        return true;
+      } catch (e) {
+        if (_current(g) && _versions[key] == v) errors[key] = errorText(e);
+        return false;
+      } finally {
+        if (_current(g)) {
+          if (identical(_loads[flightKey]?.future, task)) {
+            _loads.remove(flightKey);
+          }
+          if (_versions[key] == v) {
+            busy.remove(key);
+            _notify();
+          }
+        }
+      }
+    });
+    _loads[flightKey] = (version: v, future: task);
     busy.add(key);
     errors.remove(key);
     _notify();
-    try {
-      final result = await fetch();
-      if (!_current(g) || _versions[key] != v) return false;
-      apply(result);
-      return true;
-    } catch (e) {
-      if (_current(g) && _versions[key] == v) errors[key] = errorText(e);
-      return false;
-    } finally {
-      if (_current(g) && _versions[key] == v) {
-        busy.remove(key);
-        _notify();
-      }
-    }
+    return task;
   }
 
   Future<bool> refreshPeople() => load('people', loadWorld, (w) {
@@ -461,11 +545,61 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
   });
-  Future<bool> refreshSummary({int? preserveAfterRevision}) async {
-    final revision = preserveAfterRevision ?? _cache.revision;
+  Future<bool> refreshSummary({int? preserveAfterRevision}) {
+    if (_disposed) return Future.value(false);
+    if (!foreground) {
+      scheduleRefresh(recoverChats: false);
+      return Future.value(false);
+    }
+    final existing = _summaryTask;
+    if (existing != null) {
+      if (preserveAfterRevision != null) {
+        // A receipt completed after dispatch: one trailing snapshot must start
+        // after the write, preserving everything newer than its read revision.
+        _summaryAgain = true;
+        _summaryRevision = _summaryRevision == null
+            ? preserveAfterRevision
+            : (_summaryRevision! < preserveAfterRevision
+                  ? _summaryRevision
+                  : preserveAfterRevision);
+      }
+      return existing;
+    }
+    _summaryRevision = preserveAfterRevision;
+    final g = _generation;
+    late final Future<bool> task;
+    task =
+        Future<bool>.microtask(() async {
+          var ok = true;
+          do {
+            if (!_current(g) || !foreground) return false;
+            _summaryAgain = false;
+            final revision = _summaryRevision ?? _cache.revision;
+            _summaryRevision = null;
+            ok = await _readSummary(revision) && ok;
+          } while (_current(g) && foreground && _summaryAgain);
+          return ok;
+        }).whenComplete(() {
+          if (identical(_summaryTask, task)) _summaryTask = null;
+        });
+    _summaryTask = task;
+    return task;
+  }
+
+  Future<bool> _readSummary(int revision) async {
+    final postRevision = ++_postSummaryRevision;
     final results = await Future.wait([
       load('home', () => api.home(worldId), (value) {
-        home = value;
+        home = PhoneHome(
+          dmUnread: value.dmUnread,
+          messages: value.messages,
+          postUnread: postRevision == _postSummaryRevision
+              ? value.postUnread
+              : home.postUnread,
+          notifications: postRevision == _postSummaryRevision
+              ? value.notifications
+              : home.notifications,
+        );
         _cache.rebaseHome(value, uid!, revision);
         for (final id in value.messages.map((m) => m.sessionId).toSet()) {
           _mergeMessages(
@@ -477,13 +611,50 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         for (final m in value.messages) {
           if (m.senderType == 'char') _sessionByChar[m.senderId] = m.sessionId;
         }
-        for (final n in value.notifications) {
-          if (n.actorType == 1) unawaited(resolveUser(n.actorId));
-        }
+        _resolveNotificationUsers(home.notifications);
       }),
       load('unread', () => api.unread(worldId), (value) => unread = value),
     ]);
     return results.every((v) => v);
+  }
+
+  void _resolveNotificationUsers(List<PhoneNotification> items) {
+    for (final n in items) {
+      if (n.actorType == 1) unawaited(resolveUser(n.actorId));
+    }
+  }
+
+  Future<bool> refreshPostSummary({bool afterWrite = false}) {
+    if (_disposed) return Future.value(false);
+    if (!foreground) {
+      scheduleRefresh(
+        refreshHome: false,
+        recoverChats: false,
+        postSummary: true,
+      );
+      return Future.value(false);
+    }
+    // This endpoint contains only Posts. Never rebase the DM inbox, query chat
+    // history, retry read receipts or recover a DM because of a Posts event.
+    late final int postRevision;
+    return load(
+      'postSummary',
+      () {
+        postRevision = ++_postSummaryRevision;
+        return api.notifications(worldId, rn: 20, unreadOnly: true);
+      },
+      (page) {
+        if (postRevision != _postSummaryRevision) return;
+        home = PhoneHome(
+          dmUnread: home.dmUnread,
+          messages: home.messages,
+          postUnread: page.total,
+          notifications: page.list,
+        );
+        _resolveNotificationUsers(page.list);
+      },
+      deduplicate: !afterWrite,
+    );
   }
 
   Future<bool> refreshSessions({bool next = false}) {
@@ -507,6 +678,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         hasMore[key] = page.hasMore;
         unawaited(_persistCache());
       },
+      requestKey: '$pn:$unreadSessionsOnly',
     );
   }
 
@@ -527,7 +699,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         type: type,
       );
   Future<void> resolveUser(String id) async {
-    if (loadUser == null ||
+    if (!foreground ||
+        loadUser == null ||
         users.containsKey(id) ||
         busy.contains('user:$id')) {
       return;
@@ -656,7 +829,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       'session:$charId',
       () async {
         var pn = 1;
-        while (_current(g)) {
+        while (_current(g) && foreground) {
           // Discovery must include read sessions, regardless of the list filter.
           final page = await api.sessions(worldId, pn: pn, unreadOnly: false);
           for (final session in page.list) {
@@ -680,7 +853,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     final journalBefore = jsonEncode(
       pending.values.map((w) => w.toJson()).toList(),
     );
-    if (!await _resolveSession(charId) || !_current(generation)) return false;
+    if (!foreground) return false;
+    if (!await _resolveSession(charId) ||
+        !_current(generation) ||
+        !foreground) {
+      return false;
+    }
     final id = sessionFor(charId);
     if (id == null) return true;
     if (next && (messages[id]?.isNotEmpty ?? false)) {
@@ -722,7 +900,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           final oldest = known.reduce((a, b) => a < b ? a : b);
           while (page.hasMore &&
               !page.list.any((m) => m.id < oldest) &&
-              _current(g)) {
+              _current(g) &&
+              foreground) {
             page = await api.messages(worldId, id, pn: page.pn + 1);
             recovered.addAll(page.list);
           }
@@ -732,7 +911,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
             known.isNotEmpty &&
             page.hasMore &&
             !page.list.any((m) => known.contains(m.id)) &&
-            _current(g)) {
+            _current(g) &&
+            foreground) {
           page = await api.messages(worldId, id, pn: page.pn + 1);
           recovered.addAll(page.list);
         }
@@ -746,12 +926,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
             page.hasMore ||
             oldest != null && _cache.history(id).any((m) => m.id < oldest);
       },
+      requestKey: '$pn:$next',
     );
     if (ok &&
         _current(generation) &&
         journalBefore !=
             jsonEncode(pending.values.map((w) => w.toJson()).toList())) {
-      unawaited(_save().catchError((Object _) {}));
+      unawaited(_save());
     }
     if (!_current(generation)) return false;
     if (ok && !next && activeCharId == charId && foreground && phoneVisible) {
@@ -763,6 +944,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   final _reads = <int, Future<void>>{};
   Future<void> markSessionRead(int id, {bool newDelivery = false}) {
     if (id <= 0 || !_hydrated) return Future<void>.value();
+    final boundary = _cache.history(id).lastOrNull?.id ?? 0;
+    final previous = _cache.readThrough[id];
+    if (previous != null &&
+        boundary <= previous &&
+        (_cache.sessionCounts[id] ?? 0) == 0) {
+      return _syncRead(id);
+    }
     _cache.markRead(id);
     sessions = [
       for (final s in sessions)
@@ -774,17 +962,18 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _syncRead(int id, {Future<bool>? saved}) {
+    if (!foreground) return Future.value();
     final existing = _reads[id];
     if (existing != null) return existing;
     final g = _generation;
     return _reads[id] =
         (() async {
           if (saved != null && !await saved) return;
-          while (_current(g)) {
+          while (_current(g) && foreground) {
             final intent = _cache.pendingReads[id];
             if (intent == null) break;
             // Durable before submission: reopening can retry an interrupted receipt.
-            if (!await _persistCache() || !_current(g)) return;
+            if (!await _persistCache() || !_current(g) || !foreground) return;
             final ok = await load(
               'read:$id',
               () => api.readSession(id),
@@ -805,7 +994,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _retryPendingReads() async {
     final g = _generation;
     for (final id in _cache.pendingReads.keys.toList()) {
-      if (!_current(g)) return;
+      if (!_current(g) || !foreground) return;
       await _syncRead(id);
     }
   }
@@ -840,6 +1029,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         pages['posts'] = pn;
         hasMore['posts'] = page.hasMore;
       },
+      requestKey: '$pn:$authorFilter',
     );
     if (ok && _postReadOnLoad && postsVisible && phoneVisible && foreground) {
       _postReadOnLoad = false;
@@ -849,7 +1039,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         (_) {},
       );
       if (read) {
-        await refreshSummary();
+        await refreshPostSummary(afterWrite: true);
         if (notificationsVisible) await refreshNotifications();
       }
     }
@@ -857,20 +1047,58 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     return ok;
   }
 
-  Future<bool> refreshDetail(int id) =>
-      load('detail:$id', () => api.detail(worldId, id), (d) => details[id] = d);
-  Future<bool> refreshComments(int id, {bool next = false}) {
+  Future<bool> _confirmPostRead(
+    String key,
+    Future<bool> Function() read,
+  ) async {
+    final g = _generation;
+    if (_disposed) return false;
+    final ok = foreground ? await read() : false;
+    if (_current(g) && !ok && !foreground) {
+      _deferredPostReads[key] = () => _confirmPostRead(key, read);
+    }
+    return ok;
+  }
+
+  Future<void> _retryDeferredPostReads() async {
+    final reads = _deferredPostReads.values.toList();
+    _deferredPostReads.clear();
+    await Future.wait(reads.map((read) => read()));
+  }
+
+  Future<bool> refreshDetail(int id, {bool afterWrite = false}) {
+    Future<bool> read() => load(
+      'detail:$id',
+      () => api.detail(worldId, id),
+      (d) => details[id] = d,
+      deduplicate: !afterWrite,
+    );
+    return afterWrite ? _confirmPostRead('detail:$id', read) : read();
+  }
+
+  Future<bool> refreshComments(
+    int id, {
+    bool next = false,
+    bool afterWrite = false,
+  }) {
     final key = 'comments:$id',
         pn = next ? (pages['comments:$id'] ?? 1) + 1 : 1;
-    return load(key, () => api.comments(worldId, id, pn: pn), (page) {
-      comments[id] = <int, PhoneComment>{
-        if (next)
-          for (final c in comments[id] ?? <PhoneComment>[]) c.id: c,
-        for (final c in page.list) c.id: c,
-      }.values.toList();
-      pages[key] = pn;
-      hasMore[key] = page.hasMore;
-    });
+    Future<bool> read() => load(
+      key,
+      () => api.comments(worldId, id, pn: pn),
+      (page) {
+        comments[id] = <int, PhoneComment>{
+          if (next)
+            for (final c in comments[id] ?? <PhoneComment>[]) c.id: c,
+          for (final c in page.list) c.id: c,
+        }.values.toList();
+        pages[key] = pn;
+        hasMore[key] = page.hasMore;
+      },
+      requestKey: '$pn',
+      deduplicate: !afterWrite,
+    );
+    return afterWrite ? _confirmPostRead(key, read) : read();
   }
 
   Future<bool> refreshNotifications({int pn = 1}) => load(
@@ -879,10 +1107,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         api.notifications(worldId, pn: pn, unreadOnly: unreadNotificationsOnly),
     (page) {
       notifications = page;
-      for (final n in page.list) {
-        if (n.actorType == 1) unawaited(resolveUser(n.actorId));
-      }
+      _resolveNotificationUsers(page.list);
     },
+    requestKey: '$pn:$unreadNotificationsOnly',
   );
   Future<bool> refreshAlbum({bool next = false}) {
     final pn = next ? (pages['album'] ?? 1) + 1 : 1;
@@ -894,7 +1121,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       }.values.toList();
       pages['album'] = pn;
       hasMore['album'] = page.hasMore;
-    });
+    }, requestKey: '$pn');
   }
 
   Future<bool> write(
@@ -905,7 +1132,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     int? replyTo,
     bool retry = false,
   }) async {
-    await ready;
+    await localReady;
     if (_disposed || uid == null || content.trim().isEmpty) return false;
     final key = '$kind:$target', g = _generation;
     if (busy.contains(key)) return false;
@@ -947,7 +1174,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     replyFailures.remove(target);
     _notify();
     try {
-      await _save();
+      if (!await _save()) {
+        if (_current(g)) w.uncertain = true;
+        return false;
+      }
       if (!_current(g)) return false;
       switch (kind) {
         case 'dm':
@@ -971,11 +1201,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       await _save();
       if (!_current(g)) return false;
       if (kind == 'dm') scheduleRefresh(refreshHome: false);
-      if (kind == 'post') await refreshSummary();
+      if (kind == 'post') await refreshPostSummary(afterWrite: true);
       if (kind == 'comment') {
         await Future.wait([
-          refreshDetail(int.parse(target)),
-          refreshComments(int.parse(target)),
+          refreshDetail(int.parse(target), afterWrite: true),
+          refreshComments(int.parse(target), afterWrite: true),
         ]);
       }
       return true;
@@ -1003,6 +1233,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       if (_current(g)) {
         busy.remove(key);
+        if (kind == 'dm' && !w.rejected) {
+          scheduleRefresh(refreshHome: false);
+        }
         _notify();
       }
     }
@@ -1024,9 +1257,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           'like:$id',
           () => desired ? api.like(worldId, id) : api.unlike(worldId, id),
           (_) {},
+          allowBackground: true,
         );
         if (!_current(g)) return;
-        final queried = await refreshDetail(id);
+        final queried = await refreshDetail(id, afterWrite: true);
         if (!ok && !queried) {
           _likeIntent.remove(id);
           return;
@@ -1058,7 +1292,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         for (final write in pending.values) {
           if (write.kind == 'dm' && !write.rejected) write.uncertain = true;
         }
-        unawaited(_save().catchError((Object _) {}));
+        unawaited(_save());
         _notify();
       }
       _wasConnected = state.connected;
@@ -1144,17 +1378,60 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       _cache.merge(messages[event.sessionId]!);
     }
     unawaited(_persistCache());
-    unawaited(_save().catchError((Object _) {}));
+    unawaited(_save());
     _notify();
     // DM delivery already updates the local inbox; do not immediately replace
     // it with a potentially lagging Home snapshot after every push.
-    if (event.type == 'phone.post.notification.created') scheduleRefresh();
+    if (event.type == 'phone.post.notification.created') {
+      scheduleRefresh(
+        refreshHome: false,
+        recoverChats: false,
+        postSummary: true,
+      );
+    }
   }
 
-  void scheduleRefresh({bool refreshHome = true}) {
+  void _schedulePostRefresh() {
+    _postDirty = true;
+    if (_disposed || !foreground || !_hydrated) return;
+    _postRefreshTimer ??= Timer(const Duration(milliseconds: 180), () {
+      _postRefreshTimer = null;
+      unawaited(_refreshPostInbox());
+    });
+  }
+
+  Future<void> _refreshPostInbox() async {
+    if (_disposed || !foreground || _postRefreshing) return;
+    final g = _generation;
+    _postRefreshing = true;
+    try {
+      while (_postDirty && _current(g) && foreground) {
+        _postDirty = false;
+        await refreshPostSummary();
+      }
+    } finally {
+      if (_current(g)) {
+        _postRefreshing = false;
+        if (_postDirty) _schedulePostRefresh();
+      }
+    }
+  }
+
+  void scheduleRefresh({
+    bool refreshHome = true,
+    bool recoverChats = true,
+    bool postSummary = false,
+  }) {
     if (_disposed) return;
+    if (postSummary) _schedulePostRefresh();
+    if (!refreshHome && !recoverChats) return;
     _dirty = true;
     _refreshHome = _refreshHome || refreshHome;
+    _refreshChats = _refreshChats || recoverChats;
+    if (foreground && errors.containsKey('identity')) {
+      unawaited(retryInitialization());
+    }
+    if (!foreground || !_hydrated) return;
     _refreshTimer ??= Timer(const Duration(milliseconds: 180), () {
       _refreshTimer = null;
       unawaited(_refresh());
@@ -1162,82 +1439,141 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
-    if (_refreshing || _disposed) return;
+    if (_refreshing || _disposed || !foreground || !_hydrated) return;
     _refreshing = true;
     final g = _generation;
+    var recoveredChats = false;
     try {
-      while (_dirty && _current(g)) {
+      while (_dirty && _current(g) && foreground) {
         _dirty = false;
-        final refreshHome = _refreshHome;
-        _refreshHome = false;
-        await _retryPendingReads();
-        if (!_current(g)) return;
-        if (refreshHome) await refreshSummary();
-        if (!_current(g)) return;
-        // Recover known chats without using app-list endpoints for discovery.
-        // Unknown session IDs are resolved on explicit chat entry or delivery.
-        final targets = <String>{
-          if (phoneVisible &&
+        final summary = _refreshHome, chats = _refreshChats;
+        _refreshHome = _refreshChats = false;
+        recoveredChats = recoveredChats || chats;
+        await Future.wait([
+          if (summary) refreshSummary(),
+          if (chats) _retryPendingReads(),
+          if (chats &&
+              phoneVisible &&
               activeCharId != null &&
               sessionFor(activeCharId!) != null)
-            activeCharId!,
-          for (final write in pending.values)
-            if (write.kind == 'dm' &&
-                !write.rejected &&
-                sessionFor(write.target) != null)
-              write.target,
-        };
-        await Future.wait(targets.map(refreshMessages));
-        if (!_current(g)) return;
-        await Future.wait([
-          for (final write in pending.values.toList())
-            if (write.kind == 'dm' && !write.rejected) _recoverRequest(write),
+            refreshMessages(activeCharId!),
+          if (chats) _recoverPendingRequests(),
         ]);
       }
     } finally {
-      _refreshing = false;
-      if (_dirty && !_disposed) scheduleRefresh(refreshHome: _refreshHome);
-      _scheduleReplyPoll();
+      if (_current(g)) {
+        _refreshing = false;
+        if (_dirty) {
+          scheduleRefresh(
+            refreshHome: _refreshHome,
+            recoverChats: _refreshChats,
+          );
+        }
+        if (recoveredChats) _scheduleReplyPoll();
+      }
     }
   }
 
+  Iterable<PhoneWrite> get _recoverableDms =>
+      pending.values.where((w) => w.kind == 'dm' && !w.rejected);
+
+  Future<bool> _discoverPendingSessions() => load('pendingSessions', () async {
+    final g = _generation;
+    final targets = _recoverableDms
+        .where((w) => sessionFor(w.target) == null)
+        .map((w) => w.target)
+        .toSet();
+    var pn = 1;
+    while (targets.isNotEmpty && _current(g) && foreground) {
+      final page = await api.sessions(worldId, pn: pn, unreadOnly: false);
+      if (!_current(g) || !foreground) return false;
+      for (final session in page.list) {
+        if (session.id > 0 && targets.remove(session.person.id)) {
+          _rememberSession(session);
+        }
+      }
+      if (!page.hasMore) break;
+      pn = page.pn + 1;
+    }
+    return true;
+  }, (_) {});
+
+  Future<bool> _recoverPendingRequests() => load('dmRecovery', () async {
+    final g = _generation;
+    if (_disposed || !foreground) return false;
+    if (_recoverableDms.any((w) => sessionFor(w.target) == null)) {
+      await _discoverPendingSessions();
+      if (!_current(g)) return false;
+      final failure = errors['pendingSessions'];
+      for (final write in _recoverableDms) {
+        if (sessionFor(write.target) == null && failure != null) {
+          errors['session:${write.target}'] = failure;
+        } else {
+          errors.remove('session:${write.target}');
+        }
+      }
+      _notify();
+    }
+    for (final write in _recoverableDms.toList()) {
+      if (!_current(g) || !foreground) return false;
+      await _recoverRequest(write);
+    }
+    return true;
+  }, (_) {});
+
   void _scheduleReplyPoll() {
-    if (_disposed || !foreground) return;
-    final writes = pending.values.where(
-      (w) => w.kind == 'dm' && !w.rejected && !isPlayerChat(w.target),
-    );
-    if (writes.isEmpty) {
+    if (_disposed || !foreground || _replyPollingGeneration == _generation) {
+      return;
+    }
+    if (_recoverableDms.isEmpty) {
       _replyPollTimer?.cancel();
       _replyPollTimer = null;
       _replyPollSeconds = 2;
       return;
     }
     if (_replyPollTimer != null) return;
+    final g = _generation;
     _replyPollTimer = Timer(Duration(seconds: _replyPollSeconds), () async {
       _replyPollTimer = null;
-      if (_disposed || !foreground) return;
+      if (!_current(g) || !foreground) return;
+      _replyPollingGeneration = g;
       _replyPollSeconds = (_replyPollSeconds * 2).clamp(2, 30);
-      final generation = _generation;
-      for (final write in writes.toList()) {
-        await _recoverRequest(write);
-        if (!_current(generation)) return;
+      try {
+        await _recoverPendingRequests();
+      } finally {
+        if (_current(g)) {
+          _replyPollingGeneration = null;
+          _scheduleReplyPoll();
+        }
       }
-      _scheduleReplyPoll();
     });
   }
 
   Future<void> _recoverRequest(PhoneWrite write) async {
     final generation = _generation;
     final id = sessionFor(write.target);
-    if (id == null) return;
-    await load(
+    if (id == null ||
+        !foreground ||
+        pending[write.key]?.id != write.id ||
+        write.rejected) {
+      return;
+    }
+    final ok = await load(
       'request:${write.id}',
       () => api.messages(worldId, id, clientRequestId: write.id),
       (page) {
         _mergeMessages(id, page.list);
       },
     );
-    if (_current(generation)) await _save();
+    if (!_current(generation)) return;
+    await _save();
+    if (ok &&
+        _current(generation) &&
+        foreground &&
+        phoneVisible &&
+        activeCharId == write.target) {
+      await markSessionRead(id);
+    }
   }
 
   @override
@@ -1245,6 +1581,15 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       scheduleRefresh();
+      if (_postDirty) _schedulePostRefresh();
+      unawaited(_retryDeferredPostReads());
+    } else {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      _postRefreshTimer?.cancel();
+      _postRefreshTimer = null;
+      _replyPollTimer?.cancel();
+      _replyPollTimer = null;
     }
   }
 
@@ -1252,9 +1597,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     _disposed = true;
     _generation++;
+    if (!_localReady.isCompleted) _localReady.complete();
     accountRevision.removeListener(_accountChanged);
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
+    _postRefreshTimer?.cancel();
     _replyPollTimer?.cancel();
     _events?.cancel();
     _states?.cancel();
