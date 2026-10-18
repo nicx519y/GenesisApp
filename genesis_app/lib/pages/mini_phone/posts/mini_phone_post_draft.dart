@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../../network/api_exception.dart';
 import '../../../utils/image_upload_processing.dart';
@@ -8,6 +8,7 @@ import '../state/mini_phone_store.dart';
 
 /// Keeps an in-flight Post independent of the phone's visible route.
 class MiniPhonePostDraft extends ChangeNotifier {
+  static const maxCharacters = 500;
   MiniPhonePostDraft(this.store) : _generation = store.accountGeneration {
     store.addListener(_accountChanged);
     store.ready.then((_) {
@@ -32,7 +33,13 @@ class MiniPhonePostDraft extends ChangeNotifier {
   bool submitting = false;
 
   bool get locked => submitting || store.unresolved('post:new');
-  bool get canSubmit => !submitting && !preparing && text.trim().isNotEmpty;
+  bool get canSubmit =>
+      !submitting &&
+      !preparing &&
+      text.trim().isNotEmpty &&
+      // An already submitted request must retry its original, unmodified body.
+      (text.characters.length <= maxCharacters ||
+          store.pending['post:new']?.rejected == false);
 
   bool _current(int generation) =>
       !_disposed && generation == store.accountGeneration;

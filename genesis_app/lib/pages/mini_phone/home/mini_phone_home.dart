@@ -620,7 +620,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
           stops: [0, .3, .58, 1],
         ).createShader(rect),
         child: Text(
-          phone == null ? '01:04' : phone!.clockTime,
+          widget.session.clockTime,
           style: style.copyWith(color: Colors.white),
         ),
       ),

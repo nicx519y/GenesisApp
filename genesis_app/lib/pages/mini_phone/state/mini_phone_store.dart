@@ -116,6 +116,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   PhoneHome home = const PhoneHome();
   PhoneUnread unread = const PhoneUnread(0, null);
   String worldName = '', currentTime = '';
+  final worldCoverImageKeys = <String>{};
   String get clockTime =>
       RegExp(
         r'\b(?:[01]?\d|2[0-3]):[0-5]\d\b',
@@ -133,8 +134,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   List<String> get postAuthorIds => postsController.postAuthorIds;
   set postAuthorIds(List<String> value) =>
       postsController.postAuthorIds = value;
-  Iterable<PhonePerson> get authors =>
-      postAuthorIds.map((id) => people[id] ?? PhonePerson(id, id, ''));
+  Iterable<PhonePerson> get authors => <String, PhonePerson>{
+    ...people,
+    for (final id in postAuthorIds) id: people[id] ?? PhonePerson(id, id, ''),
+  }.values;
   Iterable<PhonePerson> get contacts =>
       people.values.where((p) => !playerCharIds.contains(p.id));
   List<PhonePost> get posts => postsController.posts;
@@ -324,6 +327,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     sessions = [];
     posts = [];
     album = [];
+    worldCoverImageKeys.clear();
+    currentTime = '';
     notifications = null;
     people.clear();
     users.clear();
@@ -401,6 +406,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> refreshPeople() => load('people', loadWorld, (w) {
     worldName = w.name;
+    worldCoverImageKeys
+      ..clear()
+      ..addAll(GenesisImageResourceRegistry.resolve(w.cover).keys);
     currentTime = w.currentTime;
     for (final c in w.characters) {
       String field(List<String> keys) => keys

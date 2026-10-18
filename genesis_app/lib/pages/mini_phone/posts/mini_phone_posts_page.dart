@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
 import '../shared/mini_phone_ui.dart';
@@ -9,6 +10,8 @@ import '../shared/mini_phone_list_requests.dart';
 import '../../../app/bootstrap/app_services_scope.dart';
 import '../../../components/common/genesis_image_viewer_overlay.dart';
 import '../../../ui/components/genesis_list_image.dart';
+import '../../../ui/components/genesis_primary_button.dart';
+import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/components/genesis_refresh_indicator.dart';
 import '../../../platform/native_image_picker.dart';
 import '../../../utils/image_upload_processing.dart';
@@ -156,11 +159,11 @@ class _MiniPhonePostsPageState extends State<MiniPhonePostsPage> {
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final authors = phone.authors.toList();
-                final width = ((bounds.maxWidth - 12) / (authors.length + 2))
-                    .clamp(64.0, double.infinity);
+                const width = 72.0;
                 return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
@@ -689,218 +692,170 @@ class _MiniPhonePostsPageState extends State<MiniPhonePostsPage> {
     }
   }
 
-  Widget _liveCreate() => SafeArea(
-    child: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: miniPageInset,
-            vertical: 8,
-          ),
-          child: Row(
+  Widget _liveCreate() => _panel(
+    'Create post',
+    SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.fromLTRB(miniPageInset, 8, miniPageInset, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
+              miniPhonePersonAvatar(_liveMe, 40),
+              const SizedBox(width: 12),
               Expanded(
-                child: TextButton(
-                  onPressed: widget.onBack,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    foregroundColor: miniWhite,
-                  ),
-                  child: Row(
-                    children: [
-                      const MiniIcon('back', size: 20),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          'Create post',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: miniPageTitle,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              miniPhoneButton(
-                'Post',
-                postDraft.canSubmit ? _publishLivePost : null,
-                isLoading: postDraft.submitting,
-                showLoadingIndicator: true,
-                primary: true,
-              ),
-              const SizedBox(width: 8),
-              const SizedBox.square(dimension: 28),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(miniPageInset),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    miniPhonePersonAvatar(_liveMe, 40),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _liveMe.name,
-                            style: miniStyle(14, FontWeight.w600),
-                          ),
-                          Text(
-                            phone.worldName,
-                            style: miniStyle(
-                              12,
-                              FontWeight.w400,
-                              miniSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: postInput,
-                  readOnly: postDraft.locked,
-                  minLines: 6,
-                  maxLines: 10,
-                  onChanged: (value) {
-                    postDraft.setText(value);
-                    _update(() {});
-                  },
-                  style: miniStyle(14),
-                  decoration: InputDecoration(
-                    hintText: 'What’s on your mind?',
-                    hintStyle: miniStyle(14, FontWeight.w400, miniPlaceholder),
-                    border: InputBorder.none,
-                    counterText: '',
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Share a moment from your world.',
-                        style: miniStyle(12, FontWeight.w400, miniSecondary),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 26),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: 'Photo ',
-                        style: miniStyle(14, FontWeight.w600),
-                      ),
-                      TextSpan(
-                        text: '(Optional)',
-                        style: miniStyle(12, FontWeight.w400, miniSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 132,
-                      height: 176,
-                      child: CustomPaint(
-                        painter: MiniPhoneUploadBorder(),
-                        child: InkWell(
-                          onTap: postDraft.locked || postDraft.preparing
-                              ? null
-                              : _chooseLivePhoto,
-                          borderRadius: BorderRadius.circular(13),
-                          child: postDraft.photo != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(13),
-                                  child: Image.memory(
-                                    postDraft.photo!.bytes,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(Icons.image_outlined),
-                                    ),
-                                  ),
-                                )
-                              : postDraft.uploadedUrl != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(13),
-                                  child: GenesisListImage(
-                                    imageUrl: postDraft.uploadedUrl!,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const MiniIcon(
-                                      'upload',
-                                      size: 22,
-                                      color: miniPink,
-                                    ),
-                                    const SizedBox(height: 9),
-                                    Text(
-                                      'Choose photo',
-                                      style: miniStyle(
-                                        12,
-                                        FontWeight.w600,
-                                        miniPink,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Add a photo to your post.',
-                            style: miniStyle(
-                              12,
-                              FontWeight.w400,
-                              miniSecondary,
-                            ),
-                          ),
-                          if (postDraft.photo != null ||
-                              postDraft.uploadedUrl != null) ...[
-                            miniPhoneButton(
-                              'Replace photo',
-                              postDraft.locked || postDraft.preparing
-                                  ? null
-                                  : _chooseLivePhoto,
-                            ),
-                            miniPhoneButton(
-                              'Remove photo',
-                              postDraft.locked || postDraft.preparing
-                                  ? null
-                                  : postDraft.removePhoto,
-                            ),
-                          ],
-                        ],
-                      ),
+                    Text(_liveMe.name, style: miniStyle(14, FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(
+                      phone.worldName,
+                      style: miniStyle(12, FontWeight.w400, miniSecondary),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: postInput,
+            readOnly: postDraft.locked,
+            minLines: 5,
+            maxLines: 8,
+            maxLength: MiniPhonePostDraft.maxCharacters,
+            maxLengthEnforcement:
+                MaxLengthEnforcement.truncateAfterCompositionEnds,
+            onChanged: (value) {
+              postDraft.setText(value);
+              _update(() {});
+            },
+            style: miniStyle(14),
+            decoration: InputDecoration(
+              hintText: 'What’s on your mind?',
+              hintStyle: miniStyle(14, FontWeight.w400, miniPlaceholder),
+              filled: true,
+              fillColor: GenesisColors.darkFaintFill,
+              contentPadding: const EdgeInsets.all(14),
+              border: const OutlineInputBorder(
+                borderRadius: miniInputRadius,
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: const OutlineInputBorder(
+                borderRadius: miniInputRadius,
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: miniInputRadius,
+                borderSide: BorderSide.none,
+              ),
+              counterStyle: miniStyle(12, FontWeight.w400, miniTertiary),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: 'Photo ', style: miniStyle(14, FontWeight.w600)),
+                TextSpan(
+                  text: '(Optional)',
+                  style: miniStyle(12, FontWeight.w400, miniSecondary),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 108,
+                height: 144,
+                child: CustomPaint(
+                  painter: MiniPhoneUploadBorder(),
+                  child: InkWell(
+                    onTap: postDraft.locked || postDraft.preparing
+                        ? null
+                        : _chooseLivePhoto,
+                    borderRadius: BorderRadius.circular(13),
+                    child: postDraft.photo != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.memory(
+                              postDraft.photo!.bytes,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Center(
+                                child: Icon(Icons.image_outlined),
+                              ),
+                            ),
+                          )
+                        : postDraft.uploadedUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: GenesisListImage(
+                              imageUrl: postDraft.uploadedUrl!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const MiniIcon(
+                                'upload',
+                                size: 22,
+                                color: miniPink,
+                              ),
+                              const SizedBox(height: 9),
+                              Text(
+                                'Choose photo',
+                                style: miniStyle(12, FontWeight.w600, miniPink),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (postDraft.photo != null ||
+                        postDraft.uploadedUrl != null) ...[
+                      miniPhoneButton(
+                        'Replace photo',
+                        postDraft.locked || postDraft.preparing
+                            ? null
+                            : _chooseLivePhoto,
+                      ),
+                      miniPhoneButton(
+                        'Remove photo',
+                        postDraft.locked || postDraft.preparing
+                            ? null
+                            : postDraft.removePhoto,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+    footer: Padding(
+      padding: const EdgeInsets.fromLTRB(miniPageInset, 12, miniPageInset, 12),
+      child: GenesisPrimaryButton(
+        label: 'Post',
+        onPressed: postDraft.canSubmit ? _publishLivePost : null,
+        isLoading: postDraft.submitting,
+        backgroundColor: miniRed,
+        foregroundColor: miniWhite,
+        disabledBackgroundColor: GenesisColors.darkButtonDisabledBackground,
+        disabledForegroundColor: GenesisColors.darkButtonDisabledForeground,
+      ),
     ),
   );
 }

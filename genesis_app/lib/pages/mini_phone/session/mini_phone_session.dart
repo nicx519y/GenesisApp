@@ -58,6 +58,8 @@ class MiniPhoneSession {
   final String worldId;
   final MiniPhoneMusicService music;
   final MiniPhoneStore? data;
+  String get clockTime => data?.clockTime ?? '';
+  String get entryClockTime => clockTime.isEmpty ? '18:05' : clockTime;
   late final MiniPhonePostDraft? postDraft = data == null
       ? null
       : MiniPhonePostDraft(data!);

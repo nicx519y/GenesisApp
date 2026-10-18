@@ -133,8 +133,9 @@ Validation for this scheduling change:
 - Entering Posts and successfully loading it marks all current world Post
   notifications read once. Later events while remaining in Posts do not clear
   newly arrived notifications.
-- Posts author shortcuts come only from the unpaginated `/post/authors` list,
-  joined to existing world character profiles (including player characters).
+- Posts author shortcuts include all loaded world characters (including player
+  characters), supplemented by IDs from the unpaginated `/post/authors` list.
+  They remain visible for an empty feed and use fixed-width, left-aligned slots.
   Unknown profiles display their character ID until profile data is available.
   All omits `char_id`; selecting an author sends their character ID, resets to
   page 1 and discards old in-flight pages. Feed refreshes also refresh authors
@@ -163,7 +164,22 @@ Validation for this scheduling change:
   bounded to five concurrent loads, deduplicated within the moving window, and
   stops queuing while Posts is covered/inactive. Details keep their own image
   sizing. Existing pull refresh, scroll pagination and author shortcuts remain.
-- Post publishing requires nonblank UTF-8 text (up to 65535 bytes) and accepts an
+- Photos keep asset-ID-based raw caching, but grid and viewer share an exact
+  image-URL-deduplicated projection (thumbnail URL only when original is empty).
+  Auto-load further pages when the viewport is underfilled and hasMore remains
+  true; preserve request/error guards. Do not synthesize missing album records.
+  Exclude empty resources and recognized map-default artwork from both grid
+  and viewer, using the existing default-map resource resolver. Album rows can
+  legitimately be absent for historical worlds: HTTP success with zero rows
+  is not a paging failure and requires server-side registration/backfill.
+  Also exclude the current World cover using the World detail cover resource's
+  known URL variants (original/thumbnail). World-owned cover keys are cleared on
+  account reset; both grid and viewer use this same filtered projection.
+- Post publishing requires nonblank text. The editor limits new drafts to 500
+  grapheme clusters and displays a counter; the backend's 65535 UTF-8 byte guard
+  also remains. Previously submitted, unresolved requests retry their original
+  content without truncation. The Post button is fixed below the scrollable
+  author/editor/photo form, using the shared full-width primary button. It accepts an
   optional locally selected image. Android/iOS enable the shared native image
   preparation: preserve aspect ratio, never enlarge, longest edge <=4096 and
   <=16 million pixels (older Android retains its lower memory safety cap), PNG
@@ -204,6 +220,10 @@ Validation for this scheduling change:
   as display, so swiping reuses the loaded frame. Failures remain silent.
   Home's world time comes
   from the world snapshot and existing world socket state, not device time.
+  Entry icon, Home, and wallpaper preview share the parsed world time. Only
+  the entry icon falls back to `18:05` when time is missing/unparseable (also
+  in worldless previews); Home and wallpaper preview remain blank. Missing
+  dates remain blank. Account reset clears the previous world's time.
 
 World-backed routes use live data even on errors. The developer's explicit
 worldless style preview and existing preview tests retain demo fixtures; this
@@ -424,7 +444,7 @@ AI replies.
 - 三类事件均按 `event_id` 去重；Posts 与 DM 请求范围独立。初始化、重连及前台恢复执行聚合校准和必要 DM 恢复；Home 入口只校准聚合。推送不刷新应用列表。
 - DM 未读采用 Home 基准加本地唯一消息／阅读变化，保留未返回明细的数量差额；不按事件次数累加。Home 请求期间的消息与阅读不可被响应覆盖；Posts 聚合继续由 HTTP 校准。
 - 手机关闭后继续处理当前世界事件；退出世界释放订阅。首次初始化、Socket 重连和返回前台恢复查询。
-- Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。世界时间为空或无法解析时，对应的日期／时间文字留空，不显示占位符。
+- Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。入口图标、Home 和设置预览共用会话世界时间；仅入口 icon 在时间为空或无法解析时显示 `18:05`，Home 和设置预览留空，日期缺失仍留空。
 
 ### Required client behavior
 
@@ -435,10 +455,10 @@ AI replies.
 - HTTP 200 下非零 `err_no` 仍为业务错误；展示原始 `ApiException.message`／`err_msg`，失败保留草稿。区分 Feed 的 `text` 和详情／提交的 `content`。
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
-- Posts 作者列表来自 `/post/authors`，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
+- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
-- 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交，正文不超过 65535 UTF-8 字节。
-- 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、等分作者栏（角色较多时可横滑），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。发帖恢复右上角 Post、动态作者及世界信息、虚线选图区；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，按 UTF-8 字节限制，不恢复演示的 500 字或 3 MiB 限制。
+- 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
+- 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
 - 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情摘要缺少 comment_id 时只展示，不伪造回复目标；真实评论列表从 `/comments` 获取。昵称、时间等缺失字段不使用演示占位值填充。
 - 会话、Feed、评论、相册通过滚动加载下一页，不增加 Load more 按钮。MiniPhone 页面和列表读取均不显示独立 loading 图标，包含首次读取与私聊历史分页；保留已有内容、静态骨架、提交／上传进度和已有下拉刷新指示器，Messages 列表和私聊会话页不提供下拉刷新。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
 - 保持现有 MiniPhone 样式、导航、启动动画、音乐和壁纸行为；共享聊天修改须回归 LocationChat。动态请求错误使用公共 Toast；演示数据仅用于明确的无世界预览。

@@ -95,7 +95,7 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
                             style: miniStyle(14),
                           ),
                           Text(
-                            phone?.clockTime ?? '01:04',
+                            widget.session.clockTime,
                             textScaler: TextScaler.noScaling,
                             style: miniStyle(38, FontWeight.w600),
                           ),

@@ -593,9 +593,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     screen: destination,
     active: screen == destination,
     postId: livePostId,
-    header: _navigation(
-      destination == MiniPhoneScreen.comments ? 'Comments' : 'Posts',
-    ),
+    header: _navigation(switch (destination) {
+      MiniPhoneScreen.comments => 'Comments',
+      MiniPhoneScreen.create => 'Create post',
+      _ => 'Posts',
+    }),
     onBack: _back,
     onCreate: () => _go(MiniPhoneScreen.create),
     onPublished: () => _go(MiniPhoneScreen.posts),

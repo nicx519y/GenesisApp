@@ -372,7 +372,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
                   Container(width: 11, height: 2, color: Colors.white),
                   const SizedBox(height: 6),
                   Text(
-                    '01:04',
+                    _session.entryClockTime,
                     style: miniStyle(
                       7,
                       FontWeight.w900,

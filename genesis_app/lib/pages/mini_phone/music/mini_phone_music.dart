@@ -155,66 +155,53 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
                     Row(
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MiniMusicMarquee(
-                                identity: (track.file, 'title'),
-                                text: track.title,
-                                style: miniStyle(
-                                  24,
-                                  FontWeight.w700,
-                                ).copyWith(height: 1.2, letterSpacing: -.7),
-                              ),
-                              const SizedBox(height: 6),
-                              MiniMusicMarquee(
-                                identity: (track.file, 'artist'),
-                                text: track.artist,
-                                style: miniStyle(
-                                  12,
-                                  FontWeight.w400,
-                                  miniSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              MiniMusicMarquee(
-                                identity: (track.file, 'worldo'),
-                                text:
-                                    'From ${originDisplayName(track.sourceWorldoName)}',
-                                style: miniStyle(
-                                  12,
-                                  FontWeight.w400,
-                                  miniSecondary,
-                                ),
-                              ),
-                            ],
+                          child: MiniMusicMarquee(
+                            identity: (track.file, 'title'),
+                            text: track.title,
+                            style: miniStyle(
+                              20,
+                              FontWeight.w700,
+                            ).copyWith(height: 1.3),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 8),
                         Semantics(
-                          button: true,
                           toggled: liked,
-                          label: '${liked ? 'Unlike' : 'Like'} ${track.title}',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => unawaited(_toggleLike(track.file)),
-                            child: SizedBox(
+                          child: IconButton(
+                            tooltip:
+                                '${liked ? 'Unlike' : 'Like'} ${track.title}',
+                            onPressed: () => unawaited(_toggleLike(track.file)),
+                            constraints: const BoxConstraints.tightFor(
                               width: 44,
-                              height: 54,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  MiniIcon(
-                                    'heart',
-                                    size: 23,
-                                    color: liked ? miniPink : miniWhite,
-                                  ),
-                                ],
-                              ),
+                              height: 44,
+                            ),
+                            padding: EdgeInsets.zero,
+                            icon: MiniIcon(
+                              'heart',
+                              size: 23,
+                              color: liked ? miniPink : miniWhite,
                             ),
                           ),
                         ),
                       ],
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: MiniMusicMarquee(
+                        identity: (track.file, 'artist'),
+                        text: track.artist,
+                        style: miniStyle(12, FontWeight.w400, miniSecondary),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: MiniMusicMarquee(
+                        identity: (track.file, 'worldo'),
+                        text:
+                            'From ${originDisplayName(track.sourceWorldoName)}',
+                        style: miniStyle(12, FontWeight.w400, miniSecondary),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     MiniMusicSeekBar(
@@ -304,7 +291,7 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
       outlined: false,
       opacity: .36,
       radius: 21,
-      padding: const EdgeInsets.fromLTRB(13, 10, 13, 4),
+      padding: const EdgeInsets.fromLTRB(13, 8, 13, 2),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -348,7 +335,6 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 2),
           MiniMusicSeekBar(
             identity: track.file,
             compact: true,
