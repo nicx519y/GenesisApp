@@ -3252,5 +3252,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get chatHistoryExpand => 'Développer';
+
+  @override
+  String get chatHistoryCollapse => 'Réduire';
+
+  @override
   String get chatCharacterMovement => 'Déplacement des personnages';
 }

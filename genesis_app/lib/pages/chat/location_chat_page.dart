@@ -105,6 +105,9 @@ part 'location_chat_layout.dart';
 part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_message_viewport.dart';
+part 'location_chat_world_history.dart';
+part 'location_chat_history_sections.dart';
+part 'location_chat_tick_projection.dart';
 part 'location_chat_shared.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
@@ -611,6 +614,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   final Object _rosterTapRegionGroup = Object();
   final BackdropKey _surfaceBackdropKey = BackdropKey();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
+  late final _worldHistory = _LocationChatWorldHistory(this);
+  late final _historySections = _LocationChatHistorySections(this);
+  bool _entryVisitPrepared = false;
+  bool _freshLocationEntry = false;
+  WorldChatroomMessage? _entryBeforeVisit;
+  WorldChatroomMessage? _entryForVisit;
+  String? _entrySectionMessageId;
+  ChatMessageVm? _visitEntryMessage;
+  (int, int)? _entryHistoryBoundary;
+  final _entryExistingClientIds = <String>{};
+  final _entryNewClientIds = <String>{};
   final _messages = <ChatMessageVm>[];
   final _localMessageOrder = LocationChatLocalMessageOrder();
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
@@ -1040,6 +1054,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _worldHistory.reset();
     _initialComposerAvatarImage?.dispose();
     _clearAckLoading();
     _unbindFeatureQuotas();
@@ -1099,6 +1114,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
     if (changedChatTarget) {
+      _entryVisitPrepared = false;
+      _freshLocationEntry = false;
+      _entrySectionMessageId = null;
+      _worldHistory.reset();
       _localMessageOrder.clear();
       _detachReplyActions();
     }
@@ -1109,7 +1128,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.locationId == widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
+    if (becameInactive) {
+      _entryVisitPrepared = false;
+      _worldHistory.pause();
+    }
     if (becameActive) {
+      _worldHistory.readingLocationId = '';
       _lastActiveOccupants = null;
       _exitRetainedOccupants = null;
       _optimisticSelfOccupancy = widget.isLeafLocation;
@@ -1240,12 +1264,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       return true;
     }());
     final occupants =
+        (_worldHistory.readingLocation == null
+            ? null
+            : _chatroomState.entitiesByLocation[_worldHistory
+                      .readingLocationId] ??
+                  <WorldChatroomEntity>[]) ??
         widget.previewOccupants ??
         (!widget.active && _exitRetainedOccupants != null
             ? _exitRetainedOccupants!
             : _roomOccupantsForCurrentLocation(_chatroomState));
     final selfOccupantId = firstNonEmpty([_myUserId, _mySenderId]);
-    final title = firstNonEmpty([widget.locationName, widget.locationId]);
+    final readingLocation = _worldHistory.readingLocation;
+    final title =
+        readingLocation?.name ??
+        firstNonEmpty([widget.locationName, widget.locationId]);
     final joined = _chatroomState.joinedLocationId == widget.locationId;
     final connecting =
         _chatroomState.reconnecting ||
@@ -1377,7 +1409,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
     final header = ChatHeader(
       title: title,
-      titleOverline: widget.parentLocationName,
+      titleOverline: readingLocation?.subtitle ?? widget.parentLocationName,
       titleSuffix: occupantPill,
       titleSuffixSemanticsLabel: occupantCountLabel,
       subtitle: '',
@@ -1438,11 +1470,27 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             key: _unobscuredPanelKey,
             children: [
               Positioned.fill(
-                child: _LocationChatBackground(
-                  imageUrl: widget.backgroundImageUrl,
-                  previewImageUrl: widget.backgroundPreviewImageUrl,
-                  color: style.conversationBackgroundColor,
-                  enabled: widget.renderBackgroundImage,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeInOut,
+                  switchOutCurve: Curves.easeInOut,
+                  layoutBuilder: (current, previous) => Stack(
+                    fit: StackFit.expand,
+                    children: [...previous, if (current != null) current],
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey(readingLocation?.id ?? widget.locationId),
+                    child: _LocationChatBackground(
+                      imageUrl:
+                          readingLocation?.imageUrl ??
+                          widget.backgroundImageUrl,
+                      previewImageUrl: readingLocation == null
+                          ? widget.backgroundPreviewImageUrl
+                          : null,
+                      color: style.conversationBackgroundColor,
+                      enabled: widget.renderBackgroundImage,
+                    ),
+                  ),
                 ),
               ),
               Positioned.fill(
@@ -1480,7 +1528,18 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                           }
                         : null,
                     messageViewport: messageViewport,
-                    header: header,
+                    header: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeInOut,
+                      switchOutCurve: Curves.easeInOut,
+                      child: KeyedSubtree(
+                        key: ValueKey(
+                          _worldHistory.readingLocation?.id ??
+                              widget.locationId,
+                        ),
+                        child: header,
+                      ),
+                    ),
                     composerTopOverlay: widget.showComposer
                         ? widget.composerTopOverlay
                         : null,

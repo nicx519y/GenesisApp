@@ -3810,6 +3810,14 @@
       }
     }
   },
+  "chatHistoryExpand": "Expand",
+  "@chatHistoryExpand": {
+    "description": "Location chat: action on a collapsed contiguous history section from another location; reveals that section's messages for reading."
+  },
+  "chatHistoryCollapse": "Collapse",
+  "@chatHistoryCollapse": {
+    "description": "Location chat: fixed lower-right button that collapses an expanded history section from another location back to its section header; does not leave or change the actual joined location."
+  },
   "chatCharacterMovement": "Character movement",
   "@chatCharacterMovement": {
     "description": "Tick message: heading above character destination jump cards."

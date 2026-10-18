@@ -5353,6 +5353,18 @@ abstract class AppLocalizations {
   /// **'Story Opening\n{locationName}'**
   String originOpeningJump({required String locationName});
 
+  /// Location chat: action on a collapsed contiguous history section from another location; reveals that section's messages for reading.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand'**
+  String get chatHistoryExpand;
+
+  /// Location chat: fixed lower-right button that collapses an expanded history section from another location back to its section header; does not leave or change the actual joined location.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse'**
+  String get chatHistoryCollapse;
+
   /// Tick message: heading above character destination jump cards.
   ///
   /// In en, this message translates to:

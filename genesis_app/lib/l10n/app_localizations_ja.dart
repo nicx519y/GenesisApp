@@ -3102,5 +3102,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get chatHistoryExpand => '展開';
+
+  @override
+  String get chatHistoryCollapse => '折りたたむ';
+
+  @override
   String get chatCharacterMovement => 'キャラクターの移動';
 }

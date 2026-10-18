@@ -66,15 +66,7 @@ class ChatHeader extends StatelessWidget {
     );
     final overline = titleOverline?.trim() ?? '';
     final overlineStyle =
-        titleOverlineStyle ??
-        style.headerTitleTextStyle.copyWith(
-          color: (style.headerTitleTextStyle.color ?? Colors.white).withValues(
-            alpha: 0.45,
-          ),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          height: 1,
-        );
+        titleOverlineStyle ?? _chatLocationOverlineStyle(style);
     final verticallyCenteredTitleIcon = alignContentLeft && showTitleIcon;
     final titleIconColor = overlineStyle.color ?? style.headerTitleIconColor;
     return ClipRect(
@@ -313,6 +305,16 @@ class ChatHeader extends StatelessWidget {
     );
   }
 }
+
+TextStyle _chatLocationOverlineStyle(ChatUiStyleConfig style) =>
+    style.headerTitleTextStyle.copyWith(
+      color: (style.headerTitleTextStyle.color ?? Colors.white).withValues(
+        alpha: 0.45,
+      ),
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      height: 1,
+    );
 
 class _ChatHeaderTitleText extends StatelessWidget {
   const _ChatHeaderTitleText({

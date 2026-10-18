@@ -3108,5 +3108,11 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get chatHistoryExpand => '펼치기';
+
+  @override
+  String get chatHistoryCollapse => '접기';
+
+  @override
   String get chatCharacterMovement => '캐릭터 이동';
 }

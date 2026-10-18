@@ -3247,5 +3247,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get chatHistoryExpand => 'Expandir';
+
+  @override
+  String get chatHistoryCollapse => 'Contraer';
+
+  @override
   String get chatCharacterMovement => 'Movimiento de personajes';
 }

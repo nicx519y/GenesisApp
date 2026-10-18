@@ -514,6 +514,14 @@ class WorldChatroomService {
 
   WorldChatroomState get state => _state;
 
+  // Only WebSocket entry events populate this marker; history hydration must
+  // never be mistaken for a new visit by the chat viewport.
+  WorldChatroomMessage? _latestOwnLocationEntry;
+  WorldChatroomMessage? get latestOwnLocationEntry => _latestOwnLocationEntry;
+  int _entryKnownRound = 0;
+  int? _firstRealtimeRoundSinceEntry;
+  int? get firstRealtimeRoundSinceEntry => _firstRealtimeRoundSinceEntry;
+
   ChatroomConnectionIdentity? get identity => _identity;
 
   bool get isDisposed => _disposed;

@@ -4296,5 +4296,13 @@
   "worldoLaunchDone": "Concluído",
   "@worldoLaunchDone": {
     "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
+  "chatHistoryExpand": "Expandir",
+  "@chatHistoryExpand": {
+    "description": "Location chat: action on a collapsed contiguous history section from another location; reveals that section's messages for reading."
+  },
+  "chatHistoryCollapse": "Recolher",
+  "@chatHistoryCollapse": {
+    "description": "Location chat: fixed lower-right button that collapses an expanded history section from another location back to its section header; does not leave or change the actual joined location."
   }
 }

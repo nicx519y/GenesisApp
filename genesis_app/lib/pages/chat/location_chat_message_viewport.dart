@@ -1,6 +1,286 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatMessageViewport on _LocationChatPanelState {
+  List<ChatMessageVm> _withVisitEntry(List<ChatMessageVm> source) {
+    if (!_freshLocationEntry || _entrySectionMessageId == null) return source;
+    final service = _service;
+    final received = service?.latestOwnLocationEntry;
+    if (_entryForVisit == null &&
+        received != null &&
+        !identical(received, _entryBeforeVisit) &&
+        received.locationId == widget.locationId) {
+      _entryForVisit = received;
+    }
+    final canonical = _entryForVisit;
+    // Joining alone does not imply a new entry message. Keep this visit's
+    // path-only boundary unless an actual entry message is received.
+    final text = canonical?.content ?? '';
+    final old = _visitEntryMessage;
+    final canonicalRound = canonical?.conversationRoundId ?? '';
+    if (old == null || old.text != text || old.roundId != canonicalRound) {
+      _visitEntryMessage = ChatMessageVm(
+        localId: _entrySectionMessageId!,
+        roundId: canonicalRound,
+        createdAt: old?.createdAt,
+        senderId: '',
+        senderName: '',
+        text: text,
+        isMe: false,
+        status: 'system',
+        senderType: chatroomUserEnterLocationSenderType,
+        timelinePayload: ChatUserEnterLocationPayloadVm(
+          characterId: '',
+          toLocationId: widget.locationId,
+          text: text,
+        ),
+      );
+    }
+    final rows = source
+        .where(
+          (m) =>
+              !(canonical != null &&
+                  m.isUserEnterLocation &&
+                  _worldHistory.locationFor(m) == widget.locationId &&
+                  ((canonical.globalMessageId > 0 &&
+                          m.globalMessageId == canonical.globalMessageId) ||
+                      (canonical.locationMessageId > 0 &&
+                          m.locationMessageId == canonical.locationMessageId))),
+        )
+        .toList();
+    for (final m in rows) {
+      if (m.clientMsgId.isNotEmpty &&
+          !_entryExistingClientIds.contains(m.clientMsgId) &&
+          LocationChatLocalMessageOrder.isUnconfirmed(m)) {
+        _entryNewClientIds.add(m.clientMsgId);
+      }
+    }
+    final round = service?.firstRealtimeRoundSinceEntry;
+    // Freeze a complete history frontier once all locations' newest pages are
+    // available. Later notification-driven HTTP rows land after this frontier;
+    // pagination of older rows cannot push the marker to the end again.
+    if (_entryHistoryBoundary == null && _worldHistory.ready) {
+      var boundary = (0, 0);
+      for (final m in rows) {
+        final r = int.tryParse(m.roundId) ?? 0;
+        if (round != null && r >= round) continue;
+        if (_entryNewClientIds.contains(m.clientMsgId)) continue;
+        if (r > boundary.$1 ||
+            (r == boundary.$1 && m.globalMessageId > boundary.$2)) {
+          boundary = (r, m.globalMessageId);
+        }
+      }
+      _entryHistoryBoundary = boundary;
+    }
+    final boundary = _entryHistoryBoundary;
+    final index = rows.indexWhere((m) {
+      if (m.isAiContentDisclaimer) return false;
+      final r = int.tryParse(m.roundId) ?? 0;
+      return _entryNewClientIds.contains(m.clientMsgId) ||
+          (round != null && r >= round) ||
+          (boundary != null &&
+              (r > boundary.$1 ||
+                  (r == boundary.$1 && m.globalMessageId > boundary.$2)));
+    });
+    rows.insert(index < 0 ? rows.length : index, _visitEntryMessage!);
+    _worldHistory._locations[_entrySectionMessageId!] = widget.locationId;
+    return rows;
+  }
+
+  List<String>? _locationBoundaryParts(
+    ChatMessageVm message,
+    ChatMessageVm? previous,
+  ) {
+    if (message.localId == _entrySectionMessageId) {
+      return _locationPathParts(widget.locationId);
+    }
+    if (!_worldHistory.ready ||
+        previous == null ||
+        message.isAiContentDisclaimer ||
+        previous.isAiContentDisclaimer ||
+        _worldHistory.locationFor(message) ==
+            _worldHistory.locationFor(previous)) {
+      return null;
+    }
+    return _locationPathParts(_worldHistory.locationFor(message));
+  }
+
+  List<String> _locationPathParts(String id) {
+    final location = _mentionCatalogForState(
+      _chatroomState,
+    ).locations.where((l) => l.id == id).firstOrNull;
+    final tree = _chatroomState.world?.processedLocationTree;
+    var node = tree?.nodeById(id);
+    final names = <String>[];
+    final visited = <String>{};
+    while (node != null && visited.add(node.id)) {
+      final name = normalizeGenesisUgcTextForDisplay(
+        _firstMapString(node.value, const ['location_name', 'name']),
+      ).trim();
+      if (name.isNotEmpty) names.insert(0, name);
+      node = tree?.nodeById(node.parentId);
+    }
+    return names.isNotEmpty
+        ? names
+        : [
+            if (location?.subtitle.isNotEmpty ?? false) location!.subtitle,
+            location?.name ??
+                (id == widget.locationId
+                    ? firstNonEmpty([widget.locationName, id])
+                    : id),
+          ];
+  }
+
+  Object? _locationBoundaryVersion(
+    ChatMessageVm message,
+    ChatMessageVm? previous,
+  ) {
+    final section = _historySections.headerFor(message);
+    if (section != null) {
+      return (
+        section.id,
+        _historySections.expanded.contains(section.id),
+        _locationPathParts(section.locationId).join(' > '),
+      );
+    }
+    final parts = _locationBoundaryParts(message, previous);
+    return parts == null ? null : (parts.length, parts.join(' > '));
+  }
+
+  Widget _decorateLocationBoundary(
+    ChatMessageVm message,
+    ChatMessageVm? previous,
+    Widget child,
+  ) {
+    final section = _historySections.headerFor(message);
+    if (section != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _historySections.toggle(section),
+            child: _locationPathDivider(
+              _locationPathParts(section.locationId),
+              key: _worldHistory.boundaryKey(message.localId),
+              trailing: _historySections.button(section),
+            ),
+          ),
+          if (_historySections.expanded.contains(section.id)) ...[
+            const SizedBox(height: 12),
+            child,
+          ],
+        ],
+      );
+    }
+    final parts = _locationBoundaryParts(message, previous);
+    if (parts == null) return child;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _locationPathDivider(
+          parts,
+          key: _worldHistory.boundaryKey(message.localId),
+        ),
+        if (message.localId != _entrySectionMessageId ||
+            message.text.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          child,
+        ],
+      ],
+    );
+  }
+
+  Widget _locationPathDivider(
+    List<String> parts, {
+    Key? key,
+    Widget? trailing,
+  }) {
+    final visibleParts = parts.skip(math.max(0, parts.length - 2)).toList();
+    final pathStyle = kLocationChatStyle.bubbleTextStyle.copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      height: 1.35,
+      color: GenesisColors.darkTextSecondary,
+    );
+    return Padding(
+      key: key,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: Row(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: math.max(0, constraints.maxWidth - 24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.place_outlined,
+                            size: 16,
+                            color: GenesisColors.darkTextSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  if (visibleParts.length > 1)
+                                    TextSpan(text: '${visibleParts.first} > '),
+                                  TextSpan(
+                                    text: visibleParts.last,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              softWrap: true,
+                              style: pathStyle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Color(0x29FFFFFF),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 4),
+              trailing,
+            ] else
+              const SizedBox(width: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleTimelineMessageLongPress(
+    BuildContext context,
+    ChatMessageVm message,
+    LongPressStartDetails details,
+  ) {
+    if (message.localId == _entrySectionMessageId) return;
+    if (!message.localId.startsWith('world-history:')) {
+      _messageLongPressHandler(context, message, details);
+    }
+  }
+
   ChatroomReplyRoundState? get _renderedReplyState =>
       _initialOutgoingMessage != null && !_initialOutgoingMessageReconciled
       ? null
@@ -96,7 +376,10 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
     final replyActionsIdentity = replyPresentationState == null
         ? null
         : '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}';
-    final displayMessages = replyPresentation.messages;
+    final displayMessages = _withVisitEntry(
+      _worldHistory.project(replyPresentation.messages),
+    );
+    _historySections.project(displayMessages);
     final lastTimelineMessage = displayMessages.reversed
         .where((message) => !message.isAiContentDisclaimer)
         .firstOrNull;
@@ -182,13 +465,34 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
               ? const LocationChatInspirationFeature.disabled()
               : _inspirationFeature(actions.inspiration);
           return LocationChatAnchoredMessageList(
-            key: const ValueKey<String>('location-chat-message-list'),
+            key: ValueKey((
+              'location-chat-message-list',
+              widget.worldId,
+              widget.locationId,
+            )),
             coordinator: _scrollCoordinator,
             active: widget.active,
             messages: displayMessages,
+            onReadingMessageChanged: _historySections.reading,
+            hiddenMessageIds: _historySections.hidden,
+            historyReveal: _historySections.reveal,
+            expandedHistoryHeaders: _historySections.expandedHeaders,
+            pinnedHistoryHeaderBuilder: _historySections.pinnedHeader,
+            messageReadingMarkerKey: _worldHistory.existingBoundaryKey,
+            messageDecorator: _decorateLocationBoundary,
+            messageDecorationVersion: _locationBoundaryVersion,
+            entrySectionMessageId: _freshLocationEntry
+                ? _entrySectionMessageId
+                : null,
             restoreInitialCompletedContent: true,
             initialContentReady: _initialContentReadyNotified,
-            historyGapLoaders: _historyGapLoaders(displayMessages),
+            historyGapLoaders: _historyGapLoaders(
+              displayMessages
+                  .where(
+                    (m) => _worldHistory.locationFor(m) == widget.locationId,
+                  )
+                  .toList(),
+            ),
             loadingAfterMessageLocalId: loadingAfterMessageLocalId,
             loadingIdentity: _ackLoadingClientMsgId,
             enterWaitingAfterMessageLocalId: enterWaiting?.messageLocalId,
@@ -247,9 +551,10 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
                 '${_currentInspirationSource?.key}:$_inspirationResetRevision',
             inspirationPresentationRevision: _inspirationPresentationRevision,
             topTitle: '',
-            oldestEdgeLoading: _showOlderMessagesLoading,
+            oldestEdgeLoading:
+                _showOlderMessagesLoading || _worldHistory.loading,
             onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
-            onMessageLongPressStart: _messageLongPressHandler,
+            onMessageLongPressStart: _handleTimelineMessageLongPress,
             onFailedMessageTap: _failedMessageTapHandler,
             onCharactersMovedLocationTap:
                 widget.onCharactersMovedLocationTap == null

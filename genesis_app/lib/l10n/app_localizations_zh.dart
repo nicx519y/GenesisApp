@@ -3200,6 +3200,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get chatHistoryExpand => 'Expand';
+
+  @override
+  String get chatHistoryCollapse => 'Collapse';
+
+  @override
   String get chatCharacterMovement => 'Character movement';
 }
 
@@ -6246,6 +6252,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String originOpeningJump({required String locationName}) {
     return '故事開場\n$locationName';
   }
+
+  @override
+  String get chatHistoryExpand => '展開';
+
+  @override
+  String get chatHistoryCollapse => '收合';
 
   @override
   String get chatCharacterMovement => '角色移動';

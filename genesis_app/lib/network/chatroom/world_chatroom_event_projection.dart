@@ -2,6 +2,44 @@ part of 'world_chatroom_service.dart';
 
 extension _WorldChatroomEventProjection on WorldChatroomService {
   Future<void> _handleEvent(ChatroomEvent event) async {
+    final entryRound = switch (event) {
+      ChatroomMessageEvent e => (
+        e.worldId,
+        e.locationId,
+        e.conversationRoundId,
+      ),
+      ChatroomAiStreamStart e => (
+        e.worldId,
+        e.locationId,
+        e.conversationRoundId,
+      ),
+      ChatroomAiStreamChunk e => (
+        e.worldId,
+        e.locationId,
+        e.conversationRoundId,
+      ),
+      ChatroomAiStreamEnd e => (e.worldId, e.locationId, e.conversationRoundId),
+      ChatroomWaitingConversationRound e => (
+        e.worldId,
+        e.locationId,
+        e.conversationRoundId,
+      ),
+      ChatroomWorldNotification e when e.eventType == 'world_new_message' => (
+        e.worldId,
+        e.locationId,
+        e.conversationRoundId,
+      ),
+      _ => null,
+    };
+    if (_firstRealtimeRoundSinceEntry == null &&
+        entryRound != null &&
+        entryRound.$1 == _worldId &&
+        entryRound.$2 == _desiredLocationId) {
+      final round = int.tryParse(entryRound.$3);
+      if (round != null && round > _entryKnownRound) {
+        _firstRealtimeRoundSinceEntry = round;
+      }
+    }
     switch (event) {
       case ChatroomLlmCardStream():
       case ChatroomLlmCardGenerationEnd():
@@ -38,9 +76,19 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           WorldChatroomMessage.fromCharactersMovedMessage(e),
         );
       case ChatroomUserEnterLocationMessage e:
-        await _handleIncomingMessage(
-          WorldChatroomMessage.fromUserEnterLocationMessage(e),
-        );
+        final entry = WorldChatroomMessage.fromUserEnterLocationMessage(e);
+        final identity = _identity;
+        if (e.worldId == _worldId &&
+            e.locationId == _desiredLocationId &&
+            identity != null &&
+            ((identity.userId.isNotEmpty &&
+                    (e.userId == identity.userId ||
+                        e.triggerUid == identity.userId)) ||
+                (identity.senderId.isNotEmpty &&
+                    e.senderId == identity.senderId))) {
+          _latestOwnLocationEntry = entry;
+        }
+        await _handleIncomingMessage(entry);
         unawaited(
           _scheduleUserLocationsRefresh(socketCurrentTime: e.currentTime),
         );

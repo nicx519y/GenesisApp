@@ -118,6 +118,16 @@ extension _WorldChatroomConnection on WorldChatroomService {
   ) {
     if (_pendingUserEnterLocationCommandId != locationId) return;
     _pendingUserEnterLocationCommandId = '';
+    // A marker belongs to this entry command, never to a previous visit.
+    _latestOwnLocationEntry = null;
+    _firstRealtimeRoundSinceEntry = null;
+    _entryKnownRound = _state.messagesByLocation.values
+        .expand((rows) => rows)
+        .fold<int>(
+          0,
+          (latest, message) =>
+              math.max(latest, message.conversationRoundNumber),
+        );
     unawaited(
       Future<void>.sync(
         () => session.sendUserEnterLocation(locationId: locationId),

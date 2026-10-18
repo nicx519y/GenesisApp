@@ -69,6 +69,7 @@ class ChatMessageVm {
   final String senderId;
   String senderName;
   String avatarUrl;
+
   /// Display-only decoded handoff image; the launching route owns this handle.
   final ui.Image? avatarSnapshot;
   String imageUrl;
@@ -300,10 +301,12 @@ class ChatCharacterMovementVm {
     required this.toLocationId,
     required this.toLocationName,
     this.isDestinationCurrentLocation = false,
+    this.oldLocationId = '',
   });
 
   final String characterId;
   final String characterName;
+  final String oldLocationId;
   final String toLocationId;
   final String toLocationName;
   final bool isDestinationCurrentLocation;
@@ -313,6 +316,7 @@ class ChatCharacterMovementVm {
     return other is ChatCharacterMovementVm &&
         other.characterId == characterId &&
         other.characterName == characterName &&
+        other.oldLocationId == oldLocationId &&
         other.toLocationId == toLocationId &&
         other.toLocationName == toLocationName &&
         other.isDestinationCurrentLocation == isDestinationCurrentLocation;
@@ -322,6 +326,7 @@ class ChatCharacterMovementVm {
   int get hashCode => Object.hash(
     characterId,
     characterName,
+    oldLocationId,
     toLocationId,
     toLocationName,
     isDestinationCurrentLocation,
