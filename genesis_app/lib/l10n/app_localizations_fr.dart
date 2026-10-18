@@ -3258,5 +3258,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chatHistoryCollapse => 'Réduire';
 
   @override
+  String get worldHistory => 'Historique';
+
+  @override
+  String get worldHistoryEmpty =>
+      'L’historique des discussions de votre monde apparaîtra ici.';
+
+  @override
+  String get worldHistoryContinueHere => 'Continuez ici';
+
+  @override
   String get chatCharacterMovement => 'Déplacement des personnages';
 }

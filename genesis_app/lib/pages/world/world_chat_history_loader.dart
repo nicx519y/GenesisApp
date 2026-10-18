@@ -1,29 +1,15 @@
-part of 'location_chat_page.dart';
+part of '../chat/location_chat_page.dart';
 
 /// Read-only history projection. It never joins a room or publishes fetched
 /// archive rows into the live service/reply queues.
-class _LocationChatWorldHistory {
-  _LocationChatWorldHistory(this.owner);
-  final _LocationChatPanelState owner;
-  // UI visit memory is scoped to the live service and account/world. Reading
-  // history never changes it; returning to the map must not clear it.
-  static final _lastVisited = Expando<Map<String, String>>();
-  static String recordVisit(
-    WorldChatroomService service,
-    String worldId,
-    String locationId,
-  ) {
-    final visits = _lastVisited[service] ??= <String, String>{};
-    final scope = '${service.identity?.userId ?? ''}/$worldId';
-    final previous = visits[scope] ?? service.state.joinedLocationId;
-    visits[scope] = locationId;
-    return previous;
-  }
-
+class _WorldHistoryLoader {
+  _WorldHistoryLoader(this.owner);
+  final _WorldChatHistorySectionState owner;
   final _pages = <String, List<WorldChatroomMessage>>{};
   final _more = <String, bool>{};
   final _cursors = <String, int>{};
   final _failed = <String>{};
+  final _latestPending = <String>{};
   final _vmCache = <String, (Object, ChatMessageVm)>{};
   final _locations = <String, String>{};
   final _boundaryKeys = <String, GlobalKey>{};
@@ -36,7 +22,6 @@ class _LocationChatWorldHistory {
   Timer? _idleTimer;
   Timer? _retryTimer;
   int _retryAttempts = 0;
-  Object? _sourceScope;
   DateTime? _retryAfter;
   bool _fillScheduled = false;
   bool _started = false;
@@ -44,11 +29,7 @@ class _LocationChatWorldHistory {
   bool loading = false;
   String readingLocationId = '';
 
-  bool get enabled =>
-      owner.widget.active &&
-      owner.widget.isLeafLocation &&
-      owner.widget.worldId.isNotEmpty &&
-      owner.widget.previewContent == null;
+  bool get enabled => owner.widget.active && owner._metadataReady;
   bool get hasMore =>
       !ready || _failed.isNotEmpty || _more.values.any((m) => m);
 
@@ -75,6 +56,7 @@ class _LocationChatWorldHistory {
     _more.clear();
     _cursors.clear();
     _failed.clear();
+    _latestPending.clear();
     _vmCache.clear();
     _locations.clear();
     _boundaryKeys.clear();
@@ -90,28 +72,14 @@ class _LocationChatWorldHistory {
 
   void ensureStarted() {
     if (!enabled || owner._chatroomState.world == null) return;
-    final scope = (
-      owner._myUserId,
-      owner._service,
-      Object.hashAll(
-        owner._chatroomState.historyGenerationByLocation.entries.map(
-          (e) => (e.key, e.value),
-        ),
-      ),
-    );
-    if (_sourceScope != scope) {
-      reset();
-      _sourceScope = scope;
-    }
     if (_started) return;
     _started = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (owner.mounted && enabled) unawaited(loadOlder());
+      if (owner.mounted && enabled) unawaited(loadOlder(refreshNewest: true));
     });
   }
 
   List<String> get _leafIds => {
-    owner.widget.locationId,
     ...owner._chatroomState.world!.processedLocationTree.flattened
         .where((node) => node.children.isEmpty)
         .map((node) => node.id)
@@ -147,8 +115,11 @@ class _LocationChatWorldHistory {
     return floor;
   }
 
-  Future<void> loadOlder() async {
-    if (!enabled || loading || !hasMore || owner._chatroomState.world == null) {
+  Future<void> loadOlder({bool refreshNewest = false}) async {
+    if (!enabled ||
+        loading ||
+        (!hasMore && !refreshNewest) ||
+        owner._chatroomState.world == null) {
       return;
     }
     if (_retryAfter != null && DateTime.now().isBefore(_retryAfter!)) return;
@@ -157,7 +128,10 @@ class _LocationChatWorldHistory {
     final api = AppServicesScope.read(owner.context).api;
     final worldId = owner.widget.worldId;
     final floor = _floor;
-    final ids = !ready
+    if (refreshNewest) _latestPending.addAll(_leafIds);
+    final ids = refreshNewest
+        ? _leafIds
+        : !ready
         ? _leafIds
               .where((id) => !_pages.containsKey(id) || _failed.contains(id))
               .toList()
@@ -177,12 +151,13 @@ class _LocationChatWorldHistory {
                                 0)),
               )
               .toList();
-    owner._notifyMessageViewport(invalidateReplyProjection: false);
+    owner._changed();
     var next = 0;
     Future<void> worker() async {
       while (next < ids.length && generation == _generation && owner.mounted) {
         final id = ids[next++];
-        final cursor = _cursors[id] ?? 0;
+        final newest = _latestPending.contains(id);
+        final cursor = newest ? 0 : _cursors[id] ?? 0;
         try {
           final page = await api.chatroomHttp.getMessages(
             worldId: worldId,
@@ -204,12 +179,28 @@ class _LocationChatWorldHistory {
               (oldest == 0 || (cursor > 0 && oldest >= cursor))) {
             throw const FormatException('History cursor did not advance');
           }
+          final previous = _pages[id];
+          final oldKeys = previous?.map(_key).toSet() ?? const <String>{};
+          // Retain old pagination only if the refreshed latest page overlaps.
+          // Otherwise restart this room's window so a message gap cannot hide
+          // between newly arrived rows and the archived cursor.
+          final retainOlder =
+              newest &&
+              page.hasMore &&
+              rows.any((r) => oldKeys.contains(_key(r)));
           final merged = <String, WorldChatroomMessage>{
-            for (final row in [...?_pages[id], ...rows]) _key(row): row,
+            for (final row in [
+              if (!newest || retainOlder) ...?previous,
+              ...rows,
+            ])
+              _key(row): row,
           };
           _pages[id] = merged.values.toList()..sort(compareRaw);
-          _cursors[id] = oldest > 0 ? oldest : cursor;
-          _more[id] = page.hasMore;
+          if (!retainOlder) {
+            _cursors[id] = oldest > 0 ? oldest : cursor;
+            _more[id] = page.hasMore;
+          }
+          _latestPending.remove(id);
           _failed.remove(id);
         } catch (error) {
           if (generation != _generation || !owner.mounted) return;
@@ -244,7 +235,7 @@ class _LocationChatWorldHistory {
             }
           });
         }
-        owner._notifyMessageViewport(invalidateReplyProjection: false);
+        owner._changed();
       }
     }
   }
@@ -252,13 +243,6 @@ class _LocationChatWorldHistory {
   static String _key(WorldChatroomMessage m) => m.globalMessageId > 0
       ? 'g:${m.globalMessageId}'
       : '${m.locationId}:${m.messageId}:${m.locationMessageId}';
-  static String _vmKey(ChatMessageVm m, String location) =>
-      m.globalMessageId > 0
-      ? 'g:${m.globalMessageId}'
-      : (m.messageId ?? 0) > 0 || m.locationMessageId > 0
-      ? '$location:${m.messageId ?? 0}:${m.locationMessageId}'
-      : 'local:${m.localId}';
-
   ChatMessageVm? _parse(WorldChatroomMessage row) {
     if (!owner._messageVersionIsVisible(row)) return null;
     final key = _key(row);
@@ -266,15 +250,13 @@ class _LocationChatWorldHistory {
       row,
       owner._chatroomState.world,
       owner._chatroomState.entitiesById,
-      owner._myUserId,
-      owner._mySenderId,
-      owner._userInfoRevisionListenable?.value,
+      owner.widget.currentUid,
     );
     if (_vmCache[key]?.$1 == identity) return _vmCache[key]!.$2;
     final index = _LocationChatTimelineIdentityIndex.fromState(
       owner._chatroomState,
-      currentUserIds: owner._myUserIdKeys,
-      currentSenderIds: owner._mySenderIdKeys,
+      currentUserIds: [owner.widget.currentUid],
+      currentSenderIds: const [],
     );
     final context = LocationChatMessageParseContext(
       currentLocationId: row.locationId,
@@ -319,70 +301,32 @@ class _LocationChatWorldHistory {
     return vm;
   }
 
-  List<ChatMessageVm> project(List<ChatMessageVm> live) {
+  List<ChatMessageVm> project() {
     ensureStarted();
-    if (!enabled) return _lastProjection.isNotEmpty ? _lastProjection : live;
-    if (!ready) return _projectTicks(live);
+    if (!ready) return const [];
     final rawByKey = <String, WorldChatroomMessage>{
       for (final rows in _pages.values)
         for (final row in rows) _key(row): row,
-      for (final rows in owner._chatroomState.messagesByLocation.values)
-        for (final row in rows) _key(row): row,
     };
     final floor = _floor;
-    final combined = <String, (ChatMessageVm, WorldChatroomMessage?)>{};
+    final rows =
+        rawByKey.values
+            .where((row) => floor == null || compareRaw(row, floor) >= 0)
+            .toList()
+          ..sort(compareRaw);
     _locations.clear();
-    final presentations = [
-      ...?owner._replyController?.statesFor(owner.widget.locationId),
-      if (owner._renderedReplyState != null) owner._renderedReplyState!,
-    ];
-    final replacedReplyIds = {
-      for (final state in presentations)
-        if (state.showCardPresentation ||
-            state.selectedCardAwaitingFormalHistory)
-          for (final row in state.formalReplyMessages)
-            if (row.globalMessageId > 0) row.globalMessageId,
-    };
-    final liveOrder = {
-      for (var i = 0; i < live.length; i++) live[i].localId: i,
-    };
-    for (final row in rawByKey.values) {
-      if (row.locationId == owner.widget.locationId &&
-          replacedReplyIds.contains(row.globalMessageId)) {
-        continue;
-      }
-      if (floor != null && compareRaw(row, floor) < 0) continue;
+    final parsed = <ChatMessageVm>[];
+    for (final row in rows) {
       final vm = _parse(row);
       if (vm == null) continue;
-      combined[_key(row)] = (vm, row);
+      parsed.add(vm);
       _locations[vm.localId] = row.locationId;
     }
-    for (final vm in live) {
-      final key = _vmKey(vm, owner.widget.locationId);
-      final raw = rawByKey[key];
-      if (raw != null && floor != null && compareRaw(raw, floor) < 0) continue;
-      // Keep local pending/candidate rows and their stable live identities.
-      combined[vm.isAiContentDisclaimer ? vm.localId : key] = (vm, raw);
-      _locations[vm.localId] = owner.widget.locationId;
+    // Initial backdrop is the newest archived location, never an active room.
+    if (readingLocationId.isEmpty && parsed.isNotEmpty) {
+      readingLocationId = locationFor(parsed.last);
     }
-    final rows = combined.values.toList()
-      ..sort((a, b) {
-        if (a.$1.isAiContentDisclaimer) {
-          return b.$1.isAiContentDisclaimer ? 0 : -1;
-        }
-        if (b.$1.isAiContentDisclaimer) return 1;
-        final ai = liveOrder[a.$1.localId];
-        final bi = liveOrder[b.$1.localId];
-        if (ai != null && bi != null && a.$1.roundId == b.$1.roundId) {
-          return ai.compareTo(bi);
-        }
-        if (a.$2 != null && b.$2 != null) return compareRaw(a.$2!, b.$2!);
-        final ar = int.tryParse(a.$1.roundId) ?? 0;
-        final br = int.tryParse(b.$1.roundId) ?? 0;
-        if (ar > 0 && br > 0 && ar != br) return ar.compareTo(br);
-        return a.$1.createdAt.compareTo(b.$1.createdAt);
-      });
-    final chronological = rows.map((r) => r.$1).toList();
+    final chronological = parsed;
     final projected = _projectTicks(
       _placeTicksInLocationSegments(chronological),
       tickSnapshots: chronological,
@@ -394,6 +338,7 @@ class _LocationChatWorldHistory {
     // Hidden versioned pages can otherwise leave no scrollable content from
     // which the user could request the next complete history window.
     if (projected.where((m) => !m.isAiContentDisclaimer).length < 12 &&
+        enabled &&
         hasMore &&
         !loading &&
         _failed.isEmpty &&
@@ -407,10 +352,8 @@ class _LocationChatWorldHistory {
       });
     }
     final boundaries = <String>{
-      if (owner._entrySectionMessageId != null) owner._entrySectionMessageId!,
-      for (var i = 1; i < projected.length; i++)
-        if (!projected[i].isAiContentDisclaimer &&
-            !projected[i - 1].isAiContentDisclaimer &&
+      for (var i = 0; i < projected.length; i++)
+        if (i == 0 ||
             locationFor(projected[i]) != locationFor(projected[i - 1]))
           projected[i].localId,
     };
@@ -420,55 +363,73 @@ class _LocationChatWorldHistory {
   }
 
   String locationFor(ChatMessageVm message) =>
-      _locations[message.localId] ?? owner.widget.locationId;
+      _locations[message.localId] ?? '';
 
-  void reading(String? id, {bool useJoinedLocation = false}) {
+  void reading(String? id) {
     if (!enabled || !ready || !owner.mounted) return;
-    final location =
-        useJoinedLocation ||
-            !owner._scrollCoordinator.isReadingHistory ||
-            owner._scrollCoordinator.isAtBottom
-        ? owner.widget.locationId
-        : _locations[id];
+    final location = _locations[id];
     if (location == null || location.isEmpty || location == readingLocationId) {
       onScroll();
       return;
     }
-    owner._setLocationChatState(() => readingLocationId = location);
+    owner._update(() => readingLocationId = location);
     onScroll();
+  }
+
+  void ensureVisibleWindow() {
+    if (!enabled ||
+        !ready ||
+        loading ||
+        !hasMore ||
+        _failed.isNotEmpty ||
+        _fillScheduled) {
+      return;
+    }
+    _fillScheduled = true;
+    final generation = _generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!owner.mounted || generation != _generation) return;
+      _fillScheduled = false;
+      final controller = owner._scrollCoordinator.controller;
+      if (enabled &&
+          controller.hasClients &&
+          controller.position.hasContentDimensions &&
+          controller.position.maxScrollExtent <=
+              LocationChatScrollCoordinator.bottomTolerance) {
+        unawaited(loadOlder());
+      }
+    });
   }
 
   void onScroll() {
     if (!enabled ||
-        !owner._scrollController.hasClients ||
+        !owner._scrollCoordinator.controller.hasClients ||
         loading ||
         !hasMore) {
       return;
     }
-    final position = owner._scrollController.position;
+    final position = owner._scrollCoordinator.controller.position;
     _idleTimer?.cancel();
     if (!owner._scrollCoordinator.isReadingHistory ||
         position.extentBefore >= 200) {
       return;
     }
     _idleTimer = Timer(const Duration(milliseconds: 180), () {
-      if (!owner.mounted || !enabled || !owner._scrollController.hasClients) {
+      if (!owner.mounted ||
+          !enabled ||
+          !owner._scrollCoordinator.controller.hasClients) {
         return;
       }
-      if (owner._scrollController.position.isScrollingNotifier.value) {
+      if (owner
+          ._scrollCoordinator
+          .controller
+          .position
+          .isScrollingNotifier
+          .value) {
         onScroll();
       } else {
         unawaited(loadOlder());
       }
     });
   }
-
-  ChatMentionEntry? get readingLocation =>
-      readingLocationId.isEmpty || readingLocationId == owner.widget.locationId
-      ? null
-      : owner
-            ._mentionCatalogForState(owner._chatroomState)
-            .locations
-            .where((l) => l.id == readingLocationId)
-            .firstOrNull;
 }

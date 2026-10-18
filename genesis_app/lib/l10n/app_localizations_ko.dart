@@ -3114,5 +3114,14 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatHistoryCollapse => '접기';
 
   @override
+  String get worldHistory => '기록';
+
+  @override
+  String get worldHistoryEmpty => '내 월드의 채팅 기록이 여기에 표시됩니다.';
+
+  @override
+  String get worldHistoryContinueHere => '여기서 계속하기';
+
+  @override
   String get chatCharacterMovement => '캐릭터 이동';
 }

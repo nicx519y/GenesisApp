@@ -1,7 +1,7 @@
-part of 'location_chat_page.dart';
+part of '../chat/location_chat_page.dart';
 
 /// Display-only Tick placement and local content projection.
-extension _LocationChatTickProjection on _LocationChatWorldHistory {
+extension _WorldHistoryTickProjection on _WorldHistoryLoader {
   /// A broadcast is not a visit. Keep it pending until actual dialogue or
   /// an entry row establishes that location's next chronological segment.
   List<ChatMessageVm> _placeTicksInLocationSegments(
@@ -62,11 +62,6 @@ extension _LocationChatTickProjection on _LocationChatWorldHistory {
       } else {
         result.add(message);
       }
-    }
-    // Entering the joined room is authoritative even before its entry response
-    // arrives. Never flush broadcasts from another room merely for existing.
-    if (active != owner.widget.locationId) {
-      result.addAll(arrivalContext(owner.widget.locationId));
     }
     return result;
   }

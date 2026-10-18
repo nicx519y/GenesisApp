@@ -3206,6 +3206,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatHistoryCollapse => 'Collapse';
 
   @override
+  String get worldHistory => 'History';
+
+  @override
+  String get worldHistoryEmpty => 'Your World’s chat history will appear here.';
+
+  @override
+  String get worldHistoryContinueHere => 'Continue here';
+
+  @override
   String get chatCharacterMovement => 'Character movement';
 }
 
@@ -6258,6 +6267,15 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get chatHistoryCollapse => '收合';
+
+  @override
+  String get worldHistory => '歷史紀錄';
+
+  @override
+  String get worldHistoryEmpty => '你的世界聊天紀錄會顯示在這裡。';
+
+  @override
+  String get worldHistoryContinueHere => '在這裡繼續';
 
   @override
   String get chatCharacterMovement => '角色移動';

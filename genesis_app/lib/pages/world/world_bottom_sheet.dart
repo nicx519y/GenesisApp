@@ -31,6 +31,8 @@ import '../../app/debug/world_recap_debug_preview.dart';
 import 'world_recap_cache.dart';
 import 'world_recap_section.dart';
 import 'world_sections.dart';
+import '../chat/location_chat_page.dart'
+    show WorldChatHistorySection, WorldChatHistoryBackground;
 
 class WorldBottomTags extends StatelessWidget {
   const WorldBottomTags({
@@ -231,6 +233,7 @@ class WorldSingleSectionBottomSheetState
 
   late final DraggableScrollableController _sheetController;
   late final PageController _pageController;
+  final _historyBackground = ValueNotifier<String>('');
   late final List<ScrollController> _previewScrollControllers;
   var _changingPageFromSelection = false;
   var _sheetHostHeight = 1.0;
@@ -289,9 +292,9 @@ class WorldSingleSectionBottomSheetState
     super.initState();
     _sheetController = DraggableScrollableController();
     _pageController = PageController(
-      initialPage: worldBottomTagItems.indexWhere(
-        (item) => item.kind == _selection.kind,
-      ).clamp(0, worldBottomTagItems.length - 1),
+      initialPage: worldBottomTagItems
+          .indexWhere((item) => item.kind == _selection.kind)
+          .clamp(0, worldBottomTagItems.length - 1),
     );
     _previewScrollControllers = List<ScrollController>.generate(
       worldBottomTagItems.length,
@@ -356,6 +359,7 @@ class WorldSingleSectionBottomSheetState
     );
     _sheetController.dispose();
     _pageController.dispose();
+    _historyBackground.dispose();
     for (final controller in _previewScrollControllers) {
       controller.dispose();
     }
@@ -735,6 +739,27 @@ class WorldSingleSectionBottomSheetState
         scrollController,
       ),
       WorldBottomSheetKind.events => _buildEventsSectionPage(scrollController),
+      WorldBottomSheetKind.history => WorldChatHistorySection(
+        onLocationTap: (locationId) {
+          final point = _locationListDataForCurrentWorld().points
+              .where(
+                (point) =>
+                    point.sceneId == locationId || point.id == locationId,
+              )
+              .firstOrNull;
+          if (point == null) return;
+          Navigator.of(context).pop();
+          widget.onLocationTap(point);
+        },
+        onBackgroundChanged: (url) {
+          if (mounted) _historyBackground.value = url;
+        },
+        scrollController: scrollController,
+        key: ValueKey((_currentWorld.worldId, widget.currentUid)),
+        world: _currentWorld,
+        currentUid: widget.currentUid,
+        active: _selection.kind == WorldBottomSheetKind.history,
+      ),
       WorldBottomSheetKind.recap => WorldRecapSection(
         cache: widget.recapCache,
         load: widget.services.api.getWorldRecentSummary,
@@ -943,23 +968,78 @@ class WorldSingleSectionBottomSheetState
                       color: GenesisColors.darkBackground,
                       borderRadius: GenesisRadii.sheet,
                     ),
-                    child: Column(
-                      children: [
-                        GestureDetector(
-                          key: const ValueKey<String>(
-                            'world-sheet-header-drag-area',
+                    child: ClipRRect(
+                      borderRadius: GenesisRadii.sheet,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: AnimatedBuilder(
+                                animation: _pageController,
+                                builder: (context, child) {
+                                  final historyIndex = _tabItems.indexWhere(
+                                    (item) =>
+                                        item.kind ==
+                                        WorldBottomSheetKind.history,
+                                  );
+                                  final page =
+                                      _pageController.hasClients &&
+                                          _pageController
+                                              .position
+                                              .hasContentDimensions
+                                      ? _pageController.page ??
+                                            _pageController.initialPage
+                                                .toDouble()
+                                      : _pageController.initialPage.toDouble();
+                                  if (historyIndex < 0) {
+                                    return const SizedBox.expand();
+                                  }
+                                  // Match PageView's horizontal displacement:
+                                  // the full-height backdrop travels with its
+                                  // page, including behind the sheet title.
+                                  final direction =
+                                      Directionality.of(context) ==
+                                          TextDirection.rtl
+                                      ? -1.0
+                                      : 1.0;
+                                  return FractionalTranslation(
+                                    translation: Offset(
+                                      (historyIndex - page) * direction,
+                                      0,
+                                    ),
+                                    child: child,
+                                  );
+                                },
+                                child: ValueListenableBuilder<String>(
+                                  valueListenable: _historyBackground,
+                                  builder: (context, url, _) =>
+                                      WorldChatHistoryBackground(imageUrl: url),
+                                ),
+                              ),
+                            ),
                           ),
-                          behavior: HitTestBehavior.opaque,
-                          onVerticalDragUpdate: _handleHeaderDragUpdate,
-                          child: WorldSingleSectionSheetHeader(
-                            item: _headerItem,
-                            pageController: _pageController,
-                            pageCount: _tabItems.length,
-                            onClose: _collapseSheet,
+                          Column(
+                            children: [
+                              GestureDetector(
+                                key: const ValueKey<String>(
+                                  'world-sheet-header-drag-area',
+                                ),
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragUpdate: _handleHeaderDragUpdate,
+                                child: WorldSingleSectionSheetHeader(
+                                  item: _headerItem,
+                                  pageController: _pageController,
+                                  pageCount: _tabItems.length,
+                                  onClose: _collapseSheet,
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildSheetContent(scrollController),
+                              ),
+                            ],
                           ),
-                        ),
-                        Expanded(child: _buildSheetContent(scrollController)),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );

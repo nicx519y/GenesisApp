@@ -3261,5 +3261,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatHistoryCollapse => 'Einklappen';
 
   @override
+  String get worldHistory => 'Verlauf';
+
+  @override
+  String get worldHistoryEmpty => 'Hier erscheint der Chatverlauf deiner Welt.';
+
+  @override
+  String get worldHistoryContinueHere => 'Hier fortsetzen';
+
+  @override
   String get chatCharacterMovement => 'Figurenbewegung';
 }

@@ -40,10 +40,6 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
   }
 
   void _handleMessageListScroll() {
-    if (_worldHistory.enabled) {
-      _worldHistory.onScroll();
-      return;
-    }
     if (!_scrollController.hasClients) {
       _cancelOlderMessagesLoadSchedule();
       return;

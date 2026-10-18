@@ -1,7 +1,7 @@
-part of 'location_chat_page.dart';
+part of '../chat/location_chat_page.dart';
 
-class _LocationChatHistorySection {
-  const _LocationChatHistorySection(this.id, this.locationId, this.messages);
+class _WorldHistoryFold {
+  const _WorldHistoryFold(this.id, this.locationId, this.messages);
   final String id;
   final String locationId;
   final List<ChatMessageVm> messages;
@@ -9,12 +9,13 @@ class _LocationChatHistorySection {
 
 /// A view-only fold plan: canonical messages and reply state stay untouched.
 /// Separate visits to the same place remain separate chronological sections.
-class _LocationChatHistorySections {
-  _LocationChatHistorySections(this.owner);
-  final _LocationChatPanelState owner;
+class _WorldHistoryFolds {
+  _WorldHistoryFolds(this.owner);
+  final _WorldChatHistorySectionState owner;
   final expanded = <String>{};
-  Map<String, _LocationChatHistorySection> _byMessage = {};
-  Map<String, _LocationChatHistorySection> _byId = {};
+  Map<String, _WorldHistoryFold> _byMessage = {};
+  Map<String, _WorldHistoryFold> _byId = {};
+  Map<String, _WorldHistoryFold> _latestByLocation = {};
   Set<String> hidden = {};
   ({int generation, String localId})? reveal;
 
@@ -22,14 +23,15 @@ class _LocationChatHistorySections {
     expanded.clear();
     _byMessage.clear();
     _byId.clear();
+    _latestByLocation.clear();
     hidden = {};
     reveal = null;
   }
 
   void project(List<ChatMessageVm> messages) {
     if (!owner._worldHistory.ready) return;
-    final nextByMessage = <String, _LocationChatHistorySection>{};
-    final nextById = <String, _LocationChatHistorySection>{};
+    final nextByMessage = <String, _WorldHistoryFold>{};
+    final nextById = <String, _WorldHistoryFold>{};
     final nextHidden = <String>{};
     var start = 0;
     while (start < messages.length) {
@@ -38,24 +40,28 @@ class _LocationChatHistorySections {
       var end = start + 1;
       while (end < messages.length &&
           !messages[end].isAiContentDisclaimer &&
-          messages[end].localId != owner._entrySectionMessageId &&
           owner._worldHistory.locationFor(messages[end]) == room) {
         end++;
       }
-      if (!first.isAiContentDisclaimer && room != owner.widget.locationId) {
+      if (!first.isAiContentDisclaimer) {
         final rows = messages.sublist(start, end);
         // Earlier pagination can prepend rows to an existing visit. Keep its
         // identity/expansion by overlap instead of re-keying by array index.
         final retained = rows
             .map((m) => _byMessage[m.localId])
-            .whereType<_LocationChatHistorySection>()
+            .whereType<_WorldHistoryFold>()
             .where((s) => s.locationId == room && !nextById.containsKey(s.id))
             .firstOrNull;
-        final section = _LocationChatHistorySection(
+        final section = _WorldHistoryFold(
           retained?.id ?? 'history-section:${rows.last.localId}',
           room,
           rows,
         );
+        // Open newly discovered visits, including older pages. Rebuilds keep
+        // the user's explicit collapse choice for an existing visit.
+        if (retained == null && !_byId.containsKey(section.id)) {
+          expanded.add(section.id);
+        }
         nextById[section.id] = section;
         for (final row in rows) {
           nextByMessage[row.localId] = section;
@@ -68,13 +74,28 @@ class _LocationChatHistorySections {
     }
     _byMessage = nextByMessage;
     _byId = nextById;
+    _latestByLocation = {
+      for (final section in nextById.values) section.locationId: section,
+    };
     hidden = Set.unmodifiable(nextHidden);
     expanded.removeWhere((id) => !nextById.containsKey(id));
   }
 
-  _LocationChatHistorySection? headerFor(ChatMessageVm message) {
+  _WorldHistoryFold? headerFor(ChatMessageVm message) {
     final section = _byMessage[message.localId];
     return section?.messages.first.localId == message.localId ? section : null;
+  }
+
+  String? continueLocationFor(ChatMessageVm message) {
+    final section = _byMessage[message.localId];
+    if (section == null ||
+        !expanded.contains(section.id) ||
+        section.locationId.isEmpty ||
+        _latestByLocation[section.locationId]?.id != section.id ||
+        section.messages.last.localId != message.localId) {
+      return null;
+    }
+    return section.locationId;
   }
 
   Map<String, String> get expandedHeaders => {
@@ -102,21 +123,19 @@ class _LocationChatHistorySections {
 
   void reading(String? localId) {
     final section = _byMessage[localId];
-    // A folded path is navigation, not a location being read.
-    owner._worldHistory.reading(
-      localId,
-      useJoinedLocation:
-          expanded.isEmpty ||
-          (section != null && !expanded.contains(section.id)),
-    );
+    // Collapsed paths do not represent a location being read. There is no
+    // joined/current room in this read-only archive.
+    if (section != null && expanded.contains(section.id)) {
+      owner._worldHistory.reading(localId);
+    }
   }
 
-  void toggle(_LocationChatHistorySection section) {
+  void toggle(_WorldHistoryFold section) {
     // Cached header widgets can outlive a pagination update to this segment.
     final current = _byId[section.id];
     if (current == null) return;
     final generation = owner._scrollCoordinator.beginHistoryNavigation();
-    owner._setLocationChatState(() {
+    owner._update(() {
       final opening = expanded.add(section.id);
       if (!opening) expanded.remove(section.id);
       reveal = (
@@ -124,9 +143,12 @@ class _LocationChatHistorySections {
         localId: current.messages.first.localId,
       );
     });
+    if (expanded.contains(section.id)) {
+      owner._worldHistory.reading(current.messages.first.localId);
+    }
   }
 
-  Widget button(_LocationChatHistorySection section, {Key? key}) {
+  Widget button(_WorldHistoryFold section, {Key? key}) {
     final isExpanded = expanded.contains(section.id);
     return Semantics(
       key: key,
@@ -140,8 +162,8 @@ class _LocationChatHistorySections {
         child: InkWell(
           onTap: () => toggle(section),
           child: Container(
-            constraints: const BoxConstraints(minHeight: 32),
-            padding: const EdgeInsets.fromLTRB(12, 4, 0, 4),
+            constraints: const BoxConstraints(minHeight: 24),
+            padding: const EdgeInsets.fromLTRB(12, 2, 0, 2),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

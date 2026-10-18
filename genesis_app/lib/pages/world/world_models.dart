@@ -7,13 +7,22 @@ import '../../network/models/origin.dart';
 import '../../network/json_utils.dart';
 import 'world_value_helpers.dart';
 
-enum WorldBottomSheetKind { detail, locations, events, recap, status, cast }
+enum WorldBottomSheetKind {
+  detail,
+  locations,
+  events,
+  history,
+  recap,
+  status,
+  cast,
+}
 
 String worldBottomSheetPageName(WorldBottomSheetKind kind) {
   return switch (kind) {
     WorldBottomSheetKind.detail => 'world_detail_shell',
     WorldBottomSheetKind.locations => 'world_locations',
     WorldBottomSheetKind.events => 'world_events',
+    WorldBottomSheetKind.history => 'world_history',
     WorldBottomSheetKind.recap => 'world_recap',
     WorldBottomSheetKind.status => 'world_status',
     WorldBottomSheetKind.cast => 'world_cast',
@@ -122,9 +131,9 @@ List<WorldBottomTagItem> worldBottomTagItemsFor(AppLocalizations l10n) => [
     asset: worldDetailIconAsset,
   ),
   WorldBottomTagItem(
-    label: l10n.worldModelsLocations,
-    kind: WorldBottomSheetKind.locations,
-    icon: Icons.place_outlined,
+    label: l10n.worldHistory,
+    kind: WorldBottomSheetKind.history,
+    icon: Icons.history_rounded,
   ),
   WorldBottomTagItem(
     label: l10n.worldModelsEvents,
@@ -137,9 +146,9 @@ List<WorldBottomTagItem> worldBottomTagItemsFor(AppLocalizations l10n) => [
     icon: Icons.auto_stories_outlined,
   ),
   WorldBottomTagItem(
-    label: l10n.worldModelsStatus,
-    kind: WorldBottomSheetKind.status,
-    asset: worldSectionStatusIconAsset,
+    label: l10n.worldModelsLocations,
+    kind: WorldBottomSheetKind.locations,
+    icon: Icons.place_outlined,
   ),
 ];
 
@@ -148,6 +157,7 @@ String get worldParticipationRequiredMessage =>
 
 bool canAccessWorldSection(WorldBottomSheetKind kind, String relationStatus) {
   switch (kind) {
+    case WorldBottomSheetKind.history:
     case WorldBottomSheetKind.events:
     case WorldBottomSheetKind.recap:
     case WorldBottomSheetKind.status:

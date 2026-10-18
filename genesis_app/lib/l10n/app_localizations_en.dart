@@ -3206,5 +3206,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatHistoryCollapse => 'Collapse';
 
   @override
+  String get worldHistory => 'History';
+
+  @override
+  String get worldHistoryEmpty => 'Your World’s chat history will appear here.';
+
+  @override
+  String get worldHistoryContinueHere => 'Continue here';
+
+  @override
   String get chatCharacterMovement => 'Character movement';
 }

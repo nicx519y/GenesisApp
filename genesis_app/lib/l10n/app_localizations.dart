@@ -5365,6 +5365,24 @@ abstract class AppLocalizations {
   /// **'Collapse'**
   String get chatHistoryCollapse;
 
+  /// World detail page: tab label for read-only chat history from all locations in the current world, displayed in chronological order. Refers to past chat messages, not historical lore; opening the tab does not join a location or allow sending messages.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get worldHistory;
+
+  /// World detail History tab: empty-state message after chat history has loaded successfully and no messages exist across any location in the current world. This read-only view displays chat messages in chronological order; this text is not shown for loading or request failures.
+  ///
+  /// In en, this message translates to:
+  /// **'Your World’s chat history will appear here.'**
+  String get worldHistoryEmpty;
+
+  /// World detail History tab: heading above the location card at the end of each location's most recent chat segment. Tapping the card opens that location's live chat to continue the story.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue here'**
+  String get worldHistoryContinueHere;
+
   /// Tick message: heading above character destination jump cards.
   ///
   /// In en, this message translates to:

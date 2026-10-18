@@ -3108,5 +3108,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chatHistoryCollapse => '折りたたむ';
 
   @override
+  String get worldHistory => '履歴';
+
+  @override
+  String get worldHistoryEmpty => 'あなたのワールドのチャット履歴がここに表示されます。';
+
+  @override
+  String get worldHistoryContinueHere => 'ここから続ける';
+
+  @override
   String get chatCharacterMovement => 'キャラクターの移動';
 }

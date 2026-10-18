@@ -249,46 +249,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     return changedMessages;
   }
 
-  void _prepareEntryVisit(WorldChatroomService service) {
-    if (_entryVisitPrepared ||
-        !widget.active ||
-        !widget.isLeafLocation ||
-        service.identity == null) {
-      return;
-    }
-    _entryVisitPrepared = true;
-    _historySections.reset();
-    final previousLocation = _LocationChatWorldHistory.recordVisit(
-      service,
-      widget.worldId,
-      widget.locationId,
-    );
-    _freshLocationEntry =
-        previousLocation.isNotEmpty &&
-        previousLocation != widget.locationId &&
-        !_initialMessageSendPending;
-    _entrySectionMessageId = _freshLocationEntry
-        ? 'ui-visit:${DateTime.now().microsecondsSinceEpoch}'
-        : null;
-    _visitEntryMessage = null;
-    _entryHistoryBoundary = null;
-    _entryExistingClientIds
-      ..clear()
-      ..addAll(_messages.map((m) => m.clientMsgId));
-    _entryNewClientIds.clear();
-    _entryBeforeVisit = service.latestOwnLocationEntry;
-    // A prepared shared service can receive entry before the panel mounts.
-    // The service clears this marker for every new entry command.
-    _entryForVisit =
-        service.latestOwnLocationEntry?.locationId == widget.locationId
-        ? service.latestOwnLocationEntry
-        : null;
-  }
-
   void _activateConnection() {
     final provided = widget.service;
-    final entryService = provided ?? _service;
-    if (entryService != null) _prepareEntryVisit(entryService);
     _logPanelMetric(
       'activateConnection providedService=${provided != null} '
       'joined=$_joinedLocation',
@@ -421,7 +383,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   Future<bool> _joinLocation(WorldChatroomService service) {
-    _prepareEntryVisit(service);
     if (_joinedLocation &&
         service.state.joinedLocationId == widget.locationId) {
       return Future<bool>.value(true);
@@ -888,11 +849,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       state,
     );
     final messageViewportChanged =
-        (_worldHistory.enabled &&
-            !identical(
-              _chatroomState.messagesByLocation,
-              state.messagesByLocation,
-            )) ||
         historyChanged ||
         changedMessages ||
         changedHasMoreOlder ||
