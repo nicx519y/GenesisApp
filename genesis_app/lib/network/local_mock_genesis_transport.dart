@@ -14,6 +14,9 @@ import 'mock_data/mock_world_data.dart';
 class LocalMockGenesisTransport implements HttpTransport {
   LocalMockGenesisTransport._();
 
+  @visibleForTesting
+  factory LocalMockGenesisTransport.isolated() => LocalMockGenesisTransport._();
+
   static final LocalMockGenesisTransport instance =
       LocalMockGenesisTransport._();
 
@@ -681,6 +684,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         'language': _deviceLanguages[deviceId] ?? '',
         'show_opening_sheet': false,
         'show_personalization_form': true,
+        'rating_prompt_message_count': 20,
         'apiTraceSamplingRate': 1.0,
       });
     }
@@ -1168,10 +1172,12 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'POST' && path == 'feedback/create') {
       final content = '${body['content'] ?? ''}'.trim();
-      if (content.isEmpty) {
+      final rating = body['rating'];
+      if ((rating != null && (rating is! int || rating < 1 || rating > 5)) ||
+          (content.isEmpty && rating == null)) {
         return _v1BusinessError(4004, 'ErrorParamInvalid');
       }
-      if (content.length > 1000) {
+      if (content.length > 3000) {
         return _v1BusinessError(20901, 'ErrorFeedbackContentTooLong');
       }
       return _v1Ok({
@@ -1418,6 +1424,7 @@ class _MockState {
     'discord_follow': 'in_progress',
   };
   int _v1GemBalanceCent = 43000;
+  final Map<String, Map<String, dynamic>> _v1RatingClaims = {};
   int _v1GlobalMemoryTokens = 48000;
   int _v1DirectMessageUnreadCount = 1;
   int _v1WorldHistoryHighWatermark = 25;
@@ -2754,6 +2761,27 @@ class _MockState {
 
   Map<String, dynamic> v1GemTaskClaim(Map<String, dynamic> body) {
     final taskCode = '${body['task_code'] ?? ''}'.trim();
+    if (taskCode == 'rating') {
+      final uid = asString(_v1User['uid']);
+      final first = _v1RatingClaims.putIfAbsent(uid, () {
+        _v1GemBalanceCent += 3000;
+        return <String, dynamic>{
+          'task_code': 'rating',
+          'status': 'claimed',
+          'reward_gems': 30,
+          'reward_gems_cent': 3000,
+          'expires_at': 0,
+          'ledger_id':
+              'gl_mock_rating_${DateTime.now().microsecondsSinceEpoch}',
+        };
+      });
+      return {
+        ...first,
+        'balance_cent': _v1GemBalanceCent,
+        'balance': _v1GemBalanceCent ~/ 100,
+      };
+    }
+
     if (_v1GemTaskStatuses[taskCode] == 'claimable') {
       _v1GemTaskStatuses[taskCode] = 'claimed';
       _v1GemBalanceCent += switch (taskCode) {

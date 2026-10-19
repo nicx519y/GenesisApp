@@ -4296,5 +4296,47 @@
   "worldoLaunchDone": "Terminé",
   "@worldoLaunchDone": {
     "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
+  "rateWorldoTitle": "Évaluez Worldo",
+  "@rateWorldoTitle": {
+    "description": "Title of the in-app five-star feedback dialog. Automatically shown once per local user after acknowledged Location Chat messages reach the configured threshold and the user exits Location Chat, World Detail, and Worldo Detail; also accessible from Developer Rate Dialog for testing."
+  },
+  "rateWorldoMessage": "Que pensez-vous de Worldo ? Votre avis compte pour nous.",
+  "@rateWorldoMessage": {
+    "description": "Centered body in the in-app feedback dialog above five tappable stars; asks about the Worldo app experience."
+  },
+  "rateWorldoStars": "{count} étoiles",
+  "@rateWorldoStars": {
+    "description": "Accessibility label for each star choice in the five-star in-app feedback dialog. Count ranges from 1 to 5.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoFeedbackHint": "Dites-nous comment améliorer votre expérience",
+  "@rateWorldoFeedbackHint": {
+    "description": "Placeholder in the feedback input revealed after selecting 1–3 stars in the Worldo rating dialog. Invites suggestions to improve the app experience; not the generic Settings feedback placeholder."
+  },
+  "rateWorldoThanks": "Merci pour votre avis !",
+  "@rateWorldoThanks": {
+    "description": "Title of the thank-you/reward dialog after a successful in-app rating or feedback submission; not confirmation of a store review."
+  },
+  "rateWorldoFeedbackSaved": "Votre avis a été enregistré.",
+  "@rateWorldoFeedbackSaved": {
+    "description": "Thank-you dialog body when this signed-in user has already claimed the lifetime rating feedback reward."
+  },
+  "rateWorldoRewardMessage": "Votre avis nous aide à nous améliorer. Recevez {gems} Gemmes pour vous remercier.",
+  "@rateWorldoRewardMessage": {
+    "description": "Thank-you dialog after any in-app rating/feedback submission, regardless of score. Reward is for in-app feedback, not a store review. Gems amount comes from the published rating task contract.",
+    "placeholders": {
+      "gems": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoStoreFailed": "Impossible d’ouvrir la boutique d’applications. Veuillez réessayer.",
+  "@rateWorldoStoreFailed": {
+    "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
   }
 }

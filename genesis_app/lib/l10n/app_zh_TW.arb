@@ -4296,5 +4296,47 @@
   "worldoLaunchDone": "完成",
   "@worldoLaunchDone": {
     "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
+  "rateWorldoTitle": "評價 Worldo",
+  "@rateWorldoTitle": {
+    "description": "Title of the in-app five-star feedback dialog. Automatically shown once per local user after acknowledged Location Chat messages reach the configured threshold and the user exits Location Chat, World Detail, and Worldo Detail; also accessible from Developer Rate Dialog for testing."
+  },
+  "rateWorldoMessage": "喜歡 Worldo 嗎？你的意見對我們很重要。",
+  "@rateWorldoMessage": {
+    "description": "Centered body in the in-app feedback dialog above five tappable stars; asks about the Worldo app experience."
+  },
+  "rateWorldoStars": "{count} 星",
+  "@rateWorldoStars": {
+    "description": "Accessibility label for each star choice in the five-star in-app feedback dialog. Count ranges from 1 to 5.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoFeedbackHint": "讓我們知道如何改善您的體驗",
+  "@rateWorldoFeedbackHint": {
+    "description": "Placeholder in the feedback input revealed after selecting 1–3 stars in the Worldo rating dialog. Invites suggestions to improve the app experience; not the generic Settings feedback placeholder."
+  },
+  "rateWorldoThanks": "感謝您的回饋！",
+  "@rateWorldoThanks": {
+    "description": "Title of the thank-you/reward dialog after a successful in-app rating or feedback submission; not confirmation of a store review."
+  },
+  "rateWorldoFeedbackSaved": "已儲存您的回饋。",
+  "@rateWorldoFeedbackSaved": {
+    "description": "Thank-you dialog body when this signed-in user has already claimed the lifetime rating feedback reward."
+  },
+  "rateWorldoRewardMessage": "您的回饋能幫助我們改善體驗。領取 {gems} 顆寶石，作為我們的謝禮。",
+  "@rateWorldoRewardMessage": {
+    "description": "Thank-you dialog after any in-app rating/feedback submission, regardless of score. Reward is for in-app feedback, not a store review. Gems amount comes from the published rating task contract.",
+    "placeholders": {
+      "gems": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoStoreFailed": "無法開啟應用程式商店，請再試一次。",
+  "@rateWorldoStoreFailed": {
+    "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
   }
 }

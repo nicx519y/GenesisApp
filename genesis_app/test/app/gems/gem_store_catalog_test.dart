@@ -97,6 +97,31 @@ void main() {
       },
     );
   }
+  test('guest skips product requests and loads after login', () async {
+    final store = Store(BillingProvider.googlePlay);
+    String? owner;
+    var productRequests = 0;
+    final catalog = GemStoreCatalog(
+      loadProducts: () async {
+        productRequests++;
+        return [product()];
+      },
+      platform: store,
+      namespace: 'test',
+      readOwner: () async => owner,
+    );
+
+    await catalog.preload();
+    expect(productRequests, 0);
+    expect(await catalog.loadCached(), isNull);
+    await expectLater(catalog.load(), throwsStateError);
+    expect(productRequests, 0);
+
+    owner = 'signed-in-user';
+    await catalog.preload();
+    expect(productRequests, 1);
+    expect(catalog.cached, isNotNull);
+  });
   test('failed store lookup never uses API price and can retry', () async {
     final store = Store(BillingProvider.googlePlay)..available = false;
     final source = GemStoreCatalog(

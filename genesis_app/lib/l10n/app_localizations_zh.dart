@@ -3201,6 +3201,37 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => 'Character movement';
+
+  @override
+  String get rateWorldoTitle => 'Rate Worldo';
+
+  @override
+  String get rateWorldoMessage =>
+      'How are you enjoying Worldo? Your feedback matters to us.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '$count stars';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint =>
+      'Let us know how we can improve your experience';
+
+  @override
+  String get rateWorldoThanks => 'Thanks for your feedback!';
+
+  @override
+  String get rateWorldoFeedbackSaved => 'Your feedback has been saved.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return 'Your feedback helps us improve. Claim $gems Gems as a thank-you.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed =>
+      'Unable to open the app store. Please try again.';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6249,4 +6280,32 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get chatCharacterMovement => '角色移動';
+
+  @override
+  String get rateWorldoTitle => '評價 Worldo';
+
+  @override
+  String get rateWorldoMessage => '喜歡 Worldo 嗎？你的意見對我們很重要。';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '$count 星';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint => '讓我們知道如何改善您的體驗';
+
+  @override
+  String get rateWorldoThanks => '感謝您的回饋！';
+
+  @override
+  String get rateWorldoFeedbackSaved => '已儲存您的回饋。';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return '您的回饋能幫助我們改善體驗。領取 $gems 顆寶石，作為我們的謝禮。';
+  }
+
+  @override
+  String get rateWorldoStoreFailed => '無法開啟應用程式商店，請再試一次。';
 }

@@ -14,11 +14,13 @@ class AppGlobalConfig {
     this.showOpeningSheet = false,
     this.showPersonalizationForm = false,
     this.apiTraceSamplingRate = 0,
+    this.ratingPromptMessageCount = 0,
   });
 
   factory AppGlobalConfig.fromJson(Map<String, dynamic> json) {
     return AppGlobalConfig(
       language: asString(json['language']),
+      ratingPromptMessageCount: asInt(json['rating_prompt_message_count']),
       showOpeningSheet: asBool(json['show_opening_sheet']),
       showPersonalizationForm: json['show_personalization_form'] == true,
       apiTraceSamplingRate: _samplingRate(
@@ -27,6 +29,9 @@ class AppGlobalConfig {
     );
   }
 
+  /// Message threshold supplied by config; 0 disables rating prompts.
+  /// Count acknowledged Location Chat messages locally and prompt after exit.
+  final int ratingPromptMessageCount;
   final String language;
   final bool showOpeningSheet;
   final bool showPersonalizationForm;

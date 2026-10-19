@@ -1,3 +1,14 @@
+import 'package:genesis_flutter_android/app/debug/rating_prompt_debug_settings.dart';
+import 'package:genesis_flutter_android/components/common/rating_prompt_debug_control.dart';
+import 'package:genesis_flutter_android/components/common/rating_prompt_host.dart';
+import 'package:genesis_flutter_android/app/review/rating_prompt_store.dart';
+import 'package:genesis_flutter_android/app/config/app_global_config.dart';
+import 'package:genesis_flutter_android/components/common/pending_rating_reward_host.dart';
+import 'package:genesis_flutter_android/app/genesis_navigator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/review/app_review_service.dart';
+import 'package:genesis_flutter_android/components/common/rating_reward_dialog.dart';
+import 'package:genesis_flutter_android/components/common/worldo_rating_dialog.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -22,6 +33,517 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'developer rating section is hidden for guests and follows login changes',
+    (tester) async {
+      final services = _feedbackTestServices(_RecordingFeedbackTransport());
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: Scaffold(body: RatingPromptDebugSection()),
+          ),
+        ),
+      );
+      expect(find.byKey(const ValueKey('developer-rate-button')), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.byType(RatingPromptDebugControl), findsNothing);
+      await services.sessionStore.saveUid('guest_debug');
+      services.sessionRevision.value++;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('developer-rate-button')), findsNothing);
+      await services.sessionStore.saveUid('u_debug');
+      services.sessionRevision.value++;
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('developer-rate-button')),
+        findsOneWidget,
+      );
+      expect(find.byType(RatingPromptDebugControl), findsOneWidget);
+      expect(find.text('Reset rating prompt'), findsOneWidget);
+      await services.sessionStore.clearUid();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('developer-rate-button')), findsNothing);
+      expect(find.byType(RatingPromptDebugControl), findsNothing);
+      expect(find.text('Reset rating prompt'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'rating threshold debug control applies and clears local override',
+    (tester) async {
+      final services = _feedbackTestServices(_RecordingFeedbackTransport());
+      services.appGlobalConfig.value = const AppGlobalConfig(
+        ratingPromptMessageCount: 20,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: Scaffold(body: RatingPromptDebugControl()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final button in tester.widgetList<FilledButton>(
+        find.byType(FilledButton),
+      )) {
+        expect(
+          button.style!.backgroundColor!.resolve({WidgetState.disabled}),
+          GenesisColors.darkFaintFill,
+        );
+        expect(
+          button.style!.backgroundColor!.resolve({}),
+          GenesisColors.darkFaintFill,
+        );
+        expect(
+          button.style!.foregroundColor!.resolve({WidgetState.disabled}),
+          GenesisColors.darkTextTertiary,
+        );
+      }
+      expect(find.textContaining('Effective: 20'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('developer-rating-threshold-input')),
+        '3',
+      );
+      await tester.tap(find.text('Apply'));
+      await tester.pumpAndSettle();
+      expect(await RatingPromptDebugSettings.read(), 3);
+      expect(find.textContaining('Effective: 3'), findsOneWidget);
+      await services.sessionStore.saveUid('u_debug_reset');
+      await RatingPromptStore.instance.recordMessage(
+        owner: Future.value('u_debug_reset'),
+        threshold: 1,
+        messageId: 'old',
+      );
+      expect(
+        await RatingPromptStore.instance.takePending('u_debug_reset', 1),
+        true,
+      );
+      final resetPrefs = await SharedPreferences.getInstance();
+      await resetPrefs.setBool('rating_reward_claimed_v1:u_debug_reset', true);
+      await tester.tap(
+        find.byKey(const ValueKey('developer-reset-rating-prompt')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(
+          RatingPromptStore.key('u_debug_reset'),
+        ),
+        false,
+      );
+      expect(await RatingPromptDebugSettings.read(), 3);
+      expect(find.textContaining('Reset. Send messages'), findsOneWidget);
+      expect(
+        resetPrefs.containsKey('rating_reward_claimed_v1:u_debug_reset'),
+        false,
+      );
+
+      await tester.tap(find.text('Use server'));
+      await tester.pumpAndSettle();
+      expect(await RatingPromptDebugSettings.read(), isNull);
+      expect(find.textContaining('Effective: 20'), findsOneWidget);
+      expect(services.appGlobalConfig.value.ratingPromptMessageCount, 20);
+    },
+  );
+
+  testWidgets(
+    'automatic rating waits until chat and world routes have exited',
+    (tester) async {
+      final services = _feedbackTestServices(_RecordingFeedbackTransport());
+      await services.sessionStore.saveUid('guest_auto');
+      services.personalization.blocksOtherPrompts.value = false;
+      services.appGlobalConfig.value = const AppGlobalConfig(
+        ratingPromptMessageCount: 0,
+      );
+      await RatingPromptDebugSettings.save(1);
+      await RatingPromptStore.instance.recordMessage(
+        owner: Future.value('u_auto'),
+        threshold: 1,
+        messageId: 'one',
+      );
+      await RatingPromptStore.instance.recordMessage(
+        owner: Future.value('u_auto'),
+        threshold: 1,
+        messageId: 'two',
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            navigatorKey: genesisNavigatorKey,
+            navigatorObservers: [ratingPromptRouteObserver],
+            builder: (_, child) => RatingPromptHost(child: child!),
+            home: const Scaffold(body: Text('Home')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldoRatingContent), findsNothing);
+      final nav = genesisNavigatorKey.currentState!;
+      nav.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/world'),
+          builder: (_) => const Scaffold(body: Text('World')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      nav.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/location_chat'),
+          builder: (_) => const Scaffold(body: Text('Chat')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      nav.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldoRatingContent), findsNothing);
+      nav.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldoRatingContent), findsNothing);
+      await services.sessionStore.saveUid('u_auto');
+      nav.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/world'),
+          builder: (_) => const Scaffold(body: Text('World')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      nav.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldoRatingContent), findsOneWidget);
+      nav.pop();
+      await tester.pumpAndSettle();
+      nav.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/origin_world'),
+          builder: (_) => const Scaffold(body: Text('Worldo')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      nav.pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldoRatingContent), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final uid in ['', 'guest_test']) {
+    testWidgets('guest $uid cannot open rating dialog even from manual entry', (
+      tester,
+    ) async {
+      final transport = _RecordingFeedbackTransport();
+      final services = _feedbackTestServices(transport);
+      if (uid.isNotEmpty) await services.sessionStore.saveUid(uid);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showWorldoRatingDialog(context),
+                  child: const Text('Rate'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Rate'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldoRatingContent), findsNothing);
+      expect(transport.requestsFor('/api/v1/feedback/create'), isEmpty);
+      expect(PendingRatingReward.flowActive, false);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (stars, withContent) in [
+    (1, false),
+    (2, false),
+    (3, false),
+    (3, true),
+    (4, false),
+    (5, false),
+  ]) {
+    testWidgets(
+      'rating $stars content=$withContent submits optional feedback',
+      (tester) async {
+        final transport = _RecordingFeedbackTransport();
+        final services = _feedbackTestServices(transport);
+        await services.sessionStore.saveUid('u_rating');
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => showWorldoRatingDialog(
+                      context,
+                      reviewService: AppReviewService(
+                        request: () async {
+                          expect(find.byType(RatingRewardDialog), findsNothing);
+                          if (stars == 5) {
+                            throw StateError('native review failed');
+                          }
+                        },
+                      ),
+                    ),
+                    child: const Text('Rate'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Rate'));
+        await tester.pumpAndSettle();
+        final initialWidth = tester
+            .getSize(find.byType(GenesisActionBoxSurface))
+            .width;
+        expect(
+          initialWidth,
+          closeTo(
+            (tester.view.physicalSize.width /
+                    tester.view.devicePixelRatio *
+                    0.7)
+                .clamp(0.0, 800.0),
+            0.1,
+          ),
+        );
+        await tester.tap(find.byKey(ValueKey('worldo-rating-star-$stars')));
+        if (stars < 4) {
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 180));
+          final midwayWidth = tester
+              .getSize(find.byType(GenesisActionBoxSurface))
+              .width;
+          expect(midwayWidth, closeTo(initialWidth, 0.1));
+        }
+        await tester.pumpAndSettle();
+        if (stars < 4) {
+          expect(
+            tester.getSize(find.byType(GenesisActionBoxSurface)).width,
+            closeTo(initialWidth, 0.1),
+          );
+        }
+        expect(
+          find.byKey(const ValueKey('genesis-feedback-content-input')),
+          stars < 4 ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byType(WorldoRatingContent),
+          stars < 4 ? findsOneWidget : findsNothing,
+        );
+        expect(
+          transport.requestsFor('/api/v1/feedback/create'),
+          stars < 4 ? isEmpty : hasLength(1),
+        );
+        if (stars == 3 && withContent) {
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          addTearDown(() => tester.view.viewInsets = FakeViewPadding.zero);
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const ValueKey('genesis-feedback-content-input')),
+            'Rating feedback',
+          );
+          await tester.pumpAndSettle();
+          final send = find.text('Submit');
+          await tester.ensureVisible(send);
+          await tester.tap(send);
+          await tester.pumpAndSettle();
+          expect(
+            transport.requestsFor('/api/v1/feedback/create'),
+            hasLength(1),
+          );
+          expect(
+            transport.decodedBody(
+              transport.requestsFor('/api/v1/feedback/create').single,
+            ),
+            {'content': 'Rating feedback', 'rating': 3},
+          );
+          expect(find.byType(WorldoRatingContent), findsNothing);
+          await tester.pump(const Duration(seconds: 3));
+          await tester.pumpAndSettle();
+        }
+        if (stars <= 3 && !withContent) {
+          if (stars == 2) {
+            await tester.enterText(
+              find.byKey(const ValueKey('genesis-feedback-content-input')),
+              '   ',
+            );
+            await tester.pumpAndSettle();
+          }
+          final actionBox = tester.widget<GenesisActionBox<int>>(
+            find.byType(GenesisActionBox<int>),
+          );
+          expect(actionBox.actions.single.enabled, isTrue);
+          await tester.ensureVisible(find.text('Submit'));
+          await tester.tap(find.text('Submit'));
+          await tester.pumpAndSettle();
+          expect(
+            transport.decodedBody(
+              transport.requestsFor('/api/v1/feedback/create').single,
+            ),
+            {'rating': stars},
+          );
+        }
+        if (stars >= 1) {
+          expect(find.byType(RatingRewardDialog), findsOneWidget);
+        }
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets('pending reward waits for next app interaction', (tester) async {
+    final services = _feedbackTestServices(_RecordingFeedbackTransport());
+    await services.sessionStore.saveUid('u_pending');
+    await PendingRatingReward.save('u_pending', 5);
+    PendingRatingReward.flowActive = false;
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          navigatorKey: genesisNavigatorKey,
+          builder: (_, child) => PendingRatingRewardHost(child: child!),
+          home: const Scaffold(body: Text('Continue')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(RatingRewardDialog), findsNothing);
+
+    await services.sessionStore.saveUid('other_owner');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RatingRewardDialog), findsNothing);
+    await services.sessionStore.saveUid('u_pending');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RatingRewardDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getInt(
+        PendingRatingReward.key('u_pending'),
+      ),
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final claimed in [false, true]) {
+    testWidgets('reward entry claimed=$claimed skips thank-you-only dialog', (
+      tester,
+    ) async {
+      final services = _feedbackTestServices(_RecordingFeedbackTransport());
+      await services.sessionStore.saveUid('u_reward_entry');
+      await (await SharedPreferences.getInstance()).setBool(
+        RatingPromptStore.rewardClaimedKey('u_reward_entry'),
+        claimed,
+      );
+      await PendingRatingReward.save('u_reward_entry', 3);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () =>
+                      PendingRatingReward.show(context, 'u_reward_entry', 3),
+                  child: const Text('Reward'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Reward'));
+      await tester.pumpAndSettle();
+      expect(find.text('Your feedback has been saved.'), findsNothing);
+      expect(
+        find.byType(RatingRewardDialog),
+        claimed ? findsNothing : findsOneWidget,
+      );
+      if (!claimed) {
+        expect(find.text('Claim'), findsOneWidget);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(
+          PendingRatingReward.key('u_reward_entry'),
+        ),
+        false,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'rating reward retries an explicit claim error and refreshes wallet',
+    (tester) async {
+      final transport = _RecordingFeedbackTransport()..claimFailures = 1;
+      final services = _feedbackTestServices(transport);
+      await services.sessionStore.saveUid('u_reward');
+      await services.sessionStore.saveAuthToken('token');
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => const RatingRewardDialog(rating: 3),
+                  ),
+                  child: const Text('Reward'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Reward'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Claim'));
+      await tester.pumpAndSettle();
+      expect(find.byType(RatingRewardDialog), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/gem/task/claim'), hasLength(1));
+      await tester.tap(find.text('Claim'));
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/gem/task/claim'), hasLength(2));
+      expect(
+        transport.decodedBody(
+          transport.requestsFor('/api/v1/gem/task/claim').last,
+        ),
+        {'task_code': 'rating'},
+      );
+      expect(find.byType(RatingRewardDialog), findsNothing);
+      expect(services.gemWallet.state.value.balanceCent, 33000);
+      expect(
+        (await SharedPreferences.getInstance()).getBool(
+          'rating_reward_claimed_v1:u_reward',
+        ),
+        isTrue,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('settings language name follows the current locale', (
     tester,
   ) async {
@@ -172,6 +694,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(GenesisActionBoxSurface)).width,
+      closeTo(
+        (tester.view.physicalSize.width / tester.view.devicePixelRatio * 0.7)
+            .clamp(0.0, 800.0),
+        0.1,
+      ),
+    );
     expect(find.text('Delete your account?'), findsOneWidget);
     expect(find.text('Delete'), findsWidgets);
 
@@ -193,8 +723,8 @@ void main() {
       const ValueKey<String>('genesis-feedback-content-input'),
     );
     final input = tester.widget<TextField>(inputFinder);
-    expect(input.minLines, 3);
-    expect(input.maxLines, 3);
+    expect(input.minLines, 5);
+    expect(input.maxLines, 5);
     expect(input.autofocus, isTrue);
     expect(input.focusNode?.hasFocus, isTrue);
     expect(input.decoration?.filled, isTrue);
@@ -284,10 +814,30 @@ AppServices _feedbackTestServices(_RecordingFeedbackTransport transport) {
 
 class _RecordingFeedbackTransport implements HttpTransport {
   final requests = <TransportRequest>[];
+  int claimFailures = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/gem/task/claim')) {
+      final failed = claimFailures > 0;
+      if (failed) claimFailures--;
+      return TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: failed
+            ? '{"err_no":21006,"err_msg":"Not claimable","data":{}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"task_code":"rating","status":"claimed","reward_gems_cent":3000,"balance_cent":33000,"ledger_id":"rating_ledger"}}',
+      );
+    }
+    if (request.uri.path.endsWith('/gem/wallet')) {
+      return const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"wallet":{"balance_cent":33000}}}',
+      );
+    }
     return const TransportResponse(
       statusCode: 200,
       headers: {'content-type': 'application/json'},
