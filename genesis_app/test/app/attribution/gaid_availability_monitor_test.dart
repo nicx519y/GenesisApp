@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,10 +40,86 @@ void main() {
     );
   });
 
+  test(
+    'GAID failure payload uses the same identifier snapshot as registration',
+    () async {
+      final events = MemoryCollectEventStore();
+      GenesisTelemetry.setCollectUploaderForTesting(
+        CollectTelemetryUploader(store: events)..configure(enabled: true),
+      );
+      final monitor = GaidAvailabilityMonitor();
+      Map<String, Object?>? registered;
+      var firebaseReads = 0;
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
+        gaidAvailabilityMonitor: monitor,
+        readAdid: (_) async => 'known-adid',
+        readGoogleAdId: () async => null,
+        readNativeGoogleAdId: () async => null,
+        readAppInstanceId: () async {
+          firebaseReads++;
+          return 'firebase-id';
+        },
+        registerDevice:
+            ({
+              required adid,
+              required environment,
+              gpsAdid,
+              idfa,
+              idfv,
+              required appInstanceId,
+            }) async {
+              registered = {
+                'adid': adid,
+                'app_instance_id': appInstanceId,
+                'gps_adid': gpsAdid,
+              };
+            },
+      );
+      await registration.register();
+      await monitor.whenIdle;
+      final failure = events.eventsForTesting.singleWhere(
+        (event) => event.action == 'get_gaid_failed',
+      );
+      expect(jsonDecode(failure.object3), registered);
+      expect(jsonDecode(failure.object3), {
+        'adid': 'known-adid',
+        'app_instance_id': 'firebase-id',
+        'gps_adid': '',
+      });
+      expect(firebaseReads, 1);
+      registration.dispose();
+    },
+  );
+
+  test('queued failure keeps its identifier snapshot immutable', () async {
+    final snapshots = <Map<String, Object?>>[];
+    final monitor = GaidAvailabilityMonitor(
+      report: (action, source, identifiers) async {
+        snapshots.add(identifiers);
+        return true;
+      },
+    );
+    final identifiers = <String, Object?>{
+      'adid': 'first',
+      'app_instance_id': 'firebase',
+      'gps_adid': '',
+    };
+    monitor.observe(
+      environment: 'sandbox',
+      source: null,
+      identifiers: identifiers,
+    );
+    identifiers['adid'] = 'changed';
+    await monitor.whenIdle;
+    expect(snapshots.single['adid'], 'first');
+  });
+
   test('a GAID available on the first read never reports success', () async {
     final events = <(String, String)>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add((action, source));
         return true;
       },
@@ -66,7 +143,7 @@ void main() {
     () async {
       final events = <(String, String)>[];
       final monitor = GaidAvailabilityMonitor(
-        report: (action, source) async {
+        report: (action, source, identifiers) async {
           events.add((action, source));
           return true;
         },
@@ -91,7 +168,7 @@ void main() {
   test('both readers failing report once, then Adjust recovery once', () async {
     final events = <(String, String)>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add((action, source));
         return true;
       },
@@ -122,7 +199,7 @@ void main() {
   test('recovery can come from the native reader after a failure', () async {
     final events = <(String, String)>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add((action, source));
         return true;
       },
@@ -151,7 +228,7 @@ void main() {
       final events = <String>[];
       final requests = <String?>[];
       final monitor = GaidAvailabilityMonitor(
-        report: (action, source) async {
+        report: (action, source, identifiers) async {
           events.add(action);
           return true;
         },
@@ -176,7 +253,7 @@ void main() {
   test('a new failure after recovery starts a new monitoring period', () async {
     final events = <String>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add(action);
         return true;
       },
@@ -206,7 +283,7 @@ void main() {
   test('failed enqueue never arms a success event', () async {
     final events = <String>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add(action);
         return false;
       },
@@ -233,7 +310,7 @@ void main() {
       final events = <String>[];
       var successAttempts = 0;
       final monitor = GaidAvailabilityMonitor(
-        report: (action, source) async {
+        report: (action, source, identifiers) async {
           events.add(action);
           return action != 'get_gaid_success' || ++successAttempts > 1;
         },
@@ -263,7 +340,7 @@ void main() {
   test('failure can be recovered after a new registration instance', () async {
     final events = <(String, String)>[];
     GaidAvailabilityMonitor monitor() => GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add((action, source));
         return true;
       },
@@ -298,7 +375,7 @@ void main() {
   test('a failure from another environment does not arm success', () async {
     final events = <(String, String)>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add((action, source));
         return true;
       },
@@ -329,7 +406,7 @@ void main() {
   test('iOS does not report GAID availability', () async {
     final events = <String>[];
     final monitor = GaidAvailabilityMonitor(
-      report: (action, source) async {
+      report: (action, source, identifiers) async {
         events.add(action);
         return true;
       },

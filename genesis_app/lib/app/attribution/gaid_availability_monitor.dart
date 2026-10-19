@@ -1,10 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../telemetry/genesis_telemetry.dart';
 
 typedef GaidAvailabilityReporter =
-    Future<bool> Function(String action, String source);
+    Future<bool> Function(
+      String action,
+      String source,
+      Map<String, Object?> identifiers,
+    );
 
 abstract interface class GaidFailureStateStore {
   Future<bool> hasPendingFailure(String environment);
@@ -33,13 +39,17 @@ class SharedPreferencesGaidFailureStateStore implements GaidFailureStateStore {
   }
 }
 
-Future<bool> _reportGaidAvailability(String action, String source) =>
-    GenesisTelemetry.collectLogAndWait(
-      actionType: 'monitor',
-      action: action,
-      object1: source,
-      object2: TargetPlatform.android.name,
-    );
+Future<bool> _reportGaidAvailability(
+  String action,
+  String source,
+  Map<String, Object?> identifiers,
+) => GenesisTelemetry.collectLogAndWait(
+  actionType: 'monitor',
+  action: action,
+  object1: source,
+  object2: TargetPlatform.android.name,
+  object3: action == 'get_gaid_failed' ? jsonEncode(identifiers) : null,
+);
 
 /// Emits one failure per unavailable period, followed by one recovery only
 /// when that failure was successfully queued for upload.
@@ -56,18 +66,27 @@ class GaidAvailabilityMonitor {
 
   /// The reporting queue is separate from registration, so telemetry never
   /// holds up the device request or the page that triggered it.
-  void observe({required String environment, required String? source}) {
-    _work = _work.then((_) => _record(environment, source)).catchError((
-      Object error,
-    ) {
-      debugPrint('[Adjust][GAID] availability monitor failed: $error');
-    });
+  void observe({
+    required String environment,
+    required String? source,
+    Map<String, Object?> identifiers = const {},
+  }) {
+    final snapshot = Map<String, Object?>.unmodifiable(identifiers);
+    _work = _work
+        .then((_) => _record(environment, source, snapshot))
+        .catchError((Object error) {
+          debugPrint('[Adjust][GAID] availability monitor failed: $error');
+        });
   }
 
   @visibleForTesting
   Future<void> get whenIdle => _work;
 
-  Future<void> _record(String environment, String? source) async {
+  Future<void> _record(
+    String environment,
+    String? source,
+    Map<String, Object?> identifiers,
+  ) async {
     final normalizedEnvironment = environment.trim().toLowerCase();
     final pending =
         _pendingByEnvironment[normalizedEnvironment] ??
@@ -76,7 +95,11 @@ class GaidAvailabilityMonitor {
 
     if (source == null) {
       if (pending ||
-          !await report('get_gaid_failed', 'adjust_and_native_unavailable')) {
+          !await report(
+            'get_gaid_failed',
+            'adjust_and_native_unavailable',
+            identifiers,
+          )) {
         return;
       }
       _pendingByEnvironment[normalizedEnvironment] = true;
@@ -84,7 +107,9 @@ class GaidAvailabilityMonitor {
       return;
     }
 
-    if (!pending || !await report('get_gaid_success', source)) return;
+    if (!pending || !await report('get_gaid_success', source, identifiers)) {
+      return;
+    }
     _pendingByEnvironment[normalizedEnvironment] = false;
     await store.setPendingFailure(normalizedEnvironment, false);
   }
