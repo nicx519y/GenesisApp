@@ -121,7 +121,12 @@ void main() {
       expect(find.text('Retry'), findsNothing);
       expect(find.text(error), findsOneWidget);
       expect(
-        find.descendant(of: find.byType(ListView), matching: find.text(error)),
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is ListView && w.scrollDirection == Axis.vertical,
+          ),
+          matching: find.text(error),
+        ),
         findsNothing,
       );
       final rowRect = tester.getRect(row);
@@ -134,7 +139,12 @@ void main() {
       expect(tester.getRect(row), rowRect);
 
       final attempts = backend.calls('dm_sessions').length;
-      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await tester.drag(
+        find.byWidgetPredicate(
+          (w) => w is ListView && w.scrollDirection == Axis.vertical,
+        ),
+        const Offset(0, 350),
+      );
       await settleLayout(tester);
       expect(backend.calls('dm_sessions').length, attempts);
       expect(find.text(error), findsNothing);
@@ -209,7 +219,9 @@ void main() {
         expect(tester.getRect(anchor), rect);
         expect(
           find.descendant(
-            of: find.byType(ListView),
+            of: find.byWidgetPredicate(
+              (w) => w is ListView && w.scrollDirection == Axis.vertical,
+            ),
             matching: find.text(error),
           ),
           findsNothing,
@@ -457,13 +469,14 @@ void main() {
   );
 
   testWidgets(
-    'Create retains the original header action and photo border while publishing real data',
+    'Create retains its footer action and photo border while publishing real data',
     (tester) async {
       final preview = MiniPhoneSession();
       await mount(tester, preview, MiniPhoneScreen.create);
       await settleLayout(tester);
-      final originalPostRect = tester.getRect(
-        find.byType(GenesisPrimaryButton),
+      expect(
+        tester.getRect(find.byType(GenesisPrimaryButton)).top,
+        lessThan(80),
       );
       await capture(tester, 'create-original');
       await tester.pumpWidget(const SizedBox.shrink());
@@ -477,10 +490,11 @@ void main() {
       final session = MiniPhoneSession(data: store);
       await mount(tester, session, MiniPhoneScreen.create);
       await settleLayout(tester);
-      expect(
-        tester.getRect(find.byType(GenesisPrimaryButton)),
-        originalPostRect,
-      );
+      final postRect = tester.getRect(find.byType(GenesisPrimaryButton));
+      expect(postRect.left, 16);
+      expect(postRect.width, 390 - 32);
+      expect(postRect.bottom, 844 - 12);
+      expect(tester.getTopLeft(find.text('Create post')).dy, lessThan(80));
       expect(find.text('Player'), findsOneWidget);
       expect(find.text('World'), findsOneWidget);
       expect(
@@ -639,7 +653,14 @@ void main() {
                 .every((r) => r.uri.queryParameters['pn'] == '1');
         i++
       ) {
-        await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+        await tester.drag(
+          find
+              .byWidgetPredicate(
+                (w) => w is ListView && w.scrollDirection == Axis.vertical,
+              )
+              .last,
+          const Offset(0, -600),
+        );
         await settleLayout(tester);
       }
       expect(
@@ -676,7 +697,11 @@ void main() {
     await mount(tester, session, MiniPhoneScreen.create, scale: 2, width: 320);
     await settleLayout(tester);
     expect(find.text('Post'), findsOneWidget);
-    expect(tester.getTopLeft(find.text('Post')).dy, lessThan(80));
+    expect(
+      tester.getBottomRight(find.byType(GenesisPrimaryButton)).dy,
+      844 - 12,
+    );
+    expect(tester.getSize(find.byType(GenesisPrimaryButton)).width, 320 - 32);
     expect(tester.takeException(), isNull);
     await capture(tester, 'create-narrow-large-text');
     await tester.pumpWidget(const SizedBox.shrink());

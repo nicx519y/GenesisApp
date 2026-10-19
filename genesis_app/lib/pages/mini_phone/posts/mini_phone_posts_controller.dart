@@ -31,6 +31,8 @@ class MiniPhonePostsController {
   List<PhonePost> posts = [];
   PhonePage<PhoneNotification>? notifications;
   final details = <int, PhonePostDetail>{};
+  int _interactionRevision = 0;
+  int get interactionRevision => _interactionRevision;
   final comments = <int, List<PhoneComment>>{};
   final _deferredPostReads = <String, Future<bool> Function()>{};
   Future<bool> load<T>(
@@ -55,6 +57,7 @@ class MiniPhonePostsController {
     postAuthorIds = [];
     notifications = null;
     details.clear();
+    _interactionRevision++;
     comments.clear();
     _deferredPostReads.clear();
     _likeIntent.clear();
@@ -146,12 +149,11 @@ class MiniPhonePostsController {
   }
 
   Future<bool> refreshDetail(int id, {bool afterWrite = false}) {
-    Future<bool> read() => load(
-      'detail:$id',
-      () => api.detail(worldId, id),
-      (d) => details[id] = d,
-      deduplicate: !afterWrite,
-    );
+    Future<bool> read() =>
+        load('detail:$id', () => api.detail(worldId, id), (d) {
+          details[id] = d;
+          _interactionRevision++;
+        }, deduplicate: !afterWrite);
     return afterWrite ? _confirmPostRead('detail:$id', read) : read();
   }
 
@@ -196,6 +198,7 @@ class MiniPhonePostsController {
   Future<void> setLiked(int id, bool liked) async {
     _likeIntent[id] = liked;
     likeTargets[id] = liked;
+    _interactionRevision++;
     requests.notify();
     if (!_likeRunning.add(id)) return;
     final g = requests.generation;
@@ -221,6 +224,7 @@ class MiniPhonePostsController {
       if (requests.isCurrent(g)) {
         _likeRunning.remove(id);
         likeTargets.remove(id);
+        _interactionRevision++;
         requests.notify();
       }
     }

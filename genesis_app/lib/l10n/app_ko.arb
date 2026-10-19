@@ -4296,5 +4296,37 @@
   "worldoLaunchDone": "완료",
   "@worldoLaunchDone": {
     "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
+  "miniPhoneCreatePost": "게시물 작성",
+  "@miniPhoneCreatePost": {
+    "description": "MiniPhone Posts: navigation header for composing a new post."
+  },
+  "miniPhoneCreate": "작성",
+  "@miniPhoneCreate": {
+    "description": "MiniPhone Posts: shortcut to compose a new post beside the author filters."
+  },
+  "miniPhonePostHint": "무슨 생각을 하고 계신가요?",
+  "@miniPhonePostHint": {
+    "description": "MiniPhone new post: placeholder in the required post body field, limited to 500 visible characters."
+  },
+  "miniPhonePhotoOptional": "사진(선택 사항)",
+  "@miniPhonePhotoOptional": {
+    "description": "MiniPhone new post: label for the optional single attached image."
+  },
+  "miniPhoneChoosePhoto": "사진 선택",
+  "@miniPhoneChoosePhoto": {
+    "description": "MiniPhone new post: open the image picker to attach one image."
+  },
+  "miniPhoneReplacePhoto": "사진 변경",
+  "@miniPhoneReplacePhoto": {
+    "description": "MiniPhone new post: choose a replacement for the currently attached image."
+  },
+  "miniPhoneRemovePhoto": "사진 제거",
+  "@miniPhoneRemovePhoto": {
+    "description": "MiniPhone new post: remove the image attachment from the draft, without deleting the source file."
+  },
+  "miniPhonePublish": "게시",
+  "@miniPhonePublish": {
+    "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
   }
 }

@@ -4296,5 +4296,37 @@
   "worldoLaunchDone": "完成",
   "@worldoLaunchDone": {
     "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
+  "miniPhoneCreatePost": "建立貼文",
+  "@miniPhoneCreatePost": {
+    "description": "MiniPhone Posts: navigation header for composing a new post."
+  },
+  "miniPhoneCreate": "建立",
+  "@miniPhoneCreate": {
+    "description": "MiniPhone Posts: shortcut to compose a new post beside the author filters."
+  },
+  "miniPhonePostHint": "分享你的想法…",
+  "@miniPhonePostHint": {
+    "description": "MiniPhone new post: placeholder in the required post body field, limited to 500 visible characters."
+  },
+  "miniPhonePhotoOptional": "照片（選填）",
+  "@miniPhonePhotoOptional": {
+    "description": "MiniPhone new post: label for the optional single attached image."
+  },
+  "miniPhoneChoosePhoto": "選擇照片",
+  "@miniPhoneChoosePhoto": {
+    "description": "MiniPhone new post: open the image picker to attach one image."
+  },
+  "miniPhoneReplacePhoto": "更換照片",
+  "@miniPhoneReplacePhoto": {
+    "description": "MiniPhone new post: choose a replacement for the currently attached image."
+  },
+  "miniPhoneRemovePhoto": "移除照片",
+  "@miniPhoneRemovePhoto": {
+    "description": "MiniPhone new post: remove the image attachment from the draft, without deleting the source file."
+  },
+  "miniPhonePublish": "發布",
+  "@miniPhonePublish": {
+    "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
   }
 }

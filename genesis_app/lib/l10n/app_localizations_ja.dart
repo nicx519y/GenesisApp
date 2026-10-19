@@ -3103,4 +3103,28 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => 'キャラクターの移動';
+
+  @override
+  String get miniPhoneCreatePost => '投稿を作成';
+
+  @override
+  String get miniPhoneCreate => '作成';
+
+  @override
+  String get miniPhonePostHint => '今、何を考えていますか？';
+
+  @override
+  String get miniPhonePhotoOptional => '写真（任意）';
+
+  @override
+  String get miniPhoneChoosePhoto => '写真を選択';
+
+  @override
+  String get miniPhoneReplacePhoto => '写真を変更';
+
+  @override
+  String get miniPhoneRemovePhoto => '写真を削除';
+
+  @override
+  String get miniPhonePublish => '投稿';
 }

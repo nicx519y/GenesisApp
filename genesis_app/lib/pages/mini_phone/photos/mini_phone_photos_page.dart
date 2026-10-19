@@ -6,7 +6,7 @@ import '../shared/mini_phone_list_requests.dart';
 import '../../../ui/components/genesis_static_network_image.dart';
 import '../../../ui/components/genesis_refresh_indicator.dart';
 import '../../../components/common/genesis_image_viewer_overlay.dart';
-import '../../../utils/genesis_image_resource.dart';
+import 'mini_phone_photo_projection.dart';
 import 'mini_phone_photo_thumbnail.dart';
 
 class MiniPhonePhotosPage extends StatefulWidget {
@@ -22,34 +22,37 @@ class MiniPhonePhotosPage extends StatefulWidget {
 }
 
 class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
-  late final _lists = MiniPhoneListRequests(widget.store);
+  late final _lists = MiniPhoneListRequests(
+    widget.store.requests,
+    isActive: () => _active,
+  );
   final _scroll = ScrollController();
   bool _fillScheduled = false;
 
-  // One resource may be registered under several locations/assets. Keep the
-  // server records intact, but show that image once in the grid and viewer.
-  List<PhoneAlbumAsset> get _visiblePhotos {
-    final seen = <String>{};
-    return widget.store.album
-        .where((asset) {
-          final image = asset.image.trim();
-          final resource = image.isEmpty ? asset.thumbnail.trim() : image;
-          final imageResource = GenesisImageResourceRegistry.resolve(resource);
-          final resolved = imageResource.displayUrl;
-          if (imageResource.keys.any(
-            widget.store.worldCoverImageKeys.contains,
-          )) {
-            return false;
-          }
-          // Default map artwork is a UI fallback, not a photo of this World.
-          if (resolved.isEmpty ||
-              resolved.startsWith('assets/images/map_default/') ||
-              localDefaultMapImageAssetForBackendImageUrl(resolved) != null) {
-            return false;
-          }
-          return seen.add(resource);
-        })
-        .toList(growable: false);
+  final _projection = MiniPhonePhotoProjection();
+  List<PhoneAlbumAsset> _photos = const [];
+  Object? _listState;
+
+  bool get _active =>
+      widget.store.phoneVisible &&
+      (ModalRoute.isCurrentOf(context) ?? true) &&
+      TickerMode.valuesOf(context).enabled;
+
+  bool _sync() {
+    final store = widget.store;
+    final photos = _projection.resolve(store.album, store.worldCoverImageKeys);
+    final state = (
+      photos,
+      store.accountGeneration,
+      store.busy.contains('album'),
+      store.errors['album'],
+      store.hasMore['album'],
+      store.foreground,
+    );
+    if (state == _listState) return false;
+    _photos = photos;
+    _listState = state;
+    return true;
   }
 
   void _fillViewport() {
@@ -58,24 +61,23 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fillScheduled = false;
       if (!mounted || !_scroll.hasClients) return;
-      final store = widget.store;
-      if (store.hasMore['album'] == true &&
-          !store.busy.contains('album') &&
-          !store.errors.containsKey('album') &&
-          _scroll.position.extentAfter < 160) {
-        store.refreshAlbum(next: true);
-      }
+      _lists.fillViewport(
+        'album',
+        _scroll.position,
+        () => widget.store.refreshAlbum(next: true),
+      );
     });
   }
 
   @override
   void initState() {
     super.initState();
+    _sync();
     widget.store.addListener(_changed);
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (mounted && _sync()) setState(() {});
   }
 
   @override
@@ -87,7 +89,7 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
 
   @override
   Widget build(BuildContext context) {
-    final photos = _visiblePhotos;
+    final photos = _photos;
     _fillViewport();
     return miniPhonePanel(
       widget.header,

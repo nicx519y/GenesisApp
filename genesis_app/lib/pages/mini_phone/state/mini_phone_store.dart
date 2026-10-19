@@ -134,10 +134,22 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   List<String> get postAuthorIds => postsController.postAuthorIds;
   set postAuthorIds(List<String> value) =>
       postsController.postAuthorIds = value;
-  Iterable<PhonePerson> get authors => <String, PhonePerson>{
-    ...people,
-    for (final id in postAuthorIds) id: people[id] ?? PhonePerson(id, id, ''),
-  }.values;
+  List<PhonePerson>? _authors;
+  List<String>? _authorIds;
+  List<PhonePerson> get authors {
+    if (_authors == null || !identical(_authorIds, postAuthorIds)) {
+      _authorIds = postAuthorIds;
+      _authors = List.unmodifiable(
+        <String, PhonePerson>{
+          ...people,
+          for (final id in postAuthorIds)
+            id: people[id] ?? PhonePerson(id, id, ''),
+        }.values,
+      );
+    }
+    return _authors!;
+  }
+
   Iterable<PhonePerson> get contacts =>
       people.values.where((p) => !playerCharIds.contains(p.id));
   List<PhonePost> get posts => postsController.posts;
@@ -331,6 +343,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     currentTime = '';
     notifications = null;
     people.clear();
+    _authors = null;
     users.clear();
     postAuthorIds = [];
     playerCharIds.clear();
@@ -405,6 +418,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   );
 
   Future<bool> refreshPeople() => load('people', loadWorld, (w) {
+    _authors = null;
     worldName = w.name;
     worldCoverImageKeys
       ..clear()

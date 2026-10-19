@@ -294,27 +294,31 @@ void main() {
     },
   );
   test(
-    'authors come from the world-wide endpoint and resolve player character IDs',
+    'authors include the world roster and supplement unknown endpoint IDs',
     () async {
       final b = PhoneBackend(), s = b.store();
       addTearDown(s.dispose);
       await s.ready;
-      expect(s.authors, isEmpty);
+      expect(s.authors.map((p) => p.id), ['c', 'player-char']);
       b.respond = (r) => r.uri.path.endsWith('/post/authors')
           ? ok({
               'list': ['player-char', 'unknown-char'],
             })
           : null;
       await s.refreshPosts();
-      expect(s.authors.map((p) => p.id), ['player-char', 'unknown-char']);
-      expect(s.authors.map((p) => p.name), ['Player', 'unknown-char']);
+      expect(s.authors.map((p) => p.id), ['c', 'player-char', 'unknown-char']);
+      expect(s.authors.map((p) => p.name), [
+        'Character',
+        'Player',
+        'unknown-char',
+      ]);
       expect(s.posts.single.author.id, 'c'); // Feed does not add authors.
       await s.refreshPeople();
-      expect(s.authors.map((p) => p.id), ['player-char', 'unknown-char']);
+      expect(s.authors.map((p) => p.id), ['c', 'player-char', 'unknown-char']);
       b.respond = (r) =>
           r.uri.path.endsWith('/post/authors') ? ok({'list': []}) : null;
       await s.refreshPostAuthors();
-      expect(s.authors, isEmpty);
+      expect(s.authors.map((p) => p.id), ['c', 'player-char']);
     },
   );
   test(
@@ -386,7 +390,7 @@ void main() {
           : null;
       expect(await s.refreshPosts(), isTrue);
       expect(s.errors['postAuthors'], 'Authors unavailable');
-      expect(s.authors, isEmpty);
+      expect(s.authors.map((p) => p.id), ['c', 'player-char']);
       b.respond = (r) =>
           r.uri.path.endsWith('/post/authors') ? gate.future : null;
       final old = s.refreshPostAuthors();
@@ -401,7 +405,7 @@ void main() {
         }),
       );
       expect(await old, isFalse);
-      expect(s.authors, isEmpty);
+      expect(s.authors.map((p) => p.id), ['c', 'player-char']);
       expect(s.authorFilter, isNull);
     },
   );

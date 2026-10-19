@@ -359,7 +359,7 @@ AI replies.
 | `state/mini_phone_requests.dart` | 共享账号代次、请求版本与进行中请求合并 |
 | `messages/mini_phone_messages_controller.dart` | 消息投影、会话、历史、回复状态与持久化已读 |
 | `messages/mini_phone_messages_page.dart`、`messages/mini_phone_live_chat.dart` | Messages 列表、私聊与独立页面状态 |
-| `posts/mini_phone_posts_controller.dart`、`posts/mini_phone_posts_page.dart` | Posts、评论、作者、点赞与页面输入状态 |
+| `posts/mini_phone_posts_controller.dart`、`posts/mini_phone_posts_page.dart`、`posts/mini_phone_*_page.dart` | Posts 控制器与页面装配；Feed、评论、创建独立拥有输入/滚动状态；作者栏和帖子正文独立复用 |
 | `posts/mini_phone_post_draft.dart` | World 持有的帖子草稿、上传和发送 |
 | `photos/mini_phone_photos_controller.dart`、`photos/mini_phone_photos_page.dart` | 相册分页和页面展示 |
 | `home/`、`entry/`、`shared/` | 桌面与通知布局、手机入口、基础 UI 和列表辅助 |

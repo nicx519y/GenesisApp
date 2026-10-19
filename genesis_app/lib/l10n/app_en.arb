@@ -3813,5 +3813,37 @@
   "chatCharacterMovement": "Character movement",
   "@chatCharacterMovement": {
     "description": "Tick message: heading above character destination jump cards."
+  },
+  "miniPhoneCreatePost": "Create post",
+  "@miniPhoneCreatePost": {
+    "description": "MiniPhone Posts: navigation header for composing a new post."
+  },
+  "miniPhoneCreate": "Create",
+  "@miniPhoneCreate": {
+    "description": "MiniPhone Posts: shortcut to compose a new post beside the author filters."
+  },
+  "miniPhonePostHint": "What’s on your mind?",
+  "@miniPhonePostHint": {
+    "description": "MiniPhone new post: placeholder in the required post body field, limited to 500 visible characters."
+  },
+  "miniPhonePhotoOptional": "Photo (Optional)",
+  "@miniPhonePhotoOptional": {
+    "description": "MiniPhone new post: label for the optional single attached image."
+  },
+  "miniPhoneChoosePhoto": "Choose photo",
+  "@miniPhoneChoosePhoto": {
+    "description": "MiniPhone new post: open the image picker to attach one image."
+  },
+  "miniPhoneReplacePhoto": "Replace photo",
+  "@miniPhoneReplacePhoto": {
+    "description": "MiniPhone new post: choose a replacement for the currently attached image."
+  },
+  "miniPhoneRemovePhoto": "Remove photo",
+  "@miniPhoneRemovePhoto": {
+    "description": "MiniPhone new post: remove the image attachment from the draft, without deleting the source file."
+  },
+  "miniPhonePublish": "Post",
+  "@miniPhonePublish": {
+    "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
   }
 }

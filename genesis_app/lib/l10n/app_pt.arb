@@ -4296,5 +4296,37 @@
   "worldoLaunchDone": "Concluído",
   "@worldoLaunchDone": {
     "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  },
+  "miniPhoneCreatePost": "Criar publicação",
+  "@miniPhoneCreatePost": {
+    "description": "MiniPhone Posts: navigation header for composing a new post."
+  },
+  "miniPhoneCreate": "Criar",
+  "@miniPhoneCreate": {
+    "description": "MiniPhone Posts: shortcut to compose a new post beside the author filters."
+  },
+  "miniPhonePostHint": "No que você está pensando?",
+  "@miniPhonePostHint": {
+    "description": "MiniPhone new post: placeholder in the required post body field, limited to 500 visible characters."
+  },
+  "miniPhonePhotoOptional": "Foto (opcional)",
+  "@miniPhonePhotoOptional": {
+    "description": "MiniPhone new post: label for the optional single attached image."
+  },
+  "miniPhoneChoosePhoto": "Escolher foto",
+  "@miniPhoneChoosePhoto": {
+    "description": "MiniPhone new post: open the image picker to attach one image."
+  },
+  "miniPhoneReplacePhoto": "Trocar foto",
+  "@miniPhoneReplacePhoto": {
+    "description": "MiniPhone new post: choose a replacement for the currently attached image."
+  },
+  "miniPhoneRemovePhoto": "Remover foto",
+  "@miniPhoneRemovePhoto": {
+    "description": "MiniPhone new post: remove the image attachment from the draft, without deleting the source file."
+  },
+  "miniPhonePublish": "Publicar",
+  "@miniPhonePublish": {
+    "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
   }
 }

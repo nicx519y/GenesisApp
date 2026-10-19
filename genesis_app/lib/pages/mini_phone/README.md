@@ -27,12 +27,12 @@ Dock 位置保留旧的本地存储键，避免整理命名后丢失已有位置
 | `entry/` | 手机入口、Dock、设备本地位置持久化 |
 | `home/` | 桌面、世界时钟、通知卡片、展开布局与 Home 自身滚动状态 |
 | `messages/` | 会话列表、私聊 UI、消息投影、历史分页、回复状态及持久化已读 |
-| `posts/` | Feed、评论、创建、页面输入状态、草稿、帖子控制器与图片展示 |
-| `photos/` | 相册页面、相册控制器和缩略图策略 |
+| `posts/` | `mini_phone_posts_page.dart` 仅装配；Feed、评论、创建使用独立页面，共用帖子内容组件；作者栏按需构建，草稿继续归 Session |
+| `photos/` | 相册页面、请求控制器、按相册/封面变化缓存的展示投影和缩略图策略 |
 | `music/` | 音乐页面、Home 卡片、播放器、点赞、播放进度及公共音乐组件 |
 | `settings/` | 设置页、AI 模型设置页面与会话内模型设置控制器 |
 | `settings/wallpaper/` | 壁纸加载、编辑、保存、缓存与展示 |
-| `shared/` | 模块内视觉组件、Panel 和列表翻页/刷新互斥辅助 |
+| `shared/` | 模块内视觉组件、Panel；列表请求辅助只依赖请求状态及调用方回调，不导入 Store |
 | `preview/` | 预览数据、预览页面、图片查看；仅此目录保留局部 `part` |
 
 HTTP、DTO 和 SQLite 继续位于 `lib/network/mini_phone/`；通用聊天组件、图片查看器和 `lib/ui/animations/app_launch_transition/` 保留公共模块归属。

@@ -346,7 +346,11 @@ void main() {
       expect(requested, {0, 1, 2, 3, 4, 5, 6});
       requested.clear();
       final controller = tester
-          .widget<ListView>(find.byType(ListView))
+          .widget<ListView>(
+            find.byWidgetPredicate(
+              (w) => w is ListView && w.scrollDirection == Axis.vertical,
+            ),
+          )
           .controller!;
       controller.jumpTo(900);
       await tester.pumpAndSettle();
@@ -410,7 +414,11 @@ void main() {
     requested.clear();
     await tester.pumpWidget(feed(covered: true));
     final controller = tester
-        .widget<ListView>(find.byType(ListView))
+        .widget<ListView>(
+          find.byWidgetPredicate(
+            (w) => w is ListView && w.scrollDirection == Axis.vertical,
+          ),
+        )
         .controller!;
     controller.jumpTo(1100);
     await tester.pumpAndSettle();

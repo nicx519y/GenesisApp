@@ -1,252 +1,196 @@
-# GenesisApp
+# GenesisApp / Worldo
 
-GenesisApp 是一个 Flutter 客户端项目，外层仓库同时包含 Flutter App、本地 chatroom WebSocket mock 服务和少量运行脚本。主要业务包括 Home/Origin/World/Discuss/Messages/Me 五个主 Tab，Origin 创建与编辑，World 地图与地点聊天室，私信、通知、搜索、登录和图片上传。
+Worldo 的 Flutter 客户端，主要面向 Android 和 iOS。用户可以浏览和创建世界模板（代码中称为 Origin）、选择角色启动 World、在地图地点中参与聊天，并通过世界内的 MiniPhone 使用私聊、动态、相册和音乐等功能。
 
-## 仓库结构
+Flutter 工程位于 **`genesis_app/`**。以下说明以当前仓库源码和构建配置为准；模块列举表示客户端已包含相应实现，不代表所有真实后端、商店支付和设备流程都已验收。
 
-```text
-/Users/ionix/Works/GenesisApp/
-├── README.md                 # 本说明
-├── AUTH_LOGIN_STATE.md       # 登录状态与认证调试记录
-├── scripts/                  # 外层运行脚本
-├── chatroom_ws_mock/         # 本地 WebSocket mock 服务
-├── agent_workflow/           # agent/流程相关报告与辅助内容
-└── genesis_app/              # Flutter App 主工程
-```
+## 快速运行
 
-### 外层目录
+### 1. 准备环境
 
-- `genesis_app/`：真正的 Flutter 项目。运行、测试、构建 App 时都先进入这个目录。
-- `chatroom_ws_mock/`：Node.js WebSocket mock，供 chatroom 本地联调使用。
-- `scripts/flutter_run_debug_proxy.sh`：真机调试代理脚本，会自动解析本机局域网 IP 并注入 `GENESIS_DEBUG_PROXY`。
-- `.vscode/`：工作区级 VS Code 启动配置。
-- `.omx/`、`agent_workflow/`：自动化/agent 工作流状态和报告，不属于 App 业务代码。
+| 项目 | 要求 |
+| --- | --- |
+| Flutter / Dart | 当前 `pubspec.lock` 要求 **Flutter ≥ 3.44.0、Dart ≥ 3.12.0 且 < 4.0.0**。`pubspec.yaml` 的 Dart 声明为 `^3.9.0`，仅满足该声明不足以使用当前锁定依赖 |
+| Android | Android SDK、JDK 17、已启动的模拟器或开启 USB 调试的设备；最低 Android API 24 |
+| iOS | macOS、Xcode、CocoaPods；工程部署目标为 iOS 15.0，真机运行需要可用的开发团队和签名配置 |
 
-## Flutter 工程结构
+Android 的 Debug 和 Release 都使用项目自定义签名。运行前确认 `genesis_app/android/key.properties` 及其 `storeFile` 指向的 keystore 可用；当前配置不会自动回退到默认 debug keystore。Google / Apple 登录、Firebase 和商店购买还依赖对应包名的原生配置与服务端配置。
 
-```text
-genesis_app/
-├── lib/
-│   ├── main.dart                     # Flutter 入口，初始化服务后 runApp
-│   ├── app/                          # App 装配、配置、依赖注入
-│   ├── routers/                      # 路由名和参数解析
-│   ├── pages/                        # 页面级业务入口
-│   ├── components/                   # 跨页面 UI 组件
-│   ├── network/                      # HTTP、WebSocket、mock、缓存和 API 模型
-│   ├── platform/                     # 登录、设备 ID、原生图片选择等平台能力
-│   ├── utils/                        # 图片、时间、数字、显示名等工具
-│   ├── ui/                           # 主题和基础 UI token
-│   ├── icons/                        # 自定义图标 Dart 封装
-│   └── models/                       # 旧/共享业务模型
-├── assets/                           # 图片、svg、自定义图标字体
-├── docs/                             # 接口、组件、跨端结构等项目文档
-├── test/                             # widget/component/network/utils 测试
-├── android/                          # Android 平台工程
-├── ios/                              # iOS 平台工程
-├── third_party/                      # 本地依赖覆盖，如 firebase_auth
-├── pubspec.yaml                      # Flutter 依赖和资源声明
-└── analysis_options.yaml             # Dart analyzer 规则
-```
+### 2. 安装依赖并启动
 
-## World 多 Location Chat VM Panel
-
-`genesis_app/lib/pages/world/world_page.dart` 的地点聊天不是普通 route push，而是在 World 详情页内部用 `WorldDetailsPageScaffold.topOverlay` 叠加的多 location chat VM panel。实现目标是：用户点击地图上不同 location 时，聊天面板可以像当前 World 页的一部分一样快速打开、切换、关闭，同时复用同一个世界级 WebSocket 连接和同一套 `LocationChatPanel` / shared chat UI。
-
-核心状态：
-
-- `_locationChatDescriptors`：保存每个 location 的 panel 描述，包括 `locationId`、展示名、是否 leaf location，以及用于本地消息匹配的 `localMessageLocationIds` aliases。
-- `_cachedLocationChatIds`：记录已经创建过 widget 的 location panel。已缓存 panel 在切换时保留在 overlay stack 中，避免重复构建造成闪屏。
-- `_readyLocationChatIds`：记录初始内容已经 ready 的 panel。未 ready 时先显示 `_LocationChatPanelSkeleton`，ready 后再把真实 panel opacity 切到 1。
-- `_activeChatLocationId`：当前可见、可交互的 location。非 active panel 通过 `IgnorePointer`、`ExcludeSemantics`、`Opacity(0)` 和 `TickerMode(false)` 保留 VM/widget 状态，但不接收交互、不暴露语义、不跑动画。
-
-打开目标：
-
-- `_openChatForPoint` 只负责把 `WorldPoint` 转成 `_LocationChatPanelDescriptor`，并立即进入 `_showCachedLocationChat`。
-- `_showCachedLocationChat` 先切换 active id、安排当前 panel 进入 overlay，再异步 `_hydrateActiveLocationChatMessages` 从本地缓存补消息。
-- 首次打开未缓存 panel 时，先让 skeleton 过一帧，再把该 location 加入 `_cachedLocationChatIds`，等 `LocationChatPanel.onInitialContentReady` 回调后标记 ready。
-
-连接和 join 目标：
-
-- `WorldPage` 只在 `relation_status` 是 `owner` 或 `joined` 时启动长期 `WorldChatroomService`；`approved` 仍是 Launch 流，不直接连 WebSocket。
-- 多 location panel 共用一个 `WorldChatroomService`，不要为每个 panel 新建 WebSocket。
-- 只有 leaf location 可以触发 `join` / `leave`。非 leaf location 可以打开或下钻展示，但不产生聊天室 join 副作用。
-- 关闭或切换 panel 时，`_leaveCachedLocationChat` 只在当前 joined location 是 leaf 且匹配时发送 leave；失败不阻塞 UI。
-
-消息匹配目标：
-
-- `localMessageLocationIds` 用来兼容 point id、scene/location id、node id 等多个来源，让本地缓存消息能归并到当前 location panel。
-- `hydrateLocalMessages` 是本地缓存恢复入口；远端最新消息刷新和 WebSocket 实时事件由 `WorldChatroomService` 继续维护。
-- skeleton 的视觉结构要跟真实 `LocationChatPanel` 的 shared chat UI 保持一致，避免加载态和 ready 态跳变。
-
-这个设计的优先级是打开速度和状态连续性：地图点击后先出现 panel/skeleton，再补位置上报、缓存 hydrate 和 WebSocket join 等异步结果。后续改动不要把网络请求重新放回点击打开的同步路径里。
-
-## 运行方式
-
-先确认本机已有 Flutter SDK，并在 App 工程目录执行命令：
+从仓库根目录执行：
 
 ```sh
-cd /Users/ionix/Works/GenesisApp/genesis_app
+cd genesis_app
+flutter --version
+flutter doctor -v
 flutter pub get
-flutter run
+flutter devices
+flutter run --debug --flavor production -d <device-id>
 ```
 
-默认会连接真实 dev 服务：
+将 `<device-id>` 替换为 `flutter devices` 列出的 Android 或 iOS 设备 ID。后文 Flutter 命令均在 `genesis_app/` 内执行。
 
-- HTTP API：`https://dev.hushie.ai/api/`
-- Chatroom WebSocket：`wss://dev.hushie.ai/aitown-chat/ws`
-- Chatroom HTTP：`https://dev.hushie.ai/`
+`pubspec.yaml` 已设置 `default-flavor: production`，只有一个目标设备时也可直接运行 `flutter run`。依赖中包含 `third_party/` 下的本地覆盖包，需要保留完整工程目录。
 
-使用本地 mock HTTP 数据：
+iOS 如需手动安装原生依赖，在 `flutter pub get` 后执行：
 
 ```sh
-cd /Users/ionix/Works/GenesisApp/genesis_app
-flutter run --dart-define=GENESIS_API_ENV=mock
+cd ios
+pod install
+open Runner.xcworkspace
+cd ..
 ```
 
-启用 WebSocket frame 日志：
+在 Xcode 中使用 `production` 或 `internal` scheme，配置签名后再通过 Xcode 或 `flutter run` 启动。
+
+### 3. 选择包类型与服务环境
+
+包类型（flavor）和服务环境是两个独立维度：
+
+| Flavor | 应用标识 | 差异 |
+| --- | --- | --- |
+| `production`（默认） | `com.worldo.ai` | 主应用包，支持 Apple 登录 |
+| `internal` | `com.worldo.ai.internal` | 可与主应用并存的内部包；客户端关闭 Apple 登录 |
 
 ```sh
-flutter run --dart-define=GENESIS_DEBUG_WS_LOG=true
+# 内部包调试
+flutter run --debug --flavor internal -d <device-id>
+
+# 主应用包 Release 运行
+flutter run --release --flavor production -d <device-id>
 ```
 
-覆盖 chatroom WebSocket 地址：
+**未保存开发者地址覆盖时，默认服务由构建模式决定，而非 flavor：**
+
+| 服务 | Debug / Profile | Release |
+| --- | --- | --- |
+| 业务 HTTP | `https://dev.hushie.ai/api/` | `https://api.worldo.ai/api/` |
+| Gateway | `https://dev.hushie.ai/apix/` | `https://api.worldo.ai/apix/` |
+| Chatroom / MiniPhone HTTP | `https://dev.hushie.ai/` | `https://api.worldo.ai/` |
+| World WebSocket | `wss://dev.hushie.ai/aitown-chat/ws` | `wss://api.worldo.ai/aitown-chat/ws` |
+
+因此，`flutter run --flavor production` 默认仍是连接 dev 服务的 Debug 包。`GENESIS_API_ENV` 默认值 `real` 表示使用真实 HTTP，而不是强制连接生产域名。
+
+### 4. 常用调试参数
 
 ```sh
-flutter run --dart-define=GENESIS_CHATROOM_WS_URL=ws://localhost:8787/ws
+# 使用客户端内置的本地 HTTP mock（Debug / Profile 可用）
+flutter run --debug --flavor production -d <device-id> \
+  --dart-define=GENESIS_API_ENV=mock
+
+# 输出 WebSocket frame 日志
+flutter run --debug --flavor production -d <device-id> \
+  --dart-define=GENESIS_DEBUG_WS_LOG=true
 ```
 
-Android 模拟器访问宿主机 WebSocket mock 时使用：
+| 参数 | 作用 |
+| --- | --- |
+| `GENESIS_API_ENV=real` | 使用真实 HTTP；`prod` / `production` 是同义值，不负责切换域名 |
+| `GENESIS_API_ENV=mock` | 使用内置 `LocalMockGenesisTransport`；`local` / `debug` 是同义值 |
+| `GENESIS_CHATROOM_WS_URL=<url>` | 覆盖 World WebSocket 地址 |
+| `GENESIS_CHATROOM_HTTP_URL=<url>` | 覆盖 Chatroom / MiniPhone HTTP base |
+| `GENESIS_DEBUG_WS_LOG=true` | 开启 WebSocket frame 日志 |
+| `GENESIS_DEBUG_PROXY=<host>:<port>` | 设置 HTTP / WebSocket 调试代理 |
 
-```sh
-flutter run --dart-define=GENESIS_CHATROOM_WS_URL=ws://10.0.2.2:8787/ws
-```
+Release 不包含本地 HTTP mock 实现，传入 `GENESIS_API_ENV=mock` 仍会使用真实服务。HTTP mock 也不等于完整的离线世界或 WebSocket 服务；当前仓库没有旧文档中的 `chatroom_ws_mock/` 目录。
 
-## 本地 WebSocket mock
+Debug 默认显示开发浮钮，点击可打开 Developer 面板，配置 API、Gateway、WebSocket 域名及查看网络诊断。若浮钮已隐藏，可进入 **Me → Settings**，连续点击页面标题 10 次重新显示。面板保存的地址会持久化，并优先于默认值及对应启动参数；发现实际连接地址不符合预期时，先检查这里的覆盖配置。地址输入使用域名，应用会补齐服务路径。
 
-启动 mock 服务：
-
-```sh
-cd /Users/ionix/Works/GenesisApp/chatroom_ws_mock
-npm install
-npm start
-```
-
-默认地址：
-
-```text
-ws://localhost:8787/ws
-```
-
-健康检查：
-
-```sh
-curl http://localhost:8787/health
-```
-
-指定监听地址或端口：
-
-```sh
-HOST=0.0.0.0 PORT=9090 npm start
-```
-
-当前 App 内没有单独的 WebSocket test 页面入口；设置页的开发入口是：
-
-```text
-Me -> Settings -> Developer page
-```
-
-WebSocket 联调通过 World/Location Chat 业务流、`chatroom_ws_mock/` 服务和 `test/network/chatroom/` 下的 focused tests 验证。
-
-## 真机代理调试
-
-从外层仓库运行：
-
-```sh
-cd /Users/ionix/Works/GenesisApp
-scripts/flutter_run_debug_proxy.sh
-```
-
-默认设备是脚本中的 `DEFAULT_DEVICE_ID`，默认代理端口是 `9090`。可覆盖：
-
-```sh
-GENESIS_DEVICE_ID=<device-id> GENESIS_PROXY_PORT=9090 scripts/flutter_run_debug_proxy.sh
-```
-
-或：
+代理辅助脚本在**仓库根目录**运行，会自动获取本机局域网 IP；默认代理端口为 `9090`：
 
 ```sh
 scripts/flutter_run_debug_proxy.sh -d <device-id> --proxy-port 9090
 ```
 
-## 常用验证命令
+需要先启动代理软件，并确保设备可访问该地址。也可通过 `GENESIS_PROXY_HOST` 指定代理主机。
+
+## 主要功能模块
+
+主导航是 **Home / Worldo / Create / Inbox / Me**，其中 Create 显示为创建图标。World 是启动后的世界实例；Worldo 模板在代码目录和接口中仍沿用 `Origin` 名称。
+
+| 模块 | 主要功能 | 代码入口（相对 `genesis_app/lib/`） |
+| --- | --- | --- |
+| Home | 首页内容流、我的 World 入口和世界卡片 | `pages/home/` |
+| Worldo / Origin | 模板列表、详情预览、角色和地点展示、选择角色 Launch 世界 | `pages/origin/` |
+| Create / Edit | 创建和编辑模板的基础信息、角色、地点、开场和故事事件；草稿与图片上传 | `pages/create/`、`pages/edit/`、`pages/origin_editor/` |
+| World 与地图 | 世界详情、角色和地点、Tilemap 地图、世界时间推进（Tick）、事件与回顾 | `pages/world/`、`components/tilemap/` |
+| LocationChat | 地点聊天室、多地点面板切换、实时消息、历史缓存、消息编辑及 Tick 交互 | `pages/chat/`、`components/chat/`、`network/chatroom/` |
+| MiniPhone | 世界内手机桌面、角色私聊、Posts 动态与评论、通知、相册、音乐播放与点赞、壁纸设置 | `pages/mini_phone/`、`network/mini_phone/` |
+| Discuss | Worldo 讨论列表、发帖、帖子详情和回复 | `pages/discuss/`、`components/discuss/` |
+| Inbox / 用户私信 | 消息中心、通知分类、用户私信、未读与已读管理、本地消息缓存 | `pages/messages/`、`pages/chat/` |
+| Search | Worldo、World 和用户搜索，以及搜索历史 | `pages/search/` |
+| Me / 账号与设置 | 用户资料、关注与粉丝、收藏、Google / Apple 登录、访客身份、新用户偏好、语言和账号设置 | `pages/me/`、`platform/`、`components/onboarding/` |
+| Gems / Premium | Gems 钱包与记录、签到及任务奖励、订阅和商店购买、模型与记忆设置 | `pages/gems/`、`app/gems/`、`app/membership/` |
+| 基础能力 | HTTP / Gateway 签名、世界级 WebSocket、图片处理与上传、SQLite 缓存、多语言、Firebase 遥测与 Adjust 归因 | `network/`、`app/`、`l10n/`、`ui/` |
+
+MiniPhone 复用所属 World 的连接与会话，关闭手机仍保留世界会话，退出 World 时释放。其模型选择与记忆长度目前是会话内设置，不能据此认定已保存为后端设置或影响实际计费。具体接口和联调边界见 [MiniPhone 集成文档](genesis_app/docs/mini-phone-client-integration.md)。
+
+## 仓库结构
+
+```text
+.
+├── README.md                   # 项目概览与运行入口
+├── genesis_app/                # Flutter 主工程
+│   ├── lib/
+│   │   ├── main.dart           # 应用入口
+│   │   ├── app/                # 启动、配置、依赖装配与全局服务
+│   │   ├── routers/            # 路由
+│   │   ├── pages/              # 页面与业务模块
+│   │   ├── components/         # 共享业务组件、地图与聊天 UI
+│   │   ├── network/            # API、WebSocket、模型与缓存
+│   │   ├── platform/           # 原生能力与身份认证
+│   │   ├── l10n/               # 多语言资源
+│   │   ├── ui/                 # 主题、基础控件与动画
+│   │   └── utils/              # 通用工具
+│   ├── assets/                 # 图片、图标和字体
+│   ├── android/、ios/          # 移动端原生工程
+│   ├── third_party/            # 本地依赖覆盖
+│   ├── tool/                   # 多语言等维护工具
+│   ├── test/                   # 单元与 Widget 测试
+│   └── docs/                   # 接口、设计、维护与联调文档
+├── scripts/                    # 代理、抓包等辅助脚本
+├── tools/                      # Agent CLI、聊天调试面板等工具
+└── agent_workflow/             # 工作流、用例及验证脚本
+```
+
+## 构建与验证
 
 在 `genesis_app/` 下执行：
 
 ```sh
-dart format .
-flutter analyze
-flutter test
-```
+# Android Debug APK
+flutter build apk --debug --flavor production
 
-针对常见接口/业务改动的 focused 测试：
-
-```sh
-flutter test test/network/genesis_api_test.dart
-flutter test test/network/local_mock_genesis_transport_test.dart
-flutter test test/network/chatroom/chatroom_client_test.dart
-flutter test test/network/chatroom/world_chatroom_service_test.dart
-flutter test test/components/discuss_page_test.dart
-flutter test test/components/origin_discuss_list_test.dart
-flutter test test/ui/genesis_avatar_test.dart
-flutter test test/ui/genesis_list_image_test.dart
-```
-
-本地 WebSocket mock 语法检查：
-
-```sh
-cd /Users/ionix/Works/GenesisApp/chatroom_ws_mock
-node --check src/server.js
-```
-
-## 构建
-
-Android debug：
-
-```sh
-cd /Users/ionix/Works/GenesisApp/genesis_app
-flutter build apk --debug
-```
-
-Android production release（仅 `arm64-v8a`，保持项目原始 `versionCode`）：
-
-```sh
-cd /Users/ionix/Works/GenesisApp/genesis_app
+# Android Release APK：仅 ARM64，保持原始 versionCode
 flutter build apk --release --flavor production --target-platform android-arm64
+
+# Google Play App Bundle
+flutter build appbundle --release --flavor production
+
+# iOS Debug 编译检查（不签名，不能直接安装到真机）
+flutter build ios --debug --flavor production --no-codesign
 ```
 
-不要使用 `--split-per-abi`：Flutter 会给 arm64 APK 的 `versionCode`
-固定增加 `2000`。项目的 Android Gradle 配置会在 production release APK
-构建时直接限定 `arm64-v8a`，且不影响 Google Play 使用的 AAB。
+APK 输出位于 `build/app/outputs/flutter-apk/`，AAB 输出位于 `build/app/outputs/bundle/productionRelease/`。Android production release APK **不要加 `--split-per-abi`**，以免改变 `versionCode`。iOS 分发还需要在 Xcode 中完成签名、Archive 和导出。
 
-常见输出目录：
-
-```text
-genesis_app/build/app/outputs/flutter-apk/
-```
-
-iOS debug 无签名构建：
+按改动范围选择检查，不必每次执行所有测试：
 
 ```sh
-cd /Users/ionix/Works/GenesisApp/genesis_app
-flutter build ios --debug --no-codesign
+flutter analyze
+flutter test test/network/genesis_api_test.dart
+flutter test test/network/chatroom/chatroom_client_test.dart
+flutter test test/network/mini_phone test/pages/mini_phone
 ```
 
-## 关键文档
+修改多语言资源时运行 `./tool/l10n/check`。纯文档修改检查链接与 `git diff --check` 即可。更多验证入口见 [工程维护参考](genesis_app/docs/project-maintenance-reference.md#verification)。
 
-- HTTP API 契约：`genesis_app/docs/apifox-http-api-contract.md`
-- Chatroom WebSocket 契约：`genesis_app/docs/chatroom-websocket-api.md`
-- UI 组件索引：`genesis_app/docs/ui-component-library.md`
-- 跨平台目录组织：`genesis_app/docs/cross_platform_directory_organization.md`
-- 真机 API 联调记录：`genesis_app/docs/real-device-api-integration-report-2026-05-29.md`
+## 开发文档
 
-改接口时优先同步 `docs/`、`lib/network/`、`lib/network/local_mock_genesis_transport.dart` 和对应 focused tests。
+- [工程维护指引](genesis_app/AGENTS.md)：目录职责、改动边界和专项规则入口。
+- [HTTP API 契约](genesis_app/docs/apifox-http-api-contract.md) / [Gateway 鉴权](genesis_app/docs/gateway-auth.md)。
+- [Chatroom WebSocket 契约](genesis_app/docs/chatroom-websocket-api.md)。
+- [MiniPhone 模块结构](genesis_app/lib/pages/mini_phone/README.md) / [手机接口契约](genesis_app/docs/mini-phone-chat-client-api-2026-10-12.md)。
+- [Gems 客户端契约](genesis_app/docs/gem-cent-app-contract.md)。
+- [UI 组件库](genesis_app/docs/ui-component-library.md) / [多语言维护](genesis_app/docs/l10n/README.md)。
+- [自动化工作流](agent_workflow/README.md) / [LocationChat 调试面板](tools/location_chat_debug_dashboard/README.md)。

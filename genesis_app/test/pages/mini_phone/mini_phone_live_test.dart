@@ -328,12 +328,17 @@ void main() {
       expect(find.text('Post body'), findsOneWidget);
       failAuthors = false;
       await tester.pump(const Duration(seconds: 3));
-      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await tester.drag(
+        find.byWidgetPredicate(
+          (w) => w is ListView && w.scrollDirection == Axis.vertical,
+        ),
+        const Offset(0, 350),
+      );
       await settle(tester);
       expect(find.text('Authors unavailable'), findsNothing);
       expect(
         find.byKey(const ValueKey('mini-phone-post-author-c')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(find.text('Player'), findsOneWidget);
       await tester.tap(

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_localizations.dart';
 import 'preview/mini_phone_preview.dart';
 import 'preview/mini_phone_preview_activity.dart';
 import 'preview/mini_phone_preview_gallery.dart';
@@ -595,7 +596,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     postId: livePostId,
     header: _navigation(switch (destination) {
       MiniPhoneScreen.comments => 'Comments',
-      MiniPhoneScreen.create => 'Create post',
+      MiniPhoneScreen.create => context.l10n.miniPhoneCreatePost,
       _ => 'Posts',
     }),
     onBack: _back,

@@ -3109,4 +3109,28 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => '캐릭터 이동';
+
+  @override
+  String get miniPhoneCreatePost => '게시물 작성';
+
+  @override
+  String get miniPhoneCreate => '작성';
+
+  @override
+  String get miniPhonePostHint => '무슨 생각을 하고 계신가요?';
+
+  @override
+  String get miniPhonePhotoOptional => '사진(선택 사항)';
+
+  @override
+  String get miniPhoneChoosePhoto => '사진 선택';
+
+  @override
+  String get miniPhoneReplacePhoto => '사진 변경';
+
+  @override
+  String get miniPhoneRemovePhoto => '사진 제거';
+
+  @override
+  String get miniPhonePublish => '게시';
 }

@@ -5358,6 +5358,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Character movement'**
   String get chatCharacterMovement;
+
+  /// MiniPhone Posts: navigation header for composing a new post.
+  ///
+  /// In en, this message translates to:
+  /// **'Create post'**
+  String get miniPhoneCreatePost;
+
+  /// MiniPhone Posts: shortcut to compose a new post beside the author filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get miniPhoneCreate;
+
+  /// MiniPhone new post: placeholder in the required post body field, limited to 500 visible characters.
+  ///
+  /// In en, this message translates to:
+  /// **'What’s on your mind?'**
+  String get miniPhonePostHint;
+
+  /// MiniPhone new post: label for the optional single attached image.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo (Optional)'**
+  String get miniPhonePhotoOptional;
+
+  /// MiniPhone new post: open the image picker to attach one image.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose photo'**
+  String get miniPhoneChoosePhoto;
+
+  /// MiniPhone new post: choose a replacement for the currently attached image.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace photo'**
+  String get miniPhoneReplacePhoto;
+
+  /// MiniPhone new post: remove the image attachment from the draft, without deleting the source file.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get miniPhoneRemovePhoto;
+
+  /// MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get miniPhonePublish;
 }
 
 class _AppLocalizationsDelegate

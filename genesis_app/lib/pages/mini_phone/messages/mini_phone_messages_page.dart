@@ -16,7 +16,7 @@ class MiniPhoneMessagesPage extends StatelessWidget {
   final MiniPhoneStore store;
   final Widget header;
   final ValueChanged<PhonePerson> onOpenChat;
-  late final _lists = MiniPhoneListRequests(store);
+  late final _lists = MiniPhoneListRequests(store.requests);
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: store,

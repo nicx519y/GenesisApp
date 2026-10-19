@@ -5140,6 +5140,54 @@
           "text_hash": "5a73ae60f30b97285ed8b3669e7a75af4d9a5e89414c801598af24f18b828c49",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "dd5dc93bfef722bbb9560ebc894706cfc61ced279456ed3619851a37f3972e37",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "f2acf2a3687be531379ed660eec7980911ec64f971b1b3e3061ca829857f62ef",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "1b325f8d34340071384cbd9ff4542e4763c56949ae89e9cee212f8a1e70a3158",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "aa6845466cee2df9b288c892378f35286749c0c7b65fde5e00755473392aa730",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "6bdd93c199f2062359939ea9f764ab61fe59c78cfe70cb18ad1b78e0ddcda212",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "ee56014eaed4de27a6d8db7b0465ade61df9b11c504ca5e5227d8393604a9bb0",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "113b98cdbd55fe6b36058887c47b93c0a1788375e701eea19c4a97762b67e0df",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "c5c5b217fb2094d8f17abbfd1d84b6a2e87f53df5b6499d223eb11d5212de77a",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -10281,6 +10329,54 @@
           "text_hash": "ebd0aeb40463f4ff5b138ebdb951d9b1efbe97da4d7907569d8dd235c853d5a9",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "ed2356826820eed4dffef1f7bbc272543a159fb816666349ac10272e0ddb339e",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "caf82925e10d389ffe3f027ecbe1c65b2c0b5d21a09722793bd16535dd439ba8",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "99968980bbaecfa4112479fe4ae6da9c944f9a48e886859cfd81e3776b229b8a",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "c1e9880d33c6166a514cf8fc5db6199af6ce9c0ceb2e0cbef22c21d1d5ead368",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "2771baaf081655472a66a7d8cfe6a1bc0d6e0e61d4f88b77d7b07d0683cadae4",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "1a351c751ed9447023917becbd23d4af77aa566ed9b07d0ec3de441c9da47d1f",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "92138aa87c03407e3e3b3356111de0b723548747920ebc96225c2d0dc6d10306",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "60b558b4abf64f4a7792f2c67db6b0e0d0ca605c34c601755fe9dafad24f1e1f",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -15422,6 +15518,54 @@
           "text_hash": "ae77b2d4f7611d09a6e0e29e626e59b5c37abe79e56e792a63edd6d0c3670948",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "cb278bcf133093351f96da411b2ed3fe3b1284ce5ecdef3cb3f1897437bbeb49",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "1c4db4bc40dd94b85df65d441f1eee02c3bcb294885d03a4edabc4307c34247e",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "e326ded1a2efba88365755711dd978e79df037bff5500be624442f304cf54425",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "c1e9880d33c6166a514cf8fc5db6199af6ce9c0ceb2e0cbef22c21d1d5ead368",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "9d50eb208fc07f1b49056a4702c3855ad07bd89956c52db91366d7fc7bf32294",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "95f7fab93c42c603fde394bab397f73bba8920980ad1aef43cd54f6379f0da8b",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "826864858a8022ca077945e9bab27c8eed047b2d989b84dd66d636962b097b24",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "60b558b4abf64f4a7792f2c67db6b0e0d0ca605c34c601755fe9dafad24f1e1f",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -20563,6 +20707,54 @@
           "text_hash": "17a31655e71ac9e8a49e896307ea8c7b80119ceabf8ee7727327092e6e3f2cb6",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "7e5335689eaa98754b5d5bcea48a318e3e1dc509eb01d14fe10b2b2b01939560",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "0d94cc0e64a21491ae3fc2c13ac2ec1f707732ec75376f23ac5fcae5bd21627a",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "2a4d86f84b4920aab105bb886fbb74805965e864684f2ff9f6c7fbb52eee4160",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "fe76ad79af41be164c659c9cfb8f22f12acbe7cb9d53f0de2e5c4fa09b21d440",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "bf4b7cfb4cc004f0d16439de8a5100e63b8a90909206821335b39e840a3a8cf4",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "8d6851fbec8cff6470ca1472bbe36fde53093e41720d04075569e7b6c91c3d86",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "34a5006d9edabe7826033ef9a660bc203f6cf1611e2b8c24809531e6c40be5b2",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "d986b282c090faefc246e3eff7f9c0dff32f201469797a01290874ff9a324613",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -25704,6 +25896,54 @@
           "text_hash": "eeae0703cea0c69c1c5f5dc499ca5a85144cd9e7c0fb9ff7ad83b73dbf1fae07",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "3ac6b5b90006cac39f2a54352c28da3104ce472e1e3cd41349f388b617389631",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "01ec8a30316a47321735dfe1932adaf8edc443d7d79d15d6a85a486dc79b1ae6",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "9cd2093bcb7f6d8023e7a98d068d6422d3d321d20a4e15794c6727468677256e",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "9da832df53d8e1435a6fb42e0cac8b8fe828703ca59d9f7a72b53e97d63ed2d9",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "1d127b7dc743b0c6f7fac25be60afbe405dc5f8cea2eb866e75b6bc7882b34ed",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "06147ee4ba8ae0a85167175a47d759993096a9e28009cb390778a04584c3d26f",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "d62551d199149cc59dc1b8a08b0dc3c36e6cc9d1ce40656b68f4c4a45d518e0c",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "d432e4a7355713b02b9f78363b7dd9e3fa3ed8d8ed469486f4c95f5ea61ac049",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -30845,6 +31085,54 @@
           "text_hash": "448d78d38c7970b6d27cb807ac4816ced9ce6831fd340735069d148556fb4f7e",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "b9c48954f2d61d64b27a265ceff4d0076afb155dec0eb27cf69b7678e68b5273",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "24717a2659c959a1ea74ca5180340eac0943de6d26e3d9e50a0b75a0799a708e",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "5f3a411374899d4b798cc6505c1c20e75c0d27074500411f8ee98f0b92d7e459",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "d10e0d58b4d81b23a8b858d424dde25bc95e2db361e1db519b892c8b92e0647a",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "24b04a730ca2bff675a9a6a9eeabc163ac7e736d049cd5d0fa1ecc22449d59b1",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "c93cceb614ab1c04bf443a8416381e5bb8c9640c5d15dc211d4ebe83d0eceebb",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "86beb1a9bdbad1351f57520ff998e6756a9f05feba940f4c4ba95739bc83aa72",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "e0bc45a7ae806cbb99e5bdf94877f22a39b154e119d549781e44587103c60a13",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -35986,6 +36274,54 @@
           "text_hash": "9d0518dbe7e7b83ca69bc6da121d2b649e0af25ade05c84f7f444162af1cb9cd",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "3a674923ecfc8430f0f64d9e860dfcc13014ce9263ffa44e1ff620cdd777b18d",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "65f1c3d6458d7bb34e3b457510764ddd9a2254f552195388c41435405449ae43",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "3f712615293eccc14eb9bd2cd8bc4967845051331c9939ea2e1367ae4cebfad5",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "963762215542e4c18b7b4b2e16b3d42dee7d146ba5cbf9a1e5acaae835dc564c",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "9d5a6fb20be7d430c2ceb93a17366808c68eaf888b7676f4a7da118aa5a9598d",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "6611af7054843a57b70db26d25a8e6f62036a49b0f0d0ee1e2f154e6d900e83c",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "f24d34f1e080a42e041e847cce7457c3723136ff61a493ef1c12abc0bc8ba715",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "be0f3880b624b393b111090d526e2f24653c908d8ace79ddcaab2d81dce636c5",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     },
@@ -41127,6 +41463,54 @@
           "text_hash": "e9de582f1df1f06460ca8c0006c057bbff40214e1e61c381deef95013298ed4f",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "miniPhoneCreatePost": {
+          "source_hash": "5cb0c728a628b95ff609c4d3dd0cb9acd1e38ad9e4eed31ab15483196d7e21d0",
+          "text_hash": "687f968d99ae321cb8dec5837d8497ab8130e4366d313c848cb0406d6fc6f94b",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneCreate": {
+          "source_hash": "c0334fb6838519821f196a3f381313e59a3481a8e06322178df67a7a6b049882",
+          "text_hash": "aa4b9197a271573bf72bd53cb51aaef9d5f68e6ba8d7599fd40d84abdd2c49ab",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePostHint": {
+          "source_hash": "e1bf0ab3cf2e884c39c65eb475745f9066356922ae9822eaee4376cc70e85c4c",
+          "text_hash": "0f71ab3d04104d74642ec5592f74fa88bada037a0d37d4837e5999676f7b748f",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePhotoOptional": {
+          "source_hash": "3db3cec08cad593b6ef116414b5dd8ec3e898a0c4b24f35f94e71a650d80fff7",
+          "text_hash": "7ef20b9829714848bfbaff204f284f86415da30c3c4751992cd27d2b174fa2a7",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneChoosePhoto": {
+          "source_hash": "db632c44a744ba872a121d8df3462c47ad1ae117cefeddd631928bc85870cef5",
+          "text_hash": "93005f30d22a6cf295c768cf4b3b1e9ec6fe31b3e3e541c91cea9aa7b7d6fc12",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneReplacePhoto": {
+          "source_hash": "4d31ee64705eb4f0d409b63a5e6e21055d5c80b01c37c7de9ddaf1ab6f078b30",
+          "text_hash": "30997a13829643cbafac01241dd9b7f86e572e90294534d8c5c9535022a859fc",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhoneRemovePhoto": {
+          "source_hash": "9c3b99c85f4073e060211a80b5b196bdd9054649fd198e3ca866624fe36cdaaf",
+          "text_hash": "43ad39a886d8cd783eece76e665407902a53ba5f257e44666178e2e09c93dbf4",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
+        },
+        "miniPhonePublish": {
+          "source_hash": "736322af80f36d0fe7ebdafa4b96a2287e66d316582b98030ce615e67538736b",
+          "text_hash": "6a21fb07585134b3f4335e6079c8a1f8950e7444a973406da51f60efa5e26e58",
+          "status": "ai",
+          "note": "AI translation for MiniPhone post composition controls."
         }
       }
     }

@@ -46,6 +46,7 @@ void main() {
         'image/resize,w_180/format,webp',
       );
       expect(provider.cacheWidth, (tester.getSize(tile).width * 2).ceil());
+      expect(provider.cacheHeight, (tester.getSize(tile).height * 2).ceil());
       expect(provider.fit, BoxFit.cover);
     }
     expect(probe.prefetched, isEmpty);
@@ -177,6 +178,42 @@ void main() {
     },
   );
 
+  testWidgets(
+    'unrelated state changes neither rebuild Photos nor page near the bottom',
+    (tester) async {
+      final probe = await _mount(tester, [
+        for (var i = 1; i <= 36; i++) _photo(i),
+      ]);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      final store = probe.session.data!;
+      store.hasMore['album'] = false;
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      scroll.jumpTo(scroll.position.maxScrollExtent - 80);
+      await tester.pumpAndSettle();
+      store.hasMore['album'] = true;
+      final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
+      final calls = probe.backend.calls('album').length;
+      store.currentTime = 'Day 3/14:05';
+      await tester.runAsync(store.refreshSummary);
+      await tester.pumpAndSettle();
+      expect(probe.backend.calls('album').length, calls);
+      expect(
+        identical(tester.widget<SliverGrid>(find.byType(SliverGrid)), grid),
+        isTrue,
+      );
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+      await tester.pumpAndSettle();
+      expect(probe.backend.calls('album').length, greaterThan(calls));
+      await tester.pumpWidget(const SizedBox.shrink());
+      probe.session.dispose();
+    },
+  );
+
   testWidgets('failed adjacent prefetch never interrupts viewing', (
     tester,
   ) async {
@@ -205,6 +242,7 @@ Map<String, dynamic> _photo(int id) => {
 Future<
   ({
     MiniPhoneSession session,
+    PhoneBackend backend,
     List<GenesisStaticNetworkImageProvider> prefetched,
     List<GenesisStaticNetworkImageProvider> loaded,
   })
@@ -260,5 +298,10 @@ _mount(
     ),
   );
   await tester.pumpAndSettle();
-  return (session: session, prefetched: prefetched, loaded: loaded);
+  return (
+    session: session,
+    backend: backend,
+    prefetched: prefetched,
+    loaded: loaded,
+  );
 }

@@ -236,9 +236,7 @@ void main() {
       await tester.ensureVisible(find.text('Replace photo'));
       await tester.tap(find.text('Replace photo'));
       await tester.tap(find.text('Remove photo'));
-      final preview = find.byWidgetPredicate(
-        (w) => w is Image && w.image is MemoryImage,
-      );
+      final preview = find.byKey(const ValueKey('mini-phone-draft-photo'));
       await tester.tap(preview);
       await tester.pump();
       expect(pickerCalls, 1);

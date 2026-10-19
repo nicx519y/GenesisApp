@@ -3201,6 +3201,30 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => 'Character movement';
+
+  @override
+  String get miniPhoneCreatePost => 'Create post';
+
+  @override
+  String get miniPhoneCreate => 'Create';
+
+  @override
+  String get miniPhonePostHint => 'What’s on your mind?';
+
+  @override
+  String get miniPhonePhotoOptional => 'Photo (Optional)';
+
+  @override
+  String get miniPhoneChoosePhoto => 'Choose photo';
+
+  @override
+  String get miniPhoneReplacePhoto => 'Replace photo';
+
+  @override
+  String get miniPhoneRemovePhoto => 'Remove photo';
+
+  @override
+  String get miniPhonePublish => 'Post';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6249,4 +6273,28 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get chatCharacterMovement => '角色移動';
+
+  @override
+  String get miniPhoneCreatePost => '建立貼文';
+
+  @override
+  String get miniPhoneCreate => '建立';
+
+  @override
+  String get miniPhonePostHint => '分享你的想法…';
+
+  @override
+  String get miniPhonePhotoOptional => '照片（選填）';
+
+  @override
+  String get miniPhoneChoosePhoto => '選擇照片';
+
+  @override
+  String get miniPhoneReplacePhoto => '更換照片';
+
+  @override
+  String get miniPhoneRemovePhoto => '移除照片';
+
+  @override
+  String get miniPhonePublish => '發布';
 }

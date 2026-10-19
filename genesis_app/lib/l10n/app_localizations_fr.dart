@@ -3253,4 +3253,28 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => 'Déplacement des personnages';
+
+  @override
+  String get miniPhoneCreatePost => 'Créer une publication';
+
+  @override
+  String get miniPhoneCreate => 'Créer';
+
+  @override
+  String get miniPhonePostHint => 'Qu’avez-vous en tête ?';
+
+  @override
+  String get miniPhonePhotoOptional => 'Photo (facultatif)';
+
+  @override
+  String get miniPhoneChoosePhoto => 'Choisir une photo';
+
+  @override
+  String get miniPhoneReplacePhoto => 'Remplacer la photo';
+
+  @override
+  String get miniPhoneRemovePhoto => 'Retirer la photo';
+
+  @override
+  String get miniPhonePublish => 'Publier';
 }
