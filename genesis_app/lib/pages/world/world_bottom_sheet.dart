@@ -257,6 +257,20 @@ class WorldSingleSectionBottomSheetState
   String _cachedLocationListCurrentUid = '';
   WorldBottomSheetKind? _lastSelectedKind;
   bool _accessDismissalScheduled = false;
+  bool _historyDragDismissAllowed = false;
+  bool _historyDragBlockedForGesture = false;
+
+  bool get _historyBlocksDragDismiss {
+    if (_selection.kind != WorldBottomSheetKind.history) return false;
+    final history = widget.historyCache?.controller;
+    final allowed = widget.historyCache == null
+        ? _historyDragDismissAllowed
+        : history != null &&
+              history.ready &&
+              !history.loading &&
+              !history.hasOlder;
+    return !allowed || _historyDragBlockedForGesture;
+  }
 
   /// Made once, so the recap sees one steady source rather than a new one on
   /// every rebuild of the sheet.
@@ -748,6 +762,10 @@ class WorldSingleSectionBottomSheetState
       WorldBottomSheetKind.events => _buildEventsSectionPage(scrollController),
       WorldBottomSheetKind.history => WorldChatHistorySection(
         cache: widget.historyCache,
+        onDragDismissAllowedChanged: (allowed) {
+          if (!mounted || _historyDragDismissAllowed == allowed) return;
+          setState(() => _historyDragDismissAllowed = allowed);
+        },
         onLocationTap: (locationId) {
           final point = _locationListDataForCurrentWorld().points
               .where(
@@ -814,6 +832,7 @@ class WorldSingleSectionBottomSheetState
 
   void _handleSheetDragDelta(double deltaDy) {
     if (!_sheetController.isAttached || _sheetHostHeight <= 0) return;
+    if (deltaDy > 0 && _historyBlocksDragDismiss) return;
     final nextExtent = (_sheetController.size - deltaDy / _sheetHostHeight)
         .clamp(_sheetMinChildSize, _sheetMaxChildSize)
         .toDouble();
@@ -823,6 +842,7 @@ class WorldSingleSectionBottomSheetState
   void _handleSheetPointerDown(PointerDownEvent event) {
     if (_sheetPointer != null) return;
     _sheetPointer = event.pointer;
+    _historyDragBlockedForGesture = _historyBlocksDragDismiss;
     _sheetPointerStartExtent = _sheetController.isAttached
         ? _sheetController.size
         : null;
@@ -852,28 +872,41 @@ class WorldSingleSectionBottomSheetState
         movedSheetDown &&
         velocity.dy >= _minimumDownwardFlingVelocity &&
         velocity.dy >= velocity.dx.abs() * _verticalFlingDirectionRatio;
+    final preventDismiss = _historyBlocksDragDismiss;
     _resetSheetPointerTracking();
-    _settleSheetFromCurrentExtent(isDownwardFling: isDownwardFling);
+    _settleSheetFromCurrentExtent(
+      isDownwardFling: isDownwardFling,
+      preventDismiss: preventDismiss,
+    );
   }
 
   void _handleSheetPointerCancel(PointerCancelEvent event) {
     if (_sheetPointer != event.pointer) return;
+    final preventDismiss = _historyBlocksDragDismiss;
     _resetSheetPointerTracking();
-    _settleSheetFromCurrentExtent();
+    _settleSheetFromCurrentExtent(preventDismiss: preventDismiss);
   }
 
   void _resetSheetPointerTracking() {
     _sheetPointerVelocityTracker = null;
     _sheetPointer = null;
     _sheetPointerStartExtent = null;
+    if (_historyDragBlockedForGesture) {
+      setState(() => _historyDragBlockedForGesture = false);
+    }
   }
 
-  void _settleSheetFromCurrentExtent({bool isDownwardFling = false}) {
+  void _settleSheetFromCurrentExtent({
+    bool isDownwardFling = false,
+    bool preventDismiss = false,
+  }) {
     if (!_sheetController.isAttached) return;
     final collapseThreshold = _collapseSnapThreshold
         .clamp(_sheetMinChildSize, _sheetMaxChildSize)
         .toDouble();
-    if (isDownwardFling || _sheetController.size <= collapseThreshold) {
+    if (!preventDismiss &&
+        !_historyBlocksDragDismiss &&
+        (isDownwardFling || _sheetController.size <= collapseThreshold)) {
       _collapseSheet(curve: Curves.linear);
       return;
     }
@@ -953,7 +986,10 @@ class WorldSingleSectionBottomSheetState
             child: DraggableScrollableSheet(
               controller: _sheetController,
               initialChildSize: maxChildSize,
-              minChildSize: minChildSize,
+              // The loaded page edge is not the beginning of world history.
+              minChildSize: _historyBlocksDragDismiss
+                  ? maxChildSize
+                  : minChildSize,
               maxChildSize: maxChildSize,
               snap: false,
               shouldCloseOnMinExtent: false,

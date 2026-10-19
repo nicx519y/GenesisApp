@@ -52,6 +52,7 @@ class WorldChatHistorySection extends StatefulWidget {
   const WorldChatHistorySection({
     super.key,
     this.cache,
+    this.onDragDismissAllowedChanged,
     required this.world,
     required this.currentUid,
     required this.active,
@@ -61,6 +62,7 @@ class WorldChatHistorySection extends StatefulWidget {
   });
 
   final WorldHistoryViewCache? cache;
+  final ValueChanged<bool>? onDragDismissAllowedChanged;
   final WorldDetail world;
   final String currentUid;
   final bool active;
@@ -83,6 +85,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   String? _reportedBackground;
   String _pendingBackground = '';
   bool _backgroundScheduled = false;
+  bool? _reportedDragDismissAllowed;
   bool _metadataReady = false;
   int _messageAppVersion = 0;
 
@@ -232,6 +235,16 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     final messages = _worldHistory.project();
     _historySections.project(messages);
     _worldHistory.ensureVisibleWindow();
+    final dragDismissAllowed =
+        _worldHistory.ready && !_worldHistory.loading && !_worldHistory.hasMore;
+    if (_reportedDragDismissAllowed != dragDismissAllowed) {
+      _reportedDragDismissAllowed = dragDismissAllowed;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _reportedDragDismissAllowed == dragDismissAllowed) {
+          widget.onDragDismissAllowedChanged?.call(dragDismissAllowed);
+        }
+      });
+    }
     final catalog = _worldHistory.projection.metadata.catalog;
     final locationId = _worldHistory.readingLocationId;
     final location = catalog.locations
