@@ -11,8 +11,6 @@ import 'rating_reward_dialog.dart';
 /// Only the rating is persisted; server-side claim idempotency remains authoritative.
 class PendingRatingReward {
   static bool flowActive = false;
-  static bool waitingForStore = false;
-  static bool leftApp = false;
   static String key(String owner) => 'rating_pending_reward_v1:$owner';
 
   static Future<String> owner(BuildContext context) async {
@@ -66,36 +64,8 @@ class PendingRatingRewardHost extends StatefulWidget {
       _PendingRatingRewardHostState();
 }
 
-class _PendingRatingRewardHostState extends State<PendingRatingRewardHost>
-    with WidgetsBindingObserver {
+class _PendingRatingRewardHostState extends State<PendingRatingRewardHost> {
   bool _opening = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Inactive can mean an in-app system overlay. Only hidden/paused proves
-    // departure to another app, and must be observed before resumed.
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
-      PendingRatingReward.leftApp = true;
-    } else if (state == AppLifecycleState.resumed &&
-        PendingRatingReward.waitingForStore &&
-        PendingRatingReward.leftApp) {
-      PendingRatingReward.waitingForStore = false;
-      _schedule();
-    }
-  }
 
   void _schedule() {
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryShow());
@@ -103,10 +73,7 @@ class _PendingRatingRewardHostState extends State<PendingRatingRewardHost>
   }
 
   Future<void> _tryShow() async {
-    if (!mounted ||
-        _opening ||
-        PendingRatingReward.flowActive ||
-        PendingRatingReward.waitingForStore) {
+    if (!mounted || _opening || PendingRatingReward.flowActive) {
       return;
     }
     final state = WidgetsBinding.instance.lifecycleState;

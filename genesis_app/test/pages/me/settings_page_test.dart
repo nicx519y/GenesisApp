@@ -371,9 +371,10 @@ void main() {
                       reviewService: AppReviewService(
                         request: () async {
                           expect(find.byType(RatingRewardDialog), findsNothing);
+                          if (stars == 5) {
+                            throw StateError('native review failed');
+                          }
                         },
-                        readAttempt: (_) async => false,
-                        writeAttempt: (_) async {},
                       ),
                     ),
                     child: const Text('Rate'),
@@ -487,66 +488,42 @@ void main() {
     );
   }
 
-  for (final fromStore in [false, true]) {
-    testWidgets('pending reward resumes safely from store=$fromStore', (
-      tester,
-    ) async {
-      final services = _feedbackTestServices(_RecordingFeedbackTransport());
-      await services.sessionStore.saveUid('u_pending');
-      await PendingRatingReward.save('u_pending', 5);
-      PendingRatingReward.flowActive = false;
-      PendingRatingReward.waitingForStore = fromStore;
-      PendingRatingReward.leftApp = false;
-      addTearDown(() {
-        PendingRatingReward.waitingForStore = false;
-        PendingRatingReward.leftApp = false;
-      });
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: MaterialApp(
-            navigatorKey: genesisNavigatorKey,
-            builder: (_, child) => PendingRatingRewardHost(child: child!),
-            home: const Scaffold(body: Text('Continue')),
-          ),
+  testWidgets('pending reward waits for next app interaction', (tester) async {
+    final services = _feedbackTestServices(_RecordingFeedbackTransport());
+    await services.sessionStore.saveUid('u_pending');
+    await PendingRatingReward.save('u_pending', 5);
+    PendingRatingReward.flowActive = false;
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          navigatorKey: genesisNavigatorKey,
+          builder: (_, child) => PendingRatingRewardHost(child: child!),
+          home: const Scaffold(body: Text('Continue')),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(RatingRewardDialog), findsNothing);
-      if (fromStore) {
-        tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.inactive,
-        );
-        tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        );
-        await tester.pumpAndSettle();
-        expect(find.byType(RatingRewardDialog), findsNothing);
-        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-        tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        );
-      } else {
-        await services.sessionStore.saveUid('other_owner');
-        await tester.tap(find.text('Continue'));
-        await tester.pumpAndSettle();
-        expect(find.byType(RatingRewardDialog), findsNothing);
-        await services.sessionStore.saveUid('u_pending');
-        await tester.tap(find.text('Continue'));
-      }
-      await tester.pumpAndSettle();
-      expect(find.byType(RatingRewardDialog), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(
-        (await SharedPreferences.getInstance()).getInt(
-          PendingRatingReward.key('u_pending'),
-        ),
-        isNull,
-      );
-      expect(tester.takeException(), isNull);
-    });
-  }
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(RatingRewardDialog), findsNothing);
+
+    await services.sessionStore.saveUid('other_owner');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RatingRewardDialog), findsNothing);
+    await services.sessionStore.saveUid('u_pending');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RatingRewardDialog), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getInt(
+        PendingRatingReward.key('u_pending'),
+      ),
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final claimed in [false, true]) {
     testWidgets('reward entry claimed=$claimed skips thank-you-only dialog', (

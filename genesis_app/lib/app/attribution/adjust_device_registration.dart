@@ -342,11 +342,14 @@ class AdjustDeviceRegistration {
 
     try {
       final environment = environmentProvider();
+      final googleAdId = platform == TargetPlatform.android
+          ? await _readGoogleAdId()
+          : null;
       final identifiers = platform == TargetPlatform.android
           ? _AdjustDeviceIdentifiers(
               adid: adid,
               environment: environment,
-              gpsAdid: await _readGoogleAdId(environment),
+              gpsAdid: googleAdId!.id,
               appInstanceId: await _readOptional(
                 readAppInstanceId,
                 'Firebase app instance ID',
@@ -362,6 +365,17 @@ class AdjustDeviceRegistration {
                 'Firebase app instance ID',
               ),
             );
+      if (platform == TargetPlatform.android) {
+        gaidAvailabilityMonitor.observe(
+          environment: environment,
+          source: googleAdId!.source,
+          identifiers: {
+            'adid': identifiers.adid,
+            'app_instance_id': identifiers.appInstanceId,
+            'gps_adid': identifiers.gpsAdid,
+          },
+        );
+      }
       _reportPendingAdidFailure(identifiers);
       if (!force && identifiers == _lastRegistered) {
         return adid.isEmpty
@@ -472,29 +486,19 @@ class AdjustDeviceRegistration {
     }
   }
 
-  Future<String> _readGoogleAdId(String environment) async {
+  Future<({String id, String? source})> _readGoogleAdId() async {
     final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
     if (_isUsableGoogleAdId(adjustId)) {
-      gaidAvailabilityMonitor.observe(
-        environment: environment,
-        source: 'adjust',
-      );
-      return adjustId;
+      return (id: adjustId, source: 'adjust');
     }
-
     final nativeReader = readNativeGoogleAdId;
     if (nativeReader != null) {
       final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
       if (_isUsableGoogleAdId(nativeId)) {
-        gaidAvailabilityMonitor.observe(
-          environment: environment,
-          source: 'native',
-        );
-        return nativeId;
+        return (id: nativeId, source: 'native');
       }
     }
-    gaidAvailabilityMonitor.observe(environment: environment, source: null);
-    return '';
+    return (id: '', source: null);
   }
 
   bool _isUsableGoogleAdId(String value) =>
