@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../l10n/genesis_localizations.dart';
+import '../../ui/components/genesis_dark_close_button.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'genesis_action_box.dart';
 import 'genesis_content_submission_dialog.dart';
@@ -43,6 +44,7 @@ Future<int?> showWorldoRatingDialog(
     final rating = await showGenesisDialog<int>(
       context: context,
       barrierColor: const Color(0x52000000),
+      barrierDismissible: false,
       builder: (dialogContext) {
         ratingRoute = ModalRoute.of(dialogContext) as TransitionRoute<dynamic>?;
         return const WorldoRatingContent();
@@ -100,7 +102,7 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
   }
 
   Future<void> _submit() async {
-    final content = _controller.text.trim();
+    final content = _rating <= 3 ? _controller.text.trim() : '';
     if (_rating == 0 || _submitting) return;
     final api = AppServicesScope.read(context).api;
     final failure = context.l10n.feedbackFailed;
@@ -142,7 +144,7 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: !_submitting,
+    canPop: false,
     child: TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: _feedback ? 1 : 0),
       duration: MediaQuery.disableAnimationsOf(context)
@@ -174,131 +176,152 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
         onCancel: () {
           if (!_submitting) Navigator.of(context).pop();
         },
-        content: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20 - 6 * progress,
-              32 - 8 * progress,
-              20 - 6 * progress,
-              24 - 10 * progress,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  context.l10n.rateWorldoTitle,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: GenesisColors.darkTextPrimary,
-                    fontSize: 15,
-                    height: 1.4,
-                    fontWeight: FontWeight.w600,
-                  ),
+        content: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20 - 6 * progress,
+                  32 - 8 * progress,
+                  20 - 6 * progress,
+                  24 - 10 * progress,
                 ),
-                ClipRect(
-                  child: Align(
-                    heightFactor: 1 - progress,
-                    child: AnimatedOpacity(
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 360),
-                      curve: Curves.easeInOut,
-                      opacity: _feedback ? 0 : 1,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 26),
-                          Text(
-                            context.l10n.rateWorldoMessage,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: GenesisColors.darkTextSecondary,
-                              fontSize: 15,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.l10n.rateWorldoTitle,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: GenesisColors.darkTextPrimary,
+                        fontSize: 15,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                ),
-                SizedBox(height: 18 - 6 * progress),
-                LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    children: [
-                      for (var star = 1; star <= 5; star++)
-                        SizedBox(
-                          width:
-                              constraints.maxWidth / 5 * (1 - progress) +
-                              math.min(32.0, constraints.maxWidth / 5) *
-                                  progress,
-                          child: Semantics(
-                            label: context.l10n.rateWorldoStars(count: star),
-                            button: true,
-                            selected: _rating == star,
-                            child: ExcludeSemantics(
-                              child: IconButton(
-                                key: ValueKey('worldo-rating-star-$star'),
-                                constraints: BoxConstraints(
-                                  minHeight: 48 - 16 * progress,
+                    ClipRect(
+                      child: Align(
+                        heightFactor: 1 - progress,
+                        child: AnimatedOpacity(
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 360),
+                          curve: Curves.easeInOut,
+                          opacity: _feedback ? 0 : 1,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 26),
+                              Text(
+                                context.l10n.rateWorldoMessage,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: GenesisColors.darkTextSecondary,
+                                  fontSize: 15,
+                                  height: 1.4,
                                 ),
-                                padding: EdgeInsets.zero,
-                                onPressed: _submitting || _rating != 0
-                                    ? null
-                                    : () {
-                                        setState(() {
-                                          _rating = star;
-                                          if (star <= 3) _feedback = true;
-                                        });
-                                        if (star >= 4) _submit();
-                                      },
-                                icon: SizedBox.square(
-                                  dimension: 32 - 6 * progress,
-                                  child: CustomPaint(
-                                    painter: _RatingStarPainter(
-                                      selected: star <= _rating,
-                                      color: _rating >= star
-                                          ? GenesisColors.redSecondary
-                                          : GenesisColors.darkTextSecondary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 18 - 6 * progress),
+                    LayoutBuilder(
+                      builder: (context, constraints) => Row(
+                        children: [
+                          for (var star = 1; star <= 5; star++)
+                            SizedBox(
+                              width:
+                                  constraints.maxWidth / 5 * (1 - progress) +
+                                  math.min(32.0, constraints.maxWidth / 5) *
+                                      progress,
+                              child: Semantics(
+                                label: context.l10n.rateWorldoStars(
+                                  count: star,
+                                ),
+                                button: true,
+                                selected: _rating == star,
+                                child: ExcludeSemantics(
+                                  child: IconButton(
+                                    key: ValueKey('worldo-rating-star-$star'),
+                                    constraints: BoxConstraints(
+                                      minHeight: 48 - 16 * progress,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    onPressed: _submitting
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _rating = star;
+                                              _feedback = star <= 3;
+                                              _ratingFailed = false;
+                                            });
+                                            if (star >= 4) {
+                                              _feedbackFocus.unfocus();
+                                              _submit();
+                                            }
+                                          },
+                                    icon: SizedBox.square(
+                                      dimension: 32 - 6 * progress,
+                                      child: CustomPaint(
+                                        painter: _RatingStarPainter(
+                                          selected: star <= _rating,
+                                          color: _rating >= star
+                                              ? GenesisColors.redSecondary
+                                              : GenesisColors.darkTextSecondary,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (_feedback)
-                  ClipRect(
-                    child: Align(
-                      heightFactor: progress,
-                      child: Opacity(
-                        opacity: progress,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 4),
-                            GenesisFeedbackInput(
-                              inputKey: const ValueKey(
-                                'genesis-feedback-content-input',
-                              ),
-                              controller: _controller,
-                              focusNode: _feedbackFocus,
-                              autofocus: false,
-                              hintText: context.l10n.rateWorldoFeedbackHint,
-                              enabled: !_submitting,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
-                  ),
-              ],
+                    if (_feedback)
+                      ClipRect(
+                        child: Align(
+                          heightFactor: progress,
+                          child: Opacity(
+                            opacity: progress,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: 4),
+                                GenesisFeedbackInput(
+                                  inputKey: const ValueKey(
+                                    'genesis-feedback-content-input',
+                                  ),
+                                  controller: _controller,
+                                  focusNode: _feedbackFocus,
+                                  autofocus: false,
+                                  hintText: context.l10n.rateWorldoFeedbackHint,
+                                  enabled: !_submitting,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ),
+            if (!_feedback && !_ratingFailed)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GenesisDarkCloseButton(
+                  key: const ValueKey('worldo-rating-close'),
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                ),
+              ),
+          ],
         ),
       ),
     ),

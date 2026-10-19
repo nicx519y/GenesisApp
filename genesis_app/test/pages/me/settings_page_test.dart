@@ -261,6 +261,69 @@ void main() {
     });
   }
 
+  testWidgets('rating dialog shows close button or cancel, never both', (
+    tester,
+  ) async {
+    final transport = _RecordingFeedbackTransport();
+    final services = _feedbackTestServices(transport);
+    await services.sessionStore.saveUid('u_rating_close');
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showWorldoRatingDialog(context),
+                child: const Text('Rate'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Rate'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('worldo-rating-close')), findsOneWidget);
+    final dialog = tester.getRect(find.byType(GenesisActionBoxSurface));
+    final close = tester.getRect(
+      find.byKey(const ValueKey('worldo-rating-close')),
+    );
+    expect(close.top - dialog.top, closeTo(12, 0.1));
+    expect(dialog.right - close.right, closeTo(12, 0.1));
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorldoRatingContent), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(WorldoRatingContent), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('worldo-rating-star-3')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('worldo-rating-close')), findsNothing);
+    expect(find.text('Cancel'), findsOneWidget);
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(WorldoRatingContent), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/feedback/create'), isEmpty);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorldoRatingContent), findsNothing);
+    expect(find.byType(RatingRewardDialog), findsNothing);
+    await tester.tap(find.text('Rate'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('worldo-rating-close')), findsOneWidget);
+    expect(find.text('Cancel'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('worldo-rating-close')));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorldoRatingContent), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (stars, withContent) in [
     (1, false),
     (2, false),
@@ -400,6 +463,72 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  for (final highRating in [4, 5]) {
+    testWidgets(
+      'low rating can change to $highRating without sending feedback text',
+      (tester) async {
+        final transport = _RecordingFeedbackTransport();
+        final services = _feedbackTestServices(transport);
+        await services.sessionStore.saveUid('u_rating_change_$highRating');
+        var reviewRequests = 0;
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => showWorldoRatingDialog(
+                      context,
+                      reviewService: AppReviewService(
+                        request: () async => reviewRequests++,
+                      ),
+                    ),
+                    child: const Text('Rate'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Rate'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('worldo-rating-star-1')));
+        await tester.pumpAndSettle();
+        final input = find.byKey(
+          const ValueKey('genesis-feedback-content-input'),
+        );
+        await tester.enterText(input, 'Feedback for low rating');
+        await tester.tap(find.byKey(const ValueKey('worldo-rating-star-2')));
+        await tester.pumpAndSettle();
+        expect(find.byType(WorldoRatingContent), findsOneWidget);
+        expect(
+          tester.widget<TextField>(input).controller?.text,
+          'Feedback for low rating',
+        );
+        expect(transport.requestsFor('/api/v1/feedback/create'), isEmpty);
+
+        await tester.tap(
+          find.byKey(ValueKey('worldo-rating-star-$highRating')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WorldoRatingContent), findsNothing);
+        expect(reviewRequests, 1);
+        expect(
+          transport.decodedBody(
+            transport.requestsFor('/api/v1/feedback/create').single,
+          ),
+          {'rating': highRating},
+        );
+        expect(find.byType(RatingRewardDialog), findsOneWidget);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
       },
     );
   }
