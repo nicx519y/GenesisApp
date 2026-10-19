@@ -20,6 +20,8 @@ Future<bool> showGenesisContentSubmissionDialog({
   required String successMessage,
   required String failureMessage,
   Brightness? brightness,
+  double widthFactor = 0.7,
+  int inputLines = 3,
 }) async {
   final toastBrightness = brightness ?? Theme.of(context).brightness;
   final submitted = await showGenesisDialog<bool>(
@@ -28,6 +30,8 @@ Future<bool> showGenesisContentSubmissionDialog({
     builder: (dialogContext) {
       return _GenesisContentSubmissionDialog(
         title: title,
+        widthFactor: widthFactor,
+        inputLines: inputLines,
         contentInputKey: contentInputKey,
         onSubmit: onSubmit,
         successMessage: successMessage,
@@ -42,6 +46,8 @@ Future<bool> showGenesisContentSubmissionDialog({
 class _GenesisContentSubmissionDialog extends StatefulWidget {
   const _GenesisContentSubmissionDialog({
     required this.title,
+    required this.widthFactor,
+    required this.inputLines,
     required this.contentInputKey,
     required this.onSubmit,
     required this.successMessage,
@@ -50,6 +56,8 @@ class _GenesisContentSubmissionDialog extends StatefulWidget {
   });
 
   final String title;
+  final double widthFactor;
+  final int inputLines;
   final Key contentInputKey;
   final GenesisContentSubmitter onSubmit;
   final String successMessage;
@@ -103,56 +111,92 @@ class _GenesisContentSubmissionDialogState
 
   @override
   Widget build(BuildContext context) {
+    final input = GenesisFeedbackInput(
+      inputKey: widget.contentInputKey,
+      controller: _controller,
+      focusNode: _focusNode,
+      lines: widget.inputLines,
+      onChanged: (_) => setState(() {}),
+    );
     return GenesisActionBox<bool>(
       title: widget.title,
-      titleHeight: 157,
+      widthFactor: widget.widthFactor,
+      titleHeight: widget.inputLines == 3 ? 157 : 64,
       titleContentSpacing: 16,
-      titleContent: TextField(
-        key: widget.contentInputKey,
-        controller: _controller,
-        focusNode: _focusNode,
-        cursorColor: GenesisColors.darkTextPrimary,
-        style: const TextStyle(color: GenesisColors.darkTextPrimary),
-        autofocus: true,
-        minLines: 3,
-        maxLines: 3,
-        textInputAction: TextInputAction.newline,
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: GenesisColors.darkFaintFill,
-          hintText: GenesisL10n
-              .current
-              .createDescribeIssue,
-          hintStyle: const TextStyle(color: GenesisColors.darkInputPlaceholder),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide.none,
-          ),
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
+      titleContent: widget.inputLines == 3 ? input : null,
+      content: widget.inputLines == 3
+          ? null
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: input,
+            ),
       actions: [
         GenesisActionBoxAction<bool>(
-          label: GenesisL10n
-              .current
-              .createSubmit,
+          label: GenesisL10n.current.createSubmit,
           value: true,
+          enabled: !_submitting && _controller.text.trim().isNotEmpty,
         ),
       ],
       onActionSelected: (_) => unawaited(_submit()),
       onCancel: () => Navigator.of(context).pop(false),
     );
   }
+}
+
+/// Shared feedback field used by Settings and the rating dialog.
+class GenesisFeedbackInput extends StatelessWidget {
+  const GenesisFeedbackInput({
+    super.key,
+    required this.inputKey,
+    required this.controller,
+    this.focusNode,
+    this.lines = 5,
+    this.autofocus = true,
+    this.hintText,
+    this.enabled = true,
+    this.onChanged,
+  });
+
+  final Key inputKey;
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final int lines;
+  final bool autofocus;
+  final String? hintText;
+  final bool enabled;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    key: inputKey,
+    controller: controller,
+    focusNode: focusNode,
+    cursorColor: GenesisColors.darkTextPrimary,
+    style: const TextStyle(color: GenesisColors.darkTextPrimary),
+    autofocus: autofocus,
+    minLines: lines,
+    maxLines: lines,
+    textInputAction: TextInputAction.newline,
+    decoration: InputDecoration(
+      filled: true,
+      fillColor: GenesisColors.darkFaintFill,
+      hintText: hintText ?? GenesisL10n.current.createDescribeIssue,
+      hintStyle: const TextStyle(color: GenesisColors.darkInputPlaceholder),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+    ),
+    onChanged: onChanged,
+    enabled: enabled,
+  );
 }

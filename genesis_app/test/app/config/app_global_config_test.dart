@@ -4,6 +4,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 
 void main() {
+  test('rating prompt threshold is parsed without triggering any behavior', () {
+    expect(const AppGlobalConfig().ratingPromptMessageCount, 0);
+    expect(AppGlobalConfig.fromJson({}).ratingPromptMessageCount, 0);
+    expect(
+      AppGlobalConfig.fromJson({
+        'rating_prompt_message_count': 20,
+      }).ratingPromptMessageCount,
+      20,
+    );
+    expect(
+      AppGlobalConfig.fromJson({
+        'rating_prompt_message_count': 0,
+      }).ratingPromptMessageCount,
+      0,
+    );
+    expect(
+      AppGlobalConfig.fromJson({
+        'rating_prompt_message_count': null,
+      }).ratingPromptMessageCount,
+      0,
+    );
+  });
+
   test('AppGlobalConfig defaults optional flags to false', () {
     expect(const AppGlobalConfig().showOpeningSheet, isFalse);
     expect(const AppGlobalConfig().apiTraceSamplingRate, 0);

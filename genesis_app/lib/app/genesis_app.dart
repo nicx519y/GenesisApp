@@ -1,3 +1,5 @@
+import '../components/common/rating_prompt_host.dart';
+import '../components/common/pending_rating_reward_host.dart';
 import 'package:flutter/material.dart';
 import '../components/gems/membership_guest_login_gate.dart';
 import '../components/onboarding/personalization_gate.dart';
@@ -46,6 +48,7 @@ class GenesisApp extends StatelessWidget {
             navigatorKey: genesisNavigatorKey,
             navigatorObservers: [
               genesisRouteObserver,
+              ratingPromptRouteObserver,
               genesisPageRouteObserver,
             ],
             onGenerateInitialRoutes: (_) {
@@ -72,38 +75,43 @@ class GenesisApp extends StatelessWidget {
               final services = AppServicesScope.read(context);
               // Root overlays and builder decorations sit outside page Material
               // widgets, so they also need the application's default font.
-              return DefaultTextStyle(
-                style: Theme.of(context).textTheme.bodyMedium!,
-                child: AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: kGenesisLightStatusIconsSystemUiOverlayStyle,
-                  child: GenesisTelemetryTapRegion(
-                    child: GenesisBottomSystemBarBoundary(
-                      child: InternalBuildIndicator(
-                        child: ForceUpgradeGate(
-                          child: DeveloperDebugFloatingButton(
-                            navigatorKey: genesisNavigatorKey,
-                            child: PersonalizationGate(
-                              appConfig: services.appGlobalConfig,
-                              store: services.personalization,
-                              preloadMembership: () async {
-                                await Future.wait([
-                                  services.membershipCatalog.preload(),
-                                  services.gemStoreCatalog.preload(),
-                                ]);
-                              },
-                              loginPending: services
-                                  .membershipPurchases
-                                  ?.guestLoginRequestId,
-                              checkGuestPurchases: services
-                                  .membershipPurchases
-                                  ?.checkGuestPurchasesOnHome,
-                              navigatorKey: genesisNavigatorKey,
-                              child: MembershipGuestLoginGate(
-                                service: services.membershipPurchases,
-                                blocked:
-                                    services.personalization.blocksOtherPrompts,
+              return RatingPromptHost(
+                child: PendingRatingRewardHost(
+                  child: DefaultTextStyle(
+                    style: Theme.of(context).textTheme.bodyMedium!,
+                    child: AnnotatedRegion<SystemUiOverlayStyle>(
+                      value: kGenesisLightStatusIconsSystemUiOverlayStyle,
+                      child: GenesisTelemetryTapRegion(
+                        child: GenesisBottomSystemBarBoundary(
+                          child: InternalBuildIndicator(
+                            child: ForceUpgradeGate(
+                              child: DeveloperDebugFloatingButton(
                                 navigatorKey: genesisNavigatorKey,
-                                child: child ?? const SizedBox.shrink(),
+                                child: PersonalizationGate(
+                                  appConfig: services.appGlobalConfig,
+                                  store: services.personalization,
+                                  preloadMembership: () async {
+                                    await Future.wait([
+                                      services.membershipCatalog.preload(),
+                                      services.gemStoreCatalog.preload(),
+                                    ]);
+                                  },
+                                  loginPending: services
+                                      .membershipPurchases
+                                      ?.guestLoginRequestId,
+                                  checkGuestPurchases: services
+                                      .membershipPurchases
+                                      ?.checkGuestPurchasesOnHome,
+                                  navigatorKey: genesisNavigatorKey,
+                                  child: MembershipGuestLoginGate(
+                                    service: services.membershipPurchases,
+                                    blocked: services
+                                        .personalization
+                                        .blocksOtherPrompts,
+                                    navigatorKey: genesisNavigatorKey,
+                                    child: child ?? const SizedBox.shrink(),
+                                  ),
+                                ),
                               ),
                             ),
                           ),

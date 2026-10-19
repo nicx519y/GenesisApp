@@ -5789,6 +5789,20 @@ void main() {
     expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
       'content': '希望增加夜间模式',
     });
+    await api.v1.feedback.create(rating: 5);
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'rating': 5,
+    });
+    await api.v1.feedback.create(content: 'Improve the experience', rating: 2);
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'content': 'Improve the experience',
+      'rating': 2,
+    });
+    await api.v1.gem.claimTask('rating');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/task/claim');
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'task_code': 'rating',
+    });
   });
 
   test('user followers 1404 stays in the list error path', () async {

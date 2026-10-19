@@ -3256,4 +3256,35 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => 'Spostamento dei personaggi';
+
+  @override
+  String get rateWorldoTitle => 'Valuta Worldo';
+
+  @override
+  String get rateWorldoMessage =>
+      'Come ti trovi con Worldo? La tua opinione è importante per noi.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '$count stelle';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint =>
+      'Facci sapere come possiamo migliorare la tua esperienza';
+
+  @override
+  String get rateWorldoThanks => 'Grazie per il tuo feedback!';
+
+  @override
+  String get rateWorldoFeedbackSaved => 'Il tuo feedback è stato salvato.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return 'Il tuo feedback ci aiuta a migliorare. Riscatta $gems Gemme come ringraziamento.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed =>
+      'Impossibile aprire lo store delle app. Riprova.';
 }

@@ -3103,4 +3103,32 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => 'キャラクターの移動';
+
+  @override
+  String get rateWorldoTitle => 'Worldo を評価';
+
+  @override
+  String get rateWorldoMessage => 'Worldo を楽しんでいますか？ご意見をお聞かせください。';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '星$countつ';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint => 'よりよい体験のために、改善点をお聞かせください';
+
+  @override
+  String get rateWorldoThanks => 'ご意見ありがとうございます！';
+
+  @override
+  String get rateWorldoFeedbackSaved => 'ご意見を保存しました。';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return 'いただいたご意見を改善に役立てます。お礼として$gemsジェムをお受け取りください。';
+  }
+
+  @override
+  String get rateWorldoStoreFailed => 'アプリストアを開けませんでした。もう一度お試しください。';
 }

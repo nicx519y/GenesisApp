@@ -1,3 +1,4 @@
+import '../../components/common/rating_prompt_debug_control.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -1129,6 +1130,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
+        const RatingPromptDebugSection(spacing: _itemGap),
         if (buildOriginDebugRandomContentButton(action: widget.randomAction)
             case final randomButton?) ...[
           randomButton,

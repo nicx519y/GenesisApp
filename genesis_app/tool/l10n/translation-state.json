@@ -5140,6 +5140,54 @@
           "text_hash": "5a73ae60f30b97285ed8b3669e7a75af4d9a5e89414c801598af24f18b828c49",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "ac02093cd52e0b68b3e6a707751ddd360dd6ce6f19b6416827e0432a9d179865",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "d6a97258f3d67125b15713180dc163b64d7b05e2ea13fa618bb64fd652ddfc80",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "faddcd980f53d560f9a0f58f3e102982c34efc20179f55b1adc4556eec03e7a3",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "e33eedec2e321cd2fced58178ae40fb1aa0e2c7a46ac8289081b6d3d4855273c",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "27bae74acb9b5a057f7a53189f33be7458b2e86150e0f6a4f07a8a4cd44c2993",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "6850dfe4eb86cc8eacefdc39b13fa4f16eaac71667606d34da311f02b5fce69e",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "7a3e3634e2b4e41f3120e08c65ceb154f339528fc82ab5ca337d2d098afb8232",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "0f1eed26ca33e7fa28104b21b1103d2155c75e791b69d92cc2e8ba2f3707874f",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -10281,6 +10329,54 @@
           "text_hash": "ebd0aeb40463f4ff5b138ebdb951d9b1efbe97da4d7907569d8dd235c853d5a9",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "56d4b97a5d5cb6ea4bed325ef2484e2b218e41f62b55751209f7fe7093edfd7c",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "cb72259e2393f296008ada7b14ae8b14e272f6b270aea9f9d6736b8b22a6a9b0",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "9b3a5c1710f70a11d850ea46c467b37f9e154912deb5f258db914647473c6c7e",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "2f59bc3cfc79b4948780e49acb75d86911dd147635c5267c9c57a59d4ea741d0",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "ef6f868d866c2c60a64b2c47bc786bd19c2d4f13b4dc94f24c3630349e7a5886",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "28d6423c1f7e620cf5b3b2e885865e41c752de5179e2d0481750c1b0602d9f6c",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "df3a7a1bdcceb0edbf32a0bef04f488fe521aa37ad35d173d6b0e5fbf4f2a8f9",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "707fb5883857707da3b2d3096b4c468e82dea6c47c04c0bd75deb0795c6f6fcc",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -15422,6 +15518,54 @@
           "text_hash": "ae77b2d4f7611d09a6e0e29e626e59b5c37abe79e56e792a63edd6d0c3670948",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "189ef53ab106b4de8ff8257c065473daa3a978aa5d9ef8327302315a1778a08f",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "7b15fb43b959167a4a73027f7b7c0443273a6e3cd735271516757d218430755d",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "6eac3fbaf2970d8ec378da4040270b45dd7d699d291f0229234bd690c80491db",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "88703eef626f83e4c922c3a94a07451e7327c1e565339239ad4804610e469b97",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "ea8ebb45b898b167fbca605fd35510a23ecdc25ab14fd1a884b17306e44c03a9",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "ccc1fb0a51365f675bd5cd5958c76690c1a885c0e722e2d68aa566cd95842757",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "af9ee20107b4985885f0f5e8bf14a7f355dcafbe2aedbe296e87c59e3207b861",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "7e3cbc73ce656dc4bb8f461ca78f0a88523e508c6a74ae7ceca4e804dbed524e",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -20563,6 +20707,54 @@
           "text_hash": "17a31655e71ac9e8a49e896307ea8c7b80119ceabf8ee7727327092e6e3f2cb6",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "b2897c7de38806154d383efbb2743cc822b34a2c0b0e1e53d8a5521e8c0d8325",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "a245e4ff1faa5fe7dd7a3822ee7a8a04a92da3f71892db91845da891afa26e3d",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "84ee4bbcb6cc414cbe0b4c7fba73d79a230af340b8e3663ce552c071062d3e8b",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "420edda0ef255a305a07bbfe503ecccfb9110658a10bb2424e58134ea535c2db",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "27b5cafa3a3e1853303097cb8e6a8a0c98824076fe6af35af8e99e1e914729be",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "5f401f98f786ace74aecbf1f2d30f6c70eae41577f2b361f42fe1644ba4ee123",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "bf00e9381d5217ed6e1d15615bef7b70f4d292e27c7a840cbc9ace9c97ee0514",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "e05a97b00e434a3d18fa0447e5dab1dd336111d448cad87aefe1db51a3bccc9e",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -25704,6 +25896,54 @@
           "text_hash": "eeae0703cea0c69c1c5f5dc499ca5a85144cd9e7c0fb9ff7ad83b73dbf1fae07",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "34a7d9408769607105bd3184886d99b73e9a448fb970c9f83c447487d4c44e0b",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "2d0513d445304fdf6f55d49039555342278ee6b8985a26aa41d21f238877eaff",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "2b5e5fcafe7739b6b820d2659fbe177762d83989508b11a9a196a6473c3574e6",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "188226878a226aa844fb3e42395ca15963c98654692914c4e29b7c92bfda74ac",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "8127f86caaf3848a84fb07b4ed8b87867c98aa6a7ca8bca565d452b7bc193a26",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "3083cab1e0cb7e89f3d502384e616789bfb83f8c554ff193bc80f82d64c9a665",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "11ed2bfbd8ad70ee679d1e7997c26cfcc2ec4059563c67e794562a1fb708a326",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "18d42747b64e4afa2d29e9f0689a5af6792e8d7d9a7589de5bbad2f22d59be64",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -30845,6 +31085,54 @@
           "text_hash": "448d78d38c7970b6d27cb807ac4816ced9ce6831fd340735069d148556fb4f7e",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "c7484b84980fb68aa50e2bcc506d946bde2a0e72f56c2c266f001505f63bc85b",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "f4c3d1417f29f5be9b21f71ee2b00db3c3156b3dfc4a5abc41f45efec63d0983",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "2fa28517104e047b6cd4483c8fc1bb3bb0799341c685b2533738313786110187",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "afc91a3eff5925c0c373cb382e547155c8194abed9cd51cb2abcc74b4755c78f",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "7746fcc5ea32a8cfe0031b25406a72013666f5ee41c464cf337c18983dad8418",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "877f9f2888cc1f528dae276a146761ea7a09bc72b899ed40537e0b4b85d10925",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "af56b7abf8686ebd0edffbf35e7cb4efa66c8bf6100319f304d7afdb51745da0",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "8647c1ac572a2ece94efcb6129113ebe1e6c266815683372d482e045e0139a75",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -35986,6 +36274,54 @@
           "text_hash": "9d0518dbe7e7b83ca69bc6da121d2b649e0af25ade05c84f7f444162af1cb9cd",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "8f1f61b1c20dc86d2d12d5e134ea03f43f8096ed2f351b198079bcb1dd7f08a4",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "b18b295a156aff1ef6959969702ecd175912dd197b5f537702fce2321d316494",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "2c3fd2301a0426f0a9cb39e16bb6f7c2cd5692ee703c8d2fef461907264c0721",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "3dbdfdd7f2fb8974c7f9731566ccd82ea26316c588937ff9a3b3ead88a5fc786",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "e5e426ce74c17aead2307457874bc658cd36255da8f693b82b84334d0830f666",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "37ba2e60a825784be4f308842c03003ba6156ef72d4acca17b861db846d4175b",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "dc4d838f7625631c284f9f12918f6735d2737ee507ca614d63f55ef8aa5d2118",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "98e93743329e0956fc668a68db15051617c59633e363c64025a63bdd484bb92f",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     },
@@ -41127,6 +41463,54 @@
           "text_hash": "e9de582f1df1f06460ca8c0006c057bbff40214e1e61c381deef95013298ed4f",
           "status": "ai",
           "note": "简短的结束编辑动作；确认当前 Worldo 的角色草稿，不暗示更新账号资料。"
+        },
+        "rateWorldoTitle": {
+          "source_hash": "d921b3ed6fdf754678ce6959a09f8d18e5d25c36ef1558c538d3ea6f3577692e",
+          "text_hash": "1269d6cb679e92f0d923733b693ad188f0fb9c06ad0185438bfddbc4c1fa73ab",
+          "status": "ai",
+          "note": "Trigger threshold is now inclusive; title meaning unchanged and existing translation remains accurate."
+        },
+        "rateWorldoMessage": {
+          "source_hash": "68ddf5a160f6dfbcabeac982959869dfef02fea0f34ea9eb839afd5f82393637",
+          "text_hash": "7cab6670dd23c34bf2ecfe475e7aa625fd268cb0c1564c01ba49d703732f8ad3",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoStars": {
+          "source_hash": "d99bd75b07758b915d5c133427a1b71bda0d990f6d99e0355344619c096adae1",
+          "text_hash": "728e7c6175c8884391323f4c533b4a5925920b846d917d24a48be2e537b0dc33",
+          "status": "ai",
+          "note": "Natural app feedback dialog copy; preserves Worldo and count placeholder."
+        },
+        "rateWorldoFeedbackHint": {
+          "source_hash": "f3aadae8912bd7ce65a2b04f28e26041c1a9cb614defee2bd17177e989add924",
+          "text_hash": "9dc44a6f56eb927db178cb47a0ac76f318e123feaa57d7bc12724b560b934d6a",
+          "status": "ai",
+          "note": "Natural placeholder inviting experience-improvement feedback; Taiwan wording follows user request."
+        },
+        "rateWorldoThanks": {
+          "source_hash": "02dd65647baa50940b06e4a9d49eb1c4bb8e657f72270e30f6a1c1fb95265c60",
+          "text_hash": "6606f3c6ac42a9137836f7d36a028a2562980668cdae9f9ebb5b5ef6d4c20fd6",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoFeedbackSaved": {
+          "source_hash": "6681d7239866ab967626e77c71176062f2b121b998d0919c0523ab76bfe1a969",
+          "text_hash": "5e2db69d9a91da5d3fb3c144b23f1fbb2c15c4466330e099094320ec42dd457b",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoRewardMessage": {
+          "source_hash": "0c8486d8e41b746056d8e0cc9d022aedaf2acba54618c09b7fac2c7d929e845b",
+          "text_hash": "537421a3473b44a026d8a1f44cb0b1cb78623a3963a413e495bb1b113bddc69c",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "rateWorldoStoreFailed": {
+          "source_hash": "0577a65bdbda37fc189934a13c3871fd231b62ebe58ce9b5e96ab2b7a0c971e1",
+          "text_hash": "b9c85ddb691acfcc0e1a9b8ef461ebf3d90f8997a109c694a6432af2bc09af8f",
+          "status": "ai",
+          "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
         }
       }
     }

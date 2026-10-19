@@ -91,6 +91,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.titleHeight = defaultTitleHeight,
     this.actionRowHeight = defaultRowHeight,
     this.cancelRowHeight = defaultRowHeight,
+    this.widthFactor = 0.7,
   });
 
   static const double defaultRowHeight = 51;
@@ -118,12 +119,13 @@ class GenesisActionBox<T> extends StatelessWidget {
   final double? titleHeight;
   final double actionRowHeight;
   final double cancelRowHeight;
+  final double widthFactor;
 
   @override
   Widget build(BuildContext context) {
     final useDetachedCancelStyle =
         showCancel && (detachCancel || actions.length > 1);
-    final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
+    final dialogWidth = (MediaQuery.sizeOf(context).width * widthFactor)
         .clamp(0.0, _maxWidth)
         .toDouble();
     return GenesisDarkTheme(

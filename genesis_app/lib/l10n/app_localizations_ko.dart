@@ -3109,4 +3109,32 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chatCharacterMovement => '캐릭터 이동';
+
+  @override
+  String get rateWorldoTitle => 'Worldo 평가';
+
+  @override
+  String get rateWorldoMessage => 'Worldo를 즐겁게 이용하고 계신가요? 여러분의 의견은 저희에게 소중합니다.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '별 $count개';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint => '더 나은 이용 경험을 위해 개선할 점을 알려주세요';
+
+  @override
+  String get rateWorldoThanks => '의견을 보내주셔서 감사합니다!';
+
+  @override
+  String get rateWorldoFeedbackSaved => '의견이 저장되었습니다.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return '보내주신 의견은 서비스 개선에 도움이 됩니다. 감사의 선물로 젬 $gems개를 받아보세요.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed => '앱 스토어를 열 수 없습니다. 다시 시도해 주세요.';
 }

@@ -808,6 +808,56 @@ void main() {
     expect(response.shouldForceUpgrade, false);
   });
 
+  test(
+    'feedback accepts rating or content and rejects invalid ratings',
+    () async {
+      final api = GenesisApi(useMock: true);
+      for (final rating in [1, 5]) {
+        expect(
+          (await api.v1.feedback.create(rating: rating))['feedback_id'],
+          isNotEmpty,
+        );
+      }
+      expect(
+        (await api.v1.feedback.create(
+          content: 'Feedback',
+          rating: 3,
+        ))['feedback_id'],
+        isNotEmpty,
+      );
+      await expectLater(api.v1.feedback.create(), throwsA(isA<ApiException>()));
+      await expectLater(
+        api.v1.feedback.create(content: '   '),
+        throwsA(isA<ApiException>()),
+      );
+      for (final rating in [0, 6]) {
+        await expectLater(
+          api.v1.feedback.create(content: 'Feedback', rating: rating),
+          throwsA(isA<ApiException>()),
+        );
+      }
+    },
+  );
+
+  test(
+    'rating claim returns the same ledger without duplicate credit',
+    () async {
+      final api = GenesisApi(
+        useMock: false,
+        transport: LocalMockGenesisTransport.isolated(),
+      );
+      final before = (await api.v1.gem.wallet()).balanceCent;
+      final first = await api.v1.gem.claimTask('rating');
+      final second = await api.v1.gem.claimTask('rating');
+      expect(first.status, 'claimed');
+      expect(first.rewardGemsCent, 3000);
+      expect(first.ledgerId, isNotEmpty);
+      expect(second.ledgerId, first.ledgerId);
+      expect(second.balanceCent, before + 3000);
+      expect((await api.v1.gem.wallet()).balanceCent, before + 3000);
+    },
+  );
+
   test('local mock app config returns global flags', () async {
     final api = GenesisApi(useMock: true);
 
@@ -818,6 +868,7 @@ void main() {
       'show_opening_sheet': false,
       'show_personalization_form': true,
       'api_trace_sampling_rate': 1.0,
+      'rating_prompt_message_count': 20,
     });
   });
 
