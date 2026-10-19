@@ -228,7 +228,7 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: GenesisColors.darkTextSecondary,
-                              fontSize: 15,
+                              fontSize: 14,
                               height: 1.4,
                             ),
                           ),
@@ -273,7 +273,7 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
                                     painter: _RatingStarPainter(
                                       selected: star <= _rating,
                                       color: _rating >= star
-                                          ? GenesisColors.redSecondary
+                                          ? GenesisColors.redPrimary
                                           : GenesisColors.darkTextSecondary,
                                     ),
                                   ),

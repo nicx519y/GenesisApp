@@ -5,6 +5,7 @@
 ## Debug 本地阈值
 
 - Rate Dialog、消息阈值、本地配置应用／清除、Reset rating prompt 整组仅在确认登录后显示；游客及登录状态读取期间隐藏。监听会话及用户信息变更，登录后显示，退出后隐藏。
+- 点击 Rate Dialog 后先关闭 Developer Page（含 Sheet 入口），等待退场动画完成，再在原页面上展示评分弹窗；不使用已销毁的 Developer 上下文。退场期间登录会话变化时不展示，连续点击不重复关闭页面或打开弹窗。
 
 - Developer → button → Rate Dialog 下方的 Rating message threshold 支持输入非负整数。Apply 后本地值优先于 config.rating_prompt_message_count；0 关闭自动计数与引导。Use server 清除覆盖，恢复服务端配置。
 - 本地值持久化，仅影响本机调试，不修改服务端 config，也不清空消息计数或自动已展示记录。本地未设置时保留原服务端行为；Debug 的 Rate Dialog 仍可重复手动打开。
