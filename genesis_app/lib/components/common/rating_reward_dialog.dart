@@ -7,7 +7,7 @@ import '../../l10n/genesis_localizations.dart';
 import '../../network/v1/gem_api.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/api_error_message.dart';
-import '../../ui/tokens/genesis_colors.dart';
+import '../gems/gem_task_reward.dart';
 import '../auth/login_guard.dart';
 import 'genesis_action_box.dart';
 import 'genesis_center_toast.dart';
@@ -124,19 +124,11 @@ class _RatingRewardDialogState extends State<RatingRewardDialog> {
           ? const SizedBox.shrink()
           : GenesisActionBox<void>(
               title: context.l10n.rateWorldoThanks,
-              titleHeight: null,
-              titleContent: Text(
-                context.l10n.rateWorldoRewardMessage(
-                  gems: ratingRewardGemsCent ~/ 100,
-                ),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.4,
-                  fontWeight: FontWeight.w400,
-                  color: GenesisColors.darkTextSecondary,
-                ),
+              titleContent: const GemTaskReward(
+                rewardGemsCent: ratingRewardGemsCent,
+                showWholeReward: true,
               ),
+              titleContentSpacing: 10,
               actions: [
                 if (!_claimed)
                   GenesisActionBoxAction<void>(
