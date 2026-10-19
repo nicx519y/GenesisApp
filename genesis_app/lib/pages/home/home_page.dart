@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -24,10 +26,13 @@ import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
+import '../../utils/api_error_message.dart';
 import 'home_feed_cache_store.dart';
 import '../world/world_deletion_events.dart';
 import '../world/world_page_result.dart';
@@ -128,21 +133,23 @@ class _HomePageState extends State<HomePage> {
     if (login == null) {
       showGenesisToast(
         context,
-        'Sign-in unavailable',
+        GenesisL10n.current.homeSignInUnavailable,
         brightness: Brightness.dark,
       );
       return;
     }
-    final onLoginCompleted = widget.onLoginCompleted;
     setState(() => _loggingInProvider = provider);
     try {
       final ok = await login(provider);
       if (ok) {
-        await onLoginCompleted?.call();
+        final onLoginCompleted = widget.onLoginCompleted;
+        if (onLoginCompleted != null) {
+          await _runPostLoginFlow(onLoginCompleted);
+        }
       } else if (mounted) {
         showGenesisToast(
           context,
-          'Sign-in failed',
+          GenesisL10n.current.meSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -152,12 +159,21 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         showGenesisToast(
           context,
-          error.toString(),
+          loginErrorMessage(error),
           brightness: Brightness.dark,
         );
       }
     } finally {
       if (mounted) setState(() => _loggingInProvider = null);
+    }
+  }
+
+  Future<void> _runPostLoginFlow(Future<void> Function() flow) async {
+    try {
+      await flow();
+    } catch (error, stackTrace) {
+      debugPrint('[Auth][HomePage] post-login flow failed: $error');
+      debugPrint('[Auth][HomePage] stacktrace:\n$stackTrace');
     }
   }
 
@@ -216,8 +232,8 @@ class _HomePageState extends State<HomePage> {
             isActiveListenable: widget.isActiveListenable,
             topSafeArea: false,
             showLogo: false,
-            title: 'Your worlds, all in one place',
-            description: 'Sign in to create worlds and continue your stories.',
+            title: GenesisL10n.current.homeSignedOutTitle,
+            description: GenesisL10n.current.homeSignedOutDescription,
             titleFontSize: 20,
             descriptionFontSize: 14,
             titleLetterSpacing: 0,

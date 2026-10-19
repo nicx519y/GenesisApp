@@ -41,7 +41,7 @@ extension _DeveloperVersionActions on _DeveloperPageContentState {
     } on FormatException catch (error) {
       if (mounted) showGenesisToast(context, error.message);
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Save failed: $error');
+      _showDeveloperFailure(GenesisL10n.current.memorySaveFailed, error);
     } finally {
       if (mounted) {
         _updateState(() => _savingVersionOverrides = false);
@@ -64,7 +64,7 @@ extension _DeveloperVersionActions on _DeveloperPageContentState {
       });
       showGenesisToast(context, 'Restored build version');
     } catch (error) {
-      if (mounted) showGenesisToast(context, 'Reset failed: $error');
+      _showDeveloperFailure(GenesisL10n.current.developerResetFailed, error);
     } finally {
       if (mounted) {
         _updateState(() => _savingVersionOverrides = false);

@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -61,7 +63,21 @@ class MessagesPage extends StatefulWidget {
   State<MessagesPage> createState() => _MessagesPageState();
 }
 
-class _MessagesPageState extends State<MessagesPage> {
+class _MessagesPageState extends State<MessagesPage>
+    with LanguageDataRefresh<MessagesPage> {
+  @override
+  bool get languageDataLoading => _syncingConversations;
+  @override
+  Future<void> refreshLanguageData() async {
+    await Future.wait<void>([
+      _refreshMessagesData(),
+      _conversationStore.syncConversations(),
+    ]);
+  }
+
+  @override
+  ValueListenable<bool>? get languagePageActive => widget.isActiveListenable;
+
   final _scrollController = ScrollController();
   GenesisPollingScheduler? _conversationPoller;
   Timer? _timeRefreshTimer;
@@ -171,6 +187,7 @@ class _MessagesPageState extends State<MessagesPage> {
     } finally {
       if (mounted) {
         setState(() => _syncingConversations = false);
+        checkLanguageData();
       }
     }
   }
@@ -217,7 +234,10 @@ class _MessagesPageState extends State<MessagesPage> {
         backgroundColor: GenesisColors.darkBackground,
         body: Column(
           children: [
-            const PageHeader(pageName: 'Inbox', showSearchBar: false),
+            PageHeader(
+              pageName: GenesisL10n.current.navInbox,
+              showSearchBar: false,
+            ),
             Expanded(
               child: ValueListenableBuilder<List<String>>(
                 valueListenable: _conversationStore.orderedConversationIds,
@@ -238,10 +258,13 @@ class _MessagesPageState extends State<MessagesPage> {
                               children: [
                                 Expanded(
                                   child: _MessageMenuButton(
-                                    label: 'Notifications',
+                                    label:
+                                        GenesisL10n.current.inboxNotifications,
                                     routeName: RouteNames.notifications,
                                     block: 'world_apply',
-                                    emptyText: 'No notifications yet.',
+                                    emptyText: GenesisL10n
+                                        .current
+                                        .inboxNoNotificationsYet,
                                     unreadCount: unreadSummary.systemUnread,
                                     onMessagesDataRefresh:
                                         widget.onMessagesDataRefresh,
@@ -250,10 +273,12 @@ class _MessagesPageState extends State<MessagesPage> {
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: _MessageMenuButton(
-                                    label: 'Followers',
+                                    label: GenesisL10n.current.inboxFollowers,
                                     routeName: RouteNames.newFollowers,
                                     block: 'follow',
-                                    emptyText: 'No new followers yet.',
+                                    emptyText: GenesisL10n
+                                        .current
+                                        .inboxNoNewFollowersYet,
                                     unreadCount: unreadSummary.followerUnread,
                                     onMessagesDataRefresh:
                                         widget.onMessagesDataRefresh,
@@ -262,10 +287,11 @@ class _MessagesPageState extends State<MessagesPage> {
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: _MessageMenuButton(
-                                    label: 'Comments',
+                                    label: GenesisL10n.current.inboxComments,
                                     routeName: RouteNames.comments,
                                     block: 'interaction',
-                                    emptyText: 'No comments yet.',
+                                    emptyText:
+                                        GenesisL10n.current.inboxNoCommentsYet,
                                     unreadCount: unreadSummary.commentUnread,
                                     onMessagesDataRefresh:
                                         widget.onMessagesDataRefresh,
@@ -276,11 +302,11 @@ class _MessagesPageState extends State<MessagesPage> {
                           ),
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                        const SliverToBoxAdapter(
+                        SliverToBoxAdapter(
                           child: Padding(
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
-                              'Private Chats',
+                              GenesisL10n.current.inboxPrivateChats,
                               style: TextStyle(
                                 color: GenesisColors.darkTextSecondary,
                                 fontSize: 14,
@@ -298,12 +324,12 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                           )
                         else if (conversationIds.isEmpty)
-                          const SliverFillRemaining(
+                          SliverFillRemaining(
                             hasScrollBody: false,
                             child: Center(
                               key: ValueKey('direct-messages-empty-state'),
                               child: Text(
-                                'Chat with your friends on Worldo.',
+                                GenesisL10n.current.inboxChatFriendsWorldo,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: GenesisColors.darkTextSecondary,
@@ -457,7 +483,7 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayPeerName = formatUidForDisplay(
       item.peerName,
-      fallback: 'Unknown user',
+      fallback: GenesisL10n.current.inboxUnknownUser,
     );
     return Material(
       color: GenesisColors.darkBackground,

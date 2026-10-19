@@ -40,6 +40,10 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
         height: 1,
       ),
     );
+    final secondaryTextStyle = mainTextStyle.copyWith(
+      color: Colors.white.withValues(alpha: 0.73),
+      fontWeight: FontWeight.w400,
+    );
     return Center(
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
@@ -77,23 +81,28 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
                               style: mainTextStyle,
                             )
                           : ChatStreamingText(
-                              child: Text.rich(
-                                TextSpan(
-                                  style: mainTextStyle,
-                                  children: [
-                                    TextSpan(text: displayParts.characterName),
-                                    TextSpan(
-                                      text: ' came to ',
-                                      style: mainTextStyle.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.73,
-                                        ),
-                                        fontWeight: FontWeight.w400,
+                              child: GenesisLocalizedRichText(
+                                template: context.l10n.characterCameToLocation(
+                                  characterName:
+                                      GenesisLocalizedRichText.placeholder(
+                                        'characterName',
                                       ),
-                                    ),
-                                    TextSpan(text: displayParts.locationName),
-                                  ],
+                                  locationName:
+                                      GenesisLocalizedRichText.placeholder(
+                                        'locationName',
+                                      ),
                                 ),
+                                placeholders: {
+                                  'characterName': TextSpan(
+                                    text: displayParts.characterName,
+                                    style: mainTextStyle,
+                                  ),
+                                  'locationName': TextSpan(
+                                    text: displayParts.locationName,
+                                    style: mainTextStyle,
+                                  ),
+                                },
+                                style: secondaryTextStyle,
                                 textAlign: TextAlign.left,
                               ),
                             ),

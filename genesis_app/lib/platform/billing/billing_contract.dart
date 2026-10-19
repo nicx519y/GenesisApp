@@ -21,7 +21,7 @@ abstract interface class BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   });
 
   Future<void> recover(BillingRecoverySource source);

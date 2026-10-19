@@ -13,9 +13,11 @@ class LocationChatComposerInput extends StatelessWidget {
     this.messageType = chatroomTextMessageType,
     this.onToggleMessageType,
     this.onHeightChanged,
-    this.hintText = 'Text...',
+    this.hintText,
     this.selfName = '',
     this.selfAvatarUrl = '',
+    this.selfAvatarSnapshot,
+    this.showSpeakerIdentity = true,
     this.style,
     this.bottomSafeAreaInset,
     this.composerHeader,
@@ -37,11 +39,13 @@ class LocationChatComposerInput extends StatelessWidget {
   final ValueChanged<double>? onHeightChanged;
 
   /// Shown when the player's character is not yet known.
-  final String hintText;
+  final String? hintText;
 
   /// The character the player speaks as, which the toggle and hint name.
   final String selfName;
   final String selfAvatarUrl;
+  final ui.Image? selfAvatarSnapshot;
+  final bool showSpeakerIdentity;
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
   final Widget? composerHeader;
@@ -60,11 +64,13 @@ class LocationChatComposerInput extends StatelessWidget {
     final narrating = messageType == chatroomNarrationMessageType;
     final name = selfName.trim();
     // The hint says who the next message speaks as, and changes with the toggle.
-    final resolvedHint = narrating
-        ? 'Message as the Narrator'
+    final resolvedHint = !showSpeakerIdentity
+        ? ''
+        : narrating
+        ? GenesisL10n.current.chatMessageAsNarrator
         : name.isEmpty
-        ? hintText
-        : 'Message as $name';
+        ? (hintText ?? GenesisL10n.current.chatText)
+        : GenesisL10n.current.chatMessageAsCharacter(name: name);
     return ListenableBuilder(
       listenable: focusNode,
       builder: (context, _) {
@@ -87,12 +93,13 @@ class LocationChatComposerInput extends StatelessWidget {
           onHeightChanged: onHeightChanged,
           bottomSafeAreaInset: bottomSafeAreaInset,
           composerHeader: composerHeader,
-          inputLeading: onToggleMessageType == null
+          inputLeading: !showSpeakerIdentity || onToggleMessageType == null
               ? null
               : _SpeakerToggle(
                   narrating: narrating,
                   selfName: name,
                   selfAvatarUrl: selfAvatarUrl,
+                  selfAvatarSnapshot: selfAvatarSnapshot,
                   plateColor: (style ?? ChatUiStyleConfig.standard)
                       .composerSendButtonDisabledColor,
                   onPressed: inputEnabled && !sending
@@ -125,6 +132,7 @@ class _SpeakerToggle extends StatelessWidget {
     required this.narrating,
     required this.selfName,
     required this.selfAvatarUrl,
+    this.selfAvatarSnapshot,
     required this.plateColor,
     required this.onPressed,
   });
@@ -132,6 +140,7 @@ class _SpeakerToggle extends StatelessWidget {
   final bool narrating;
   final String selfName;
   final String selfAvatarUrl;
+  final ui.Image? selfAvatarSnapshot;
 
   /// The grey the composer's other controls rest on.
   final Color plateColor;
@@ -146,14 +155,18 @@ class _SpeakerToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final speaker = narrating
-        ? 'the Narrator'
-        : (selfName.isEmpty ? 'your character' : selfName);
+        ? GenesisL10n.current.chatNarratorSpeaker
+        : (selfName.isEmpty
+              ? GenesisL10n.current.chatYourCharacterSpeaker
+              : selfName);
     return MergeSemantics(
       child: Semantics(
         toggled: narrating,
-        label: 'Speaking as $speaker',
+        label: GenesisL10n.current.chatSpeakingAs(speaker: speaker),
         child: Tooltip(
-          message: narrating ? 'Switch to character' : 'Switch to narration',
+          message: narrating
+              ? GenesisL10n.current.chatSwitchCharacter
+              : GenesisL10n.current.chatSwitchNarration,
           // A real button, as the toggle was before it moved inside the
           // input: it takes keyboard focus and reports when it is disabled.
           child: TextButton(
@@ -201,6 +214,17 @@ class _SpeakerToggle extends StatelessWidget {
                                 GenesisColors.darkTextPrimary,
                                 BlendMode.srcIn,
                               ),
+                            ),
+                          )
+                        : selfAvatarSnapshot != null
+                        ? ClipRRect(
+                            key: const ValueKey('speaker-character-snapshot'),
+                            borderRadius: BorderRadius.circular(_radius),
+                            child: RawImage(
+                              image: selfAvatarSnapshot,
+                              width: _mark,
+                              height: _mark,
+                              fit: BoxFit.cover,
                             ),
                           )
                         : GenesisCharacterAvatar(

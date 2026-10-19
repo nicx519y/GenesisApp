@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -253,7 +254,7 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                 right: 0,
                 child: Semantics(
                   button: true,
-                  label: 'Edit ${item.title}',
+                  label: GenesisL10n.current.a11yEditItem(title: item.title),
                   child: GestureDetector(
                     key: ValueKey<String>(
                       'profile-collection-item-edit-'

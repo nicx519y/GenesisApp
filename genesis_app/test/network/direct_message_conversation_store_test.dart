@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,44 @@ void main() {
 
     expect(record.lastMessage, r'line\nnext');
   });
+
+  test(
+    'language change restarts full conversation sync without deleting messages',
+    () async {
+      await appLanguageController.load();
+      final transport = _DmConversationTransport(
+        (request) => _ok({
+          'list': [
+            _conversation(
+              convId: 'existing',
+              messageId: 'message',
+              minutesAgo: 1,
+            ),
+          ],
+          'next_after_message_id': 'saved_cursor',
+        }),
+      );
+      final store = await _store(transport);
+      await store.syncConversations();
+      await store.syncConversations();
+      expect(
+        transport.requests.last.uri.queryParameters['after_message_id'],
+        'saved_cursor',
+      );
+      appLanguageController.applyConfigLanguage(
+        'zh-TW',
+        requestRevision: appLanguageController.revision,
+      );
+      await store.syncConversations();
+      expect(
+        transport.requests.last.uri.queryParameters['after_message_id'],
+        isNull,
+      );
+      expect(transport.requests.last.uri.queryParameters['pn'], '1');
+      expect(store.orderedConversationIds.value, ['existing']);
+      await appLanguageController.load();
+    },
+  );
 
   test('full sync requests rn 100 pages until the last partial page', () async {
     final transport = _DmConversationTransport((request) {

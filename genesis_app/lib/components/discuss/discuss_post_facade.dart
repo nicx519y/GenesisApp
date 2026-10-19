@@ -5,8 +5,8 @@ class DiscussPostInput extends StatefulWidget {
     super.key,
     required this.bizId,
     this.bizType = 1,
-    this.placeholder = 'Write a post',
-    this.title = 'New post',
+    this.placeholder,
+    this.title,
     this.submitter,
     this.imagePicker,
     this.imageUploader,
@@ -19,8 +19,8 @@ class DiscussPostInput extends StatefulWidget {
 
   final String bizId;
   final int bizType;
-  final String placeholder;
-  final String title;
+  final String? placeholder;
+  final String? title;
   final DiscussPostSubmitter? submitter;
   final DiscussImagePicker? imagePicker;
   final DiscussImageUploader? imageUploader;
@@ -125,8 +125,8 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
 
     final submitted = await showDiscussPostComposer(
       context: context,
-      title: widget.title,
-      placeholder: widget.placeholder,
+      title: widget.title ?? GenesisL10n.current.newPostTitle,
+      placeholder: widget.placeholder ?? GenesisL10n.current.writePostHint,
       imagePicker: widget.imagePicker,
       imageUploader: widget.imageUploader ?? _uploadImage,
       imageProgressUploader: widget.imageUploader == null
@@ -199,7 +199,7 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          widget.placeholder,
+          widget.placeholder ?? GenesisL10n.current.writePostHint,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(

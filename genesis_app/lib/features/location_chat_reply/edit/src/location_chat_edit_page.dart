@@ -1,7 +1,7 @@
 part of '../../../../pages/chat/location_chat_page.dart';
 
-const _locationChatEditMinimumMessageToast =
-    'At least one message must remain.';
+String get _locationChatEditMinimumMessageToast =>
+    GenesisL10n.current.chatLeastOneMessageMustRemain;
 
 bool _isEditableRoundMessage(ChatMessageVm message) =>
     !message.isMe &&
@@ -77,6 +77,7 @@ class LocationChatEditPageArgs {
     required this.onSave,
     this.onOpened,
     this.onOpenFailed,
+    this.onQuotaExhausted,
     this.cardId,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
@@ -97,6 +98,7 @@ class LocationChatEditPageArgs {
   final Future<void> Function(LocationChatEditResult result) onSave;
   final VoidCallback? onOpened;
   final VoidCallback? onOpenFailed;
+  final Future<void> Function(BuildContext context)? onQuotaExhausted;
   final ChatUiStyleConfig style;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
@@ -281,6 +283,22 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
           : _locationChatTelemetryUnknown(error)
           ? 'save_unknown'
           : 'save_failed';
+      if (error is ChatroomFeatureQuotaException ||
+          (error is ApiException && error.code == 2030)) {
+        saveAttempt.finish('save_quota_insufficient|${widget.args.roundId}');
+        if (!mounted) return;
+        showGenesisToast(context, context.l10n.chatEditFreeUsesExhausted);
+        final presenter = widget.args.onQuotaExhausted;
+        if (presenter != null) {
+          await presenter(context);
+        } else {
+          await showSubscriptionPurchaseBottomSheet(
+            context,
+            source: SubscriptionSource.chatEditSaveQuota,
+          );
+        }
+        return;
+      }
       if (!isChatroomErrorPresentedGlobally(error) && overlay != null) {
         showGenesisToastInOverlay(
           overlay,
@@ -306,7 +324,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
         body: Column(
           children: [
             ChatHeader(
-              title: 'Edit Message',
+              title: GenesisL10n.current.chatEditMessage,
               subtitle: '',
               connected: false,
               connecting: false,
@@ -321,7 +339,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
                 padding: const EdgeInsets.only(right: 10),
                 child: GenesisPrimaryButton(
                   key: const ValueKey('location-chat-edit-done'),
-                  label: 'Save',
+                  label: GenesisL10n.current.chatSave,
                   onPressed: _inputEnabled ? _done : null,
                   isLoading: _saving,
                   width: 56,

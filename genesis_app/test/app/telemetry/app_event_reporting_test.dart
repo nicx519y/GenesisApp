@@ -2,10 +2,53 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/app_event_reporting.dart';
+import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('strict first-event enqueue reports failure and recovers', () async {
+    final store = _MemoryAppEventReportStore()
+      ..enqueueError = StateError('storage failed');
+    final sent = <AppEventReport>[];
+    final reporting = AppEventReporting(
+      store: store,
+      environmentProvider: () => 'sandbox',
+      sender: (report) async {
+        sent.add(report);
+      },
+    );
+    addTearDown(reporting.dispose);
+    await expectLater(
+      reporting.report(
+        event: 'login_first',
+        occurredAtSeconds: 1767225600,
+        parameters: {'method': 'google'},
+        requireEnqueueSuccess: true,
+      ),
+      throwsStateError,
+    );
+    expect(store.reports, isEmpty);
+    store.enqueueError = null;
+    for (final event in AppEventReporting.firebaseForwardedOnceEvents) {
+      await reporting.report(
+        event: event,
+        occurredAtSeconds: 1767225600,
+        parameters: {'device_id': 'device'},
+        requireEnqueueSuccess: true,
+      );
+    }
+    await reporting.flush();
+    expect(
+      sent.map((e) => e.event).toSet(),
+      AppEventReporting.firebaseForwardedOnceEvents,
+    );
+    expect(
+      sent.every((e) => e.reportFirebase && e.transactionId == null),
+      isTrue,
+    );
+  });
+
   test('sqflite outbox persists pending and delivered state', () async {
     sqfliteFfiInit();
     final store = SqfliteAppEventReportStore(
@@ -125,7 +168,7 @@ CREATE TABLE app_event_reports (
     await store.close();
   });
 
-  test('sqflite v3 outbox migrates prefixed business id', () async {
+  test('sqflite upgrade retains a queued purchase report', () async {
     sqfliteFfiInit();
     final directory = await Directory.systemTemp.createTemp(
       'genesis-event-report-transaction-migration-',
@@ -175,63 +218,317 @@ CREATE TABLE app_event_reports (
     await store.close();
   });
 
+  test('sqflite v4 upgrade retains supported purchase rows', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp(
+      'genesis-event-report-purchase-removal-',
+    );
+    final databasePath = '${directory.path}/reports.db';
+    addTearDown(() async {
+      await databaseFactoryFfiNoIsolate.deleteDatabase(databasePath);
+      await directory.delete(recursive: true);
+    });
+    final oldDatabase = await databaseFactoryFfiNoIsolate.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (database, _) => database.execute('''
+CREATE TABLE app_event_reports (
+  sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_key TEXT NOT NULL UNIQUE,
+  event_name TEXT NOT NULL,
+  environment TEXT NOT NULL,
+  occurred_at INTEGER NOT NULL,
+  transaction_id TEXT,
+  params_json TEXT NOT NULL,
+  delivered INTEGER NOT NULL DEFAULT 0
+)
+'''),
+      ),
+    );
+    for (final event in [
+      'purchase',
+      'gems_first',
+      'subscription_day0',
+      'login_first',
+    ]) {
+      await oldDatabase.insert('app_event_reports', <String, Object?>{
+        'report_key': event,
+        'event_name': event,
+        'environment': 'sandbox',
+        'occurred_at': 1767225600,
+        'transaction_id': event == 'login_first' ? null : 'old-order',
+        'params_json': '{}',
+        'delivered': 0,
+      });
+    }
+    await oldDatabase.close();
+
+    final store = SqfliteAppEventReportStore(
+      databaseFactoryOverride: databaseFactoryFfiNoIsolate,
+      databasePath: databasePath,
+    );
+    final pending = await store.pending(limit: 20);
+    expect(pending.map((report) => report.event), [
+      'purchase',
+      'gems_first',
+      'subscription_day0',
+      'login_first',
+    ]);
+    expect(pending.map((report) => report.reportFirebase), [
+      true,
+      true,
+      true,
+      true,
+    ]);
+    await store.close();
+  });
+
+  test('purchase events require transaction_id and reach the sender', () async {
+    const purchaseEvents = <String>[
+      'purchase',
+      'purchase_first',
+      'purchase_day0',
+      'purchase_first_day0',
+      'gems',
+      'gems_first',
+      'gems_day0',
+      'gems_first_day0',
+      'subscription',
+      'subscription_first',
+      'subscription_day0',
+      'subscription_first_day0',
+    ];
+    final store = _MemoryAppEventReportStore();
+    final sent = <AppEventReport>[];
+    final reporting = AppEventReporting(
+      environmentProvider: () => 'sandbox',
+      store: store,
+      sender: (report) async => sent.add(report),
+    );
+    for (final event in purchaseEvents) {
+      await reporting.report(
+        event: event,
+        occurredAtSeconds: 1767225600,
+        parameters: const <String, Object>{'device_id': 'device-1'},
+      );
+    }
+    expect(store.reports, isEmpty);
+
+    for (final event in purchaseEvents) {
+      await reporting.report(
+        event: event,
+        occurredAtSeconds: 1767225600,
+        parameters: const <String, Object>{'device_id': 'device-1'},
+        transactionId: 'store-transaction-1',
+      );
+    }
+    await reporting.flush();
+
+    expect(sent.map((report) => report.event), purchaseEvents);
+    expect(sent.every((report) => report.reportFirebase), isTrue);
+    expect(
+      sent.every((report) => report.transactionId == 'store-transaction-1'),
+      isTrue,
+    );
+    expect(store.pendingReports, isEmpty);
+    await reporting.dispose();
+  });
+
   test(
-    'reports only the selected events with Firebase-equivalent params',
+    'first events remain device-once while other purchase events use receipt',
     () async {
       final store = _MemoryAppEventReportStore();
       final sent = <AppEventReport>[];
       final reporting = AppEventReporting(
-        environmentProvider: () => 'sandbox',
+        environmentProvider: () => 'production',
         store: store,
         sender: (report) async => sent.add(report),
-        initialRetryDelay: const Duration(hours: 1),
-        maximumRetryDelay: const Duration(hours: 1),
       );
+      for (final transactionId in ['receipt-1', 'receipt-2']) {
+        for (final event in [
+          'purchase',
+          'purchase_first',
+          'gems',
+          'gems_first',
+        ]) {
+          await reporting.report(
+            event: event,
+            occurredAtSeconds: 1767225600,
+            parameters: const <String, Object>{'device_id': 'device-1'},
+            transactionId: transactionId,
+          );
+        }
+      }
+      await reporting.flush();
+      expect(sent.where((report) => report.event == 'purchase'), hasLength(2));
+      expect(sent.where((report) => report.event == 'gems'), hasLength(2));
+      expect(
+        sent.where((report) => report.event == 'purchase_first'),
+        hasLength(1),
+      );
+      expect(
+        sent.where((report) => report.event == 'gems_first'),
+        hasLength(1),
+      );
+      await reporting.dispose();
+    },
+  );
 
-      await reporting.report(
-        event: 'gems',
-        occurredAtSeconds: 1767225600,
-        transactionId: 'order-1',
-        parameters: const <String, Object>{
-          'provider': 'google',
-          'product_id': 'gems-500',
-          'device_id': 'device-1',
-          'value': 4.99,
-          'currency': 'USD',
-        },
+  test(
+    'store success sends server-only purchase events with Day0 and price',
+    () async {
+      final store = _MemoryAppEventReportStore();
+      final sent = <AppEventReport>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: store,
+        sender: (report) async => sent.add(report),
       );
-      await reporting.report(
-        event: 'login_first',
-        occurredAtSeconds: 1767225600,
-        transactionId: 'must-be-ignored',
-        parameters: const <String, Object>{
-          'method': 'google',
-          'device_id': 'device-1',
-        },
+      final purchaseEvents = PurchaseEventReporting(
+        eventReporting: reporting,
+        deviceIdReader: () async => 'device-1',
+        day0AnchorStore: _MemoryPurchaseDay0AnchorStore(),
+        legacyEventMarkerReader: (_) async => false,
+        enabled: () => true,
       );
-      await reporting.report(
-        event: 'subscription_renew',
-        occurredAtSeconds: 1767225600,
-        transactionId: 'renewal-1',
-        parameters: const <String, Object>{'device_id': 'device-1'},
+      await purchaseEvents.recordServerTimeSynchronized(
+        DateTime.utc(2026, 10, 10, 12),
+      );
+      await purchaseEvents.recordPurchase(
+        provider: 'google',
+        productId: 'gem_pack',
+        kind: PurchaseEventKind.gems,
+        purchaseIdentity: 'token-1',
+        priceAmountMicros: 5000000,
+        priceCurrencyCode: 'usd',
       );
       await reporting.flush();
-
-      expect(sent.map((report) => report.event), ['gems', 'login_first']);
-      expect(sent.first.transactionId, 'order-1');
-      expect(sent.first.occurredAtSeconds, 1767225600);
-      expect(sent.first.params, const <String, String>{
+      expect(sent.map((report) => report.event), [
+        'purchase',
+        'gems',
+        'purchase_first',
+        'gems_first',
+        'purchase_day0',
+        'gems_day0',
+        'purchase_first_day0',
+        'gems_first_day0',
+      ]);
+      expect(sent.every((report) => report.transactionId == 'token-1'), isTrue);
+      expect(sent.first.params, <String, String>{
         'provider': 'google',
-        'product_id': 'gems-500',
+        'product_id': 'gem_pack',
         'device_id': 'device-1',
-        'value': '4.99',
+        'value': '5.0',
         'currency': 'USD',
       });
-      expect(sent.last.transactionId, isNull);
-      expect(sent.last.params, const <String, String>{
-        'method': 'google',
-        'device_id': 'device-1',
-      });
+
+      await purchaseEvents.recordPurchase(
+        provider: 'google',
+        productId: 'gem_pack',
+        kind: PurchaseEventKind.gems,
+        purchaseIdentity: 'token-1',
+        transactionIdentity: 'new-transaction-for-same-token',
+      );
+      await reporting.flush();
+      expect(sent, hasLength(8));
+
+      await purchaseEvents.recordServerTimeSynchronized(
+        DateTime.utc(2026, 10, 11, 12),
+      );
+      await purchaseEvents.recordPurchase(
+        provider: 'apple',
+        productId: 'subscription_product',
+        kind: PurchaseEventKind.subscription,
+        purchaseIdentity: 'transaction-2',
+      );
+      await reporting.flush();
+      expect(
+        sent
+            .where((report) => report.transactionId == 'transaction-2')
+            .map((report) => report.event),
+        ['purchase', 'subscription', 'subscription_first'],
+      );
+      await reporting.dispose();
+    },
+  );
+
+  test(
+    'Google subscription renewal with the same token is not a new purchase',
+    () async {
+      final sent = <AppEventReport>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: _MemoryAppEventReportStore(),
+        sender: (report) async => sent.add(report),
+      );
+      final purchaseEvents = PurchaseEventReporting(
+        eventReporting: reporting,
+        deviceIdReader: () async => 'device-1',
+        legacyEventMarkerReader: (_) async => false,
+        enabled: () => true,
+      );
+      for (final transactionId in ['order-1', 'order-2']) {
+        await purchaseEvents.recordPurchase(
+          provider: 'google',
+          productId: 'monthly',
+          kind: PurchaseEventKind.subscription,
+          purchaseIdentity: 'same-purchase-token',
+          transactionIdentity: transactionId,
+        );
+      }
+      await reporting.flush();
+      expect(sent.map((report) => report.event), [
+        'purchase',
+        'subscription',
+        'purchase_first',
+        'subscription_first',
+      ]);
+      expect(sent.every((report) => report.transactionId == 'order-1'), isTrue);
+      await reporting.dispose();
+    },
+  );
+
+  test(
+    'legacy Firebase markers prevent duplicate server purchase events',
+    () async {
+      final sent = <AppEventReport>[];
+      final checkedKeys = <String>[];
+      final reporting = AppEventReporting(
+        environmentProvider: () => 'production',
+        store: _MemoryAppEventReportStore(),
+        sender: (report) async => sent.add(report),
+      );
+      final purchaseEvents = PurchaseEventReporting(
+        eventReporting: reporting,
+        deviceIdReader: () async => 'device-1',
+        legacyEventMarkerReader: (key) async {
+          checkedKeys.add(key);
+          return true;
+        },
+        enabled: () => true,
+      );
+      await purchaseEvents.recordPurchase(
+        provider: 'google',
+        productId: 'monthly',
+        kind: PurchaseEventKind.subscription,
+        purchaseIdentity: 'old-token',
+        transactionIdentity: 'old-order',
+      );
+      await reporting.flush();
+      expect(sent, isEmpty);
+      expect(checkedKeys, contains('purchase_first'));
+      expect(checkedKeys, contains('subscription_first'));
+      expect(
+        checkedKeys.any((key) => key.startsWith('purchase_transaction_v1.')),
+        isTrue,
+      );
+      expect(
+        checkedKeys.any(
+          (key) => key.startsWith('subscription_transaction_v1.'),
+        ),
+        isTrue,
+      );
       await reporting.dispose();
     },
   );
@@ -283,51 +580,6 @@ CREATE TABLE app_event_reports (
     await reporting.dispose();
   });
 
-  test(
-    'transaction events without a transaction id are not enqueued',
-    () async {
-      final store = _MemoryAppEventReportStore();
-      final reporting = AppEventReporting(
-        environmentProvider: () => 'sandbox',
-        store: store,
-        sender: (_) async {},
-      );
-
-      for (final event in AppEventReporting.transactionEvents) {
-        await reporting.report(
-          event: event,
-          occurredAtSeconds: 1767225600,
-          parameters: const <String, Object>{'device_id': 'device-1'},
-        );
-      }
-
-      expect(store.reports, isEmpty);
-      await reporting.dispose();
-    },
-  );
-
-  test('transaction-derived events preserve their transaction id', () async {
-    final store = _MemoryAppEventReportStore();
-    final sent = <AppEventReport>[];
-    final reporting = AppEventReporting(
-      environmentProvider: () => 'sandbox',
-      store: store,
-      sender: (report) async => sent.add(report),
-    );
-
-    await reporting.report(
-      event: 'gems_first_day0',
-      occurredAtSeconds: 1767225600,
-      transactionId: 'order-1',
-      parameters: const <String, Object>{'device_id': 'device-1'},
-    );
-    await reporting.flush();
-
-    expect(sent, hasLength(1));
-    expect(sent.single.transactionId, 'order-1');
-    await reporting.dispose();
-  });
-
   test('permanent rejection does not block a later queued event', () async {
     final store = _MemoryAppEventReportStore();
     final sent = <String>[];
@@ -335,7 +587,7 @@ CREATE TABLE app_event_reports (
       environmentProvider: () => 'sandbox',
       store: store,
       sender: (report) async {
-        if (report.event == 'gems_first_day0') {
+        if (report.event == 'login_first') {
           throw ApiException(
             message: 'invalid event',
             code: 4004,
@@ -347,22 +599,21 @@ CREATE TABLE app_event_reports (
     );
 
     await reporting.report(
-      event: 'gems_first_day0',
+      event: 'login_first',
       occurredAtSeconds: 1767225600,
-      transactionId: 'order-1',
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
     await reporting.report(
-      event: 'login_first',
+      event: 'message_sent_first',
       occurredAtSeconds: 1767225600,
       parameters: const <String, Object>{
-        'method': 'google',
+        'world_id': 'world-1',
         'device_id': 'device-1',
       },
     );
     await reporting.flush();
 
-    expect(sent, ['login_first']);
+    expect(sent, ['message_sent_first']);
     expect(store.pendingReports, isEmpty);
     await reporting.dispose();
   });
@@ -401,6 +652,7 @@ CREATE TABLE app_event_reports (
 class _MemoryAppEventReportStore implements AppEventReportStore {
   final Map<String, AppEventReport> reports = <String, AppEventReport>{};
   final Set<String> delivered = <String>{};
+  Object? enqueueError;
 
   List<AppEventReport> get pendingReports => reports.values
       .where((report) => !delivered.contains(report.reportKey))
@@ -408,6 +660,7 @@ class _MemoryAppEventReportStore implements AppEventReportStore {
 
   @override
   Future<void> enqueue(AppEventReport report) async {
+    if (enqueueError != null) throw enqueueError!;
     reports.putIfAbsent(report.reportKey, () => report);
   }
 
@@ -423,4 +676,14 @@ class _MemoryAppEventReportStore implements AppEventReportStore {
 
   @override
   Future<void> close() async {}
+}
+
+class _MemoryPurchaseDay0AnchorStore implements PurchaseDay0AnchorStore {
+  DateTime? anchor;
+
+  @override
+  Future<DateTime?> read() async => anchor;
+
+  @override
+  Future<void> write(DateTime serverUtc) async => anchor = serverUtc;
 }

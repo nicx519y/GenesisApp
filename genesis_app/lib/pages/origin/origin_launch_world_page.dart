@@ -51,6 +51,12 @@ class _OriginLaunchWorldPageState extends State<OriginLaunchWorldPage> {
   bool _exited = false;
 
   @override
+  void dispose() {
+    widget.entry.message.avatarSnapshot?.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     // Render the pending bubble before starting the request.

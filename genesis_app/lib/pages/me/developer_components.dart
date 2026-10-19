@@ -656,7 +656,7 @@ class _DeveloperPreviewBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {
     if (_disposed) return;
     if (_state.value.hasBusyPurchase) return;
@@ -669,7 +669,7 @@ class _DeveloperPreviewBillingService implements BillingService {
         kind: BillingUiEventKind.processing,
         productId: product.productId,
         attemptId: 'developer_preview',
-        message: 'Purchasing Gems',
+        message: GenesisL10n.current.purchasingGems,
       ),
     );
     await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -680,7 +680,7 @@ class _DeveloperPreviewBillingService implements BillingService {
         kind: BillingUiEventKind.success,
         productId: product.productId,
         attemptId: 'developer_preview',
-        message: 'Purchase successful!',
+        message: GenesisL10n.current.mePurchaseSuccessful,
         grantedGemsCent: product.totalGemsCent,
       ),
     );

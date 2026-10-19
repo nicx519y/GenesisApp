@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -21,6 +23,7 @@ import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 
 class UserInfoPage extends StatefulWidget {
@@ -32,7 +35,16 @@ class UserInfoPage extends StatefulWidget {
   State<UserInfoPage> createState() => _UserInfoPageState();
 }
 
-class _UserInfoPageState extends State<UserInfoPage> {
+class _UserInfoPageState extends State<UserInfoPage>
+    with LanguageDataRefresh<UserInfoPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refresh();
+    // _refresh keeps expected API errors in FutureBuilder. Language refresh
+    // must still observe that failure so the page stays stale for a retry.
+    await _future;
+  }
+
   late Future<UserProfileData> _future;
   late final SessionRevisionSubscription _sessionRevision;
   int _loadGeneration = 0;
@@ -97,7 +109,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
         ? userInfo['relation'] as Map
         : const <String, dynamic>{};
     final resolvedUid = _mapString(user, 'uid', fallback: uid);
-    final displayName = _mapString(user, 'name', fallback: 'User');
+    final displayName = _mapString(
+      user,
+      'name',
+      fallback: GenesisL10n.current.worldoUser,
+    );
     final avatarUrl = asResolvedImageUrl(
       user['avatar'],
       resolveAssetUrl,
@@ -114,7 +130,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
       age: asString(user['age']),
       membershipStatus: asUserMembershipStatus(user['membership_status']),
       displayName: displayName,
-      uid: profileUid.trim().isEmpty ? 'Unknown' : profileUid,
+      uid: profileUid.trim().isEmpty
+          ? GenesisL10n.current.meUnknown
+          : profileUid,
       followingCount: _mapInt(user, 'following_cnt'),
       followerCount: _mapInt(user, 'follower_cnt'),
       deleted: entityDeleted(user['deleted']),
@@ -306,7 +324,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
     if (_isBlockingUser || _profileBlocked) return;
     final targetUid = _targetUid();
     if (targetUid.isEmpty) {
-      showGenesisToast(context, 'Block failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.meBlockFailed,
+        brightness: Brightness.dark,
+      );
       return;
     }
     if (!await ensureGenesisLogin(context, source: LoginSource.profile)) return;
@@ -317,21 +339,39 @@ class _UserInfoPageState extends State<UserInfoPage> {
     try {
       final api = AppServicesScope.read(context).api;
       await api.v1.user.block(targetUid: targetUid);
-      await api.v1.report.create(
-        targetType: 'user',
-        targetId: targetUid,
-        content: 'User blocked from profile.',
-      );
       BlockedUserReviewReturn.markPendingHomeRefresh();
+      if (mounted) {
+        _clearProfileCollections();
+        setState(() {
+          _isBlockingUser = false;
+          _profileBlocked = true;
+        });
+      }
+      try {
+        await api.v1.report.create(
+          targetType: 'user',
+          targetId: targetUid,
+          content: 'User blocked from profile.',
+        );
+      } catch (error, stackTrace) {
+        debugPrint('[UserInfo][BlockReport] failed: $error');
+        debugPrint('[UserInfo][BlockReport] stacktrace:\n$stackTrace');
+        if (mounted) {
+          showGenesisToast(
+            context,
+            apiErrorMessage(
+              error,
+              fallback: GenesisL10n.current.blockedReportFailed,
+            ),
+            brightness: Brightness.dark,
+          );
+        }
+        return;
+      }
       if (!mounted) return;
-      _clearProfileCollections();
-      setState(() {
-        _isBlockingUser = false;
-        _profileBlocked = true;
-      });
       showGenesisToast(
         context,
-        'User blocked. This content has been reported to Worldo team.',
+        GenesisL10n.current.meUserBlockedContentHasReported,
         brightness: Brightness.dark,
       );
     } catch (error, stackTrace) {
@@ -341,7 +381,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       setState(() => _isBlockingUser = false);
       showGenesisToast(
         context,
-        _blockActionFailureMessage(error, 'Block failed'),
+        apiErrorMessage(error, fallback: GenesisL10n.current.meBlockFailed),
         brightness: Brightness.dark,
       );
     }
@@ -350,9 +390,12 @@ class _UserInfoPageState extends State<UserInfoPage> {
   Future<bool> _confirmBlockUser() async {
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Block this user?',
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Block', value: true),
+      title: GenesisL10n.current.meBlockUser,
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.meBlock,
+          value: true,
+        ),
       ],
     );
     return confirmed == true;
@@ -362,7 +405,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
     if (_isBlockingUser || !_profileBlocked) return;
     final targetUid = _targetUid();
     if (targetUid.isEmpty) {
-      showGenesisToast(context, 'Unblock failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.meUnblockFailed,
+        brightness: Brightness.dark,
+      );
       return;
     }
     if (!await ensureGenesisLogin(context, source: LoginSource.profile)) return;
@@ -387,7 +434,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       setState(() => _isBlockingUser = false);
       showGenesisToast(
         context,
-        _blockActionFailureMessage(error, 'Unblock failed'),
+        apiErrorMessage(error, fallback: GenesisL10n.current.meUnblockFailed),
         brightness: Brightness.dark,
       );
     }
@@ -422,13 +469,6 @@ class _UserInfoPageState extends State<UserInfoPage> {
       isLoading: true,
       hasLoaded: worlds.hasLoaded,
     );
-  }
-
-  String _blockActionFailureMessage(Object error, String fallback) {
-    if (error is ApiException && error.code != null) {
-      return '${error.message}[${error.code}]';
-    }
-    return fallback;
   }
 
   void _handleBack() {
@@ -541,7 +581,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
                           : _profileUid.trim(),
                     ),
                     GenesisActionMenuItem(
-                      label: _profileBlocked ? 'Unblock' : 'Block',
+                      label: _profileBlocked
+                          ? GenesisL10n.current.meUnblock
+                          : GenesisL10n.current.meBlock,
                       iconData: Icons.block,
                       onSelected: _profileBlocked
                           ? _handleUnblockUser
@@ -566,8 +608,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Load failed',
+                        Text(
+                          GenesisL10n.current.homeLoadFailed,
                           style: TextStyle(
                             color: GenesisColors.darkTextSecondary,
                           ),
@@ -575,7 +617,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
                         const SizedBox(height: 8),
                         FilledButton(
                           onPressed: _refresh,
-                          child: const Text('Retry'),
+                          child: Text(GenesisL10n.current.homeRetry),
                         ),
                       ],
                     ),
@@ -599,8 +641,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
                     _selectedCollectionTabIndex = index;
                   },
                   onCollapsedChanged: _handleProfileCollapsedChanged,
-                  originTabLabel: 'Worldo',
-                  worldTabLabel: 'Playing',
+                  originTabLabel: GenesisL10n.current.navWorldo,
+                  worldTabLabel: GenesisL10n.current.mePlaying,
                   showCollectionCounts: true,
                   tabLabelFontSize: 14,
                   isBlocking: _isBlockingUser,
@@ -817,13 +859,16 @@ class _UserInfoSkeletonBone extends StatelessWidget {
 String _originSubtitle(OriginSummary item) {
   final oid = deletedAwareIdLabel(item.oid, deleted: item.deleted);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  return 'OID: $oid\nLatest Version: $version';
+  return GenesisL10n.current.profileOriginSubtitle(oid: oid, version: version);
 }
 
 String _worldSubtitle(String wid, String ownerName, {bool deleted = false}) {
   final displayWid = deletedAwareIdLabel(wid, deleted: deleted);
   final owner = formatUidForDisplay(ownerName, fallback: '-');
-  return 'WID: $displayWid\nOwner: $owner';
+  return GenesisL10n.current.profileWorldSubtitle(
+    wid: displayWid,
+    owner: owner,
+  );
 }
 
 String _mapString(

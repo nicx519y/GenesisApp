@@ -204,7 +204,7 @@ class ChatNpcAvatar extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            'NPC',
+            GenesisL10n.current.homeNpc,
             style: TextStyle(
               color: Colors.white,
               fontSize: 11,

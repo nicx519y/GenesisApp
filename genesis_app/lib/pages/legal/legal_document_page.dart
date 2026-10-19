@@ -1,3 +1,5 @@
+import '../../l10n/genesis_l10n.dart';
+import '../../l10n/app_language_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,14 +12,25 @@ import '../../ui/theme/genesis_dark_theme.dart';
 import 'legal_document_dark_style.dart';
 
 enum LegalDocument {
-  terms(title: 'Terms of Service', url: 'https://worldo.ai/terms/'),
-  privacy(title: 'Privacy Policy', url: 'https://worldo.ai/privacy/'),
-  eula(title: 'End User License Agreement', url: 'https://worldo.ai/eula/');
+  terms(url: 'https://worldo.ai/terms/'),
+  privacy(url: 'https://worldo.ai/privacy/'),
+  eula(url: 'https://worldo.ai/eula/');
 
-  const LegalDocument({required this.title, required this.url});
+  const LegalDocument({required this.url});
 
-  final String title;
   final String url;
+
+  Uri uriForSettingLanguage(String? language) {
+    final base = Uri.parse(url);
+    if (language == null || language.isEmpty) return base;
+    return base.replace(queryParameters: {'language': language});
+  }
+
+  String get title => switch (this) {
+    LegalDocument.terms => GenesisL10n.current.termsOfService,
+    LegalDocument.privacy => GenesisL10n.current.privacyPolicy,
+    LegalDocument.eula => GenesisL10n.current.endUserLicenseAgreement,
+  };
 
   static LegalDocument fromRouteValue(String value) {
     return LegalDocument.values.firstWhere(
@@ -43,6 +56,21 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
   var _styleReady = false;
   var _loadGeneration = 0;
   Completer<bool>? _paintCompleter;
+  String? _settingLanguage;
+
+  void _onLanguageChanged() {
+    final language = appLanguageController.settingLanguage;
+    if (language == _settingLanguage) return;
+    _settingLanguage = language;
+    _cancelPaintWait();
+    setState(() {
+      _styleReady = false;
+      _hasError = false;
+      _loadingProgress = 0;
+      _loadGeneration++;
+    });
+    _initializeController();
+  }
 
   void _cancelPaintWait() {
     final completer = _paintCompleter;
@@ -52,6 +80,7 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
 
   @override
   void dispose() {
+    appLanguageController.removeListener(_onLanguageChanged);
     _cancelPaintWait();
     super.dispose();
   }
@@ -59,6 +88,8 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
   @override
   void initState() {
     super.initState();
+    _settingLanguage = appLanguageController.settingLanguage;
+    appLanguageController.addListener(_onLanguageChanged);
     _initializeController();
   }
 
@@ -147,7 +178,9 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
         ),
       );
       if (!mounted || _controller != controller) return;
-      await controller.loadRequest(Uri.parse(widget.document.url));
+      await controller.loadRequest(
+        widget.document.uriForSettingLanguage(_settingLanguage),
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _hasError = true);
@@ -212,7 +245,9 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
                     ),
                   if (_hasError)
                     _LegalWebErrorView(
-                      url: widget.document.url,
+                      url: widget.document
+                          .uriForSettingLanguage(_settingLanguage)
+                          .toString(),
                       onRetry: _retry,
                     ),
                 ],
@@ -239,8 +274,8 @@ class _LegalWebErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Load failed',
+            Text(
+              GenesisL10n.current.homeLoadFailed,
               style: TextStyle(
                 fontSize: 16,
                 color: GenesisColors.darkTextPrimary,
@@ -265,7 +300,7 @@ class _LegalWebErrorView extends StatelessWidget {
                 foregroundColor: GenesisColors.darkTextPrimary,
                 side: const BorderSide(color: GenesisColors.darkFaintFill),
               ),
-              child: const Text('Retry'),
+              child: Text(GenesisL10n.current.homeRetry),
             ),
           ],
         ),

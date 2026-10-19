@@ -7,7 +7,7 @@ extension _MePageActions on _MePageState {
     if (login == null) {
       showGenesisToast(
         context,
-        'Sign-in unavailable',
+        GenesisL10n.current.homeSignInUnavailable,
         brightness: Brightness.dark,
       );
       return;
@@ -30,7 +30,7 @@ extension _MePageActions on _MePageState {
       } else {
         showGenesisToast(
           context,
-          'Sign-in failed',
+          GenesisL10n.current.meSignInFailed,
           brightness: Brightness.dark,
         );
       }
@@ -40,10 +40,9 @@ extension _MePageActions on _MePageState {
       debugPrint('[Auth][MePage] login failed: $e');
       debugPrint('[Auth][MePage] stacktrace:\n$st');
       if (!mounted) return;
-      final message = e.toString().trim();
       showGenesisToast(
         context,
-        message.isEmpty ? 'Sign-in failed' : message,
+        loginErrorMessage(e),
         brightness: Brightness.dark,
       );
     } finally {
@@ -78,7 +77,7 @@ extension _MePageActions on _MePageState {
       if (!launched && mounted) {
         showGenesisToast(
           context,
-          'Could not open Discord',
+          GenesisL10n.current.meFailedOpenDiscord,
           brightness: Brightness.dark,
         );
       }
@@ -86,7 +85,7 @@ extension _MePageActions on _MePageState {
       if (mounted) {
         showGenesisToast(
           context,
-          'Could not open Discord',
+          GenesisL10n.current.meFailedOpenDiscord,
           brightness: Brightness.dark,
         );
       }
@@ -116,7 +115,7 @@ extension _MePageActions on _MePageState {
       if (!mounted) return;
       showGenesisToast(
         context,
-        'Image pick failed',
+        GenesisL10n.current.meImagePickFailed,
         brightness: Brightness.dark,
       );
       return;
@@ -196,9 +195,13 @@ extension _MePageActions on _MePageState {
       final updatedDisplayName = apply(updatedUser);
       if (!mounted) return;
       _displayName.value = updatedDisplayName;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Update failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: GenesisL10n.current.meUpdateFailed),
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _isUpdatingProfile.value = false;
     }
@@ -218,9 +221,13 @@ extension _MePageActions on _MePageState {
       final updatedAvatarUrl = apply(updatedUser);
       if (!mounted) return;
       _avatarUrl.value = updatedAvatarUrl;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Update failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(error, fallback: GenesisL10n.current.meUpdateFailed),
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _isUpdatingProfile.value = false;
     }

@@ -91,7 +91,9 @@ extension _WorldPageTickFlow on _WorldPageState {
       }
       showGenesisToast(
         context,
-        '${worldHeaderActionLabel(action)} failed',
+        GenesisL10n.current.worldActionFailed(
+          actionLabel: (worldHeaderActionLabel(action)).toString(),
+        ),
         brightness: Brightness.dark,
       );
     } finally {
@@ -298,9 +300,12 @@ extension _WorldPageTickFlow on _WorldPageState {
   Future<bool> _confirmWorldRequest() async {
     final result = await showGenesisActionBox<bool>(
       context: context,
-      title: 'Request to join this World?',
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Request', value: true),
+      title: GenesisL10n.current.worldDetailRequestJoinWorld,
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.worldDetailRequest,
+          value: true,
+        ),
       ],
     );
     return result ?? false;
@@ -339,9 +344,16 @@ extension _WorldPageTickFlow on _WorldPageState {
         showGenesisToast(context, message, brightness: Brightness.dark);
       }
       await _fetchWorld();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(
+          error,
+          fallback: GenesisL10n.current.worldDetailLaunchFailed,
+        ),
+        brightness: Brightness.dark,
+      );
     } finally {
       if (mounted) _setWorldPageState(() => _worldActionRunning = false);
     }
@@ -356,7 +368,7 @@ extension _WorldPageTickFlow on _WorldPageState {
       if (mounted) {
         showGenesisToast(
           context,
-          'No saved profile found',
+          GenesisL10n.current.worldDetailNoSavedProfileFound,
           brightness: Brightness.dark,
         );
       }

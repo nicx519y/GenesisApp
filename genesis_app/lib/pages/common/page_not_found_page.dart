@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -32,9 +33,11 @@ class PageNotFoundPage extends StatelessWidget {
             pageName: '',
             onBack: () => _handleBack(context),
           ),
-          body: const Center(
+          body: Center(
             child: Text(
-              'Page not found.',
+              GenesisL10n
+                  .current
+                  .commonPageNotFound,
               style: TextStyle(color: GenesisColors.darkTextSecondary),
             ),
           ),

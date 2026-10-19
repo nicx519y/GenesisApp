@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -20,7 +21,7 @@ class WorldNewBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'New',
+      label: GenesisL10n.current.worldDetailNew,
       excludeSemantics: true,
       child: SizedBox(
         width: compact ? compactWidth : width,
@@ -34,7 +35,7 @@ class WorldNewBadge extends StatelessWidget {
             ),
             child: Center(
               child: GenesisSoftItalicText(
-                'New',
+                GenesisL10n.current.worldDetailNew,
                 maxLines: 1,
                 style: TextStyle(
                   inherit: false,

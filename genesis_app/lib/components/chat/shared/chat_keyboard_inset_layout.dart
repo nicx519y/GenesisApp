@@ -262,6 +262,7 @@ class ChatKeyboardInsetLayoutState extends State<ChatKeyboardInsetLayout>
                         'location-chat-composer-top-overlay',
                       ),
                       left: 0,
+                      right: 0,
                       bottom: 0,
                       child: widget.composerTopOverlay!,
                     ),

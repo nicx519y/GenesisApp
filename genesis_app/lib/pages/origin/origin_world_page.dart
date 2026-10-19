@@ -1,3 +1,6 @@
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -7,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
     show RenderProxySliver, SliverHitTestResult;
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
@@ -60,6 +62,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
+import '../chat/location_chat_scroll_coordinator.dart';
 import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
@@ -155,7 +158,31 @@ bool originOpeningDialogueShouldFullyCacheForTesting({
 
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
-class _OriginWorldPageState extends State<OriginWorldPage> {
+class _OriginWorldPageState extends State<OriginWorldPage>
+    with LanguageDataRefresh<OriginWorldPage> {
+  bool _lastOriginFetchSucceeded = false;
+  @override
+  bool get languageRefreshSucceeded => _lastOriginFetchSucceeded;
+  @override
+  Future<void> refreshLanguageData() async {
+    await _fetchOriginDetail();
+  }
+
+  void _setPreviewChatLocation(_OriginLocationChatDescriptor location) {
+    _locationRoleFocusGeneration += 1;
+    _locationComposerFocused.value = false;
+    setState(() => _activeChatLocation = location);
+  }
+
+  final _roleSheetKey = GlobalKey<_OriginDetailDraggableSheetState>();
+  final ScrollController _locationPreviewScrollController = ScrollController(
+    keepScrollOffset: false,
+  );
+  int _locationRoleFocusGeneration = 0;
+  final ValueNotifier<bool> _locationComposerFocused = ValueNotifier<bool>(
+    false,
+  );
+
   static const String _profileLocationChatRoleId = 'current-user';
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       kGenesisLightStatusIconsSystemUiOverlayStyle;
@@ -281,6 +308,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _locationRoleFocusGeneration += 1;
       _localProfileRoleOverride = null;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
@@ -318,6 +346,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     _tilemapRestorationController.dispose();
     _tilemapOverlayOcclusionController.dispose();
     _detailSheetRaisedNotifier.dispose();
+    _locationPreviewScrollController.dispose();
+    _locationComposerFocused.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     super.dispose();
   }
@@ -474,6 +504,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   }
 
   Future<void> _fetchOriginDetail({bool isInitial = false}) async {
+    _lastOriginFetchSucceeded = false;
     final generation = ++_originLoadGeneration;
     final requestedOriginId = widget.oid.trim();
     FirebasePerformanceOperation? requestOperation;
@@ -506,12 +537,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         _initialRequestPerformanceOperation = null;
       }
       unawaited(requestOperation?.succeed());
+      _lastOriginFetchSucceeded = true;
       final shouldStageInitialContent =
           isInitial ||
           _origin == null ||
           _renderStage != _OriginWorldPageRenderStage.content;
       setState(() {
         _origin = origin;
+        _activeChatLocation = _refreshedLocationChatDescriptor(origin);
         _initialLoadError = null;
         if (shouldStageInitialContent) {
           _renderStage = _OriginWorldPageRenderStage.detailShell;
@@ -737,6 +770,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
 
     setState(() {
+      _locationRoleFocusGeneration += 1;
+      _locationComposerFocused.value = false;
       _activeChatLocation = _OriginLocationChatDescriptor(
         originId: origin.oid,
         locationId: locationId,
@@ -770,6 +805,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   void _closeLocationChat() {
     if (_activeChatLocation == null || _launching) return;
+    _locationRoleFocusGeneration += 1;
+    _locationComposerFocused.value = false;
     setState(() => _activeChatLocation = null);
   }
 
@@ -779,8 +816,13 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   }
 
   void _handleOriginPopBlocked() {
-    if (_activeChatLocation == null) return;
-    _closeLocationChat();
+    if (_activeChatLocation != null) {
+      _closeLocationChat();
+      return;
+    }
+    if (_detailSheetRaisedNotifier.value) {
+      _roleSheetKey.currentState?._collapseToMinChildSize();
+    }
   }
 
   void _enterLaunchedWorld(
@@ -891,7 +933,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       if (mounted) {
         showGenesisToast(
           context,
-          'No saved profile found',
+          GenesisL10n.current.worldDetailNoSavedProfileFound,
           brightness: Brightness.dark,
         );
       }
@@ -934,8 +976,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Load failed',
+                Text(
+                  GenesisL10n.current.homeLoadFailed,
                   style: TextStyle(color: GenesisColors.darkTextSecondary),
                 ),
                 const SizedBox(height: 10),
@@ -944,7 +986,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                     setState(() => _initialLoadError = null);
                     unawaited(_fetchOriginDetail(isInitial: true));
                   },
-                  child: const Text('Retry'),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               ],
             ),
@@ -1027,52 +1069,59 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
             ),
           );
 
-    return PopScope(
-      canPop: _activeChatLocation == null,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleOriginPopBlocked();
-      },
-      child: _buildMapOnlyScaffold(
-        topPadding: topPadding,
-        mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
-        bottomSheetOverlayBuilder: (minChildSize) =>
-            _OriginDetailDraggableSheet(
-              origin: origin,
-              roleAvatarSnapshots: _roleAvatarSnapshots,
-              minChildSize: minChildSize,
-              initiallyExpanded: widget.showOpeningSheetOnEntry,
-              autoExpansionPending: _waitingForOpeningSheetExpansion,
-              onRaisedChanged: _handleDetailSheetRaisedChanged,
-              onOverlayVisibleHeightChanged:
-                  _tilemapOverlayOcclusionController.setVisibleHeight,
-              onFullyExpanded: _handleOpeningSheetFullyExpanded,
-              onAutoExpansionInterrupted:
-                  _handleOpeningSheetExpansionInterrupted,
-              onOriginChanged: _refreshOriginDetail,
-              activeLaunchSource: _activeLaunchSource,
-              launchedPresetRoles: _launchedPresetRolesData,
-              onEnterLaunchedWorld: (role) {
-                final worldId = role.worldId.trim();
-                if (worldId.isEmpty) return;
-                _enterLaunchedWorld(worldId);
-              },
-              profileRole: _openingProfileRole,
-              onSaveProfileRole: _saveProfileRoleLocally,
-              locationChatRole: _locationChatRoleOption(origin),
-              onSelectLocationChatRole: (roleId) =>
-                  _selectLocationChatRole(roleId),
-              onSendLocationChatMessage:
-                  (locationId, message, mentionCatalog) =>
-                      _launchLocationChatMessage(
-                        origin,
-                        locationId: locationId,
-                        message: message,
-                        mentionCatalog: mentionCatalog,
-                      ),
+    final page = _buildMapOnlyScaffold(
+      topPadding: topPadding,
+      mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
+      bottomSheetOverlayBuilder: (minChildSize) => _OriginDetailDraggableSheet(
+        key: _roleSheetKey,
+        origin: origin,
+        roleAvatarSnapshots: _roleAvatarSnapshots,
+        minChildSize: minChildSize,
+        initiallyExpanded: widget.showOpeningSheetOnEntry,
+        autoExpansionPending: _waitingForOpeningSheetExpansion,
+        onRaisedChanged: _handleDetailSheetRaisedChanged,
+        onOverlayVisibleHeightChanged:
+            _tilemapOverlayOcclusionController.setVisibleHeight,
+        onFullyExpanded: _handleOpeningSheetFullyExpanded,
+        onAutoExpansionInterrupted: _handleOpeningSheetExpansionInterrupted,
+        onOriginChanged: _refreshOriginDetail,
+        activeLaunchSource: _activeLaunchSource,
+        launchedPresetRoles: _launchedPresetRolesData,
+        onEnterLaunchedWorld: (role) {
+          final worldId = role.worldId.trim();
+          if (worldId.isEmpty) return;
+          _enterLaunchedWorld(worldId);
+        },
+        profileRole: _openingProfileRole,
+        onSaveProfileRole: _saveProfileRoleLocally,
+        locationChatRole: _locationChatRoleOption(origin),
+        onSelectLocationChatRole: (roleId) => _selectLocationChatRole(roleId),
+        onSendLocationChatMessage: (locationId, message, mentionCatalog) =>
+            _launchLocationChatMessage(
+              origin,
+              locationId: locationId,
+              message: message,
+              mentionCatalog: mentionCatalog,
             ),
-        topOverlay: _buildLocationChatOverlay(),
-        map: WorldKeepAlivePage(child: map),
+      ),
+      topOverlay: _buildLocationChatOverlay(),
+      map: WorldKeepAlivePage(child: map),
+    );
+    return ValueListenableBuilder<bool>(
+      valueListenable: _detailSheetRaisedNotifier,
+      child: page,
+      builder: (context, detailSheetRaised, child) => PopScope(
+        canPop: _activeChatLocation == null && !detailSheetRaised,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleOriginPopBlocked();
+        },
+        child: GenesisEdgeSwipeBack(
+          enabled: detailSheetRaised && _activeChatLocation == null,
+          maintainStackWhenDisabled: true,
+          onBack: _handleOriginPopBlocked,
+          child: child!,
+        ),
       ),
     );
   }

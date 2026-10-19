@@ -1,7 +1,24 @@
+import 'package:flutter/widgets.dart';
+import 'package:genesis_flutter_android/l10n/app_localizations.dart';
+import 'package:genesis_flutter_android/l10n/genesis_l10n.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/utils/stat_count_formatter.dart';
 
 void main() {
+  setUp(() => GenesisL10n.bind(lookupAppLocalizations(const Locale('en'))));
+  test('Taiwan statistics preserve numbers and localize units', () {
+    GenesisL10n.bind(lookupAppLocalizations(const Locale('zh', 'TW')));
+    expect(
+      formatWorldStatsLabel(
+        tickNo: 1,
+        subTickNo: 2,
+        messageCount: 1200,
+        playerCount: 3,
+      ),
+      '第 1-2 回合 · 1.2K 則訊息 · 3 位玩家',
+    );
+    expect(formatMessageCountLabel(0), '0 則訊息');
+  });
   test('formatStatCount applies K M B and T suffixes', () {
     expect(formatStatCount(999), '999');
     expect(formatStatCount(1000), '1K');

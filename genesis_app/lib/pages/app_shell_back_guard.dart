@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -76,7 +77,9 @@ class _AppShellBackGuardState extends State<AppShellBackGuard>
     _confirmationTimer = Timer(_confirmationDuration, _resetConfirmation);
     showGenesisToast(
       context,
-      'Press back again to exit.',
+      GenesisL10n
+          .current
+          .appPressBackExit,
       duration: _confirmationDuration,
       brightness: Brightness.dark,
     );

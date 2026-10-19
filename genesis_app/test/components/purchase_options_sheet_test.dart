@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
@@ -12,11 +14,120 @@ import 'package:genesis_flutter_android/components/common/genesis_modal_routes.d
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
 import 'package:genesis_flutter_android/components/gems/wallet_purchase_tabs.dart';
+import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 import '../support/membership_fixtures.dart';
 
 void main() {
+  testWidgets('purchase sheet stays visible while registration is pending', (
+    tester,
+  ) async {
+    final pendingRequest = Completer<void>();
+    var requests = 0;
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.android,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'ready-adid',
+      readGoogleAdId: () async => 'ready-gaid',
+      registerDevice:
+          ({
+            required adid,
+            required environment,
+            gpsAdid,
+            idfa,
+            idfv,
+            required appInstanceId,
+          }) async {
+            requests++;
+            await pendingRequest.future;
+          },
+    );
+    addTearDown(registration.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PurchaseOptionsSheet(
+            attributionRegistration: registration,
+            subscriptionBuilder: (_) => const SizedBox.expand(),
+            gemsBuilder: (_) => const Text('Gems content'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, 1);
+    expect(find.text('Gems content'), findsOneWidget);
+    pendingRequest.complete();
+    await tester.pump();
+  });
+
+  for (final initialTab in PurchaseSheetTab.values) {
+    testWidgets('purchase sheet registers once per visible tab: $initialTab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final requests = <String>[];
+      final registration = AdjustDeviceRegistration(
+        platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) async => 'ready-adid',
+        readGoogleAdId: () async => 'ready-gaid',
+        registerDevice:
+            ({
+              required adid,
+              required environment,
+              gpsAdid,
+              idfa,
+              idfv,
+              required appInstanceId,
+            }) async {
+              requests.add(adid);
+            },
+      );
+      addTearDown(registration.dispose);
+
+      Widget purchaseSheet() => MaterialApp(
+        home: Scaffold(
+          body: PurchaseOptionsSheet(
+            initialTab: initialTab,
+            attributionRegistration: registration,
+            subscriptionBuilder: (_) => const SizedBox.expand(),
+            gemsBuilder: (_) => const SizedBox.expand(),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(purchaseSheet());
+      await tester.pumpAndSettle();
+      expect(requests, ['ready-adid']);
+
+      final otherTab = initialTab == PurchaseSheetTab.subscription
+          ? 'wallet-buy-gems-tab'
+          : 'wallet-subscription-tab';
+      final originalTab = initialTab == PurchaseSheetTab.subscription
+          ? 'wallet-subscription-tab'
+          : 'wallet-buy-gems-tab';
+      await tester.tap(find.byKey(ValueKey(otherTab)));
+      await tester.pumpAndSettle();
+      expect(requests, ['ready-adid', 'ready-adid']);
+
+      await tester.tap(find.byKey(ValueKey(originalTab)));
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(2));
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pumpWidget(purchaseSheet());
+      await tester.pumpAndSettle();
+      expect(requests, hasLength(3));
+    });
+  }
+
   for (final initialTab in PurchaseSheetTab.values) {
     testWidgets(
       'sheet loads only selected tab $initialTab, including canceled swipes',
@@ -55,7 +166,6 @@ void main() {
                   },
                   walletStore: wallet,
                   billingService: billing,
-                  payTrackPageId: 'test',
                 ),
               ),
             ),

@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_membership_badge.dart';
 import 'dart:async';
 
@@ -29,6 +31,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../platform/session/user_info_cache.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -66,7 +69,16 @@ class MePage extends StatefulWidget {
   State<MePage> createState() => _MePageState();
 }
 
-class _MePageState extends State<MePage> with RouteAware {
+class _MePageState extends State<MePage>
+    with RouteAware, LanguageDataRefresh<MePage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refresh();
+  }
+
+  @override
+  ValueListenable<bool>? get languagePageActive => widget.isActiveListenable;
+
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
 
   late Future<_MePageContent> _future;
@@ -214,14 +226,14 @@ class _MePageState extends State<MePage> with RouteAware {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Load failed',
+                    Text(
+                      GenesisL10n.current.homeLoadFailed,
                       style: TextStyle(color: GenesisColors.darkTextSecondary),
                     ),
                     const SizedBox(height: 8),
                     FilledButton(
                       onPressed: _refresh,
-                      child: const Text('Retry'),
+                      child: Text(GenesisL10n.current.homeRetry),
                     ),
                   ],
                 ),
@@ -254,11 +266,13 @@ class _MePageState extends State<MePage> with RouteAware {
                       children: [
                         ValueListenableBuilder<bool>(
                           valueListenable: _profileCollapsed,
-                          child: const Align(
+                          child: Align(
                             alignment: Alignment.centerLeft,
                             child: Padding(
                               padding: EdgeInsets.only(left: 16, right: 112),
-                              child: PageTitleText(pageName: 'Me'),
+                              child: PageTitleText(
+                                pageName: GenesisL10n.current.navMe,
+                              ),
                             ),
                           ),
                           builder: (context, collapsed, child) =>
@@ -349,8 +363,8 @@ class _MePageState extends State<MePage> with RouteAware {
                           onWorldDeleted: _handleWorldDeleted,
                           onCollectionTabChanged: _handleCollectionTabChanged,
                           onCollapsedChanged: _handleProfileCollapsedChanged,
-                          originTabLabel: 'Worldo',
-                          worldTabLabel: 'Playing',
+                          originTabLabel: GenesisL10n.current.navWorldo,
+                          worldTabLabel: GenesisL10n.current.mePlaying,
                           showCollectionCounts: true,
                           tabLabelFontSize: 14,
                         );

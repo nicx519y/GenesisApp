@@ -160,7 +160,13 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
                 (regenerating
                     ? _LocationChatReplyConnectionAction.regenerate
                     : _LocationChatReplyConnectionAction.goOn))) {
-      onError(StateError('This reply action is no longer available'));
+      onError(
+        StateError(
+          GenesisL10n
+              .current
+              .chatReplyActionUnavailable,
+        ),
+      );
       return;
     }
     final location = widget.locationId;

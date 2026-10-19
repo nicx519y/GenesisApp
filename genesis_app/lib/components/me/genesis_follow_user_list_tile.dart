@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 
@@ -101,7 +102,12 @@ class GenesisFollowUserListTile extends StatelessWidget {
                     height: 4,
                   ),
                   Text(
-                    'UID: ${deletedAwareIdLabel(formatUidForDisplay(cleanUid), deleted: deleted)}',
+                    GenesisL10n.current.meUID(
+                      uid: (deletedAwareIdLabel(
+                        formatUidForDisplay(cleanUid),
+                        deleted: deleted,
+                      )).toString(),
+                    ),
                     style: dark
                         ? _uidTextStyle.copyWith(
                             color: GenesisColors.darkTextTertiary,
@@ -156,7 +162,9 @@ class GenesisFollowUserListTile extends StatelessWidget {
                               ),
                             )
                           : Text(
-                              isFollowed ? 'Following' : 'Follow',
+                              isFollowed
+                                  ? GenesisL10n.current.meFollowing
+                                  : GenesisL10n.current.meFollow,
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,

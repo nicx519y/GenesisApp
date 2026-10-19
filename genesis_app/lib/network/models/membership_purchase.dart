@@ -69,7 +69,7 @@ class MembershipPurchaseRequest {
   }
 }
 
-enum MembershipReportStatus { completed, accepted, rejected }
+enum MembershipReportStatus { completed, rejected }
 
 class MembershipPurchaseReport {
   const MembershipPurchaseReport({required this.status, this.reason});
@@ -77,7 +77,6 @@ class MembershipPurchaseReport {
   factory MembershipPurchaseReport.fromJson(Map<String, dynamic> json) {
     final status = switch (json['status']) {
       'completed' => MembershipReportStatus.completed,
-      'accepted' => MembershipReportStatus.accepted,
       'rejected' => MembershipReportStatus.rejected,
       _ => throw const FormatException('Missing membership report status'),
     };

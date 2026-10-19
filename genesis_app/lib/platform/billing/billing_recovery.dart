@@ -33,7 +33,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       if (purchaseIdentity.isNotEmpty && !seenPurchaseKeys.add(purchaseKey)) {
         continue;
       }
-      _recordVerifiedPurchaseForAnalytics(purchase);
       await _recoverStorePurchase(
         purchase,
         billingAccountId: billingAccountId,
@@ -48,83 +47,41 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     required String billingAccountId,
     List<GemProduct>? productCatalog,
   }) async {
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
     final token = purchase.purchaseToken.trim();
     if (token.isEmpty) {
       debugPrint('[Billing] skipped store recovery without purchase identity');
       return;
     }
 
-    BillingPendingPurchase? persistedRecord;
-    try {
-      persistedRecord = await _findPendingPurchase(
-        provider: purchase.provider,
-        purchaseToken: token,
-      );
-    } catch (error) {
-      debugPrint('[Billing] store recovery local lookup failed: $error');
-    }
-
     final fallbackAttemptId = newBillingAttemptId();
-    final recoveredAttempt = persistedRecord == null
-        ? await _recoveredAttemptFor(
-            purchase,
-            source: BillingRecoverySource.foreground,
-            fallbackAttemptId: fallbackAttemptId,
-            productCatalog: productCatalog,
-          )
-        : null;
-    final now = DateTime.now();
-    final productId = persistedRecord?.productId.trim().isNotEmpty == true
-        ? persistedRecord!.productId.trim()
-        : recoveredAttempt?.product.productId ?? purchase.productId;
-    final record = persistedRecord == null
-        ? _purchaseRecord(
-            purchase: purchase,
-            attemptId: recoveredAttempt?.id ?? fallbackAttemptId,
-            billingAccountId:
-                recoveredAttempt?.billingAccountId ?? billingAccountId,
-            productId: productId,
-            status: BillingPendingPurchaseStatus.received,
-            createdAt: now,
-            updatedAt: now,
-            priceAmountMicros: recoveredAttempt?.priceAmountMicros,
-            priceCurrencyCode: recoveredAttempt?.priceCurrencyCode ?? '',
-          )
-        : _purchaseRecord(
-            purchase: purchase,
-            attemptId: persistedRecord.attemptId,
-            billingAccountId: persistedRecord.billingAccountId,
-            productId: productId,
-            status: persistedRecord.status,
-            createdAt: persistedRecord.createdAt,
-            updatedAt: now,
-            retryCount: persistedRecord.retryCount,
-            reportTimeoutTracked: persistedRecord.reportTimeoutTracked,
-            priceAmountMicros: persistedRecord.priceAmountMicros,
-            priceCurrencyCode: persistedRecord.priceCurrencyCode,
-          );
-    final belongsToCurrentAccount = _storePurchaseBelongsToCurrentAccount(
+    if (!_storePurchaseBelongsToCurrentAccount(purchase, billingAccountId)) {
+      debugPrint('[Billing] skipped store recovery for another account');
+      return;
+    }
+    final recoveredAttempt = await _recoveredAttemptFor(
       purchase,
-      billingAccountId,
-      persistedRecord: persistedRecord,
+      source: BillingRecoverySource.foreground,
+      fallbackAttemptId: fallbackAttemptId,
+      productCatalog: productCatalog,
     );
+    if (recoveredAttempt == null) return;
+    final now = DateTime.now();
+    final record = _purchaseRecord(
+      purchase: purchase,
+      attemptId: recoveredAttempt.id,
+      billingAccountId: recoveredAttempt.billingAccountId,
+      productId: recoveredAttempt.product.productId,
+      status: BillingPendingPurchaseStatus.received,
+      createdAt: now,
+      updatedAt: now,
+      priceAmountMicros: recoveredAttempt.priceAmountMicros,
+      priceCurrencyCode: recoveredAttempt.priceCurrencyCode,
+    );
+    _recordVerifiedPurchaseForAnalytics(purchase);
     final processingKey = record.key;
-    _completedPurchaseKeys.remove(processingKey);
     await _runExclusivePurchase(processingKey, () async {
-      if (persistedRecord != null && belongsToCurrentAccount) {
-        await _processRecord(
-          record,
-          purchase: purchase,
-          source: BillingRecoverySource.foreground,
-          allowAnyAccount: true,
-        );
-        return;
-      }
-      await _processTransientStoreRecovery(
-        record,
-        purchase: purchase,
-        handleResult: belongsToCurrentAccount,
-      );
+      await _processTransientStoreRecovery(record, purchase: purchase);
     });
   }
 
@@ -133,27 +90,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     required int sessionGeneration,
   }) async {
     if (_disposed || sessionGeneration != _sessionGeneration) return;
-    String uid;
-    try {
-      uid = (await _readUid())?.trim() ?? '';
-    } catch (_) {
-      return;
-    }
-    if (uid.isEmpty || uid.startsWith('guest_')) {
-      return;
-    }
-    String billingAccountId;
-    try {
-      billingAccountId = await _resolveBillingAccountId();
-    } catch (_) {
-      return;
-    }
-    if (billingAccountId.isEmpty ||
-        _disposed ||
-        sessionGeneration != _sessionGeneration) {
-      return;
-    }
-
+    // Retire legacy Gems rows; new checkouts never read or write this table.
     List<BillingPendingPurchase> records;
     try {
       records = await _pendingPurchaseStore.loadAll();
@@ -161,14 +98,12 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       return;
     }
     for (final record in records) {
-      if (record.provider != _platform.provider ||
-          record.billingAccountId != billingAccountId) {
-        continue;
-      }
-      await _runExclusivePurchase(
-        record.key,
-        () => _processRecord(record, source: source),
-      );
+      try {
+        await _pendingPurchaseStore.remove(
+          provider: record.provider,
+          purchaseToken: record.purchaseToken,
+        );
+      } catch (_) {}
     }
   }
 
@@ -184,9 +119,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     }
     purchases = gemPurchases;
     if (purchases.isEmpty) return;
-    for (final purchase in purchases) {
-      _recordVerifiedPurchaseForAnalytics(purchase);
-    }
     var currentBillingAccountId = billingAccountId?.trim() ?? '';
     if (purchases.isNotEmpty && currentBillingAccountId.isEmpty) {
       try {
@@ -226,95 +158,35 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     required String billingAccountId,
   }) async {
     final token = purchase.purchaseToken.trim();
-    BillingPendingPurchase? persistedRecord;
-    var persistedRecordLookupSucceeded = true;
-    try {
-      persistedRecord = token.isEmpty
-          ? null
-          : await _findPendingPurchase(
-              provider: purchase.provider,
-              purchaseToken: token,
-            );
-    } catch (_) {
-      persistedRecordLookupSucceeded = false;
-    }
-    final attempt = _attemptForPurchase(
-      purchase,
-      persistedRecord: persistedRecord,
-    );
+    final attempt = _attemptForPurchase(purchase);
     if (!_purchaseBelongsToBillingAccount(
       purchase,
       attempt,
       billingAccountId,
-      persistedRecord: persistedRecord,
     )) {
       debugPrint(
         '[Billing] ignored purchase callback without a matching account',
       );
       return;
     }
-    if (attempt != null &&
-        (purchase.status == BillingPurchaseStatus.purchased ||
-            purchase.status == BillingPurchaseStatus.pending)) {
-      unawaited(
-        FirebaseAnalyticsMonitoring.markPurchaseEligible(
-          provider: purchase.provider.apiValue,
-          kind: FirebaseAnalyticsPurchaseKind.gems,
-          purchaseIdentity: purchase.purchaseToken,
-        ),
-      );
-    }
-    final persistedAttemptId = persistedRecord?.attemptId.trim() ?? '';
-    final persistedProductId = persistedRecord?.productId.trim() ?? '';
-    final attemptId =
-        attempt?.id ??
-        (persistedAttemptId.isNotEmpty
-            ? persistedAttemptId
-            : newBillingAttemptId());
-    final productId =
-        attempt?.product.productId ??
-        (persistedProductId.isNotEmpty
-            ? persistedProductId
-            : purchase.productId);
+    _recordVerifiedPurchaseForAnalytics(purchase);
+    final attemptId = attempt?.id ?? newBillingAttemptId();
+    final productId = attempt?.product.productId ?? purchase.productId;
     _cancelAttemptTimeout(
       attempt == null
           ? purchase.productId
           : _storeProductIdFor(attempt.product, purchase.provider),
     );
-    if (!persistedRecordLookupSucceeded &&
-        (purchase.status == BillingPurchaseStatus.purchased ||
-            purchase.status == BillingPurchaseStatus.restored)) {
-      _emitDeferred(
-        productId,
-        attemptId,
-        debugInfo: purchaseDebugInfo(
-          'gems.load_local_orders',
-          reason: 'receipt_lookup_failed',
-        ),
-      );
-      return;
-    }
-
     switch (purchase.status) {
       case BillingPurchaseStatus.pending:
         if (token.isNotEmpty && attempt != null) {
           _attemptByPurchaseToken[token] = attempt;
         }
-        var pendingPersisted = false;
-        if (token.isNotEmpty) {
-          pendingPersisted = await _persistPendingPurchase(
-            purchase: purchase,
-            attempt: attempt,
-            existing: persistedRecord,
-            attemptId: attemptId,
-            productId: productId,
-            billingAccountId: billingAccountId,
-            existingLookupSucceeded: persistedRecordLookupSucceeded,
-          );
-        }
         _setBusy(productId, false);
-        if (persistedRecord == null &&
-            _trackedPendingAttemptIds.add(attemptId)) {
+        final pendingKey = token.isEmpty
+            ? attemptId
+            : '${purchase.provider.name}:$token';
+        if (_trackedPendingAttemptIds.add(pendingKey)) {
           _trackPendingById(
             attemptId: attemptId,
             productId: productId,
@@ -333,29 +205,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             ),
           ),
         );
-        BillingPendingPurchase? pendingRecord = persistedRecord;
-        if (pendingRecord == null && pendingPersisted) {
-          try {
-            pendingRecord = await _findPendingPurchase(
-              provider: purchase.provider,
-              purchaseToken: token,
-            );
-          } catch (_) {}
-        }
-        if (pendingRecord != null) {
-          final recordToReport = pendingRecord;
-          await _runExclusivePurchase(
-            recordToReport.key,
-            () => _processRecord(
-              recordToReport,
-              purchase: purchase,
-              source: source,
-            ),
-          );
-        }
         return;
       case BillingPurchaseStatus.canceled:
-        await _removePendingPurchase(purchase);
         _clearAttempt(purchase, attempt);
         _emitUiEvent(
           BillingUiEvent(
@@ -385,7 +236,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         );
         return;
       case BillingPurchaseStatus.error:
-        await _removePendingPurchase(purchase);
         _clearAttempt(purchase, attempt);
         _emitFailure(
           productId,
@@ -421,8 +271,22 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         break;
     }
 
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
+
     if (token.isEmpty) {
       _clearAttempt(purchase, attempt);
+      if (attempt != null) {
+        // Keep this attempt available if the store later supplies the receipt.
+        _interruptedAttemptByStoreProductId[purchase.productId] = attempt;
+      }
+      _trackFlowResultById(
+        attemptId: attemptId,
+        productId: productId,
+        storeProductId: purchase.productId,
+        status: 'store_failed',
+        source: source,
+        errorCode: 'purchase_token_missing',
+      );
       _emitFailure(
         productId,
         attemptId,
@@ -432,20 +296,31 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           reason: 'receipt_missing',
         ),
       );
-      _trackFlowResultById(
-        attemptId: attemptId,
-        productId: productId,
-        storeProductId: purchase.productId,
-        status: 'store_failed',
-        source: source,
-        errorCode: purchase.provider == BillingProvider.appStore
-            ? 'store_error'
-            : 'purchase_token_missing',
-        failureReason: 'receipt_missing',
-      );
       return;
     }
     if (attempt != null) _attemptByPurchaseToken[token] = attempt;
+
+    final resolvedAttempt =
+        attempt ??
+        await _recoveredAttemptFor(
+          purchase,
+          source: source,
+          fallbackAttemptId: attemptId,
+        );
+    if (resolvedAttempt == null ||
+        !_sameBillingAccount(
+          resolvedAttempt.billingAccountId,
+          billingAccountId,
+        )) {
+      return;
+    }
+
+    _trackPurchasedCallback(
+      purchase,
+      productId: resolvedAttempt.product.productId,
+      priceAmountMicros: resolvedAttempt.priceAmountMicros,
+      priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
+    );
 
     final processingKey = '${purchase.provider.name}:$token';
     if (_disposed || _completedPurchaseKeys.contains(processingKey)) return;
@@ -459,73 +334,18 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       ),
     );
     try {
-      var record = persistedRecord;
-      if (record == null) {
-        final resolvedAttempt =
-            attempt ??
-            await _recoveredAttemptFor(
-              purchase,
-              source: source,
-              fallbackAttemptId: attemptId,
-            );
-        if (resolvedAttempt == null) {
-          return;
-        }
-        final now = DateTime.now();
-        record = _purchaseRecord(
-          purchase: purchase,
-          attemptId: resolvedAttempt.id,
-          billingAccountId: resolvedAttempt.billingAccountId,
-          productId: resolvedAttempt.product.productId,
-          status: BillingPendingPurchaseStatus.received,
-          createdAt: now,
-          updatedAt: now,
-          priceAmountMicros: resolvedAttempt.priceAmountMicros,
-          priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
-        );
-        try {
-          await _pendingPurchaseStore.upsert(record);
-        } catch (_) {
-          _emitDeferred(
-            resolvedAttempt.product.productId,
-            resolvedAttempt.id,
-            debugInfo: purchaseDebugInfo(
-              'gems.save_order',
-              reason: 'receipt_persistence_failed',
-            ),
-          );
-          return;
-        }
-      } else if (record.status != BillingPendingPurchaseStatus.received) {
-        record = _purchaseRecord(
-          purchase: purchase,
-          attemptId: record.attemptId,
-          billingAccountId: record.billingAccountId,
-          productId: record.productId,
-          status: record.status == BillingPendingPurchaseStatus.accepted
-              ? BillingPendingPurchaseStatus.accepted
-              : BillingPendingPurchaseStatus.received,
-          createdAt: record.createdAt,
-          updatedAt: DateTime.now(),
-          retryCount: record.retryCount,
-          reportTimeoutTracked: record.reportTimeoutTracked,
-          priceAmountMicros: record.priceAmountMicros,
-          priceCurrencyCode: record.priceCurrencyCode,
-        );
-        try {
-          await _pendingPurchaseStore.upsert(record);
-        } catch (_) {
-          _emitDeferred(
-            record.productId,
-            record.attemptId,
-            debugInfo: purchaseDebugInfo(
-              'gems.save_order',
-              reason: 'receipt_persistence_failed',
-            ),
-          );
-          return;
-        }
-      }
+      final now = DateTime.now();
+      final record = _purchaseRecord(
+        purchase: purchase,
+        attemptId: resolvedAttempt.id,
+        billingAccountId: resolvedAttempt.billingAccountId,
+        productId: resolvedAttempt.product.productId,
+        status: BillingPendingPurchaseStatus.received,
+        createdAt: now,
+        updatedAt: now,
+        priceAmountMicros: resolvedAttempt.priceAmountMicros,
+        priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
+      );
       await _processRecord(record, purchase: purchase, source: source);
     } finally {
       _endExclusivePurchase(processingKey);

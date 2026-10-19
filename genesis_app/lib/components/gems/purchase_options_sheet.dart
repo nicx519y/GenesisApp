@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/attribution/adjust_device_registration.dart';
 import '../../app/membership/subscription_analytics.dart';
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -9,6 +10,7 @@ import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_catalog.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import 'pro_subscription_content.dart';
+import 'purchase_attribution_registration.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 
@@ -28,6 +30,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
     this.subscriptionTracking,
     this.subscriptionSource = SubscriptionSource.unknown,
     this.onFirstBuyGems,
+    this.attributionRegistration,
   });
 
   final WidgetBuilder gemsBuilder;
@@ -40,6 +43,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
   final SubscriptionPageTracking? subscriptionTracking;
   final SubscriptionSource subscriptionSource;
   final VoidCallback? onFirstBuyGems;
+  final AdjustDeviceRegistration? attributionRegistration;
 
   @override
   State<PurchaseOptionsSheet> createState() => _PurchaseOptionsSheetState();
@@ -52,6 +56,8 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   late bool _subscriptionVisited;
   MembershipAccessStore? _membership;
   late final SubscriptionPageTracking _subscriptionTracking;
+  final PurchaseAttributionRegistration _attributionRegistration =
+      PurchaseAttributionRegistration();
 
   @override
   void didChangeDependencies() {
@@ -86,9 +92,11 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
       vsync: this,
     );
     _tabs.addListener(_visitCurrentTab);
+    _registerAttributionForCurrentTab();
   }
 
   void _visitCurrentTab() {
+    _registerAttributionForCurrentTab();
     if (_tabs.index == PurchaseSheetTab.subscription.index &&
         !_subscriptionVisited) {
       setState(() => _subscriptionVisited = true);
@@ -96,6 +104,15 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
       setState(() => _gemsVisited = true);
       widget.onFirstBuyGems?.call();
     }
+  }
+
+  void _registerAttributionForCurrentTab() {
+    _attributionRegistration.schedule(
+      context,
+      tabIndex: _tabs.index,
+      currentTabIndex: () => _tabs.index,
+      registration: widget.attributionRegistration,
+    );
   }
 
   @override

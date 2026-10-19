@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -71,7 +72,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
     if (originId.isEmpty) {
       setState(() {
         _isLoading = false;
-        _error = 'origin_id is required.';
+        _error = GenesisL10n.current.worldoIdRequired;
       });
       return;
     }
@@ -141,7 +142,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Load failed: $e';
+        _error = GenesisL10n.current.loadFailedWithReason(reason: e.toString());
       });
     }
   }
@@ -163,10 +164,12 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
   Widget _buildPage(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: GenesisColors.darkBackground,
         appBar: GenesisBackAppBar(
-          pageName: 'Edit Worldo',
+          pageName: GenesisL10n
+              .current
+              .worldoDetailEditWorldo,
           backgroundColor: GenesisColors.darkBackground,
           foregroundColor: GenesisColors.darkTextPrimary,
           systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
@@ -179,8 +182,10 @@ class _EditOriginPageState extends State<EditOriginPage> {
     if (_error != null || repository == null) {
       return Scaffold(
         backgroundColor: GenesisColors.darkBackground,
-        appBar: const GenesisBackAppBar(
-          pageName: 'Edit Worldo',
+        appBar: GenesisBackAppBar(
+          pageName: GenesisL10n
+              .current
+              .worldoDetailEditWorldo,
           backgroundColor: GenesisColors.darkBackground,
           foregroundColor: GenesisColors.darkTextPrimary,
           systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
@@ -192,7 +197,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _error ?? 'Worldo detail is unavailable.',
+                  _error ?? GenesisL10n.current.worldoDetailUnavailable,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: GenesisColors.darkTextSecondary,
@@ -205,7 +210,11 @@ class _EditOriginPageState extends State<EditOriginPage> {
                     backgroundColor: GenesisColors.darkFaintFill,
                     foregroundColor: GenesisColors.darkTextPrimary,
                   ),
-                  child: const Text('Retry'),
+                  child: Text(
+                    GenesisL10n
+                        .current
+                        .homeRetry,
+                  ),
                 ),
               ],
             ),
@@ -216,7 +225,9 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
     final flow = OriginDraftFlowPage(
       key: ValueKey('edit-origin-${widget.originId}'),
-      title: 'Edit Worldo',
+      title: GenesisL10n
+          .current
+          .worldoDetailEditWorldo,
       repository: repository,
       basicsPageBuilder: (repository) => EditBasicsPage(repository: repository),
       charactersPageBuilder: (repository) =>
@@ -228,12 +239,12 @@ class _EditOriginPageState extends State<EditOriginPage> {
       storyEventsPageBuilder: (repository) =>
           EditStoryEventsPage(repository: repository),
       canSubmit: repository.hasSubmitChanges,
-      submitLabel: 'Publish',
-      submittingLabel: 'Publishing...',
-      failurePrefix: 'Publish failed',
-      leaveTitle: 'Publish changes before leaving?',
-      leaveSubmitLabel: 'Publish',
-      submitUnavailableMessage: 'No changes to publish.',
+      submitLabel: GenesisL10n.current.publishAction,
+      submittingLabel: GenesisL10n.current.publishingStatus,
+      failurePrefix: GenesisL10n.current.publishFailed,
+      leaveTitle: GenesisL10n.current.publishChangesBeforeLeaving,
+      leaveSubmitLabel: GenesisL10n.current.publishAction,
+      submitUnavailableMessage: GenesisL10n.current.noChangesToPublish,
       showCurrentVersion: true,
       updateNotesController: _updateNotesController,
       submitStatus: _submitStatus,
@@ -278,7 +289,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
     try {
       final payload = draft.toCreateOriginPayload();
       if (payload['init_location_group'] is! Map) {
-        throw StateError('A complete Opening is required to publish');
+        throw StateError(GenesisL10n.current.completeOpeningRequiredToPublish);
       }
       if (repository is MemoryOriginDraftRepository) {
         payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
@@ -313,7 +324,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       final result = await api.updateOriginV2(oid: originId, payload: payload);
       final updatedOriginId = result.oid.trim();
       if (updatedOriginId.isEmpty) {
-        throw StateError('origin_id is missing from publish response');
+        throw StateError(GenesisL10n.current.publishResponseMissingOriginId);
       }
       GenesisTelemetry.collectLog(
         actionType: 'event',

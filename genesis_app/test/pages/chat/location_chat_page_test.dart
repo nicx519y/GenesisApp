@@ -3411,7 +3411,7 @@ void main() {
     expect(
       pageSource,
       contains(
-        'class _LocationChatPanelState extends State<LocationChatPanel> {',
+        'with LanguageDataRefresh<LocationChatPanel>',
       ),
     );
     expect(pageSource, contains('class _LocationChatKeyboardInsetLayoutState'));
@@ -13423,6 +13423,112 @@ void main() {
       unawaited(harness.service.dispose());
     },
   );
+
+  testWidgets('iOS edge swipe dismisses the mention sheet before chat', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final harness = await _connectedLocationChatTestService();
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+    });
+    var backCount = 0;
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: Navigator(
+            pages: [
+              MaterialPage<void>(
+                child: LocationChatPanel(
+                  worldId: 'world-current',
+                  locationId: 'location-current',
+                  service: harness.service,
+                  leaveOnInactive: false,
+                  onBack: () => backCount += 1,
+                ),
+              ),
+            ],
+            onDidRemovePage: (_) {},
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.joinedLocationId == 'location-current',
+    );
+
+    final input = find.byKey(const ValueKey<String>('chat-composer-input'));
+    await tester.showKeyboard(input);
+    await tester.enterText(input, 'hello');
+    await tester.pump();
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('chat-composer-secondary-leading-shortcut'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(
+      const ValueKey<String>('location-chat-mention-sheet'),
+    );
+    expect(sheet, findsOneWidget);
+    final panelContext = tester.element(find.byType(LocationChatPanel));
+    expect(
+      Navigator.of(tester.element(sheet)),
+      same(Navigator.of(panelContext, rootNavigator: true)),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey<String>('location-chat-mention-tab-view')),
+      const Offset(-300, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller?.index, 1);
+    expect(sheet, findsOneWidget);
+    final draft = tester
+        .widget<ChatComposer>(find.byType(ChatComposer))
+        .controller
+        .text;
+
+    final sheetEdge = tester.getTopLeft(sheet) + const Offset(2, 120);
+    final gesture = await tester.startGesture(sheetEdge);
+    await gesture.moveBy(const Offset(80, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(sheet, findsNothing);
+    expect(backCount, 0);
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)).controller.text,
+      draft,
+    );
+
+    final nextGesture = await tester.startGesture(const Offset(2, 400));
+    await nextGesture.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await nextGesture.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await nextGesture.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await nextGesture.up();
+    await tester.pump();
+    expect(backCount, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('location chat * and @ shortcuts work at caret', (
     WidgetTester tester,

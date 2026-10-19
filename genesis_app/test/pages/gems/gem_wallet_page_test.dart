@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
+import 'package:genesis_flutter_android/l10n/language_data_refresh.dart';
+import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
@@ -33,6 +37,147 @@ const _wrappingTaskDescription =
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
+
+  for (final subscriptionFirst in [false, true]) {
+    testWidgets(
+      'payment tabs force one registration each when subscription first=$subscriptionFirst',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final wallet = GemWalletStore(
+          readUid: () async => 'u_test',
+          loadWallet: () async => const GemWallet(balanceCent: 43000),
+        );
+        final billing = _FakeBillingService();
+        final requests = <String>[];
+        final registration = AdjustDeviceRegistration(
+          platform: TargetPlatform.android,
+          environmentProvider: () => 'sandbox',
+          readAdid: (_) async => 'ready-adid',
+          readGoogleAdId: () async => 'ready-gaid',
+          registerDevice:
+              ({
+                required adid,
+                required environment,
+                gpsAdid,
+                idfa,
+                idfv,
+                required appInstanceId,
+              }) async {
+                requests.add(adid);
+              },
+        );
+        addTearDown(wallet.dispose);
+        addTearDown(billing.dispose);
+        addTearDown(registration.dispose);
+
+        Widget purchasePage() => MaterialApp(
+          home: GemWalletPage(
+            showSubscriptionInitially: subscriptionFirst,
+            walletStore: wallet,
+            billingService: billing,
+            attributionRegistration: registration,
+            membershipProductsLoader: loadTestMembershipOffers,
+            productsLoader: (_) async => _products(),
+            tasksLoader: (_) async => [],
+          ),
+        );
+
+        await tester.pumpWidget(purchasePage());
+        await tester.pumpAndSettle();
+        expect(requests, ['ready-adid']);
+
+        await tester.tap(
+          find.byKey(
+            ValueKey(
+              subscriptionFirst
+                  ? 'wallet-buy-gems-tab'
+                  : 'wallet-subscription-tab',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(requests, ['ready-adid', 'ready-adid']);
+
+        await tester.tap(
+          find.byKey(
+            ValueKey(
+              subscriptionFirst
+                  ? 'wallet-subscription-tab'
+                  : 'wallet-buy-gems-tab',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(requests, hasLength(2));
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+        await tester.pumpWidget(purchasePage());
+        await tester.pumpAndSettle();
+        expect(requests, hasLength(3));
+      },
+    );
+  }
+
+  testWidgets('failed language refresh remains stale and retries on return', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await appLanguageController.load();
+    addTearDown(() async {
+      SharedPreferences.setMockInitialValues({});
+      await appLanguageController.load();
+    });
+    final wallet = GemWalletStore(
+      readUid: () async => 'u_test',
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+    );
+    final billing = _FakeBillingService();
+    addTearDown(wallet.dispose);
+    addTearDown(billing.dispose);
+    var fail = false;
+    var requests = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [genesisPageRouteObserver],
+        home: GemWalletPage(
+          showSubscriptionInitially: false,
+          walletStore: wallet,
+          billingService: billing,
+          membershipProductsLoader: loadTestMembershipOffers,
+          productsLoader: (_) async {
+            requests++;
+            if (fail) throw StateError('offline');
+            return _products();
+          },
+          tasksLoader: (_) async => [],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final state =
+        tester.state(find.byType(GemWalletPage))
+            as LanguageDataRefresh<GemWalletPage>;
+    fail = true;
+    await appLanguageController.select(
+      const Locale('fr'),
+      saveLanguage: (_) async {},
+    );
+    await tester.pumpAndSettle();
+    expect(state.languageDataStale, isTrue);
+    final failedRequests = requests;
+    fail = false;
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+    await tester.pumpAndSettle();
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(requests, greaterThan(failedRequests));
+    expect(state.languageDataStale, isFalse);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   for (final subscriptionFirst in [true, false]) {
     for (final swipe in [false, true]) {
@@ -141,7 +286,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [1, 1, 1, 1, 1, 1],
+            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
           );
           expect(
             telemetry.events
@@ -171,7 +316,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [1, 1, 1, 1, 1, 1],
+            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
           );
           // Returning to the foreground while Subscription is selected must
           // not issue background Gems page requests, even after visiting Gems.
@@ -506,11 +651,49 @@ void main() {
     expect(events.single.data['action_type'], 'pay_event');
     expect(events.single.data['action'], 'buy_page_show');
     expect(events.single.data['object1'], 'buy_gems_page');
-    expect(events.single.data['object2'], isA<String>());
-    final trackId = '${events.single.data['object2']}';
-    final match = RegExp(r'^track_id_([^_]+)$').firstMatch(trackId);
-    expect(match, isNotNull);
+    expect(events.single.data.containsKey('object2'), isFalse);
   });
+
+  testWidgets(
+    'purchase service unavailable records click and precheck failure',
+    (tester) async {
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      final walletStore = GemWalletStore(
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+        readUid: () async => 'u_user',
+      );
+      addTearDown(walletStore.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemWalletPage(
+            walletStore: walletStore,
+            productsLoader: (_) async => _products(),
+            tasksLoader: (_) async => [],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+      );
+      await tester.pump();
+
+      final purchaseEvents = telemetry.events
+          .where((event) => event.name == 'pay_event')
+          .toList();
+      expect(purchaseEvents.map((event) => event.data['action']), [
+        'product_click',
+        'purchase_failed',
+      ]);
+      expect(
+        purchaseEvents.last.collectPayload?['object3'],
+        'precheck_failed[service_unavailable]',
+      );
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
     tester,
@@ -1141,21 +1324,12 @@ void main() {
       _products().map((product) => product.productId),
     );
     expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
-    expect(billing.purchaseTrackIds, hasLength(1));
+    expect(billing.purchaseTrackIds, ['']);
     final showEvent = telemetry.events.singleWhere(
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',
     );
-    final showMatch = RegExp(
-      r'^track_id_([^_]+)$',
-    ).firstMatch('${showEvent.data['object2']}');
-    final purchaseMatch = RegExp(
-      r'^track_id_([^_]+)_([^_]+)$',
-    ).firstMatch(billing.purchaseTrackIds.single);
-    expect(showMatch, isNotNull);
-    expect(purchaseMatch, isNotNull);
-    expect(purchaseMatch!.group(1), showMatch!.group(1));
-    expect(purchaseMatch.group(2), isNotEmpty);
+    expect(showEvent.data.containsKey('object2'), isFalse);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -1525,7 +1699,7 @@ void main() {
     expect(find.text('Go Chat Now.'), findsNothing);
   });
 
-  testWidgets('billing accepted closes processing and shows its message', (
+  testWidgets('billing deferred closes processing and shows its message', (
     tester,
   ) async {
     final walletStore = GemWalletStore(
@@ -1553,15 +1727,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
-    billing.emitAccepted();
+    billing.emitDeferred();
     await tester.pump();
 
-    expect(
-      find.text(
-        'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Payment is being confirmed.'), findsOneWidget);
     expect(find.textContaining('Purchasing Gems'), findsNothing);
 
     await tester.pump(const Duration(seconds: 2));
@@ -2370,7 +2539,10 @@ void _expectGrantedSuccessDialog(
     12,
   );
   final grantedLine = tester.widget<Text>(
-    find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+    find.descendant(
+      of: find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+      matching: find.byType(Text),
+    ),
   );
   expect(grantedLine.style?.fontSize, 14);
   expect(grantedLine.style?.fontWeight, FontWeight.w400);
@@ -2440,11 +2612,11 @@ class _FakeBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {
     purchasedProducts.add(product);
     purchaseSources.add(source);
-    purchaseTrackIds.add(payTrackId);
+    purchaseTrackIds.add(operationId);
     final completer = purchaseCompleter;
     if (completer != null) await completer.future;
     _state.value = BillingState(
@@ -2498,14 +2670,13 @@ class _FakeBillingService implements BillingService {
     );
   }
 
-  void emitAccepted() {
+  void emitDeferred() {
     _events.add(
       const BillingUiEvent(
-        kind: BillingUiEventKind.accepted,
+        kind: BillingUiEventKind.deferred,
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
-        message:
-            'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+        message: 'Payment is being confirmed.',
       ),
     );
   }

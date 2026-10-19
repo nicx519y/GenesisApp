@@ -1,3 +1,4 @@
+import '../l10n/app_language_controller.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -252,6 +253,8 @@ class DirectMessageConversationStore {
 
   String? _activeOwnerUid;
   Future<void>? _syncFuture;
+  int? _syncLanguageRevision;
+  int _syncedLanguageRevision = appLanguageController.dataRevision;
 
   ValueListenable<DirectMessageConversationRecord>? rowListenable(
     String conversationId,
@@ -270,7 +273,13 @@ class DirectMessageConversationStore {
     ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     final inFlight = _syncFuture;
-    if (inFlight != null) return inFlight;
+    if (inFlight != null) {
+      if (_syncLanguageRevision == appLanguageController.dataRevision) {
+        return inFlight;
+      }
+      return _syncAfterLanguageChange(inFlight, tracePolicy);
+    }
+    _syncLanguageRevision = appLanguageController.dataRevision;
     final stopwatch = _dmConversationMetricsEnabled
         ? (Stopwatch()..start())
         : null;
@@ -283,6 +292,19 @@ class DirectMessageConversationStore {
     });
     _syncFuture = future.whenComplete(() => _syncFuture = null);
     return _syncFuture!;
+  }
+
+  Future<void> _syncAfterLanguageChange(
+    Future<void> oldRequest,
+    ApiRequestTracePolicy tracePolicy,
+  ) async {
+    try {
+      await oldRequest;
+    } catch (_) {
+      // The superseded request can be cancelled; the current language still
+      // needs its own full sync. Original message records remain intact.
+    }
+    await syncConversations(tracePolicy: tracePolicy);
   }
 
   Future<void> mergeConversationJson(Map<String, dynamic> conversation) async {
@@ -334,12 +356,17 @@ class DirectMessageConversationStore {
   Future<void> _syncConversations(ApiRequestTracePolicy tracePolicy) async {
     final ownerUid = await _ownerUid();
     _resetIfOwnerChanged(ownerUid);
-    final cursor = await _storage.readCursor(ownerUid);
+    final languageRevision = appLanguageController.dataRevision;
+    final cursor = _syncedLanguageRevision == languageRevision
+        ? await _storage.readCursor(ownerUid)
+        : null;
     if (cursor == null || cursor.isEmpty) {
       await _fullSync(ownerUid, tracePolicy);
     } else {
       await _deltaSync(ownerUid, cursor, tracePolicy);
     }
+    if (languageRevision != appLanguageController.dataRevision) return;
+    _syncedLanguageRevision = languageRevision;
     final records = await _storage.loadConversations(ownerUid);
     _applyRecords(records);
   }

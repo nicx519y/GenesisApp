@@ -11,7 +11,10 @@ import 'membership_purchase_service_test.dart';
 void main() {
   for (final isGuest in [false, true]) {
     for (final selectedYearly in [false, true]) {
-      for (final status in MembershipReportStatus.values) {
+      for (final status in [
+        MembershipReportStatus.completed,
+        MembershipReportStatus.rejected,
+      ]) {
         testWidgets(
           'Apple reports its returned product without waiting: guest=$isGuest selectedYearly=$selectedYearly result=$status',
           (tester) async {
@@ -66,7 +69,10 @@ void main() {
   }
 
   for (final isGuest in [true, false]) {
-    for (final status in MembershipReportStatus.values) {
+    for (final status in [
+      MembershipReportStatus.completed,
+      MembershipReportStatus.rejected,
+    ]) {
       testWidgets(
         'Apple direct UUID mismatch reaches server: guest=$isGuest result=$status',
         (tester) async {
@@ -103,7 +109,6 @@ void main() {
           expect(events.last.state, switch (status) {
             MembershipReportStatus.completed =>
               MembershipCheckoutState.completed,
-            MembershipReportStatus.accepted => MembershipCheckoutState.accepted,
             MembershipReportStatus.rejected => MembershipCheckoutState.rejected,
           });
           expect(h.platform.launches, 1);
@@ -121,7 +126,10 @@ void main() {
     }
   }
 
-  for (final status in MembershipReportStatus.values) {
+  for (final status in [
+    MembershipReportStatus.completed,
+    MembershipReportStatus.rejected,
+  ]) {
     for (final sameIdentity in [true, false]) {
       testWidgets(
         'Apple reports the current callback regardless of previous $status; same identity=$sameIdentity',
@@ -133,8 +141,7 @@ void main() {
           await h.service.interceptPurchase(h.purchase());
           final nextStatus = switch (status) {
             MembershipReportStatus.completed => MembershipReportStatus.rejected,
-            MembershipReportStatus.accepted => MembershipReportStatus.completed,
-            MembershipReportStatus.rejected => MembershipReportStatus.accepted,
+            MembershipReportStatus.rejected => MembershipReportStatus.completed,
           };
           final response = Completer<MembershipPurchaseReport>();
           h.reportHandler = (_) => response.future;
@@ -175,7 +182,6 @@ void main() {
           expect(events.last.state, switch (nextStatus) {
             MembershipReportStatus.completed =>
               MembershipCheckoutState.completed,
-            MembershipReportStatus.accepted => MembershipCheckoutState.accepted,
             MembershipReportStatus.rejected => MembershipCheckoutState.rejected,
           });
           await h.service.interceptPurchase(storeResult);

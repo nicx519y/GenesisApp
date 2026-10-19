@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -22,9 +23,11 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/genesis_ugc_text.dart';
 
-const String _privateChatReplyGateHint = 'Wait for a reply to send more';
+String get _privateChatReplyGateHint =>
+    GenesisL10n.current.waitForReplyToSendMore;
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -410,10 +413,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       debugPrint('[ChatPage][DM] send failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
       if (mounted) {
-        final message = error.message.trim();
         setState(() {
           _latestSendFailureLocalMessageId = localMessageId;
-          _latestSendFailureMessage = message.isEmpty ? 'Send failed' : message;
+          _latestSendFailureMessage = apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.sendFailed,
+          );
         });
       }
       await _markLocalMessageSendFailed(localMessageId);
@@ -600,7 +605,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final peerTitle = firstNonEmpty([
       formatUidForDisplay(widget.peerName),
       formatUidForDisplay(_peerUid),
-      'Direct message',
+      GenesisL10n.current.inboxDirectMessage,
     ]);
     return GenesisDarkTheme(
       child: GenesisBottomSystemBarStyleScope(
@@ -647,7 +652,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     sendEnabled: _peerUid.isNotEmpty && !_sending,
                     sending: _sending,
                     onSend: _send,
-                    sendLabel: 'Send',
+                    sendLabel: GenesisL10n.current.worldoSend,
                     hintText: _composerHintText(),
                     style: kPrivateChatStyle,
                     onHeightChanged: _handleComposerHeightChanged,
@@ -862,7 +867,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   ChatMessageVm _messageVm(DirectMessageMessageRecord record) {
     final isMe = _myUid.trim().isNotEmpty && record.senderUid == _myUid.trim();
     final senderName = isMe
-        ? 'Me'
+        ? GenesisL10n.current.meLabel
         : firstNonEmpty([
             formatUidForDisplay(widget.peerName),
             formatUidForDisplay(record.senderUid),
@@ -938,7 +943,7 @@ class _NewIncomingMessageNotice extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
-            '$count new ${count == 1 ? 'message' : 'messages'}',
+            GenesisL10n.current.newMessages(count: count),
             style: const TextStyle(
               color: GenesisColors.darkTextPrimary,
               fontSize: 13,

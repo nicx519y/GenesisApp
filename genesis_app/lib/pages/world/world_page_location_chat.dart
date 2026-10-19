@@ -29,7 +29,7 @@ extension _WorldPageLocationChat on _WorldPageState {
       if (mounted) {
         showGenesisToast(
           context,
-          'Location is unavailable',
+          GenesisL10n.current.chatLocationUnavailable,
           brightness: Brightness.dark,
         );
       }

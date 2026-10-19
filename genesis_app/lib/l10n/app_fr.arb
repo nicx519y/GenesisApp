@@ -1,0 +1,4300 @@
+{
+  "imageGifUnsupported": "Les animations GIF ne sont pas prises en charge.",
+  "@imageGifUnsupported": {
+    "description": "Client UI message or accessibility label."
+  },
+  "worldProgressComplete": "Progression terminée",
+  "@worldProgressComplete": {
+    "description": "Client UI message or accessibility label."
+  },
+  "a11ySwitchMode": "Passer au mode {label}",
+  "@a11ySwitchMode": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yEditItem": "Modifier {title}",
+  "@a11yEditItem": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yRoleCards": "Fiche de rôle {index} sur {count}",
+  "@a11yRoleCards": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "a11yEditInspiration": "Modifier l’inspiration {index}",
+  "@a11yEditInspiration": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "a11yInsert": "Insérer {label}",
+  "@a11yInsert": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "a11yMembership": "Abonnement",
+  "@a11yMembership": {
+    "description": "Accessibility label."
+  },
+  "a11yOpenWorldo": "Ouvrir Worldo",
+  "@a11yOpenWorldo": {
+    "description": "Accessibility label."
+  },
+  "a11yFilterGender": "Filtrer par genre",
+  "@a11yFilterGender": {
+    "description": "Accessibility label."
+  },
+  "a11ySelectRole": "Choisissez votre rôle",
+  "@a11ySelectRole": {
+    "description": "Accessibility label."
+  },
+  "a11yLoadingMap": "Chargement de la carte",
+  "@a11yLoadingMap": {
+    "description": "Accessibility label."
+  },
+  "a11yBuildingWorld": "Création du monde",
+  "@a11yBuildingWorld": {
+    "description": "Accessibility label."
+  },
+  "a11yPremiumMembership": "Abonnement Premium",
+  "@a11yPremiumMembership": {
+    "description": "Accessibility label."
+  },
+  "a11yProMembership": "Abonnement Pro",
+  "@a11yProMembership": {
+    "description": "Accessibility label."
+  },
+  "a11yRecommendedRole": "Rôle recommandé",
+  "@a11yRecommendedRole": {
+    "description": "Accessibility label."
+  },
+  "a11yLastMessage": "Dernier message",
+  "@a11yLastMessage": {
+    "description": "Accessibility label."
+  },
+  "a11yRecentChat": "Conversation récente",
+  "@a11yRecentChat": {
+    "description": "Accessibility label."
+  },
+  "a11yAiReplyLoading": "Chargement de la réponse de l’AI",
+  "@a11yAiReplyLoading": {
+    "description": "Accessibility label."
+  },
+  "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
+  "@statMessages": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "statPlayers": "{amount} {count, plural, =0{joueur} =1{joueur} other{joueurs}}",
+  "@statPlayers": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "createAddedMax": "{added}/{max} (Ajoutés / Maximum)",
+  "@createAddedMax": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "createSixHours": "6 heures",
+  "@createSixHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "createTwelveHours": "12 heures",
+  "@createTwelveHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "createOneDay": "1 jour",
+  "@createOneDay": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "createOneWeek": "1 semaine",
+  "@createOneWeek": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
+  "settingsLanguage": "Langue",
+  "@settingsLanguage": {
+    "description": "Settings language entry and language page title."
+  },
+  "languageChangeFailed": "Impossible de changer de langue. Veuillez réessayer.",
+  "@languageChangeFailed": {
+    "description": "Language preference save failure."
+  },
+  "@@locale": "fr",
+  "purchasingGems": "Achat de gemmes en cours",
+  "@purchasingGems": {
+    "description": "Gems purchase progress dialog title."
+  },
+  "purchaseSuccessful": "Achat réussi !",
+  "@purchaseSuccessful": {
+    "description": "Generic purchase success dialog title."
+  },
+  "okAction": "OK",
+  "@okAction": {
+    "description": "Generic confirmation action."
+  },
+  "cancelAction": "Annuler",
+  "@cancelAction": {
+    "description": "Generic cancel action."
+  },
+  "requestAction": "Demander",
+  "@requestAction": {
+    "description": "Action for requesting to join a World."
+  },
+  "requestedStatus": "Demande envoyée",
+  "@requestedStatus": {
+    "description": "Status after a World join request has been sent."
+  },
+  "launchAction": "Lancer",
+  "@launchAction": {
+    "description": "Action for launching a World from a Worldo."
+  },
+  "tickNowAction": "Tick maintenant",
+  "@tickNowAction": {
+    "description": "Action for progressing a World immediately."
+  },
+  "writePostHint": "Écrire une publication",
+  "@writePostHint": {
+    "description": "Placeholder for a new discussion post."
+  },
+  "newPostTitle": "Nouvelle publication",
+  "@newPostTitle": {
+    "description": "Title of the new discussion post composer."
+  },
+  "aiIsGenerating": "L’AI génère le contenu",
+  "@aiIsGenerating": {
+    "description": "Title of the AI generation wait overlay."
+  },
+  "generatingCustomizedWorldWait": "Création d’un monde vivant et personnalisé pour vous.\nVeuillez patienter un instant.",
+  "@generatingCustomizedWorldWait": {
+    "description": "Message in the AI generation wait overlay."
+  },
+  "approvedStatus": "Approuvé",
+  "@approvedStatus": {
+    "description": "Approved status for a World join request."
+  },
+  "rejectedStatus": "Refusé",
+  "@rejectedStatus": {
+    "description": "Rejected status for a World join request."
+  },
+  "awaitingApprovalStatus": "En attente d’approbation",
+  "@awaitingApprovalStatus": {
+    "description": "Status while the user's join request is being reviewed."
+  },
+  "awaitingYourApprovalStatus": "En attente de votre approbation",
+  "@awaitingYourApprovalStatus": {
+    "description": "Status for a join request the user needs to review."
+  },
+  "liveYourWorld": "VIVEZ VOTRE MONDE",
+  "@liveYourWorld": {
+    "description": "Signed-out Me page headline."
+  },
+  "signedOutMeDescription": "Explorez des mondes, créez des worldo, invitez vos amis\net poursuivez vos aventures partout.",
+  "@signedOutMeDescription": {
+    "description": "Signed-out Me page introductory copy."
+  },
+  "gemTaskLaunchWorldHint": "Ouvrez un Worldo qui vous plaît, puis lancez votre propre monde.",
+  "@gemTaskLaunchWorldHint": {
+    "description": "Gems task guidance for launching the first World."
+  },
+  "gemTaskInviteFriendHint": "Ouvrez un monde, puis appuyez sur Inviter dans le panneau de détails.",
+  "@gemTaskInviteFriendHint": {
+    "description": "Gems task guidance for inviting a friend."
+  },
+  "gemTaskWriteCommentHint": "Ouvrez un Worldo qui vous plaît, puis écrivez une publication dans Discussion.",
+  "@gemTaskWriteCommentHint": {
+    "description": "Gems task guidance for writing a discussion post."
+  },
+  "gemTaskRequestJoinHint": "Ouvrez un monde que vous n’avez pas rejoint, puis demandez à le rejoindre.",
+  "@gemTaskRequestJoinHint": {
+    "description": "Gems task guidance for requesting to join a World."
+  },
+  "gemTaskSendMessageHint": "Envoyez des messages dans votre monde.",
+  "@gemTaskSendMessageHint": {
+    "description": "Gems task guidance for sending messages."
+  },
+  "gemTaskProgressWorldHint": "Ouvrez un monde auquel vous jouez, puis appuyez sur Tick maintenant.",
+  "@gemTaskProgressWorldHint": {
+    "description": "Gems task guidance for progressing a World."
+  },
+  "termsOfService": "Conditions générales d’utilisation",
+  "@termsOfService": {
+    "description": "Terms of Service document title."
+  },
+  "worldoLabel": "Worldo",
+  "@worldoLabel": {
+    "description": "Worldo content-type label."
+  },
+  "worldoHashtagLabel": "#Worldo",
+  "@worldoHashtagLabel": {
+    "description": "Worldo profile collection tab label."
+  },
+  "worldLabel": "Monde",
+  "@worldLabel": {
+    "description": "World content-type label."
+  },
+  "userLabel": "Utilisateur",
+  "@userLabel": {
+    "description": "Generic user label and missing-name fallback."
+  },
+  "meLabel": "Moi",
+  "@meLabel": {
+    "description": "Current-user sender name fallback."
+  },
+  "locationLabel": "Lieu",
+  "@locationLabel": {
+    "description": "Missing location-name fallback."
+  },
+  "allLabel": "Tous",
+  "@allLabel": {
+    "description": "All option in the Worldo audience filter."
+  },
+  "maleLabel": "Homme",
+  "@maleLabel": {
+    "description": "Male option in the Worldo audience filter."
+  },
+  "femaleLabel": "Femme",
+  "@femaleLabel": {
+    "description": "Female option in the Worldo audience filter."
+  },
+  "nonBinaryLabel": "Non binaire",
+  "@nonBinaryLabel": {
+    "description": "Non-binary option in the Worldo audience filter."
+  },
+  "forYouLabel": "Pour vous",
+  "@forYouLabel": {
+    "description": "For You tab on the Worldo feed."
+  },
+  "userBlocked": "Utilisateur bloqué",
+  "@userBlocked": {
+    "description": "Profile collection message after a user is blocked."
+  },
+  "purchaseCanceled": "Achat annulé.",
+  "@purchaseCanceled": {
+    "description": "Canceled subscription purchase result."
+  },
+  "purchasePending": "Votre achat est en attente.",
+  "@purchasePending": {
+    "description": "Pending subscription purchase result."
+  },
+  "purchaseConfirmationDelayed": "La confirmation de l’achat prend du temps. Veuillez vérifier à nouveau plus tard.",
+  "@purchaseConfirmationDelayed": {
+    "description": "Deferred subscription purchase result."
+  },
+  "purchaseFailed": "Échec de l’achat.",
+  "@purchaseFailed": {
+    "description": "Generic subscription purchase failure result."
+  },
+  "yearlyPlan": "Annuel",
+  "@yearlyPlan": {
+    "description": "Yearly Premium plan label."
+  },
+  "monthlyPlan": "Mensuel",
+  "@monthlyPlan": {
+    "description": "Monthly Premium plan label."
+  },
+  "proSubscriptionTagline": "Explorez davantage chaque Worldo auquel vous jouez.",
+  "@proSubscriptionTagline": {
+    "description": "Premium subscription page tagline."
+  },
+  "eulaShort": "EULA",
+  "@eulaShort": {
+    "description": "Short End User License Agreement link label."
+  },
+  "billedAnnually": "{price}, facturés annuellement",
+  "@billedAnnually": {
+    "description": "Yearly Premium plan billing note.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "expiresOn": "Expire le {date}",
+  "@expiresOn": {
+    "description": "Premium membership expiry line.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "activeStatus": "ACTIF",
+  "@activeStatus": {
+    "description": "Active Premium membership status."
+  },
+  "expiredStatus": "Expiré",
+  "@expiredStatus": {
+    "description": "Expired Premium membership status."
+  },
+  "updatedAt": "Mis à jour {timestamp}",
+  "@updatedAt": {
+    "description": "World or Worldo card last-updated line.",
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
+  },
+  "tickLabel": "Tick",
+  "@tickLabel": {
+    "description": "Tick label without a number."
+  },
+  "tickNumber": "Tick {tick}{suffix}",
+  "@tickNumber": {
+    "description": "Tick label with optional sub-tick suffix.",
+    "placeholders": {
+      "tick": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
+    }
+  },
+  "loadFailedRetry": "Échec du chargement. Réessayer",
+  "@loadFailedRetry": {
+    "description": "Retry action after loading more profile items fails."
+  },
+  "loadMoreAction": "Charger plus",
+  "@loadMoreAction": {
+    "description": "Action to load more list items."
+  },
+  "gemPurchaseRecord": "Achat de gemmes",
+  "@gemPurchaseRecord": {
+    "description": "Fallback title for a Gems purchase record."
+  },
+  "taskRewardRecord": "Récompense de tâche",
+  "@taskRewardRecord": {
+    "description": "Fallback title for a Gems task reward record."
+  },
+  "worldProgressRecord": "Progression du monde",
+  "@worldProgressRecord": {
+    "description": "Fallback title for a World progress Gems record."
+  },
+  "directMessageRecord": "Message privé",
+  "@directMessageRecord": {
+    "description": "Fallback title for a direct-message Gems record."
+  },
+  "gemRecord": "Opération de gemmes",
+  "@gemRecord": {
+    "description": "Generic fallback title for a Gems record."
+  },
+  "runATickTask": "Lancer un Tick",
+  "@runATickTask": {
+    "description": "Gems task title for progressing a World."
+  },
+  "runATickTaskDescription": "Ouvrez un monde auquel vous jouez et appuyez sur Tick maintenant.",
+  "@runATickTaskDescription": {
+    "description": "Gems task instructions for progressing a World."
+  },
+  "someoneFallback": "Quelqu’un",
+  "@someoneFallback": {
+    "description": "Missing player-name fallback."
+  },
+  "aCharacterFallback": "un personnage",
+  "@aCharacterFallback": {
+    "description": "Missing character-name fallback inside a sentence."
+  },
+  "thisWorld": "ce monde",
+  "@thisWorld": {
+    "description": "Missing World-name fallback inside a sentence."
+  },
+  "noWorldEventsYet": "Aucun événement dans ce monde pour le moment.",
+  "@noWorldEventsYet": {
+    "description": "World character events empty state."
+  },
+  "globalLabel": "Global",
+  "@globalLabel": {
+    "description": "Global section label in copied Tick content."
+  },
+  "eventLabel": "Événement",
+  "@eventLabel": {
+    "description": "Event section label in copied Tick content."
+  },
+  "characterDestinations": "Destinations des personnages",
+  "@characterDestinations": {
+    "description": "Character movement section label in copied Tick content."
+  },
+  "characterMovementSentence": "{characterName} {direction} {locationName}",
+  "@characterMovementSentence": {
+    "description": "Character movement sentence with styled or copied parts.",
+    "placeholders": {
+      "characterName": {
+        "type": "String"
+      },
+      "direction": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "cameToDirection": "arrive à",
+  "@cameToDirection": {
+    "description": "Character movement direction in past tense."
+  },
+  "wentToDirection": "se rend à",
+  "@wentToDirection": {
+    "description": "Character movement direction away in past tense."
+  },
+  "hasComeToDirection": "arrive à",
+  "@hasComeToDirection": {
+    "description": "Character movement direction for the current location."
+  },
+  "hasGoneToDirection": "se rend à",
+  "@hasGoneToDirection": {
+    "description": "Character movement direction away from the current location."
+  },
+  "waitForReplyToSendMore": "Attendez une réponse avant d’envoyer d’autres messages",
+  "@waitForReplyToSendMore": {
+    "description": "Direct-message composer gate while awaiting a reply."
+  },
+  "newMessages": "{count, plural, =0{{count} nouveaux messages}  =1{{count} nouveau message} other{{count} nouveaux messages}}",
+  "@newMessages": {
+    "description": "Count of new direct messages.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectPresetRoleValidation": "Veuillez sélectionner un rôle prédéfini",
+  "@selectPresetRoleValidation": {
+    "description": "Role launch validation message."
+  },
+  "enterNameValidation": "Veuillez saisir un nom",
+  "@enterNameValidation": {
+    "description": "Character-name validation message."
+  },
+  "enterIdentityValidation": "Veuillez saisir une identité",
+  "@enterIdentityValidation": {
+    "description": "Character-identity validation message."
+  },
+  "waitForProfileLoading": "Veuillez attendre la fin du chargement du profil.",
+  "@waitForProfileLoading": {
+    "description": "Role launch message while profile data is loading."
+  },
+  "imageUploadFailed": "Échec de l’envoi de l’image.",
+  "@imageUploadFailed": {
+    "description": "Image upload failure shown in the Worldo editor."
+  },
+  "photoAccessDenied": "Accès aux photos refusé",
+  "@photoAccessDenied": {
+    "description": "Discussion image picker permission error."
+  },
+  "feedbackSubmitted": "Commentaires envoyés",
+  "@feedbackSubmitted": {
+    "description": "Settings feedback submission success."
+  },
+  "feedbackFailed": "Échec de l’envoi des commentaires",
+  "@feedbackFailed": {
+    "description": "Settings feedback submission failure."
+  },
+  "worldoDetailUnavailable": "Les détails du Worldo sont indisponibles.",
+  "@worldoDetailUnavailable": {
+    "description": "Worldo editor load failure fallback."
+  },
+  "publishAction": "Publier",
+  "@publishAction": {
+    "description": "Publish Worldo action."
+  },
+  "publishingStatus": "Publication en cours...",
+  "@publishingStatus": {
+    "description": "Worldo publishing progress label."
+  },
+  "publishFailed": "Échec de la publication",
+  "@publishFailed": {
+    "description": "Worldo publishing failure prefix."
+  },
+  "publishChangesBeforeLeaving": "Publier les modifications avant de quitter ?",
+  "@publishChangesBeforeLeaving": {
+    "description": "Worldo editor leave confirmation title."
+  },
+  "noChangesToPublish": "Aucune modification à publier.",
+  "@noChangesToPublish": {
+    "description": "Worldo editor submit-disabled message."
+  },
+  "completeOpeningRequiredToPublish": "Une ouverture complète est nécessaire pour publier",
+  "@completeOpeningRequiredToPublish": {
+    "description": "Worldo editor validation error before publishing."
+  },
+  "publishResponseMissingOriginId": "La publication n’a renvoyé aucun identifiant de Worldo.",
+  "@publishResponseMissingOriginId": {
+    "description": "Worldo editor publishing response error."
+  },
+  "worldoIdRequired": "Un identifiant de Worldo est requis.",
+  "@worldoIdRequired": {
+    "description": "Worldo editor cannot load without an ID."
+  },
+  "loadFailedWithReason": "Échec du chargement : {reason}",
+  "@loadFailedWithReason": {
+    "description": "Load failure with a technical reason.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSelectionFailed": "Échec de la sélection de l’image",
+  "@imageSelectionFailed": {
+    "description": "Discussion image picker generic failure."
+  },
+  "profileOriginSubtitle": "OID : {oid}\nDernière version : {version}",
+  "@profileOriginSubtitle": {
+    "description": "Worldo summary in another user's profile.",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "profileWorldSubtitle": "WID : {wid}\nPropriétaire : {owner}",
+  "@profileWorldSubtitle": {
+    "description": "World summary in another user's profile.",
+    "placeholders": {
+      "wid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "sendFailed": "Échec de l’envoi",
+  "@sendFailed": {
+    "description": "Direct-message send failure."
+  },
+  "selectARole": "Sélectionner un rôle",
+  "@selectARole": {
+    "description": "Role picker empty selection label."
+  },
+  "timeLabel": "Heure",
+  "@timeLabel": {
+    "description": "Sender name for a World timeline message."
+  },
+  "discussOriginSummary": "OID : {oid}",
+  "@discussOriginSummary": {
+    "description": "Worldo identifier in a discussion page summary.",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      }
+    }
+  },
+  "discussOriginSummaryWithCreator": "OID : {oid} · Créateur : {creator}",
+  "@discussOriginSummaryWithCreator": {
+    "description": "Worldo identifier and creator in a discussion page summary.",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "creator": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoMetricExplanation": "Ce worldo met à jour l’indicateur '{Libellé de l’indicateur}' de chaque personnage à chaque progression, dans l’unité '{Unité}'. Chaque personnage commence à '{Valeur initiale}', et la valeur peut varier de '{Variation min.}' à '{Variation max.}'.",
+  "@worldoMetricExplanation": {
+    "description": "Worldo Metric field explanation with literal field-name braces."
+  },
+  "homeMyWorldsEmptyTitle": "Lancez un {worldo} pour créer\nvotre propre monde",
+  "@homeMyWorldsEmptyTitle": {
+    "description": "Home My Worlds empty-state title.",
+    "placeholders": {
+      "worldo": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryEstimatedNextMessageCost": "Prochain message estimé à {cost}",
+  "@memoryEstimatedNextMessageCost": {
+    "description": "Estimated Gems cost under an AI model option.",
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "gemsAmount": "{amount} gemmes",
+  "@gemsAmount": {
+    "description": "A formatted amount followed by the Gems unit.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDeleteConfirmation": "Supprimer le monde {worldName}",
+  "@worldDeleteConfirmation": {
+    "description": "World deletion confirmation title.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldPlayerPlayingAs": "{playerUsername} joue le rôle de {characterName}",
+  "@worldPlayerPlayingAs": {
+    "description": "World detail notice describing a player's character.",
+    "placeholders": {
+      "playerUsername": {
+        "type": "String"
+      },
+      "characterName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLaunched": "Worldo {worldName} lancé !",
+  "@worldoLaunched": {
+    "description": "Success dialog after launching a Worldo.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoCreated": "Worldo {worldName} créé !",
+  "@worldoCreated": {
+    "description": "Success dialog after creating a Worldo.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoPublished": "Worldo {worldName} publié !",
+  "@worldoPublished": {
+    "description": "Success dialog after publishing a Worldo.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "createTimeout": "La création du Worldo a expiré.",
+  "@createTimeout": {
+    "description": "Create Worldo 提交后等待创建结果超时的提示"
+  },
+  "publishTimeout": "La publication du Worldo a expiré",
+  "@publishTimeout": {
+    "description": "Publish Worldo 提交后等待发布结果超时的提示"
+  },
+  "joinRequestSelfSummary": "Vous demandez à rejoindre {worldName}{worldId}",
+  "@joinRequestSelfSummary": {
+    "description": "Inbox summary for the current user's World join request.",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      },
+      "worldId": {
+        "type": "String"
+      }
+    }
+  },
+  "joinRequestIncomingSummary": "{requesterName}{requesterBadge} demande à rejoindre {worldName}{worldId}",
+  "@joinRequestIncomingSummary": {
+    "description": "Inbox summary for another user's World join request.",
+    "placeholders": {
+      "requesterName": {
+        "type": "String"
+      },
+      "requesterBadge": {
+        "type": "String"
+      },
+      "worldName": {
+        "type": "String"
+      },
+      "worldId": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationCommentedOnWorldo": "{senderName}{senderBadge} a commenté votre worldo",
+  "@notificationCommentedOnWorldo": {
+    "description": "Inbox comment notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationRepliedToYou": "{senderName}{senderBadge} vous a répondu",
+  "@notificationRepliedToYou": {
+    "description": "Inbox reply notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationLikedComment": "{senderName}{senderBadge} a aimé votre commentaire",
+  "@notificationLikedComment": {
+    "description": "Inbox comment-like notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationSentMessage": "{senderName}{senderBadge} vous a envoyé un message",
+  "@notificationSentMessage": {
+    "description": "Inbox generic message notification title.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      }
+    }
+  },
+  "notificationGenericContent": "{senderName}{senderBadge} {content}",
+  "@notificationGenericContent": {
+    "description": "Inbox notification title using content supplied by the server.",
+    "placeholders": {
+      "senderName": {
+        "type": "String"
+      },
+      "senderBadge": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "freeInspirationUsesLeft": "Utilisations gratuites d’Inspiration restantes : {remaining}\n{action}",
+  "@freeInspirationUsesLeft": {
+    "description": "Location chat free Inspiration quota prompt.",
+    "placeholders": {
+      "remaining": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "freeEditionUsesLeft": "Utilisations gratuites d’Édition restantes : {remaining}\n{action}",
+  "@freeEditionUsesLeft": {
+    "description": "Location chat free Edit quota prompt.",
+    "placeholders": {
+      "remaining": {
+        "type": "String"
+      },
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "getMoreAction": "En obtenir plus >",
+  "@getMoreAction": {
+    "description": "Action that opens subscription options."
+  },
+  "characterCameToLocation": "{characterName} arrive à {locationName}",
+  "@characterCameToLocation": {
+    "description": "Location chat system message for entering a location.",
+    "placeholders": {
+      "characterName": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutDescription": "Worldo vous permet de créer, de découvrir et d’explorer des mondes alimentés par l’AI, peuplés de personnages, d’histoires et d’événements qui évoluent. Discutez avec des personnages AI, jouez avec vos amis et faites progresser chaque monde à travers des scènes et des choix immersifs.\n\nNotre application propose une nouvelle façon de vivre les histoires interactives : en faisant partie du monde. Pour toute question, veuillez nous contacter à {contactEmail}.",
+  "@aboutDescription": {
+    "description": "About page product description and contact sentence.",
+    "placeholders": {
+      "contactEmail": {
+        "type": "String"
+      }
+    }
+  },
+  "legalLinksSentence": "{privacyPolicy}, {termsOfUse} et {endUserLicenseAgreement}",
+  "@legalLinksSentence": {
+    "description": "About page legal-document links.",
+    "placeholders": {
+      "privacyPolicy": {
+        "type": "String"
+      },
+      "termsOfUse": {
+        "type": "String"
+      },
+      "endUserLicenseAgreement": {
+        "type": "String"
+      }
+    }
+  },
+  "loginLegalAgreement": "En continuant, vous acceptez nos {terms}, notre {privacyPolicy} et notre {endUserLicenseAgreement}",
+  "@loginLegalAgreement": {
+    "description": "Legal agreement below login provider buttons.",
+    "placeholders": {
+      "terms": {
+        "type": "String"
+      },
+      "privacyPolicy": {
+        "type": "String"
+      },
+      "endUserLicenseAgreement": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyPolicy": "Politique de confidentialité",
+  "@privacyPolicy": {
+    "description": "Privacy Policy document title."
+  },
+  "terms": "Conditions",
+  "@terms": {
+    "description": "Short Terms document title."
+  },
+  "termsOfUse": "Conditions d’utilisation",
+  "@termsOfUse": {
+    "description": "Terms of Use document title."
+  },
+  "endUserLicenseAgreement": "Contrat de licence utilisateur final",
+  "@endUserLicenseAgreement": {
+    "description": "End User License Agreement document title."
+  },
+  "existingAccountSignIn": "Vous avez déjà un compte ? {signIn}",
+  "@existingAccountSignIn": {
+    "description": "Personalization sheet sign-in sentence.",
+    "placeholders": {
+      "signIn": {
+        "type": "String"
+      }
+    }
+  },
+  "signInAction": "Se connecter.",
+  "@signInAction": {
+    "description": "Sign-in link label inside a sentence."
+  },
+  "gemsGranted": "{gemIcon}{grantedAmount} gemmes ont été attribuées.",
+  "@gemsGranted": {
+    "description": "Gems purchase success message.",
+    "placeholders": {
+      "gemIcon": {
+        "type": "String"
+      },
+      "grantedAmount": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumMonthlyOffer": "Jusqu’à {amount} gemmes par mois, avec un accès Premium complet.",
+  "@premiumMonthlyOffer": {
+    "description": "Premium offer shown on the profile membership card.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "gemsPerDay": "{amount} /jour",
+  "@gemsPerDay": {
+    "description": "Daily Gems amount in a subscription benefit card.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "monthlyPrice": "{price}/mois",
+  "@monthlyPrice": {
+    "description": "Monthly equivalent subscription price.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "discussReplyLine": "{authorName}{authorBadge} : Réponse à {replyToName}{replyToBadge} : {content}",
+  "@discussReplyLine": {
+    "description": "Discussion reply preview that replies to another user.",
+    "placeholders": {
+      "authorName": {
+        "type": "String"
+      },
+      "authorBadge": {
+        "type": "String"
+      },
+      "replyToName": {
+        "type": "String"
+      },
+      "replyToBadge": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "discussReplyLineDirect": "{authorName}{authorBadge} : {content}",
+  "@discussReplyLineDirect": {
+    "description": "Discussion reply preview without a reply target.",
+    "placeholders": {
+      "authorName": {
+        "type": "String"
+      },
+      "authorBadge": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "navHome": "Home",
+  "@navHome": {
+    "description": "App shell bottom navigation: fixed English label \"Home\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
+  },
+  "navWorldo": "Worldo",
+  "@navWorldo": {
+    "description": "App shell bottom navigation: fixed English label \"Worldo\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
+  },
+  "navCreate": "Create",
+  "@navCreate": {
+    "description": "App shell bottom navigation: fixed English label \"Create\" in every language. Do not translate. Create is icon-only; this text is its accessibility label."
+  },
+  "navInbox": "Inbox",
+  "@navInbox": {
+    "description": "App shell bottom navigation: fixed English label \"Inbox\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
+  },
+  "navMe": "Me",
+  "@navMe": {
+    "description": "App shell bottom navigation: fixed English label \"Me\" in every language. Do not translate. Inbox and Me page headings share these labels and also stay English."
+  },
+  "homeLoadFailed": "Échec du chargement",
+  "@homeLoadFailed": {
+    "description": "首页 - Home，My Worlds 列表状态"
+  },
+  "homeRetry": "Réessayer",
+  "@homeRetry": {
+    "description": "首页 - Home，My Worlds 列表状态"
+  },
+  "homeEmptyDescription": "Worldo est le modèle. Lancez-le pour créer un monde vivant à explorer et à faire évoluer.",
+  "@homeEmptyDescription": {
+    "description": "首页 - Home，My Worlds 空状态"
+  },
+  "homeWorldCharacter": "Personnage",
+  "@homeWorldCharacter": {
+    "description": "首页 - Home，World 卡片中的状态信息中显示的文字"
+  },
+  "homeWorldSingleOtherPlayer": "· 1 autre joueur",
+  "@homeWorldSingleOtherPlayer": {
+    "description": "首页 - Home，World 卡片中的状态信息的按钮或标签"
+  },
+  "homeWorldOtherPlayers": "· {otherPlayerCount} autres joueurs",
+  "@homeWorldOtherPlayers": {
+    "description": "首页 - Home，World 卡片中的状态信息的按钮或标签",
+    "placeholders": {
+      "otherPlayerCount": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSignInUnavailable": "Connexion indisponible",
+  "@homeSignInUnavailable": {
+    "description": "首页 - Home，登录失败提示"
+  },
+  "homeSignedOutTitle": "Tous vos mondes au même endroit",
+  "@homeSignedOutTitle": {
+    "description": "首页 - Home，页面标题/登录状态"
+  },
+  "homeSignedOutDescription": "Connectez-vous pour créer des mondes et poursuivre vos histoires.",
+  "@homeSignedOutDescription": {
+    "description": "首页 - Home，页面标题/登录状态"
+  },
+  "searchUID": "UID: ",
+  "@searchUID": {
+    "description": "首页 - Home → 搜索页，搜索结果卡片中显示的文字"
+  },
+  "searchOID": "OID: ",
+  "@searchOID": {
+    "description": "首页 - Home → 搜索页，Worldo 结果元信息中显示的文字"
+  },
+  "searchWID": "WID: ",
+  "@searchWID": {
+    "description": "首页 - Home → 搜索页，World 结果元信息中显示的文字"
+  },
+  "searchOwner": "Propriétaire : {owner}",
+  "@searchOwner": {
+    "description": "首页 - Home → 搜索页，World 结果元信息中显示的文字",
+    "placeholders": {
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "searchOIDCreatorOriginatorBrief": "OID : {oid}  Créateur : {originator}\nRésumé : {brief}\nDernière version : {version}",
+  "@searchOIDCreatorOriginatorBrief": {
+    "description": "首页 - Home → 搜索页，Worldo 搜索结果卡片的 OID、创建者、简介和最新版本",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "originator": {
+        "type": "String"
+      },
+      "brief": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "searchWIDOwner": "WID : {wid}\nPropriétaire : {owner}",
+  "@searchWIDOwner": {
+    "description": "首页 - Home → 搜索页，World 搜索结果卡片的 WID 和拥有者",
+    "placeholders": {
+      "wid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "searchHistory": "Historique de recherche",
+  "@searchHistory": {
+    "description": "首页 - Home → 搜索页，搜索历史中显示的文字"
+  },
+  "searchFailed": "Échec de la recherche",
+  "@searchFailed": {
+    "description": "首页 - Home → 搜索页，搜索结果列表/空状态"
+  },
+  "searchNoResults": "Aucun résultat.",
+  "@searchNoResults": {
+    "description": "首页 - Home → 搜索页，搜索结果列表/空状态"
+  },
+  "searchCancel": "Annuler",
+  "@searchCancel": {
+    "description": "首页 - Home → 搜索页，搜索输入与结果状态"
+  },
+  "searchHint": "Worldo, personnage, tags",
+  "@searchHint": {
+    "description": "首页 - Home → 搜索页，搜索输入框中显示的文字"
+  },
+  "worldDetailOnlyWorldsLaunched": "Seuls les mondes que vous avez lancés en solo peuvent être supprimés.",
+  "@worldDetailOnlyWorldsLaunched": {
+    "description": "首页 - Home → World 操作弹窗，World 详情页删除 World时显示的提示"
+  },
+  "worldDetailDelete": "Supprimer",
+  "@worldDetailDelete": {
+    "description": "首页 - Home → World 操作弹窗，World 详情页删除 World的按钮或标签"
+  },
+  "worldDetailNoCharacterStatusYet": "Aucun état de personnage pour le moment.",
+  "@worldDetailNoCharacterStatusYet": {
+    "description": "首页 - Home → World 详情页，World 详情面板的 Cast 或 Status 空状态"
+  },
+  "worldDetailNoCharactersYet": "Aucun personnage pour le moment.",
+  "@worldDetailNoCharactersYet": {
+    "description": "首页 - Home → World 详情页，World 详情面板的 Cast 或 Status 空状态"
+  },
+  "worldDetailProgressingWorld": "Progression du monde en cours",
+  "@worldDetailProgressingWorld": {
+    "description": "首页 - Home → World 详情页，World 详情页主体中显示的文字"
+  },
+  "worldDetailCompressingRecent": "Compression des souvenirs récents\nAvancée de la chronologie du monde\nGénération de la prochaine étape de l’histoire\nMise à jour des lieux des personnages",
+  "@worldDetailCompressingRecent": {
+    "description": "首页 - Home → World 详情页，World 详情页主体中显示的文字"
+  },
+  "worldModelsDetail": "Détails",
+  "@worldModelsDetail": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldModelsLocations": "Lieux",
+  "@worldModelsLocations": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldModelsEvents": "Événements",
+  "@worldModelsEvents": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldModelsStatus": "État",
+  "@worldModelsStatus": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldDetailUnavailable": "Indisponible",
+  "@worldDetailUnavailable": {
+    "description": "首页 - Home → World 详情页，World 详情页的操作状态"
+  },
+  "worldActionFailed": "Échec de l’action : {actionLabel}",
+  "@worldActionFailed": {
+    "description": "首页 - Home → World 详情页，申请加入或推进操作失败时的提示",
+    "placeholders": {
+      "actionLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailRequestJoinWorld": "Demander à rejoindre ce monde ?",
+  "@worldDetailRequestJoinWorld": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World的标题"
+  },
+  "worldDetailRequest": "Demander",
+  "@worldDetailRequest": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World的按钮或标签"
+  },
+  "worldDetailLaunchFailed": "Échec du lancement",
+  "@worldDetailLaunchFailed": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World时显示的提示"
+  },
+  "worldDetailNoSavedProfileFound": "Aucun profil enregistré trouvé",
+  "@worldDetailNoSavedProfileFound": {
+    "description": "首页 - Home → World 详情页的推进或加入操作，World 详情页申请加入或推进 World时显示的提示"
+  },
+  "worldDetailWID": "WID",
+  "@worldDetailWID": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的按钮或标签"
+  },
+  "worldDetailSourceWorldoOIDV": "Worldo source : {sourceOid} · V{version}",
+  "@worldDetailSourceWorldoOIDV": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域中显示的文字",
+    "placeholders": {
+      "sourceOid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailInvite": "Inviter",
+  "@worldDetailInvite": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的按钮或标签"
+  },
+  "worldInviteText": "Rejoignez mon monde « {worldName} » sur Worldo !\n{wid}\nRecherchez ce WID sur Worldo pour le trouver et le rejoindre.\n{downloadUrl}",
+  "@worldInviteText": {
+    "description": "首页 - Home → World 详情页，点击 Invite 后系统分享面板中的邀请正文",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      },
+      "wid": {
+        "type": "String"
+      },
+      "downloadUrl": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailWorldBrief": "Résumé du monde",
+  "@worldDetailWorldBrief": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的标题"
+  },
+  "worldDetailCast": "Distribution",
+  "@worldDetailCast": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Detail 区域的标题"
+  },
+  "worldDetailLinkCopiedShare": "Lien copié. Partagez-le avec vos amis.",
+  "@worldDetailLinkCopiedShare": {
+    "description": "首页 - Home → World 详情页，World 详情页复制邀请链接完成"
+  },
+  "worldMapAction": "Carte",
+  "@worldMapAction": {
+    "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字"
+  },
+  "worldInfoAction": "Infos",
+  "@worldInfoAction": {
+    "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字"
+  },
+  "worldLocationCount": "Lieux ({pointsCount})",
+  "@worldLocationCount": {
+    "description": "首页 - Home → World 地图，World 地图顶部操作栏中显示的文字",
+    "placeholders": {
+      "pointsCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailPlayer": "Joueur",
+  "@worldDetailPlayer": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Characters 角色列表的按钮或标签"
+  },
+  "worldDetailGoal": "Objectif : {goal}",
+  "@worldDetailGoal": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Characters 角色列表中显示的文字",
+    "placeholders": {
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailNoCharacterDetailsYet": "Aucun détail de personnage pour le moment.",
+  "@worldDetailNoCharacterDetailsYet": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Characters 角色列表中显示的文字"
+  },
+  "worldDetailNoEventsYet": "Aucun événement pour le moment.",
+  "@worldDetailNoEventsYet": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Events 事件列表中显示的文字"
+  },
+  "worldDetailLoadEventsFailed": "Échec du chargement des événements.",
+  "@worldDetailLoadEventsFailed": {
+    "description": "首页 - Home → World 详情页，World 详情页的 Events 事件列表中显示的文字"
+  },
+  "homeLocationID": "Lieu {id}",
+  "@homeLocationID": {
+    "description": "首页 - Home → World 地图，World 地图地点名称缺失中显示的文字",
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "homeBuildingWorld": "CRÉATION DU MONDE",
+  "@homeBuildingWorld": {
+    "description": "首页 - Home → World 地图，列表项或卡片中显示的文字"
+  },
+  "worldMapLoadFailed": "Échec du chargement de la carte",
+  "@worldMapLoadFailed": {
+    "description": "首页 - Home → World 地图，操作失败或内容加载失败"
+  },
+  "worldMapZoomIn": "Zoomer sur la carte",
+  "@worldMapZoomIn": {
+    "description": "首页 - Home → World 地图，页面内容区域的按钮或标签"
+  },
+  "worldMapZoomOut": "Dézoomer sur la carte",
+  "@worldMapZoomOut": {
+    "description": "首页 - Home → World 地图，页面内容区域的按钮或标签"
+  },
+  "worldDetailGlobal": "Global",
+  "@worldDetailGlobal": {
+    "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
+  },
+  "worldDetailLocation": "Lieu",
+  "@worldDetailLocation": {
+    "description": "首页 - Home → World Tick 卡片，World 详情页的 Tick 事件卡片中显示的文字"
+  },
+  "worldDetailTickNumber": "Tick {tickNumber}",
+  "@worldDetailTickNumber": {
+    "description": "首页 - Home → World 详情页，World 详情页尚未完成的 Tick 卡片的按钮或标签",
+    "placeholders": {
+      "tickNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGeneratingFirstTick": "Génération du premier Tick",
+  "@homeGeneratingFirstTick": {
+    "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
+  },
+  "worldFirstTickStatusLoadFailed": "Impossible de charger l’état de génération.",
+  "@worldFirstTickStatusLoadFailed": {
+    "description": "首页 - Home → 首次 Tick 等待弹窗，首次 Tick 生成中的等待弹窗"
+  },
+  "worldDetailNew": "Nouveau",
+  "@worldDetailNew": {
+    "description": "首页 - Home → World 新内容标记，World 详情页的新内容标记中显示的文字"
+  },
+  "homeUnknownLocation": "Lieu inconnu",
+  "@homeUnknownLocation": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "homeUnknownCharacter": "Personnage inconnu",
+  "@homeUnknownCharacter": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "homeNewPlaceEmerged": "Un nouveau lieu est apparu",
+  "@homeNewPlaceEmerged": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "homeNewCharacterAppeared": "Un nouveau personnage est apparu",
+  "@homeNewCharacterAppeared": {
+    "description": "首页 - Home → World 更新通知，World 更新后顶部出现的通知条中显示的文字"
+  },
+  "chatLocationUnavailable": "Le lieu est indisponible",
+  "@chatLocationUnavailable": {
+    "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
+  },
+  "chatRequestApprovalLaunch": "Demander l’autorisation de lancer",
+  "@chatRequestApprovalLaunch": {
+    "description": "首页 - Home → World 地图进入地点，从 World 地图进入地点聊天室时显示的提示"
+  },
+  "chatLoading": "Chargement",
+  "@chatLoading": {
+    "description": "首页 - Home → World 地图进入地点，进入 World 地点聊天室的加载页面中显示的文字"
+  },
+  "chatQuotaCheckFailed": "Impossible de vérifier les utilisations gratuites. Veuillez réessayer.",
+  "@chatQuotaCheckFailed": {
+    "description": "首页 - Home → 地点聊天室 - Inspiration，AI 回复功能剩余次数不足"
+  },
+  "chatInspirationSourceChanged": "La source d’inspiration a changé. Veuillez rouvrir Inspiration.",
+  "@chatInspirationSourceChanged": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，使用 Inspiration 生成回复中显示的文字"
+  },
+  "chatInspiration": "Inspiration",
+  "@chatInspiration": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，使用 Inspiration 生成回复的按钮或标签"
+  },
+  "chatMessageCannotSend": "Ce message ne peut plus être envoyé",
+  "@chatMessageCannotSend": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatMessageEmpty": "Le message est vide",
+  "@chatMessageEmpty": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatConnectionFailed": "Impossible de se connecter à cette conversation",
+  "@chatConnectionFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatReplyChangedSelect": "La réponse a changé. Veuillez sélectionner à nouveau une inspiration.",
+  "@chatReplyChangedSelect": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatSendConfirmFailed": "Impossible de confirmer l’envoi du message",
+  "@chatSendConfirmFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatNoNetworkConnection": "Aucune connexion réseau",
+  "@chatNoNetworkConnection": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+  },
+  "chatRoundCannotContinue": "Ce tour ne peut pas continuer",
+  "@chatRoundCannotContinue": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复中显示的文字"
+  },
+  "chatSourceRoundChanged": "Le tour source a changé",
+  "@chatSourceRoundChanged": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复中显示的文字"
+  },
+  "chatGo": "Continuer",
+  "@chatGo": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复的按钮或标签"
+  },
+  "chatReplyActionUnavailable": "Cette action sur la réponse n’est plus disponible",
+  "@chatReplyActionUnavailable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatRegenerateFailure": "Échec de la régénération",
+  "@chatRegenerateFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatGoFailure": "Échec de la continuation",
+  "@chatGoFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatEditFailure": "Échec de la modification",
+  "@chatEditFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatInspirationFailure": "Échec de l’inspiration",
+  "@chatInspirationFailure": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复出错时显示的提示"
+  },
+  "chatJoinLocationFailed": "Impossible de rejoindre ce lieu",
+  "@chatJoinLocationFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatInactive": "Cette conversation n’est plus active",
+  "@chatInactive": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatChatroomUnavailable": "Le salon de discussion est indisponible",
+  "@chatChatroomUnavailable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatFailedConfirmReplyAction": "Impossible de confirmer l’action sur la réponse",
+  "@chatFailedConfirmReplyAction": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，生成 AI 回复中显示的文字"
+  },
+  "chatLeastOneMessageMustRemain": "Au moins un message doit être conservé.",
+  "@chatLeastOneMessageMustRemain": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyNotEditable": "Cette réponse ne peut pas être modifiée",
+  "@chatReplyNotEditable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyAlreadyFixed": "Cette réponse a été figée",
+  "@chatReplyAlreadyFixed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyEditorFrozen": "L’éditeur de réponse est bloqué",
+  "@chatReplyEditorFrozen": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatResolvePreviousSaveBefore": "Terminez l’enregistrement précédent avant de modifier son brouillon",
+  "@chatResolvePreviousSaveBefore": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatStaleReplyEditor": "L’éditeur de réponse n’est plus à jour",
+  "@chatStaleReplyEditor": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatPreviousSaveResultUncertain": "Le résultat de l’enregistrement précédent est incertain ; rechargez avant de modifier à nouveau",
+  "@chatPreviousSaveResultUncertain": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatCandidateMissing": "La proposition n’existe plus",
+  "@chatCandidateMissing": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatBatchSupportsMost100Changes": "Un lot peut contenir au maximum 100 modifications",
+  "@chatBatchSupportsMost100Changes": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatMissingStableMessageIdentity": "L’identifiant stable du message est manquant",
+  "@chatMissingStableMessageIdentity": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatEditTargetHasChanged": "La cible de la modification a changé",
+  "@chatEditTargetHasChanged": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatMessageNotEditable": "Ce message ne peut pas être modifié",
+  "@chatMessageNotEditable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatReplyNoLongerEditable": "Cette réponse ne peut plus être modifiée",
+  "@chatReplyNoLongerEditable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatEditorOpenFailed": "Impossible d’ouvrir l’éditeur",
+  "@chatEditorOpenFailed": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatInactiveDuringEdit": "Cette conversation n’est plus active.",
+  "@chatInactiveDuringEdit": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复中显示的文字"
+  },
+  "chatEditMessage": "Modifier le message",
+  "@chatEditMessage": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复页面的标题"
+  },
+  "chatSave": "Enregistrer",
+  "@chatSave": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，编辑聊天回复页面的按钮或标签"
+  },
+  "chatEdit": "Modifier",
+  "@chatEdit": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，聊天回复旁的 Edit 按钮"
+  },
+  "chatRegenerate": "Régénérer",
+  "@chatRegenerate": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，聊天回复旁的 Regenerate 按钮"
+  },
+  "chatRegenerateUnavailable": "Ce tour ne peut pas être régénéré",
+  "@chatRegenerateUnavailable": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，重新生成聊天回复中显示的文字"
+  },
+  "chatGenerate10Replies": "Vous pouvez générer jusqu’à 10 réponses.",
+  "@chatGenerate10Replies": {
+    "description": "首页 - Home → 地点聊天室 - 回复操作，重新生成聊天回复时显示的提示"
+  },
+  "chatPreviousReply": "Réponse précédente",
+  "@chatPreviousReply": {
+    "description": "首页 - Home → 地点聊天室，AI 回复的翻页按钮"
+  },
+  "chatNextReply": "Réponse suivante",
+  "@chatNextReply": {
+    "description": "首页 - Home → 地点聊天室，AI 回复的翻页按钮"
+  },
+  "chatCopy": "Copier",
+  "@chatCopy": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室长按消息后的操作菜单的按钮或标签"
+  },
+  "chatReport": "Signaler",
+  "@chatReport": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室长按消息后的操作菜单的按钮或标签"
+  },
+  "chatCopied": "Copié",
+  "@chatCopied": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室复制消息完成"
+  },
+  "chatCountNewMessage": "{count, plural, =0{{count} nouveaux messages} =1{{count} nouveau message} other{{count} nouveaux messages}}",
+  "@chatCountNewMessage": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室收到新消息时的提示条中显示的文字",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatMention": "Mentionner",
+  "@chatMention": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatCharacters": "Personnages",
+  "@chatCharacters": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatNoCharacters": "Aucun personnage",
+  "@chatNoCharacters": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatNoLocations": "Aucun lieu",
+  "@chatNoLocations": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室的角色选择面板中显示的文字"
+  },
+  "chatHere": "Ici",
+  "@chatHere": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室消息中的当前位置标记中显示的文字"
+  },
+  "chatLoadEarlierMessages": "Charger les messages précédents",
+  "@chatLoadEarlierMessages": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室消息列表的加载状态"
+  },
+  "chatText": "Écrire un message...",
+  "@chatText": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室消息输入区域的输入框提示"
+  },
+  "chatLocationRoster": "VOUS",
+  "@chatLocationRoster": {
+    "description": "首页 - Home → 地点聊天室，地点聊天室顶部的角色列表中显示的文字"
+  },
+  "homeNpc": "NPC",
+  "@homeNpc": {
+    "description": "首页 - Home → 聊天消息，聊天消息中的角色头像中显示的文字"
+  },
+  "commonAiDisclaimer": "Tout le contenu est généré par l’AI et fictif. Toute ressemblance avec des personnes, des événements ou des lieux réels est fortuite.",
+  "@commonAiDisclaimer": {
+    "description": "首页 - Home → 聊天页 - AI 内容免责声明，聊天消息下方的 AI 内容免责声明中显示的文字"
+  },
+  "homeRecent": "Récent",
+  "@homeRecent": {
+    "description": "首页 - Home → 聊天页 - 最近消息标记，聊天室最近消息标记中显示的文字"
+  },
+  "worldoUnableSavePreference": "Impossible d’enregistrer votre préférence. Veuillez réessayer.",
+  "@worldoUnableSavePreference": {
+    "description": "首页 - Worldo，Worldo 列表页的性别筛选菜单时显示的提示"
+  },
+  "worldoFilterGender": "Filtrer par genre",
+  "@worldoFilterGender": {
+    "description": "首页 - Worldo，Worldo 列表页的性别筛选菜单中显示的文字"
+  },
+  "worldoNoData": "Aucune donnée",
+  "@worldoNoData": {
+    "description": "首页 - Worldo，Worldo 列表的加载和空状态"
+  },
+  "worldoAll": "Tous",
+  "@worldoAll": {
+    "description": "首页 - Me → Gems 钱包 → Gems 明细页，顶部记录筛选栏的 All 选项"
+  },
+  "worldoDetailSelectRole": "Choisissez votre rôle",
+  "@worldoDetailSelectRole": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板的基础信息中显示的文字"
+  },
+  "worldoDetailOID": "OID",
+  "@worldoDetailOID": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板顶部信息的按钮或标签"
+  },
+  "worldoDetailCreator": "Créateur : {creatorName}",
+  "@worldoDetailCreator": {
+    "description": "首页 - Home → 搜索结果的 Worldo 卡片，创建者名称；首页 - Worldo → Worldo 详情面板，创建者名称",
+    "placeholders": {
+      "creatorName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoDetailEditWorldo": "Modifier le Worldo",
+  "@worldoDetailEditWorldo": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情面板中的编辑入口的按钮或标签"
+  },
+  "worldoDetailWorldoBrief": "Résumé du Worldo",
+  "@worldoDetailWorldoBrief": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 World 区域的标题"
+  },
+  "worldoDetailNewPost": "Nouvelle publication",
+  "@worldoDetailNewPost": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域的标题"
+  },
+  "worldoDetailWritePost": "Écrire une publication",
+  "@worldoDetailWritePost": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域的输入框提示"
+  },
+  "worldoDetailDiscussCount": "Discussion ({discussCount})",
+  "@worldoDetailDiscussCount": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域的标题",
+    "placeholders": {
+      "discussCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoDetailViewAll": "Tout voir >",
+  "@worldoDetailViewAll": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的 Discuss 区域中显示的文字"
+  },
+  "worldoDetailPlayingWorld": "Monde en cours",
+  "@worldoDetailPlayingWorld": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的已创建 World 列表中显示的文字"
+  },
+  "worldoDetailTickCountSubLabel": "Tick {tickCount}{subTickLabel} · {messageCountLabel}",
+  "@worldoDetailTickCountSubLabel": {
+    "description": "首页 - Worldo → 已创建 World 列表，World 项的 Tick 编号和消息数量",
+    "placeholders": {
+      "tickCount": {
+        "type": "String"
+      },
+      "subTickLabel": {
+        "type": "String"
+      },
+      "messageCountLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoDetailCharactersLength": "Personnages ({length})",
+  "@worldoDetailCharactersLength": {
+    "description": "首页 - Worldo → Worldo 详情页，Worldo 详情页的角色列表中显示的文字",
+    "placeholders": {
+      "length": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoSend": "Envoyer",
+  "@worldoSend": {
+    "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子中显示的文字"
+  },
+  "worldoPostFailed": "Échec de la publication",
+  "@worldoPostFailed": {
+    "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子时显示的提示"
+  },
+  "worldoImageUploadFailed": "Échec de l’envoi de l’image",
+  "@worldoImageUploadFailed": {
+    "description": "首页 - Worldo → 发帖弹窗，发布 Discuss 帖子时显示的提示"
+  },
+  "worldoLoadRepliesFailed": "Échec du chargement des réponses",
+  "@worldoLoadRepliesFailed": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页的回复列表时显示的提示"
+  },
+  "worldoWriteReply": "Écrire une réponse",
+  "@worldoWriteReply": {
+    "description": "首页 - Worldo → 帖子详情页，回复评论时的输入框的输入框提示"
+  },
+  "worldoReplyName": "Répondre à {replyToName}",
+  "@worldoReplyName": {
+    "description": "首页 - Worldo → 帖子详情页，回复评论时的输入框的输入框提示",
+    "placeholders": {
+      "replyToName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoPostDetail": "Détails de la publication",
+  "@worldoPostDetail": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页中显示的文字"
+  },
+  "worldoPostUnavailable": "Publication indisponible",
+  "@worldoPostUnavailable": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页中显示的文字"
+  },
+  "worldoAllRepliesReplyCount": "Toutes les réponses {replyCount}",
+  "@worldoAllRepliesReplyCount": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页的回复列表中显示的文字",
+    "placeholders": {
+      "replyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoViewAllReplies": "Voir les {replyCount} réponses",
+  "@worldoViewAllReplies": {
+    "description": "首页 - Worldo → 帖子详情页，回复列表底部的查看全部回复按钮",
+    "placeholders": {
+      "replyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLikeFailed": "Impossible d’ajouter un J’aime",
+  "@worldoLikeFailed": {
+    "description": "首页 - Worldo → 帖子详情页，帖子详情页时显示的提示"
+  },
+  "worldoViewAllReplyCountReplies": "Voir les {replyCount} réponses",
+  "@worldoViewAllReplyCountReplies": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字",
+    "placeholders": {
+      "replyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoUser": "Utilisateur",
+  "@worldoUser": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字"
+  },
+  "worldoViewMore": "Voir plus >",
+  "@worldoViewMore": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字"
+  },
+  "worldoDiscuss": "Discussion ({discussCount})",
+  "@worldoDiscuss": {
+    "description": "首页 - Worldo → Worldo 讨论区，Discuss 入口旁的数量",
+    "placeholders": {
+      "discussCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoViewAllRemainingReplyCount": "Voir les {remainingReplyCount} réponses",
+  "@worldoViewAllRemainingReplyCount": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域中显示的文字",
+    "placeholders": {
+      "remainingReplyCount": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoReply": "Répondre",
+  "@worldoReply": {
+    "description": "首页 - Worldo → 讨论/回复区，Discuss 帖子的评论和回复区域的标题"
+  },
+  "worldoDiscussTitle": "Discussion",
+  "@worldoDiscussTitle": {
+    "description": "首页 - Worldo → 讨论列表页，Discuss 讨论列表中显示的文字"
+  },
+  "worldoLaunchLocationComesLife": "Ce lieu prend vie après le lancement.",
+  "@worldoLaunchLocationComesLife": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
+  },
+  "worldoLaunchLaunchWorldoExplore": "Lancez ce Worldo pour explorer ce lieu et y interagir.",
+  "@worldoLaunchLaunchWorldoExplore": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择中显示的文字"
+  },
+  "worldoLaunchRoleUnavailable": "Ce rôle n’est plus disponible",
+  "@worldoLaunchRoleUnavailable": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时的开场消息和角色选择时显示的提示"
+  },
+  "worldoLaunchSelectRole": "Choisissez votre rôle",
+  "@worldoLaunchSelectRole": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色中显示的文字"
+  },
+  "worldoLaunchProfile": "Votre profil",
+  "@worldoLaunchProfile": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchSuggested": "Suggestions",
+  "@worldoLaunchSuggested": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchName": "Nom",
+  "@worldoLaunchName": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchIdentity": "Identité",
+  "@worldoLaunchIdentity": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchPersonality": "Personnalité",
+  "@worldoLaunchPersonality": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchGoal": "Objectif",
+  "@worldoLaunchGoal": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+  },
+  "worldoLaunchSetupRole": "Configurez votre rôle",
+  "@worldoLaunchSetupRole": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的标题"
+  },
+  "worldoLaunchPreset": "Prédéfini",
+  "@worldoLaunchPreset": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
+  },
+  "worldoLaunchCustom": "Personnalisé",
+  "@worldoLaunchCustom": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
+  },
+  "worldoLaunchNoPresetRole": "Aucun rôle prédéfini",
+  "@worldoLaunchNoPresetRole": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
+  },
+  "worldoLaunchFilling": "Remplissage en cours...",
+  "@worldoLaunchFilling": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
+  },
+  "worldoLaunchFillMyProfile": "Remplir à partir de mon profil",
+  "@worldoLaunchFillMyProfile": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板中显示的文字"
+  },
+  "worldoLaunchLaunch": "Lancer",
+  "@worldoLaunchLaunch": {
+    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 的角色选择面板的按钮或标签"
+  },
+  "worldoLaunchWorldoWorldName": "Worldo #{worldName} lancé !",
+  "@worldoLaunchWorldoWorldName": {
+    "description": "首页 - Worldo → Worldo Launch，Worldo Launch 完成后的弹窗",
+    "placeholders": {
+      "worldName": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLaunchEnter": "Entrer",
+  "@worldoLaunchEnter": {
+    "description": "首页 - Worldo → Worldo Launch，Worldo Launch 完成后的弹窗"
+  },
+  "createAction": "Créer",
+  "@createAction": {
+    "description": "首页 - Create → Create Worldo 页面，底部最终提交按钮"
+  },
+  "createWorldoTitle": "Créer un Worldo",
+  "@createWorldoTitle": {
+    "description": "首页 - Create → Create Worldo 页面，顶部标题"
+  },
+  "createFailed": "Échec de la création",
+  "@createFailed": {
+    "description": "首页 - Create → Create Worldo 页面，提交异常时的提示"
+  },
+  "createNotesRequired": "Des notes de mise à jour sont nécessaires pour publier.",
+  "@createNotesRequired": {
+    "description": "首页 - Create → Edit Worldo 页面，发布时未填写更新说明的提示"
+  },
+  "createActionInProgress": "Cette action est déjà en cours.",
+  "@createActionInProgress": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，重复点击提交时的提示"
+  },
+  "createCurrentVersion": "Version actuelle : {version}",
+  "@createCurrentVersion": {
+    "description": "首页 - Create → Edit Worldo 页面，摘要顶部显示当前版本",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "createChecking": "Vérification...",
+  "@createChecking": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，检查待处理提交时的底部按钮"
+  },
+  "createSummaryName": "Nom du Worldo : {name}",
+  "@createSummaryName": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 名称",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryBrief": "Résumé du Worldo : {brief}",
+  "@createSummaryBrief": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 简介",
+    "placeholders": {
+      "brief": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryCover": "Image de couverture : {status}",
+  "@createSummaryCover": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的封面状态",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "createNotUploaded": "Non envoyée",
+  "@createNotUploaded": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中封面未上传状态"
+  },
+  "createUploaded": "Envoyée",
+  "@createUploaded": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中封面已上传状态"
+  },
+  "createSummarySettings": "Paramètres du Worldo : {settings}",
+  "@createSummarySettings": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的世界设定",
+    "placeholders": {
+      "settings": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryTime": "Temps du Worldo : {time}",
+  "@createSummaryTime": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的时间设定",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryMetric": "Indicateur du Worldo : {metric}",
+  "@createSummaryMetric": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的数值设定",
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
+  },
+  "createDays": "{count, plural, =0{{count} jours}  =1{{count} jour} other{{count} jours}}",
+  "@createDays": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中时间间隔的天数",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryNoCharacters": "0 personnage",
+  "@createSummaryNoCharacters": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中无已填写角色"
+  },
+  "createSummaryCharacters": "{count, plural, =0{0 personnage : {names}} =1{1 personnage : {names}} other{{count} personnages : {names}}}",
+  "@createSummaryCharacters": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummarySuggested": "Suggestion : {name}",
+  "@createSummarySuggested": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的推荐角色",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createSummaryRegion": "L1 · Région : {count}",
+  "@createSummaryRegion": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的一级地点数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryBuilding": "L2 · Bâtiment : {count}",
+  "@createSummaryBuilding": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的二级地点数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryRoom": "L3 · Pièce : {count}",
+  "@createSummaryRoom": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的三级地点数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryEvents": "{count, plural, =0{{count} événement} =1{1 événement} other{{count} événements}}",
+  "@createSummaryEvents": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryDialogue": "Dialogue de personnage : {count}",
+  "@createSummaryDialogue": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的角色对话数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryNarrator": "Narrateur : {count}",
+  "@createSummaryNarrator": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的旁白数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createSummaryImage": "Image : {count}",
+  "@createSummaryImage": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的图片数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createDeleteItemLabel": "Supprimer {itemLabel} ?",
+  "@createDeleteItemLabel": {
+    "description": "首页 - Create，“Delete ${itemLabel}?”字段或选项",
+    "placeholders": {
+      "itemLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createItemHasContentDeleteAnyway": "Cet élément contient du contenu. Le supprimer quand même ?",
+  "@createItemHasContentDeleteAnyway": {
+    "description": "首页 - Create，删除条目确认弹窗"
+  },
+  "createImageUploadProgress": "L’envoi de l’image est en cours.",
+  "@createImageUploadProgress": {
+    "description": "首页 - Create，封面上传区时显示的提示"
+  },
+  "createBasicsBasics": "Informations de base",
+  "@createBasicsBasics": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Basics 页标题；提交前校验提示中的 Basics 名称"
+  },
+  "createSaveInProgress": "L’enregistrement est déjà en cours.",
+  "@createSaveInProgress": {
+    "description": "首页 - Create → Worldo 的 Basics、Characters、Locations、Opening、Story Events 编辑页，保存过程中再次点击禁用的 Save 按钮"
+  },
+  "createRequiredBeforeSave": "Remplissez tous les champs obligatoires avant d’enregistrer.",
+  "@createRequiredBeforeSave": {
+    "description": "首页 - Create → Worldo 的 Basics 或 Opening 编辑页，必填项未完成时点击 Save 按钮"
+  },
+  "createOpeningOpening": "Ouverture",
+  "@createOpeningOpening": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Opening 页标题；提交前校验提示中的 Opening 名称"
+  },
+  "createCharacterCharactersCreate": "Personnages : veuillez créer au moins un personnage.",
+  "@createCharacterCharactersCreate": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createCharacterCharactersOnlyOne": "Personnages : un seul personnage peut être recommandé.",
+  "@createCharacterCharactersOnlyOne": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsWorldoName": "Informations de base : le nom du Worldo est requis.",
+  "@createBasicsBasicsWorldoName": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsWorldoBrief": "Informations de base : le résumé du Worldo est requis.",
+  "@createBasicsBasicsWorldoBrief": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsCoverImage": "Informations de base : l’image de couverture est requise.",
+  "@createBasicsBasicsCoverImage": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createBasicsBasicsMetricMust": "Informations de base : l’indicateur doit être au format JSON valide.",
+  "@createBasicsBasicsMetricMust": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createCharacterCharactersName": "Personnage #{characterIndex} : le nom est requis.",
+  "@createCharacterCharactersName": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个角色缺少 Name 的提示",
+    "placeholders": {
+      "characterIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterCharacters": "Personnage #{characterIndex} : l’identité est requise.",
+  "@createCharacterCharacters": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个角色缺少 Identity 的提示",
+    "placeholders": {
+      "characterIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterRequired": "Personnage #{characterIndex} : la personnalité est requise.",
+  "@createCharacterRequired": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个角色缺少 Personality 的提示",
+    "placeholders": {
+      "characterIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterCharactersLeast": "Personnages : au moins un personnage est requis.",
+  "@createCharacterCharactersLeast": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createLocationLocationsCreate": "Lieux : veuillez créer au moins un lieu.",
+  "@createLocationLocationsCreate": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createLocationLocationsLocation": "Lieu #{locationIndex} : le nom du lieu est requis.",
+  "@createLocationLocationsLocation": {
+    "description": "Create Worldo / Edit Worldo 页，提交时第 N 个地点缺少 Location Name 的提示",
+    "placeholders": {
+      "locationIndex": {
+        "type": "String"
+      }
+    }
+  },
+  "createOpeningOpeningSelect": "Ouverture : sélectionnez un lieu et complétez chaque élément du dialogue.",
+  "@createOpeningOpeningSelect": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createOpeningOpeningSelected": "Ouverture : le lieu sélectionné n’est plus disponible.",
+  "@createOpeningOpeningSelected": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createOpeningCharacterOpening": "Ouverture : un personnage sélectionné n’est plus disponible.",
+  "@createOpeningCharacterOpening": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createOpeningOpeningDialogue": "Ouverture : un personnage du dialogue n’est pas dans le lieu sélectionné. Ouvrez Ouverture pour corriger cela.",
+  "@createOpeningOpeningDialogue": {
+    "description": "首页 - Create，表单校验，提交前字段校验中显示的文字"
+  },
+  "createUnsupportedOpeningDialogue": "Dialogue d’ouverture non pris en charge : {type}",
+  "@createUnsupportedOpeningDialogue": {
+    "description": "首页 - Create，表单校验，“Unsupported opening dialogue: ${type}”字段或选项",
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "createCreating": "Création en cours...",
+  "@createCreating": {
+    "description": "首页 - Create，页面标题/登录限制中显示的文字"
+  },
+  "createDiscard": "Abandonner",
+  "@createDiscard": {
+    "description": "首页 - Create → Worldo 编辑页，未保存离开确认弹窗"
+  },
+  "createCharactersStep": "Personnages (>=1)",
+  "@createCharactersStep": {
+    "description": "首页 - Create → Worldo 编辑页，步骤页标题/状态"
+  },
+  "createLocationsStep": "Lieux (>=1)",
+  "@createLocationsStep": {
+    "description": "首页 - Create → Worldo 编辑页，步骤页标题/状态"
+  },
+  "createStoryEventsOptional": "Événements de l’histoire (facultatif)",
+  "@createStoryEventsOptional": {
+    "description": "首页 - Create → Worldo 编辑页，步骤页标题/状态"
+  },
+  "createUpdateNotesRequiredPublish": "Notes de mise à jour (requises pour publier)",
+  "@createUpdateNotesRequiredPublish": {
+    "description": "首页 - Create → Worldo 编辑页，Update Notes 字段标题"
+  },
+  "createWhatChangedVersion": "Qu’est-ce qui a changé dans cette version ?",
+  "@createWhatChangedVersion": {
+    "description": "首页 - Create → Worldo 编辑页，Update Notes 输入框的输入框提示"
+  },
+  "createView": "Voir",
+  "@createView": {
+    "description": "首页 - Create → Worldo 编辑页，Worldo 提交处理完成后的弹窗"
+  },
+  "createNotStartedYet": "Pas encore commencé",
+  "@createNotStartedYet": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics、Characters、Locations、Opening、Story Events 尚未保存时的模块摘要"
+  },
+  "createEdited": "Modifié",
+  "@createEdited": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域中显示的文字"
+  },
+  "createPublishingWorldo": "Publication de votre Worldo",
+  "@createPublishingWorldo": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域的标题"
+  },
+  "createCreatingWorldo": "Création de votre Worldo",
+  "@createCreatingWorldo": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域的标题"
+  },
+  "createPreparingWorldoUpdatesWait": "Préparation des mises à jour de votre Worldo.\nVeuillez patienter un instant.",
+  "@createPreparingWorldoUpdatesWait": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域中显示的文字"
+  },
+  "createBringingWorldoLifeWait": "Votre Worldo prend vie.\nVeuillez patienter un instant.",
+  "@createBringingWorldoLifeWait": {
+    "description": "首页 - Create → Worldo 编辑页，页面内容区域中显示的文字"
+  },
+  "createDescribeIssue": "Décrivez le problème",
+  "@createDescribeIssue": {
+    "description": "首页 - Create → 内容提交弹窗，提交内容时填写说明的弹窗"
+  },
+  "createSubmit": "Envoyer",
+  "@createSubmit": {
+    "description": "首页 - Create → 内容提交弹窗，提交内容时填写说明的弹窗"
+  },
+  "createBasicsWorldoName": "Nom du Worldo *",
+  "@createBasicsWorldoName": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Name”字段标题"
+  },
+  "createBasicsNameRequired": "Le nom du Worldo est requis.",
+  "@createBasicsNameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Name 为空时点击 Save 的提示"
+  },
+  "createBasicsBriefRequired": "Le résumé du Worldo est requis.",
+  "@createBasicsBriefRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 为空时点击 Save 的提示"
+  },
+  "createBasicsCoverRequired": "L’image de couverture est requise.",
+  "@createBasicsCoverRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Cover Image 为空时点击 Save 的提示"
+  },
+  "createBasicsMetricInvalid": "L’indicateur doit être au format JSON valide.",
+  "@createBasicsMetricInvalid": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Metric JSON 无效时点击 Save 的提示"
+  },
+  "createBasicsEgMainStreet": "Ex. : Rue principale",
+  "@createBasicsEgMainStreet": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Main Street”"
+  },
+  "createBasicsWorldoBrief": "Résumé du Worldo *",
+  "@createBasicsWorldoBrief": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Brief”字段标题"
+  },
+  "createBasicsBriefNote": "L’accroche publique que les joueurs découvrent en premier : le cadre, le conflit central et ce qui le rend intrigant.",
+  "@createBasicsBriefNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 输入框下的说明"
+  },
+  "createBasicsHiddenNote": "Les règles cachées et le contexte qui font avancer l’histoire : intentions, mécanismes et limites secrètes.",
+  "@createBasicsHiddenNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Settings - Hidden 输入框下的说明"
+  },
+  "createBasicsEgHalfShopsMain": "Ex. : La moitié des commerces de la rue principale sont condamnés. À la fête du Travail, le propriétaire du commerce le plus riche dirigera la ville.",
+  "@createBasicsEgHalfShopsMain": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.”"
+  },
+  "createBasicsCoverImage": "Image de couverture *",
+  "@createBasicsCoverImage": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Cover Image”字段标题"
+  },
+  "createBasicsUpload": "Importer",
+  "@createBasicsUpload": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，封面图片上传按钮"
+  },
+  "createBasicsUsedCardsDetailPages": "Utilisée sur les cartes et les pages de détails. Environ 768×1024 px recommandés. Formats pris en charge : JPG, PNG, WEBP.",
+  "@createBasicsUsedCardsDetailPages": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，封面图片尺寸和格式说明"
+  },
+  "createBasicsWorldoSettingsHidden": "Paramètres du Worldo — cachés (facultatif)",
+  "@createBasicsWorldoSettingsHidden": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Settings - Hidden (Optional)”字段或选项"
+  },
+  "createBasicsEgBankerSecretly": "Ex. : Le banquier décide en secret qui obtient un prêt ; ceux qui s’endettent trop peuvent être évincés.",
+  "@createBasicsEgBankerSecretly": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. The banker secretly controls who gets loans; whoever overextends can be squeezed out.”"
+  },
+  "createBasicsWorldoTimeOptional": "Temps du Worldo (facultatif)",
+  "@createBasicsWorldoTimeOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Time (Optional)”字段或选项"
+  },
+  "createBasicsWorldoStartsStart": "Ce worldo commence à '{Heure de début}' ; chaque fois que l’utilisateur appuie sur *progresser*, la chronologie avance de '{Temps par progression}'.",
+  "@createBasicsWorldoStartsStart": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Time 字段下方的说明"
+  },
+  "createBasicsStartTime": "Heure de début",
+  "@createBasicsStartTime": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Start Time”字段或选项"
+  },
+  "createBasicsDateExample": "Ex. : Jour 1, 09:00 / 2026-01-01",
+  "@createBasicsDateExample": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Day 1, 09:00 / 2026-01-01”"
+  },
+  "createBasicsTimePerProgress": "Temps par progression",
+  "@createBasicsTimePerProgress": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Time per Progress”字段或选项"
+  },
+  "createBasicsEg8Hours3Days": "Ex. : 8 heures / 3 jours",
+  "@createBasicsEg8Hours3Days": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. 8 hours / 3 days”"
+  },
+  "createBasicsWorldoMetricOptional": "Indicateur du Worldo (facultatif)",
+  "@createBasicsWorldoMetricOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Metric (Optional)”字段或选项"
+  },
+  "createBasicsMetricLabel": "Libellé de l’indicateur",
+  "@createBasicsMetricLabel": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Metric Label”字段或选项"
+  },
+  "createBasicsEgWealthGoalProgress": "Ex. : Richesse / Progression de l’objectif",
+  "@createBasicsEgWealthGoalProgress": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Wealth / Goal Progress”"
+  },
+  "createBasicsLabelNote": "Note sur le libellé",
+  "@createBasicsLabelNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Label note”字段或选项"
+  },
+  "createBasicsDescribeWhatMetric": "Décrivez ce que mesure cet indicateur",
+  "@createBasicsDescribeWhatMetric": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Describe what this metric measures”"
+  },
+  "createBasicsUnit": "Unité",
+  "@createBasicsUnit": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Unit”字段或选项"
+  },
+  "createBasicsEgCoins": "Ex. : pièces / %",
+  "@createBasicsEgCoins": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. coins / %”"
+  },
+  "createBasicsRange": "Plage de valeurs",
+  "@createBasicsRange": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，“Value Range”字段或选项"
+  },
+  "createBasicsStarting": "Valeur initiale",
+  "@createBasicsStarting": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Starting”"
+  },
+  "createBasicsDeltaMin": "Variation min.",
+  "@createBasicsDeltaMin": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Delta Min”"
+  },
+  "createBasicsDeltaMax": "Variation max.",
+  "@createBasicsDeltaMax": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“Delta Max”"
+  },
+  "createBasicsSaving": "Enregistrement...",
+  "@createBasicsSaving": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，保存按钮"
+  },
+  "createBasicsAdvancedSettings": "Paramètres avancés (facultatif)",
+  "@createBasicsAdvancedSettings": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Advanced Settings 分隔标题"
+  },
+  "createCharacterCharacterIndex": "Personnage {index}",
+  "@createCharacterCharacterIndex": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色卡片的标题",
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterSuggest": "Recommander",
+  "@createCharacterSuggest": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，Best Role 选择区中显示的文字"
+  },
+  "createCharacterAvatarOptional": "AVATAR\n(facultatif)",
+  "@createCharacterAvatarOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“AVATAR\\n(Optional)”字段或选项"
+  },
+  "createCharacterName": "Nom *",
+  "@createCharacterName": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Name”字段标题"
+  },
+  "createCharactersTitle": "Personnages",
+  "@createCharactersTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Characters 编辑页顶部标题"
+  },
+  "createCharacterLimit": "Vous pouvez ajouter jusqu’à {count} personnages.",
+  "@createCharacterLimit": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，超过角色数量上限时的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterNameRequired": "Personnage {index} : le nom est requis.",
+  "@createCharacterNameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Name 时保存的提示",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterIdentityRequired": "Personnage {index} : l’identité est requise.",
+  "@createCharacterIdentityRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Identity 时保存的提示",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterPersonalityRequired": "Personnage {index} : la personnalité est requise.",
+  "@createCharacterPersonalityRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Personality 时保存的提示",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "createCharacterMinOne": "Veuillez créer au moins un personnage.",
+  "@createCharacterMinOne": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，没有角色时点击 Save 的提示"
+  },
+  "createCharacterEnterName": "Saisissez un nom...",
+  "@createCharacterEnterName": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“Enter name...”"
+  },
+  "createCharacterIdentity": "Identité *",
+  "@createCharacterIdentity": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Identity”字段标题"
+  },
+  "createCharacterEgHometownKidBack": "Ex. : Un enfant du pays de retour pour tenter sa chance",
+  "@createCharacterEgHometownKidBack": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. A hometown kid back for one real shot”"
+  },
+  "createCharacterPersonality": "Personnalité *",
+  "@createCharacterPersonality": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Personality”字段标题"
+  },
+  "createCharacterEgUnderdog": "Ex. : Un outsider bienveillant avec peu de moyens",
+  "@createCharacterEgUnderdog": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Underdog with goodwill but little capital”"
+  },
+  "createCharacterGoalOptional": "Objectif (facultatif)",
+  "@createCharacterGoalOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Goal (Optional)”字段或选项"
+  },
+  "createCharacterEgRichestOwner": "Ex. : Devenir le propriétaire le plus riche de la rue principale d’ici la fête du Travail",
+  "@createCharacterEgRichestOwner": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Be the richest owner on Main Street by Labor Day”"
+  },
+  "createCharacterBackgroundHidden": "Passé — caché (facultatif)",
+  "@createCharacterBackgroundHidden": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，“Background - Hidden (Optional)”字段或选项"
+  },
+  "createCharacterEgLeftTownYears": "Ex. : Parti de la ville il y a des années, il revient dans une rue principale aux commerces fermés pour tenter sa chance.",
+  "@createCharacterEgLeftTownYears": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“eg. Left town years ago; returned to a boarded-up Main Street for one chance.”"
+  },
+  "createCharacterAddCharacter": "+ Ajouter un personnage",
+  "@createCharacterAddCharacter": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色列表/保存操作的按钮或标签"
+  },
+  "createLocationImageOptional": "IMAGE\n(facultatif)",
+  "@createLocationImageOptional": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，“IMAGE\\n(Optional)”字段或选项"
+  },
+  "createCharacterSelectAvailable": "Sélectionnez parmi les personnages disponibles ci-dessous",
+  "@createCharacterSelectAvailable": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterInitialCharacters": "Personnages initiaux (facultatif)",
+  "@createCharacterInitialCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createLocationStartingCharacters": "Les personnages présents ici au début du worldo.",
+  "@createLocationStartingCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterAvailableSelect": "Disponibles",
+  "@createCharacterAvailableSelect": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterNoCharactersYet": "Aucun personnage pour le moment. Créez d’abord des personnages, puis choisissez leur lieu de départ.",
+  "@createCharacterNoCharactersYet": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createCharacterNoCharacters": "Aucun personnage disponible. Tous les personnages ont déjà un lieu initial.",
+  "@createCharacterNoCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Initial Characters 字段中显示的文字"
+  },
+  "createLocationEveryL2L3Locations": "Tous les lieux L2 et L3 qu’il contient seront également supprimés.",
+  "@createLocationEveryL2L3Locations": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗"
+  },
+  "createLocationEveryL3Locations": "Tous les lieux L3 qu’il contient seront également supprimés.",
+  "@createLocationEveryL3Locations": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗"
+  },
+  "createLocationDeleteDisplayName": "Supprimer « {displayName} »",
+  "@createLocationDeleteDisplayName": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除地点分支确认弹窗",
+    "placeholders": {
+      "displayName": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationOpeningLocation": "C’est le lieu de l’ouverture. Le supprimer effacera également l’ouverture.",
+  "@createLocationOpeningLocation": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，删除 Opening 地点确认弹窗"
+  },
+  "createLocationL1LocationRegion": "Lieu L1 · Région *",
+  "@createLocationL1LocationRegion": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，地点树节点标题"
+  },
+  "createLocationL2LocationBuilding": "Lieu L2 · Bâtiment *",
+  "@createLocationL2LocationBuilding": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，地点树节点标题"
+  },
+  "createLocationAddL3Location": "Ajouter un lieu L3",
+  "@createLocationAddL3Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet的标题"
+  },
+  "createLocationsTitle": "Lieux",
+  "@createLocationsTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Locations 编辑页顶部标题"
+  },
+  "createLocationStatisticsNote": "Votre monde est construit sur 3 niveaux :\nL1 · Région     Une zone de votre monde — Centre-ville\nL2 · Bâtiment   Un bâtiment de cette zone — Restaurant de Joe\nL3 · Pièce       Une pièce du bâtiment — Arrière-cuisine\nChaque lieu doit avoir les trois niveaux. Jusqu’à 15 pièces au total.",
+  "@createLocationStatisticsNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Preview 页面地点层级说明"
+  },
+  "createLocationL1NameNote": "Une zone de votre monde : un quartier, une ville, une forêt. Pas un seul bâtiment.",
+  "@createLocationL1NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称输入框下的说明"
+  },
+  "createLocationL2NameNote": "Un bâtiment dans cette région : une boutique, une école, un immeuble.",
+  "@createLocationL2NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点名称输入框下的说明"
+  },
+  "createLocationL3NameNote": "Une pièce dans le bâtiment. Les toits, cours et entrées conviennent aussi.",
+  "@createLocationL3NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称输入框下的说明"
+  },
+  "createLocationName": "Nom *",
+  "@createLocationName": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet 的名称字段标题"
+  },
+  "createLocationL1NameRequired": "Le nom du lieu L1 est requis.",
+  "@createLocationL1NameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称为空时点击 Save 的提示"
+  },
+  "createLocationL3NameRequired": "Le nom du lieu L3 est requis.",
+  "@createLocationL3NameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称为空时点击 Save 的提示"
+  },
+  "createLocationThisL1": "Ce lieu L1",
+  "@createLocationThisL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点尚未命名时校验提示中的地点称呼"
+  },
+  "createLocationThisL2": "Ce lieu L2",
+  "@createLocationThisL2": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点尚未命名时校验提示中的地点称呼"
+  },
+  "createLocationL1NeedsL2": "{locationLabel} doit contenir au moins un lieu L2.",
+  "@createLocationL1NeedsL2": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点缺少 L2 子地点时的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationL2NeedsL3": "{locationLabel} doit contenir au moins un lieu L3.",
+  "@createLocationL2NeedsL3": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点缺少 L3 子地点时的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationL2NameNeeded": "{locationLabel} contient un lieu L2 qui doit être nommé.",
+  "@createLocationL2NameNeeded": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 下的 L2 地点缺少名称时点击 Save 的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationL3NameNeeded": "{locationLabel} contient un lieu L3 qui doit être nommé.",
+  "@createLocationL3NameNeeded": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 下的 L3 地点缺少名称时点击 Save 的提示",
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "createLocationMaxL3": "Vous pouvez ajouter jusqu’à {count} lieux L3.",
+  "@createLocationMaxL3": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，新增地点达到 L3 总数上限时的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createLocationRoomsFull": "Vous avez utilisé les {count} pièces. Supprimez-en une pour en ajouter une autre.",
+  "@createLocationRoomsFull": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，新增 L3 地点时房间已满的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createLocationAtLeastOneL1": "Au moins un lieu L1 est requis.",
+  "@createLocationAtLeastOneL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，尝试删除最后一个 L1 地点时的提示"
+  },
+  "createLocationAddL1": "Ajoutez au moins un lieu L1.",
+  "@createLocationAddL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，没有 L1 地点时点击 Save 的提示"
+  },
+  "createLocationMinOne": "Veuillez créer au moins un lieu.",
+  "@createLocationMinOne": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，没有地点时点击 Save 的提示"
+  },
+  "createLocationIdRequired": "Chaque lieu doit avoir un identifiant.",
+  "@createLocationIdRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 缺失的提示"
+  },
+  "createLocationIdUnique": "Chaque lieu doit avoir un identifiant unique.",
+  "@createLocationIdUnique": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 重复的提示"
+  },
+  "createLocationParentInvalid": "Chaque lieu doit avoir un parent valide.",
+  "@createLocationParentInvalid": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点上级无效的提示"
+  },
+  "createLocationFieldsRequired": "Remplissez tous les champs obligatoires des lieux avant d’enregistrer.",
+  "@createLocationFieldsRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，必填地点字段未完成时点击 Save 的提示"
+  },
+  "createLocationDeleteBubbles": "{count, plural, =0{L’enregistrement des lieux supprimera également {count} bulles de dialogue d’ouverture pour les personnages retirés.} =1{L’enregistrement des lieux supprimera également 1 bulle de dialogue d’ouverture pour les personnages retirés.} other{L’enregistrement des lieux supprimera également {count} bulles de dialogue d’ouverture pour les personnages retirés.}}",
+  "@createLocationDeleteBubbles": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时移除角色会连带删除 Opening 对话的确认弹窗正文",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createLocationEditL3Location": "Modifier le lieu L3",
+  "@createLocationEditL3Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet的标题"
+  },
+  "createLocationPreview": "Aperçu",
+  "@createLocationPreview": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，编辑模式切换中显示的文字"
+  },
+  "createLocationCompleteLocation": "Veuillez compléter ce lieu ou le supprimer.",
+  "@createLocationCompleteLocation": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createLocationRemoveCharacter": "Retirer le personnage de ce lieu ?",
+  "@createLocationRemoveCharacter": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，移除 Opening 角色确认弹窗"
+  },
+  "createLocationRemove": "Retirer",
+  "@createLocationRemove": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，移除 Opening 角色确认弹窗"
+  },
+  "createLocationL1Location": "Lieu L1",
+  "@createLocationL1Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createLocationL2Location": "Lieu L2",
+  "@createLocationL2Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createLocationL3Location": "Lieu L3",
+  "@createLocationL3Location": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，页面内容区域中显示的文字"
+  },
+  "createOpeningSelectLocation": "Sélectionner un lieu",
+  "@createOpeningSelectLocation": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板的标题"
+  },
+  "createOpeningNoSavedLocations": "Aucun lieu enregistré",
+  "@createOpeningNoSavedLocations": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板中显示的文字"
+  },
+  "createOpeningSelect": "Sélectionner",
+  "@createOpeningSelect": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板的按钮或标签"
+  },
+  "createOpeningSelectLocationFirst": "Sélectionnez d’abord un lieu.",
+  "@createOpeningSelectLocationFirst": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，弹窗或底部面板时显示的提示"
+  },
+  "createOpeningNoInitialCharacter": "Aucun personnage initial",
+  "@createOpeningNoInitialCharacter": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，列表项或卡片中显示的文字"
+  },
+  "createOpeningLocationsLoading": "Les lieux sont encore en cours de chargement.",
+  "@createOpeningLocationsLoading": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，表单输入区域时显示的提示"
+  },
+  "createOpeningLoadingLocations": "Chargement des lieux...",
+  "@createOpeningLoadingLocations": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，表单输入区域中显示的文字"
+  },
+  "createOpeningSwitchingLocations": "Changer de lieu effacera le contenu du dialogue.",
+  "@createOpeningSwitchingLocations": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，起始地点选择结果"
+  },
+  "createOpeningContinue": "Continuer",
+  "@createOpeningContinue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，起始地点选择结果"
+  },
+  "createOpeningAdd10DialogueItems": "Vous pouvez ajouter jusqu’à 10 éléments de dialogue.",
+  "@createOpeningAdd10DialogueItems": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，添加对话条目时显示的提示"
+  },
+  "settingsUnableSaveSuggestedRole": "Impossible d’enregistrer le rôle recommandé.",
+  "@settingsUnableSaveSuggestedRole": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 设置时显示的提示"
+  },
+  "createOpeningUnableSaveOpening": "Impossible d’enregistrer l’ouverture.",
+  "@createOpeningUnableSaveOpening": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，保存结果"
+  },
+  "createOpeningSelectInitial": "Sélectionner le lieu initial",
+  "@createOpeningSelectInitial": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，“Select initial location”字段或选项"
+  },
+  "createOpeningInitialLocationRequired": "Sélectionnez un lieu initial avant d’enregistrer.",
+  "@createOpeningInitialLocationRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，未选择初始地点时点击 Save 的提示"
+  },
+  "createOpeningAddDialogueFirst": "Ajoutez au moins un élément de dialogue avant d’enregistrer.",
+  "@createOpeningAddDialogueFirst": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，没有对话条目时点击 Save 的提示"
+  },
+  "createOpeningCompleteDialogue": "Complétez chaque élément de dialogue avant d’enregistrer.",
+  "@createOpeningCompleteDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，有未完成对话条目时点击 Save 的提示"
+  },
+  "createOpeningDialogue": "Dialogue d’ouverture",
+  "@createOpeningDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，“Opening dialogue”字段或选项"
+  },
+  "createOpeningLocationRequired": "Sélectionnez d’abord un lieu, puis modifiez le dialogue.",
+  "@createOpeningLocationRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Opening 内容表单中显示的文字"
+  },
+  "createOpeningNarrator": "Narrateur",
+  "@createOpeningNarrator": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 对话编辑区的按钮或标签"
+  },
+  "createOpeningImage": "Image",
+  "@createOpeningImage": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 对话编辑区的按钮或标签"
+  },
+  "createOpeningSuggestRoleUser": "Recommander un rôle à l’utilisateur",
+  "@createOpeningSuggestRoleUser": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 选择器中显示的文字"
+  },
+  "createOpeningNoCharacters": "Aucun personnage disponible.",
+  "@createOpeningNoCharacters": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Best Role 选择器中显示的文字"
+  },
+  "createOpeningEnterNarrator": "Saisissez le dialogue du narrateur",
+  "@createOpeningEnterNarrator": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Narrator 对话条目的输入框提示"
+  },
+  "createOpeningEnterNameDialogue": "Saisissez le dialogue de {name}",
+  "@createOpeningEnterNameDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Character 对话条目的输入框提示",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "createOpeningUser": "'{{user}}'",
+  "@createOpeningUser": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Dialogue 文本输入框的按钮或标签"
+  },
+  "createOpeningUploadImage": "IMPORTER UNE IMAGE",
+  "@createOpeningUploadImage": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，Image 对话条目的按钮或标签"
+  },
+  "createEventAddEvent": "+ Ajouter un événement",
+  "@createEventAddEvent": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件列表/保存操作的按钮或标签"
+  },
+  "createStoryEventsTitle": "Événements de l’histoire",
+  "@createStoryEventsTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Story Events 编辑页顶部标题"
+  },
+  "createEventLimit": "Vous pouvez ajouter jusqu’à {count} événements.",
+  "@createEventLimit": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，新增事件达到上限时的提示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createEventEventIndex": "Événement {index}",
+  "@createEventEventIndex": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片的标题",
+    "placeholders": {
+      "index": {
+        "type": "String"
+      }
+    }
+  },
+  "createEventEgNationalChainScouts": "Ex. : Une chaîne nationale convoite un terrain vacant et menace de casser les prix de tous les commerces locaux.",
+  "@createEventEgNationalChainScouts": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片的输入框提示"
+  },
+  "createEventKeyStoryBeatAIUses": "Un moment clé que l’AI utilise pour orienter l’histoire.",
+  "@createEventKeyStoryBeatAIUses": {
+    "description": "首页 - Create → Worldo 编辑 - Story Events，事件卡片中显示的文字"
+  },
+  "imageCropUploadFailed": "Échec de l’importation",
+  "@imageCropUploadFailed": {
+    "description": "首页 - Create → 图片裁剪/上传页，图片裁剪或上传失败"
+  },
+  "inboxNotifications": "Notifications",
+  "@inboxNotifications": {
+    "description": "首页 - Inbox，Notifications 消息分类入口；Notifications 分类页顶部标题"
+  },
+  "inboxNoNotificationsYet": "Aucune notification pour le moment.",
+  "@inboxNoNotificationsYet": {
+    "description": "首页 - Inbox → Notifications 分类页，无通知时的空状态"
+  },
+  "inboxFollowers": "Abonnés",
+  "@inboxFollowers": {
+    "description": "首页 - Inbox，会话列表/空状态/筛选的按钮或标签"
+  },
+  "inboxNewFollowers": "Nouveaux abonnés",
+  "@inboxNewFollowers": {
+    "description": "首页 - Inbox → New followers 消息分类页，顶部标题"
+  },
+  "inboxNoNewFollowersYet": "Aucun nouvel abonné pour le moment.",
+  "@inboxNoNewFollowersYet": {
+    "description": "首页 - Inbox → New followers 分类页，无新关注时的空状态"
+  },
+  "inboxComments": "Commentaires",
+  "@inboxComments": {
+    "description": "首页 - Inbox，Comments 消息分类入口；Comments 分类页顶部标题"
+  },
+  "inboxNoCommentsYet": "Aucun commentaire pour le moment.",
+  "@inboxNoCommentsYet": {
+    "description": "首页 - Inbox → Comments 分类页，无评论时的空状态"
+  },
+  "inboxPrivateChats": "Conversations privées",
+  "@inboxPrivateChats": {
+    "description": "首页 - Inbox，会话列表/空状态/筛选中显示的文字"
+  },
+  "inboxChatFriendsWorldo": "Discutez avec vos amis sur Worldo.",
+  "@inboxChatFriendsWorldo": {
+    "description": "首页 - Inbox，会话列表/空状态/筛选中显示的文字"
+  },
+  "inboxUnknownUser": "Utilisateur inconnu",
+  "@inboxUnknownUser": {
+    "description": "首页 - Inbox，会话列表项中显示的文字"
+  },
+  "inboxDirectMessage": "Message privé",
+  "@inboxDirectMessage": {
+    "description": "首页 - Inbox → 私聊页，私聊页面的空状态或加载状态"
+  },
+  "inboxJoinRequest": "Demande pour rejoindre",
+  "@inboxJoinRequest": {
+    "description": "首页 - Inbox → 通知/加入申请，列表项中显示的文字"
+  },
+  "inboxApprove": "Approuver",
+  "@inboxApprove": {
+    "description": "首页 - Inbox → 通知/加入申请，操作菜单的按钮或标签"
+  },
+  "inboxReject": "Refuser",
+  "@inboxReject": {
+    "description": "首页 - Inbox → 通知/加入申请，操作菜单的按钮或标签"
+  },
+  "inboxOk": "OK",
+  "@inboxOk": {
+    "description": "首页 - Inbox → 通知/加入申请，详情弹窗"
+  },
+  "inboxReviewFailed": "Échec de l’examen",
+  "@inboxReviewFailed": {
+    "description": "首页 - Inbox → 通知/加入申请，审核结果"
+  },
+  "inboxLoadMessagesFailed": "Échec du chargement des messages.",
+  "@inboxLoadMessagesFailed": {
+    "description": "首页 - Inbox → 通知/加入申请，通知列表/空状态"
+  },
+  "inboxNewMessage": "Nouveau message",
+  "@inboxNewMessage": {
+    "description": "首页 - Inbox → 通知文案，列表项或卡片中显示的文字"
+  },
+  "inboxSomeone": "Quelqu’un",
+  "@inboxSomeone": {
+    "description": "首页 - Inbox → 通知文案，发送者名称兜底中显示的文字"
+  },
+  "inboxWorld": "ce monde",
+  "@inboxWorld": {
+    "description": "首页 - Inbox → 通知文案，World 请求摘要中显示的文字"
+  },
+  "inboxNameRequestJoinWorldSuffix": "{name} demande à rejoindre {world}{suffix}",
+  "@inboxNameRequestJoinWorldSuffix": {
+    "description": "首页 - Inbox → 通知文案，Join Request 摘要中显示的文字",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "world": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxCommentWorldo": " a commenté votre worldo",
+  "@inboxCommentWorldo": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxReply": " vous a répondu",
+  "@inboxReply": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxLikeComment": " a aimé votre commentaire",
+  "@inboxLikeComment": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxLikedComment": "a aimé votre commentaire",
+  "@inboxLikedComment": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxComment2LikeComment": "a aimé votre commentaire",
+  "@inboxComment2LikeComment": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxReplied": "vous a répondu",
+  "@inboxReplied": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxYou2Reply": "vous a répondu",
+  "@inboxYou2Reply": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxCommentedOrigin": "a commenté votre création",
+  "@inboxCommentedOrigin": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxCommentOrigin": "a commenté votre création",
+  "@inboxCommentOrigin": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxSentMessage": " vous a envoyé un message",
+  "@inboxSentMessage": {
+    "description": "首页 - Inbox → 通知文案，Discuss 互动通知标题"
+  },
+  "inboxStartedFollowing": " a commencé à vous suivre.",
+  "@inboxStartedFollowing": {
+    "description": "首页 - Inbox → 通知文案，Follow 通知用户名中显示的文字"
+  },
+  "meFailedOpenDiscord": "Impossible d’ouvrir Discord",
+  "@meFailedOpenDiscord": {
+    "description": "首页 - Me，Discord 跳转结果"
+  },
+  "meImagePickFailed": "Échec de la sélection de l’image",
+  "@meImagePickFailed": {
+    "description": "首页 - Me，头像编辑结果"
+  },
+  "meUpdateFailed": "Échec de la mise à jour",
+  "@meUpdateFailed": {
+    "description": "首页 - Me，昵称修改结果"
+  },
+  "mePlaying": "En cours",
+  "@mePlaying": {
+    "description": "首页 - Me，个人信息/菜单列表中显示的文字"
+  },
+  "meEditName": "Modifier le nom",
+  "@meEditName": {
+    "description": "首页 - Me，修改昵称弹窗，修改昵称弹窗"
+  },
+  "meSignUpReward": "Inscrivez-vous et recevez 250 gemmes !",
+  "@meSignUpReward": {
+    "description": "首页 - Me，未登录状态下登录引导区中显示的文字"
+  },
+  "loginSignUpReward": "Inscrivez-vous et recevez 250 gemmes !",
+  "@loginSignUpReward": {
+    "description": "登录弹窗顶部以及新用户个性化页登录区的注册奖励提示"
+  },
+  "meUnknown": "Inconnu",
+  "@meUnknown": {
+    "description": "首页 - Me，资料加载失败状态"
+  },
+  "meOIDLatestVersion": "OID : {oid}\nDernière version : {version}",
+  "@meOIDLatestVersion": {
+    "description": "首页 - Me，页面标题或顶部区域中显示的文字",
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "meWIDDisplayOwner": "WID : {displayWid}\nPropriétaire : {owner}",
+  "@meWIDDisplayOwner": {
+    "description": "首页 - Me，页面标题或顶部区域中显示的文字",
+    "placeholders": {
+      "displayWid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "meFollows": "Abonnements",
+  "@meFollows": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字"
+  },
+  "meFollowingCount": "{followingCount} abonnements",
+  "@meFollowingCount": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字",
+    "placeholders": {
+      "followingCount": {
+        "type": "String"
+      }
+    }
+  },
+  "meFollowersCount": "{followersCount} abonnés",
+  "@meFollowersCount": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表中显示的文字",
+    "placeholders": {
+      "followersCount": {
+        "type": "String"
+      }
+    }
+  },
+  "meNoFollowingYet": "Aucun abonnement pour le moment.",
+  "@meNoFollowingYet": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
+  },
+  "meNoFollowersYet": "Aucun abonné pour le moment.",
+  "@meNoFollowersYet": {
+    "description": "首页 - Me → 关注/粉丝页，Following 或 Followers 用户列表无内容时显示的提示"
+  },
+  "meBlockFailed": "Le blocage a échoué. Veuillez réessayer.",
+  "@meBlockFailed": {
+    "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
+  },
+  "meUserBlockedContentHasReported": "Utilisateur bloqué. Ce contenu a été signalé à l’équipe Worldo.",
+  "@meUserBlockedContentHasReported": {
+    "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
+  },
+  "meBlockUser": "Bloquer cet utilisateur ?",
+  "@meBlockUser": {
+    "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
+  },
+  "meBlock": "Bloquer",
+  "@meBlock": {
+    "description": "首页 - Me → 其他用户资料页，Block 用户的确认弹窗"
+  },
+  "meUnblockFailed": "Le déblocage a échoué. Veuillez réessayer.",
+  "@meUnblockFailed": {
+    "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
+  },
+  "meUnblock": "Débloquer",
+  "@meUnblock": {
+    "description": "首页 - Me → 其他用户资料页，其他用户资料页的按钮或标签"
+  },
+  "meFollowing": "Abonné",
+  "@meFollowing": {
+    "description": "首页 - Me → 用户资料页，Following/Followers 统计的按钮或标签"
+  },
+  "meFollow": "Suivre",
+  "@meFollow": {
+    "description": "首页 - Me → 用户资料页，Follow/Edit 操作按钮"
+  },
+  "meMessage": "Message",
+  "@meMessage": {
+    "description": "首页 - Me → 用户资料页，Follow/Edit 操作按钮"
+  },
+  "meUID": "UID : {uid}",
+  "@meUID": {
+    "description": "首页 - Me → 设置页，账号 UID；首页 - Me → Following 或 Followers 列表，用户项的 UID",
+    "placeholders": {
+      "uid": {
+        "type": "String"
+      }
+    }
+  },
+  "meNoWorldoCreatedYet": "Vous n’avez encore créé aucun Worldo.",
+  "@meNoWorldoCreatedYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "meNoWorldoYet": "Aucun Worldo pour le moment.",
+  "@meNoWorldoYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "meNoWorldsCreatedYet": "Vous n’avez encore créé aucun monde.",
+  "@meNoWorldsCreatedYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "meNoWorldsYet": "Aucun monde pour le moment.",
+  "@meNoWorldsYet": {
+    "description": "首页 - Me → 用户资料页，Worldo/World 收藏列表无内容时显示的提示"
+  },
+  "profileUID": "UID",
+  "@profileUID": {
+    "description": "首页 - Me → 用户资料页，个人资料头部的按钮或标签"
+  },
+  "gemsRed": "Gemmes rouges",
+  "@gemsRed": {
+    "description": "首页 - Me → 用户资料页，Gems 余额入口的按钮或标签"
+  },
+  "gemsPink": "Gemmes roses",
+  "@gemsPink": {
+    "description": "首页 - Me → 用户资料页，Gems 余额入口的按钮或标签"
+  },
+  "gemsTop": "Recharger",
+  "@gemsTop": {
+    "description": "首页 - Me → 用户资料页，Gems 余额入口中显示的文字"
+  },
+  "gemsBuy": "Acheter des gemmes",
+  "@gemsBuy": {
+    "description": "首页 - Me → Gems 钱包页顶部的页面标题"
+  },
+  "gemsRecords": "Historique",
+  "@gemsRecords": {
+    "description": "首页 - Me → Gems 钱包页右上角 Records 记录入口"
+  },
+  "gemsUnableLoad": "Impossible de charger les gemmes.",
+  "@gemsUnableLoad": {
+    "description": "首页 - Me → Gems 钱包页整体加载失败时的提示"
+  },
+  "settingsLogOutAccount": "Vous déconnecter de votre compte ?",
+  "@settingsLogOutAccount": {
+    "description": "首页 - Me → 设置页，Log Out 确认弹窗"
+  },
+  "settingsLogOut": "Se déconnecter",
+  "@settingsLogOut": {
+    "description": "首页 - Me → 设置页，Log Out 确认弹窗"
+  },
+  "settingsFeedback": "Commentaires",
+  "@settingsFeedback": {
+    "description": "首页 - Me → 设置页，Feedback 反馈弹窗"
+  },
+  "settings": "Paramètres",
+  "@settings": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsAboutUs": "À propos de nous",
+  "@settingsAboutUs": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsAccount": "Compte",
+  "@settingsAccount": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsBlockedUsers": "Utilisateurs bloqués",
+  "@settingsBlockedUsers": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "settingsJoinDiscord": "Rejoindre Discord",
+  "@settingsJoinDiscord": {
+    "description": "首页 - Me → 设置页，设置项列表中显示的文字"
+  },
+  "meUserUnblocked": "Utilisateur débloqué",
+  "@meUserUnblocked": {
+    "description": "首页 - Me → 屏蔽用户页，Block/Unblock 操作结果"
+  },
+  "meNoBlockedUsersYet": "Aucun utilisateur bloqué pour le moment.",
+  "@meNoBlockedUsersYet": {
+    "description": "首页 - Me → 屏蔽用户页，列表加载/空状态"
+  },
+  "settingsAgreeTermsContinue": "Acceptez nos conditions pour continuer.",
+  "@settingsAgreeTermsContinue": {
+    "description": "首页 - Me → 账号设置页，删除账号确认与结果"
+  },
+  "settingsDeleteAccount": "Supprimer votre compte ?",
+  "@settingsDeleteAccount": {
+    "description": "首页 - Me → 账号设置页，删除账号确认与结果"
+  },
+  "settingsAccountDeletionAgreement": "Accord de suppression du compte",
+  "@settingsAccountDeletionAgreement": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "settingsEnsureSecurityAccount": "Pour assurer la sécurité de votre compte, veuillez prendre connaissance des conséquences de sa suppression.\n\nLa suppression du compte est différente de la déconnexion et ne peut pas être annulée. Vos données privées, notamment les personnages créés, l’historique de recherche, les conversations avec les personnages, vos favoris, vos souvenirs, les données d’interaction et les commandes, seront définitivement supprimées et ne pourront pas être récupérées.",
+  "@settingsEnsureSecurityAccount": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "gemsAllUnusedIncludingPurchased": "Toutes les gemmes inutilisées, achetées ou obtenues, seront définitivement perdues. En continuant, vous y renoncez volontairement. La suppression du compte ne donne pas automatiquement droit à un remboursement.\n\nTous les avantages restants de votre abonnement seront également définitivement perdus et ne pourront pas être rétablis. Supprimer votre compte n’annule pas votre abonnement.",
+  "@gemsAllUnusedIncludingPurchased": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "settingsIHaveReadAccountDeletion": "J’ai lu l’accord de suppression du compte",
+  "@settingsIHaveReadAccountDeletion": {
+    "description": "首页 - Me → 账号设置页，账号信息/删除账号区中显示的文字"
+  },
+  "settingsCurrentLoginAccount": "Compte actuellement connecté :",
+  "@settingsCurrentLoginAccount": {
+    "description": "首页 - Me → 账号设置页，当前登录账号卡片中显示的文字"
+  },
+  "profileSaveFailed": "Impossible d’enregistrer votre profil. Veuillez réessayer.",
+  "@profileSaveFailed": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化提交或登录时显示的提示"
+  },
+  "meSignInFailed": "Échec de la connexion. Veuillez réessayer.",
+  "@meSignInFailed": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化提交或登录时显示的提示"
+  },
+  "meCompleteProfileContinue": "Complétez votre profil pour continuer.",
+  "@meCompleteProfileContinue": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单中显示的文字"
+  },
+  "meSelectGenderAge": "Veuillez sélectionner votre genre et votre âge.",
+  "@meSelectGenderAge": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单时显示的提示"
+  },
+  "meSelectGender": "Veuillez sélectionner votre genre.",
+  "@meSelectGender": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单时显示的提示"
+  },
+  "meSelectAge": "Veuillez sélectionner votre âge.",
+  "@meSelectAge": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化选项表单时显示的提示"
+  },
+  "meRequired": "Obligatoire",
+  "@meRequired": {
+    "description": "首页 - Me → 新用户个性化页，“Required”字段或选项"
+  },
+  "mePersonalizeWorldoExperience": "Personnalisez votre expérience Worldo",
+  "@mePersonalizeWorldoExperience": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部中显示的文字"
+  },
+  "meSignIn": "Se connecter",
+  "@meSignIn": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部的标题"
+  },
+  "meBack": "Retour",
+  "@meBack": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部的无障碍说明"
+  },
+  "meSkip": "Passer",
+  "@meSkip": {
+    "description": "首页 - Me → 新用户个性化页，新用户个性化页面顶部中显示的文字"
+  },
+  "meContinueGoogle": "Continuer avec Google",
+  "@meContinueGoogle": {
+    "description": "首页 - Me → 登录/注册页，登录注册页的登录方式按钮"
+  },
+  "meContinueApple": "Continuer avec Apple",
+  "@meContinueApple": {
+    "description": "首页 - Me → 登录/注册页，登录注册页的登录方式按钮"
+  },
+  "meSignUpClaimPremium": "Inscrivez-vous pour obtenir Premium",
+  "@meSignUpClaimPremium": {
+    "description": "首页 - Me → 登录弹窗，登录弹窗"
+  },
+  "meSignUpContinue": "Inscrivez-vous pour continuer",
+  "@meSignUpContinue": {
+    "description": "首页 - Me → 登录弹窗，登录弹窗"
+  },
+  "meAccountLoggedAnotherDevice": "Votre compte est connecté sur un autre appareil.",
+  "@meAccountLoggedAnotherDevice": {
+    "description": "首页 - Me → 登录状态提示，账号在其他设备登录导致当前会话失效中显示的文字"
+  },
+  "premiumSubscription": "Abonnement",
+  "@premiumSubscription": {
+    "description": "首页 - Me → Premium 订阅，Premium/Gems 页签中显示的文字"
+  },
+  "gemsClaimFailed": "Échec de l’obtention.",
+  "@gemsClaimFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsCheckFailed": "Échec du check-in.",
+  "@gemsCheckFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsFollowFailed": "Impossible de suivre cet utilisateur.",
+  "@gemsFollowFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsTaskUpdateFailed": "Échec de la mise à jour de la tâche.",
+  "@gemsTaskUpdateFailed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务执行或签到失败时显示的提示"
+  },
+  "gemsClaimSuccessful": "Récompense obtenue !",
+  "@gemsClaimSuccessful": {
+    "description": "首页 - Me → Gems 钱包页 Task 奖励领取成功弹窗的标题"
+  },
+  "gemsUnableLoadGemPacks": "Impossible de charger les packs de gemmes.",
+  "@gemsUnableLoadGemPacks": {
+    "description": "首页 - Me → Gems 钱包页商品列表加载失败或没有商品时的提示"
+  },
+  "gemsNoGemPacksAvailable": "Aucun pack de gemmes disponible.",
+  "@gemsNoGemPacksAvailable": {
+    "description": "首页 - Me → Gems 钱包页商品列表加载失败或没有商品时的提示"
+  },
+  "gemsUnableLoadGemTasks": "Impossible de charger les tâches de gemmes.",
+  "@gemsUnableLoadGemTasks": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表加载失败时显示的提示"
+  },
+  "gemsJoinUs": "rejoignez-nous",
+  "@gemsJoinUs": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表中的 Join Us 分组标题"
+  },
+  "gemsClaim": "Obtenir",
+  "@gemsClaim": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表中，奖励可领取时的按钮"
+  },
+  "gemsClaimed": "Obtenu",
+  "@gemsClaimed": {
+    "description": "首页 - Me → Gems 钱包页 Task 任务列表中，奖励已领取时的按钮"
+  },
+  "meDailyCheck": "Check-in quotidien",
+  "@meDailyCheck": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+  },
+  "gemsDailyCheckInReward": "Obtenez 100",
+  "@gemsDailyCheckInReward": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+  },
+  "meCheck": "Faire le check-in",
+  "@meCheck": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+  },
+  "meCheckSuccessful": "Check-in effectué !",
+  "@meCheckSuccessful": {
+    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 成功弹窗"
+  },
+  "meGooglePlayUnavailable": "Google Play est indisponible.",
+  "@meGooglePlayUnavailable": {
+    "description": "首页 - Me → 购买结果弹窗，购买结果"
+  },
+  "mePurchaseFailed": "Échec de l’achat.",
+  "@mePurchaseFailed": {
+    "description": "首页 - Me → 购买结果弹窗，购买结果"
+  },
+  "gemsEarned": "Obtenues",
+  "@gemsEarned": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面的按钮或标签"
+  },
+  "gemsSpent": "Dépensées",
+  "@gemsSpent": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面的按钮或标签"
+  },
+  "gemsPurchase": "Achat",
+  "@gemsPurchase": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面的按钮或标签"
+  },
+  "gemsGemRecords": "Historique des gemmes",
+  "@gemsGemRecords": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录页面中显示的文字"
+  },
+  "gemsUnableLoadRecords": "Impossible de charger l’historique.",
+  "@gemsUnableLoadRecords": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录加载失败"
+  },
+  "gemsNoGemRecordsYet": "Aucun historique de gemmes pour le moment.",
+  "@gemsNoGemRecordsYet": {
+    "description": "首页 - Me → Gems 记录页，Gems 记录列表为空"
+  },
+  "meAbout": "À propos",
+  "@meAbout": {
+    "description": "首页 - Me → About 页，品牌介绍和版本信息区域中显示的文字"
+  },
+  "meEmailCopied": "Adresse e-mail copiée",
+  "@meEmailCopied": {
+    "description": "首页 - Me → About 页，复制联系邮箱完成"
+  },
+  "mePurchasingPremium": "Achat de Premium en cours",
+  "@mePurchasingPremium": {
+    "description": "首页 - Me → 购买结果弹窗，购买中/成功状态"
+  },
+  "mePurchaseSuccessful": "Achat réussi !",
+  "@mePurchaseSuccessful": {
+    "description": "首页 - Me → 购买结果弹窗，购买中/成功状态"
+  },
+  "meWorldoPremiumSubscription": "Votre abonnement Worldo Premium est désormais actif.",
+  "@meWorldoPremiumSubscription": {
+    "description": "首页 - Me → 购买结果弹窗，购买中/成功状态"
+  },
+  "meMyBalance": "Mon solde",
+  "@meMyBalance": {
+    "description": "首页 - Me → 购买结果弹窗，My Balance 余额卡片中显示的文字"
+  },
+  "meSoldOut": "Épuisé",
+  "@meSoldOut": {
+    "description": "首页 - Me → 购买结果弹窗，商品卡片的按钮或标签"
+  },
+  "meUsd": "USD",
+  "@meUsd": {
+    "description": "首页 - Me → 购买结果弹窗，商品价格的按钮或标签"
+  },
+  "memoryCompleteUserSession": "Une session utilisateur complète est requise pour la liste des modèles",
+  "@memoryCompleteUserSession": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memoryModelListPermissionDenied": "Accès à la liste des modèles refusé pour ce monde",
+  "@memoryModelListPermissionDenied": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memorySaveFailed": "Échec de l’enregistrement",
+  "@memorySaveFailed": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域时显示的提示"
+  },
+  "memorySaveResultNotConfirmed": "Résultat de l’enregistrement non confirmé",
+  "@memorySaveResultNotConfirmed": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域时显示的提示"
+  },
+  "memoryChooseModel": "Choisir un modèle",
+  "@memoryChooseModel": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域的标题"
+  },
+  "memoryMaxTokenLimit": "Limite maximale de tokens de mémoire",
+  "@memoryMaxTokenLimit": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域的标题"
+  },
+  "memoryNoModelsAvailable": "Aucun modèle disponible",
+  "@memoryNoModelsAvailable": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memoryRetryRanges": "Plages de nouvelle tentative",
+  "@memoryRetryRanges": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "memoryCurrentUsage": "Votre utilisation actuelle de la mémoire",
+  "@memoryCurrentUsage": {
+    "description": "首页 - Me → Memory & Model 页，当前 Memory 摘要区域中显示的文字"
+  },
+  "memoryMinGems": "{min} gemmes",
+  "@memoryMinGems": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMinMaxGems": "{min}–{max} gemmes",
+  "@memoryMinMaxGems": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryStart": "mémoire {memoryStart}",
+  "@memoryStart": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "memoryStart": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryStartEnd": "mémoire {memoryStart} → {memoryEnd}",
+  "@memoryStartEnd": {
+    "description": "首页 - Me → Memory & Model 页，AI Model 选择卡片中显示的文字",
+    "placeholders": {
+      "memoryStart": {
+        "type": "String"
+      },
+      "memoryEnd": {
+        "type": "String"
+      }
+    }
+  },
+  "memorySettingsUnavailable": "Paramètres de mémoire indisponibles",
+  "@memorySettingsUnavailable": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域出错时显示的提示"
+  },
+  "premiumGooglePlayTookTooLong": "Google Play a mis trop de temps à répondre. Veuillez réessayer.",
+  "@premiumGooglePlayTookTooLong": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionsNotSupported": "Les abonnements ne sont pas pris en charge par Google Play sur cet appareil.",
+  "@premiumSubscriptionsNotSupported": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumConnectionGooglePlayLost": "La connexion à Google Play a été perdue. Veuillez réessayer.",
+  "@premiumConnectionGooglePlayLost": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchaseCanceled": "Achat annulé.",
+  "@premiumPurchaseCanceled": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayTemporarily": "Google Play est temporairement indisponible. Veuillez réessayer plus tard.",
+  "@premiumGooglePlayTemporarily": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayBilling": "La facturation Google Play est indisponible. Veuillez vérifier votre compte Play et vos paramètres de paiement.",
+  "@premiumGooglePlayBilling": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionUnavailable": "Cet abonnement Premium est actuellement indisponible sur Google Play.",
+  "@premiumSubscriptionUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayFailedComplete": "Google Play n’a pas pu effectuer cet achat Premium. Veuillez réessayer.",
+  "@premiumGooglePlayFailedComplete": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAlreadyOwnSubscription": "Vous possédez déjà cet abonnement sur Google Play.",
+  "@premiumAlreadyOwnSubscription": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayFailedFind": "Google Play n’a pas trouvé l’abonnement à modifier. Veuillez consulter Gérer les abonnements.",
+  "@premiumGooglePlayFailedFind": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedConnectGooglePlay": "Impossible de se connecter à Google Play. Vérifiez votre connexion Internet et réessayez.",
+  "@premiumFailedConnectGooglePlay": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumInsufficientFunds": "Le solde de votre moyen de paiement est insuffisant. Mettez-le à jour dans Google Play et réessayez.",
+  "@premiumInsufficientFunds": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGoogleAccountIneligible": "Votre compte Google Play n’est pas éligible à cette offre d’abonnement.",
+  "@premiumGoogleAccountIneligible": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedComplete": "L’App Store n’a pas pu effectuer cet achat Premium. Veuillez réessayer.",
+  "@premiumAppStoreFailedComplete": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedConnectAppStore": "Impossible de se connecter à l’App Store. Vérifiez votre connexion Internet et réessayez.",
+  "@premiumFailedConnectAppStore": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreTookTooLong": "L’App Store a mis trop de temps à répondre. Veuillez réessayer.",
+  "@premiumAppStoreTookTooLong": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreEncounteredSystem": "L’App Store a rencontré une erreur système. Veuillez réessayer plus tard.",
+  "@premiumAppStoreEncounteredSystem": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumRegionUnavailable": "Cet abonnement Premium n’est pas disponible dans la région de votre App Store.",
+  "@premiumRegionUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppCannotMakeStoreRequest": "Cette application ne peut pas effectuer cette demande à l’App Store. Contactez l’assistance.",
+  "@premiumAppCannotMakeStoreRequest": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchaseNotSupported": "Cet achat n’est pas pris en charge sur cet appareil ou cette version du système.",
+  "@premiumPurchaseNotSupported": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStorePurchaseWindow": "La fenêtre d’achat de l’App Store n’a pas pu s’ouvrir. Revenez dans l’application et réessayez.",
+  "@premiumAppStorePurchaseWindow": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedAccept": "L’App Store n’a pas pu accepter cette quantité d’achat. Contactez l’assistance.",
+  "@premiumAppStoreFailedAccept": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreUnavailable": "Cet abonnement Premium est actuellement indisponible sur l’App Store.",
+  "@premiumAppStoreUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchasesNotAllowedDevice": "Les achats ne sont pas autorisés sur cet appareil. Vérifiez votre compte Apple et les restrictions d’achat.",
+  "@premiumPurchasesNotAllowedDevice": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppleAccountNotEligible": "Votre compte Apple n’est pas éligible à cette offre d’abonnement.",
+  "@premiumAppleAccountNotEligible": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionOffer": "Cette offre d’abonnement est indisponible. Actualisez la page et réessayez.",
+  "@premiumSubscriptionOffer": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedAcceptOffer": "L’App Store n’a pas pu accepter le prix de cette offre. Actualisez la page et réessayez.",
+  "@premiumAppStoreFailedAcceptOffer": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreFailedVerify": "L’App Store n’a pas pu vérifier cette offre d’abonnement. Contactez l’assistance.",
+  "@premiumAppStoreFailedVerify": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionOfferFailed": "Cette offre d’abonnement n’a pas pu être préparée. Actualisez la page et réessayez.",
+  "@premiumSubscriptionOfferFailed": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAddPaymentMethodApple": "Ajoutez un moyen de paiement à votre compte Apple, puis réessayez.",
+  "@premiumAddPaymentMethodApple": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppCannotMakePurchases": "Cette application ne peut pas effectuer d’achats sur l’App Store. Contactez l’assistance.",
+  "@premiumAppCannotMakePurchases": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreRequestRejected": "L’App Store n’a pas pu accepter cette demande d’achat. Réessayez ou contactez l’assistance.",
+  "@premiumAppStoreRequestRejected": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppleCloudServiceAccess": "L’accès au service cloud Apple a été refusé. Vérifiez les autorisations de votre compte Apple.",
+  "@premiumAppleCloudServiceAccess": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedConnectApple": "Impossible de se connecter aux services Apple. Vérifiez votre connexion Internet et réessayez.",
+  "@premiumFailedConnectApple": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAccess2AppleCloudService": "L’accès au service cloud Apple a été révoqué. Vérifiez les paramètres de votre compte Apple.",
+  "@premiumAccess2AppleCloudService": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAcceptLatestApplePrivacy": "Acceptez les dernières conditions de confidentialité Apple dans votre compte Apple, puis réessayez.",
+  "@premiumAcceptLatestApplePrivacy": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreWindowFailed": "La fenêtre de l’App Store n’a pas pu être configurée. Contactez l’assistance.",
+  "@premiumAppStoreWindowFailed": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreWindowTookTooLong": "La fenêtre de l’App Store a mis trop de temps à s’ouvrir. Veuillez réessayer.",
+  "@premiumAppStoreWindowTookTooLong": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumReturnAppTryPurchase": "Revenez dans l’application et réessayez votre achat.",
+  "@premiumReturnAppTryPurchase": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayUnavailable": "Google Play est indisponible. Vérifiez qu’il est installé et que vous êtes connecté.",
+  "@premiumGooglePlayUnavailable": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumIs4Subscription": "Cet abonnement Premium est actuellement indisponible dans la boutique. Actualisez la page et réessayez.",
+  "@premiumIs4Subscription": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionFailed": "Cet abonnement Premium n’a pas pu être préparé. Actualisez la page et réessayez.",
+  "@premiumSubscriptionFailed": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumStoreFailedOpenPurchase": "La boutique n’a pas pu ouvrir cet achat Premium. Veuillez réessayer.",
+  "@premiumStoreFailedOpenPurchase": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumOriginalSubscriptionMissing": "L’abonnement d’origine n’a pas été trouvé dans Google Play. Veuillez consulter Gérer les abonnements.",
+  "@premiumOriginalSubscriptionMissing": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumSubscriptionUsesDifferent": "Cet abonnement utilise une autre identité d’achat. Actualisez la page ou contactez l’assistance.",
+  "@premiumSubscriptionUsesDifferent": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumGooglePlayCannotChange": "Google Play ne peut pas encore modifier cet abonnement. Veuillez consulter Gérer les abonnements.",
+  "@premiumGooglePlayCannotChange": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPlanChangePending": "Un achat App Store pour cette formule est encore en cours de traitement. Attendez qu’il se termine.",
+  "@premiumPlanChangePending": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumFailedLoadPlansAppStore": "Impossible de charger les formules Premium depuis l’App Store. Veuillez réessayer.",
+  "@premiumFailedLoadPlansAppStore": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchasePreparation": "La préparation de l’achat a expiré. Veuillez réessayer.",
+  "@premiumPurchasePreparation": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumAppStoreReturnedUnknown": "L’App Store a renvoyé un résultat d’achat inconnu. Vérifiez votre abonnement avant de réessayer.",
+  "@premiumAppStoreReturnedUnknown": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "premiumPurchasesUnavailable": "Les achats sont actuellement indisponibles.",
+  "@premiumPurchasesUnavailable": {
+    "description": "首页 - Me → Premium 订阅，订阅预检查结果"
+  },
+  "premiumAutoRenewsCancelAnytime": "Renouvellement automatique. Résiliation à tout moment.",
+  "@premiumAutoRenewsCancelAnytime": {
+    "description": "首页 - Me → Premium 订阅，权益介绍区中显示的文字"
+  },
+  "premiumSubscribed": "Abonné",
+  "@premiumSubscribed": {
+    "description": "首页 - Me → Premium 订阅，订阅按钮"
+  },
+  "premiumAlsoIncluded": "Également inclus",
+  "@premiumAlsoIncluded": {
+    "description": "首页 - Me → Premium 订阅，页面内容区域的按钮或标签"
+  },
+  "premiumWorldo": "Worldo Premium",
+  "@premiumWorldo": {
+    "description": "首页 - Me → Premium 订阅，顶部品牌标题"
+  },
+  "premiumPinkGems": "Gemmes roses",
+  "@premiumPinkGems": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumRedGems": "Gemmes rouges",
+  "@premiumRedGems": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumExtraDailyCheck": "Bonus de check-in quotidien",
+  "@premiumExtraDailyCheck": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumDailyCheck": "Check-in quotidien",
+  "@premiumDailyCheck": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumClaimedMonthly": "Obtenues chaque mois",
+  "@premiumClaimedMonthly": {
+    "description": "首页 - Me → Premium 订阅，Gems 权益卡片中显示的文字"
+  },
+  "premiumBilledMonthly": "Facturé chaque mois",
+  "@premiumBilledMonthly": {
+    "description": "首页 - Me → Premium 订阅，套餐卡片中显示的文字"
+  },
+  "premiumSaveSavings": "Économisez {savings} %",
+  "@premiumSaveSavings": {
+    "description": "首页 - Me → Premium 订阅，年付节省标签",
+    "placeholders": {
+      "savings": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumSubscribe": "S’abonner",
+  "@premiumSubscribe": {
+    "description": "首页 - Me → Premium 订阅，订阅按钮"
+  },
+  "premiumActiveYearlySubscription": "Un abonnement Premium annuel actif ne peut pas être remplacé par une formule mensuelle.",
+  "@premiumActiveYearlySubscription": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumAlreadyHaveActive": "Vous avez déjà un abonnement Premium actif.",
+  "@premiumAlreadyHaveActive": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumReAlreadySubscribedLabel": "Vous êtes déjà abonné à Premium {label}.",
+  "@premiumReAlreadySubscribedLabel": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "premiumPreviousPurchasePending": "Votre précédent achat Premium est encore en cours de confirmation.",
+  "@premiumPreviousPurchasePending": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumUseOriginalStoreUpgrade": "Utilisez la boutique d’origine pour passer à une formule Premium supérieure.",
+  "@premiumUseOriginalStoreUpgrade": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumResolveCurrent": "Réglez la situation de votre abonnement actuel dans la boutique avant d’effectuer un achat.",
+  "@premiumResolveCurrent": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumPurchaseUnavailable": "L’achat de Premium est actuellement indisponible.",
+  "@premiumPurchaseUnavailable": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumUnableVerifyPurchase": "Impossible de vérifier votre éligibilité à l’achat. Veuillez réessayer.",
+  "@premiumUnableVerifyPurchase": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumStoreFailedVerifyPurchase": "La boutique n’a pas pu vérifier cet achat Premium.",
+  "@premiumStoreFailedVerifyPurchase": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumPurchaseDoesNotMatch": "Cet achat Premium ne correspond pas à la formule sélectionnée.",
+  "@premiumPurchaseDoesNotMatch": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumMessagePurchaseCanceled": "Cet achat Premium a été annulé.",
+  "@premiumMessagePurchaseCanceled": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumPurchaseRevoked": "Cet achat Premium a été révoqué.",
+  "@premiumPurchaseRevoked": {
+    "description": "首页 - Me → Premium 订阅，用户不满足订阅购买条件出错时显示的提示"
+  },
+  "premiumNotification": "Notification",
+  "@premiumNotification": {
+    "description": "首页 - Me → Premium 订阅，用户无法购买订阅时的提示弹窗"
+  },
+  "premiumWorldoActiveSubscription": "Worldo Premium est actif dans votre abonnement et ne permet pas de passer à une formule inférieure.",
+  "@premiumWorldoActiveSubscription": {
+    "description": "首页 - Me → Premium 订阅，用户无法购买订阅时的提示弹窗"
+  },
+  "premiumGot": "Compris",
+  "@premiumGot": {
+    "description": "首页 - Me → Premium 订阅，用户无法购买订阅时的提示弹窗"
+  },
+  "gemBalancePromptInsufficientGems": "Gemmes insuffisantes",
+  "@gemBalancePromptInsufficientGems": {
+    "description": "首页 - Me → Gems 余额提示，Gems 余额不足时的购买提示"
+  },
+  "gemBalancePromptLowGems": "Peu de gemmes",
+  "@gemBalancePromptLowGems": {
+    "description": "首页 - Me → Gems 余额提示，Gems 余额不足时的购买提示"
+  },
+  "appPressBackExit": "Appuyez à nouveau sur Retour pour quitter.",
+  "@appPressBackExit": {
+    "description": "App 退出提示，连续返回准备退出 App时显示的提示"
+  },
+  "appReportSubmitted": "Signalement envoyé",
+  "@appReportSubmitted": {
+    "description": "举报弹窗，举报内容时的菜单和原因选择弹窗"
+  },
+  "appReportFailed": "Échec du signalement",
+  "@appReportFailed": {
+    "description": "举报弹窗，举报内容时的菜单和原因选择弹窗"
+  },
+  "appUpdateRequired": "Mise à jour requise",
+  "@appUpdateRequired": {
+    "description": "强制更新弹窗，App 版本过低时的强制更新页面中显示的文字"
+  },
+  "appUpdateContent": "Mettez à jour vers la dernière version pour continuer à utiliser Worldo.",
+  "@appUpdateContent": {
+    "description": "强制更新页，服务端未下发更新说明时显示的默认正文"
+  },
+  "appUpdateVersion": "Version {versionName}",
+  "@appUpdateVersion": {
+    "description": "强制更新页，显示服务端下发的最新版本号",
+    "placeholders": {
+      "versionName": {
+        "type": "String"
+      }
+    }
+  },
+  "appUpdateCheckFailed": "Impossible d’actualiser l’état de mise à jour. Mettez à jour pour continuer.",
+  "@appUpdateCheckFailed": {
+    "description": "强制更新页，重新检查版本状态失败时的提示"
+  },
+  "appUpdate": "Mettre à jour maintenant",
+  "@appUpdate": {
+    "description": "强制更新弹窗，App 版本过低时的强制更新页面的按钮或标签"
+  },
+  "commonIdCopied": "{normalizedLabel} copié",
+  "@commonIdCopied": {
+    "description": "通用 ID 信息，点击复制 ID 完成",
+    "placeholders": {
+      "normalizedLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "commonClose": "Fermer",
+  "@commonClose": {
+    "description": "通用 Sheet，底部面板右上角的关闭按钮"
+  },
+  "commonImageLoadFailed": "Échec du chargement de l’image",
+  "@commonImageLoadFailed": {
+    "description": "图片裁剪页，图片加载失败时的居中错误提示"
+  },
+  "commonPageNotFound": "Page introuvable.",
+  "@commonPageNotFound": {
+    "description": "页面不存在页，打开不存在的页面中显示的文字"
+  },
+  "worldDetailTickCount": "Tick {tickCount}{subTickSuffix}",
+  "@worldDetailTickCount": {
+    "description": "首页 - Home → World 详情页，已进入 World 的角色摘要中的 Tick 编号",
+    "placeholders": {
+      "tickCount": {
+        "type": "String"
+      },
+      "subTickSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailItemTickNumber": "Tick {tickNumber}{subTickSuffix}",
+  "@worldDetailItemTickNumber": {
+    "description": "首页 - Home → World Tick 事件卡片，聊天样式事件头部的 Tick 编号",
+    "placeholders": {
+      "tickNumber": {
+        "type": "String"
+      },
+      "subTickSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "worldDetailHeaderTickNumber": "Tick {tickNumber}{subTickSuffix}{dateSuffix}",
+  "@worldDetailHeaderTickNumber": {
+    "description": "首页 - Home → World Tick 事件卡片，卡片顶部的 Tick 编号和日期",
+    "placeholders": {
+      "tickNumber": {
+        "type": "String"
+      },
+      "subTickSuffix": {
+        "type": "String"
+      },
+      "dateSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "worldFirstTickGenerating": "Le LLM génère votre premier Tick. Cela peut prendre un instant{progressDots}",
+  "@worldFirstTickGenerating": {
+    "description": "首页 - Home → 首次 Tick 等待弹窗，生成中的提示及动态省略号",
+    "placeholders": {
+      "progressDots": {
+        "type": "String"
+      }
+    }
+  },
+  "worldoLatestVersion": "Dernière version : V{version}{ageSuffix}",
+  "@worldoLatestVersion": {
+    "description": "首页 - Worldo → Worldo 详情面板，最新版本及更新时间",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "ageSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "createSaveBeforeCreating": "Enregistrez {missingSections} avant de créer.",
+  "@createSaveBeforeCreating": {
+    "description": "首页 - Create → Create Worldo 提交校验，部分模块尚未保存时的提示",
+    "placeholders": {
+      "missingSections": {
+        "type": "String"
+      }
+    }
+  },
+  "createCharacterRoleHint": "Le rôle du personnage dans le worldo.",
+  "@createCharacterRoleHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "createCharacterMannerHint": "La façon de parler et de se comporter du personnage, qui détermine ses dialogues.",
+  "@createCharacterMannerHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "createCharacterGoalHint": "L’objectif ou l’orientation comportementale du personnage, qui détermine ses actions.",
+  "@createCharacterGoalHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "createCharacterBackgroundHint": "Le passé et les relations du personnage.",
+  "@createCharacterBackgroundHint": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，角色字段表单中显示的文字"
+  },
+  "inboxJoinRequestTitle": "demande à rejoindre {world}{worldIdSuffix}",
+  "@inboxJoinRequestTitle": {
+    "description": "首页 - Inbox → 加入 World 的申请通知，审核弹窗标题中的 World 名称及可选 ID",
+    "placeholders": {
+      "world": {
+        "type": "String"
+      },
+      "worldIdSuffix": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryModel": "Mémoire et modèle",
+  "@memoryModel": {
+    "description": "首页 - Me → Memory & Model 页，Memory 设置区域中显示的文字"
+  },
+  "premiumAccountMismatch": "Les identifiants du compte ne correspondent pas à ceux de l’abonnement précédent.",
+  "@premiumAccountMismatch": {
+    "description": "首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误"
+  },
+  "worldRecap": "Récapitulatif",
+  "@worldRecap": {
+    "description": "World detail bottom sheet tab for the story recap."
+  },
+  "inboxMissingJoinRequestId": "Identifiant de la demande de participation manquant",
+  "@inboxMissingJoinRequestId": {
+    "description": "Inbox approval action cannot proceed because the join request ID is missing."
+  },
+  "loginTimedOut": "Le délai de connexion a expiré. Veuillez réessayer.",
+  "@loginTimedOut": {
+    "description": "Login error toast after a sign-in request times out."
+  },
+  "loginConnectionFailed": "Connexion impossible. Vérifiez votre connexion Internet et réessayez.",
+  "@loginConnectionFailed": {
+    "description": "Login toast for a transport failure with no server message."
+  },
+  "loginTemporarilyUnavailable": "La connexion est temporairement indisponible. Veuillez réessayer plus tard.",
+  "@loginTemporarilyUnavailable": {
+    "description": "Login toast for HTTP or gateway failure with no server message."
+  },
+  "recapUnlockHeading": "Débloque le récapitulatif",
+  "@recapUnlockHeading": {
+    "description": "Heading suffix following Worldo Premium on the story recap subscription upsell."
+  },
+  "recapUpsellDescription": "Retrouvez le fil de votre histoire grâce à un récapitulatif complet de chaque rebondissement, choix et personnage rencontré.",
+  "@recapUpsellDescription": {
+    "description": "Story recap subscription upsell description."
+  },
+  "recapShowEarlier": "Voir les récapitulatifs précédents",
+  "@recapShowEarlier": {
+    "description": "Button loading previous story recap pages."
+  },
+  "recapEmpty": "Le récapitulatif apparaîtra ici au fil de l’histoire.",
+  "@recapEmpty": {
+    "description": "Empty story recap section after a successful request with no summaries."
+  },
+  "chatMessageAsNarrator": "Envoyer un message en tant que narrateur",
+  "@chatMessageAsNarrator": {
+    "description": "Location chat input hint when narrator mode is selected."
+  },
+  "chatMessageAsCharacter": "Envoyer un message en tant que {name}",
+  "@chatMessageAsCharacter": {
+    "description": "Location chat input hint naming the player character.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatNarratorSpeaker": "le narrateur",
+  "@chatNarratorSpeaker": {
+    "description": "Accessibility speaker name for narrator mode."
+  },
+  "chatYourCharacterSpeaker": "votre personnage",
+  "@chatYourCharacterSpeaker": {
+    "description": "Accessibility speaker fallback while the player character name is unavailable."
+  },
+  "chatSpeakingAs": "Vous parlez en tant que {speaker}",
+  "@chatSpeakingAs": {
+    "description": "Accessibility label for location chat speaker toggle.",
+    "placeholders": {
+      "speaker": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSwitchCharacter": "Passer au personnage",
+  "@chatSwitchCharacter": {
+    "description": "Tooltip for switching from narration to character chat."
+  },
+  "chatSwitchNarration": "Passer à la narration",
+  "@chatSwitchNarration": {
+    "description": "Tooltip for switching from character chat to narration."
+  },
+  "chatOpenLocation": "Ouvrir {locationName}",
+  "@chatOpenLocation": {
+    "description": "Accessible button label opening a character movement destination.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatRetryMessage": "Réessayer d’envoyer le message",
+  "@chatRetryMessage": {
+    "description": "Accessibility label on the narrator message retry control."
+  },
+  "blockedReportFailed": "L’utilisateur a été bloqué, mais le signalement a échoué.",
+  "@blockedReportFailed": {
+    "description": "Profile and blocked-user settings toast when block succeeded but report submission failed."
+  },
+  "storeConnectionFailed": "Connexion à la boutique impossible. Veuillez réessayer.",
+  "@storeConnectionFailed": {
+    "description": "Billing toast when the store cannot be reached."
+  },
+  "storeProductUnavailable": "Ce produit est actuellement indisponible.",
+  "@storeProductUnavailable": {
+    "description": "Billing toast when selected store product is unavailable."
+  },
+  "storeDevicePurchasesUnavailable": "Les achats ne sont pas disponibles sur cet appareil.",
+  "@storeDevicePurchasesUnavailable": {
+    "description": "Billing toast when the device does not allow purchases."
+  },
+  "worldHistoryRequestFailed": "Échec du chargement de l’historique du monde",
+  "@worldHistoryRequestFailed": {
+    "description": "Developer history query failure toast; World History refers to world chat history."
+  },
+  "genericError": "Une erreur s’est produite",
+  "@genericError": {
+    "description": "Default API error toast when the server supplies no user-facing error message and caller provides no specific fallback."
+  },
+  "subscriptionPlanAccessibility": "{period, select, year{Premium {plan}, {price} par an} other{Premium {plan}, {price} par mois}}",
+  "@subscriptionPlanAccessibility": {
+    "description": "Accessibility label on a selectable Premium plan card; price includes currency and the selected period is year or month.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      },
+      "plan": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "developerClearFailed": "Échec de la suppression",
+  "@developerClearFailed": {
+    "description": "Developer settings toast when clearing cached data or gateway configuration fails."
+  },
+  "developerGatewaySignatureFailed": "Échec de la vérification de la signature du Gateway",
+  "@developerGatewaySignatureFailed": {
+    "description": "Developer gateway signature check failure toast."
+  },
+  "developerEndpointsSaved": "Enregistré. Les nouvelles requêtes utiliseront les points de terminaison configurés.",
+  "@developerEndpointsSaved": {
+    "description": "Developer endpoint settings success toast; new requests use the saved endpoint configuration."
+  },
+  "developerAdjustRestartRequired": "Redémarrez l’application pour appliquer l’environnement Adjust.",
+  "@developerAdjustRestartRequired": {
+    "description": "Developer settings instruction after changing the Adjust environment; shown as a separate sentence after the save success message."
+  },
+  "developerRecapSetting": "Récapitulatif du monde : {mode}",
+  "@developerRecapSetting": {
+    "description": "Developer settings row showing the selected story recap preview mode.",
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "developerRecapPreview": "Aperçu du récapitulatif du monde",
+  "@developerRecapPreview": {
+    "description": "Title of the developer story recap preview selector dialog."
+  },
+  "developerRecapPreviewDescription": "Remplace temporairement le statut d’abonnement et le récapitulatif dans le panneau du monde. Se réinitialise au redémarrage de l’application.",
+  "@developerRecapPreviewDescription": {
+    "description": "Developer recap preview explanation: overrides membership and recap content temporarily; resets on restart."
+  },
+  "developerResetFailed": "Échec de la réinitialisation",
+  "@developerResetFailed": {
+    "description": "Developer version/reset settings failure toast."
+  },
+  "developerRecapOff": "Désactivé (selon l’abonnement)",
+  "@developerRecapOff": {
+    "description": "Recap debug selector: disable the Recap-specific simulation and follow current membership, including any developer membership override."
+  },
+  "developerRecapLocked": "Verrouillé · sans abonnement",
+  "@developerRecapLocked": {
+    "description": "Recap debug selector: simulate a user without a subscription."
+  },
+  "developerRecapEmpty": "Abonné · pas encore généré",
+  "@developerRecapEmpty": {
+    "description": "Recap debug selector: simulate subscription with no recap generated."
+  },
+  "developerRecapSample": "Abonné · exemple de récapitulatif",
+  "@developerRecapSample": {
+    "description": "Recap debug selector: simulate subscription and display sample recap text."
+  },
+  "developerRecapLive": "Abonné · récapitulatif réel",
+  "@developerRecapLive": {
+    "description": "Recap debug selector: simulate subscription but load actual server recap content."
+  },
+  "chatEditFreeUsesExhausted": "Vous n’avez plus de modifications gratuites.",
+  "@chatEditFreeUsesExhausted": {
+    "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
+  },
+  "developerMembershipSetting": "Abonnement : {selection}",
+  "@developerMembershipSetting": {
+    "description": "Developer settings button: displays the selected temporary membership override.",
+    "placeholders": {
+      "selection": {
+        "type": "String"
+      }
+    }
+  },
+  "developerMembershipDescription": "Modifie temporairement le statut d’abonnement de ce compte sur tous les écrans. Le serveur utilise toujours le statut réel du compte. Le statut est rétabli au redémarrage de l’app.",
+  "@developerMembershipDescription": {
+    "description": "Developer membership override selector: explanation that only client display state is overridden, server permissions stay real, and restart resets the override."
+  },
+  "developerMembershipOff": "Désactivé (abonnement réel)",
+  "@developerMembershipOff": {
+    "description": "Developer membership override selector: option disabling the override and using real account membership."
+  },
+  "developerMembershipYearly": "Premium · annuel",
+  "@developerMembershipYearly": {
+    "description": "Developer membership override selector: simulates annual Premium membership."
+  },
+  "developerMembershipMonthly": "Premium · mensuel",
+  "@developerMembershipMonthly": {
+    "description": "Developer membership override selector: simulates monthly Premium membership."
+  },
+  "developerMembershipNone": "Sans abonnement",
+  "@developerMembershipNone": {
+    "description": "Developer membership override selector: simulates a user without membership."
+  },
+  "originStartBySelectingRole": "Commencez par choisir votre personnage",
+  "@originStartBySelectingRole": {
+    "description": "Worldo location preview: heading above role selector before starting a world."
+  },
+  "originRecommendedStart": "Départ recommandé",
+  "@originRecommendedStart": {
+    "description": "Worldo location preview: standalone heading above the recommended starting-location card. The destination name is displayed in the card below, not in this heading."
+  },
+  "originStoryOpening": "Début de l’histoire",
+  "@originStoryOpening": {
+    "description": "Worldo location preview: fallback name for the recommended starting point when its location has no name."
+  },
+  "originOpeningLocation": "Lieu de départ",
+  "@originOpeningLocation": {
+    "description": "Worldo location preview: fallback destination label when the opening location is unavailable."
+  },
+  "originCharactersAtLocation": "{count, plural, one{{names} se trouve actuellement à\n{locationName}} other{{names} se trouvent actuellement à\n{locationName}}}",
+  "@originCharactersAtLocation": {
+    "description": "Worldo location recommendation card: complete sentence naming the characters currently at the opening location. Names and location are styled placeholders; retain the line break.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "originOpeningJump": "Début de l’histoire\n{locationName}",
+  "@originOpeningJump": {
+    "description": "Worldo location recommendation card with no known occupants: title plus dynamic destination on a new line.",
+    "placeholders": {
+      "locationName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCharacterMovement": "Déplacement des personnages",
+  "@chatCharacterMovement": {
+    "description": "Tick message: heading above character destination jump cards."
+  },
+  "worldoLaunchDone": "Terminé",
+  "@worldoLaunchDone": {
+    "description": "Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short."
+  }
+}

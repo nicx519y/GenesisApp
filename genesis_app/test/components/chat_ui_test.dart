@@ -587,33 +587,52 @@ void main() {
     );
     expect(find.text('Character destinations'), findsNothing);
     expect(find.byIcon(Icons.directions_walk_rounded), findsNothing);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(routeIconAsset),
-      ),
-      findsNWidgets(2),
-    );
-    expect(find.text('Alice'), findsOneWidget);
-    expect(find.text('Bob'), findsOneWidget);
-    expect(find.text('has come to'), findsOneWidget);
-    expect(find.text('has gone to'), findsOneWidget);
-    expect(find.text('Cafe'), findsOneWidget);
-    expect(find.text('Harbor'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('Alice')).style?.fontWeight,
-      FontWeight.w400,
-    );
-    expect(
-      tester.widget<Text>(find.text('Cafe')).style?.fontWeight,
-      FontWeight.w400,
-    );
+    expect(find.byType(ChatLocationJumpCard), findsNWidgets(2));
     final firstMovement = find.byKey(
       const ValueKey<String>('chat-character-movement-moved-0'),
     );
     final secondMovement = find.byKey(
       const ValueKey<String>('chat-character-movement-moved-1'),
+    );
+    final aliceMovementText = find.descendant(
+      of: firstMovement,
+      matching: _richTextContaining('Alice'),
+    );
+    final bobMovementText = find.descendant(
+      of: secondMovement,
+      matching: _richTextContaining('Bob'),
+    );
+    expect(aliceMovementText, findsOneWidget);
+    expect(bobMovementText, findsOneWidget);
+    expect(
+      find.descendant(
+        of: firstMovement,
+        matching: _richTextContaining('came to'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: secondMovement,
+        matching: _richTextContaining('went to'),
+      ),
+      findsOneWidget,
+    );
+    expect(_richTextContaining('Cafe'), findsOneWidget);
+    expect(_richTextContaining('Harbor'), findsOneWidget);
+    expect(
+      _textFragmentStyle(
+        tester.widget<Text>(aliceMovementText),
+        'Alice',
+      )?.fontWeight,
+      FontWeight.w600,
+    );
+    expect(
+      _textFragmentStyle(
+        tester.widget<Text>(aliceMovementText),
+        'Cafe',
+      )?.fontWeight,
+      FontWeight.w600,
     );
     expect(
       tester.getTopLeft(secondMovement).dy -
@@ -645,14 +664,11 @@ void main() {
     final movedBubble = tester.widget<Container>(
       find.byKey(const ValueKey('chat-characters-moved-message-moved')),
     );
+    expect((movedBubble.decoration as BoxDecoration).color, Colors.transparent);
+    final locationLabel = tester.widget<Text>(bobMovementText);
     expect(
-      (movedBubble.decoration as BoxDecoration).color,
-      kLocationChatStyle.systemMessageBackgroundColor,
-    );
-    final locationLabel = tester.widget<Text>(find.text('Harbor'));
-    expect(
-      locationLabel.style?.color,
-      kLocationChatStyle.systemMessageTextStyle.color,
+      _textFragmentStyle(locationLabel, 'Harbor')?.color,
+      GenesisColors.redSecondary,
     );
     await tester.tap(
       find.byKey(const ValueKey('chat-character-movement-location-moved-1')),
@@ -3631,7 +3647,7 @@ void main() {
         1,
       ),
     );
-    expect(tickText.left, closeTo(expectedBubbleEdge + 14, 1));
+    expect(tickText.left, closeTo(expectedOuterPadding + 15, 1));
   });
 
   testWidgets('underscore markdown remains plain text', (
@@ -4128,8 +4144,20 @@ void main() {
       );
       expect(find.text('Character destinations'), findsNothing);
       expect(movementRow, findsOneWidget);
-      expect(find.text('Elara, Lyra'), findsOneWidget);
-      expect(find.text('went to'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: movementRow,
+          matching: _richTextContaining('Elara, Lyra'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: movementRow,
+          matching: _richTextContaining('went to'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Room 0'), findsOneWidget);
       expect(
         tester.getTopLeft(header).dy,
@@ -5122,6 +5150,14 @@ bool _textHasItalicFragment(Text text, String value) {
     return true;
   });
   return found;
+}
+
+Finder _richTextContaining(String value) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Text &&
+        widget.textSpan?.toPlainText().contains(value) == true,
+  );
 }
 
 Color? _textFragmentColor(Text text, String value) {

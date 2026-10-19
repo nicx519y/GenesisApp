@@ -74,11 +74,12 @@ class _SearchResultItem {
       entityId: origin.originId,
       shortCode: origin.originId,
       title: origin.originName,
-      subtitle:
-          'OID: ${_dashOrValue(origin.originId)}  '
-          'Creator: $originator\n'
-          'Brief: ${_dashOrValue(origin.brief)}\n'
-          'Latest Version: ${_originVersionLabel(origin.originVersion)}',
+      subtitle: GenesisL10n.current.searchOIDCreatorOriginatorBrief(
+        oid: (_dashOrValue(origin.originId)).toString(),
+        originator: (originator).toString(),
+        brief: (_dashOrValue(origin.brief)).toString(),
+        version: (_originVersionLabel(origin.originVersion)).toString(),
+      ),
       coverImage: asImageUrl(origin.cover),
       copyCount: origin.stats.copyCount,
       connectCount: origin.stats.connectCount,
@@ -103,7 +104,10 @@ class _SearchResultItem {
       entityId: world.worldId,
       shortCode: world.worldId,
       title: world.worldName,
-      subtitle: 'WID: ${_dashOrValue(world.worldId)}\nOwner: $owner',
+      subtitle: GenesisL10n.current.searchWIDOwner(
+        wid: (_dashOrValue(world.worldId)).toString(),
+        owner: (owner).toString(),
+      ),
       coverImage: asImageUrl(world.cover),
       copyCount: 0,
       connectCount: world.stats.connectCount,

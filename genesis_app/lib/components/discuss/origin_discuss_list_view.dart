@@ -80,7 +80,7 @@ class OriginDiscussList extends StatelessWidget {
             padding: EdgeInsets.only(top: showHeader ? 12 : 0),
             child: TextButton(
               onPressed: controller.retryInitial,
-              child: const Text('Retry'),
+              child: Text(GenesisL10n.current.homeRetry),
             ),
           )
         else if (comments.isEmpty)
@@ -150,8 +150,8 @@ class _ViewMoreButton extends StatelessWidget {
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text(
-                  'View More >',
+              : Text(
+                  GenesisL10n.current.worldoViewMore,
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.2,
@@ -183,7 +183,9 @@ class _DiscussHeader extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          'Discuss (${formatStatCount(count)})',
+          GenesisL10n.current.worldoDiscuss(
+            discussCount: (formatStatCount(count)).toString(),
+          ),
           style: const TextStyle(
             color: Color(0xFF111111),
             fontSize: 14,

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,8 @@ import '../../features/location_chat_reply/shared/reply_action_state.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/tokens/genesis_spacing.dart';
 import '../../ui/tokens/genesis_typography.dart';
 
@@ -261,7 +264,10 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         inspirationRemaining != null) {
       return _quotaPrompt(
         feature: 'inspiration',
-        message: 'Free inspiration uses left: ',
+        template: context.l10n.freeInspirationUsesLeft(
+          remaining: GenesisLocalizedRichText.placeholder('remaining'),
+          action: GenesisLocalizedRichText.placeholder('action'),
+        ),
         remaining: inspirationRemaining,
       );
     }
@@ -270,7 +276,10 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         editRemaining != null) {
       return _quotaPrompt(
         feature: 'edit',
-        message: 'Free Edition uses left: ',
+        template: context.l10n.freeEditionUsesLeft(
+          remaining: GenesisLocalizedRichText.placeholder('remaining'),
+          action: GenesisLocalizedRichText.placeholder('action'),
+        ),
         remaining: editRemaining,
       );
     }
@@ -311,7 +320,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           IconButton(
             key: const ValueKey('location-chat-reply-previous-card'),
             style: paginationButtonStyle,
-            tooltip: 'Previous reply',
+            tooltip: GenesisL10n
+                .current
+                .chatPreviousReply,
             onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
                 ? widget.onPreviousCard
                 : null,
@@ -335,7 +346,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           IconButton(
             key: const ValueKey('location-chat-reply-next-card'),
             style: paginationButtonStyle,
-            tooltip: 'Next reply',
+            tooltip: GenesisL10n
+                .current
+                .chatNextReply,
             onPressed:
                 widget.cardSwitchEnabled &&
                     widget.cardIndex < widget.cardCount - 1
@@ -352,7 +365,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   Widget _quotaPrompt({
     required String feature,
-    required String message,
+    required String template,
     required int remaining,
   }) => Padding(
     padding: EdgeInsets.only(
@@ -383,17 +396,21 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               child: LocationChatSubscriptionPrompt(
                 style: style,
                 promptKey: ValueKey('$feature-subscription-prompt'),
-                semanticsLabel: '$message$remaining. Get more',
-                message: TextSpan(
-                  children: [
-                    TextSpan(text: message),
-                    TextSpan(
-                      text: '"$remaining"',
-                      style: const TextStyle(color: GenesisColors.redSecondary),
-                    ),
-                  ],
-                ),
-                actionLabel: 'Get more >',
+                semanticsLabel: template
+                    .replaceAll('{remaining}', '$remaining')
+                    .replaceAll('{action}', context.l10n.getMoreAction)
+                    .replaceAll('\n', '. '),
+                template: template,
+                placeholders: {
+                  'remaining': TextSpan(
+                    text: '"$remaining"',
+                    style: const TextStyle(color: GenesisColors.redSecondary),
+                  ),
+                  'action': TextSpan(
+                    text: context.l10n.getMoreAction,
+                    style: const TextStyle(color: GenesisColors.redSecondary),
+                  ),
+                },
               ),
             ),
           ),
@@ -740,16 +757,16 @@ class LocationChatSubscriptionPrompt extends StatelessWidget {
     required this.style,
     required this.promptKey,
     required this.semanticsLabel,
-    required this.message,
-    required this.actionLabel,
+    required this.template,
+    required this.placeholders,
     this.singleLine = false,
   });
 
   final ChatUiStyleConfig style;
   final Key promptKey;
   final String semanticsLabel;
-  final InlineSpan message;
-  final String actionLabel;
+  final String template;
+  final Map<String, InlineSpan> placeholders;
   final bool singleLine;
 
   @override
@@ -777,16 +794,9 @@ class LocationChatSubscriptionPrompt extends StatelessWidget {
                     .withValues(alpha: style.selfBubbleColor.a),
             borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
           ),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                message,
-                TextSpan(
-                  text: '${singleLine ? ' ' : '\n'}$actionLabel',
-                  style: const TextStyle(color: GenesisColors.redSecondary),
-                ),
-              ],
-            ),
+          child: GenesisLocalizedRichText(
+            template: singleLine ? template.replaceFirst('\n', ' ') : template,
+            placeholders: placeholders,
             maxLines: singleLine ? 1 : null,
             softWrap: !singleLine,
             textWidthBasis: TextWidthBasis.longestLine,

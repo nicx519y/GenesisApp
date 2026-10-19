@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../../icons/custom_icon_assets.dart';
@@ -62,7 +63,9 @@ class LocationChatInspirationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
-    label: 'Inspiration',
+    label: GenesisL10n
+        .current
+        .chatInspiration,
     iconAsset: inspirationIconAsset,
     expanded: expanded,
     state: feature.state,

@@ -524,7 +524,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
         'name',
       ]),
       formatUidForDisplay(uid),
-      'Me',
+      GenesisL10n.current.meLabel,
     ]);
     return ChatroomConnectionIdentity(
       userId: senderId,

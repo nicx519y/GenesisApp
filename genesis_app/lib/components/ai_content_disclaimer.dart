@@ -1,7 +1,8 @@
+import '../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
-const String kAiContentDisclaimerText =
-    'All content is AI-generated and fictional. Any resemblance to real people, events, or places is coincidental.';
+String get kAiContentDisclaimerText =>
+    GenesisL10n.current.commonAiDisclaimer;
 
 const TextStyle kAiContentDisclaimerTextStyle = TextStyle(
   fontSize: 12,
@@ -13,13 +14,13 @@ const TextStyle kAiContentDisclaimerTextStyle = TextStyle(
 class AiContentDisclaimer extends StatelessWidget {
   const AiContentDisclaimer({
     super.key,
-    this.text = kAiContentDisclaimerText,
+    this.text,
     this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 16),
     this.textAlign = TextAlign.center,
     this.textColor,
   });
 
-  final String text;
+  final String? text;
   final EdgeInsetsGeometry padding;
   final TextAlign textAlign;
   final Color? textColor;
@@ -29,7 +30,7 @@ class AiContentDisclaimer extends StatelessWidget {
     return Padding(
       padding: padding,
       child: Text(
-        text,
+        text ?? kAiContentDisclaimerText,
         textAlign: textAlign,
         style: textColor == null
             ? kAiContentDisclaimerTextStyle

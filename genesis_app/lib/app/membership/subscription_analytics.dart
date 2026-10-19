@@ -11,6 +11,7 @@ enum SubscriptionSource {
   mePinkGems('from_me_pink_gems'),
   dailyCheckIn('from_daily_check_in'),
   chatFeatureQuota('from_chat_feature_quota'),
+  chatEditSaveQuota('from_chat_edit_save_quota'),
   onboarding('from_onboarding'),
   buyGemsTab('from_buy_gems_tab'),
   worldRecap('from_world_recap'),
@@ -141,7 +142,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_page_show',
-        billingPageTrackId(pageId),
+        '',
         surface.value,
         object1: source.value,
       ),
@@ -155,13 +156,13 @@ class SubscriptionAnalytics {
     required bool isYearly,
   }) {
     final tracking = SubscriptionTracking(
-      id: billingPurchaseTrackId(pageId),
+      id: newBillingAttemptId(),
       source: source,
     );
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_purchase_click',
-        tracking.id,
+        '',
         isYearly ? 'yearly' : 'monthly',
         object1: source.value,
       ),
@@ -178,7 +179,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_failed',
-        tracking.id,
+        '',
         reason,
         object1: tracking.source.value,
       ),
@@ -192,7 +193,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_timeout',
-        tracking.id,
+        '',
         stage,
         object1: tracking.source.value,
       ),
@@ -207,7 +208,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_pending',
-        tracking.id,
+        '',
         reason,
         object1: tracking.source.value,
         eventId: subscriptionEventId('pending:${tracking.id}:$reason'),
@@ -231,7 +232,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_success',
-        tracking.id,
+        '',
         orderId,
         object1: tracking.source.value,
         eventId: eventId,
@@ -243,7 +244,7 @@ class SubscriptionAnalytics {
   void claim(SubscriptionTracking tracking, String result) => _emit(
     SubscriptionAnalyticsEvent(
       'subscription_claim_result',
-      tracking.id,
+      '',
       result,
       object1: tracking.source.value,
     ),

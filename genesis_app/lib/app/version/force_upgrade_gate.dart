@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/genesis_l10n.dart';
 import '../../network/models/app_version_check.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -152,9 +153,11 @@ class ForceUpgradePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = response.title.isEmpty ? 'Update required' : response.title;
+    final title = response.title.isEmpty
+        ? GenesisL10n.current.appUpdateRequired
+        : response.title;
     final content = response.content.isEmpty
-        ? 'Please update to the latest version to continue using Worldo.'
+        ? GenesisL10n.current.appUpdateContent
         : response.content;
     final latestVersionName = response.latestVersionName;
 
@@ -203,7 +206,9 @@ class ForceUpgradePage extends StatelessWidget {
                         if (latestVersionName.isNotEmpty) ...[
                           const SizedBox(height: GenesisSpacing.md),
                           Text(
-                            'Version $latestVersionName',
+                            GenesisL10n.current.appUpdateVersion(
+                              versionName: latestVersionName,
+                            ),
                             textAlign: TextAlign.center,
                             style: GenesisTypography.supporting.copyWith(
                               color: GenesisColors.darkTextTertiary,
@@ -222,7 +227,7 @@ class ForceUpgradePage extends StatelessWidget {
                         if (hasCheckError) ...[
                           const SizedBox(height: GenesisSpacing.xl),
                           Text(
-                            'Unable to refresh update status. Please update to continue.',
+                            GenesisL10n.current.appUpdateCheckFailed,
                             textAlign: TextAlign.center,
                             style: GenesisTypography.supporting.copyWith(
                               color: GenesisColors.darkTextTertiary,
@@ -231,7 +236,7 @@ class ForceUpgradePage extends StatelessWidget {
                         ],
                         const SizedBox(height: GenesisSpacing.section),
                         GenesisPrimaryButton(
-                          label: 'Update now',
+                          label: GenesisL10n.current.appUpdate,
                           onPressed: onUpdate,
                           isLoading: isOpeningUrl,
                         ),

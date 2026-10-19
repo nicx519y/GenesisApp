@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../platform/app/app_metadata_service.dart';
+import '../l10n/app_language_controller.dart';
 import '../platform/channels/genesis_method_channels.dart';
 
 typedef AppVersionInfoLoader = Future<AppVersionInfo> Function();
@@ -35,6 +36,7 @@ class AppRequestHeaderProvider {
     AppPlatformResolver? platformResolver,
     SystemUserAgentLoader? systemUserAgentLoader,
     SystemLanguageLoader? systemLanguageLoader,
+    String? Function()? settingLanguageProvider,
     AppTimeZoneLoader? appTimeZoneLoader,
     String hmacKey = const String.fromEnvironment(
       'GENESIS_APP_ID_HMAC_KEY',
@@ -44,6 +46,9 @@ class AppRequestHeaderProvider {
        _platformResolver = platformResolver ?? resolveCurrentPlatform,
        _systemUserAgentLoader = systemUserAgentLoader ?? _loadSystemUserAgent,
        _systemLanguageLoader = systemLanguageLoader ?? _loadSystemLanguage,
+       _settingLanguageProvider =
+           settingLanguageProvider ??
+           (() => appLanguageController.settingLanguage),
        _appTimeZoneLoader = appTimeZoneLoader ?? _loadAppTimeZone,
        _hmacKey = hmacKey;
 
@@ -51,6 +56,7 @@ class AppRequestHeaderProvider {
   final AppPlatformResolver _platformResolver;
   final SystemUserAgentLoader _systemUserAgentLoader;
   final SystemLanguageLoader _systemLanguageLoader;
+  final String? Function() _settingLanguageProvider;
   final AppTimeZoneLoader _appTimeZoneLoader;
   final String _hmacKey;
 
@@ -58,11 +64,13 @@ class AppRequestHeaderProvider {
     final versionInfo = await _safeLoadAppVersion();
     final userAgent = await _safeLoadHeaderValue(_systemUserAgentLoader);
     final systemLanguage = await _safeLoadHeaderValue(_systemLanguageLoader);
+    final settingLanguage = _settingLanguageProvider() ?? '';
     final appTimeZone = await _safeLoadHeaderValue(_appTimeZoneLoader);
     final versionCode = versionInfo.versionCode.trim();
     return <String, String>{
       if (userAgent.isNotEmpty) 'user-agent': userAgent,
       if (systemLanguage.isNotEmpty) 'x-system-language': systemLanguage,
+      if (settingLanguage.isNotEmpty) 'x-setting-language': settingLanguage,
       if (versionCode.isNotEmpty) 'x-app-version-code': versionCode,
       if (appTimeZone.isNotEmpty) 'x-app-timezone': appTimeZone,
     };

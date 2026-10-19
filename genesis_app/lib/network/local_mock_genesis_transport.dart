@@ -19,6 +19,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       LocalMockGenesisTransport._();
 
   final _state = _MockState();
+  final _deviceLanguages = <String, String>{};
   final _personalizationProfiles = <String, Map<String, Object?>>{};
   final _miniphoneBackgrounds = <String, String>{};
   final _musicLikes = <String, Set<String>>{};
@@ -738,10 +739,23 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'app/config') {
       return _v1Ok({
+        'language': _deviceLanguages[deviceId] ?? '',
         'show_opening_sheet': false,
         'show_personalization_form': true,
         'apiTraceSamplingRate': 1.0,
       });
+    }
+
+    if (method == 'POST' && path == 'device/setlanguage') {
+      final language = body['language'];
+      if (language is! String) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      _deviceLanguages[deviceId] = language;
+      if (_state.isAuthenticated || requestHasAuthorization) {
+        _state._v1User['language'] = language;
+      }
+      return _v1Ok({'device_id': deviceId, 'language': language});
     }
 
     if (path == 'device/personalization' ||
@@ -1629,6 +1643,7 @@ class _MockState {
   Map<String, dynamic> _v1UserPayload(Map<String, dynamic> user) {
     final copy = _deepCopyMap(user);
     copy['avatar'] = _mockImageObject(copy['avatar'] ?? copy['avatar_url']);
+    copy['language'] = asString(user['language']);
     copy['gender'] = asString(user['gender']);
     copy['age'] = asString(user['age']);
     copy['membership_status'] = asUserMembershipStatus(

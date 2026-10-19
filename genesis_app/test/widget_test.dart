@@ -188,7 +188,9 @@ import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
 Finder _richTextWithPlainText(String text) {
   return find.byWidgetPredicate(
-    (widget) => widget is RichText && widget.text.toPlainText() == text,
+    (widget) =>
+        widget is RichText &&
+        widget.text.toPlainText(includePlaceholders: false) == text,
     description: 'RichText with plain text "$text"',
   );
 }
@@ -527,7 +529,7 @@ class _FakeBillingService implements BillingService {
   Future<void> purchaseGem(
     GemProduct product, {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
-    String payTrackId = '',
+    String operationId = '',
   }) async {}
 
   @override
@@ -2773,6 +2775,114 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  for (final scenario in ['refresh', 'second', 'empty', 'background']) {
+    final second = scenario == 'second';
+    testWidgets(
+      second
+          ? 'Origin location preview shows the selected destination opening'
+          : scenario == 'background'
+          ? 'Origin location preview refreshes with map background fallback'
+          : scenario == 'empty'
+          ? 'Origin location preview refreshes an empty opening without losing its draft'
+          : 'Origin location preview refreshes server copy without losing its draft',
+      (tester) async {
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        final transport = _OriginPreviewRefreshTransport()
+          ..initiallyEmpty = scenario == 'empty'
+          ..mapBackgroundOnly = scenario == 'background';
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          chatroom: _FakeChatroomClient(),
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: const MaterialApp(
+              home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final map = tester.widget<WorldMap>(find.byType(WorldMap));
+        final target = findWorldMapLocationNode(
+          map.common.locationNodes,
+          second ? 'second' : 'first',
+        )!.point;
+        await map.common.onPointTap!(target);
+        await tester.pumpAndSettle();
+        final panelFinder = find.byType(LocationChatPanel);
+        expect(panelFinder, findsOneWidget);
+        if (scenario == 'background') {
+          expect(
+            tester.widget<LocationChatPanel>(panelFinder).backgroundImageUrl,
+            'assets/images/map_default/l1_default.webp',
+          );
+        }
+        final content = tester
+            .widget<LocationChatPanel>(panelFinder)
+            .previewContent!;
+        final contentFinder = find.byWidget(content);
+        if (second) {
+          expect(
+            find.descendant(
+              of: contentFinder,
+              matching: find.text('Second opening message'),
+            ),
+            findsOneWidget,
+          );
+        } else {
+          final composer = find.descendant(
+            of: panelFinder,
+            matching: find.byType(ChatComposer),
+          );
+          final inputController = tester
+              .widget<ChatComposer>(composer)
+              .controller;
+          inputController.text = 'unsent draft';
+          transport.refreshed = true;
+          await (tester.state(find.byType(OriginWorldPage)) as dynamic)
+              .refreshLanguageData();
+          await tester.pumpAndSettle();
+          final panel = tester.widget<LocationChatPanel>(panelFinder);
+          expect(
+            find.descendant(
+              of: find.byWidget(panel.previewContent!),
+              matching: find.text('更新後對白'),
+            ),
+            findsOneWidget,
+          );
+          expect(panel.locationName, '更新後地點');
+          expect(
+            panel.backgroundImageUrl,
+            scenario == 'background'
+                ? 'assets/images/map_default/l1_default.webp'
+                : 'assets/images/map_default/location_default.webp',
+          );
+          expect(
+            tester.widget<ChatComposer>(composer).controller,
+            same(inputController),
+          );
+          expect(inputController.text, 'unsent draft');
+          expect(
+            panel.openingPreviewEntities.any(
+              (entity) => entity.name == '更新後角色',
+            ),
+            isTrue,
+          );
+          expect(
+            panel.openingPreviewMessages.any((m) => m.content == '更新後對白'),
+            isTrue,
+          );
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
   for (final status in ['none', 'pending', 'approved']) {
     testWidgets('world restricted tabs show join toast for $status', (
       tester,
@@ -6831,9 +6941,9 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Alex comment your worldo'), findsOneWidget);
-    expect(find.text('Blair reply to you'), findsOneWidget);
-    expect(find.text('Casey like your comment'), findsOneWidget);
+    expect(_richTextWithPlainText('Alex comment your worldo'), findsOneWidget);
+    expect(_richTextWithPlainText('Blair reply to you'), findsOneWidget);
+    expect(_richTextWithPlainText('Casey like your comment'), findsOneWidget);
     expect(find.textContaining('#Comment Origin'), findsOneWidget);
     expect(find.textContaining('#Reply Origin'), findsOneWidget);
     expect(find.textContaining('#Like Origin'), findsOneWidget);
@@ -6841,28 +6951,35 @@ void main() {
     expect(find.textContaining('#O_REPLY'), findsNothing);
     expect(find.textContaining('#O_LIKE'), findsNothing);
 
-    final title = tester.widget<Text>(find.text('Alex comment your worldo'));
+    final title = tester.widget<Text>(
+      find.ancestor(
+        of: _richTextWithPlainText('Alex comment your worldo'),
+        matching: find.byType(Text),
+      ),
+    );
     expect(title.style?.fontSize, 14);
-    expect(title.style?.fontWeight, FontWeight.w700);
-    expect(title.style?.color, const Color(0xFF111111));
+    expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.style?.color, GenesisColors.darkTextPrimary);
 
     final body = tester.widget<Text>(find.text('Comment text'));
     expect(body.style?.fontSize, 12);
     expect(body.style?.fontWeight, FontWeight.w400);
-    expect(body.style?.color, const Color(0xFF111111));
+    expect(body.style?.color, GenesisColors.darkTextSecondary);
 
     final meta = tester.widget<Text>(find.textContaining('#Comment Origin'));
     expect(meta.style?.fontSize, 12);
     expect(meta.style?.fontWeight, FontWeight.w400);
-    expect(meta.style?.color, const Color(0xFF8A8D93));
+    expect(meta.style?.color, GenesisColors.darkTextTertiary);
 
     final itemRect = tester.getRect(
       find.byKey(const ValueKey('ntf_comment_001')),
     );
-    final titleRect = tester.getRect(find.text('Alex comment your worldo'));
+    final titleRect = tester.getRect(
+      _richTextWithPlainText('Alex comment your worldo'),
+    );
     final bodyRect = tester.getRect(find.text('Comment text'));
     final metaRect = tester.getRect(find.textContaining('#Comment Origin'));
-    expect(itemRect.left, 20);
+    expect(itemRect.left, 16);
     expect(titleRect.left, itemRect.left);
     expect(bodyRect.left, itemRect.left);
     expect(metaRect.left, itemRect.left);
@@ -6874,7 +6991,7 @@ void main() {
       'Blair reply to you',
       'Casey like your comment',
     ]) {
-      await tester.tap(find.text(title));
+      await tester.tap(_richTextWithPlainText(title));
       await tester.pumpAndSettle();
       expect(find.byType(PostDetailPage), findsOneWidget);
       Navigator.of(tester.element(find.byType(PostDetailPage))).pop();
@@ -13481,6 +13598,72 @@ void main() {
     );
   });
 
+  testWidgets('Origin detail sheet takes back and edge swipe before its page', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await originWorldSheetDebugSettings.setExpandOnEntry(true);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.of(context).pushNamed(
+                  RouteNames.originWorld,
+                  arguments: const <String, Object?>{'oid': 'o_test_1'},
+                ),
+                child: const Text('Open Origin'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open Origin'));
+    await tester.pumpAndSettle();
+
+    final surface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final draggableSheet = find.byType(DraggableScrollableSheet);
+    final sheet = tester.widget<DraggableScrollableSheet>(draggableSheet);
+    final collapsedTop = 844 * (1 - sheet.minChildSize);
+    expect(tester.getTopLeft(surface).dy, lessThan(collapsedTop - 20));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(OriginWorldPage), findsOneWidget);
+    expect(tester.getTopLeft(surface).dy, closeTo(collapsedTop, 1));
+
+    sheet.controller!.jumpTo(sheet.maxChildSize);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(surface).dy, lessThan(collapsedTop - 20));
+    final swipe = await tester.startGesture(const Offset(2, 400));
+    await swipe.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await swipe.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await swipe.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await swipe.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(OriginWorldPage), findsOneWidget);
+    expect(tester.getTopLeft(surface).dy, closeTo(collapsedTop, 1));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(OriginWorldPage), findsNothing);
+    expect(find.text('Open Origin'), findsOneWidget);
+  });
+
   testWidgets(
     'Origin app config true uses expanded height on first sheet frame',
     (WidgetTester tester) async {
@@ -17885,6 +18068,91 @@ void main() {
   });
 
   testWidgets(
+    'Origin short Opening content anchors role cards above the dock',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      final transport = _RecordingV1ListTransport(
+        originTicks: const [
+          {
+            'tick_no': 1,
+            'tick_result': {
+              'location_groups': [
+                {
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': [
+                    {
+                      'char_id': 'c_o_test_1',
+                      'char_name': 'Detail Character',
+                      'content': 'A short opening line.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final openingList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      final roleSection = find.byKey(
+        const ValueKey<String>('origin-opening-role-section'),
+      );
+      final bottomSpacer = find.byKey(
+        const ValueKey<String>('origin-opening-docked-composer-bottom-spacer'),
+      );
+      final composer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      final lastMessage = find.descendant(
+        of: openingList,
+        matching: find.text('A short opening line.'),
+      );
+      expect(roleSection, findsOneWidget);
+      expect(bottomSpacer, findsOneWidget);
+      expect(composer, findsOneWidget);
+      expect(lastMessage, findsOneWidget);
+      expect(
+        tester.getRect(composer).top - tester.getRect(roleSection).bottom,
+        closeTo(4, 1),
+        reason: 'Short Opening content leaves its extra space above the roles.',
+      );
+      final roleIndicator = find.descendant(
+        of: roleSection,
+        matching: find.byKey(
+          const ValueKey<String>('origin-setup-role-page-indicator'),
+        ),
+      );
+      expect(
+        tester.getRect(composer).top - tester.getRect(roleIndicator).bottom,
+        closeTo(8, 1),
+      );
+      expect(
+        tester.getRect(roleSection).top - tester.getRect(lastMessage).bottom,
+        greaterThan(originOpeningDialogueRoleGapForTesting),
+      );
+    },
+  );
+
+  testWidgets(
     'Origin opening composer stays stable from the role-card bottom',
     (WidgetTester tester) async {
       _mockGenesisKeyboardAnimationEvents();
@@ -17990,6 +18258,14 @@ void main() {
       normalOpeningPosition.jumpTo(normalOpeningPosition.maxScrollExtent);
       await tester.pump();
       expect(normalOpeningPosition.pixels, greaterThan(0));
+      final roleSection = find.byKey(
+        const ValueKey<String>('origin-opening-role-section'),
+      );
+      expect(
+        tester.getRect(composer).top - tester.getRect(roleSection).bottom,
+        closeTo(4, 1),
+        reason: 'Long Opening content keeps the role section above its dock.',
+      );
 
       final normalRows = find.descendant(
         of: normalOpeningList,
@@ -18157,6 +18433,15 @@ void main() {
         reason:
             'The composer excluding its persistent safe area ends at the '
             'keyboard top.',
+      );
+      final inputSurface = find.descendant(
+        of: composer,
+        matching: find.byKey(const ValueKey('chat-composer-input-surface')),
+      );
+      expect(
+        tester.getRect(inputSurface).bottom,
+        lessThanOrEqualTo(480 + 1),
+        reason: 'The Opening input surface must remain above the keyboard.',
       );
       expect(
         tester.widget<CustomScrollView>(normalOpeningList).physics,
@@ -18616,7 +18901,7 @@ void main() {
         await tester.pump();
       }
       await tester.pump();
-      expect(find.text('Launch failed'), findsOneWidget);
+      expect(find.text('Launch rejected'), findsOneWidget);
       expect(find.byType(ChatSendingBadge), findsNothing);
       expect(find.byType(ChatFailedBadge), findsOneWidget);
       expect(outgoing.text, message);
@@ -18781,7 +19066,7 @@ void main() {
         BorderRadius.circular(8),
       );
       expect(roleRegion, findsOneWidget);
-      expect(tester.widget<ColoredBox>(roleRegion).color, Colors.transparent);
+      expect(tester.widget<KeyedSubtree>(roleRegion), isNotNull);
       expect(dockRoleTranslation, findsOneWidget);
       expect(
         tester
@@ -19198,7 +19483,7 @@ void main() {
         await tester.pump();
       }
       await tester.pump();
-      expect(find.text('Launch failed'), findsOneWidget);
+      expect(find.text('Launch rejected'), findsOneWidget);
       expect(find.byType(ChatFailedBadge), findsOneWidget);
       expect(find.byType(ChatSendingBadge), findsNothing);
       expect(chatroom.connectCount, 0);
@@ -19280,9 +19565,14 @@ void main() {
     },
   );
 
-  testWidgets('Origin map location is browse-only', (
+  testWidgets('Origin map location composer stays above the iOS keyboard', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.reset);
     AppStartupCoordinator.resetForTesting();
     addTearDown(AppStartupCoordinator.resetForTesting);
     final transport = _RecordingV1ListTransport(
@@ -19311,6 +19601,7 @@ void main() {
           chatroom: chatroom,
         ),
         child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
         ),
@@ -19326,37 +19617,171 @@ void main() {
       const ValueKey<String>('origin-location-chat-l_o_test_1'),
     );
     expect(chatPanel, findsOneWidget);
-    expect(tester.widget<LocationChatPanel>(chatPanel).showComposer, isFalse);
+    expect(tester.widget<LocationChatPanel>(chatPanel).showComposer, isTrue);
     expect(
-      find.descendant(
-        of: chatPanel,
-        matching: find.byType(LocationChatComposerInput),
+      tester
+          .widget<LocationChatPanel>(chatPanel)
+          .style
+          ?.conversationBackgroundColor,
+      kLocationChatStyle.conversationBackgroundColor,
+    );
+    final previewBackground = find.descendant(
+      of: find.byKey(const ValueKey<String>('location-chat-background')),
+      matching: find.byType(ColoredBox),
+    );
+    expect(previewBackground, findsOneWidget);
+    expect(
+      tester.widget<ColoredBox>(previewBackground).color,
+      kLocationChatStyle.conversationBackgroundColor,
+    );
+    final previewDock = find.byKey(
+      const ValueKey<String>('origin-location-composer-l_o_test_1'),
+    );
+    final roleRegion = find.descendant(
+      of: chatPanel,
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-region'),
       ),
-      findsNothing,
+    );
+    expect(roleRegion, findsOneWidget);
+    expect(tester.widget<KeyedSubtree>(roleRegion), isNotNull);
+    final composer = find.descendant(
+      of: previewDock,
+      matching: find.byType(LocationChatComposerInput),
+    );
+    expect(composer, findsOneWidget);
+    final previewInput = find.descendant(
+      of: composer,
+      matching: find.byType(ChatComposer),
+    );
+    expect(previewInput, findsOneWidget);
+    expect(
+      tester.widget<ChatComposer>(previewInput).style?.composerBackgroundColor,
+      originWorldDetailSheetSurfaceColor,
     );
     expect(
-      find.descendant(of: chatPanel, matching: find.byType(ChatComposer)),
-      findsNothing,
+      tester.widget<ChatComposer>(previewInput).style?.inputBackgroundColor,
+      kLocationChatStyle.inputBackgroundColor,
+    );
+    final input = find.descendant(
+      of: composer,
+      matching: find.byKey(const ValueKey('chat-composer-input')),
+    );
+    final inputSurface = find.descendant(
+      of: composer,
+      matching: find.byKey(const ValueKey('chat-composer-input-surface')),
+    );
+    final roleCardsVisibility = find.byKey(
+      const ValueKey<String>('origin-location-role-cards-visibility'),
+    );
+    expect(input, findsOneWidget);
+    expect(inputSurface, findsOneWidget);
+    expect(roleCardsVisibility, findsOneWidget);
+    final recommendedStart = find.descendant(
+      of: chatPanel,
+      matching: find.byType(ChatLocationJumpCard),
+    );
+    final roleTitle = find.descendant(
+      of: roleCardsVisibility,
+      matching: find.text('Start by selecting your role'),
+    );
+    expect(recommendedStart, findsOneWidget);
+    expect(roleTitle, findsOneWidget);
+    expect(
+      tester.getRect(roleTitle).top - tester.getRect(recommendedStart).bottom,
+      greaterThanOrEqualTo(originOpeningDialogueRoleGapForTesting - 1),
+      reason: 'Short preview content leaves its extra space above the roles.',
+    );
+    expect(
+      tester.getRect(roleRegion).top -
+          tester.getRect(roleCardsVisibility).bottom,
+      closeTo(4, 1),
+      reason: 'The role cards stay above the overlaid role selector.',
+    );
+    final roleIndicator = find.descendant(
+      of: roleCardsVisibility,
+      matching: find.byKey(
+        const ValueKey<String>('origin-setup-role-page-indicator'),
+      ),
+    );
+    expect(
+      tester.getRect(roleRegion).top - tester.getRect(roleIndicator).bottom,
+      closeTo(8, 1),
     );
     expect(
       find.descendant(
-        of: chatPanel,
-        matching: find.byKey(const ValueKey('chat-composer-input')),
+        of: roleCardsVisibility,
+        matching: find.byKey(const ValueKey('origin-setup-role-cards')),
       ),
-      findsNothing,
+      findsOneWidget,
     );
+    expect(tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity, 1);
     expect(
-      find.descendant(
-        of: chatPanel,
-        matching: find.byKey(
-          const ValueKey<String>('origin-location-chat-role-region'),
-        ),
-      ),
-      findsNothing,
+      tester.getRect(inputSurface).bottom,
+      lessThanOrEqualTo(844 - 34 + 1),
+      reason: 'The preview input clears the home indicator before focus.',
+    );
+    await tester.tap(input);
+    await tester.pump();
+    expect(
+      tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity,
+      1,
+      reason: 'Focusing keeps the role cards visible until the keyboard opens.',
+    );
+    final roleCards = find.descendant(
+      of: roleCardsVisibility,
+      matching: find.byKey(const ValueKey('origin-setup-role-cards')),
+    );
+    final roleCardsTop = tester.getRect(roleCards).top;
+    final roleToInputGap =
+        tester.getRect(inputSurface).top - tester.getRect(roleRegion).bottom;
+    for (final keyboardInset in <double>[100, 200, 300]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(
+        tester.getRect(roleCards).top,
+        closeTo(roleCardsTop, 1),
+        reason:
+            'Opening the keyboard must not reposition the large role cards.',
+      );
+      expect(
+        tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity,
+        0,
+        reason: 'The large role cards fade while the keyboard is open.',
+      );
+      expect(
+        tester.getRect(inputSurface).top - tester.getRect(roleRegion).bottom,
+        closeTo(roleToInputGap, 1),
+        reason: 'The preview role bar and input must move as one dock.',
+      );
+    }
+    for (var frame = 0; frame < 9; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(
+      tester.getRect(inputSurface).bottom,
+      lessThanOrEqualTo(844 - 300 + 1),
+      reason: 'The preview input surface must remain above the keyboard.',
+    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    expect(
+      tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity,
+      1,
+      reason: 'Losing focus reveals the role cards before the keyboard closes.',
+    );
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedOpacity>(roleCardsVisibility).opacity, 1);
+    expect(tester.getRect(roleCards).top, closeTo(roleCardsTop, 1));
+    expect(
+      tester.getRect(inputSurface).bottom,
+      lessThanOrEqualTo(844 - 34 + 1),
+      reason: 'The preview input returns above the home indicator.',
     );
     expect(
       find.byKey(const ValueKey<String>('location-chat-composer-top-overlay')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.descendant(
@@ -19381,6 +19806,165 @@ void main() {
     expect(chatPanel, findsNothing);
     expect(find.byType(OriginWorldPage), findsOneWidget);
     AppStartupCoordinator.resetForTesting();
+  });
+
+  testWidgets('Origin long location preview keeps the role dock clearance', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.reset);
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final dialogue = List<Map<String, Object?>>.generate(
+      12,
+      (index) => {
+        'char_id': 'c_o_test_1',
+        'char_name': 'Detail Character',
+        'content': 'Long preview line $index',
+      },
+    );
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      originTicks: [
+        {
+          'tick_no': 1,
+          'tick_result': {
+            'location_groups': [
+              {'location_id': 'l_o_test_1', 'initial_dialogue': dialogue},
+            ],
+          },
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          chatroom: _FakeChatroomClient(),
+        ),
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Detail Location').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    final previewContent = find.byKey(
+      const ValueKey<String>('origin-location-content-l_o_test_1'),
+    );
+    final scrollable = find.descendant(
+      of: previewContent,
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable.first).position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    final composerInput = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('origin-location-composer-l_o_test_1'),
+      ),
+      matching: find.byKey(const ValueKey<String>('chat-composer-input')),
+    );
+    await tester.tap(composerInput);
+    await tester.pump();
+    final editableText = find.descendant(
+      of: composerInput,
+      matching: find.byType(EditableText),
+    );
+    expect(
+      tester.widget<EditableText>(editableText).focusNode.hasFocus,
+      isTrue,
+    );
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-location-chat-l_o_test_1'),
+        ),
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-role-selector'),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(editableText).focusNode.hasFocus,
+      isFalse,
+    );
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(
+      position.pixels,
+      closeTo(position.maxScrollExtent, 1),
+      reason: 'Tapping the small role avatar should reveal the large cards.',
+    );
+    final roleSection = find.descendant(
+      of: previewContent,
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-role-cards-visibility'),
+      ),
+    );
+    final previewDock = find.byKey(
+      const ValueKey<String>('origin-location-composer-l_o_test_1'),
+    );
+    final roleRegion = find.descendant(
+      of: find.byKey(const ValueKey<String>('origin-location-chat-l_o_test_1')),
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-region'),
+      ),
+    );
+    final roleIndicator = find.descendant(
+      of: roleSection,
+      matching: find.byKey(
+        const ValueKey<String>('origin-setup-role-page-indicator'),
+      ),
+    );
+    final lastMessage = find.descendant(
+      of: previewContent,
+      matching: find.text('Long preview line 11'),
+    );
+    expect(lastMessage, findsOneWidget);
+    expect(
+      tester.getRect(roleSection).top - tester.getRect(lastMessage).bottom,
+      greaterThanOrEqualTo(originOpeningDialogueRoleGapForTesting - 1),
+    );
+    expect(
+      tester.getRect(roleRegion).top - tester.getRect(roleSection).bottom,
+      closeTo(4, 1),
+    );
+    position.jumpTo(position.maxScrollExtent - 20);
+    await tester.pump();
+    expect(
+      tester.getRect(roleIndicator).bottom,
+      greaterThan(tester.getRect(roleRegion).top),
+      reason: 'Scrolled role cards remain visible behind the transparent bar.',
+    );
+    expect(
+      tester.getRect(roleIndicator).bottom,
+      lessThan(tester.getRect(previewDock).top),
+    );
+    final offsetBeforeDrag = position.pixels;
+    final roleRegionRect = tester.getRect(roleRegion);
+    await tester.dragFrom(
+      Offset(roleRegionRect.right - 12, roleRegionRect.center.dy),
+      const Offset(0, 30),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      position.pixels,
+      lessThan(offsetBeforeDrag - 1),
+      reason:
+          'The empty part of the transparent role bar must pass drags through.',
+    );
   });
 
   testWidgets('Origin initial detail failure keeps a dark error surface', (
@@ -38964,5 +39548,79 @@ class _RecapUnreadTransport extends _RecordingV1ListTransport {
       );
     }
     return super.send(request);
+  }
+}
+
+class _OriginPreviewRefreshTransport extends _RecordingV1ListTransport {
+  bool refreshed = false;
+  bool initiallyEmpty = false;
+  bool mapBackgroundOnly = false;
+  @override
+  Map<String, Object?> _originDetail(String oid) {
+    final data = super._originDetail(oid);
+    if (refreshed) {
+      data['characters'] = [
+        for (final c
+            in (data['characters'] as List).cast<Map<String, Object?>>())
+          {...c, 'name': '更新後角色'},
+      ];
+    }
+    data['locations'] = [
+      for (final id in ['first', 'second'])
+        {
+          'location_id': id,
+          'location_pid': '',
+          'level': 1,
+          'location_name': id == 'first' && refreshed
+              ? '更新後地點'
+              : '$id location',
+          'x_percent': id == 'first' ? 30 : 65,
+          'y_percent': 40,
+          'image': refreshed && !mapBackgroundOnly
+              ? 'assets/images/map_default/location_default.webp'
+              : '',
+          'map_url': 'assets/images/map_default/l1_default.webp',
+        },
+    ];
+    data['init_location_group'] = {
+      'location_id': 'first',
+      'initial_dialogue': [
+        {
+          'char_id': 'c_o_test_1',
+          'char_name': refreshed ? '更新後角色' : 'Ada',
+          'content': refreshed ? '更新後對白' : 'First opening message',
+        },
+      ],
+    };
+    data['ticks'] = [
+      {
+        'tick_no': 1,
+        'tick_result': {
+          'location_groups': [
+            for (final id in ['first', 'second'])
+              {
+                'location_id': id,
+                'initial_dialogue': [
+                  {
+                    'char_id': 'c_o_test_1',
+                    'char_name': refreshed ? '更新後角色' : 'Ada',
+                    'content': id == 'first'
+                        ? (refreshed ? '更新後對白' : 'First opening message')
+                        : 'Second opening message',
+                  },
+                ],
+              },
+          ],
+        },
+      },
+    ];
+    if (initiallyEmpty && !refreshed) {
+      data['init_location_group'] = {
+        'location_id': 'first',
+        'initial_dialogue': <Object?>[],
+      };
+      data['ticks'] = <Object?>[];
+    }
+    return data;
   }
 }

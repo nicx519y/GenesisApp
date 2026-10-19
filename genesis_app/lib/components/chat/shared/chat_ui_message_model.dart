@@ -17,6 +17,7 @@ class ChatMessageVm {
     required this.senderId,
     required this.senderName,
     this.avatarUrl = '',
+    this.avatarSnapshot,
     this.imageUrl = '',
     this.timelinePayload,
     this.isPlayerControlledRole = false,
@@ -43,13 +44,13 @@ class ChatMessageVm {
 
   factory ChatMessageVm.aiContentDisclaimer({
     String localId = chatAiContentDisclaimerMessageLocalId,
-    String text = kAiContentDisclaimerText,
+    String? text,
   }) {
     return ChatMessageVm(
       localId: localId,
       senderId: '',
       senderName: '',
-      text: text,
+      text: text ?? kAiContentDisclaimerText,
       isMe: false,
       status: 'system',
       senderType: chatAiContentDisclaimerSenderType,
@@ -68,6 +69,8 @@ class ChatMessageVm {
   final String senderId;
   String senderName;
   String avatarUrl;
+  /// Display-only decoded handoff image; the launching route owns this handle.
+  final ui.Image? avatarSnapshot;
   String imageUrl;
   ChatTimelinePayloadVm? timelinePayload;
   bool isPlayerControlledRole;

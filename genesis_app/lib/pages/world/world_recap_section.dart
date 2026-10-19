@@ -1,4 +1,7 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+
+import '../../l10n/language_data_refresh.dart';
 
 import 'package:flutter/material.dart';
 
@@ -49,7 +52,24 @@ class WorldRecapSection extends StatefulWidget {
   State<WorldRecapSection> createState() => _WorldRecapSectionState();
 }
 
-class _WorldRecapSectionState extends State<WorldRecapSection> {
+class _WorldRecapSectionState extends State<WorldRecapSection>
+    with LanguageDataRefresh<WorldRecapSection> {
+  @override
+  bool get languageSectionVisible => widget.active;
+  @override
+  bool get languageDataLoading => widget.cache.refreshing;
+  @override
+  bool get languageRefreshSucceeded => widget.cache.refreshError == null;
+  @override
+  Future<void> refreshLanguageData() async {
+    widget.cache.clear();
+    _autoPages = 0;
+    if ((worldRecapForcedMembership ?? _isVip) == true) {
+      await widget.cache.refresh(widget.worldId, widget.load);
+    }
+    if (mounted) setState(() {});
+  }
+
   final _subscriptionTracking = SubscriptionPageTracking(
     source: SubscriptionSource.worldRecap,
   );
@@ -172,10 +192,8 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
           page: _subscriptionTracking,
           child: ProSubscriptionContent(
             refreshMembershipOnOpen: false,
-            headingSuffix: 'Unlocks Recap',
-            tagline:
-                'Catch up on your story with a full recap of every twist, '
-                'choice, and character along the way.',
+            headingSuffix: GenesisL10n.current.recapUnlockHeading,
+            tagline: GenesisL10n.current.recapUpsellDescription,
             sheetScrollController: widget.scrollController,
             sheetExpandedContentHeight: widget.expandedContentHeight,
             includeBottomSafeArea: true,
@@ -203,7 +221,7 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
                 child: TextButton(
                   onPressed: () =>
                       unawaited(cache.refresh(cache.worldId, widget.load)),
-                  child: const Text('Retry'),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               ),
           ]);
@@ -228,7 +246,9 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
                     ? null
                     : () => unawaited(cache.loadMore(widget.load)),
                 child: Text(
-                  cache.loadingMore ? 'Loading…' : 'Show earlier recap',
+                  cache.loadingMore
+                      ? GenesisL10n.current.chatLoading
+                      : GenesisL10n.current.recapShowEarlier,
                 ),
               ),
             ),
@@ -255,8 +275,8 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
 
   List<Widget> _footer(WorldRecapCache cache) => [
     if (cache.items.isEmpty && cache.refreshError == null)
-      const Text(
-        'Story recap will appear here as the story moves forward.',
+      Text(
+        GenesisL10n.current.recapEmpty,
         key: ValueKey<String>('world-recap-empty'),
         textAlign: TextAlign.center,
         style: _recapNoteStyle,
@@ -265,14 +285,14 @@ class _WorldRecapSectionState extends State<WorldRecapSection> {
       Center(
         child: TextButton(
           onPressed: () => unawaited(cache.refresh(cache.worldId, widget.load)),
-          child: const Text('Retry'),
+          child: Text(GenesisL10n.current.homeRetry),
         ),
       )
     else if (cache.loadMoreError != null)
       Center(
         child: TextButton(
           onPressed: () => unawaited(cache.loadMore(widget.load, retry: true)),
-          child: const Text('Retry'),
+          child: Text(GenesisL10n.current.homeRetry),
         ),
       ),
   ];
@@ -340,7 +360,13 @@ class _RecapTimelineTick extends StatelessWidget {
                 children: [
                   if (hasLabel) ...[
                     // Named as the Events tab names a tick.
-                    Text('Tick $tickNo', style: chatTickLabelStyle),
+                    Text(
+                      GenesisL10n.current.tickNumber(
+                        tick: tickNo.toString(),
+                        suffix: '',
+                      ),
+                      style: chatTickLabelStyle,
+                    ),
                     const SizedBox(height: 8),
                   ],
                   for (final (index, body) in bodies.indexed) ...[

@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/platform/billing/membership_product_store.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -583,9 +584,7 @@ void main() {
             expect(purchases, previous + (subscribed ? 0 : 1));
             expect(find.text('Notification'), findsNothing);
             expect(
-              find.textContaining(
-                'You already have an active Premium subscription.',
-              ),
+              find.textContaining('You’re already subscribed to Premium'),
               subscribed ? findsOneWidget : findsNothing,
             );
             await tester.pump(const Duration(seconds: 3));
@@ -894,7 +893,7 @@ void main() {
   }
 
   testWidgets(
-    'entry loads products once after accepted without report recovery',
+    'entry loads products once after rejected without report recovery',
     (tester) async {
       final h = support.Harness(
         provider: MembershipProvider.apple,
@@ -904,7 +903,7 @@ void main() {
         h.purchase(yearly: true, status: BillingPurchaseStatus.pending),
       ];
       h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
+        status: MembershipReportStatus.rejected,
       );
       await h.service.purchase(h.product(yearly: true));
       await h.service.interceptPurchase(h.purchase(yearly: true));
@@ -923,7 +922,7 @@ void main() {
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
 
-      // Recovery cannot turn accepted into completed or refresh the catalog.
+      // Recovery cannot turn rejected into completed or refresh the catalog.
       h.reportHandler = null;
       await h.service.recover();
       await tester.pumpAndSettle();
@@ -977,6 +976,47 @@ void main() {
     },
   );
 
+  testWidgets('KRW store quotes leave server prices on cards and button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      page(
+        () async => MembershipCatalogData(
+          offers: [
+            MembershipOffer(
+              product: membershipProduct(yearly: true),
+              requiresStorePrice: true,
+              storePrice: const MembershipStorePrice(
+                formattedPrice: '₩120,000',
+                amountMicros: 120000000000,
+                currencyCode: 'KRW',
+                currencySymbol: '₩',
+              ),
+            ),
+            MembershipOffer(
+              product: membershipProduct(),
+              requiresStorePrice: true,
+              storePrice: const MembershipStorePrice(
+                formattedPrice: '₩12,000',
+                amountMicros: 12000000000,
+                currencyCode: 'KRW',
+                currencySymbol: '₩',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(find.textContaining(r'$8.33', findRichText: true), findsWidgets);
+    expect(find.text('Save 17%'), findsOneWidget);
+    expect(find.textContaining('₩', findRichText: true), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+    await tester.pump();
+    expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+  });
+
   testWidgets('a single unpriced monthly product supplies its own display', (
     tester,
   ) async {
@@ -996,7 +1036,10 @@ void main() {
     expect(find.text('Monthly VIP'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
-    expect(find.text('Monthly: '), findsOneWidget);
+    expect(
+      find.text('Monthly: Premium purchase is currently unavailable.'),
+      findsOneWidget,
+    );
   });
 
   _testWidgets(
@@ -1054,7 +1097,7 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        find.text('You already have an active Premium subscription.'),
+        find.textContaining('You’re already subscribed to Premium'),
         findsOneWidget,
       );
       expect(purchases, 0);
@@ -1089,7 +1132,10 @@ void main() {
     },
   );
 
-  for (final status in MembershipReportStatus.values) {
+  for (final status in [
+    MembershipReportStatus.completed,
+    MembershipReportStatus.rejected,
+  ]) {
     testWidgets(
       '$status report silently reloads eligibility without another restore',
       (tester) async {
@@ -1134,7 +1180,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text(r'Yearly: $120.00'), findsOneWidget);
+        expect(find.text(r'Yearly: $120'), findsOneWidget);
         expect(h.restoreQueries, 0);
         await tester.pumpWidget(const SizedBox.shrink());
         h.service.dispose();
@@ -1241,16 +1287,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(r'$10.00/mo', findRichText: true), findsOneWidget);
-      expect(find.text(r'Yearly: $120.00'), findsOneWidget);
+      expect(find.text(r'$10/mo', findRichText: true), findsOneWidget);
+      expect(find.text(r'Yearly: $120'), findsOneWidget);
       expect(find.text('Save 50%'), findsOneWidget);
       await tester.tap(find.byKey(buttonKey));
       await tester.pumpAndSettle();
       expect(selected.single.priceAmount, 12000);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text(r'Monthly: $20.00'), findsOneWidget);
-      expect(find.text(r'$20.00/mo', findRichText: true), findsOneWidget);
+      expect(find.text(r'Monthly: $20'), findsOneWidget);
+      expect(find.text(r'$20/mo', findRichText: true), findsOneWidget);
     },
   );
 
@@ -1351,6 +1397,7 @@ void main() {
             events.where((event) => event.action == 'subscription_failed'),
             hasLength(1),
           );
+          expect(events.last.object3, 'precheck_failed[catalog_unavailable]');
 
           // While that refresh is unresolved, repeated physical taps are part
           // of the same attempt and cannot emit more click/failure pairs.

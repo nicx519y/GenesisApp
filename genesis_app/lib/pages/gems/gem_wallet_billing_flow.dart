@@ -33,15 +33,50 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
   }
 
   Future<void> _purchaseProduct(GemProduct product) async {
+    if (_checkingStorePrice) return;
+    if (product.requiresStorePrice) {
+      final catalog = AppServicesScope.read(context).gemStoreCatalog;
+      _checkingStorePrice = true;
+      try {
+        final fresh = await catalog.confirm(product);
+        if (!mounted) return;
+        _updateState(() {
+          _products = catalog.cached;
+        });
+        if (fresh == null) return;
+        product = fresh;
+      } catch (_) {
+        if (mounted) unawaited(_refreshProducts(silent: true));
+        return;
+      } finally {
+        _checkingStorePrice = false;
+      }
+    }
     final service =
         _billingService ??
         widget.billingService ??
         AppServicesScope.maybeRead(context)?.billing;
     if (service == null) {
+      const analytics = GenesisBillingAnalytics();
+      analytics.track(
+        'product_click',
+        properties: <String, Object?>{
+          'product_id': product.productId,
+          'source': BillingPurchaseSource.buyGemsPage.value,
+        },
+      );
+      analytics.track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'product_id': product.productId,
+          'reason': 'precheck_failed',
+          'error_code': 'service_unavailable',
+        },
+      );
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Google Play is unavailable.',
+          GenesisL10n.current.meGooglePlayUnavailable,
           debugInfo: purchaseDebugInfo(
             'gems.precheck',
             reason: 'service_unavailable',
@@ -57,7 +92,6 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       await service.purchaseGem(
         product,
         source: BillingPurchaseSource.buyGemsPage,
-        payTrackId: billingPurchaseTrackId(_payTrackPageId),
       );
     } catch (error) {
       if (!mounted) return;
@@ -65,7 +99,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Purchase failed.',
+          GenesisL10n.current.mePurchaseFailed,
           debugInfo: purchaseDebugInfo('gems.checkout_exception', error: error),
         ),
       );
@@ -89,7 +123,6 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         _showBillingPurchaseSuccess(event);
         unawaited(_refreshAll(silent: true));
         return;
-      case BillingUiEventKind.accepted:
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
       case BillingUiEventKind.deferred:

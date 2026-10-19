@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import '../../l10n/app_language_controller.dart';
 import '../api_exception.dart';
 import '../models/user_memory_settings.dart';
 import '../models/world_history_settings.dart';
@@ -12,9 +13,12 @@ class UserV1Api extends V1ApiResource {
   UserV1Api(
     super.client, {
     CurrentUserInfoSessionProvider? currentUserInfoSessionProvider,
-  }) : _currentUserInfoSessionProvider = currentUserInfoSessionProvider;
+    AppLanguageController? languageController,
+  }) : _currentUserInfoSessionProvider = currentUserInfoSessionProvider,
+       _languageController = languageController;
 
   final CurrentUserInfoSessionProvider? _currentUserInfoSessionProvider;
+  final AppLanguageController? _languageController;
 
   /// POST /api/v1/user/oauth/google
   ///
@@ -135,12 +139,22 @@ class UserV1Api extends V1ApiResource {
       throw ApiException(message: 'Authentication is required');
     }
 
+    final languageRevision = _languageController?.revision;
     final response = await getMapWithHeaders(
       'user/info',
       query: {'uid': session.uid},
       headers: {'authorization': _bearerToken(session.authToken)},
     );
     _validateCurrentUserInfo(response, expectedUid: session.uid);
+    if (languageRevision != null) {
+      final current = await _currentUserInfoSessionProvider?.call();
+      if (current == session) {
+        _languageController?.applyUserLanguage(
+          asString(asJsonMap(response['user'])['language']),
+          requestRevision: languageRevision,
+        );
+      }
+    }
     return response;
   }
 

@@ -4,14 +4,25 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../../network/models/membership_product.dart';
+import '../../utils/store_price_display_policy.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
+import '../../platform/billing/membership_product_store.dart';
 
 class MembershipPlatformUnavailable implements Exception {}
 
 class MembershipOffer {
-  const MembershipOffer({required this.product});
+  const MembershipOffer({
+    required this.product,
+    this.storePrice,
+    this.requiresStorePrice = false,
+  });
+  final MembershipStorePrice? storePrice;
+  final bool requiresStorePrice;
   final MembershipProduct product;
-  MembershipDisplayPrice? get price => product.priceAmount == null
+  MembershipDisplayPrice? get price =>
+      storePrice != null && useStorePriceForDisplay(storePrice!.currencyCode)
+      ? MembershipDisplayPrice.fromStore(storePrice!)
+      : product.priceAmount == null
       ? null
       : MembershipDisplayPrice(
           amountCent: product.priceAmount!,
@@ -24,14 +35,75 @@ class MembershipDisplayPrice {
   const MembershipDisplayPrice({
     required this.amountCent,
     required this.currencyCode,
+    this.amountMicros,
+    this.storeFormattedPrice,
   });
+  MembershipDisplayPrice.fromStore(MembershipStorePrice price)
+    : amountCent = (price.amountMicros / 10000).round(),
+      amountMicros = price.amountMicros,
+      currencyCode = price.currencyCode,
+      storeFormattedPrice = price.formattedPrice;
+
+  final int? amountMicros;
+  final String? storeFormattedPrice;
   final int amountCent;
   final String currencyCode;
 
-  String get formattedPrice => NumberFormat.simpleCurrency(
-    name: currencyCode,
-    decimalDigits: 2,
-  ).format(amountCent / 100);
+  double get amount => (amountMicros ?? amountCent * 10000) / 1000000;
+
+  String monthlyEquivalent(String locale, int months) {
+    if (months <= 0) throw ArgumentError.value(months, 'months');
+    final monthlyAmount = amount / months;
+    final storePrice = storeFormattedPrice;
+    if (storePrice != null) {
+      // Keep the store's currency prefix/suffix and spacing. A simple currency
+      // formatter can collapse CAD/AUD to '$', losing the store's distinction.
+      final number = RegExp(
+        r'[0-9](?:[0-9.,\u00a0\u202f ]*[0-9])?',
+      ).firstMatch(storePrice);
+      if (number != null) {
+        final digits = number.group(0)!;
+        final hasDecimals = RegExp(r'[.,]\d{2}$').hasMatch(digits);
+        final decimalDigits =
+            currencyCode == 'JPY' ||
+                currencyCode == 'KRW' ||
+                (currencyCode == 'TWD' && !hasDecimals)
+            ? 0
+            : 2;
+        final commaDecimal =
+            decimalDigits > 0 && RegExp(r',\d{2}$').hasMatch(digits);
+        final formatter = NumberFormat(
+          decimalDigits == 0 ? '#,##0' : '#,##0.00',
+          commaDecimal ? 'de' : 'en',
+        );
+        var formatted = formatter.format(monthlyAmount);
+        final spaceGroup = RegExp(r'[\u00a0\u202f ]').firstMatch(digits);
+        if (spaceGroup != null) {
+          formatted = formatted.replaceAll(
+            commaDecimal ? '.' : ',',
+            spaceGroup.group(0)!,
+          );
+        }
+        return trimZeroPriceDecimals(
+          storePrice.replaceRange(number.start, number.end, formatted),
+        );
+      }
+    }
+    return trimZeroPriceDecimals(
+      NumberFormat.simpleCurrency(
+        locale: locale,
+        name: currencyCode,
+      ).format(monthlyAmount),
+    );
+  }
+
+  String get formattedPrice => trimZeroPriceDecimals(
+    storeFormattedPrice ??
+        NumberFormat.simpleCurrency(
+          name: currencyCode,
+          decimalDigits: 2,
+        ).format(amountCent / 100),
+  );
 }
 
 class MembershipCatalogData {
@@ -46,6 +118,7 @@ class MembershipCatalog {
     required this.loadProducts,
     required this.provider,
     this.cacheStore,
+    this.loadStorePrices,
     this.readOwnerUid,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
@@ -55,6 +128,7 @@ class MembershipCatalog {
   final Future<MembershipProductList> Function(MembershipProvider provider)
   loadProducts;
   final MembershipProvider? provider;
+  final MembershipPricesLoader? loadStorePrices;
   final MembershipCatalogCache? cacheStore;
   final Future<String?> Function()? readOwnerUid;
   final DateTime Function() _now;
@@ -90,12 +164,12 @@ class MembershipCatalog {
     final session = _session;
     try {
       final owner = await readOwnerUid?.call();
-      final response = await cacheStore!.load(platform, owner);
+      final response = await cacheStore!.loadSnapshot(platform, owner);
       if (session != _session) return null;
       // A slow disk read must not replace an already returned API response.
       if (_cached != null) return _cached;
       if (response == null) return null;
-      return _cached = _catalog(response, platform);
+      return _cached = _catalog(response.products, platform, response.prices);
     } catch (error) {
       debugPrint(
         '[Membership] catalog cache read failed: ${error.runtimeType}',
@@ -189,7 +263,17 @@ class MembershipCatalog {
     if (platform == null) throw MembershipPlatformUnavailable();
     final owner = await readOwnerUid?.call();
     final response = await loadProducts(platform);
-    final result = _catalog(response, platform);
+    Map<String, MembershipStorePrice> prices = {};
+    if (loadStorePrices != null) {
+      try {
+        prices = await loadStorePrices!(response.products);
+      } catch (error) {
+        debugPrint(
+          '[Membership] store price lookup failed: ${error.runtimeType}',
+        );
+      }
+    }
+    final result = _catalog(response, platform, prices);
     if (session == _session && generation == _loadGeneration) {
       _checkoutProducts = MembershipProductList(
         lastAccountUuid: response.lastAccountUuid,
@@ -199,18 +283,8 @@ class MembershipCatalog {
       _checkoutOwner = owner;
       _loadedAt = _now();
       // Cache display fields without the last purchase UUID.
-      _cached = _catalog(
-        MembershipProductList(
-          products: [
-            for (final product in response.products)
-              MembershipProduct.fromJson(
-                Map<String, dynamic>.from(product.toJson()),
-              ),
-          ],
-        ),
-        platform,
-      );
-      unawaited(_saveCache(platform, owner, response));
+      _cached = result;
+      unawaited(_saveCache(platform, owner, response, prices));
     }
     return result;
   }
@@ -219,9 +293,10 @@ class MembershipCatalog {
     MembershipProvider platform,
     String? owner,
     MembershipProductList products,
+    Map<String, MembershipStorePrice> prices,
   ) async {
     try {
-      await cacheStore?.save(platform, owner, products);
+      await cacheStore?.save(platform, owner, products, prices: prices);
     } catch (error) {
       debugPrint(
         '[Membership] catalog cache write failed: ${error.runtimeType}',
@@ -231,8 +306,9 @@ class MembershipCatalog {
 
   MembershipCatalogData _catalog(
     MembershipProductList response,
-    MembershipProvider platform,
-  ) {
+    MembershipProvider platform, [
+    Map<String, MembershipStorePrice> prices = const {},
+  ]) {
     final products = response.products.toList();
     if (products.any((product) => product.provider != platform) ||
         products.map((product) => product.planCode).toSet().length !=
@@ -242,7 +318,12 @@ class MembershipCatalog {
     products.sort((a, b) => b.billingMonths.compareTo(a.billingMonths));
     return MembershipCatalogData(
       offers: List.unmodifiable([
-        for (final product in products) MembershipOffer(product: product),
+        for (final product in products)
+          MembershipOffer(
+            product: product,
+            storePrice: prices[product.planCode],
+            requiresStorePrice: loadStorePrices != null,
+          ),
       ]),
     );
   }
@@ -262,9 +343,9 @@ int? membershipYearlySavings(
         monthly.product.monthlyGemsCent != yearly.product.monthlyGemsCent) {
       continue;
     }
-    final fullYear = monthly.price!.amountCent * 12;
-    if (fullYear <= yearly.price!.amountCent) return null;
-    final savings = ((fullYear - yearly.price!.amountCent) * 100 / fullYear)
+    final fullYear = monthly.price!.amount * 12;
+    if (fullYear <= yearly.price!.amount) return null;
+    final savings = ((fullYear - yearly.price!.amount) * 100 / fullYear)
         .round();
     return savings > 0 && savings < 100 ? savings : null;
   }

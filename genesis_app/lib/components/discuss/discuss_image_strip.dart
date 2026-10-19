@@ -186,10 +186,10 @@ String _imagePickErrorText(Object error) {
   if (error is PlatformException) {
     final code = error.code.toLowerCase();
     if (code.contains('denied') || code.contains('permission')) {
-      return 'Photo access denied';
+      return GenesisL10n.current.photoAccessDenied;
     }
   }
-  return 'Image selection failed';
+  return GenesisL10n.current.imageSelectionFailed;
 }
 
 double _discussImageGap(double maxWidth) {

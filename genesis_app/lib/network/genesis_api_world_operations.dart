@@ -134,8 +134,11 @@ mixin _GenesisApiWorldOperations on _GenesisApiContext {
     final map = await v1.world.tick(worldId: wid);
     final tickCount = asInt(map['tick_cnt']);
     final message = tickCount > 0
-        ? 'Tick $tickCount'
-        : asString(map['status'], fallback: 'Progress complete');
+        ? GenesisL10n.current.tickNumber(tick: '$tickCount', suffix: '')
+        : asString(
+            map['status'],
+            fallback: GenesisL10n.current.worldProgressComplete,
+          );
     return WorldProgressResult(message: message, tickCount: tickCount);
   }
 

@@ -23,7 +23,7 @@ Apple / Google 购买 UUID 统一优先取商品接口 `last_account_uuid`；没
 
 同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。有效年会员购买月套餐保留原不能降级弹窗。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
 
-仅平台购买成功（`purchased`）回调携带有效凭据后调用一次 report；`pending`、`restored`、取消或平台失败均不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`accepted` 提示确认中；`rejected` 显示 `We couldn’t verify your subscription. Please contact support.`，涵盖 `subscription_superseded`、其他原因及缺失 reason；`account_mismatch` 保留具体提示 `Account identifiers don't match the previous subscription.`。不直接展示服务端错误码，也不将拒绝原因解释为订阅已变更。原始 reason 仍保存在本次记录中用于排查，不用历史 reason 决定新一次购买的结果。任一业务状态、业务错误或未知状态都结束本次 report，不补报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误及无效响应均直接结束并提示 `Report failed.`，不做任何 report 重试。不保存 report 队列，不在启动、回前台、定时器或 claim accepted 后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
+仅平台购买成功（`purchased`）回调携带有效凭据后调用一次 report；`pending`、`restored`、取消或平台失败均不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`rejected` 显示 `We couldn’t verify your subscription. Please contact support.`，涵盖 `subscription_superseded`、其他原因及缺失 reason；`account_mismatch` 保留具体提示 `Account identifiers don't match the previous subscription.`。不直接展示服务端错误码，也不将拒绝原因解释为订阅已变更。原始 reason 仍保存在本次记录中用于排查，不用历史 reason 决定新一次购买的结果。任一业务状态、业务错误或未知状态都结束本次 report，不补报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误及无效响应均直接结束并提示 `Report failed.`，不做任何 report 重试。不保存 report 队列，不在启动、回前台、定时器或 claim 请求异常后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
 
 Apple 本次 `Product.purchase` 直接返回的回调携带本地 `checkoutAttemptId`，用于关联对应点击。成功回调携带有效凭据后直接执行本次 report，不查询或比较历史 transactionId，不沿用历史 report 状态，也不生成本地“已拥有”提示。即使 Apple 返回之前出现过的交易，仍按本次回调的原始凭据上报，页面按本次服务端结果展示。Apple 返回的商品 ID 与点击套餐不同（例如点月订阅却返回年订阅）时，也按 checkoutAttemptId 接收本次直接结果，不丢弃回调或继续等待超时；report 和后续 claim 的 store_product_id、transaction_id、JWS 来自同一回调。所选套餐仍保留为本地点击信息，不将其价格记到不同的回调商品上。该本地关联标识不进入 Apple 购买参数、HTTP 或持久化。
 
@@ -155,7 +155,6 @@ StoreKit 2 返回具名 Error case，不能把它们当作 Google 数字码。�
 | Google `PENDING`、Apple `.pending` | `VIP payment is pending.`，不上报，等待后续 purchased 回调 |
 | 用户主动取消 / Apple `.userCancelled` | `VIP purchase cancelled.`，关闭购买 Loading，不上报支付成功 |
 | 平台返回已支付 / Apple `.success` | 继续原 report 验单，不能只凭 launch OK 或商店成功回调就显示服务端已确认 |
-| report accepted | `Your VIP purchase is being confirmed.`，结束本次 report，不再补报 |
 | report/确认延迟 | `VIP purchase confirmation is delayed. Please check again later.` |
 | report completed | 原 VIP 成功弹窗 |
 | 未识别 Google 错误 | `Google Play could not complete this VIP purchase. Please try again.` |

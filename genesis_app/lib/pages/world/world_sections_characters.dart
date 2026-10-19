@@ -13,7 +13,9 @@ class WorldStatusSection extends StatelessWidget {
     return WorldCharacterList(
       characters: world.characters,
       currentUid: currentUid,
-      emptyText: 'No character status yet.',
+      emptyText: GenesisL10n
+          .current
+          .worldDetailNoCharacterStatusYet,
       subtitleBuilder: (character) =>
           worldMetricStatusText(world.metric, character),
       subtitleColor: GenesisColors.darkTextSecondary,
@@ -33,7 +35,9 @@ class WorldCharactersSection extends StatelessWidget {
     return WorldCharacterList(
       characters: world.characters,
       currentUid: currentUid,
-      emptyText: 'No characters yet.',
+      emptyText: GenesisL10n
+          .current
+          .worldDetailNoCharactersYet,
       subtitleBuilder: worldCharacterDescriptionText,
       subtitleColor: GenesisColors.darkTextSecondary,
       showCharacterDetails: true,
@@ -152,9 +156,11 @@ class WorldCharacterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = worldMapString(character, const [
-      'name',
-    ], fallback: 'Character');
+    final name = worldMapString(
+      character,
+      const ['name'],
+      fallback: GenesisL10n.current.homeWorldCharacter,
+    );
     final avatarUrl = worldResizedCharacterAvatarUrl(context, character);
     final playerUid = worldMapString(character, const ['player_uid']);
     final username = worldMapString(character, const ['player_username']);
@@ -167,7 +173,11 @@ class WorldCharacterRow extends StatelessWidget {
     );
     final isCharacterRole = worldIsCharacterRole(character);
     final isNew = shouldMarkWorldContentAsNew(asBool(character['is_new']));
-    final roleLabel = isCharacterRole ? 'Character' : 'Player';
+    final roleLabel = isCharacterRole
+        ? GenesisL10n.current.homeWorldCharacter
+        : GenesisL10n
+              .current
+              .worldDetailPlayer;
     final identity = worldMapString(character, const ['identity']);
     final brief = worldMapString(character, const ['brief']);
     final goal = worldMapString(character, const ['goal']);
@@ -287,7 +297,10 @@ class WorldCharacterRow extends StatelessWidget {
                   if (isCharacterRole && goal.isNotEmpty) ...[
                     const SizedBox(height: 5),
                     Text(
-                      'Goal: $goal',
+                      GenesisL10n.current
+                          .worldDetailGoal(
+                            goal: (goal).toString(),
+                          ),
                       style: bodyStyle,
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
@@ -296,7 +309,9 @@ class WorldCharacterRow extends StatelessWidget {
                   if (isCharacterRole && !hasDisplayedDetails) ...[
                     const SizedBox(height: 5),
                     Text(
-                      'No character details yet.',
+                      GenesisL10n
+                          .current
+                          .worldDetailNoCharacterDetailsYet,
                       style: bodyStyle.copyWith(color: subtitleColor),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
@@ -425,7 +440,7 @@ String worldEventBody(WorldDetail world) {
     final value = item.trim();
     if (value.isNotEmpty) return value;
   }
-  return 'No world events yet.';
+  return GenesisL10n.current.noWorldEventsYet;
 }
 
 String worldCharacterDescriptionText(Map<String, dynamic> character) {
@@ -440,9 +455,17 @@ String worldCharacterDescriptionText(Map<String, dynamic> character) {
   final details = worldOrderedNonEmptyStrings([
     identity,
     brief,
-    goal.isEmpty ? '' : 'Goal: $goal',
+    goal.isEmpty
+        ? ''
+        : GenesisL10n.current.worldDetailGoal(
+            goal: goal,
+          ),
   ]);
-  return details.isEmpty ? 'No character details yet.' : details.join('\n');
+  return details.isEmpty
+      ? GenesisL10n
+            .current
+            .worldDetailNoCharacterDetailsYet
+      : details.join('\n');
 }
 
 String worldMetricStatusText(

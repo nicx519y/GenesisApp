@@ -1,9 +1,12 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -230,17 +233,26 @@ class OriginLaunchCoordinator {
       final worldName = (world?.name.trim().isEmpty ?? true)
           ? fallbackWorldId
           : world!.name.trim();
-      final title = 'Worldo #$worldName launched!';
+      final title = GenesisL10n.current
+          .worldoLaunchWorldoWorldName(
+            worldName: (worldName).toString(),
+          );
       final shouldGo = await showGenesisActionBox<bool>(
         context: context,
         title: title,
         titleWidget: _successActionBoxTitle(
-          leadingText: 'Worldo ',
+          template: context.l10n.worldoLaunched(
+            worldName: GenesisLocalizedRichText.placeholder('worldName'),
+          ),
           highlightedText: '#$worldName',
-          trailingText: ' launched!',
         ),
-        actions: const [
-          GenesisActionBoxAction<bool>(label: 'Enter', value: true),
+        actions: [
+          GenesisActionBoxAction<bool>(
+            label: GenesisL10n
+                .current
+                .worldoLaunchEnter,
+            value: true,
+          ),
         ],
       );
       if (shouldGo == true) {
@@ -291,9 +303,8 @@ class OriginLaunchCoordinator {
 }
 
 Widget _successActionBoxTitle({
-  required String leadingText,
+  required String template,
   required String highlightedText,
-  required String trailingText,
 }) {
   const baseStyle = TextStyle(
     fontFamily: GenesisTypography.fontFamily,
@@ -303,20 +314,17 @@ Widget _successActionBoxTitle({
     height: 1.16,
     fontWeight: FontWeight.w600,
   );
-  return RichText(
+  return GenesisLocalizedRichText(
     maxLines: 2,
     overflow: TextOverflow.ellipsis,
     textAlign: TextAlign.center,
-    text: TextSpan(
-      style: baseStyle,
-      children: [
-        TextSpan(text: leadingText),
-        TextSpan(
-          text: highlightedText,
-          style: baseStyle.copyWith(color: GenesisColors.redSecondary),
-        ),
-        TextSpan(text: trailingText),
-      ],
-    ),
+    template: template,
+    placeholders: {
+      'worldName': TextSpan(
+        text: highlightedText,
+        style: baseStyle.copyWith(color: GenesisColors.redSecondary),
+      ),
+    },
+    style: baseStyle,
   );
 }

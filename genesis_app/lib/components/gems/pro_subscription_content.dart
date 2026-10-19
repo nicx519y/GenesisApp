@@ -1,8 +1,8 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:intl/intl.dart';
 
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -15,6 +15,8 @@ import '../../platform/billing/purchase_toast_diagnostics.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../network/models/membership_product.dart';
@@ -27,13 +29,21 @@ import 'pro_colors.dart';
 import 'subscription_benefit_icon.dart';
 
 enum _ProPlan {
-  yearly('pro_yearly', 'Yearly', 'year'),
-  monthly('pro_monthly', 'Monthly', 'month');
+  yearly('pro_yearly'),
+  monthly('pro_monthly');
 
-  const _ProPlan(this.code, this.label, this.period);
+  const _ProPlan(this.code);
   final String code;
-  final String label;
-  final String period;
+
+  String get label => switch (this) {
+    _ProPlan.yearly => GenesisL10n.current.yearlyPlan,
+    _ProPlan.monthly => GenesisL10n.current.monthlyPlan,
+  };
+
+  String get period => switch (this) {
+    _ProPlan.yearly => 'year',
+    _ProPlan.monthly => 'month',
+  };
 }
 
 class ProSubscriptionContent extends StatefulWidget {
@@ -151,7 +161,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     if (state != AppLifecycleState.resumed) {
       _clearCheckoutPreparation();
     } else if (!_submitting && _hasFreshCatalog) {
-      _prepareSelectedCheckout();
+      unawaited(_load(silent: true, forceRefresh: true));
     }
   }
 
@@ -338,6 +348,23 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         await _load(forceRefresh: true);
         return;
       }
+      if (_catalog?.loadStorePrices != null) {
+        final previous = _offerFor(_plan);
+        await _load(silent: true, forceRefresh: true);
+        if (!mounted || !_hasFreshCatalog) return;
+        final current = _offerFor(_plan);
+        if (current?.storePrice == null ||
+            current?.price == null ||
+            previous?.price?.amount != current?.price?.amount ||
+            previous?.price?.currencyCode != current?.price?.currencyCode ||
+            previous?.product.storeProductId !=
+                current?.product.storeProductId ||
+            previous?.product.basePlanId != current?.product.basePlanId ||
+            previous?.product.offerId != current?.product.offerId) {
+          // Updated conditions stay visible; a new tap confirms the new price.
+          return;
+        }
+      }
       await _subscribe();
     } finally {
       _submitting = false;
@@ -359,7 +386,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final tracking = _tracking.click(isYearly: offer.product.isYearly);
     final access = _membership?.state.value ?? const MembershipAccessState();
     if (membershipIsSubscribedToSelectedPlan(offer.product, access)) {
-      _tracking.analytics.failed(tracking, 'already_subscribed', once: true);
+      _tracking.analytics.failed(
+        tracking,
+        'precheck_failed[already_subscribed]',
+        once: true,
+      );
       await showMembershipPurchaseFailure(
         context,
         'already_subscribed',
@@ -374,11 +405,15 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     }
     final service = widget.purchaseService ?? _services?.membershipPurchases;
     if (service == null) {
-      _tracking.analytics.failed(tracking, 'service_unavailable', once: true);
+      _tracking.analytics.failed(
+        tracking,
+        'precheck_failed[service_unavailable]',
+        once: true,
+      );
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Purchases are currently unavailable.',
+          GenesisL10n.current.premiumPurchasesUnavailable,
           debugInfo: purchaseDebugInfo(
             'vip.precheck',
             reason: 'service_unavailable',
@@ -621,7 +656,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         ),
         const SizedBox(height: 6),
         Text(
-          widget.tagline ?? _tagline,
+          widget.tagline ?? GenesisL10n.current.proSubscriptionTagline,
           key: const ValueKey('pro-tagline'),
           style: const TextStyle(
             fontSize: 14,
@@ -652,7 +687,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       for (final (index, benefit) in rows.indexed) ...[
         if (index > 0) const SizedBox(height: 20),
         if (gemHeadCode != null && index == 1) ...[
-          const Text(
+          Text(
             _restLabel,
             key: ValueKey('pro-benefits-rest-label'),
             style: TextStyle(
@@ -715,11 +750,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
             ],
           ),
         ),
-        const SizedBox(
+        SizedBox(
           height: 35,
           child: Center(
             child: Text(
-              'Auto-renews. Cancel anytime.',
+              GenesisL10n.current.premiumAutoRenewsCancelAnytime,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
@@ -764,11 +799,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       ),
       child: GenesisPrimaryButton(
         key: const ValueKey('pro-subscribe-button'),
+        shrinkLabelToFit: true,
         backgroundColor: Colors.transparent,
         foregroundColor: premiumInkOnGold,
         label: subscribed
-            ? 'Subscribed'
-            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
+            ? GenesisL10n.current.premiumSubscribed
+            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? GenesisL10n.current.premiumPurchaseUnavailable}',
         height: 44,
         fontSize: 18,
         fontWeight: FontWeight.w600,
@@ -800,11 +836,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       spacing: 8,
       runSpacing: 4,
       children: [
-        link('privacy', 'Privacy Policy'),
+        link('privacy', GenesisL10n.current.privacyPolicy),
         Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
-        link('terms', 'Terms of Service'),
+        link('terms', GenesisL10n.current.termsOfService),
         Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
-        link('eula', 'EULA'),
+        link('eula', GenesisL10n.current.eulaShort),
       ],
     );
   }
@@ -814,8 +850,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   /// App-side copy: the plan's positioning line and the label that introduces
   /// whatever the gem module did not already cover.
-  static const String _tagline = 'Go deeper into every Worldo you play.';
-  static const String _restLabel = 'Also included';
+  static String get _restLabel => GenesisL10n.current.premiumAlsoIncluded;
 
   static const TextStyle _legalStyle = TextStyle(
     fontSize: 12,
@@ -841,7 +876,7 @@ class PremiumWordmark extends StatelessWidget {
       // of their own box, which tips the wordmark off whatever is centred
       // beside it. The font's natural leading keeps the two level.
       child: Text(
-        'Worldo Premium',
+        GenesisL10n.current.premiumWorldo,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style:
@@ -976,9 +1011,9 @@ class _GemGrantCard extends StatelessWidget {
     final pink = lower.contains('pink');
     final extra = lower.contains('extra');
     final name = pink
-        ? 'Pink Gems'
+        ? GenesisL10n.current.premiumPinkGems
         : lower.contains('red')
-        ? 'Red Gems'
+        ? GenesisL10n.current.premiumRedGems
         : '';
     // Copy this line can't be read apart falls back to carrying the card whole.
     if (name.isEmpty) return _GemGrantCardShell(child: _note(title));
@@ -986,16 +1021,23 @@ class _GemGrantCard extends StatelessWidget {
     final amount = match == null ? '' : '${extra ? '+' : ''}${match.group(0)}';
     // A grant that repeats says so beside its figure, the way a plan's price
     // carries "/mo", rather than leaving the rate to the note alone.
-    final perUnit = lower.contains('check-in') ? ' /day' : '';
+    final perUnit = lower.contains('check-in')
+        ? GenesisL10n.current.gemsPerDay(amount: '').trim()
+        : '';
     // The design words the cadence itself and leaves only the figure to the
     // server, so read which cadence this is and use the design's line. Its
     // wording is shortened to hold one line at 12px down to a 360 screen.
-    final nameAt = lower.indexOf(name.toLowerCase());
+    final sourceName = pink ? 'Pink Gems' : 'Red Gems';
+    final nameAt = lower.indexOf(sourceName.toLowerCase());
     final note = lower.contains('check-in')
-        ? (extra ? 'Extra, daily check-in' : 'Daily check-in')
+        ? (extra
+              ? GenesisL10n.current.premiumExtraDailyCheck
+              : GenesisL10n.current.premiumDailyCheck)
         : lower.contains('month')
-        ? 'Claimed monthly'
-        : title.substring(nameAt + name.length).trim();
+        ? GenesisL10n.current.premiumClaimedMonthly
+        : nameAt < 0
+        ? title
+        : title.substring(nameAt + sourceName.length).trim();
     return _GemGrantCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1011,29 +1053,33 @@ class _GemGrantCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 Flexible(
-                  child: Text.rich(
-                    TextSpan(
-                      text: amount,
-                      children: [
-                        if (perUnit.isNotEmpty)
-                          TextSpan(
-                            text: perUnit,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: GenesisColors.darkTextTertiary,
+                  child: GenesisLocalizedRichText(
+                    template: perUnit.isEmpty
+                        ? GenesisLocalizedRichText.placeholder('amount')
+                        : context.l10n.gemsPerDay(
+                            amount: GenesisLocalizedRichText.placeholder(
+                              'amount',
                             ),
                           ),
-                      ],
-                    ),
+                    placeholders: {
+                      'amount': TextSpan(
+                        text: amount,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1,
+                          fontWeight: FontWeight.w800,
+                          color: GenesisColors.darkTextPrimary,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    },
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       height: 1,
-                      fontWeight: FontWeight.w800,
-                      color: GenesisColors.darkTextPrimary,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                      fontWeight: FontWeight.w600,
+                      color: GenesisColors.darkTextTertiary,
                     ),
                   ),
                 ),
@@ -1106,24 +1152,30 @@ class _ProPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final price = offer?.price;
     final monthlyPrice = price == null
-        ? ''
+        ? GenesisL10n.current.premiumPurchaseUnavailable
         : plan == _ProPlan.yearly
-        ? NumberFormat.simpleCurrency(
-            locale: Localizations.localeOf(context).toString(),
-            name: price.currencyCode,
-            decimalDigits: 2,
-          ).format(price.amountCent / 100 / offer!.product.billingMonths)
+        ? price.monthlyEquivalent(
+            Localizations.localeOf(context).toString(),
+            offer!.product.billingMonths,
+          )
         : price.formattedPrice;
     final note = plan == _ProPlan.yearly
-        ? (price == null ? '' : '${price.formattedPrice}, Billed annually')
-        : 'Billed monthly';
+        ? (price == null
+              ? ''
+              : GenesisL10n.current.billedAnnually(price: price.formattedPrice))
+        : GenesisL10n.current.premiumBilledMonthly;
     final showSavings =
         plan == _ProPlan.yearly && savings != null && savings! > 0;
     return Semantics(
       button: true,
       selected: selected,
-      label:
-          '${plan.label} Premium, ${price?.formattedPrice ?? ''} per ${plan.period}',
+      label: context.l10n.subscriptionPlanAccessibility(
+        period: plan.period,
+        plan: plan.label,
+        price:
+            price?.formattedPrice ??
+            GenesisL10n.current.premiumPurchaseUnavailable,
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1167,43 +1219,50 @@ class _ProPlanCard extends StatelessWidget {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Text.rich(
-                      TextSpan(
-                        text: monthlyPrice,
-                        children: const [
-                          TextSpan(
-                            text: '/mo',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: GenesisColors.darkTextTertiary,
-                            ),
-                          ),
-                        ],
+                    child: GenesisLocalizedRichText(
+                      template: context.l10n.monthlyPrice(
+                        price: GenesisLocalizedRichText.placeholder(
+                          'monthlyPrice',
+                        ),
                       ),
+                      placeholders: {
+                        'monthlyPrice': TextSpan(
+                          text: monthlyPrice,
+                          style: TextStyle(
+                            fontSize: 20,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: selected
+                                ? premiumGoldLight
+                                : GenesisColors.darkTextPrimary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      },
                       maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 20,
+                      style: const TextStyle(
+                        fontSize: 12,
                         height: 1,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                        color: selected
-                            ? premiumGoldLight
-                            : GenesisColors.darkTextPrimary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                        fontWeight: FontWeight.w600,
+                        color: GenesisColors.darkTextTertiary,
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    note,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.25,
-                      fontWeight: FontWeight.w400,
-                      color: GenesisColors.darkTextTertiary,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      note,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.25,
+                        fontWeight: FontWeight.w400,
+                        color: GenesisColors.darkTextTertiary,
+                      ),
                     ),
                   ),
                 ],
@@ -1246,7 +1305,7 @@ class _SavingsTag extends StatelessWidget {
         border: Border.all(color: premiumGoldTagRing),
       ),
       child: Text(
-        'Save $savings%',
+        GenesisL10n.current.premiumSaveSavings(savings: (savings).toString()),
         style: const TextStyle(
           fontSize: 12,
           height: 1,

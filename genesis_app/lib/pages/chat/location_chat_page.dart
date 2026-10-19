@@ -1,8 +1,13 @@
+import '../../l10n/genesis_localizations.dart';
+import '../../components/gems/gem_purchase_bottom_sheet.dart';
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 
 import '../../components/common/page_presentation_scope.dart';
 import '../mini_phone/mini_phone.dart';
+import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -407,7 +412,11 @@ class LocationChatPanel extends StatefulWidget {
     this.showComposer = true,
     this.composerReplacement,
     this.composerTopOverlay,
+    this.extendComposerBackground = true,
     this.emptyState,
+    this.emptyStateInteractive = false,
+    this.previewContent,
+    this.previewOccupants,
     this.showConnectionStatus = true,
     this.showMoreButton = false,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
@@ -456,7 +465,11 @@ class LocationChatPanel extends StatefulWidget {
   final bool showComposer;
   final Widget? composerReplacement;
   final Widget? composerTopOverlay;
+  final bool extendComposerBackground;
   final Widget? emptyState;
+  final bool emptyStateInteractive;
+  final Widget? previewContent;
+  final List<WorldChatroomEntity>? previewOccupants;
   final bool showConnectionStatus;
   final bool showMoreButton;
   final SystemUiOverlayStyle systemUiOverlayStyle;
@@ -480,7 +493,20 @@ class LocationChatPanel extends StatefulWidget {
   State<LocationChatPanel> createState() => _LocationChatPanelState();
 }
 
-class _LocationChatPanelState extends State<LocationChatPanel> {
+class _LocationChatPanelState extends State<LocationChatPanel>
+    with LanguageDataRefresh<LocationChatPanel> {
+  @override
+  bool get languageSectionVisible => widget.active;
+  @override
+  Future<void> refreshLanguageData() async {
+    _modelRequestCache.clearModelCatalog();
+    _selectedModelTitleLookupCode = '';
+    await _backfillSelectedModelTitle(
+      _selectedModelCode,
+      propagateFailure: true,
+    );
+  }
+
   final _unobscuredPanelKey = GlobalKey();
   ValueListenable<ChatroomLocationEntry>? _entryChanges;
   bool get _usesPreparedEntry =>
@@ -693,6 +719,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
   bool _initialMessageSendPending = false;
+  bool _waitForComposerSpeaker = false;
+  ({String name, String avatar})? _initialComposerSpeaker;
+  ui.Image? _initialComposerAvatarImage;
   ChatMessageVm? _initialOutgoingMessage;
   bool _initialOutgoingMessageReconciled = false;
   bool _ignoreInheritedKeyboardInset = false;
@@ -974,6 +1003,20 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     );
     final initialMessageToSend = widget.initialMessageToSend;
     _initialOutgoingMessage = widget.initialOutgoingMessage;
+    final initialSpeaker = _initialOutgoingMessage;
+    _initialComposerAvatarImage = initialSpeaker?.avatarSnapshot?.clone();
+    if (initialSpeaker != null &&
+        initialSpeaker.isPlayerControlledRole &&
+        initialSpeaker.senderName.trim().isNotEmpty &&
+        (initialSpeaker.avatarUrl.trim().isNotEmpty ||
+            _initialComposerAvatarImage != null)) {
+      // The selected Origin role is already known before navigation. Capture
+      // immutable fields because message reconciliation mutates the outgoing VM.
+      _initialComposerSpeaker = (
+        name: initialSpeaker.senderName.trim(),
+        avatar: initialSpeaker.avatarUrl.trim(),
+      );
+    }
     // Sheet sends close their composer while this page is already visible.
     // Its keyboard belongs to the previous page until our composer is focused.
     _ignoreInheritedKeyboardInset = _initialOutgoingMessage != null;
@@ -993,6 +1036,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     if (outgoingMessage != null) _messages.add(outgoingMessage);
     _initialMessageSendPending =
         outgoingMessage != null || initialMessageToSend.trim().isNotEmpty;
+    _waitForComposerSpeaker = _initialMessageSendPending;
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -1023,6 +1067,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void dispose() {
     _presentation?.removeListener(_handlePresentationChanged);
+    _initialComposerAvatarImage?.dispose();
     _clearAckLoading();
     _unbindFeatureQuotas();
     locationChatHeaderEffectSettings.removeListener(
@@ -1227,9 +1272,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       debugLocationChatPanelBuildCount++;
       return true;
     }());
-    final occupants = !widget.active && _exitRetainedOccupants != null
-        ? _exitRetainedOccupants!
-        : _roomOccupantsForCurrentLocation(_chatroomState);
+    final occupants =
+        widget.previewOccupants ??
+        (!widget.active && _exitRetainedOccupants != null
+            ? _exitRetainedOccupants!
+            : _roomOccupantsForCurrentLocation(_chatroomState));
     final selfOccupantId = firstNonEmpty([_myUserId, _mySenderId]);
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
     final joined = _chatroomState.joinedLocationId == widget.locationId;
@@ -1273,9 +1320,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               controller: _textController,
               focusNode: _composerFocusNode,
               onInputTap: _handleComposerInputTap,
-              hintText: 'Text...',
-              selfName: _localSelfDisplayName(),
-              selfAvatarUrl: _localSelfAvatarUrl(),
+              hintText: GenesisL10n.current.chatText,
+              showSpeakerIdentity: _composerSpeakerReady,
+              selfName: _composerSpeakerName,
+              selfAvatarUrl: _composerSpeakerAvatar,
+              selfAvatarSnapshot: _initialComposerAvatarImage,
               messageType: _composerMessageType,
               onToggleMessageType:
                   _messageAppVersion < chatroomNarrationMinAppVersion
@@ -1493,10 +1542,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                     composer: composer == null
                         ? null
                         : RepaintBoundary(
-                            child: _LocationChatComposerExtension(
-                              style: style,
-                              child: composer,
-                            ),
+                            child: widget.extendComposerBackground
+                                ? _LocationChatComposerExtension(
+                                    style: style,
+                                    child: composer,
+                                  )
+                                : composer,
                           ),
                   ),
                 ),
@@ -1662,8 +1713,8 @@ class _LocationChatRoster extends StatelessWidget {
                                   ),
                                   if (isSelf) ...[
                                     const SizedBox(width: 8),
-                                    const Text(
-                                      'YOU',
+                                    Text(
+                                      GenesisL10n.current.chatLocationRoster,
                                       style: TextStyle(
                                         color: accentSoft,
                                         fontSize: 9.5,

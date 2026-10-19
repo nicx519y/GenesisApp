@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -34,6 +35,8 @@ import '../platform/session/method_channel_user_session_store.dart';
 import '../platform/session/user_session_store.dart';
 import '../utils/entity_deleted.dart';
 import '../utils/genesis_image_resource.dart';
+
+import '../l10n/app_language_controller.dart';
 
 part 'genesis_api_context.dart';
 part 'genesis_api_auth_operations.dart';
@@ -81,6 +84,7 @@ class GenesisApi extends _GenesisApiContext
     super.sessionStore,
     super.identityAuthService,
     super.appHeaderProvider,
+    super.languageController,
     super.gatewayRequestInterceptor,
     super.onSessionExpired,
     super.onChatroomMessageMutationError,

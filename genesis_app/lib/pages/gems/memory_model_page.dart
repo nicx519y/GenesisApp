@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -12,6 +14,8 @@ import '../../network/models/gem_model.dart';
 import '../../network/models/user_memory_settings.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../ui/components/genesis_info_card.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -56,7 +60,16 @@ class MemoryModelPage extends StatefulWidget {
   State<MemoryModelPage> createState() => _MemoryModelPageState();
 }
 
-class _MemoryModelPageState extends State<MemoryModelPage> {
+class _MemoryModelPageState extends State<MemoryModelPage>
+    with LanguageDataRefresh<MemoryModelPage> {
+  @override
+  bool get languageRefreshSucceeded => _error == null;
+  @override
+  Future<void> refreshLanguageData() async {
+    widget.pageCache?.clearModelCatalog();
+    await _refresh(preserveContent: true);
+  }
+
   static const Duration _memoryAutosaveDelay = Duration(milliseconds: 500);
 
   GemModelCatalog? _catalog;
@@ -171,7 +184,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     final session = await services.sessionStore.readCompleteSession();
     if (session == null) {
       throw ApiException(
-        message: 'Complete user session is required for model list',
+        message: GenesisL10n.current.memoryCompleteUserSession,
         code: 10011,
         kind: ApiExceptionKind.business,
       );
@@ -187,7 +200,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     );
     if (catalog != null) return catalog;
     throw ApiException(
-      message: 'Model list permission denied for this World',
+      message: GenesisL10n.current.memoryModelListPermissionDenied,
       code: 10011,
       kind: ApiExceptionKind.business,
     );
@@ -605,7 +618,11 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         }
       }
       if (mounted && showFailure && request.revision == _modelRevision) {
-        showGenesisToast(context, 'Save failed', brightness: Brightness.dark);
+        showGenesisToast(
+          context,
+          GenesisL10n.current.memorySaveFailed,
+          brightness: Brightness.dark,
+        );
       }
     } finally {
       if (_modelInFlightRevision == request.revision) {
@@ -681,14 +698,18 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         if (mounted && showFailure && request.revision == _memoryRevision) {
           showGenesisToast(
             context,
-            'Save result not confirmed',
+            GenesisL10n.current.memorySaveResultNotConfirmed,
             brightness: Brightness.dark,
           );
         }
       } else if (mounted &&
           showFailure &&
           request.revision == _memoryRevision) {
-        showGenesisToast(context, 'Save failed', brightness: Brightness.dark);
+        showGenesisToast(
+          context,
+          GenesisL10n.current.memorySaveFailed,
+          brightness: Brightness.dark,
+        );
       }
     } finally {
       if (_memoryInFlightRevision == request.revision) {
@@ -733,7 +754,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
           builder: (context) => Scaffold(
             backgroundColor: GenesisColors.darkBackground,
             appBar: GenesisBackAppBar(
-              pageName: 'Memory & Model',
+              pageName: GenesisL10n.current.memoryModel,
               onBack: _closePage,
             ),
             body: SafeArea(top: false, child: _buildBody()),
@@ -752,7 +773,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         children: [
           _buildMemoryArea(),
           const SizedBox(height: 24),
-          const _SectionTitle(title: 'Choose model'),
+          _SectionTitle(title: GenesisL10n.current.memoryChooseModel),
           const SizedBox(height: 12),
           _buildModelArea(),
         ],
@@ -780,9 +801,9 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       children: [
         _CurrentMemorySummary(memoryUsedTokens: settings.memoryUsedTokens!),
         const SizedBox(height: 30),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
-          child: _SectionTitle(title: 'Max memory token limit'),
+          child: _SectionTitle(title: GenesisL10n.current.memoryMaxTokenLimit),
         ),
         const SizedBox(height: 10),
         _MaxMemoryLimitCard(
@@ -815,11 +836,11 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
             .toList(growable: false) ??
         const <GemModel>[];
     if (models.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 140,
         child: Center(
           child: Text(
-            'No models available',
+            GenesisL10n.current.memoryNoModelsAvailable,
             style: TextStyle(
               fontSize: 14,
               color: GenesisColors.darkTextTertiary,
@@ -848,7 +869,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
           TextButton(
             key: const ValueKey('gem-model-ranges-retry'),
             onPressed: () => unawaited(_refreshAll()),
-            child: const Text('Retry ranges'),
+            child: Text(GenesisL10n.current.memoryRetryRanges),
           ),
       ],
     );
@@ -985,7 +1006,7 @@ class _CurrentMemorySummary extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Your current memory usage',
+          GenesisL10n.current.memoryCurrentUsage,
           style: GenesisTypography.supporting.copyWith(
             color: GenesisColors.darkTextTertiary,
           ),
@@ -1284,7 +1305,12 @@ class _GemModelTileContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final min = formatGemCent(model.minGemsCent);
     final max = formatGemCent(model.maxGemsCent);
-    final priceRange = min == max ? '$min gems' : '$min–$max gems';
+    final priceRange = min == max
+        ? GenesisL10n.current.memoryMinGems(min: (min).toString())
+        : GenesisL10n.current.memoryMinMaxGems(
+            min: (min).toString(),
+            max: (max).toString(),
+          );
     final memory = memorySettings;
     final memoryStart = memory == null
         ? null
@@ -1295,8 +1321,11 @@ class _GemModelTileContent extends StatelessWidget {
     final memoryRange = memory == null
         ? null
         : memoryStart == memoryEnd
-        ? 'memory $memoryStart'
-        : 'memory $memoryStart → $memoryEnd';
+        ? GenesisL10n.current.memoryStart(memoryStart: (memoryStart).toString())
+        : GenesisL10n.current.memoryStartEnd(
+            memoryStart: (memoryStart).toString(),
+            memoryEnd: (memoryEnd).toString(),
+          );
     final rangeStyle = GenesisTypography.supporting.copyWith(
       color: GenesisColors.darkTextTertiary,
     );
@@ -1333,17 +1362,18 @@ class _GemModelTileContent extends StatelessWidget {
             height: 16,
           )
         else
-          Text.rich(
-            TextSpan(
-              text: 'Estimated next message ',
-              children: [
-                TextSpan(
-                  text:
-                      '${formatGemCent(model.estimatedNextMessageGemsCent)} gems',
-                  style: const TextStyle(color: GenesisColors.redSecondary),
-                ),
-              ],
+          GenesisLocalizedRichText(
+            template: context.l10n.memoryEstimatedNextMessageCost(
+              cost: GenesisLocalizedRichText.placeholder('cost'),
             ),
+            placeholders: {
+              'cost': TextSpan(
+                text: context.l10n.gemsAmount(
+                  amount: formatGemCent(model.estimatedNextMessageGemsCent),
+                ),
+                style: const TextStyle(color: GenesisColors.redSecondary),
+              ),
+            },
             key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
             style: GenesisTypography.supporting.copyWith(
               color: GenesisColors.darkTextTertiary,
@@ -1478,8 +1508,8 @@ class _ModelLoadError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Load failed',
+            Text(
+              GenesisL10n.current.homeLoadFailed,
               style: TextStyle(
                 fontSize: 14,
                 color: GenesisColors.darkTextTertiary,
@@ -1488,7 +1518,7 @@ class _ModelLoadError extends StatelessWidget {
             const SizedBox(height: 14),
             GenesisPrimaryButton(
               onPressed: onRetry,
-              label: 'Retry',
+              label: GenesisL10n.current.homeRetry,
               fullWidth: false,
               width: 96,
             ),
@@ -1560,8 +1590,8 @@ class _MemoryLoadError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Memory settings unavailable',
+            Text(
+              GenesisL10n.current.memorySettingsUnavailable,
               style: TextStyle(
                 fontSize: 14,
                 color: GenesisColors.darkTextTertiary,
@@ -1571,7 +1601,7 @@ class _MemoryLoadError extends StatelessWidget {
             GenesisPrimaryButton(
               key: const ValueKey('memory-settings-retry'),
               onPressed: onRetry,
-              label: 'Retry',
+              label: GenesisL10n.current.homeRetry,
               fullWidth: false,
               width: 96,
             ),

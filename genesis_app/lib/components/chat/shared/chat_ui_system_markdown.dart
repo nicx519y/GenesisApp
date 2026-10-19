@@ -285,9 +285,12 @@ String _tickAdvanceText(ChatMessageVm message) {
 }
 
 String _tickLabel(ChatMessageVm message) {
-  if (message.tickNo < 0) return 'Tick';
+  if (message.tickNo < 0) return GenesisL10n.current.tickLabel;
   final subTick = message.subTickNo > 0 ? '-${message.subTickNo}' : '';
-  return 'Tick ${message.tickNo}$subTick';
+  return GenesisL10n.current.tickNumber(
+    tick: message.tickNo.toString(),
+    suffix: subTick,
+  );
 }
 
 String chatInitials(String value) {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/membership_debug_override.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
@@ -564,6 +565,38 @@ void main() {
     await tester.pump(const Duration(days: 1));
     expect(h.calls, 1);
   });
+
+  _testMembership(
+    'developer override answers for every reader until switched off',
+    (tester, h) async {
+      addTearDown(
+        () => membershipDebugOverride.value = MembershipDebugOverride.off,
+      );
+      h.load = () async => _response(status: 0);
+      expect(await _checkVip(h.access), inactive);
+      final published = <MembershipAccessState>[];
+      void record() => published.add(h.access.state.value);
+      h.access.state.addListener(record);
+
+      membershipDebugOverride.value = MembershipDebugOverride.yearly;
+      expect(published.last.isVip, isTrue);
+      expect(published.last.membership?.planCode, 'pro_yearly');
+      expect(published.last.membership?.expiresAt?.isAfter(h.epoch), isTrue);
+      expect(await _checkVip(h.access), active);
+      expect((await h.access.refresh()).isVip, isTrue);
+
+      membershipDebugOverride.value = MembershipDebugOverride.expired;
+      expect(published.last.isVip, isFalse);
+      expect(published.last.isExpired, isTrue);
+      expect(await _checkVip(h.access), inactive);
+
+      membershipDebugOverride.value = MembershipDebugOverride.off;
+      expect(published.last.isVip, isFalse);
+      expect(published.last.isExpired, isFalse);
+      expect(published.last.membership?.status, 0);
+      h.access.state.removeListener(record);
+    },
+  );
 }
 
 void _testMembership(

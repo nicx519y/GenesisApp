@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../l10n/genesis_l10n.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
@@ -145,7 +146,9 @@ class OriginListItem {
     if (display.isNotEmpty) return display;
     final view = worldView.trim();
     if (view.isNotEmpty) return view;
-    return 'Updated ${formatGenesisTimestamp(updatedAt)}';
+    return GenesisL10n.current.updatedAt(
+      timestamp: formatGenesisTimestamp(updatedAt),
+    );
   }
 }
 

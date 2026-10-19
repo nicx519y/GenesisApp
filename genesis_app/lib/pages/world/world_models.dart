@@ -1,3 +1,5 @@
+import '../../l10n/genesis_l10n.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import 'world_constants.dart';
@@ -80,13 +82,13 @@ class WorldNewUserJoinNotice {
   String get displayPlayerUsername {
     final username = playerUsername.trim();
     if (username.isNotEmpty) return username;
-    return 'Someone';
+    return GenesisL10n.current.someoneFallback;
   }
 
   String get displayCharacterName {
     final name = characterName.trim();
     if (name.isNotEmpty) return name;
-    return 'a character';
+    return GenesisL10n.current.aCharacterFallback;
   }
 }
 
@@ -110,35 +112,39 @@ WorldNewUserJoinNotice? worldLatestPlayerJoinNotice(
   return WorldNewUserJoinNotice.fromCharacter(latestCharacter);
 }
 
-const worldBottomTagItems = <WorldBottomTagItem>[
+List<WorldBottomTagItem> get worldBottomTagItems =>
+    worldBottomTagItemsFor(GenesisL10n.current);
+
+List<WorldBottomTagItem> worldBottomTagItemsFor(AppLocalizations l10n) => [
   WorldBottomTagItem(
-    label: 'Detail',
+    label: l10n.worldModelsDetail,
     kind: WorldBottomSheetKind.detail,
     asset: worldDetailIconAsset,
   ),
   WorldBottomTagItem(
-    label: 'Locations',
+    label: l10n.worldModelsLocations,
     kind: WorldBottomSheetKind.locations,
     icon: Icons.place_outlined,
   ),
   WorldBottomTagItem(
-    label: 'Events',
+    label: l10n.worldModelsEvents,
     kind: WorldBottomSheetKind.events,
     asset: worldSectionEventsIconAsset,
   ),
   WorldBottomTagItem(
-    label: 'Recap',
+    label: l10n.worldRecap,
     kind: WorldBottomSheetKind.recap,
     icon: Icons.auto_stories_outlined,
   ),
   WorldBottomTagItem(
-    label: 'Status',
+    label: l10n.worldModelsStatus,
     kind: WorldBottomSheetKind.status,
     asset: worldSectionStatusIconAsset,
   ),
 ];
 
-const worldParticipationRequiredMessage = 'Request approval to launch';
+String get worldParticipationRequiredMessage =>
+    GenesisL10n.current.chatRequestApprovalLaunch;
 
 bool canAccessWorldSection(WorldBottomSheetKind kind, String relationStatus) {
   switch (kind) {
@@ -167,34 +173,34 @@ WorldHeaderAction worldHeaderActionFor(String relationStatus) {
     case 'reject':
     case 'rejected':
     case 'none':
-      return const WorldHeaderAction(
+      return WorldHeaderAction(
         WorldHeaderActionKind.request,
-        'Request',
+        GenesisL10n.current.requestAction,
         true,
       );
     case 'pending':
-      return const WorldHeaderAction(
+      return WorldHeaderAction(
         WorldHeaderActionKind.pending,
-        'Requested',
+        GenesisL10n.current.requestedStatus,
         false,
       );
     case 'approved':
-      return const WorldHeaderAction(
+      return WorldHeaderAction(
         WorldHeaderActionKind.launch,
-        'Launch',
+        GenesisL10n.current.launchAction,
         true,
       );
     case 'owner':
     case 'joined':
-      return const WorldHeaderAction(
+      return WorldHeaderAction(
         WorldHeaderActionKind.progress,
-        'Tick now',
+        GenesisL10n.current.tickNowAction,
         true,
       );
     default:
-      return const WorldHeaderAction(
+      return WorldHeaderAction(
         WorldHeaderActionKind.unavailable,
-        'Unavailable',
+        GenesisL10n.current.worldDetailUnavailable,
         false,
       );
   }
@@ -213,14 +219,14 @@ bool shouldConnectWorldChatroom(String relationStatus) {
 String worldHeaderActionLabel(WorldHeaderActionKind action) {
   switch (action) {
     case WorldHeaderActionKind.request:
-      return 'Request';
+      return GenesisL10n.current.requestAction;
     case WorldHeaderActionKind.launch:
-      return 'Launch';
+      return GenesisL10n.current.launchAction;
     case WorldHeaderActionKind.progress:
-      return 'Tick now';
+      return GenesisL10n.current.tickNowAction;
     case WorldHeaderActionKind.pending:
-      return 'Requested';
+      return GenesisL10n.current.requestedStatus;
     case WorldHeaderActionKind.unavailable:
-      return 'Unavailable';
+      return GenesisL10n.current.worldDetailUnavailable;
   }
 }

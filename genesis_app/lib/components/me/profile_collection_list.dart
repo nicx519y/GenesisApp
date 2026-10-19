@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/genesis_l10n.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
 
@@ -216,7 +217,9 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
               : TextButton(
                   onPressed: _canLoadMore ? _loadMore : null,
                   child: Text(
-                    widget.loadMoreFailed ? 'Load failed. Retry' : 'Load more',
+                    widget.loadMoreFailed
+                        ? GenesisL10n.current.loadFailedRetry
+                        : GenesisL10n.current.loadMoreAction,
                   ),
                 ),
         ),

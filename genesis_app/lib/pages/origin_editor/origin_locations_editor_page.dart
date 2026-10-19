@@ -21,22 +21,13 @@ class OriginLocationsEditorPage extends StatefulWidget {
 
 class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   static const int _maxLocations = 15;
-  static const String _statisticsNote =
-      'Your world is built in 3 levels:\n'
-      'L1 · Region     An area of your world — Downtown\n'
-      "L2 · Building   A building inside it — Joe's Diner\n"
-      'L3 · Room       A room inside that building — The Back Kitchen\n'
-      'Every location needs all three levels. Up to 15 rooms in total.';
-  static const String _l1NameNote =
-      'An area of your world — a district, a town, a forest. '
-      'Not a single building.';
-  static const String _l2NameNote =
-      'A building inside this region — a shop, a school, an apartment block.';
-  static const String _l3NameNote =
-      'A room inside the building. Rooftops, courtyards and entrances '
-      'work too.';
-  static const String _completeRequiredLocationMessage =
-      'Please complete this location or delete it.';
+  static String get _statisticsNote =>
+      GenesisL10n.current.createLocationStatisticsNote;
+  static String get _l1NameNote => GenesisL10n.current.createLocationL1NameNote;
+  static String get _l2NameNote => GenesisL10n.current.createLocationL2NameNote;
+  static String get _l3NameNote => GenesisL10n.current.createLocationL3NameNote;
+  static String get _completeRequiredLocationMessage =>
+      GenesisL10n.current.createLocationCompleteLocation;
   final List<_L1LocationForm> _treeForms = <_L1LocationForm>[];
   final Set<String> _reservedLocationIds = <String>{};
   String _openingLocationId = '';
@@ -110,23 +101,31 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
       final l1 = _treeForms[l1Index];
       if (l1.name.text.trim().isEmpty) {
-        _showError('L1 location name is required.');
+        _showError(GenesisL10n.current.createLocationL1NameRequired);
         return;
       }
       for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
         final l2 = l1.children[l2Index];
         if (l2.name.text.trim().isEmpty) {
           _showError(
-            '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
-            'has an L2 location that needs a name.',
+            GenesisL10n.current.createLocationL2NameNeeded(
+              locationLabel: _locationNameLabel(
+                l1.name,
+                fallback: GenesisL10n.current.createLocationThisL1,
+              ),
+            ),
           );
           return;
         }
         for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
           if (l2.children[l3Index].name.text.trim().isEmpty) {
             _showError(
-              '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
-              'has an L3 location that needs a name.',
+              GenesisL10n.current.createLocationL3NameNeeded(
+                locationLabel: _locationNameLabel(
+                  l2.name,
+                  fallback: GenesisL10n.current.createLocationThisL2,
+                ),
+              ),
             );
             return;
           }
@@ -138,7 +137,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         .where(_locationDraftHasContent)
         .toList(growable: false);
     if (currentLocations.isEmpty) {
-      _showError('Please create at least one location.');
+      _showError(GenesisL10n.current.createLocationMinOne);
       return;
     }
     final identityError = _locationIdentityError(currentLocations);
@@ -164,9 +163,11 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     final locationsById = <String, LocationDraft>{};
     for (final location in locations) {
       final locationId = location.locationId.trim();
-      if (locationId.isEmpty) return 'Every location must have an ID.';
+      if (locationId.isEmpty) {
+        return GenesisL10n.current.createLocationIdRequired;
+      }
       if (locationsById.containsKey(locationId)) {
-        return 'Every location must have a unique ID.';
+        return GenesisL10n.current.createLocationIdUnique;
       }
       locationsById[locationId] = location;
     }
@@ -179,7 +180,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       if (expectedParentLevel == null) continue;
       final parent = locationsById[location.parentLocationId.trim()];
       if (parent == null || parent.level != expectedParentLevel) {
-        return 'Every location must have a valid parent.';
+        return GenesisL10n.current.createLocationParentInvalid;
       }
     }
     return null;
@@ -205,12 +206,12 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   String get _saveDisabledReason {
-    if (_isSaving) return 'Saving is already in progress.';
-    if (_treeForms.isEmpty) return 'Add at least one L1 location.';
+    if (_isSaving) return GenesisL10n.current.createSaveInProgress;
+    if (_treeForms.isEmpty) return GenesisL10n.current.createLocationAddL1;
     for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
       final l1 = _treeForms[l1Index];
       if (l1.name.text.trim().isEmpty) {
-        return 'L1 location name is required.';
+        return GenesisL10n.current.createLocationL1NameRequired;
       }
       if (l1.children.isEmpty) {
         return _l1NeedsL2Message(l1);
@@ -218,21 +219,29 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
         final l2 = l1.children[l2Index];
         if (l2.name.text.trim().isEmpty) {
-          return '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
-              'has an L2 location that needs a name.';
+          return GenesisL10n.current.createLocationL2NameNeeded(
+            locationLabel: _locationNameLabel(
+              l1.name,
+              fallback: GenesisL10n.current.createLocationThisL1,
+            ),
+          );
         }
         if (l2.children.isEmpty) {
           return _l2NeedsL3Message(l2);
         }
         for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
           if (l2.children[l3Index].name.text.trim().isEmpty) {
-            return '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
-                'has an L3 location that needs a name.';
+            return GenesisL10n.current.createLocationL3NameNeeded(
+              locationLabel: _locationNameLabel(
+                l2.name,
+                fallback: GenesisL10n.current.createLocationThisL2,
+              ),
+            );
           }
         }
       }
     }
-    return 'Complete all required location fields before saving.';
+    return GenesisL10n.current.createLocationFieldsRequired;
   }
 
   void _showError(String message) {
@@ -248,7 +257,9 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       onShown: onShown,
       minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
       child: GenesisPrimaryButton(
-        label: _isSaving ? 'Saving...' : 'Save',
+        label: _isSaving
+            ? GenesisL10n.current.createBasicsSaving
+            : GenesisL10n.current.chatSave,
         isLoading: _isSaving,
         showLoadingIndicator: false,
         backgroundColor: GenesisColors.redPrimary,
@@ -292,7 +303,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         resizeToAvoidBottomInset: true,
         backgroundColor: GenesisColors.darkBackground,
         appBar: GenesisBackAppBar(
-          pageName: 'Locations',
+          pageName: GenesisL10n.current.createLocationsTitle,
           backgroundColor: GenesisColors.darkBackground,
           foregroundColor: GenesisColors.darkTextPrimary,
           systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,

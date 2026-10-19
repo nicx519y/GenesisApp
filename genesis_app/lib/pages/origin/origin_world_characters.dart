@@ -19,12 +19,22 @@ class _OriginCharactersSection extends StatelessWidget {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
-          child: _SectionTitle(title: 'Characters (${characters.length})'),
+          child: _SectionTitle(
+            title: GenesisL10n.current
+                .worldoDetailCharactersLength(
+                  length: (characters.length).toString(),
+                ),
+          ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 14)),
         if (characters.isEmpty)
-          const SliverToBoxAdapter(
-            child: Text('No characters', style: _mutedBodyTextStyle),
+          SliverToBoxAdapter(
+            child: Text(
+              GenesisL10n
+                  .current
+                  .chatNoCharacters,
+              style: _mutedBodyTextStyle,
+            ),
           )
         else
           SliverList(
@@ -109,7 +119,13 @@ class _OriginCharacterRow extends StatelessWidget {
               ],
               if (goal.isNotEmpty) ...[
                 const SizedBox(height: 5),
-                Text('Goal: $goal', style: _characterBodyTextStyle),
+                Text(
+                  GenesisL10n.current
+                      .worldDetailGoal(
+                        goal: (goal).toString(),
+                      ),
+                  style: _characterBodyTextStyle,
+                ),
               ],
             ],
           ),

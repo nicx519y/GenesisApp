@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -8,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../../ui/system/genesis_system_ui.dart';
 import '../../utils/image_upload_processing.dart';
+import '../../utils/api_error_message.dart';
 import 'genesis_center_toast.dart';
 
 const int _localImageCropMaxDecodeDimension = 4096;
@@ -258,7 +260,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Image load failed';
+        _error = GenesisL10n.current.commonImageLoadFailed;
         _isLoading = false;
       });
     }
@@ -324,7 +326,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     if (_error != null || image == null) {
       return Center(
         child: Text(
-          _error ?? 'Image load failed',
+          _error ?? GenesisL10n.current.commonImageLoadFailed,
           style: const TextStyle(color: Colors.white),
         ),
       );
@@ -496,9 +498,15 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(url);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      showGenesisToast(context, 'Upload failed');
+      showGenesisToast(
+        context,
+        apiErrorMessage(
+          error,
+          fallback: GenesisL10n.current.imageCropUploadFailed,
+        ),
+      );
       setState(() {
         _isSubmitting = false;
       });

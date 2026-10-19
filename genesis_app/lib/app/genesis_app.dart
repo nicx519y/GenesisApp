@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 
 import '../components/developer_debug_floating_button.dart';
 import '../components/internal_build_indicator.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/app_language_controller.dart';
+import '../l10n/genesis_l10n.dart';
+import '../l10n/genesis_localizations.dart';
 import 'agent_control/agent_control_host.dart';
 import 'debug_page_tracker.dart';
 import 'genesis_navigator.dart';
@@ -27,65 +31,80 @@ class GenesisApp extends StatelessWidget {
     return AppServicesScope(
       services: services ?? ServiceRegistry.build(),
       child: AgentControlHost(
-        child: MaterialApp(
-          title: 'Worldo',
-          debugShowCheckedModeBanner: false,
-          theme: GenesisTheme.dark(),
-          scrollBehavior: const GenesisScrollBehavior(),
-          initialRoute: RouteNames.home,
-          navigatorKey: genesisNavigatorKey,
-          navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],
-          onGenerateInitialRoutes: (_) {
-            initialRoutePending = false;
-            return <Route<dynamic>>[
-              AppRouter.onGenerateRoute(
-                RouteSettings(name: RouteNames.home, arguments: initialIndex),
-              ),
-            ];
-          },
-          onGenerateRoute: (settings) {
-            if (settings.name == RouteNames.home &&
-                settings.arguments == null &&
-                initialRoutePending) {
+        child: ListenableBuilder(
+          listenable: appLanguageController,
+          builder: (context, _) => MaterialApp(
+            title: 'Worldo',
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLanguageController.supportedLocales,
+            locale: appLanguageController.locale,
+            localeListResolutionCallback: AppLanguageController.resolve,
+            debugShowCheckedModeBanner: false,
+            theme: GenesisTheme.dark(),
+            scrollBehavior: const GenesisScrollBehavior(),
+            initialRoute: RouteNames.home,
+            navigatorKey: genesisNavigatorKey,
+            navigatorObservers: [
+              genesisRouteObserver,
+              genesisPageRouteObserver,
+            ],
+            onGenerateInitialRoutes: (_) {
               initialRoutePending = false;
-              return AppRouter.onGenerateRoute(
-                RouteSettings(name: RouteNames.home, arguments: initialIndex),
-              );
-            }
-            return AppRouter.onGenerateRoute(settings);
-          },
-          builder: (context, child) {
-            final services = AppServicesScope.read(context);
-            // Root overlays and builder decorations sit outside page Material
-            // widgets, so they also need the application's default font.
-            return DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodyMedium!,
-              child: AnnotatedRegion<SystemUiOverlayStyle>(
-                value: kGenesisLightStatusIconsSystemUiOverlayStyle,
-                child: GenesisTelemetryTapRegion(
-                  child: GenesisBottomSystemBarBoundary(
-                    child: InternalBuildIndicator(
-                      child: ForceUpgradeGate(
-                        child: DeveloperDebugFloatingButton(
-                          navigatorKey: genesisNavigatorKey,
-                          child: PersonalizationGate(
-                            appConfig: services.appGlobalConfig,
-                            store: services.personalization,
-                            preloadMembership:
-                                services.membershipCatalog.preload,
-                            loginPending: services
-                                .membershipPurchases
-                                ?.guestLoginRequestId,
-                            checkGuestPurchases: services
-                                .membershipPurchases
-                                ?.checkGuestPurchasesOnHome,
+              return <Route<dynamic>>[
+                AppRouter.onGenerateRoute(
+                  RouteSettings(name: RouteNames.home, arguments: initialIndex),
+                ),
+              ];
+            },
+            onGenerateRoute: (settings) {
+              if (settings.name == RouteNames.home &&
+                  settings.arguments == null &&
+                  initialRoutePending) {
+                initialRoutePending = false;
+                return AppRouter.onGenerateRoute(
+                  RouteSettings(name: RouteNames.home, arguments: initialIndex),
+                );
+              }
+              return AppRouter.onGenerateRoute(settings);
+            },
+            builder: (context, child) {
+              GenesisL10n.bind(context.l10n);
+              final services = AppServicesScope.read(context);
+              // Root overlays and builder decorations sit outside page Material
+              // widgets, so they also need the application's default font.
+              return DefaultTextStyle(
+                style: Theme.of(context).textTheme.bodyMedium!,
+                child: AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: kGenesisLightStatusIconsSystemUiOverlayStyle,
+                  child: GenesisTelemetryTapRegion(
+                    child: GenesisBottomSystemBarBoundary(
+                      child: InternalBuildIndicator(
+                        child: ForceUpgradeGate(
+                          child: DeveloperDebugFloatingButton(
                             navigatorKey: genesisNavigatorKey,
-                            child: MembershipGuestLoginGate(
-                              service: services.membershipPurchases,
-                              blocked:
-                                  services.personalization.blocksOtherPrompts,
+                            child: PersonalizationGate(
+                              appConfig: services.appGlobalConfig,
+                              store: services.personalization,
+                              preloadMembership: () async {
+                                await Future.wait([
+                                  services.membershipCatalog.preload(),
+                                  services.gemStoreCatalog.preload(),
+                                ]);
+                              },
+                              loginPending: services
+                                  .membershipPurchases
+                                  ?.guestLoginRequestId,
+                              checkGuestPurchases: services
+                                  .membershipPurchases
+                                  ?.checkGuestPurchasesOnHome,
                               navigatorKey: genesisNavigatorKey,
-                              child: child ?? const SizedBox.shrink(),
+                              child: MembershipGuestLoginGate(
+                                service: services.membershipPurchases,
+                                blocked:
+                                    services.personalization.blocksOtherPrompts,
+                                navigatorKey: genesisNavigatorKey,
+                                child: child ?? const SizedBox.shrink(),
+                              ),
                             ),
                           ),
                         ),
@@ -93,9 +112,9 @@ class GenesisApp extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

@@ -271,11 +271,11 @@ void main() {
   );
 
   test(
-    'completed claim cleans guest proof without retrying accepted report',
+    'completed claim cleans guest proof without retrying rejected report',
     () async {
       final h = Harness(claimEnabled: true)..uid = null;
       h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
+        status: MembershipReportStatus.rejected,
       );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
@@ -305,10 +305,16 @@ void main() {
       await h.service.interceptPurchase(h.purchase());
       h.uid = 'first-login';
       h.claimHandler = (identity) async =>
-          MembershipClaimResult(status: MembershipReportStatus.rejected);
+          MembershipClaimResult(status: MembershipClaimStatus.rejected);
       await h.service.recover();
       expect(h.store.claims.values.single.status, 'rejected');
       expect(h.store.claims.values.single.guest.accountUuid, guest.accountUuid);
+      await h.service.recover();
+      expect(h.claimRequests, hasLength(1));
+      h.uid = null;
+      h.service.resetForSession();
+      await h.service.recover();
+      expect(h.service.guestLoginRequestId.value, isNull);
       h.uid = 'other-login';
       await h.service.recover();
       expect(h.claimRequests, hasLength(1));
@@ -420,7 +426,7 @@ void main() {
     expect(h.claimRequests, hasLength(1));
   });
 
-  testWidgets('accepted claim retries binding without replaying report', (
+  testWidgets('failed claim retries binding without replaying report', (
     tester,
   ) async {
     final h = Harness(
@@ -433,8 +439,7 @@ void main() {
     final request = h.reports.single;
     final localId = h.store.confirmed.keys.single;
     h.uid = 'first-login';
-    h.claimHandler = (identity) async =>
-        MembershipClaimResult(status: MembershipReportStatus.accepted);
+    h.claimHandler = (identity) async => throw StateError('claim offline');
     await h.service.recover();
     expect(h.store.confirmed.values.single.requestId, localId);
     expect(
@@ -475,7 +480,7 @@ void main() {
       h.uid = 'first-login';
       h.claimHandler = (identity) async {
         h.store.failClaim = true;
-        return MembershipClaimResult(status: MembershipReportStatus.completed);
+        return MembershipClaimResult(status: MembershipClaimStatus.completed);
       };
       await h.service.recover();
       expect(h.store.claims.values.single.status, isNull);

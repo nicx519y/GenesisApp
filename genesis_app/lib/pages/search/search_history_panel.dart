@@ -22,8 +22,10 @@ class _SearchHistoryPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Search history',
+                Text(
+                  GenesisL10n
+                      .current
+                      .searchHistory,
                   style: TextStyle(
                     color: GenesisColors.darkTextPrimary,
                     fontSize: 14,

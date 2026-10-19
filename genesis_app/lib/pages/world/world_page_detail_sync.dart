@@ -4,6 +4,7 @@ extension _WorldPageDetailSync on _WorldPageState {
   Future<void> _fetchWorld({bool isInitial = false}) async {
     if (_pollInFlight) return;
     _pollInFlight = true;
+    _lastWorldFetchSucceeded = false;
     FirebasePerformanceOperation? requestOperation;
     if (isInitial && !_initialContentRenderCompleted) {
       final attempt = ++_initialRequestPerformanceAttempt;
@@ -37,6 +38,7 @@ extension _WorldPageDetailSync on _WorldPageState {
         _initialRenderDataSource = FirebasePerformanceDataSource.network;
       }
       _applyWorldDetail(world, clearInitialLoadError: isInitial);
+      _lastWorldFetchSucceeded = true;
     } catch (e) {
       if (identical(_initialRequestPerformanceOperation, requestOperation)) {
         _initialRequestPerformanceOperation = null;
@@ -53,6 +55,7 @@ extension _WorldPageDetailSync on _WorldPageState {
       }
     } finally {
       _pollInFlight = false;
+      checkLanguageData();
     }
   }
 

@@ -12,7 +12,11 @@ class _WorldViewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(title: 'Worldo Brief'),
+        _SectionTitle(
+          title: GenesisL10n
+              .current
+              .worldoDetailWorldoBrief,
+        ),
         const SizedBox(height: 8),
         Text(body, style: _bodyTextStyle),
       ],
@@ -131,8 +135,12 @@ class _DiscussSection extends StatelessWidget {
   Future<void> _openPostComposer(BuildContext context) async {
     final submitted = await showDiscussPostComposer(
       context: context,
-      title: 'New post',
-      placeholder: 'Write a post',
+      title: GenesisL10n
+          .current
+          .worldoDetailNewPost,
+      placeholder: GenesisL10n
+          .current
+          .worldoDetailWritePost,
       submitter: (content, images) async {
         await AppServicesScope.read(context).api.v1.discuss.post(
           bizId: origin.oid.trim(),
@@ -172,7 +180,11 @@ class _DiscussSection extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _SectionTitle(
-                            title: 'Discuss (${origin.discussCount})',
+                            title: GenesisL10n.current
+                                .worldoDetailDiscussCount(
+                                  discussCount: (origin.discussCount)
+                                      .toString(),
+                                ),
                           ),
                         ),
                         if (hasDiscussContent)
@@ -180,8 +192,10 @@ class _DiscussSection extends StatelessWidget {
                             key: const ValueKey('origin-discuss-view-all'),
                             behavior: HitTestBehavior.opaque,
                             onTap: () => unawaited(_openDiscussPage(context)),
-                            child: const Text(
-                              'View all >',
+                            child: Text(
+                              GenesisL10n
+                                  .current
+                                  .worldoDetailViewAll,
                               style: TextStyle(
                                 fontSize: 10,
                                 height: 1.2,
@@ -405,7 +419,9 @@ List<Widget> _originWorldoBriefSlivers(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Worldo Brief',
+                GenesisL10n
+                    .current
+                    .worldoDetailWorldoBrief,
                 key: contentStartKey,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

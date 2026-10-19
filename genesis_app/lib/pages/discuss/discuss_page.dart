@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -34,7 +36,15 @@ class DiscussPage extends StatefulWidget {
   State<DiscussPage> createState() => _DiscussPageState();
 }
 
-class _DiscussPageState extends State<DiscussPage> {
+class _DiscussPageState extends State<DiscussPage>
+    with LanguageDataRefresh<DiscussPage> {
+  @override
+  bool get languageRefreshSucceeded => _discussController.error == null;
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refresh();
+  }
+
   static const double _loadMoreThreshold = 600;
   static const double _loadMoreDragDistance = 48;
   static const double _postInputReservedHeight = 96;
@@ -148,8 +158,8 @@ class _DiscussPageState extends State<DiscussPage> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: DiscussDarkColors.background,
-        appBar: const GenesisBackAppBar(
-          pageName: 'Discuss',
+        appBar: GenesisBackAppBar(
+          pageName: GenesisL10n.current.worldoDiscussTitle,
           backgroundColor: DiscussDarkColors.background,
           foregroundColor: DiscussDarkColors.primary,
           titleStyle: TextStyle(color: DiscussDarkColors.primary),
@@ -169,7 +179,7 @@ class _DiscussPageState extends State<DiscussPage> {
                   onPressed: () => setState(() {
                     _future = _loadOriginDetail();
                   }),
-                  child: const Text('Retry'),
+                  child: Text(GenesisL10n.current.homeRetry),
                 ),
               );
             }
@@ -332,7 +342,10 @@ class _DiscussPageState extends State<DiscussPage> {
           author?['display_name'] ??
           reply['author_name'] ??
           reply['user_name'],
-      fallback: formatUidForDisplay(uid, fallback: 'User'),
+      fallback: formatUidForDisplay(
+        uid,
+        fallback: GenesisL10n.current.userLabel,
+      ),
     );
   }
 }
@@ -510,7 +523,22 @@ class _DiscussOriginSummary extends StatelessWidget {
                 fontSize: 12,
                 deleted: origin.ownerDeleted,
                 child: Text(
-                  'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Creator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
+                  originator.isEmpty
+                      ? GenesisL10n.current.discussOriginSummary(
+                          oid: deletedAwareIdLabel(
+                            origin.oid,
+                            deleted: origin.deleted,
+                          ),
+                        )
+                      : GenesisL10n.current.discussOriginSummaryWithCreator(
+                          oid: deletedAwareIdLabel(
+                            origin.oid,
+                            deleted: origin.deleted,
+                          ),
+                          creator: origin.ownerDeleted
+                              ? deletedEntityDisplayText
+                              : originator,
+                        ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/debug/world_recap_debug_preview.dart';
@@ -68,6 +71,54 @@ void main() {
       ),
     );
   }
+
+  testWidgets(
+    'language refresh waits for the recap tab and replaces old content',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await appLanguageController.load();
+      await appLanguageController.select(
+        const Locale('en'),
+        saveLanguage: (_) async {},
+      );
+      cache.worldId = 'w1';
+      cache.hasLoaded = true;
+      cache.items = const [
+        WorldRecentSummary(body: 'old language recap', tickNo: 1),
+      ];
+      var calls = 0;
+      Future<WorldRecentSummaryPage> load({
+        required String worldId,
+        String? cursor,
+      }) async {
+        calls++;
+        return const WorldRecentSummaryPage(
+          items: [WorldRecentSummary(body: '新語言回顧', tickNo: 1)],
+          hasMore: false,
+          cursor: '',
+        );
+      }
+
+      await tester.pumpWidget(view(load, active: false));
+      await tester.pumpAndSettle();
+      await appLanguageController.select(
+        const Locale('zh', 'TW'),
+        saveLanguage: (_) async {},
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 0);
+      await tester.pumpWidget(view(load));
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      expect(cache.items.single.body, '新語言回顧');
+      expect(find.text('old language recap'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await appLanguageController.select(
+        const Locale('en'),
+        saveLanguage: (_) async {},
+      );
+    },
+  );
 
   testWidgets(
     'cold loading and failure use skeleton; success empty uses empty state',

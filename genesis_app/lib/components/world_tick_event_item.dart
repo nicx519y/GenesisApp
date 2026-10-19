@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'chat/shared/chat_tick_presenter.dart';
 import '../network/chatroom/chatroom_models.dart';
 import '../ui/tokens/genesis_typography.dart';
@@ -96,8 +97,10 @@ class WorldTickEventItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ChatTickHeader(
-              label:
-                  'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}',
+              label: GenesisL10n.current.worldDetailItemTickNumber(
+                tickNumber: tickNumber.toString(),
+                subTickSuffix: subTickNumber > 0 ? '-$subTickNumber' : '',
+              ),
               style: kLocationChatStyle,
             ),
             ChatTickChapterContent(
@@ -137,8 +140,11 @@ class WorldTickEventItem extends StatelessWidget {
         children: [
           if (useChatEventStyle) ...[
             ChatTickHeader(
-              label:
-                  'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}',
+              label: GenesisL10n.current.worldDetailItemTickNumber(
+                tickNumber: (tickNumber).toString(),
+                subTickSuffix: (subTickNumber > 0 ? '-$subTickNumber' : '')
+                    .toString(),
+              ),
               style: kLocationChatStyle,
             ),
             if (body.trim().isNotEmpty) ...[
@@ -213,8 +219,12 @@ class _TickHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}'
-              '${date.isEmpty ? '' : ' · $date'}',
+              GenesisL10n.current.worldDetailHeaderTickNumber(
+                tickNumber: (tickNumber).toString(),
+                subTickSuffix: (subTickNumber > 0 ? '-$subTickNumber' : '')
+                    .toString(),
+                dateSuffix: (date.isEmpty ? '' : ' · $date').toString(),
+              ),
               style: TextStyle(
                 fontSize: 12,
                 height: 1.2,
@@ -258,7 +268,10 @@ class _GlobalEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = Text('Global', style: labelStyle ?? _labelStyle);
+    final label = Text(
+      GenesisL10n.current.worldDetailGlobal,
+      style: labelStyle ?? _labelStyle,
+    );
     final bodyText = Text(body, style: bodyStyle ?? _bodyStyle);
 
     return Container(
@@ -347,7 +360,9 @@ class _TickParagraphRow extends StatelessWidget {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    name.isEmpty ? 'Location' : name,
+                    name.isEmpty
+                        ? GenesisL10n.current.worldDetailLocation
+                        : name,
                     style: labelStyle,
                   ),
                 ),
@@ -399,7 +414,7 @@ class _TickParagraphRow extends StatelessWidget {
     }
 
     final label = _LocationLabel(
-      text: name.isEmpty ? 'Location' : name,
+      text: name.isEmpty ? GenesisL10n.current.worldDetailLocation : name,
       style: labelStyle,
     );
     final resolvedBodyStyle = bodyStyle ?? _bodyStyle;

@@ -120,7 +120,11 @@ class _SectionRow extends StatelessWidget {
                                     : TextOverflow.ellipsis,
                                 softWrap: wrapFirstSummaryLine && index == 0,
                                 style: TextStyle(
-                                  color: summary == 'Not started yet'
+                                  color:
+                                      summary ==
+                                          GenesisL10n
+                                              .current
+                                              .createNotStartedYet
                                       ? GenesisColors.darkTextTertiary
                                       : GenesisColors.darkTextSecondary,
                                   fontSize: 12,
@@ -173,8 +177,10 @@ class _ModifiedSectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Edited',
+    return Text(
+      GenesisL10n
+          .current
+          .createEdited,
       style: TextStyle(
         color: GenesisColors.redSecondary,
         fontSize: 12,

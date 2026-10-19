@@ -15,7 +15,7 @@ void main() {
       'error',
     ]) {
       test(
-        '$provider legacy $state without proof is removed without a store query',
+        '$provider legacy $state without proof does not trigger a store query',
         () async {
           final h = support.Harness(provider: provider, restoreEnabled: true);
           await h.store.save(

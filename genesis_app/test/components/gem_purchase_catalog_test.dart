@@ -7,6 +7,48 @@ import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
 void main() {
+  testWidgets(
+    'KRW store price is ignored; allowed store and API fallback still display',
+    (tester) async {
+      Future<void> show(GemProduct product) => tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 105,
+              height: kGemProductCardHeight,
+              child: GemProductCard(
+                product: product,
+                isBuying: false,
+                isPurchaseInProgress: false,
+                onPurchase: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await show(
+        _product().withStorePrice(
+          formatted: '₩12,000',
+          micros: 12000000000,
+          currency: 'KRW',
+        ),
+      );
+      expect(find.text('₩12,000'), findsNothing);
+      expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
+      await show(
+        _product().withStorePrice(
+          formatted: '€2.00',
+          micros: 2000000,
+          currency: 'EUR',
+        ),
+      );
+      expect(find.text('€2'), findsOneWidget);
+      await show(_product().withStorePrice());
+      expect(find.text('₩12,000'), findsNothing);
+      expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
+    },
+  );
+
   testWidgets('price and card each buy once, and loading blocks both', (
     tester,
   ) async {

@@ -53,7 +53,7 @@ extension BillingPurchaseSourceValue on BillingPurchaseSource {
   };
 }
 
-enum BillingPendingPurchaseStatus { pending, received, accepted }
+enum BillingPendingPurchaseStatus { pending, received }
 
 @immutable
 class BillingStoreProduct {
@@ -266,14 +266,7 @@ class BillingState {
   bool isBusy(String productId) => busyProductIds.contains(productId);
 }
 
-enum BillingUiEventKind {
-  processing,
-  success,
-  accepted,
-  failure,
-  pending,
-  deferred,
-}
+enum BillingUiEventKind { processing, success, failure, pending, deferred }
 
 @immutable
 class BillingUiEvent {
@@ -305,26 +298,11 @@ class BillingPlatformException implements Exception {
   String toString() => 'BillingPlatformException($code)';
 }
 
-String newBillingTrackPageId() {
+String newBillingPageId() {
   return DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 }
 
-String newBillingTrackClickId() {
-  final random = Random.secure().nextInt(1 << 32);
-  return random.toRadixString(36);
-}
-
-String billingPageTrackId(String pageId) {
-  final normalized = pageId.trim();
-  return normalized.isEmpty ? '' : 'track_id_$normalized';
-}
-
-String billingPurchaseTrackId(String pageId) {
-  final normalized = pageId.trim();
-  if (normalized.isEmpty) return newBillingAttemptId();
-  return 'track_id_${normalized}_${newBillingTrackClickId()}';
-}
-
 String newBillingAttemptId() {
-  return billingPurchaseTrackId(newBillingTrackPageId());
+  final random = Random.secure().nextInt(1 << 32);
+  return '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}_${random.toRadixString(36)}';
 }

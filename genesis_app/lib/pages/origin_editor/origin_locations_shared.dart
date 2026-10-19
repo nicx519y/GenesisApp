@@ -42,7 +42,9 @@ class _LocationFields extends StatelessWidget {
               onPreviewBytesChanged: (bytes) {
                 form.previewImageBytes = bytes;
               },
-              label: 'IMAGE\n(Optional)',
+              label: GenesisL10n
+                  .current
+                  .createLocationImageOptional,
               emptyBackgroundColor: GenesisColors.darkFaintFill,
               emptyBorderColor: GenesisColors.darkTextTertiary,
               emptyIconColor: GenesisColors.createAdd,
@@ -142,7 +144,9 @@ class _InitialCharactersField extends StatelessWidget {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Select from available characters below',
+                              GenesisL10n
+                                  .current
+                                  .createCharacterSelectAvailable,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -184,7 +188,9 @@ class _InitialCharactersField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Initial Characters (Optional)',
+          GenesisL10n
+              .current
+              .createCharacterInitialCharacters,
           style: TextStyle(
             color: GenesisColors.darkTextPrimary,
             fontSize: 14,
@@ -195,15 +201,19 @@ class _InitialCharactersField extends StatelessWidget {
         const SizedBox(height: 10),
         selectionField,
         const SizedBox(height: 8),
-        const CreateFormNote(
-          note: 'The characters who start here when the worldo begins.',
+        CreateFormNote(
+          note: GenesisL10n
+              .current
+              .createLocationStartingCharacters,
         ),
         const SizedBox(height: 14),
         Align(
           key: const ValueKey('available-initial-characters-label'),
           alignment: Alignment.center,
           child: Text(
-            'Available to select',
+            GenesisL10n
+                .current
+                .createCharacterAvailableSelect,
             style: TextStyle(
               color: GenesisColors.darkTextPrimary,
               fontSize: 14,
@@ -216,10 +226,12 @@ class _InitialCharactersField extends StatelessWidget {
         if (availableCharacters.isEmpty)
           Text(
             characters.isEmpty
-                ? 'No characters yet. Create characters first, then choose '
-                      'where they start.'
-                : 'No characters available. All characters already have '
-                      'an initial location.',
+                ? GenesisL10n
+                      .current
+                      .createCharacterNoCharactersYet
+                : GenesisL10n
+                      .current
+                      .createCharacterNoCharacters,
             key: const ValueKey('available-initial-characters-empty'),
             style: const TextStyle(
               color: GenesisColors.darkTextTertiary,

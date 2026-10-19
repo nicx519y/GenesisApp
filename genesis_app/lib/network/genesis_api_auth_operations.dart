@@ -249,6 +249,13 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     await _sessionStore.saveUid(user.uid);
     await _sessionStore.saveAuthToken(authToken);
     await _sessionStore.saveUserInfo(cachedUserInfo);
+    if (_languageController != null) {
+      try {
+        await v1.user.info();
+      } catch (error) {
+        debugPrint('[Language] Could not load signed-in user language: $error');
+      }
+    }
     return user;
   }
 

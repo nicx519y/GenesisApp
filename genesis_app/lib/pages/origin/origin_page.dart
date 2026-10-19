@@ -1,3 +1,7 @@
+import '../../l10n/app_language_controller.dart';
+import 'dart:ui' as ui;
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:ui' show SemanticsRole;
 
@@ -58,16 +62,24 @@ class OriginPage extends StatefulWidget {
 }
 
 class _OriginPageState extends State<OriginPage>
-    with WidgetsBindingObserver, RouteAware {
+    with WidgetsBindingObserver, RouteAware, LanguageDataRefresh<OriginPage> {
+  @override
+  bool get languageDataLoading => _hotTagsSyncInFlight;
+  @override
+  bool get languageRefreshSucceeded => _hasSyncedHotTags;
+  @override
+  Future<void> refreshLanguageData() async {
+    _hasSyncedHotTags = false;
+    await _syncHotTags();
+  }
+
+  @override
+  ValueListenable<bool>? get languagePageActive => widget.isActiveListenable;
+
   static const _tabsHeight = 32.0;
   static const _searchTopSpacing = 12.0;
   static const _scrollToTopDuration = Duration(milliseconds: 240);
-  static const _genderFilters = {
-    '': 'All',
-    'Male': 'Male',
-    'Female': 'Female',
-    'Non_binary': 'Non binary',
-  };
+  static const _genderFilters = ['', 'Male', 'Female', 'Non_binary'];
   static const _forYouCategory = _OriginCategory(
     name: 'For you',
     scene: 'foryou',
@@ -297,28 +309,28 @@ class _OriginPageState extends State<OriginPage>
                 onTapOutside: (_) => dismiss(),
                 child: _OriginGenderFilterMenu(
                   items: [
-                    for (final entry in _genderFilters.entries)
+                    for (final value in _genderFilters)
                       InkWell(
-                        key: ValueKey('origin-gender-option-${entry.key}'),
-                        onTap: () => dismiss(entry.key),
+                        key: ValueKey('origin-gender-option-$value'),
+                        onTap: () => dismiss(value),
                         child: SizedBox(
                           height: GenesisActionBox.defaultRowHeight,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Semantics(
-                              selected: entry.key == selectedGender,
+                              selected: value == selectedGender,
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      entry.value,
+                                      _genderFilterLabel(value),
                                       style: GenesisActionBox.actionTextStyle
                                           .copyWith(
                                             fontWeight: FontWeight.w400,
                                           ),
                                     ),
                                   ),
-                                  if (entry.key == selectedGender) ...[
+                                  if (value == selectedGender) ...[
                                     const SizedBox(width: 8),
                                     const Icon(
                                       Icons.check,
@@ -371,7 +383,7 @@ class _OriginPageState extends State<OriginPage>
               sessionRevision == services.sessionRevision.value) {
             showGenesisToast(
               context,
-              'Unable to save your preference. Please try again.',
+              GenesisL10n.current.worldoUnableSavePreference,
             );
           }
         });
@@ -570,6 +582,7 @@ class _OriginPageState extends State<OriginPage>
       // network permission sheet or a temporary offline period.
     } finally {
       _hotTagsSyncInFlight = false;
+      checkLanguageData();
       if (_retryHotTagsOnResume &&
           _lifecycleState == AppLifecycleState.resumed &&
           mounted) {
@@ -615,7 +628,7 @@ class _OriginPageState extends State<OriginPage>
         return TapRegion(
           groupId: _genderFilterTapGroup,
           child: Tooltip(
-            message: 'Filter by gender',
+            message: GenesisL10n.current.worldoFilterGender,
             child: TextButton(
               key: const ValueKey('origin-gender-filter'),
               style: TextButton.styleFrom(
@@ -636,7 +649,7 @@ class _OriginPageState extends State<OriginPage>
                     maintainSize: true,
                     maintainAnimation: true,
                     maintainState: true,
-                    child: Text(_genderFilters[gender] ?? 'All'),
+                    child: Text(_genderFilterLabel(gender)),
                   ),
                   const SizedBox(width: GenesisSpacing.md),
                   CustomPaint(
@@ -659,7 +672,13 @@ class _OriginPageState extends State<OriginPage>
   @override
   Widget build(BuildContext context) {
     final categories = _categories;
-    final labels = categories.map((item) => item.name).toList();
+    final labels = categories
+        .map(
+          (item) => item.scene == 'foryou'
+              ? GenesisL10n.current.forYouLabel
+              : item.name,
+        )
+        .toList();
     final page = DefaultTabController(
       length: categories.length,
       child: Builder(
@@ -887,7 +906,7 @@ class _OriginGenderFilterMenu extends StatelessWidget {
         child: Semantics(
           role: SemanticsRole.menu,
           explicitChildNodes: true,
-          label: 'Filter by gender',
+          label: GenesisL10n.current.a11yFilterGender,
           child: SingleChildScrollView(
             primary: false,
             child: Column(
@@ -913,12 +932,18 @@ class _OriginHotTagsCache {
 
   Future<List<String>> load() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(storageKey) ?? const <String>[];
+    return prefs.getStringList(
+          '$storageKey.language_${appLanguageController.settingLanguage ?? ui.PlatformDispatcher.instance.locale.toLanguageTag()}',
+        ) ??
+        const <String>[];
   }
 
   Future<void> save(List<String> tags) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(storageKey, tags);
+    await prefs.setStringList(
+      '$storageKey.language_${appLanguageController.settingLanguage ?? ui.PlatformDispatcher.instance.locale.toLanguageTag()}',
+      tags,
+    );
   }
 }
 
@@ -938,6 +963,13 @@ class _OriginCategory {
   @override
   int get hashCode => Object.hash(name, scene);
 }
+
+String _genderFilterLabel(String value) => switch (value) {
+  'Male' => GenesisL10n.current.maleLabel,
+  'Female' => GenesisL10n.current.femaleLabel,
+  'Non_binary' => GenesisL10n.current.nonBinaryLabel,
+  _ => GenesisL10n.current.allLabel,
+};
 
 class _OriginFeed extends StatefulWidget {
   const _OriginFeed({
@@ -964,7 +996,24 @@ class _OriginFeed extends StatefulWidget {
 }
 
 class _OriginFeedState extends State<_OriginFeed>
-    with AutomaticKeepAliveClientMixin<_OriginFeed>, WidgetsBindingObserver {
+    with
+        AutomaticKeepAliveClientMixin<_OriginFeed>,
+        WidgetsBindingObserver,
+        LanguageDataRefresh<_OriginFeed> {
+  @override
+  ValueListenable<bool>? get languagePageActive =>
+      widget.isPageActiveListenable;
+  @override
+  bool get languageSectionVisible => _isCurrentTab;
+  @override
+  bool get languageDataLoading => _initialLoadInFlight || _isRefreshing;
+  @override
+  bool get languageRefreshSucceeded => _error == null;
+  @override
+  Future<void> refreshLanguageData() async {
+    await _refreshItems();
+  }
+
   static const _pageSize = 20;
   static const _forYouPageSize = 10;
   static const _loadMoreThreshold = 700.0;
@@ -1324,6 +1373,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _requestIfCurrentTab() async {
+    checkLanguageData();
     final controller = _tabController;
     if (controller == null ||
         controller.index != widget.index ||
@@ -1515,6 +1565,14 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _refreshItems() async {
+    try {
+      await _refreshItemsForCurrentLanguage();
+    } finally {
+      checkLanguageData();
+    }
+  }
+
+  Future<void> _refreshItemsForCurrentLanguage() async {
     final audienceFuture = widget.audience;
     final snapshot = await audienceFuture;
     if (!mounted || widget.audience != audienceFuture || !snapshot.isReady) {
@@ -2056,14 +2114,14 @@ class _OriginFeedState extends State<_OriginFeed>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Load failed',
+                  Text(
+                    GenesisL10n.current.homeLoadFailed,
                     style: TextStyle(color: GenesisColors.darkTextPrimary),
                   ),
                   const SizedBox(height: 10),
                   FilledButton(
                     onPressed: _refreshItems,
-                    child: const Text('Retry'),
+                    child: Text(GenesisL10n.current.homeRetry),
                   ),
                 ],
               ),
@@ -2081,12 +2139,12 @@ class _OriginFeedState extends State<_OriginFeed>
               controller: _scrollController,
               primary: false,
               physics: physics,
-              slivers: const [
+              slivers: [
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Text(
-                      'No data',
+                      GenesisL10n.current.worldoNoData,
                       style: TextStyle(color: GenesisColors.darkTextSecondary),
                     ),
                   ),

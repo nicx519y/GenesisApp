@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -5,6 +6,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../network/models/origin.dart';
+import '../../utils/api_error_message.dart';
 
 enum OriginLaunchSource {
   openingMessage(
@@ -40,7 +42,11 @@ Future<String?> startOriginLaunch({
 
     final wid = '${result['world_id'] ?? result['wid'] ?? ''}'.trim();
     if (wid.isEmpty) {
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        GenesisL10n.current.worldDetailLaunchFailed,
+        brightness: Brightness.dark,
+      );
       return null;
     }
     GenesisTelemetry.collectLog(
@@ -51,9 +57,16 @@ Future<String?> startOriginLaunch({
       object3: launchSource.telemetryValue,
     );
     return wid;
-  } catch (_) {
+  } catch (error) {
     if (context.mounted && shouldHandleResult?.call() != false) {
-      showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
+      showGenesisToast(
+        context,
+        apiErrorMessage(
+          error,
+          fallback: GenesisL10n.current.worldDetailLaunchFailed,
+        ),
+        brightness: Brightness.dark,
+      );
     }
     return null;
   }

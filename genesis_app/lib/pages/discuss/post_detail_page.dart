@@ -1,3 +1,5 @@
+import '../../l10n/genesis_l10n.dart';
+import '../../l10n/language_data_refresh.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -24,6 +26,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
@@ -62,7 +65,15 @@ class PostDetailPage extends StatefulWidget {
   State<PostDetailPage> createState() => _PostDetailPageState();
 }
 
-class _PostDetailPageState extends State<PostDetailPage> {
+class _PostDetailPageState extends State<PostDetailPage>
+    with LanguageDataRefresh<PostDetailPage> {
+  @override
+  Future<void> refreshLanguageData() async {
+    final root = widget.item?.replyRootDiscussId.trim() ?? '';
+    if (root.isEmpty) return;
+    await _loadInitialReplies(root, _loadGeneration, propagateFailure: true);
+  }
+
   late final OriginDiscussListController _controller;
   late final SessionRevisionSubscription _sessionRevision;
   bool _initialRepliesRequested = false;
@@ -132,7 +143,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
     _loadInitialRepliesIfNeeded();
   }
 
-  Future<void> _loadInitialReplies(String rootDiscussId, int generation) async {
+  Future<void> _loadInitialReplies(
+    String rootDiscussId,
+    int generation, {
+    bool propagateFailure = false,
+  }) async {
     try {
       final data = await AppServicesScope.read(context).api.v1.discuss.replies(
         rootDiscussId: rootDiscussId,
@@ -146,20 +161,27 @@ class _PostDetailPageState extends State<PostDetailPage> {
         page: page,
       );
       if (!loaded) {
+        if (propagateFailure) {
+          throw StateError('Reply page has no root comment');
+        }
         showGenesisToast(
           context,
-          'Load replies failed',
+          GenesisL10n.current.worldoLoadRepliesFailed,
           brightness: Brightness.dark,
         );
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted && generation == _loadGeneration) {
         showGenesisToast(
           context,
-          'Load replies failed',
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLoadRepliesFailed,
+          ),
           brightness: Brightness.dark,
         );
       }
+      if (propagateFailure) rethrow;
     }
   }
 
@@ -173,11 +195,14 @@ class _PostDetailPageState extends State<PostDetailPage> {
           return OriginDiscussRepliesPage.fromJson(data);
         },
       );
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         showGenesisToast(
           context,
-          'Load replies failed',
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLoadRepliesFailed,
+          ),
           brightness: Brightness.dark,
         );
       }
@@ -198,8 +223,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
       replyToUser: reply == null ? null : asOptionalJsonMap(reply['author']),
       replyToUsername: reply == null ? null : replyToName,
       placeholder: replyToName.trim().isEmpty
-          ? 'Write a reply'
-          : 'Reply to $replyToName',
+          ? GenesisL10n.current.worldoWriteReply
+          : GenesisL10n.current.worldoReplyName(
+              replyToName: (replyToName).toString(),
+            ),
     );
   }
 
@@ -209,8 +236,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: DiscussDarkColors.background,
-        appBar: const GenesisBackAppBar(
-          pageName: 'Post Detail',
+        appBar: GenesisBackAppBar(
+          pageName: GenesisL10n.current.worldoPostDetail,
           backgroundColor: DiscussDarkColors.background,
           foregroundColor: DiscussDarkColors.primary,
           titleStyle: TextStyle(color: DiscussDarkColors.primary),
@@ -222,7 +249,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
             final item = _currentItem;
             if (item == null) {
               return widget.item == null
-                  ? const Center(child: Text('Post unavailable'))
+                  ? Center(
+                      child: Text(GenesisL10n.current.worldoPostUnavailable),
+                    )
                   : const Center(child: GenesisLoadingIndicator());
             }
 
@@ -295,7 +324,10 @@ class _PostDetailPageState extends State<PostDetailPage> {
           author?['display_name'] ??
           reply['author_name'] ??
           reply['user_name'],
-      fallback: formatUidForDisplay(uid, fallback: 'User'),
+      fallback: formatUidForDisplay(
+        uid,
+        fallback: GenesisL10n.current.userLabel,
+      ),
     );
   }
 }
@@ -344,7 +376,9 @@ class _PostDetailReplies extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'All Replies $replyCount',
+          GenesisL10n.current.worldoAllRepliesReplyCount(
+            replyCount: (replyCount).toString(),
+          ),
           style: const TextStyle(
             color: DiscussDarkColors.secondary,
             fontSize: 14,
@@ -390,7 +424,11 @@ class _PostDetailReplies extends StatelessWidget {
                         child: GenesisLoadingIndicator(strokeWidth: 2),
                       )
                     : Text(
-                        'View all ${controller.replyButtonCount(item)} replies',
+                        GenesisL10n.current.worldoViewAllReplies(
+                          replyCount: (controller.replyButtonCount(
+                            item,
+                          )).toString(),
+                        ),
                         style: const TextStyle(
                           color: DiscussDarkColors.secondary,
                           fontSize: 12,
@@ -571,14 +609,21 @@ class _ReplyActionRow extends StatelessWidget {
       } else {
         await api.unlike(discussId: normalizedDiscussId);
       }
-    } catch (_) {
+    } catch (error) {
       controller.applyLikeState(
         discussId: normalizedDiscussId,
         isLiked: previousLiked,
         likeCount: previousCount,
       );
       if (context.mounted) {
-        showGenesisToast(context, 'Like failed', brightness: Brightness.dark);
+        showGenesisToast(
+          context,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLikeFailed,
+          ),
+          brightness: Brightness.dark,
+        );
       }
     } finally {
       controller.setLikePending(normalizedDiscussId, false);
@@ -657,8 +702,8 @@ class _PostDetailCommentBar extends StatelessWidget {
                 color: DiscussDarkColors.inputFill,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Write a reply',
+              child: Text(
+                GenesisL10n.current.worldoWriteReply,
                 style: TextStyle(
                   color: GenesisColors.darkInputPlaceholder,
                   fontSize: 14,
@@ -727,7 +772,10 @@ class _ReplyViewData {
           author?['display_name'] ??
           json['author_name'] ??
           json['user_name'],
-      fallback: formatUidForDisplay(uid, fallback: 'User'),
+      fallback: formatUidForDisplay(
+        uid,
+        fallback: GenesisL10n.current.userLabel,
+      ),
     );
     return _ReplyViewData(
       authorGender: asString(author?['gender']),
@@ -738,7 +786,10 @@ class _ReplyViewData {
       discussId: asString(json['discuss_id']),
       authorUid: uid,
       authorDeleted: entityDeleted(author?['deleted']),
-      authorName: formatUidForDisplay(name, fallback: 'User'),
+      authorName: formatUidForDisplay(
+        name,
+        fallback: GenesisL10n.current.userLabel,
+      ),
       avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
       content: asString(json['content']),
       worldId: asString(

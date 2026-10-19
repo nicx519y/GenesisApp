@@ -1,6 +1,7 @@
 part of 'location_chat_page.dart';
 
-const String _locationChatTickProgressTitle = 'Progressing the World';
+String get _locationChatTickProgressTitle =>
+    GenesisL10n.current.worldDetailProgressingWorld;
 
 extension _LocationChatTickProgress on _LocationChatPanelState {
   String _tickStreamKey(WorldChatroomMessage message) =>

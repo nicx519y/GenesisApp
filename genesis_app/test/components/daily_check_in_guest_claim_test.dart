@@ -7,7 +7,6 @@ import 'package:genesis_flutter_android/app/membership/membership_access_store.d
 import 'package:genesis_flutter_android/components/gems/daily_check_in_dialog.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
-import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 
 import '../app/membership/membership_purchase_service_test.dart' as support;
 
@@ -53,7 +52,7 @@ void main() {
       expect(h.claimRequests, hasLength(1));
       expect(results, isEmpty);
       claim.complete(
-        MembershipClaimResult(status: MembershipReportStatus.completed),
+        MembershipClaimResult(status: MembershipClaimStatus.completed),
       );
       await pumpEventQueue();
       expect(results, isEmpty);
@@ -66,7 +65,7 @@ void main() {
 
   for (final outcome in [
     'completed',
-    'accepted',
+    'rejected',
     'claim_error',
     'wallet_error',
   ]) {
@@ -125,9 +124,9 @@ void main() {
           } else {
             claimResponse.complete(
               MembershipClaimResult(
-                status: outcome == 'accepted'
-                    ? MembershipReportStatus.accepted
-                    : MembershipReportStatus.completed,
+                status: outcome == 'rejected'
+                    ? MembershipClaimStatus.rejected
+                    : MembershipClaimStatus.completed,
               ),
             );
           }

@@ -17,12 +17,14 @@ abstract class _GenesisApiContext {
     UserSessionStore? sessionStore,
     IdentityAuthService? identityAuthService,
     RequestHeaderProvider? appHeaderProvider,
+    AppLanguageController? languageController,
     GatewayRequestInterceptor? gatewayRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
     void Function(String message)? onChatroomMessageMutationError,
   }) {
     final resolvedPlatformConfig =
         platformConfig ?? const DefaultPlatformConfig();
+    _languageController = languageController;
     _deviceIdService = deviceIdService ?? const NativeDeviceIdService();
     _sessionStore = sessionStore ?? NativeUserSessionStore();
     _identityAuthService =
@@ -88,6 +90,7 @@ abstract class _GenesisApiContext {
     v1 = GenesisV1Api(
       _apiClient,
       currentUserInfoSessionProvider: _readCurrentUserInfoSession,
+      languageController: languageController,
     );
     v2 = GenesisV2Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
@@ -102,6 +105,7 @@ abstract class _GenesisApiContext {
   late final ChatroomHttpApi chatroomHttp;
   late final MiniPhoneApi miniPhone;
   late final DeviceIdService _deviceIdService;
+  late final AppLanguageController? _languageController;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;
   late final RequestHeaderProvider _appHeaderProvider;
@@ -197,6 +201,7 @@ abstract class _GenesisApiContext {
     if (handler != null) unawaited(handler(message));
     throw ApiException(
       message: message,
+      serverErrMsg: serverErrorMessageFromResponse(map),
       code: errNo,
       statusCode: response.statusCode,
       responseBody: response.body,

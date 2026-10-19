@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../../icons/custom_icon_assets.dart';
@@ -30,7 +31,7 @@ class LocationChatEditButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
-    label: 'Edit',
+    label: GenesisL10n.current.chatEdit,
     iconAsset: editSquareIconAsset,
     state: feature.state,
     onTap: feature.invocation,

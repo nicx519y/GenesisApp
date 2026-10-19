@@ -1,3 +1,5 @@
+import '../../l10n/language_data_refresh.dart';
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/attribution/adjust_device_registration.dart';
 import '../../app/membership/subscription_analytics.dart';
 import '../../components/gems/subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -21,6 +24,7 @@ import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
+import '../../components/gems/purchase_attribution_registration.dart';
 import '../../components/gems/pro_subscription_content.dart';
 import '../../components/gems/wallet_purchase_tabs.dart';
 import '../../components/page_header.dart';
@@ -29,6 +33,7 @@ import '../../network/models/gem_product.dart';
 import '../../network/models/gem_task.dart';
 import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../platform/billing/billing_analytics.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import '../../routers/app_router.dart';
@@ -67,6 +72,7 @@ class GemWalletPage extends StatefulWidget {
     this.taskReporter,
     this.taskClaimer,
     this.discordLauncher,
+    this.attributionRegistration,
   });
 
   final GemProductsLoader? productsLoader;
@@ -82,6 +88,7 @@ class GemWalletPage extends StatefulWidget {
   final GemTaskActionHandler? taskReporter;
   final GemTaskActionHandler? taskClaimer;
   final DiscordLauncher? discordLauncher;
+  final AdjustDeviceRegistration? attributionRegistration;
 
   @override
   State<GemWalletPage> createState() => _GemWalletPageState();
@@ -115,7 +122,19 @@ Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
 }
 
 class _GemWalletPageState extends State<GemWalletPage>
-    with TickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        RouteAware,
+        LanguageDataRefresh<GemWalletPage> {
+  @override
+  Future<void> refreshLanguageData() => _refreshAll(silent: true);
+  @override
+  bool get languageRefreshSucceeded =>
+      _productsError == null &&
+      _tasksError == null &&
+      _walletStore.state.value.lastError == null;
+
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;
@@ -127,14 +146,15 @@ class _GemWalletPageState extends State<GemWalletPage>
   BillingService? _billingService;
   StreamSubscription<BillingUiEvent>? _billingEvents;
   PageRoute<dynamic>? _subscribedRoute;
+  bool _checkingStorePrice = false;
   int _productsRequestGeneration = 0;
   int _tasksRequestGeneration = 0;
   final Set<String> _loadingTaskCodes = <String>{};
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
-  late final String _payTrackPageId =
-      widget.subscriptionTracking?.pageId ?? newBillingTrackPageId();
+  late final String _analyticsPageId =
+      widget.subscriptionTracking?.pageId ?? newBillingPageId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
@@ -144,6 +164,8 @@ class _GemWalletPageState extends State<GemWalletPage>
   late bool _gemsVisited;
   AppServices? _membershipServices;
   late final SubscriptionPageTracking _subscriptionTracking;
+  final PurchaseAttributionRegistration _attributionRegistration =
+      PurchaseAttributionRegistration();
 
   @override
   void initState() {
@@ -153,7 +175,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     _subscriptionTracking =
         widget.subscriptionTracking ??
         SubscriptionPageTracking(
-          pageId: _payTrackPageId,
+          pageId: _analyticsPageId,
           surface: SubscriptionSurface.page,
           source: _subscriptionVisited
               ? widget.subscriptionSource
@@ -167,6 +189,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     );
     _purchaseTabs.addListener(_visitCurrentTab);
     WidgetsBinding.instance.addObserver(this);
+    _registerAttributionForCurrentTab();
     if (_gemsVisited) {
       _trackBuyGemsPageView();
       unawaited(_refreshAll());
@@ -174,6 +197,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   void _visitCurrentTab() {
+    _registerAttributionForCurrentTab();
     if (_purchaseTabs.index == 0) {
       if (!_subscriptionVisited) {
         setState(() => _subscriptionVisited = true);
@@ -186,6 +210,15 @@ class _GemWalletPageState extends State<GemWalletPage>
       _trackBuyGemsPageView();
       unawaited(_refreshAll());
     }
+  }
+
+  void _registerAttributionForCurrentTab() {
+    _attributionRegistration.schedule(
+      context,
+      tabIndex: _purchaseTabs.index,
+      currentTabIndex: () => _purchaseTabs.index,
+      registration: widget.attributionRegistration,
+    );
   }
 
   @override
@@ -260,7 +293,6 @@ class _GemWalletPageState extends State<GemWalletPage>
       actionType: 'pay_event',
       action: 'buy_page_show',
       object1: BillingPurchaseSource.buyGemsPage.value,
-      object2: billingPageTrackId(_payTrackPageId),
       object3: widget.showSubscriptionInitially || !widget.showBuyGems
           ? 'subscription_tab'
           : widget.gemsSource,
@@ -277,14 +309,14 @@ class _GemWalletPageState extends State<GemWalletPage>
         child: Scaffold(
           backgroundColor: GenesisColors.darkBackground,
           appBar: GenesisBackAppBar(
-            pageName: 'Buy Gems',
+            pageName: GenesisL10n.current.gemsBuy,
             titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
             titleSideInset: 56,
             actions: [
               if (widget.showBuyGems)
                 IconButton(
                   key: const ValueKey('wallet-records-button'),
-                  tooltip: 'Records',
+                  tooltip: GenesisL10n.current.gemsRecords,
                   padding: const EdgeInsets.only(left: 4),
                   constraints: const BoxConstraints.tightFor(
                     width: 56,
@@ -345,7 +377,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (!_hasPageData && _productsError != null && _tasksError != null) {
       return Center(
         child: GemPurchaseState(
-          message: 'Unable to load gems.',
+          message: GenesisL10n.current.gemsUnableLoad,
           onRetry: () => unawaited(_refreshAll()),
         ),
       );

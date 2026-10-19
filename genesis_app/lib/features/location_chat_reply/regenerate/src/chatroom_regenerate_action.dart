@@ -7,7 +7,9 @@ extension ChatroomRegenerateFeatureImplementation
     await restore(locationId);
     final state = await _target(locationId);
     if (!state.canRegenerate) {
-      throw StateError('This round cannot be regenerated');
+      throw StateError(
+        GenesisL10n.current.chatRegenerateUnavailable,
+      );
     }
     _invalidateCardsCache(state);
     final dispatchGeneration = ++state._regenerationDispatchGeneration;
@@ -29,10 +31,16 @@ extension ChatroomRegenerateFeatureImplementation
           state._cards.any(
             (card) => card.cardId > 0 && !_terminal(card.generationState),
           )) {
-        throw StateError('This round cannot be regenerated');
+        throw StateError(
+          GenesisL10n
+              .current
+              .chatRegenerateUnavailable,
+        );
       }
       if (!state._eligible || state.frozen) {
-        throw StateError('The source round changed');
+        throw StateError(
+          GenesisL10n.current.chatSourceRoundChanged,
+        );
       }
       final pendingIndex = state._cards.isEmpty
           ? 2

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -595,7 +596,9 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                           child: _MapZoomButton(
                             key: const ValueKey<String>('world-map-zoom-in'),
                             iconAsset: legacyWorldMapZoomInIconAsset,
-                            label: 'Zoom in on map',
+                            label: GenesisL10n
+                                .current
+                                .worldMapZoomIn,
                             color: canZoomIn
                                 ? legacyWorldMapZoomControlEnabledColor
                                 : legacyWorldMapZoomControlDisabledColor,
@@ -606,7 +609,9 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                           child: _MapZoomButton(
                             key: const ValueKey<String>('world-map-zoom-out'),
                             iconAsset: legacyWorldMapZoomOutIconAsset,
-                            label: 'Zoom out of map',
+                            label: GenesisL10n
+                                .current
+                                .worldMapZoomOut,
                             color: canZoomOut
                                 ? legacyWorldMapZoomControlEnabledColor
                                 : legacyWorldMapZoomControlDisabledColor,

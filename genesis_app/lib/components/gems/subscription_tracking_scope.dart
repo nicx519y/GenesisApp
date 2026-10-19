@@ -11,7 +11,7 @@ class SubscriptionPageTracking {
     this.surface = SubscriptionSurface.sheet,
     this.source = SubscriptionSource.unknown,
     SubscriptionAnalytics? analytics,
-  }) : pageId = pageId ?? newBillingTrackPageId(),
+  }) : pageId = pageId ?? newBillingPageId(),
        analytics = analytics ?? SubscriptionAnalytics();
 
   final String pageId;

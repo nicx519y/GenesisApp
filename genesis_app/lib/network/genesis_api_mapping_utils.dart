@@ -194,6 +194,7 @@ Object? _defaultGenesisProcessor(ApiResponse response) {
     if (error != null && error.toString().trim().isNotEmpty) {
       throw ApiException(
         message: error.toString(),
+        serverErrMsg: serverErrorMessageFromResponse(data),
         statusCode: response.statusCode,
         responseBody: response.body,
         responseHeaders: response.headers,
@@ -205,6 +206,7 @@ Object? _defaultGenesisProcessor(ApiResponse response) {
 
   throw ApiException(
     message: 'Something went wrong',
+    serverErrMsg: serverErrorMessageFromResponse(data),
     statusCode: response.statusCode,
     responseBody: response.body,
     responseHeaders: response.headers,

@@ -62,7 +62,7 @@ class _ChatReplyWaitingBubbleState extends State<ChatReplyWaitingBubble>
       child: Opacity(
         opacity: widget.visible ? 1 : 0,
         child: Semantics(
-          label: 'AI reply loading',
+          label: GenesisL10n.current.a11yAiReplyLoading,
           liveRegion: true,
           child: Padding(
             padding: EdgeInsets.only(

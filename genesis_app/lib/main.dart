@@ -11,6 +11,7 @@ import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/debug/purchase_toast_debug_settings.dart';
 import 'app/genesis_app.dart';
+import 'l10n/app_language_controller.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
 import 'app/startup/ios_startup_network.dart';
@@ -20,6 +21,7 @@ import 'app/startup/startup_uid_resolution.dart';
 import 'platform/session/method_channel_user_session_store.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
+import 'app/telemetry/telemetry_upload_policy.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/websocket_capture.dart';
@@ -34,6 +36,7 @@ Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
   final appConfigLoad = loadStartupEndpointConfig();
+  await appLanguageController.load();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),
     timeout: _startupSystemUiTimeout,
@@ -111,6 +114,24 @@ Future<void> main() async {
     }),
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
+  unawaited(
+    telemetryRuntimeInitialization
+        .then((_) async {
+          if (!TelemetryUploadPolicy.state.value.analyticsEnabled) return;
+          final registration = services.adjustDeviceRegistration;
+          if (registration == null) return;
+          // Firebase may finish configuring after the first device registration.
+          // Recheck once it is ready; the registration snapshot skips duplicates.
+          await services.gatewayAuth?.prepare().timeout(
+            const Duration(seconds: 8),
+          );
+          await registration.registerAfterFirebaseReady();
+        })
+        .catchError((Object error, StackTrace stack) {
+          debugPrint('[Firebase][DeviceRegister] late ID check failed: $error');
+          debugPrint('[Firebase][DeviceRegister] stacktrace:\n$stack');
+        }),
+  );
   final startupUidResolution = _resolveStartupUid(services.sessionStore);
   final initialLandingPageFuture = resolveInitialLandingPage(
     uidReadAlreadyBounded: true,
@@ -129,7 +150,15 @@ Future<void> main() async {
       store: services.appGlobalConfig,
       uidResolution: startupUidResolution,
       collectReady: collectReady.future,
-    ),
+    ).then((_) async {
+      final resolution = await startupUidResolution;
+      if (resolution.uid == null || resolution.uid!.isEmpty) return;
+      try {
+        await services.api.v1.user.info();
+      } catch (error) {
+        debugPrint('[Language] Could not load startup user language: $error');
+      }
+    }),
   );
   await Future.wait<Object?>(<Future<Object?>>[
     systemUiInitialization,

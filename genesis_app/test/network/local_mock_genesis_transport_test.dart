@@ -814,6 +814,7 @@ void main() {
     final config = await api.v1.app.config();
 
     expect(config, {
+      'language': '',
       'show_opening_sheet': false,
       'show_personalization_form': true,
       'api_trace_sampling_rate': 1.0,

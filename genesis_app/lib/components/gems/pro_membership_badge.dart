@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -24,7 +25,7 @@ class ProMembershipBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Premium membership',
+      label: GenesisL10n.current.a11yPremiumMembership,
       image: true,
       excludeSemantics: true,
       child: SvgPicture.asset(

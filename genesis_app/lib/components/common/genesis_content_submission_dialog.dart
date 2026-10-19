@@ -1,8 +1,10 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_colors.dart';
+import '../../utils/api_error_message.dart';
 
 import 'genesis_action_box.dart';
 import 'genesis_center_toast.dart';
@@ -88,12 +90,12 @@ class _GenesisContentSubmissionDialogState
           brightness: widget.toastBrightness,
         );
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _submitting = false);
       showGenesisToast(
         context,
-        widget.failureMessage,
+        apiErrorMessage(error, fallback: widget.failureMessage),
         brightness: Brightness.dark,
       );
     }
@@ -118,7 +120,9 @@ class _GenesisContentSubmissionDialogState
         decoration: InputDecoration(
           filled: true,
           fillColor: GenesisColors.darkFaintFill,
-          hintText: 'Describe the issue',
+          hintText: GenesisL10n
+              .current
+              .createDescribeIssue,
           hintStyle: const TextStyle(color: GenesisColors.darkInputPlaceholder),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
@@ -139,8 +143,13 @@ class _GenesisContentSubmissionDialogState
         ),
         onChanged: (_) => setState(() {}),
       ),
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Submit', value: true),
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n
+              .current
+              .createSubmit,
+          value: true,
+        ),
       ],
       onActionSelected: (_) => unawaited(_submit()),
       onCancel: () => Navigator.of(context).pop(false),

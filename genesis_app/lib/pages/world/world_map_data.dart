@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/debug/world_new_content_debug_settings.dart';
@@ -358,7 +359,9 @@ List<WorldPoint> worldPointsFromLocationIds(
 
     return WorldPoint(
       id: id,
-      name: 'Location $id',
+      name: GenesisL10n.current.homeLocationID(
+        id: (id).toString(),
+      ),
       type: type,
       position: Offset(
         dx.clamp(0.0, 1.0).toDouble(),

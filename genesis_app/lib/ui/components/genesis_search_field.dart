@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
@@ -8,12 +9,13 @@ import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
 
 const genesisSearchFieldHeight = 38.0;
-const genesisSearchHintText = 'Worldo, Character, Tags';
+String get genesisSearchHintText =>
+    GenesisL10n.current.searchHint;
 
 class GenesisSearchField extends StatelessWidget {
   const GenesisSearchField({
     super.key,
-    this.hintText = genesisSearchHintText,
+    this.hintText,
     this.onTap,
     this.controller,
     this.focusNode,
@@ -35,7 +37,7 @@ class GenesisSearchField extends StatelessWidget {
     this.textStyle,
   });
 
-  final String hintText;
+  final String? hintText;
   final VoidCallback? onTap;
   final TextEditingController? controller;
   final FocusNode? focusNode;
@@ -58,6 +60,7 @@ class GenesisSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveHintText = hintText ?? genesisSearchHintText;
     final uiTheme = GenesisUiTheme.of(context);
     final effectiveHintStyle = GenesisTypography.withFallback(
       hintStyle ?? uiTheme.searchHintStyle,
@@ -110,7 +113,7 @@ class GenesisSearchField extends StatelessWidget {
                     maxLines: 1,
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
-                      hintText: hintText,
+                      hintText: effectiveHintText,
                       hintStyle: effectiveHintStyle,
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
@@ -121,7 +124,7 @@ class GenesisSearchField extends StatelessWidget {
                     style: effectiveTextStyle,
                   )
                 : Text(
-                    hintText,
+                    effectiveHintText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     softWrap: false,

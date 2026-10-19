@@ -144,7 +144,10 @@ class OriginDiscussListItem {
           author?['display_name'] ??
           json['author_name'] ??
           json['user_name'],
-      fallback: formatUidForDisplay(uid, fallback: 'User'),
+      fallback: formatUidForDisplay(
+        uid,
+        fallback: GenesisL10n.current.userLabel,
+      ),
     );
     return OriginDiscussListItem(
       authorGender: asString(author?['gender']),
@@ -164,7 +167,10 @@ class OriginDiscussListItem {
       ),
       authorUid: uid,
       authorDeleted: entityDeleted(author?['deleted']),
-      authorName: formatUidForDisplay(name, fallback: 'User'),
+      authorName: formatUidForDisplay(
+        name,
+        fallback: GenesisL10n.current.userLabel,
+      ),
       avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
       content: decodeGenesisUgcTextForDisplay(asString(json['content'])),
       imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),

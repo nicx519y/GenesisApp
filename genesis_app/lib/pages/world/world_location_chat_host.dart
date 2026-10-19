@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
@@ -642,7 +643,9 @@ class WorldLocationChatLoadingPage extends StatelessWidget {
           children: [
             ChatHeader(
               title: '$title (1)',
-              subtitle: 'Loading',
+              subtitle: GenesisL10n
+                  .current
+                  .chatLoading,
               connected: false,
               connecting: true,
               onBack: onBack,

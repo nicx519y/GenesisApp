@@ -75,10 +75,15 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   }
 
   String _purchaseFailureMessage(Object error) {
-    if (error is BillingPlatformException && error.code.isNotEmpty) {
-      return 'Purchase failed (${error.code}).';
-    }
-    return 'Purchase failed.';
+    final code = switch (error) {
+      BillingPlatformException(:final code) => code,
+      PlatformException(:final code) => code,
+      _ => null,
+    };
+    return _storeFailureMessage(
+      code,
+      fallback: GenesisL10n.current.mePurchaseFailed,
+    );
   }
 
   String _platformFailureErrorCode(Object error) {
@@ -91,20 +96,49 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   }
 
   String _productQueryFailureMessage(String? errorCode) {
-    final code = errorCode?.trim() ?? '';
-    if (code.isNotEmpty) return 'Purchase failed ($code).';
-    return 'This product is currently unavailable.';
+    return _storeFailureMessage(
+      errorCode,
+      fallback: errorCode?.trim().isEmpty != false
+          ? GenesisL10n.current.storeProductUnavailable
+          : GenesisL10n.current.mePurchaseFailed,
+    );
   }
 
   String _purchaseDetailsFailureMessage(BillingPurchase purchase) {
-    final code = purchase.errorCode?.trim() ?? '';
-    final detail = purchase.errorMessage?.trim() ?? '';
-    if (detail.isNotEmpty && code.isNotEmpty) {
-      return 'Purchase failed ($code: $detail).';
+    return _storeFailureMessage(
+      purchase.errorCode ?? purchase.rawErrorCode,
+      fallback: GenesisL10n.current.mePurchaseFailed,
+    );
+  }
+
+  String _storeFailureMessage(String? code, {required String fallback}) {
+    final normalized = code?.trim().toLowerCase() ?? '';
+    if (normalized.contains('user_canceled') ||
+        normalized.contains('user_cancelled') ||
+        normalized.contains('usercanceled') ||
+        normalized.contains('payment_cancelled')) {
+      return GenesisL10n.current.premiumPurchaseCanceled;
     }
-    if (detail.isNotEmpty) return 'Purchase failed ($detail).';
-    if (code.isNotEmpty) return 'Purchase failed ($code).';
-    return 'Purchase failed.';
+    if (normalized.contains('network') ||
+        normalized.contains('service_disconnected') ||
+        normalized.contains('servicedisconnected') ||
+        normalized.contains('service_unavailable') ||
+        normalized.contains('serviceunavailable') ||
+        normalized.contains('service_timeout')) {
+      return GenesisL10n.current.storeConnectionFailed;
+    }
+    if (normalized.contains('product_not_found') ||
+        normalized.contains('product_not_purchasable') ||
+        normalized.contains('item_unavailable') ||
+        normalized.contains('itemunavailable') ||
+        normalized.contains('store_product_id_missing')) {
+      return GenesisL10n.current.storeProductUnavailable;
+    }
+    if (normalized.contains('billing_unavailable') ||
+        normalized.contains('billingunavailable')) {
+      return GenesisL10n.current.storeDevicePurchasesUnavailable;
+    }
+    return fallback;
   }
 
   void _track(
@@ -118,7 +152,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       _analytics.track(
         action,
         properties: <String, Object?>{
-          'attempt_id': attemptId,
           'product_id': productId,
           'store_product_id': storeProductId,
           ...data,
@@ -200,17 +233,19 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       errorCode: errorCode,
     );
     if (failedReason != null) {
+      if (attemptId.isNotEmpty && !_trackedFailedAttemptIds.add(attemptId)) {
+        return;
+      }
       _trackFailedById(
         attemptId: attemptId,
         productId: productId,
         storeProductId: storeProductId,
         reason: failedReason,
         errorCode:
-            failedReason == 'purchase_callback_error' ||
+            failedReason == 'precheck_failed' ||
+                failedReason == 'purchase_callback_error' ||
                 failedReason == 'query_failed' ||
-                failedReason == 'launch_failed' ||
-                failedReason == 'report_failed' ||
-                failedReason == 'report_rejected'
+                failedReason == 'launch_failed'
             ? errorCode
             : null,
         failureReason: failureReason,
@@ -291,6 +326,52 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     );
   }
 
+  void _trackPurchasedCallback(
+    BillingPurchase purchase, {
+    required String productId,
+    int? priceAmountMicros,
+    String priceCurrencyCode = '',
+  }) {
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
+    final receipt = purchase.provider == BillingProvider.googlePlay
+        ? purchase.purchaseToken.trim()
+        : purchase.transactionId.trim().isNotEmpty
+        ? purchase.transactionId.trim()
+        : purchase.purchaseToken.trim();
+    if (receipt.isEmpty ||
+        !_trackedPurchasedKeys.add('${purchase.provider.name}:$receipt')) {
+      return;
+    }
+    _track(
+      'purchase_success',
+      productId: productId,
+      storeProductId: purchase.productId,
+      data: <String, Object?>{
+        'transaction_id': purchase.transactionId,
+        'event_id': const Uuid().v5(
+          Namespace.url.value,
+          'worldo:gems:${purchase.provider.apiValue}:$receipt',
+        ),
+      },
+    );
+    final reporter = purchaseEventReporting;
+    if (reporter != null) {
+      unawaited(
+        reporter.recordPurchase(
+          provider: purchase.provider.apiValue,
+          productId: purchase.productId,
+          kind: PurchaseEventKind.gems,
+          purchaseIdentity: purchase.purchaseToken,
+          transactionIdentity: purchase.transactionId.trim().isNotEmpty
+              ? purchase.transactionId.trim()
+              : purchase.purchaseToken.trim(),
+          priceAmountMicros: priceAmountMicros,
+          priceCurrencyCode: priceCurrencyCode,
+        ),
+      );
+    }
+  }
+
   void _trackTimeoutById({
     required String attemptId,
     required String productId,
@@ -311,16 +392,18 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     String? errorCode,
   }) {
     return switch (status) {
-      'completed' || 'accepted' => null,
-      'precheck_failed' => _precheckFailedReason(errorCode),
+      'completed' => null,
+      'precheck_failed' =>
+        _precheckFailedReason(errorCode) == null ? null : 'precheck_failed',
       'query_failed' => 'query_failed',
       'launch_rejected' || 'launch_failed' => 'launch_failed',
+      'stream_failed' => 'stream_failed',
       'canceled' => 'canceled',
       'store_failed' =>
         errorCode == 'purchase_token_missing'
             ? 'receipt_missing'
             : 'purchase_callback_error',
-      _ => 'report_rejected',
+      _ => null,
     };
   }
 
@@ -334,18 +417,5 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       'unsupported_product_type' => 'unsupported_product_type',
       _ => null,
     };
-  }
-
-  String _reportFailureReason(Object error) {
-    if (error is ApiException) {
-      final code = error.code;
-      if (code != null) return '$code';
-      final transportKind = error.transportErrorKind;
-      if (transportKind != null) return transportKind.name;
-      if (error.kind != ApiExceptionKind.unknown) return error.kind.name;
-      final message = error.message.trim();
-      if (message.isNotEmpty) return message;
-    }
-    return error.runtimeType.toString();
   }
 }

@@ -5,11 +5,144 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_catalog_cache.dart';
+import 'package:genesis_flutter_android/platform/billing/membership_product_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_product.dart';
 
 import '../../support/membership_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final example in [
+    ('JPY', '¥13,999', 13999000000, '¥1,167'),
+    ('KRW', '₩139,999', 139999000000, '₩11,667'),
+    ('TWD', 'NT\$3,990', 3990000000, 'NT\$333'),
+    ('TWD', 'NT\$3,990.00', 3990000000, 'NT\$332.50'),
+  ]) {
+    test('monthly equivalent keeps ${example.$1} precision', () {
+      final price = MembershipDisplayPrice.fromStore(
+        MembershipStorePrice(
+          formattedPrice: example.$2,
+          amountMicros: example.$3,
+          currencyCode: example.$1,
+          currencySymbol: '',
+        ),
+      );
+      expect(price.monthlyEquivalent('en', 12), example.$4);
+    });
+  }
+
+  for (final example in [
+    ('CAD', 'CA\$139.99', 'CA\$11.67'),
+    ('AUD', 'A\$139.99', 'A\$11.67'),
+    ('GBP', '£139.99', '£11.67'),
+    ('EUR', '139,99 €', '11,67 €'),
+    ('CAD', '139,99 \$CA', '11,67 \$CA'),
+  ]) {
+    test(
+      'monthly equivalent preserves store currency format ${example.$2}',
+      () {
+        final price = MembershipDisplayPrice.fromStore(
+          MembershipStorePrice(
+            formattedPrice: example.$2,
+            amountMicros: 139990000,
+            currencyCode: example.$1,
+            currencySymbol: '\$',
+          ),
+        );
+        expect(price.monthlyEquivalent('zh_TW', 12), example.$3);
+        expect(price.formattedPrice, example.$2);
+      },
+    );
+  }
+
+  for (final currency in [
+    'EUR',
+    'GBP',
+    'USD',
+    'AUD',
+    'CAD',
+    'KRW',
+    'JPY',
+    'TWD',
+    '',
+  ]) {
+    test(
+      'display price policy for $currency applies to subscriptions and Gems',
+      () {
+        final allowed = [
+          'EUR',
+          'GBP',
+          'AUD',
+          'CAD',
+          'JPY',
+          'TWD',
+        ].contains(currency);
+        final offer = MembershipOffer(
+          product: membershipProduct(currency: 'USD', priceAmount: 999),
+          storePrice: MembershipStorePrice(
+            formattedPrice: 'store price',
+            amountMicros: 20000000,
+            currencyCode: currency,
+            currencySymbol: '',
+          ),
+        );
+        expect(offer.price!.amount, allowed ? 20 : 9.99);
+        expect(offer.price!.currencyCode, allowed ? currency : 'USD');
+        expect(
+          offer.price!.storeFormattedPrice,
+          allowed ? 'store price' : null,
+        );
+        final gems =
+            GemProduct.fromJson({
+              'product_id': 'test',
+              'base_gems_cent': 10000,
+              'bonus_gems_cent': 0,
+              'price_amount': 999,
+              'price_currency_code': 'USD',
+            }).withStorePrice(
+              formatted: 'store price',
+              micros: 20000000,
+              currency: currency,
+            );
+        expect(gems.displaysStorePrice, allowed);
+        expect(gems.storeCurrencyCode, currency);
+        expect(gems.priceAmount, 999);
+      },
+    );
+  }
+
+  test('KRW uses the server amount and currency despite a store quote', () {
+    final offer = MembershipOffer(
+      product: membershipProduct(currency: 'KRW', priceAmount: 99900),
+      storePrice: const MembershipStorePrice(
+        formattedPrice: '₩120,000',
+        amountMicros: 120000000000,
+        currencyCode: 'KRW',
+        currencySymbol: '₩',
+      ),
+    );
+    expect(offer.storePrice!.formattedPrice, '₩120,000');
+    expect(offer.price!.amountCent, 99900);
+    expect(offer.price!.currencyCode, 'KRW');
+    expect(offer.price!.storeFormattedPrice, isNull);
+
+    final gems =
+        GemProduct.fromJson({
+          'product_id': 'test',
+          'base_gems_cent': 10000,
+          'bonus_gems_cent': 0,
+          'price_amount': 99900,
+          'price_currency_code': 'KRW',
+        }).withStorePrice(
+          formatted: '₩120,000',
+          micros: 120000000000,
+          currency: 'KRW',
+        );
+    expect(gems.displaysStorePrice, isFalse);
+    expect(gems.priceAmount, 99900);
+    expect(gems.priceCurrencyCode, 'KRW');
+  });
 
   for (final provider in MembershipProvider.values) {
     test(

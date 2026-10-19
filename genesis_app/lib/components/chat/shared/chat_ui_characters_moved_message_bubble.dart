@@ -30,9 +30,9 @@ class ChatCharactersMovedMessageBubble extends StatelessWidget {
               'chat-characters-moved-message-${message.localId}',
             ),
             width: double.infinity,
-            padding: style.systemMessagePadding,
+            padding: EdgeInsets.zero,
             decoration: BoxDecoration(
-              color: style.systemMessageBackgroundColor,
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(
                 style.systemMessageBorderRadius,
               ),
@@ -86,80 +86,42 @@ class _ChatCharacterMovementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
-    final metadataStyle = style.systemMessageTextStyle.copyWith(
-      color: textColor.withValues(alpha: 0.72),
-    );
-    final locationName = genesisDisplaySafeText(movement.toLocationName);
-    final canOpenLocation =
+    final entry = ChatMentionScope.maybeCatalogOf(
+      context,
+    )?.entryForId(movement.toLocationId);
+    final canOpen =
         onLocationTap != null &&
         movement.toLocationId.trim().isNotEmpty &&
         !movement.isDestinationCurrentLocation;
-    final directionText = usePastTenseDirection
-        ? (movement.isDestinationCurrentLocation ? 'came to' : 'went to')
-        : (movement.isDestinationCurrentLocation
-              ? 'has come to'
-              : 'has gone to');
-    if (scenePlate) {
-      return _ChatTickSceneCharacterMovementRow(
-        messageLocalId: messageLocalId,
-        index: index,
-        movement: movement,
-        onLocationTap: onLocationTap,
-        canOpenLocation: canOpenLocation,
-        locationName: locationName,
-        directionText: directionText,
-      );
-    }
-    return Wrap(
-      key: ValueKey<String>('chat-character-movement-$messageLocalId-$index'),
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 5,
-      runSpacing: 3,
-      children: [
-        SvgPicture.asset(
-          routeIconAsset,
-          width: 15,
-          height: 15,
-          colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+    return Padding(
+      // Fill the Tick content column, matching its Global status cards.
+      padding: EdgeInsets.zero,
+      child: ChatLocationJumpCard(
+        key: ValueKey('chat-character-movement-$messageLocalId-$index'),
+        names: genesisDisplaySafeText(movement.characterName),
+        localizedTemplate: GenesisL10n.current.characterMovementSentence(
+          characterName: GenesisLocalizedRichText.placeholder('characterName'),
+          direction: GenesisLocalizedRichText.placeholder('direction'),
+          locationName:
+              '\n${GenesisLocalizedRichText.placeholder('locationName')}',
         ),
-        ChatStreamingText(
-          child: Text(
-            genesisDisplaySafeText(movement.characterName),
-            style: style.systemMessageTextStyle.copyWith(
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+        action: movement.isDestinationCurrentLocation
+            ? GenesisL10n.current.cameToDirection
+            : GenesisL10n.current.wentToDirection,
+        parentPath: entry?.subtitle ?? '',
+        locationName: genesisDisplaySafeText(movement.toLocationName),
+        imageUrl: entry?.imageUrl ?? '',
+        locationKey: ValueKey(
+          'chat-character-movement-location-$messageLocalId-$index',
         ),
-        ChatStreamingText(child: Text(directionText, style: metadataStyle)),
-        Semantics(
-          button: canOpenLocation,
-          label: canOpenLocation ? 'Open $locationName' : locationName,
-          child: GestureDetector(
-            key: ValueKey<String>(
-              'chat-character-movement-location-$messageLocalId-$index',
-            ),
-            behavior: HitTestBehavior.opaque,
-            onTap: canOpenLocation ? () => onLocationTap!(movement) : null,
-            child: ChatStreamingText(
-              child: Text(
-                locationName,
-                style: style.systemMessageTextStyle.copyWith(
-                  fontWeight: FontWeight.w400,
-                  decoration: canOpenLocation
-                      ? TextDecoration.underline
-                      : TextDecoration.none,
-                  decorationColor: textColor,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+        onTap: canOpen ? () => onLocationTap!(movement) : null,
+      ),
     );
   }
 }
 
+// Retained during migration for comparison with the previous inline presentation.
+// ignore: unused_element
 class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
   const _ChatTickSceneCharacterMovementRow({
     required this.messageLocalId,
@@ -194,65 +156,77 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
         ),
         const SizedBox(width: 9),
         Expanded(
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 5,
-            runSpacing: 3,
-            children: [
-              ChatStreamingText(
-                child: Text(
-                  genesisDisplaySafeText(movement.characterName),
+          child: ChatStreamingText(
+            child: GenesisLocalizedRichText(
+              template: GenesisL10n.current.characterMovementSentence(
+                characterName: GenesisLocalizedRichText.placeholder(
+                  'characterName',
+                ),
+                direction: GenesisLocalizedRichText.placeholder('direction'),
+                locationName: GenesisLocalizedRichText.placeholder(
+                  'locationName',
+                ),
+              ),
+              placeholders: {
+                'characterName': TextSpan(
+                  text: genesisDisplaySafeText(movement.characterName),
                   style: GenesisTypography.bodyStrong.copyWith(
                     color: GenesisColors.darkTextPrimary,
                   ),
                 ),
-              ),
-              ChatStreamingText(
-                child: Text(
-                  directionText,
+                'direction': TextSpan(
+                  text: directionText,
                   style: GenesisTypography.body.copyWith(color: mutedColor),
                 ),
-              ),
-              Semantics(
-                button: canOpenLocation,
-                label: canOpenLocation ? 'Open $locationName' : locationName,
-                child: GestureDetector(
-                  key: ValueKey<String>(
-                    'chat-character-movement-location-$messageLocalId-$index',
-                  ),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: canOpenLocation
-                      ? () => onLocationTap!(movement)
-                      : null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ChatStreamingText(
-                        child: Text(
-                          locationName,
-                          style: GenesisTypography.bodyStrong.copyWith(
-                            color: canOpenLocation
-                                ? GenesisColors.redSecondary
-                                : _tickMessageHeaderColor,
-                            decoration: canOpenLocation
-                                ? TextDecoration.underline
-                                : TextDecoration.none,
-                            decorationColor: GenesisColors.redSecondary
-                                .withValues(alpha: 0.45),
-                          ),
-                        ),
+                'locationName': WidgetSpan(
+                  alignment: PlaceholderAlignment.baseline,
+                  baseline: TextBaseline.alphabetic,
+                  child: Semantics(
+                    button: canOpenLocation,
+                    label: canOpenLocation
+                        ? GenesisL10n.current.chatOpenLocation(
+                            locationName: locationName,
+                          )
+                        : locationName,
+                    child: GestureDetector(
+                      key: ValueKey<String>(
+                        'chat-character-movement-location-$messageLocalId-$index',
                       ),
-                      if (canOpenLocation) ...[
-                        const SizedBox(width: 3),
-                        const _ChatLocationCaret(
-                          color: GenesisColors.redSecondary,
-                        ),
-                      ],
-                    ],
+                      behavior: HitTestBehavior.opaque,
+                      onTap: canOpenLocation
+                          ? () => onLocationTap!(movement)
+                          : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ChatStreamingText(
+                            child: Text(
+                              locationName,
+                              style: GenesisTypography.bodyStrong.copyWith(
+                                color: canOpenLocation
+                                    ? GenesisColors.redSecondary
+                                    : _tickMessageHeaderColor,
+                                decoration: canOpenLocation
+                                    ? TextDecoration.underline
+                                    : TextDecoration.none,
+                                decorationColor: GenesisColors.redSecondary
+                                    .withValues(alpha: 0.45),
+                              ),
+                            ),
+                          ),
+                          if (canOpenLocation) ...[
+                            const SizedBox(width: 3),
+                            const _ChatLocationCaret(
+                              color: GenesisColors.redSecondary,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              },
+            ),
           ),
         ),
       ],
@@ -289,11 +263,11 @@ class _ChatMovementIconPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas
-      ..drawCircle(Offset(4 * scale, 4 * scale), 2.2 * scale, paint)
-      ..drawCircle(Offset(10 * scale, 10 * scale), 2.2 * scale, paint)
+      ..drawCircle(Offset(4 * scale, 10 * scale), 2.2 * scale, paint)
+      ..drawCircle(Offset(10 * scale, 4 * scale), 2.2 * scale, paint)
       ..drawLine(
-        Offset(5.8 * scale, 5.8 * scale),
-        Offset(8.2 * scale, 8.2 * scale),
+        Offset(5.8 * scale, 8.2 * scale),
+        Offset(8.2 * scale, 5.8 * scale),
         paint,
       );
   }

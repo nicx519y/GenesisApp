@@ -10,6 +10,7 @@ export 'components/genesis_edge_swipe_back.dart';
 export 'components/genesis_fixed_underline_indicator.dart';
 export 'components/genesis_info_card.dart';
 export 'components/genesis_list_image.dart';
+export 'components/genesis_localized_rich_text.dart';
 export 'components/genesis_origin_list_card_layout.dart';
 export 'components/genesis_page_title.dart';
 export 'components/genesis_page_header.dart';

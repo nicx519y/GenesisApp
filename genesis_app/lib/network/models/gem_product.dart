@@ -1,5 +1,6 @@
 import '../json_utils.dart';
 import '../../utils/gem_amount.dart';
+import '../../utils/store_price_display_policy.dart';
 
 class GemProductList {
   const GemProductList({required this.products});
@@ -33,6 +34,10 @@ class GemProduct {
     this.billingType = 'consumable',
     this.googlePurchaseOptionId = '',
     this.googleOfferId = '',
+    this.storeFormattedPrice,
+    this.storeAmountMicros,
+    this.storeCurrencyCode,
+    this.requiresStorePrice = false,
   });
 
   factory GemProduct.fromJson(Map<String, dynamic> json) {
@@ -91,6 +96,56 @@ class GemProduct {
   final String billingType;
   final String googlePurchaseOptionId;
   final String googleOfferId;
+
+  final String? storeFormattedPrice;
+  final int? storeAmountMicros;
+  final String? storeCurrencyCode;
+  final bool requiresStorePrice;
+
+  bool get displaysStorePrice =>
+      storeFormattedPrice != null && useStorePriceForDisplay(storeCurrencyCode);
+
+  Map<String, Object?> toJson() => {
+    'product_id': productId,
+    'apple_product_id': appleProductId,
+    'google_product_id': googleProductId,
+    'base_gems_cent': baseGemsCent,
+    'bonus_gems_cent': bonusGemsCent,
+    'price_currency_code': priceCurrencyCode,
+    'price_amount': priceAmount,
+    'can_purchase': canPurchase,
+    'activity_type': activityType,
+    'activity_text': activityText,
+    'activity_color': activityColor,
+    'billing_type': billingType,
+    'google_purchase_option_id': googlePurchaseOptionId,
+    'google_offer_id': googleOfferId,
+  };
+
+  GemProduct withStorePrice({
+    String? formatted,
+    int? micros,
+    String? currency,
+  }) => GemProduct(
+    productId: productId,
+    appleProductId: appleProductId,
+    googleProductId: googleProductId,
+    baseGemsCent: baseGemsCent,
+    bonusGemsCent: bonusGemsCent,
+    priceCurrencyCode: priceCurrencyCode,
+    priceAmount: priceAmount,
+    canPurchase: canPurchase,
+    activityType: activityType,
+    activityText: activityText,
+    activityColor: activityColor,
+    billingType: billingType,
+    googlePurchaseOptionId: googlePurchaseOptionId,
+    googleOfferId: googleOfferId,
+    storeFormattedPrice: formatted,
+    storeAmountMicros: micros,
+    storeCurrencyCode: currency,
+    requiresStorePrice: true,
+  );
 
   int get totalGemsCent => baseGemsCent + bonusGemsCent;
 

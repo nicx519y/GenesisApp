@@ -1,3 +1,5 @@
+import '../../l10n/app_language_controller.dart';
+import 'dart:ui' as ui;
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,8 +15,11 @@ class HomeFeedCacheStore {
   final String? _ownerUid;
 
   Future<Map<String, dynamic>?> load(HomeFeedCacheKind kind) async {
+    final languageRevision = appLanguageController.dataRevision;
+    final key = _storageKeyForOwner(kind);
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKeyForOwner(kind));
+    if (languageRevision != appLanguageController.dataRevision) return null;
+    final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) return null;
 
     try {
@@ -28,14 +33,15 @@ class HomeFeedCacheStore {
   }
 
   Future<void> save(HomeFeedCacheKind kind, Map<String, dynamic> data) async {
+    final key = _storageKeyForOwner(kind);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKeyForOwner(kind), jsonEncode(data));
+    await prefs.setString(key, jsonEncode(data));
   }
 
   String _storageKeyForOwner(HomeFeedCacheKind kind) {
     final owner = (_ownerUid ?? '').trim();
     final resolvedOwner = owner.isEmpty ? anonymousOwnerUid : owner;
-    return '$storageKey.$resolvedOwner.${_kindKey(kind)}';
+    return '$storageKey.$resolvedOwner.${_kindKey(kind)}.language_${appLanguageController.settingLanguage ?? ui.PlatformDispatcher.instance.locale.toLanguageTag()}';
   }
 
   String _kindKey(HomeFeedCacheKind kind) {

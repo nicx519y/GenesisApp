@@ -9,7 +9,12 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
       onLimitReached: controls.canExplainRegenerateLimit
           ? () {
               _recordRegenerateLimit();
-              showGenesisToast(context, 'You can generate up to 10 replies.');
+              showGenesisToast(
+                context,
+                GenesisL10n
+                    .current
+                    .chatGenerate10Replies,
+              );
             }
           : null,
       onInvoke: () {

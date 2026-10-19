@@ -40,7 +40,7 @@ class _OriginStoryEventsEditorPageState
 
   void _addEvent() {
     if (_eventControllers.length >= _maxEvents) {
-      _showError('You can add up to $_maxEvents events.');
+      _showError(GenesisL10n.current.createEventLimit(count: _maxEvents));
       return;
     }
     setState(() {
@@ -131,8 +131,8 @@ class _OriginStoryEventsEditorPageState
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: GenesisColors.darkBackground,
-      appBar: const GenesisBackAppBar(
-        pageName: 'Story Events',
+      appBar: GenesisBackAppBar(
+        pageName: GenesisL10n.current.createStoryEventsTitle,
         backgroundColor: GenesisColors.darkBackground,
         foregroundColor: GenesisColors.darkTextPrimary,
         systemOverlayStyle: kGenesisLightSystemUiOverlayStyle,
@@ -151,7 +151,10 @@ class _OriginStoryEventsEditorPageState
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          '${_eventControllers.length}/$_maxEvents (Added / Max)',
+                          GenesisL10n.current.createAddedMax(
+                            added: _eventControllers.length,
+                            max: _maxEvents,
+                          ),
                           style: const TextStyle(
                             color: GenesisColors.darkTextTertiary,
                             fontSize: 14,
@@ -179,7 +182,7 @@ class _OriginStoryEventsEditorPageState
                       if (_eventControllers.isNotEmpty)
                         const SizedBox(height: 12),
                       CreateInlineAddButton(
-                        label: '+ Add Event',
+                        label: GenesisL10n.current.createEventAddEvent,
                         onTap: _addEvent,
                         fontSize: 16,
                         centered: true,
@@ -193,7 +196,9 @@ class _OriginStoryEventsEditorPageState
               _KeyboardHiddenBottomAction(
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                 child: GenesisPrimaryButton(
-                  label: _isSaving ? 'Saving...' : 'Save',
+                  label: _isSaving
+                      ? GenesisL10n.current.createBasicsSaving
+                      : GenesisL10n.current.chatSave,
                   isLoading: _isSaving,
                   showLoadingIndicator: false,
                   backgroundColor: GenesisColors.redPrimary,
@@ -201,7 +206,7 @@ class _OriginStoryEventsEditorPageState
                   width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _saveEvents : null,
                   onDisabledPressed: () =>
-                      _showError('Saving is already in progress.'),
+                      _showError(GenesisL10n.current.createSaveInProgress),
                 ),
               ),
             ],
@@ -232,7 +237,9 @@ class _StoryEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateFormCard(
-      title: 'Event $index',
+      title: GenesisL10n.current.createEventEventIndex(
+        index: (index).toString(),
+      ),
       onDelete: onDelete,
       showBorder: false,
       child: Column(
@@ -242,10 +249,9 @@ class _StoryEventCard extends StatelessWidget {
           CreateTextFieldBlock(
             label: '',
             controller: controller,
-            hintText:
-                'eg. A national chain scouts a vacant lot, threatening to undercut every local on price.',
+            hintText: GenesisL10n.current.createEventEgNationalChainScouts,
             maxLength: 100,
-            note: 'A key story beat the AI uses to steer the storyline.',
+            note: GenesisL10n.current.createEventKeyStoryBeatAIUses,
             minLines: 5,
             maxLines: 5,
             labelSize: 0,

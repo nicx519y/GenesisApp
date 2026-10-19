@@ -1,3 +1,7 @@
+import '../gems/gem_store_catalog.dart';
+import '../../platform/billing/membership_product_store.dart';
+import '../../l10n/genesis_l10n.dart';
+import '../../l10n/app_language_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -18,6 +22,7 @@ import '../../network/network_runtime_factory.dart';
 import '../../network/network_capture.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
+import '../../platform/device/android_advertising_id_service.dart';
 import '../../platform/session/user_info_cache.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
 import '../config/app_config.dart';
@@ -35,6 +40,7 @@ import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
 import '../telemetry/device_info_telemetry.dart';
 import '../telemetry/app_event_reporting.dart';
+import '../telemetry/purchase_event_reporting.dart';
 import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/telemetry_upload_policy.dart';
@@ -79,6 +85,7 @@ class AppServices {
        membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
+             loadStorePrices: MembershipProductStore().loadPrices,
              loadProducts: (provider) async => api.v1.membership.products(
                provider: provider,
                deviceId: await deviceId.getDeviceId(),
@@ -142,6 +149,15 @@ class AppServices {
       this.membershipCatalog.invalidate,
     );
   }
+
+  late final GemStoreCatalog gemStoreCatalog = GemStoreCatalog(
+    loadProducts: () async => (await api.v1.gem.products()).products,
+    platform: defaultTargetPlatform == TargetPlatform.iOS
+        ? AppStoreBillingPlatform()
+        : GooglePlayBillingPlatform(),
+    namespace: '${config.effectiveApiEnvironment}|${platformConfig.apiBaseUrl}',
+    readOwner: sessionStore.readLoginUid,
+  );
 
   final AppConfig config;
   final PlatformConfig platformConfig;
@@ -242,6 +258,7 @@ class AppServices {
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
     membershipCatalog.resetForSession();
+    gemStoreCatalog.reset();
     membership.resetForSession();
     unawaited(membership.start());
     membershipPurchases?.resetForSession();
@@ -265,6 +282,7 @@ class AppServices {
       membershipCatalog.invalidate,
     );
     membershipCatalog.resetForSession();
+    gemStoreCatalog.reset();
     sessionRevision.removeListener(_membershipSessionChanged);
     gemWallet.state.removeListener(_featureQuotaMembershipChanged);
     api.chatroomHttp.onFeatureQuotaRequest = null;
@@ -322,7 +340,7 @@ class ServiceRegistry {
 
         final navigator = genesisNavigatorKey.currentState;
         navigator?.pushNamedAndRemoveUntil(RouteNames.origin, (_) => false);
-        const toastMessage = 'Your account is logged in on another device.';
+        final toastMessage = GenesisL10n.current.meAccountLoggedAnotherDevice;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final overlay = genesisNavigatorKey.currentState?.overlay;
           if (overlay == null) return;
@@ -357,6 +375,7 @@ class ServiceRegistry {
       frameLogName: 'ChatroomSocketFrame',
     );
     final appRequestHeaders = AppRequestHeaderProvider();
+    PurchaseEventReporting? purchaseEventReporting;
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
     GatewayAuthCoordinator? gatewayAuthCoordinator;
@@ -368,8 +387,9 @@ class ServiceRegistry {
         deviceIdService: deviceId,
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
-        onServerTimeSynchronized:
-            FirebaseAnalyticsMonitoring.recordServerTimeSynchronized,
+        onServerTimeSynchronized: (serverUtc) =>
+            purchaseEventReporting?.recordServerTimeSynchronized(serverUtc) ??
+            Future<void>.value(),
       );
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,
@@ -388,6 +408,7 @@ class ServiceRegistry {
       sessionStore: sessionStore,
       identityAuthService: identityAuth,
       appHeaderProvider: appRequestHeaders.headers,
+      languageController: appLanguageController,
       gatewayRequestInterceptor: gatewayRequestInterceptor,
       onSessionExpired: handleSessionExpired,
       onChatroomMessageMutationError: (message) {
@@ -399,6 +420,10 @@ class ServiceRegistry {
       TargetPlatform.android || TargetPlatform.iOS => AdjustDeviceRegistration(
         platform: defaultTargetPlatform,
         environmentProvider: () => AdjustAttributionRuntime.environment.name,
+        readNativeGoogleAdId: defaultTargetPlatform == TargetPlatform.android
+            ? readGoogleAdvertisingIdFromPlatform
+            : null,
+        readAppInstanceId: FirebaseAnalyticsMonitoring.readAppInstanceId,
         localAdidStore: SharedPreferencesAdjustLocalAdidStore(
           environment: AdjustAttributionRuntime.environment,
         ),
@@ -420,11 +445,31 @@ class ServiceRegistry {
               occurredAtSeconds: report.occurredAtSeconds,
               params: report.params,
               transactionId: report.transactionId,
+              reportFirebase: report.reportFirebase,
             ),
           )
         : null;
+    if (eventReporting != null) {
+      purchaseEventReporting = PurchaseEventReporting(
+        eventReporting: eventReporting,
+        deviceIdReader: deviceId.getDeviceId,
+      );
+    }
     FirebaseAnalyticsMonitoring.configureServerEventReporter(
-      eventReporting?.report,
+      eventReporting == null
+          ? null
+          : ({
+              required event,
+              required occurredAtSeconds,
+              required parameters,
+            }) => eventReporting.report(
+              event: event,
+              occurredAtSeconds: occurredAtSeconds,
+              parameters: parameters,
+              requireEnqueueSuccess: AppEventReporting
+                  .firebaseForwardedOnceEvents
+                  .contains(event),
+            ),
     );
     VoidCallback? removeAdjustSessionListener;
     if (adjustDeviceRegistration != null) {
@@ -539,6 +584,7 @@ class ServiceRegistry {
               return result.future;
             },
             refreshWallet: gemWallet.refreshAfterMembershipChanged,
+            purchaseEventReporting: purchaseEventReporting,
           );
     billing = billingPlatform == null
         ? null
@@ -554,6 +600,7 @@ class ServiceRegistry {
             interceptPurchase: membershipPurchases?.interceptPurchase,
             otherPurchaseBusy: () => membershipPurchases?.isBusy ?? false,
             onPurchaseStreamError: membershipPurchases?.handleStreamError,
+            purchaseEventReporting: purchaseEventReporting,
           );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,

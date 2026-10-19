@@ -82,7 +82,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     }
   }
 
-  Future<void> _backfillSelectedModelTitle(String modelCode) async {
+  Future<void> _backfillSelectedModelTitle(
+    String modelCode, {
+    bool propagateFailure = false,
+  }) async {
     final modelWorldId = _modelWorldId;
     final code = modelCode.trim();
     if (!widget.active ||
@@ -129,6 +132,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     } catch (error) {
       _selectedModelTitleLookupCode = '';
       debugPrint('[WorldChat][Model] resolve model title failed: $error');
+      if (propagateFailure) rethrow;
     }
   }
 
@@ -351,7 +355,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _mapString(userInfo, 'nickname'),
         _mapString(userInfo, 'name'),
         formatUidForDisplay(uid),
-        'Me',
+        GenesisL10n.current.meLabel,
       ]);
       _rememberMyUserId(uid);
       _rememberMyUserId(cachedUid);
@@ -402,7 +406,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
         final senderId = firstNonEmpty([_mySenderId, 'local-user']);
         _rememberMySenderId(senderId);
-        _mySenderName = firstNonEmpty([_mySenderName, 'Me']);
+        _mySenderName = firstNonEmpty([
+          _mySenderName,
+          GenesisL10n.current.meLabel,
+        ]);
       }
       if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
       await service.join(
@@ -852,7 +859,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         tickProgressChanged ||
         tickProgressResolved;
     final shouldRebuild = messageViewportChanged || visibleChatroomStateChanged;
-    if (visibleChatroomStateChanged) {
+    if (visibleChatroomStateChanged ||
+        _composerSpeakerReadyFor(_chatroomState) !=
+            _composerSpeakerReadyFor(state)) {
       _setLocationChatState(() {
         _chatroomState = state;
       });

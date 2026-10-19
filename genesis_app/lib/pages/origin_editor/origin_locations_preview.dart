@@ -36,7 +36,12 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
           id: l1.locationId,
           point: _previewPoint(
             id: l1.locationId,
-            name: _previewName(l1.name, 'L1 Location'),
+            name: _previewName(
+              l1.name,
+              GenesisL10n
+                  .current
+                  .createLocationL1Location,
+            ),
             depth: 0,
             isLeaf: false,
           ),
@@ -46,7 +51,12 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
                 id: l2.locationId,
                 point: _previewPoint(
                   id: l2.locationId,
-                  name: _previewName(l2.name, 'L2 Location'),
+                  name: _previewName(
+                    l2.name,
+                    GenesisL10n
+                        .current
+                        .createLocationL2Location,
+                  ),
                   depth: 1,
                   isLeaf: false,
                 ),
@@ -56,7 +66,12 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
                       id: l3.locationId,
                       point: _previewPoint(
                         id: l3.locationId,
-                        name: _previewName(l3.name, 'L3 Location'),
+                        name: _previewName(
+                          l3.name,
+                          GenesisL10n
+                              .current
+                              .createLocationL3Location,
+                        ),
                         depth: 2,
                         imageUrl: l3.imageUrl.text.trim(),
                         imageBytes: l3.previewImageBytes,

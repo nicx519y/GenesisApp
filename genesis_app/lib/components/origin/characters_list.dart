@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
@@ -21,7 +22,9 @@ class CharactersList extends StatelessWidget {
             Icon(MyFlutterApp.userStar, size: 18),
             const SizedBox(width: 6),
             Text(
-              'Characters (${characters.length})',
+              GenesisL10n.current.worldoDetailCharactersLength(
+                length: (characters.length).toString(),
+              ),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ],

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
@@ -833,7 +834,8 @@ GenesisActionMenuItem genesisReportMenuItem({
   required String targetId,
 }) {
   return GenesisActionMenuItem(
-    label: 'Report',
+    label:
+        GenesisL10n.current.chatReport,
     iconAsset: genesisReportIconAsset,
     onSelected: () {
       showGenesisReportDialog(
@@ -854,10 +856,15 @@ Future<bool> showGenesisReportDialog({
   final api = AppServicesScope.read(context).api;
   return showGenesisContentSubmissionDialog(
     context: context,
-    title: 'Report',
+    title:
+        GenesisL10n.current.chatReport,
     contentInputKey: const ValueKey<String>('genesis-report-content-input'),
-    successMessage: 'Report submitted',
-    failureMessage: 'Report failed',
+    successMessage: GenesisL10n
+        .current
+        .appReportSubmitted,
+    failureMessage: GenesisL10n
+        .current
+        .appReportFailed,
     onSubmit: (content) {
       return api.v1.report.create(
         targetType: targetType,

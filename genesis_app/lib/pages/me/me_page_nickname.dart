@@ -31,7 +31,7 @@ class _NickNameDialogState extends State<_NickNameDialog> {
   @override
   Widget build(BuildContext context) {
     return GenesisActionBox<String>(
-      title: 'Edit name',
+      title: GenesisL10n.current.meEditName,
       titleHeight: 126,
       titleContentSpacing: 24,
       titleContent: Transform.translate(
@@ -43,7 +43,14 @@ class _NickNameDialogState extends State<_NickNameDialog> {
           onSubmitted: (value) => Navigator.of(context).pop(value),
         ),
       ),
-      actions: const [GenesisActionBoxAction<String>(label: 'OK', value: 'ok')],
+      actions: [
+        GenesisActionBoxAction<String>(
+          label: GenesisL10n
+              .current
+              .inboxOk,
+          value: 'ok',
+        ),
+      ],
       onActionSelected: (_) => Navigator.of(context).pop(_controller.text),
       onCancel: () => Navigator.of(context).pop(),
     );

@@ -43,8 +43,8 @@ class _OriginLaunchedWorldsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Playing World',
+          Text(
+            GenesisL10n.current.worldoDetailPlayingWorld,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -88,9 +88,13 @@ class _OriginLaunchedWorldRow extends StatelessWidget {
         ? role.name.trim()
         : role.charId.trim();
     final subTickLabel = role.subTickNo > 0 ? '-${role.subTickNo}' : '';
-    final statsLabel =
-        'Tick ${role.tickCount}$subTickLabel · '
-        '${formatMessageCountLabel(role.messageCount)}';
+    final statsLabel = GenesisL10n.current.worldoDetailTickCountSubLabel(
+      tickCount: (role.tickCount).toString(),
+      subTickLabel: (subTickLabel).toString(),
+      messageCountLabel: (formatMessageCountLabel(
+        role.messageCount,
+      )).toString(),
+    );
     final lastActiveLabel = formatGenesisTimestamp(role.lastActiveAt);
 
     return Material(

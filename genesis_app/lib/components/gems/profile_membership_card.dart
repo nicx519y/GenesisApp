@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -5,6 +6,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import 'pro_colors.dart';
 
 /// Membership entry on the profile, per design 9k / 9k2.
@@ -65,7 +68,7 @@ class ProfileMembershipCard extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Pro membership',
+      label: GenesisL10n.current.a11yProMembership,
       child: GestureDetector(
         key: const ValueKey('user-profile-membership-entry'),
         onTap: openMembership,
@@ -142,7 +145,7 @@ class ProfileMembershipCard extends StatelessWidget {
                                     const Flexible(child: _ProTitle()),
                                     if (isMember) ...[
                                       const SizedBox(width: 8),
-                                      const _StatusTag.active(),
+                                      _StatusTag.active(),
                                     ],
                                   ],
                                 ),
@@ -157,7 +160,11 @@ class ProfileMembershipCard extends StatelessWidget {
                                   alignment: Alignment.centerLeft,
                                   child: isMember
                                       ? Text(
-                                          'Expires ${expiry == null ? '—' : _date(expiry)}',
+                                          GenesisL10n.current.expiresOn(
+                                            date: expiry == null
+                                                ? '—'
+                                                : _date(expiry),
+                                          ),
                                           key: const ValueKey(
                                             'user-profile-membership-expiry',
                                           ),
@@ -169,7 +176,7 @@ class ProfileMembershipCard extends StatelessWidget {
                                         // 9k2's status line and 9k's Subscribe button.
                                         Row(
                                           children: [
-                                            const _StatusTag.expired(),
+                                            _StatusTag.expired(),
                                             if (expiry != null) ...[
                                               const SizedBox(width: 8),
                                               Flexible(
@@ -222,8 +229,8 @@ class _ProTitle extends StatelessWidget {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) => proTitleGradient.createShader(bounds),
-      child: const Text(
-        'Worldo Premium',
+      child: Text(
+        GenesisL10n.current.premiumWorldo,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -241,14 +248,14 @@ class _ProTitle extends StatelessWidget {
 /// The chip beside the wordmark. 9k2 specifies ACTIVE; the lapsed plan has no
 /// artboard of its own, so it borrows the same chip in a neutral tone.
 class _StatusTag extends StatelessWidget {
-  const _StatusTag.active()
-    : label = 'ACTIVE',
+  _StatusTag.active()
+    : label = GenesisL10n.current.activeStatus,
       fill = proActiveTagFill,
       ink = proActiveTagInk,
       tagKey = const ValueKey('user-profile-membership-active-tag');
 
-  const _StatusTag.expired()
-    : label = 'Expired',
+  _StatusTag.expired()
+    : label = GenesisL10n.current.expiredStatus,
       fill = const Color(0x1FFFFFFF),
       ink = GenesisColors.darkTextSecondary,
       tagKey = const ValueKey('user-profile-membership-expired-tag');
@@ -288,22 +295,21 @@ class _OfferCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(text: 'Up to '),
-          TextSpan(
-            text: '3,500',
-            style: TextStyle(
-              color: proCardBodyStrong,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-          TextSpan(text: ' Gems monthly, plus full premium access.'),
-        ],
+    return GenesisLocalizedRichText(
+      template: context.l10n.premiumMonthlyOffer(
+        amount: GenesisLocalizedRichText.placeholder('amount'),
       ),
+      placeholders: const {
+        'amount': TextSpan(
+          text: '3,500',
+          style: TextStyle(
+            color: proCardBodyStrong,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+      },
       key: ValueKey('user-profile-membership-offer'),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
@@ -335,8 +341,8 @@ class _SubscribeButton extends StatelessWidget {
           color: proSubscribeFill,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Text(
-          'Subscribe',
+        child: Text(
+          GenesisL10n.current.premiumSubscribe,
           style: TextStyle(
             color: proSubscribeInk,
             fontSize: 12,

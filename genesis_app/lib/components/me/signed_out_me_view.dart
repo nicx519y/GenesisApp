@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -16,10 +17,8 @@ class SignedOutMeView extends StatefulWidget {
     this.reselectionListenable,
     this.isActiveListenable,
     this.showLogo = true,
-    this.title = 'LIVE YOUR WORLD',
-    this.description =
-        'Play world, create worldo, invite friends,\n'
-        'and continue them anywhere.',
+    this.title,
+    this.description,
     this.titleFontSize = 14,
     this.descriptionFontSize = 12,
     this.titleLetterSpacing = 9,
@@ -27,8 +26,8 @@ class SignedOutMeView extends StatefulWidget {
   });
 
   final bool showLogo;
-  final String title;
-  final String description;
+  final String? title;
+  final String? description;
   final double titleFontSize;
   final double descriptionFontSize;
   final double titleLetterSpacing;
@@ -149,7 +148,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             const SizedBox(height: 30),
                           ],
                           Text(
-                            widget.title,
+                            widget.title ?? GenesisL10n.current.liveYourWorld,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: widget.titleFontSize,
@@ -162,7 +161,8 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                           ),
                           const SizedBox(height: 18),
                           Text(
-                            widget.description,
+                            widget.description ??
+                                GenesisL10n.current.signedOutMeDescription,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: widget.descriptionFontSize,
@@ -178,7 +178,9 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                     Column(
                       children: [
                         Text(
-                          'Sign up and get 250 Gems!',
+                          GenesisL10n
+                              .current
+                              .meSignUpReward,
                           key: const ValueKey<String>('signed-out-gems-promo'),
                           textAlign: TextAlign.center,
                           style: TextStyle(

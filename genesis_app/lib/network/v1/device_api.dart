@@ -1,26 +1,46 @@
 import '../models/personalization.dart';
+import '../../l10n/app_language_controller.dart';
 import 'v1_api_resource.dart';
 
 class DeviceV1Api extends V1ApiResource {
   const DeviceV1Api(super.client);
 
+  /// POST /api/v1/device/setlanguage. Preserve exact backend language codes.
+  Future<void> setLanguage({
+    required String deviceId,
+    required String language,
+  }) async {
+    if (deviceId.trim().isEmpty) {
+      throw ArgumentError.value(deviceId, 'deviceId');
+    }
+    if (!AppLanguageController.languageCodes.contains(language)) {
+      throw ArgumentError.value(language, 'language');
+    }
+    await postData(
+      'device/setlanguage',
+      {'language': language},
+      {'X-Device-ID': deviceId.trim()},
+    );
+  }
+
   /// Registers the Adjust device identifier and the platform-specific
-  /// advertising identifiers for the current Gateway device identity.
+  /// advertising identifiers and Firebase Analytics app instance ID for the
+  /// current Gateway device identity.
   ///
-  /// `null` optional identifiers are omitted so the server preserves their
-  /// current values. Empty strings are sent intentionally and clear the
-  /// corresponding value according to the API contract.
+  /// An empty ADID means it is not available yet; the server preserves any
+  /// previously registered ADID and creates a new device with an empty one.
+  /// The registration flow sends empty strings for unavailable identifiers.
+  /// The server treats empty optional advertising IDs as a request to clear
+  /// their existing values; only platform-inapplicable null fields are omitted.
   Future<void> registerAttribution({
     required String adid,
     required String environment,
     String? gpsAdid,
     String? idfa,
     String? idfv,
+    String? appInstanceId,
   }) async {
     final normalizedAdid = adid.trim();
-    if (normalizedAdid.isEmpty) {
-      throw ArgumentError.value(adid, 'adid', 'must not be empty');
-    }
     final normalizedEnvironment = environment.trim().toLowerCase();
     if (normalizedEnvironment != 'sandbox' &&
         normalizedEnvironment != 'production') {
@@ -38,6 +58,7 @@ class DeviceV1Api extends V1ApiResource {
         'gps_adid': gpsAdid?.trim(),
         'idfa': idfa?.trim(),
         'idfv': idfv?.trim(),
+        'app_instance_id': appInstanceId?.trim() ?? '',
       }),
     );
   }

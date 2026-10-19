@@ -16,11 +16,18 @@ class _OpeningLocationField extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: !loading,
-      label: 'Select initial location',
+      label: GenesisL10n
+          .current
+          .createOpeningSelectInitial,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: loading
-            ? () => showGenesisToast(context, 'Locations are still loading.')
+            ? () => showGenesisToast(
+                context,
+                GenesisL10n
+                    .current
+                    .createOpeningLocationsLoading,
+              )
             : null,
         child: InkWell(
           key: const ValueKey<String>('opening-location-field'),
@@ -39,8 +46,12 @@ class _OpeningLocationField extends StatelessWidget {
                   child: Text(
                     locationName.isEmpty
                         ? loading
-                              ? 'Loading locations...'
-                              : 'Select initial location'
+                              ? GenesisL10n
+                                    .current
+                                    .createOpeningLoadingLocations
+                              : GenesisL10n
+                                    .current
+                                    .createOpeningSelectInitial
                         : locationName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../tokens/genesis_colors.dart';
@@ -16,7 +17,9 @@ class GenesisDarkCloseButton extends StatelessWidget {
     return SizedBox.square(
       dimension: dimension,
       child: IconButton(
-        tooltip: 'Close',
+        tooltip: GenesisL10n
+            .current
+            .commonClose,
         onPressed: onPressed,
         style: IconButton.styleFrom(
           padding: EdgeInsets.zero,

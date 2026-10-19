@@ -46,7 +46,8 @@ bool isChatroomErrorPresentedGlobally(Object? error) => switch (error) {
 };
 
 String chatroomOperationErrorMessage(Object error) => switch (error) {
-  ApiException e when e.kind == ApiExceptionKind.business => e.message.trim(),
+  ApiException e when e.kind == ApiExceptionKind.business =>
+    e.serverErrMsg?.trim() ?? '',
   ChatroomFailureEvent e => chatroomFailureToastMessage(e),
   ChatroomErrorEvent e => e.message.trim(),
   ChatroomPayloadEvent e when !e.ok => e.codeMsg.trim(),

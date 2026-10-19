@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import '../gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -10,6 +11,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/entity_deleted.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';
@@ -46,7 +48,7 @@ class DiscussPageCommentList extends StatelessWidget {
         if (controller.error != null && comments.isEmpty) {
           return TextButton(
             onPressed: controller.retryInitial,
-            child: const Text('Retry'),
+            child: Text(GenesisL10n.current.homeRetry),
           );
         }
         if (comments.isEmpty) return const SizedBox.shrink();
@@ -415,13 +417,21 @@ class _DiscussPageActions extends StatelessWidget {
       } else {
         await api.unlike(discussId: discussId);
       }
-    } catch (_) {
+    } catch (error) {
       controller.applyLikeState(
         discussId: discussId,
         isLiked: previousLiked,
         likeCount: previousCount,
       );
-      if (context.mounted) showGenesisToast(context, 'Like failed');
+      if (context.mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLikeFailed,
+          ),
+        );
+      }
     } finally {
       controller.setLikePending(discussId, false);
     }
@@ -530,7 +540,9 @@ class _DiscussPageReplyPreview extends StatelessWidget {
                     if (showViewAll) ...[
                       if (visibleReplies.isNotEmpty) const SizedBox(height: 6),
                       Text(
-                        'View all ${item.replyCount} replies',
+                        GenesisL10n.current.worldoViewAllReplyCountReplies(
+                          replyCount: (item.replyCount).toString(),
+                        ),
                         style: const TextStyle(
                           fontSize: 12,
                           height: 1.25,
@@ -559,8 +571,16 @@ class _DiscussPageReplyPreview extends StatelessWidget {
           return OriginDiscussRepliesPage.fromJson(data);
         },
       );
-    } catch (_) {
-      if (context.mounted) showGenesisToast(context, 'Load replies failed');
+    } catch (error) {
+      if (context.mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLoadRepliesFailed,
+          ),
+        );
+      }
     }
   }
 }
@@ -581,9 +601,15 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
           author?['display_name'] ??
           reply['author_name'] ??
           reply['user_name'],
-      fallback: formatUidForDisplay(uid, fallback: 'User'),
+      fallback: formatUidForDisplay(
+        uid,
+        fallback: GenesisL10n.current.worldoUser,
+      ),
     );
-    final authorName = formatUidForDisplay(name, fallback: 'User');
+    final authorName = formatUidForDisplay(
+      name,
+      fallback: GenesisL10n.current.worldoUser,
+    );
     final content = asString(reply['content']);
     final parentDiscussId = asString(reply['parent_discuss_id']).trim();
     final rootDiscussId = asString(reply['root_discuss_id']).trim();

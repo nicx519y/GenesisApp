@@ -8,10 +8,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   late _FakeAnalyticsClient client;
   late int messageSentCount;
+  late List<_RecordedEvent> forwardedEvents;
 
   setUp(() {
     FirebaseAnalyticsMonitoring.resetForTesting();
     client = _FakeAnalyticsClient();
+    forwardedEvents = <_RecordedEvent>[];
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (AppEventReporting.firebaseForwardedOnceEvents.contains(event)) {
+        forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+      }
+    });
     messageSentCount = 0;
     FirebaseAnalyticsMonitoring.setClientForTesting(client);
     FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
@@ -34,146 +45,57 @@ void main() {
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
-  Future<void> purchase({String identity = 'receipt-1'}) =>
-      FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'google',
-        productId: 'gems-product',
-        kind: FirebaseAnalyticsPurchaseKind.gems,
-        purchaseIdentity: identity,
-      );
-
   test(
-    'purchase receipts deduplicate concurrent and later completions',
+    'four once events are server-only, retaining base Firebase events',
     () async {
-      final ready = Completer<void>();
-      FirebaseAnalyticsMonitoring.setReadinessForTesting(ready.future);
-      final first = purchase();
-      final duplicate = purchase();
-      await Future<void>.delayed(Duration.zero);
-      ready.complete();
-      await Future.wait([first, duplicate]);
-      await purchase();
-      await purchase(identity: 'receipt-2');
-      expect(client.events.map((e) => e.name), [
-        'purchase',
-        'gems',
-        'purchase_first',
-        'gems_first',
-        'purchase',
-        'gems',
-      ]);
+      FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+        () async => 20,
+      );
+      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world',
+        locationId: 'location',
+      );
+      expect(
+        forwardedEvents.map((e) => e.name).toSet(),
+        AppEventReporting.firebaseForwardedOnceEvents,
+      );
+      expect(client.events.map((e) => e.name), ['login', 'message_sent']);
     },
   );
 
-  test(
-    'purchase receipt markers survive restart without storing raw identity',
-    () async {
-      SharedPreferences.setMockInitialValues({});
-      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-        const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
-      );
-      await purchase(identity: 'private-store-token');
-      final preferences = await SharedPreferences.getInstance();
-      final keys = preferences.getKeys();
-      expect(
-        keys.where((key) => key.contains('purchase_transaction_v1.')),
-        hasLength(1),
-      );
-      expect(keys.any((key) => key.contains('private-store-token')), isFalse);
-      expect(
-        client.events.every(
-          (e) => !e.parameters.values.contains('private-store-token'),
-        ),
-        isTrue,
-      );
-      FirebaseAnalyticsMonitoring.resetForTesting();
-      FirebaseAnalyticsMonitoring.setClientForTesting(client);
-      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future.value());
-      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
-        () async => 'device',
-      );
-      await purchase(identity: 'private-store-token');
-      expect(client.events, hasLength(4));
-    },
-  );
-
-  test('failed purchase call can retry the same receipt', () async {
-    client.error = StateError('SDK unavailable');
-    await purchase();
-    client.error = null;
-    await purchase();
-    await purchase();
-    expect(client.events.map((e) => e.name), [
-      'purchase',
-      'gems',
-      'purchase_first',
-      'gems_first',
-    ]);
-    expect(client.attempts, 8);
-  });
-
-  test('partial purchase failure retries only the unsent event', () async {
-    client.failedEventNames.add('gems_first');
-    await purchase();
-    expect(client.events.map((e) => e.name), [
-      'purchase',
-      'gems',
-      'purchase_first',
-    ]);
-    client.failedEventNames.clear();
-    await purchase();
-    expect(client.events.map((e) => e.name), [
-      'purchase',
-      'gems',
-      'purchase_first',
-      'gems_first',
-    ]);
-    expect(client.attempts, 5);
-  });
-
-  test('legacy first markers remain valid for transaction deduplication', () async {
-    SharedPreferences.setMockInitialValues({
-      '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}purchase_first':
-          1,
-      '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}gems_first':
-          1,
+  test('enqueue failure leaves first event eligible for retry', () async {
+    var attempts = 0;
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (event != 'login_first') return;
+      attempts++;
+      if (attempts == 1) throw StateError('enqueue failed');
     });
-    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
-    );
-    await purchase();
-    await purchase();
-    expect(client.events.map((e) => e.name).toSet(), {'purchase', 'gems'});
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    expect(attempts, 2);
+    expect(client.events.every((e) => e.name == 'login'), isTrue);
   });
 
-  test(
-    'purchase device lookup failure uses unknown without dropping events',
-    () async {
-      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
-        () async => throw StateError('device unavailable'),
-      );
-      await purchase();
-      expect(client.events, hasLength(4));
-      expect(
-        client.events.every((e) => e.parameters['device_id'] == 'unknown'),
-        isTrue,
-      );
-    },
-  );
-
-  test(
-    'missing identity and disabled collection do not consume first markers',
-    () async {
-      await purchase(identity: ' ');
-      FirebaseAnalyticsMonitoring.setEnabledForTesting(false);
-      await purchase();
-      expect(client.events, isEmpty);
-      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-      await purchase();
-      expect(client.events, hasLength(4));
-    },
-  );
+  test('missing server reporter does not consume the first marker', () async {
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(null);
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (event == 'login_first')
+        forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+    });
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    expect(forwardedEvents.map((e) => e.name), ['login_first']);
+  });
 
   test('records base and first events with exact parameters', () async {
     await FirebaseAnalyticsMonitoring.recordLaunch(
@@ -190,12 +112,6 @@ void main() {
       locationId: 'location-3',
     );
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'google',
-      productId: 'worldo_gems_500',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'test-purchase-1',
-    );
 
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('launch', <String, Object>{
@@ -225,163 +141,45 @@ void main() {
         'location_id': 'location-3',
         'device_id': 'test-device-id',
       }),
-      const _RecordedEvent('message_sent_first', <String, Object>{
-        'world_id': 'world-3',
-        'location_id': 'location-3',
-        'device_id': 'test-device-id',
-      }),
       const _RecordedEvent('login', <String, Object>{
         'method': 'google',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('login_first', <String, Object>{
-        'method': 'google',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('purchase', <String, Object>{
-        'provider': 'google',
-        'product_id': 'worldo_gems_500',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('gems', <String, Object>{
-        'provider': 'google',
-        'product_id': 'worldo_gems_500',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('purchase_first', <String, Object>{
-        'provider': 'google',
-        'product_id': 'worldo_gems_500',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('gems_first', <String, Object>{
-        'provider': 'google',
-        'product_id': 'worldo_gems_500',
         'device_id': 'test-device-id',
       }),
     ]);
   });
 
-  test(
-    'routes all 16 selected events with the exact Firebase params and time',
-    () async {
-      final serverEvents = <_ServerRecordedEvent>[];
-      FirebaseAnalyticsMonitoring.configureServerEventReporter(({
-        required event,
-        required occurredAtSeconds,
-        required parameters,
-        transactionId,
-      }) async {
-        if (AppEventReporting.supportedEvents.contains(event)) {
-          serverEvents.add(
-            _ServerRecordedEvent(
-              event,
-              occurredAtSeconds,
-              Map.of(parameters),
-              transactionId,
-            ),
-          );
-        }
-      });
-      FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
-        () async => 20,
-      );
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-        _MemoryDay0AnchorStore(),
-      );
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-        DateTime.utc(2026, 1, 1),
-      );
-      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-        () => DateTime.utc(2026, 1, 1, 1),
-      );
-
-      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
-      await FirebaseAnalyticsMonitoring.recordMessageSent(
-        worldId: 'world-1',
-        locationId: 'location-1',
-      );
-      await FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'google',
-        productId: 'gems-500',
-        kind: FirebaseAnalyticsPurchaseKind.gems,
-        purchaseIdentity: 'gems-proof',
-        transactionIdentity: 'gems-order-1',
-        priceAmountMicros: 4990000,
-        priceCurrencyCode: 'usd',
-      );
-      await FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'apple',
-        productId: 'subscription-year',
-        kind: FirebaseAnalyticsPurchaseKind.subscription,
-        purchaseIdentity: 'subscription-proof',
-        transactionIdentity: 'subscription-period-1',
-        priceAmountMicros: 29990000,
-        priceCurrencyCode: 'usd',
-      );
-
-      expect(
-        serverEvents.map((event) => event.name).toSet(),
-        AppEventReporting.supportedEvents,
-      );
-      expect(
-        serverEvents.every((event) => event.occurredAtSeconds == 1767225600),
-        isTrue,
-      );
-      expect(
-        serverEvents.where((event) => event.name == 'login_first').first.params,
-        const <String, Object>{
-          'method': 'google',
-          'device_id': 'test-device-id',
-        },
-      );
-      for (final name in const <String>{
-        'message_sent_first',
-        'message_sent_10_first',
-        'message_sent_20_first',
-      }) {
-        expect(
-          serverEvents.where((event) => event.name == name).first.params,
-          const <String, Object>{
-            'world_id': 'world-1',
-            'location_id': 'location-1',
-            'device_id': 'test-device-id',
-          },
+  test('routes only login and message first events to server', () async {
+    final serverEvents = <_ServerRecordedEvent>[];
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtSeconds,
+      required parameters,
+    }) async {
+      if (AppEventReporting.supportedEvents.contains(event)) {
+        serverEvents.add(
+          _ServerRecordedEvent(event, occurredAtSeconds, Map.of(parameters)),
         );
       }
-      for (final event in serverEvents.where(
-        (event) => event.transactionId == 'gems-order-1',
-      )) {
-        expect(event.params, const <String, Object>{
-          'provider': 'google',
-          'product_id': 'gems-500',
-          'device_id': 'test-device-id',
-          'value': 4.99,
-          'currency': 'USD',
-        });
-        expect(event.transactionId, 'gems-order-1');
-      }
-      for (final event in serverEvents.where(
-        (event) => event.transactionId == 'subscription-period-1',
-      )) {
-        expect(event.params, const <String, Object>{
-          'provider': 'apple',
-          'product_id': 'subscription-year',
-          'device_id': 'test-device-id',
-          'value': 29.99,
-          'currency': 'USD',
-        });
-        expect(event.transactionId, 'subscription-period-1');
-      }
-      expect(
-        serverEvents.any((event) => event.name == 'subscription_renew'),
-        isFalse,
-      );
-      expect(
-        serverEvents.any((event) => event.name == 'subscription_first_day0'),
-        isTrue,
-      );
-    },
-  );
+    });
+    FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+      () async => 20,
+    );
+
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    await FirebaseAnalyticsMonitoring.recordMessageSent(
+      worldId: 'world-1',
+      locationId: 'location-1',
+    );
+
+    expect(
+      serverEvents.map((event) => event.name).toSet(),
+      AppEventReporting.firebaseForwardedOnceEvents,
+    );
+    expect(
+      serverEvents.every((event) => event.occurredAtSeconds == 1767225600),
+      isTrue,
+    );
+  });
 
   test('existing Firebase first marker suppresses S2S backfill', () async {
     final onceEventStore = _MemoryOnceEventStore()
@@ -392,16 +190,10 @@ void main() {
       required event,
       required occurredAtSeconds,
       required parameters,
-      transactionId,
     }) async {
       if (AppEventReporting.supportedEvents.contains(event)) {
         serverEvents.add(
-          _ServerRecordedEvent(
-            event,
-            occurredAtSeconds,
-            Map.of(parameters),
-            transactionId,
-          ),
+          _ServerRecordedEvent(event, occurredAtSeconds, Map.of(parameters)),
         );
       }
     });
@@ -410,394 +202,6 @@ void main() {
 
     expect(client.events.map((event) => event.name), <String>['login']);
     expect(serverEvents, isEmpty);
-  });
-
-  test(
-    'existing purchase first markers do not suppress new transaction events',
-    () async {
-      final onceEventStore = _MemoryOnceEventStore()
-        ..sentEvents.addAll(<String>{'purchase_first', 'gems_first'});
-      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(onceEventStore);
-      final serverEvents = <_ServerRecordedEvent>[];
-      FirebaseAnalyticsMonitoring.configureServerEventReporter(({
-        required event,
-        required occurredAtSeconds,
-        required parameters,
-        transactionId,
-      }) async {
-        if (AppEventReporting.supportedEvents.contains(event)) {
-          serverEvents.add(
-            _ServerRecordedEvent(
-              event,
-              occurredAtSeconds,
-              Map.of(parameters),
-              transactionId,
-            ),
-          );
-        }
-      });
-
-      await FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'google',
-        productId: 'gems-500',
-        kind: FirebaseAnalyticsPurchaseKind.gems,
-        purchaseIdentity: 'new-proof',
-        transactionIdentity: 'new-order',
-      );
-
-      expect(client.events.map((event) => event.name).toSet(), <String>{
-        'purchase',
-        'gems',
-      });
-      expect(serverEvents.map((event) => event.name).toSet(), <String>{
-        'purchase',
-        'gems',
-      });
-      expect(
-        serverEvents.every((event) => event.transactionId == 'new-order'),
-        isTrue,
-      );
-    },
-  );
-
-  test('purchase category first events are independent', () async {
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'google',
-      productId: 'gems-1',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'test-purchase-2',
-    );
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'google',
-      productId: 'gems-2',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'test-purchase-3',
-    );
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'apple',
-      productId: 'subscription-1',
-      kind: FirebaseAnalyticsPurchaseKind.subscription,
-      purchaseIdentity: 'test-purchase-4',
-    );
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'apple',
-      productId: 'subscription-2',
-      kind: FirebaseAnalyticsPurchaseKind.subscription,
-      purchaseIdentity: 'test-purchase-5',
-    );
-
-    expect(client.events.map((event) => event.name), <String>[
-      'purchase',
-      'gems',
-      'purchase_first',
-      'gems_first',
-      'purchase',
-      'gems',
-      'purchase',
-      'subscription',
-      'subscription_first',
-      'purchase',
-      'subscription',
-    ]);
-    expect(
-      client.events.singleWhere((event) => event.name == 'gems_first'),
-      const _RecordedEvent('gems_first', <String, Object>{
-        'provider': 'google',
-        'product_id': 'gems-1',
-        'device_id': 'test-device-id',
-      }),
-    );
-    expect(
-      client.events.singleWhere((event) => event.name == 'subscription_first'),
-      const _RecordedEvent('subscription_first', <String, Object>{
-        'provider': 'apple',
-        'product_id': 'subscription-1',
-        'device_id': 'test-device-id',
-      }),
-    );
-  });
-
-  test(
-    'first Day0 Gems purchase records all Day0 events with store price',
-    () async {
-      final anchorStore = _MemoryDay0AnchorStore();
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(anchorStore);
-      final anchor = DateTime.utc(2026, 1, 1, 0);
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
-      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-        () => DateTime.utc(2026, 1, 1, 12),
-      );
-
-      await FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'google',
-        productId: 'worldo_gems_500',
-        kind: FirebaseAnalyticsPurchaseKind.gems,
-        purchaseIdentity: 'day0-gems-1',
-        priceAmountMicros: 4990000,
-        priceCurrencyCode: 'usd',
-      );
-
-      expect(client.events.map((event) => event.name).toSet(), {
-        'purchase',
-        'gems',
-        'purchase_first',
-        'gems_first',
-        'purchase_day0',
-        'gems_day0',
-        'purchase_first_day0',
-        'gems_first_day0',
-      });
-      expect(client.events, hasLength(8));
-      for (final event in client.events) {
-        expect(event.parameters, <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-          'value': 4.99,
-          'currency': 'USD',
-        });
-        expect(event.parameters.values, isNot(contains('day0-gems-1')));
-      }
-    },
-  );
-
-  test(
-    'later Day0 purchase emits only transaction-scoped Day0 events',
-    () async {
-      final anchor = DateTime.utc(2026, 1, 1, 0);
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-        _MemoryDay0AnchorStore(),
-      );
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
-      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-        () => DateTime.utc(2026, 1, 1, 1),
-      );
-
-      await purchase(identity: 'day0-first');
-      client.events.clear();
-      await purchase(identity: 'day0-second');
-      await purchase(identity: 'day0-second');
-
-      expect(client.events.map((event) => event.name).toSet(), {
-        'purchase',
-        'gems',
-        'purchase_day0',
-        'gems_day0',
-      });
-      expect(client.events, hasLength(4));
-    },
-  );
-
-  test(
-    'Day0 category first markers remain independent across purchases',
-    () async {
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-        _MemoryDay0AnchorStore(),
-      );
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-        DateTime.utc(2026, 1, 1),
-      );
-      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-        () => DateTime.utc(2026, 1, 1, 2),
-      );
-
-      await purchase(identity: 'day0-gems');
-      await FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'apple',
-        productId: 'subscription-1',
-        kind: FirebaseAnalyticsPurchaseKind.subscription,
-        purchaseIdentity: 'day0-subscription',
-      );
-
-      expect(
-        client.events.where((event) => event.name == 'purchase_first_day0'),
-        hasLength(1),
-      );
-      expect(
-        client.events.where((event) => event.name == 'gems_first_day0'),
-        hasLength(1),
-      );
-      expect(
-        client.events.where((event) => event.name == 'subscription_first_day0'),
-        hasLength(1),
-      );
-      expect(
-        client.events.where((event) => event.name == 'purchase_day0'),
-        hasLength(2),
-      );
-    },
-  );
-
-  test('Day0 uses the fixed Beijing calendar boundary', () async {
-    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-      _MemoryDay0AnchorStore(),
-    );
-    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-      DateTime.utc(2025, 12, 31, 16),
-    );
-    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-      () => DateTime.utc(2026, 1, 1, 15, 59, 59, 999),
-    );
-    await purchase(identity: 'beijing-end');
-    expect(client.events.any((event) => event.name == 'purchase_day0'), isTrue);
-
-    client.events.clear();
-    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-      () => DateTime.utc(2026, 1, 1, 16),
-    );
-    await purchase(identity: 'beijing-next-day');
-    expect(client.events.map((event) => event.name), ['purchase', 'gems']);
-  });
-
-  test('a server time before the anchor is never Day0 eligible', () async {
-    final anchor = DateTime.utc(2026, 1, 1, 1);
-    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-      _MemoryDay0AnchorStore(),
-    );
-    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
-    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-      () => anchor.subtract(const Duration(milliseconds: 1)),
-    );
-
-    await purchase(identity: 'before-anchor');
-
-    expect(client.events.any((event) => event.name.contains('day0')), isFalse);
-  });
-
-  test(
-    'Day0 anchor persists once and failed writes retry on the next sync',
-    () async {
-      final store = _MemoryDay0AnchorStore(failWrites: 1);
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(store);
-      final first = DateTime.utc(2026, 1, 1, 2);
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(first);
-      expect(store.value, isNull);
-
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(first);
-      expect(store.value, first);
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-        DateTime.utc(2026, 1, 2, 2),
-      );
-      expect(store.value, first);
-      expect(store.successfulWrites, 1);
-
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(store);
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-        DateTime.utc(2026, 1, 3, 2),
-      );
-      expect(store.value, first);
-      expect(store.successfulWrites, 1);
-    },
-  );
-
-  test('Day0 transaction markers and anchor survive an app restart', () async {
-    SharedPreferences.setMockInitialValues({});
-    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
-    );
-    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-      const SharedPreferencesFirebaseAnalyticsDay0AnchorStore(),
-    );
-    final anchor = DateTime.utc(2026, 1, 1);
-    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
-    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-      () => anchor.add(const Duration(hours: 1)),
-    );
-    await purchase(identity: 'restart-day0');
-    expect(client.events, hasLength(8));
-
-    FirebaseAnalyticsMonitoring.resetForTesting();
-    FirebaseAnalyticsMonitoring.setClientForTesting(client);
-    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
-    );
-    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-      const SharedPreferencesFirebaseAnalyticsDay0AnchorStore(),
-    );
-    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
-    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
-      () async => 'test-device-id',
-    );
-    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-      anchor.add(const Duration(hours: 2)),
-    );
-    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
-      () => anchor.add(const Duration(hours: 2)),
-    );
-    await purchase(identity: 'restart-day0');
-
-    expect(client.events, hasLength(8));
-    final preferences = await SharedPreferences.getInstance();
-    expect(
-      preferences.getInt(
-        SharedPreferencesFirebaseAnalyticsDay0AnchorStore.storageKey,
-      ),
-      anchor.millisecondsSinceEpoch,
-    );
-  });
-
-  test(
-    'legacy first markers do not block independent Day0 first events',
-    () async {
-      final onceStore = _MemoryOnceEventStore()
-        ..sentEvents.addAll({'purchase_first', 'gems_first'});
-      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(onceStore);
-      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
-        _MemoryDay0AnchorStore(),
-      );
-      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
-        DateTime.utc(2026, 1, 1),
-      );
-
-      await purchase(identity: 'upgrade-day0');
-
-      expect(client.events.map((event) => event.name).toSet(), {
-        'purchase',
-        'gems',
-        'purchase_day0',
-        'gems_day0',
-        'purchase_first_day0',
-        'gems_first_day0',
-      });
-    },
-  );
-
-  test('purchase price is all-or-nothing and zero remains valid', () async {
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'apple',
-      productId: 'trial',
-      kind: FirebaseAnalyticsPurchaseKind.subscription,
-      purchaseIdentity: 'free-trial',
-      priceAmountMicros: 0,
-      priceCurrencyCode: 'usd',
-    );
-    expect(
-      client.events.every(
-        (event) =>
-            event.parameters['value'] == 0 &&
-            event.parameters['currency'] == 'USD',
-      ),
-      isTrue,
-    );
-
-    client.events.clear();
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'apple',
-      productId: 'missing-price',
-      kind: FirebaseAnalyticsPurchaseKind.subscription,
-      purchaseIdentity: 'missing-price',
-      priceAmountMicros: 9990000,
-      priceCurrencyCode: 'not-a-currency',
-    );
-    expect(
-      client.events.every(
-        (event) =>
-            !event.parameters.containsKey('value') &&
-            !event.parameters.containsKey('currency'),
-      ),
-      isTrue,
-    );
   });
 
   test('base event repeats while first event skips later triggers', () async {
@@ -847,7 +251,7 @@ void main() {
         hasLength(2),
       );
       expect(
-        client.events.where((event) => event.name == 'message_sent_first'),
+        forwardedEvents.where((event) => event.name == 'message_sent_first'),
         hasLength(1),
       );
     },
@@ -864,7 +268,7 @@ void main() {
       }
 
       expect(
-        client.events.where(
+        forwardedEvents.where(
           (event) =>
               event.name == 'message_sent_10_first' ||
               event.name == 'message_sent_20_first',
@@ -901,7 +305,7 @@ void main() {
 
     expect(messageSentCount, 10);
     expect(
-      client.events.where((event) => event.name == 'message_sent_10_first'),
+      forwardedEvents.where((event) => event.name == 'message_sent_10_first'),
       <_RecordedEvent>[
         const _RecordedEvent('message_sent_10_first', <String, Object>{
           'world_id': 'world-10',
@@ -919,42 +323,12 @@ void main() {
     client.error = null;
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'apple');
 
-    expect(client.attempts, 4);
+    expect(client.attempts, 2);
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('login', <String, Object>{
         'method': 'apple',
         'device_id': 'test-device-id',
       }),
-      const _RecordedEvent('login_first', <String, Object>{
-        'method': 'apple',
-        'device_id': 'test-device-id',
-      }),
-    ]);
-  });
-
-  test('failed purchase first events remain eligible for retry', () async {
-    client.error = StateError('log failed');
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'google',
-      productId: 'gems-1',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'test-purchase-6',
-    );
-
-    client.error = null;
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'google',
-      productId: 'gems-2',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'test-purchase-7',
-    );
-
-    expect(client.attempts, 8);
-    expect(client.events.map((event) => event.name), <String>[
-      'purchase',
-      'gems',
-      'purchase_first',
-      'gems_first',
     ]);
   });
 
@@ -969,67 +343,13 @@ void main() {
     shouldFail = false;
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'apple');
 
-    expect(client.attempts, 2);
+    expect(client.attempts, 1);
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('login', <String, Object>{
         'method': 'apple',
         'device_id': 'recovered-device-id',
       }),
-      const _RecordedEvent('login_first', <String, Object>{
-        'method': 'apple',
-        'device_id': 'recovered-device-id',
-      }),
     ]);
-  });
-
-  test('shared preferences stores integer one only after success', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
-    );
-
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'apple',
-      productId: 'com.worldo.gems.500',
-      kind: FirebaseAnalyticsPurchaseKind.gems,
-      purchaseIdentity: 'test-purchase-8',
-    );
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'apple',
-      productId: 'com.worldo.pro.monthly',
-      kind: FirebaseAnalyticsPurchaseKind.subscription,
-      purchaseIdentity: 'test-purchase-9',
-    );
-
-    final preferences = await SharedPreferences.getInstance();
-    expect(
-      preferences.getInt(
-        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
-        'purchase_first',
-      ),
-      1,
-    );
-    expect(
-      preferences.getInt(
-        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
-        'gems_first',
-      ),
-      1,
-    );
-    expect(
-      preferences.getInt(
-        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
-        'subscription_first',
-      ),
-      1,
-    );
-    expect(
-      preferences.getInt(
-        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
-        'purchase',
-      ),
-      isNull,
-    );
   });
 
   test('persisted integer one skips the event after a new app run', () async {
@@ -1090,7 +410,16 @@ void main() {
       );
 
       FirebaseAnalyticsMonitoring.resetForTesting();
+      forwardedEvents.clear();
       client = _FakeAnalyticsClient();
+      FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+        required event,
+        required occurredAtSeconds,
+        required parameters,
+      }) async {
+        if (AppEventReporting.firebaseForwardedOnceEvents.contains(event))
+          forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+      });
       FirebaseAnalyticsMonitoring.setClientForTesting(client);
       FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
         const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
@@ -1114,7 +443,7 @@ void main() {
         11,
       );
       expect(
-        client.events.where((event) => event.name == 'message_sent_10_first'),
+        forwardedEvents.where((event) => event.name == 'message_sent_10_first'),
         isEmpty,
       );
     },
@@ -1205,7 +534,8 @@ void main() {
     readiness.complete();
     await recording;
 
-    expect(client.events, hasLength(2));
+    expect(client.events, hasLength(1));
+    expect(forwardedEvents.map((e) => e.name), ['message_sent_first']);
   });
 
   test('Firebase failures stay best-effort', () async {
@@ -1273,27 +603,6 @@ class _MemoryOnceEventStore implements FirebaseAnalyticsOnceEventStore {
   }
 }
 
-class _MemoryDay0AnchorStore implements FirebaseAnalyticsDay0AnchorStore {
-  _MemoryDay0AnchorStore({this.failWrites = 0});
-
-  DateTime? value;
-  int failWrites;
-  int successfulWrites = 0;
-
-  @override
-  Future<DateTime?> read() async => value;
-
-  @override
-  Future<void> write(DateTime serverUtc) async {
-    if (failWrites > 0) {
-      failWrites -= 1;
-      throw StateError('storage unavailable');
-    }
-    successfulWrites += 1;
-    value = serverUtc.toUtc();
-  }
-}
-
 class _RecordedEvent {
   const _RecordedEvent(this.name, this.parameters);
 
@@ -1320,17 +629,11 @@ class _RecordedEvent {
 }
 
 class _ServerRecordedEvent {
-  const _ServerRecordedEvent(
-    this.name,
-    this.occurredAtSeconds,
-    this.params,
-    this.transactionId,
-  );
+  const _ServerRecordedEvent(this.name, this.occurredAtSeconds, this.params);
 
   final String name;
   final int occurredAtSeconds;
   final Map<String, Object> params;
-  final String? transactionId;
 }
 
 bool _mapsEqual(Map<String, Object> first, Map<String, Object> second) {

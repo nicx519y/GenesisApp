@@ -1,13 +1,10 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../platform/device/method_channel_device_id_service.dart';
-import '../../utils/server_clock.dart';
 import 'firebase_runtime.dart';
+import 'app_event_reporting.dart';
 import 'telemetry_upload_policy.dart';
 
 abstract interface class AppAnalyticsClient {
@@ -26,44 +23,7 @@ typedef FirebaseAnalyticsServerEventReporter =
       required String event,
       required int occurredAtSeconds,
       required Map<String, Object> parameters,
-      String? transactionId,
     });
-
-enum FirebaseAnalyticsPurchaseKind { gems, subscription }
-
-abstract interface class FirebaseAnalyticsDay0AnchorStore {
-  Future<DateTime?> read();
-
-  Future<void> write(DateTime serverUtc);
-}
-
-class SharedPreferencesFirebaseAnalyticsDay0AnchorStore
-    implements FirebaseAnalyticsDay0AnchorStore {
-  const SharedPreferencesFirebaseAnalyticsDay0AnchorStore();
-
-  static const String storageKey =
-      'firebase_analytics_purchase_day0_anchor_utc_ms_v1';
-
-  @override
-  Future<DateTime?> read() async {
-    final preferences = await SharedPreferences.getInstance();
-    final millis = preferences.getInt(storageKey);
-    if (millis == null || millis <= 0) return null;
-    return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
-  }
-
-  @override
-  Future<void> write(DateTime serverUtc) async {
-    final preferences = await SharedPreferences.getInstance();
-    final saved = await preferences.setInt(
-      storageKey,
-      serverUtc.toUtc().millisecondsSinceEpoch,
-    );
-    if (!saved) {
-      throw StateError('Failed to persist Firebase Analytics Day0 anchor');
-    }
-  }
-}
 
 abstract interface class FirebaseAnalyticsOnceEventStore {
   Future<bool> wasSent(String eventName);
@@ -121,23 +81,22 @@ class SharedPreferencesFirebaseAnalyticsMessageSentCounter {
 class FirebaseAnalyticsMonitoring {
   const FirebaseAnalyticsMonitoring._();
 
+  /// An unavailable ID must not prevent the independent device registration.
+  static Future<String?> readAppInstanceId() async {
+    if (!_isEnabled) return null;
+    await FirebaseRuntime.ensureInitialized();
+    return FirebaseAnalytics.instance.appInstanceId;
+  }
+
   static AppAnalyticsClient _client = const _FirebaseAppAnalyticsClient();
   static FirebaseReadiness _readiness = FirebaseRuntime.ensureInitialized;
   static FirebaseAnalyticsOnceEventStore _onceEventStore =
       const SharedPreferencesFirebaseAnalyticsOnceEventStore();
-  static FirebaseAnalyticsDay0AnchorStore _day0AnchorStore =
-      const SharedPreferencesFirebaseAnalyticsDay0AnchorStore();
   static var _messageSentCountIncrementer =
       const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
   static Future<String> Function() _deviceIdReader = _readNativeDeviceId;
   static final Map<String, Future<void>> _onceEventRecordings =
       <String, Future<void>>{};
-  static final Map<String, Future<void>> _purchaseEligibilityWrites = {};
-  static ServerClock _purchaseServerClock = ServerClock();
-  static DateTime? Function() _purchaseServerNow = () =>
-      _purchaseServerClock.now;
-  static DateTime? _day0AnchorUtc;
-  static Future<void>? _day0AnchorInitialization;
   static Future<void> _messageSentCountQueue = Future<void>.value();
   static bool? _enabledOverride;
   static FirebaseAnalyticsCollectionConfigurator _collectionConfigurator =
@@ -239,231 +198,6 @@ class FirebaseAnalyticsMonitoring {
     return _recordEventWithFirst('login', <String, Object>{'method': method});
   }
 
-  // An Analytics-only marker: an existing checkout matched this receipt. It
-  // never creates a payment/recovery record or changes purchase processing.
-  static Future<void> markPurchaseEligible({
-    required String provider,
-    required FirebaseAnalyticsPurchaseKind kind,
-    required String purchaseIdentity,
-  }) {
-    if (!_isEnabled || purchaseIdentity.trim().isEmpty) return Future.value();
-    final key = _purchaseEligibilityKey(provider, kind, purchaseIdentity);
-    final existing = _purchaseEligibilityWrites[key];
-    if (existing != null) return existing;
-    late final Future<void> task;
-    task =
-        (() async {
-          try {
-            await _onceEventStore.markSent(key);
-          } catch (_) {
-            debugPrint(
-              '[Telemetry][FirebaseAnalytics] purchase eligibility save failed',
-            );
-          }
-        })().whenComplete(() {
-          if (identical(_purchaseEligibilityWrites[key], task)) {
-            _purchaseEligibilityWrites.remove(key);
-          }
-        });
-    _purchaseEligibilityWrites[key] = task;
-    return task;
-  }
-
-  /// Records the first successful Gateway server-time synchronization as the
-  /// Day0 anchor. Later synchronizations refresh the monotonic server clock but
-  /// never move the persisted anchor.
-  static Future<void> recordServerTimeSynchronized(DateTime serverUtc) {
-    final normalized = serverUtc.toUtc();
-    _purchaseServerClock.synchronize(normalized);
-    if (_day0AnchorUtc != null) return Future<void>.value();
-    final pending = _day0AnchorInitialization;
-    if (pending != null) return pending;
-
-    late final Future<void> task;
-    task =
-        (() async {
-          try {
-            final stored = await _day0AnchorStore.read();
-            if (stored != null) {
-              _day0AnchorUtc = stored.toUtc();
-              return;
-            }
-            await _day0AnchorStore.write(normalized);
-            _day0AnchorUtc = normalized;
-          } catch (e, st) {
-            debugPrint(
-              '[Telemetry][FirebaseAnalytics] Day0 anchor initialization failed: '
-              '$e',
-            );
-            debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
-          }
-        })().whenComplete(() {
-          if (identical(_day0AnchorInitialization, task)) {
-            _day0AnchorInitialization = null;
-          }
-        });
-    _day0AnchorInitialization = task;
-    return task;
-  }
-
-  static String _purchaseIdentityDigest(
-    String provider,
-    FirebaseAnalyticsPurchaseKind kind,
-    String purchaseIdentity,
-  ) => sha256
-      .convert(
-        utf8.encode(jsonEncode([provider, kind.name, purchaseIdentity.trim()])),
-      )
-      .toString();
-
-  static String _purchaseEligibilityKey(
-    String provider,
-    FirebaseAnalyticsPurchaseKind kind,
-    String purchaseIdentity,
-  ) =>
-      'purchase_eligible_v1.${_purchaseIdentityDigest(provider, kind, purchaseIdentity)}';
-
-  /// Called only after backend completion. The optional eligibility marker
-  /// distinguishes Gems checkout receipts from arbitrary recovered history.
-  static Future<void> recordPurchase({
-    required String provider,
-    required String productId,
-    required FirebaseAnalyticsPurchaseKind kind,
-    required String purchaseIdentity,
-    String? transactionIdentity,
-    bool requireEligibility = false,
-    int? priceAmountMicros,
-    String priceCurrencyCode = '',
-  }) async {
-    if (!_isEnabled || purchaseIdentity.trim().isEmpty) return;
-    final occurredAtSeconds = _occurredAtSecondsReader();
-    if (requireEligibility) {
-      final key = _purchaseEligibilityKey(provider, kind, purchaseIdentity);
-      try {
-        await _purchaseEligibilityWrites[key];
-        if (!await _onceEventStore.wasSent(key)) return;
-      } catch (_) {
-        debugPrint(
-          '[Telemetry][FirebaseAnalytics] purchase eligibility read failed',
-        );
-        return;
-      }
-    }
-    final kindFirstEvent = switch (kind) {
-      FirebaseAnalyticsPurchaseKind.gems => 'gems_first',
-      FirebaseAnalyticsPurchaseKind.subscription => 'subscription_first',
-    };
-    // Google new purchases/upgrades use their token; Apple uses the current
-    // transaction ID, never the original subscription chain. Persist only a
-    // digest, and keep this identity out of the Analytics parameters/logs.
-    final identity = _purchaseIdentityDigest(provider, kind, purchaseIdentity);
-    final transactionId = (transactionIdentity ?? purchaseIdentity).trim();
-    var deviceId = 'unknown';
-    try {
-      final value = (await _deviceIdReader()).trim();
-      if (value.isNotEmpty) deviceId = value;
-    } catch (_) {
-      // Optional device metadata must not discard a completed purchase.
-    }
-    final parameters = <String, Object>{
-      'provider': provider,
-      'product_id': productId,
-      'device_id': deviceId,
-      ..._purchasePriceParameters(
-        priceAmountMicros: priceAmountMicros,
-        priceCurrencyCode: priceCurrencyCode,
-      ),
-    };
-    final day0 = await _isPurchaseDay0();
-    final kindName = kind.name;
-    await Future.wait<void>([
-      _recordEventOnce(
-        'purchase',
-        parameters,
-        storageKey: 'purchase_transaction_v1.$identity',
-        transactionId: transactionId,
-        occurredAtSeconds: occurredAtSeconds,
-      ),
-      _recordEventOnce(
-        kindName,
-        parameters,
-        storageKey: '${kindName}_transaction_v1.$identity',
-        transactionId: transactionId,
-        occurredAtSeconds: occurredAtSeconds,
-      ),
-      _recordEventOnce(
-        'purchase_first',
-        parameters,
-        transactionId: transactionId,
-        occurredAtSeconds: occurredAtSeconds,
-      ),
-      _recordEventOnce(
-        kindFirstEvent,
-        parameters,
-        transactionId: transactionId,
-        occurredAtSeconds: occurredAtSeconds,
-      ),
-      if (day0) ...[
-        _recordEventOnce(
-          'purchase_day0',
-          parameters,
-          storageKey: 'purchase_day0_transaction_v1.$identity',
-          transactionId: transactionId,
-          occurredAtSeconds: occurredAtSeconds,
-        ),
-        _recordEventOnce(
-          '${kindName}_day0',
-          parameters,
-          storageKey: '${kindName}_day0_transaction_v1.$identity',
-          transactionId: transactionId,
-          occurredAtSeconds: occurredAtSeconds,
-        ),
-        _recordEventOnce(
-          'purchase_first_day0',
-          parameters,
-          transactionId: transactionId,
-          occurredAtSeconds: occurredAtSeconds,
-        ),
-        _recordEventOnce(
-          '${kindName}_first_day0',
-          parameters,
-          transactionId: transactionId,
-          occurredAtSeconds: occurredAtSeconds,
-        ),
-      ],
-    ]);
-  }
-
-  static Map<String, Object> _purchasePriceParameters({
-    required int? priceAmountMicros,
-    required String priceCurrencyCode,
-  }) {
-    final currency = priceCurrencyCode.trim().toUpperCase();
-    if (priceAmountMicros == null ||
-        priceAmountMicros < 0 ||
-        !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
-      return const <String, Object>{};
-    }
-    return <String, Object>{
-      'value': priceAmountMicros / 1000000,
-      'currency': currency,
-    };
-  }
-
-  static Future<bool> _isPurchaseDay0() async {
-    final pending = _day0AnchorInitialization;
-    if (pending != null) await pending;
-    final anchor = _day0AnchorUtc;
-    final now = _purchaseServerNow()?.toUtc();
-    if (anchor == null || now == null || now.isBefore(anchor)) return false;
-    const chinaOffset = Duration(hours: 8);
-    final anchorChina = anchor.add(chinaOffset);
-    final nowChina = now.add(chinaOffset);
-    return anchorChina.year == nowChina.year &&
-        anchorChina.month == nowChina.month &&
-        anchorChina.day == nowChina.day;
-  }
-
   static Future<void> recordPerformanceOperation({
     required String surface,
     required String phase,
@@ -547,11 +281,9 @@ class FirebaseAnalyticsMonitoring {
     String name,
     Map<String, Object> parameters, {
     required int occurredAtSeconds,
-    String? storageKey,
-    String? transactionId,
   }) {
     if (!_isEnabled) return Future<void>.value();
-    final key = storageKey ?? name;
+    final key = name;
     final existing = _onceEventRecordings[key];
     if (existing != null) return existing;
 
@@ -562,7 +294,6 @@ class FirebaseAnalyticsMonitoring {
           parameters,
           key,
           occurredAtSeconds: occurredAtSeconds,
-          transactionId: transactionId,
         ).whenComplete(() {
           if (identical(_onceEventRecordings[key], recording)) {
             _onceEventRecordings.remove(key);
@@ -577,15 +308,25 @@ class FirebaseAnalyticsMonitoring {
     Map<String, Object> parameters,
     String storageKey, {
     required int occurredAtSeconds,
-    String? transactionId,
   }) async {
     try {
       if (await _onceEventStore.wasSent(storageKey)) return;
+      if (AppEventReporting.firebaseForwardedOnceEvents.contains(name)) {
+        final reporter = _serverEventReporter;
+        if (reporter == null) return;
+        await reporter(
+          event: name,
+          occurredAtSeconds: occurredAtSeconds,
+          parameters: parameters,
+        );
+        // Durable enqueue, rather than Firebase SDK acceptance, owns once.
+        await _onceEventStore.markSent(storageKey);
+        return;
+      }
       final serverReport = _reportServerEvent(
         name,
         parameters,
         occurredAtSeconds: occurredAtSeconds,
-        transactionId: transactionId,
       );
       try {
         await _readiness();
@@ -607,7 +348,6 @@ class FirebaseAnalyticsMonitoring {
     String name,
     Map<String, Object> parameters, {
     required int occurredAtSeconds,
-    String? transactionId,
   }) async {
     final reporter = _serverEventReporter;
     if (reporter == null) return;
@@ -616,7 +356,6 @@ class FirebaseAnalyticsMonitoring {
         event: name,
         occurredAtSeconds: occurredAtSeconds,
         parameters: parameters,
-        transactionId: transactionId,
       );
     } catch (e, st) {
       debugPrint('[Telemetry][EventReport] $name enqueue failed: $e');
@@ -669,20 +408,6 @@ class FirebaseAnalyticsMonitoring {
   }
 
   @visibleForTesting
-  static void setDay0AnchorStoreForTesting(
-    FirebaseAnalyticsDay0AnchorStore value,
-  ) {
-    _day0AnchorStore = value;
-    _day0AnchorUtc = null;
-    _day0AnchorInitialization = null;
-  }
-
-  @visibleForTesting
-  static void setPurchaseServerNowForTesting(DateTime? Function() value) {
-    _purchaseServerNow = value;
-  }
-
-  @visibleForTesting
   static void setDeviceIdReaderForTesting(Future<String> Function() value) {
     _deviceIdReader = value;
   }
@@ -705,17 +430,10 @@ class FirebaseAnalyticsMonitoring {
     _client = const _FirebaseAppAnalyticsClient();
     _readiness = FirebaseRuntime.ensureInitialized;
     _onceEventStore = const SharedPreferencesFirebaseAnalyticsOnceEventStore();
-    _day0AnchorStore =
-        const SharedPreferencesFirebaseAnalyticsDay0AnchorStore();
     _messageSentCountIncrementer =
         const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
     _deviceIdReader = _readNativeDeviceId;
     _onceEventRecordings.clear();
-    _purchaseEligibilityWrites.clear();
-    _purchaseServerClock = ServerClock();
-    _purchaseServerNow = () => _purchaseServerClock.now;
-    _day0AnchorUtc = null;
-    _day0AnchorInitialization = null;
     _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;

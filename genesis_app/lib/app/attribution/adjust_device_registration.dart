@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:adjust_sdk/adjust.dart';
 import 'package:flutter/foundation.dart';
 
 import '../telemetry/genesis_telemetry.dart';
 import 'adjust_local_adid_store.dart';
+import 'gaid_availability_monitor.dart';
 
 typedef AdjustAdidReader = Future<String?> Function(int timeoutMilliseconds);
 typedef AdjustOptionalIdReader = Future<String?> Function();
@@ -16,10 +18,15 @@ typedef AdjustDeviceRegistrationRequest =
       String? gpsAdid,
       String? idfa,
       String? idfv,
+      required String appInstanceId,
     });
 typedef AdjustDeviceRegistrationRetryCallback = Future<void> Function();
 typedef AdjustAdidFailureReporter =
-    void Function(String source, TargetPlatform platform);
+    void Function(
+      String source,
+      TargetPlatform platform,
+      Map<String, Object?> identifiers,
+    );
 typedef AdjustDeviceRegistrationRetryScheduler =
     VoidCallback Function(
       Duration delay,
@@ -29,8 +36,8 @@ typedef AdjustDeviceRegistrationRetryScheduler =
 enum AdjustDeviceRegistrationResult {
   registered,
   alreadyRegistered,
-  deferredNoAdid,
-  deferredAdidReadError,
+  registeredWithoutAdid,
+  registeredWithoutAdidReadError,
   failed,
 }
 
@@ -50,12 +57,17 @@ VoidCallback _scheduleRetryWithTimer(
   return timer.cancel;
 }
 
-void _reportAdidFailure(String source, TargetPlatform platform) {
+void _reportAdidFailure(
+  String source,
+  TargetPlatform platform,
+  Map<String, Object?> identifiers,
+) {
   GenesisTelemetry.collectLog(
     actionType: 'monitor',
     action: 'get_adid_failed',
     object1: source,
     object2: platform.name,
+    object3: jsonEncode(identifiers),
   );
 }
 
@@ -63,9 +75,10 @@ void _reportAdidFailure(String source, TargetPlatform platform) {
 /// registration endpoint.
 ///
 /// Registration never gates app startup. Explicit triggers such as startup or
-/// foreground resume read Adjust's cached ADID once. A missing ADID waits for a
-/// later explicit trigger or an Adjust session callback. Once an ADID is known,
-/// backend failures start a bounded automatic retry sequence.
+/// foreground resume read Adjust's cached ADID once. A missing ADID is sent as
+/// an empty value so available platform IDs can be registered immediately;
+/// later triggers or a session callback still attempt to fill in the ADID.
+/// Backend failures start a bounded automatic retry sequence.
 class AdjustDeviceRegistration {
   AdjustDeviceRegistration({
     required this.platform,
@@ -73,29 +86,37 @@ class AdjustDeviceRegistration {
     required this.environmentProvider,
     this.readAdid = Adjust.getAdidWithTimeout,
     this.readGoogleAdId = Adjust.getGoogleAdId,
+    this.readNativeGoogleAdId,
     this.readIdfa = Adjust.getIdfa,
     this.readIdfv = Adjust.getIdfv,
+    this.readAppInstanceId = _emptyAppInstanceId,
     this.localAdidStore = const SharedPreferencesAdjustLocalAdidStore(),
     this.adidTimeout = const Duration(seconds: 5),
     this.optionalIdTimeout = const Duration(seconds: 3),
     this.retryDelays = _defaultRetryDelays,
     this.reportAdidFailure = _reportAdidFailure,
+    GaidAvailabilityMonitor? gaidAvailabilityMonitor,
     AdjustDeviceRegistrationRetryScheduler retryScheduler =
         _scheduleRetryWithTimer,
-  }) : _retryScheduler = retryScheduler;
+  }) : gaidAvailabilityMonitor =
+           gaidAvailabilityMonitor ?? GaidAvailabilityMonitor(),
+       _retryScheduler = retryScheduler;
 
   final TargetPlatform platform;
   final AdjustDeviceRegistrationRequest registerDevice;
   final AdjustRegistrationEnvironmentProvider environmentProvider;
   final AdjustAdidReader readAdid;
   final AdjustOptionalIdReader readGoogleAdId;
+  final AdjustOptionalIdReader? readNativeGoogleAdId;
   final AdjustOptionalIdReader readIdfa;
   final AdjustOptionalIdReader readIdfv;
+  final AdjustOptionalIdReader readAppInstanceId;
   final AdjustLocalAdidStore localAdidStore;
   final Duration adidTimeout;
   final Duration optionalIdTimeout;
   final List<Duration> retryDelays;
   final AdjustAdidFailureReporter reportAdidFailure;
+  final GaidAvailabilityMonitor gaidAvailabilityMonitor;
   final AdjustDeviceRegistrationRetryScheduler _retryScheduler;
 
   Future<void>? _inFlight;
@@ -107,6 +128,9 @@ class AdjustDeviceRegistration {
   int _retryGeneration = 0;
   bool _disposed = false;
   bool _adidFailureReported = false;
+  bool _adidFailureCheckPending = false;
+  bool _lastAdidReadWasEmpty = false;
+  bool _lastAdidReadFailed = false;
   AdjustDeviceRegistrationResult? _lastResult;
   String? _knownAdid;
 
@@ -121,13 +145,7 @@ class AdjustDeviceRegistration {
       return;
     }
     await register();
-    if (_disposed ||
-        (_knownAdid?.isNotEmpty ?? false) ||
-        (_lastResult != AdjustDeviceRegistrationResult.deferredNoAdid &&
-            _lastResult !=
-                AdjustDeviceRegistrationResult.deferredAdidReadError)) {
-      return;
-    }
+    if (_disposed || (_knownAdid?.isNotEmpty ?? false)) return;
     try {
       final cached = (await localAdidStore.read().timeout(
         const Duration(seconds: 2),
@@ -173,17 +191,32 @@ class AdjustDeviceRegistration {
       return;
     }
 
-    await register();
+    _adidFailureCheckPending = localReadSucceeded;
+    try {
+      await register();
+    } finally {
+      _adidFailureCheckPending = false;
+    }
+  }
+
+  void _reportPendingAdidFailure(_AdjustDeviceIdentifiers identifiers) {
     if (_disposed ||
-        !localReadSucceeded ||
+        !_adidFailureCheckPending ||
         _adidFailureReported ||
         (_knownAdid?.isNotEmpty ?? false) ||
-        _lastResult != AdjustDeviceRegistrationResult.deferredNoAdid) {
+        !_lastAdidReadWasEmpty) {
       return;
     }
     _adidFailureReported = true;
+    final payload = <String, Object?>{
+      'adid': identifiers.adid,
+      'app_instance_id': identifiers.appInstanceId,
+      if (platform == TargetPlatform.android) 'gps_adid': identifiers.gpsAdid,
+      if (platform == TargetPlatform.iOS) 'idfa': identifiers.idfa,
+      if (platform == TargetPlatform.iOS) 'idfv': identifiers.idfv,
+    };
     try {
-      reportAdidFailure('startup_delayed_check', platform);
+      reportAdidFailure('startup_delayed_check', platform, payload);
     } catch (error) {
       debugPrint('[Adjust][DeviceRegister] ADID failure report failed: $error');
     }
@@ -193,11 +226,25 @@ class AdjustDeviceRegistration {
     final normalizedAdid = adid.trim();
     if (normalizedAdid.isEmpty || _disposed) return Future<void>.value();
     _knownAdid = normalizedAdid;
+    _lastAdidReadWasEmpty = false;
+    _lastAdidReadFailed = false;
     unawaited(_persistAdid(normalizedAdid));
     final current = _inFlight;
     if (current != null) {
       // A session callback proves that Adjust has assigned the ADID. Drain one
       // fresh attempt if the active read started before that callback arrived.
+      _rerunRequested = true;
+      return current;
+    }
+    return register();
+  }
+
+  /// Recheck once Firebase Analytics finishes configuring. If a registration
+  /// is already in flight, drain another attempt so a late ID is not missed.
+  Future<void> registerAfterFirebaseReady() {
+    if (_disposed) return Future<void>.value();
+    final current = _inFlight;
+    if (current != null) {
       _rerunRequested = true;
       return current;
     }
@@ -261,8 +308,9 @@ class AdjustDeviceRegistration {
     }
 
     var adid = _knownAdid ?? '';
-    var adidReadFailed = false;
     if (adid.isEmpty && readCachedAdid) {
+      _lastAdidReadWasEmpty = false;
+      _lastAdidReadFailed = false;
       try {
         // The SDK timeout covers ADID availability. The Dart deadline also
         // releases this registration if the platform channel never replies.
@@ -274,37 +322,51 @@ class AdjustDeviceRegistration {
         if (adid.isNotEmpty) {
           _knownAdid = adid;
           unawaited(_persistAdid(adid));
+        } else {
+          _lastAdidReadWasEmpty = true;
         }
       } catch (error, stackTrace) {
-        adidReadFailed = true;
+        _lastAdidReadFailed = true;
         debugPrint('[Adjust][DeviceRegister] cached ADID read failed: $error');
         debugPrint('[Adjust][DeviceRegister] stacktrace:\n$stackTrace');
       }
     }
     if (adid.isEmpty) {
       debugPrint(
-        '[Adjust][DeviceRegister] ADID unavailable; waiting for session callback',
+        '[Adjust][DeviceRegister] ADID unavailable; registering available identifiers',
       );
-      return adidReadFailed
-          ? AdjustDeviceRegistrationResult.deferredAdidReadError
-          : AdjustDeviceRegistrationResult.deferredNoAdid;
     }
+    final missingAdidResult = _lastAdidReadFailed
+        ? AdjustDeviceRegistrationResult.registeredWithoutAdidReadError
+        : AdjustDeviceRegistrationResult.registeredWithoutAdid;
 
     try {
+      final environment = environmentProvider();
       final identifiers = platform == TargetPlatform.android
           ? _AdjustDeviceIdentifiers(
               adid: adid,
-              environment: environmentProvider(),
-              gpsAdid: await _readOptional(readGoogleAdId, 'GPS ADID'),
+              environment: environment,
+              gpsAdid: await _readGoogleAdId(environment),
+              appInstanceId: await _readOptional(
+                readAppInstanceId,
+                'Firebase app instance ID',
+              ),
             )
           : _AdjustDeviceIdentifiers(
               adid: adid,
-              environment: environmentProvider(),
+              environment: environment,
               idfa: await _readOptional(readIdfa, 'IDFA'),
               idfv: await _readOptional(readIdfv, 'IDFV'),
+              appInstanceId: await _readOptional(
+                readAppInstanceId,
+                'Firebase app instance ID',
+              ),
             );
+      _reportPendingAdidFailure(identifiers);
       if (!force && identifiers == _lastRegistered) {
-        return AdjustDeviceRegistrationResult.alreadyRegistered;
+        return adid.isEmpty
+            ? missingAdidResult
+            : AdjustDeviceRegistrationResult.alreadyRegistered;
       }
 
       await registerDevice(
@@ -313,13 +375,16 @@ class AdjustDeviceRegistration {
         gpsAdid: identifiers.gpsAdid,
         idfa: identifiers.idfa,
         idfv: identifiers.idfv,
+        appInstanceId: identifiers.appInstanceId,
       );
       _lastRegistered = identifiers;
       debugPrint(
         '[Adjust][DeviceRegister] registration succeeded; '
-        'platform=${platform.name}',
+        'platform=${platform.name}, adidAvailable=${adid.isNotEmpty}',
       );
-      return AdjustDeviceRegistrationResult.registered;
+      return adid.isEmpty
+          ? missingAdidResult
+          : AdjustDeviceRegistrationResult.registered;
     } catch (error, stackTrace) {
       debugPrint('[Adjust][DeviceRegister] registration failed: $error');
       debugPrint('[Adjust][DeviceRegister] stacktrace:\n$stackTrace');
@@ -333,8 +398,8 @@ class AdjustDeviceRegistration {
       case AdjustDeviceRegistrationResult.alreadyRegistered:
         _cancelRetry(resetBudget: true);
         return;
-      case AdjustDeviceRegistrationResult.deferredNoAdid:
-      case AdjustDeviceRegistrationResult.deferredAdidReadError:
+      case AdjustDeviceRegistrationResult.registeredWithoutAdid:
+      case AdjustDeviceRegistrationResult.registeredWithoutAdidReadError:
         _cancelRetry(resetBudget: true);
         return;
       case AdjustDeviceRegistrationResult.failed:
@@ -393,20 +458,48 @@ class AdjustDeviceRegistration {
     }
   }
 
-  Future<String?> _readOptional(
+  Future<String> _readOptional(
     AdjustOptionalIdReader reader,
     String name,
   ) async {
     try {
       final value = await reader().timeout(optionalIdTimeout);
-      return value?.trim();
+      final normalized = value?.trim();
+      return normalized ?? '';
     } catch (error) {
-      // Omit an unreadable optional value so the server preserves the last
-      // successfully registered identifier.
       debugPrint('[Adjust][DeviceRegister] $name unavailable: $error');
-      return null;
+      return '';
     }
   }
+
+  Future<String> _readGoogleAdId(String environment) async {
+    final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
+    if (_isUsableGoogleAdId(adjustId)) {
+      gaidAvailabilityMonitor.observe(
+        environment: environment,
+        source: 'adjust',
+      );
+      return adjustId;
+    }
+
+    final nativeReader = readNativeGoogleAdId;
+    if (nativeReader != null) {
+      final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
+      if (_isUsableGoogleAdId(nativeId)) {
+        gaidAvailabilityMonitor.observe(
+          environment: environment,
+          source: 'native',
+        );
+        return nativeId;
+      }
+    }
+    gaidAvailabilityMonitor.observe(environment: environment, source: null);
+    return '';
+  }
+
+  bool _isUsableGoogleAdId(String value) =>
+      value.isNotEmpty &&
+      value.toLowerCase() != '00000000-0000-0000-0000-000000000000';
 }
 
 @immutable
@@ -414,6 +507,7 @@ class _AdjustDeviceIdentifiers {
   const _AdjustDeviceIdentifiers({
     required this.adid,
     required this.environment,
+    required this.appInstanceId,
     this.gpsAdid,
     this.idfa,
     this.idfv,
@@ -421,6 +515,7 @@ class _AdjustDeviceIdentifiers {
 
   final String adid;
   final String environment;
+  final String appInstanceId;
   final String? gpsAdid;
   final String? idfa;
   final String? idfv;
@@ -430,11 +525,15 @@ class _AdjustDeviceIdentifiers {
     return other is _AdjustDeviceIdentifiers &&
         other.adid == adid &&
         other.environment == environment &&
+        other.appInstanceId == appInstanceId &&
         other.gpsAdid == gpsAdid &&
         other.idfa == idfa &&
         other.idfv == idfv;
   }
 
   @override
-  int get hashCode => Object.hash(adid, environment, gpsAdid, idfa, idfv);
+  int get hashCode =>
+      Object.hash(adid, environment, appInstanceId, gpsAdid, idfa, idfv);
 }
+
+Future<String?> _emptyAppInstanceId() async => null;

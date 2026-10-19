@@ -27,7 +27,7 @@ extension _MePageData on _MePageState {
     final services = AppServicesScope.read(context);
     final api = services.api;
     final uid = await _readCurrentBackendUid();
-    const displayName = 'User';
+    final displayName = GenesisL10n.current.worldoUser;
     var resolvedDisplayName = displayName;
     var resolvedAvatarUrl = '';
     var resolvedFollowingCount = 0;
@@ -79,7 +79,7 @@ extension _MePageData on _MePageState {
         cachedUser?['membership_status'],
       ),
       displayName: resolvedDisplayName,
-      uid: uid.isEmpty ? 'Unknown' : uid,
+      uid: uid.isEmpty ? GenesisL10n.current.meUnknown : uid,
       followingCount: resolvedFollowingCount,
       followerCount: resolvedFollowerCount,
       deleted: entityDeleted(cachedUser?['deleted']),
@@ -107,6 +107,10 @@ extension _MePageData on _MePageState {
 
   void _handleTabActivated() {
     if (!_isTabActive) return;
+    if (languageDataStale) {
+      checkLanguageData();
+      return;
+    }
     _initialWalletRefreshStarted = true;
     _refreshGemWallet();
     unawaited(_refreshDataOnActivation());

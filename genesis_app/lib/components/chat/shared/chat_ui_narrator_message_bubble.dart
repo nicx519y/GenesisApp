@@ -93,7 +93,7 @@ class ChatNarratorMessageBubble extends StatelessWidget {
           child: failed
               ? Semantics(
                   button: true,
-                  label: 'Retry message',
+                  label: GenesisL10n.current.chatRetryMessage,
                   child: GestureDetector(
                     key: ValueKey('chat-message-retry-${message.localId}'),
                     behavior: HitTestBehavior.opaque,

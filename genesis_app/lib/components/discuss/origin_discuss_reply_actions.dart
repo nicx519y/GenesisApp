@@ -16,8 +16,14 @@ Future<bool> showOriginDiscussReplyComposer({
 
   return showDiscussPostComposer(
     context: context,
-    title: 'Reply',
-    placeholder: placeholder ?? 'Write a reply',
+    title: GenesisL10n
+        .current
+        .worldoReply,
+    placeholder:
+        placeholder ??
+        GenesisL10n
+            .current
+            .worldoWriteReply,
     placeholderWidget:
         placeholder != null && replyToUid?.trim().isNotEmpty == true
         ? ProUserName(
@@ -127,7 +133,7 @@ Map<String, dynamic> _localReplyJson({
         userMap['user_name'] ??
         userMap['nickname'] ??
         userMap['display_name'],
-    fallback: 'User',
+    fallback: GenesisL10n.current.userLabel,
   );
   return {
     'discuss_id': asString(created['discuss_id']),

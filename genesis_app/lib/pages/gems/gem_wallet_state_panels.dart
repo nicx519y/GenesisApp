@@ -11,6 +11,7 @@ class _TaskActionButton extends StatelessWidget {
     required this.borderRadius,
     required this.textHeight,
     this.alignment = Alignment.center,
+    this.textAlign,
   });
 
   final GemTask task;
@@ -22,6 +23,7 @@ class _TaskActionButton extends StatelessWidget {
   final double borderRadius;
   final double textHeight;
   final AlignmentGeometry alignment;
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +38,14 @@ class _TaskActionButton extends StatelessWidget {
     final actionText = status == task.status
         ? task.actionText
         : switch (status) {
-            'claimable' => 'Claim',
-            'claimed' => 'Claimed',
+            'claimable' =>
+              GenesisL10n
+                  .current
+                  .gemsClaim,
+            'claimed' =>
+              GenesisL10n
+                  .current
+                  .gemsClaimed,
             _ => task.actionText,
           };
     return Semantics(
@@ -57,6 +65,7 @@ class _TaskActionButton extends StatelessWidget {
           ),
           child: Text(
             actionText,
+            textAlign: textAlign,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

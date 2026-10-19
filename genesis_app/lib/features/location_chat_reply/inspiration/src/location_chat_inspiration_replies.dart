@@ -299,7 +299,8 @@ class _InspirationRepliesState extends State<LocationChatInspirationReplies>
                                   width: _editStripWidth,
                                   child: Semantics(
                                     button: true,
-                                    label: 'Edit inspiration ${index + 1}',
+                                    label: GenesisL10n.current
+                                        .a11yEditInspiration(index: index + 1),
                                     child: GestureDetector(
                                       key: ValueKey('inspiration-edit-$index'),
                                       behavior: HitTestBehavior.opaque,

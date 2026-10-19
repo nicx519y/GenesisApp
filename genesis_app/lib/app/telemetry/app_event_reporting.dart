@@ -33,6 +33,12 @@ class AppEventReport {
   final Map<String, String> params;
   final String reportKey;
   final String? transactionId;
+
+  // Derived at send time so already queued events use the current report
+  // contract when retried without a local database migration.
+  bool get reportFirebase =>
+      AppEventReporting.transactionEvents.contains(event) ||
+      AppEventReporting.firebaseForwardedOnceEvents.contains(event);
 }
 
 abstract interface class AppEventReportStore {
@@ -81,7 +87,7 @@ class SqfliteAppEventReportStore implements AppEventReportStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: (database, _) => database.execute('''
 CREATE TABLE app_event_reports (
   sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +135,16 @@ SET transaction_id = CASE
 END
 WHERE business_id IS NOT NULL
 ''');
+          }
+          if (oldVersion < 5) {
+            final retainedEvents = AppEventReporting.supportedEvents.toList();
+            await database.delete(
+              'app_event_reports',
+              where:
+                  'event_name NOT IN '
+                  '(${List.filled(retainedEvents.length, '?').join(', ')})',
+              whereArgs: retainedEvents,
+            );
           }
         },
       ),
@@ -234,6 +250,13 @@ class AppEventReporting {
     'subscription_first_day0',
   };
 
+  static const Set<String> firebaseForwardedOnceEvents = <String>{
+    'login_first',
+    'message_sent_first',
+    'message_sent_10_first',
+    'message_sent_20_first',
+  };
+
   static const Set<String> transactionEvents = <String>{
     'purchase',
     'purchase_first',
@@ -246,6 +269,15 @@ class AppEventReporting {
     'subscription',
     'subscription_first',
     'subscription_day0',
+    'subscription_first_day0',
+  };
+
+  static const Set<String> firstPurchaseEvents = <String>{
+    'purchase_first',
+    'purchase_first_day0',
+    'gems_first',
+    'gems_first_day0',
+    'subscription_first',
     'subscription_first_day0',
   };
 
@@ -264,8 +296,13 @@ class AppEventReporting {
     required int occurredAtSeconds,
     required Map<String, Object> parameters,
     String? transactionId,
+    String? transactionDeduplicationId,
+    bool requireEnqueueSuccess = false,
   }) async {
-    if (_disposed || !supportedEvents.contains(event)) return;
+    if (_disposed || !supportedEvents.contains(event)) {
+      if (requireEnqueueSuccess) throw StateError('Event reporter unavailable');
+      return;
+    }
     if (occurredAtSeconds <= 0) {
       throw ArgumentError.value(
         occurredAtSeconds,
@@ -294,14 +331,18 @@ class AppEventReporting {
         '$environment',
       );
     }
+    final deduplicationId = transactionDeduplicationId?.trim() ?? '';
+    final reportIdentity = firstPurchaseEvents.contains(event)
+        ? ''
+        : effectiveTransactionId == null
+        ? ''
+        : deduplicationId.isNotEmpty
+        ? deduplicationId
+        : effectiveTransactionId;
     final reportKey = sha256
         .convert(
           utf8.encode(
-            jsonEncode(<Object?>[
-              environment,
-              event,
-              effectiveTransactionId ?? '',
-            ]),
+            jsonEncode(<Object?>[environment, event, reportIdentity]),
           ),
         )
         .toString();
@@ -321,6 +362,7 @@ class AppEventReporting {
       debugPrint('[Telemetry][EventReport] $event enqueue failed: $error');
       debugPrint('[Telemetry][EventReport] stacktrace:\n$stackTrace');
       _scheduleRetry();
+      if (requireEnqueueSuccess) rethrow;
     }
   }
 
@@ -363,6 +405,10 @@ class AppEventReporting {
       }
       for (final report in pending) {
         try {
+          if (!supportedEvents.contains(report.event)) {
+            await _store.markDelivered(report.reportKey);
+            continue;
+          }
           await _sender(report);
           await _store.markDelivered(report.reportKey);
           _retryDelay = _initialRetryDelay;

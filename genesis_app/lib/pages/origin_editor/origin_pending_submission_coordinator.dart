@@ -1,9 +1,12 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -59,10 +62,11 @@ class OriginPendingSubmissionCoordinator {
       savePending: OriginPendingSubmissionStore.saveCreating,
       clearPending: OriginPendingSubmissionStore.clearCreating,
       clearDraft: CreateOriginDraftStore.clear,
-      timeoutMessage: 'Worldo creation timed out.',
+      timeoutMessage: () => GenesisL10n.current.createTimeout,
       completeOnTimeout: true,
       completeOnPollError: true,
-      successTitle: (originName) => 'Worldo #$originName created!',
+      successTitle: (originName) =>
+          GenesisL10n.current.worldoCreated(worldName: '#$originName'),
       notifyOutcome: _notifyCreateOutcome,
     );
     _publishPoller = _OriginPendingSubmissionPoller(
@@ -71,10 +75,11 @@ class OriginPendingSubmissionCoordinator {
       loadPending: OriginPendingSubmissionStore.loadPublishing,
       savePending: OriginPendingSubmissionStore.savePublishing,
       clearPending: OriginPendingSubmissionStore.clearPublishing,
-      timeoutMessage: 'Worldo publishing timed out',
+      timeoutMessage: () => GenesisL10n.current.publishTimeout,
       completeOnTimeout: true,
       completeOnPollError: true,
-      successTitle: (originName) => 'Worldo #$originName published!',
+      successTitle: (originName) =>
+          GenesisL10n.current.worldoPublished(worldName: '#$originName'),
       notifyOutcome: _notifyPublishOutcome,
     );
   }
@@ -200,7 +205,7 @@ class _OriginPendingSubmissionPoller {
   final OriginPendingSubmissionSaver savePending;
   final Future<void> Function() clearPending;
   final Future<void> Function()? clearDraft;
-  final String timeoutMessage;
+  final String Function() timeoutMessage;
   final String Function(String originName) successTitle;
   final ValueChanged<OriginPendingSubmissionOutcome> notifyOutcome;
   final bool completeOnTimeout;
@@ -413,13 +418,21 @@ class _OriginPendingSubmissionPoller {
       context: context,
       title: title,
       titleWidget: _successActionBoxTitle(
-        leadingText: 'Worldo ',
+        template: kind == OriginPendingSubmissionKind.create
+            ? context.l10n.worldoCreated(
+                worldName: GenesisLocalizedRichText.placeholder('worldName'),
+              )
+            : context.l10n.worldoPublished(
+                worldName: GenesisLocalizedRichText.placeholder('worldName'),
+              ),
         highlightedText: '#$originName',
-        trailingText: kind == OriginPendingSubmissionKind.create
-            ? ' created!'
-            : ' published!',
       ),
-      actions: const [GenesisActionBoxAction<bool>(label: 'View', value: true)],
+      actions: [
+        GenesisActionBoxAction<bool>(
+          label: GenesisL10n.current.createView,
+          value: true,
+        ),
+      ],
     );
   }
 
@@ -463,11 +476,11 @@ class _OriginPendingSubmissionPoller {
       ),
     );
     if (overlay != null) {
-      showGenesisToastInOverlay(overlay, timeoutMessage);
+      showGenesisToastInOverlay(overlay, timeoutMessage());
       return;
     }
     if (context != null && context.mounted) {
-      showGenesisToast(context, timeoutMessage);
+      showGenesisToast(context, timeoutMessage());
     }
   }
 
@@ -500,9 +513,8 @@ class _OriginPendingSubmissionPoller {
 }
 
 Widget _successActionBoxTitle({
-  required String leadingText,
+  required String template,
   required String highlightedText,
-  required String trailingText,
 }) {
   const baseStyle = TextStyle(
     fontFamily: GenesisTypography.fontFamily,
@@ -512,20 +524,17 @@ Widget _successActionBoxTitle({
     height: 1.16,
     fontWeight: FontWeight.w600,
   );
-  return RichText(
+  return GenesisLocalizedRichText(
     maxLines: 2,
     overflow: TextOverflow.ellipsis,
     textAlign: TextAlign.center,
-    text: TextSpan(
-      style: baseStyle,
-      children: [
-        TextSpan(text: leadingText),
-        TextSpan(
-          text: highlightedText,
-          style: baseStyle.copyWith(color: GenesisColors.redSecondary),
-        ),
-        TextSpan(text: trailingText),
-      ],
-    ),
+    template: template,
+    placeholders: {
+      'worldName': TextSpan(
+        text: highlightedText,
+        style: baseStyle.copyWith(color: GenesisColors.redSecondary),
+      ),
+    },
+    style: baseStyle,
   );
 }

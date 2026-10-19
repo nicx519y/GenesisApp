@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_fixed_underline_indicator.dart';
@@ -97,7 +98,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                 labelStyle: uiTheme.bodyStrongStyle.copyWith(fontSize: 16),
                 unselectedLabelStyle: uiTheme.bodyStyle.copyWith(fontSize: 16),
                 tabs: [
-                  const Tab(
+                  Tab(
                     height: _worldTopOverlayHeight,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -105,7 +106,11 @@ class WorldTopOverlayBar extends StatelessWidget {
                       children: [
                         Icon(Icons.map_outlined, size: 16),
                         SizedBox(width: 6),
-                        Text('Map'),
+                        Text(
+                          GenesisL10n
+                              .current
+                              .worldMapAction,
+                        ),
                       ],
                     ),
                   ),
@@ -124,8 +129,13 @@ class WorldTopOverlayBar extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           secondaryTabIsIntro
-                              ? 'Info.'
-                              : 'Location ($pointsCount)',
+                              ? GenesisL10n
+                                    .current
+                                    .worldInfoAction
+                              : GenesisL10n.current
+                                    .worldLocationCount(
+                                      pointsCount: (pointsCount).toString(),
+                                    ),
                         ),
                       ],
                     ),

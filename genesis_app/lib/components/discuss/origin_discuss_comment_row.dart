@@ -375,13 +375,21 @@ class _DiscussActions extends StatelessWidget {
       } else {
         await api.unlike(discussId: discussId);
       }
-    } catch (_) {
+    } catch (error) {
       controller.applyLikeState(
         discussId: discussId,
         isLiked: previousLiked,
         likeCount: previousCount,
       );
-      if (context.mounted) showGenesisToast(context, 'Like failed');
+      if (context.mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLikeFailed,
+          ),
+        );
+      }
     } finally {
       controller.setLikePending(discussId, false);
     }
@@ -436,8 +444,16 @@ class _DiscussReplyPreview extends StatelessWidget {
           return OriginDiscussRepliesPage.fromJson(data);
         },
       );
-    } catch (_) {
-      if (context.mounted) showGenesisToast(context, 'Load replies failed');
+    } catch (error) {
+      if (context.mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(
+            error,
+            fallback: GenesisL10n.current.worldoLoadRepliesFailed,
+          ),
+        );
+      }
     }
   }
 }

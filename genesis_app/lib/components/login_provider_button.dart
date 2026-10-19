@@ -1,3 +1,4 @@
+import '../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/tokens/genesis_colors.dart';
+import '../ui/components/genesis_localized_rich_text.dart';
+import '../l10n/genesis_localizations.dart';
 import '../app/config/app_flavor_config.dart';
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
@@ -22,12 +25,12 @@ class LoginSignupRewardText extends StatelessWidget {
   const LoginSignupRewardText({super.key});
 
   @override
-  Widget build(BuildContext context) => const SizedBox(
+  Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
     child: Text(
-      'Sign up and get 250 Gems!',
+      GenesisL10n.current.loginSignUpReward,
       textAlign: TextAlign.center,
-      style: TextStyle(
+      style: const TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: GenesisColors.redSecondary,
@@ -57,7 +60,7 @@ class LoginProviderButtons extends StatelessWidget {
       children: [
         LoginProviderButton(
           provider: IdentityProvider.google,
-          label: 'Continue with Google',
+          label: GenesisL10n.current.meContinueGoogle,
           onPressed: loggingInProvider == null
               ? () => onLogin(IdentityProvider.google)
               : null,
@@ -67,7 +70,7 @@ class LoginProviderButtons extends StatelessWidget {
           SizedBox(height: spacing),
           LoginProviderButton(
             provider: IdentityProvider.apple,
-            label: 'Continue with Apple',
+            label: GenesisL10n.current.meContinueApple,
             onPressed: loggingInProvider == null
                 ? () => onLogin(IdentityProvider.apple)
                 : null,
@@ -130,30 +133,32 @@ class _LoginLegalTextState extends State<LoginLegalText> {
       color: dark ? GenesisColors.darkTextSecondary : const Color(0xFF3E5B8A),
       decoration: TextDecoration.none,
     );
-    return Text.rich(
-      TextSpan(
-        style: baseStyle,
-        children: [
-          const TextSpan(text: 'By continuing, you agree to our '),
-          TextSpan(
-            text: 'Terms',
-            style: linkStyle,
-            recognizer: _termsRecognizer,
-          ),
-          const TextSpan(text: ', '),
-          TextSpan(
-            text: 'Privacy Policy',
-            style: linkStyle,
-            recognizer: _privacyRecognizer,
-          ),
-          const TextSpan(text: ', and '),
-          TextSpan(
-            text: 'End User License Agreement',
-            style: linkStyle,
-            recognizer: _eulaRecognizer,
-          ),
-        ],
+    return GenesisLocalizedRichText(
+      template: context.l10n.loginLegalAgreement(
+        terms: GenesisLocalizedRichText.placeholder('terms'),
+        privacyPolicy: GenesisLocalizedRichText.placeholder('privacyPolicy'),
+        endUserLicenseAgreement: GenesisLocalizedRichText.placeholder(
+          'endUserLicenseAgreement',
+        ),
       ),
+      placeholders: {
+        'terms': TextSpan(
+          text: context.l10n.terms,
+          style: linkStyle,
+          recognizer: _termsRecognizer,
+        ),
+        'privacyPolicy': TextSpan(
+          text: context.l10n.privacyPolicy,
+          style: linkStyle,
+          recognizer: _privacyRecognizer,
+        ),
+        'endUserLicenseAgreement': TextSpan(
+          text: context.l10n.endUserLicenseAgreement,
+          style: linkStyle,
+          recognizer: _eulaRecognizer,
+        ),
+      },
+      style: baseStyle,
       textAlign: TextAlign.center,
     );
   }

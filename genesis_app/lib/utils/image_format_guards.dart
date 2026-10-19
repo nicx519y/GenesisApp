@@ -1,6 +1,8 @@
+import '../l10n/genesis_l10n.dart';
 import 'dart:typed_data';
 
-const String unsupportedGifImageMessage = 'GIF animations are not supported.';
+String get unsupportedGifImageMessage =>
+    GenesisL10n.current.imageGifUnsupported;
 
 class UnsupportedGifImageException implements Exception {
   const UnsupportedGifImageException();

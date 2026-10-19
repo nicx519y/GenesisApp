@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
@@ -429,12 +430,17 @@ class _WorldLaunchedCharacterSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final character = this.character;
     final name = character == null
-        ? 'Character'
-        : worldMapString(character, const ['name'], fallback: 'Character');
+        ? GenesisL10n.current.homeWorldCharacter
+        : worldMapString(character, const [
+            'name',
+          ], fallback: GenesisL10n.current.homeWorldCharacter);
     final avatarUrl = character == null
         ? ''
         : worldMapString(character, const ['avatar']);
-    final tickLabel = 'Tick $tickCount${subTickNo > 0 ? '-$subTickNo' : ''}';
+    final tickLabel = GenesisL10n.current.worldDetailTickCount(
+      tickCount: (tickCount).toString(),
+      subTickSuffix: (subTickNo > 0 ? '-$subTickNo' : '').toString(),
+    );
 
     return Row(
       key: const ValueKey<String>('world-launched-character-summary'),
@@ -509,7 +515,10 @@ class _WorldUnlaunchedSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tickLabel = 'Tick $tickCount${subTickNo > 0 ? '-$subTickNo' : ''}';
+    final tickLabel = GenesisL10n.current.tickNumber(
+      tick: tickCount.toString(),
+      suffix: subTickNo > 0 ? '-$subTickNo' : '',
+    );
     return Text(
       '$tickLabel · ${formatMessageCountLabel(messageCount)}',
       key: const ValueKey<String>('world-unlaunched-summary'),

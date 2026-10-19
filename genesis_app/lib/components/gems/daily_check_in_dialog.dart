@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -67,7 +68,9 @@ Future<bool> showDailyCheckInDialog(
       status == DailyCheckInDialogStatus.checkIn && isVip != true;
   final action = await showGenesisActionBox<_DailyCheckInAction>(
     context: context,
-    title: 'Daily Check-in',
+    title: GenesisL10n
+        .current
+        .meDailyCheck,
     titleContent: _GemTaskReward(
       rewardGemsCent: rewardGemsCent,
       showWholeReward: true,
@@ -76,7 +79,9 @@ Future<bool> showDailyCheckInDialog(
     actions: [
       if (showSubscriptionOffer)
         GenesisActionBoxAction<_DailyCheckInAction>(
-          label: 'Get 100',
+          label: GenesisL10n
+              .current
+              .gemsDailyCheckInReward,
           value: _DailyCheckInAction.subscribe,
           color: GenesisColors.redSecondary,
           trailing: SvgPicture.asset(
@@ -88,8 +93,10 @@ Future<bool> showDailyCheckInDialog(
           ),
         ),
       if (showSubscriptionOffer)
-        const GenesisActionBoxAction<_DailyCheckInAction>(
-          label: 'Check in',
+        GenesisActionBoxAction<_DailyCheckInAction>(
+          label: GenesisL10n
+              .current
+              .meCheck,
           value: _DailyCheckInAction.checkIn,
           color: GenesisColors.darkTextPrimary,
           fontWeight: FontWeight.w400,
@@ -97,14 +104,20 @@ Future<bool> showDailyCheckInDialog(
       else
         GenesisActionBoxAction<_DailyCheckInAction>(
           label: switch (status) {
-            DailyCheckInDialogStatus.checkIn => 'Check in',
-            DailyCheckInDialogStatus.claimed => 'Claimed',
+            DailyCheckInDialogStatus.checkIn =>
+              GenesisL10n
+                  .current
+                  .meCheck,
+            DailyCheckInDialogStatus.claimed =>
+              GenesisL10n
+                  .current
+                  .gemsClaimed,
           },
           value: _DailyCheckInAction.checkIn,
           enabled: !claimed,
         ),
     ],
-    cancelLabel: 'Cancel',
+    cancelLabel: GenesisL10n.current.searchCancel,
     showCancel: !showSubscriptionOffer,
   );
   if (action == _DailyCheckInAction.subscribe && context.mounted) {
@@ -123,7 +136,9 @@ Future<void> showDailyCheckInSuccessDialog(
 }) async {
   return showGemTaskSuccessDialog(
     context,
-    title: 'Check in successful!',
+    title: GenesisL10n
+        .current
+        .meCheckSuccessful,
     rewardGemsCent: rewardGemsCent,
     duration: duration,
   );

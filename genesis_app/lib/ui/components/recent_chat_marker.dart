@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -71,7 +72,7 @@ class RecentChatTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Last Message',
+      label: GenesisL10n.current.a11yLastMessage,
       child: Container(
         key: const ValueKey<String>('recent-activity-tag-last-message'),
         height: 18,
@@ -80,13 +81,13 @@ class RecentChatTag extends StatelessWidget {
           color: kRecentChatMarkerBackgroundColor,
           borderRadius: BorderRadius.all(Radius.circular(4)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             RecentChatIcon(size: 10),
             SizedBox(width: 3),
             Text(
-              'Recent',
+              GenesisL10n.current.homeRecent,
               maxLines: 1,
               overflow: TextOverflow.clip,
               style: TextStyle(
@@ -116,7 +117,7 @@ class RecentChatIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Recent chat',
+      label: GenesisL10n.current.a11yRecentChat,
       child: SvgPicture.asset(
         connectStatIconAsset,
         width: size,

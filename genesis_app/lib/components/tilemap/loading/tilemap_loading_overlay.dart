@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -109,7 +110,7 @@ class _TilemapLoadingOverlayState extends State<TilemapLoadingOverlay>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Semantics(
-                          label: 'Loading map',
+                          label: GenesisL10n.current.a11yLoadingMap,
                           value: '${(progress * 100).round()}%',
                           child: LinearProgressIndicator(
                             key: const ValueKey<String>(
@@ -255,7 +256,7 @@ class _TilemapLoadingStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final percent = (progress * 100).round();
     return Semantics(
-      label: 'Building the world',
+      label: GenesisL10n.current.a11yBuildingWorld,
       value: '$percent%',
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -266,7 +267,7 @@ class _TilemapLoadingStatus extends StatelessWidget {
           ),
           SizedBox(height: compact ? 6 : 10),
           Text(
-            'BUILDING THE WORLD',
+            GenesisL10n.current.homeBuildingWorld,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: palette.foreground,

@@ -1,0 +1,17 @@
+{
+  "preserve": ["Worldo", "Premium", "Pro", "Google", "Apple", "App Store", "Google Play", "Discord", "UID", "OID", "WID", "LLM", "EULA", "Tick", "AI"],
+  "literal_markers": {"createOpeningUser": ["{{user}}"]},
+  "preserve_by_key": {"navHome": "Home", "navWorldo": "Worldo", "navCreate": "Create", "navInbox": "Inbox", "navMe": "Me"},
+  "notes": "词表是概念和语境指导，不是机械大小写/子串替换。允许目标语言自然屈折。Tick 是保留英文的产品术语；statMessages 的 Message/Messages 保留英文，普通 message 正常翻译。Apple Account 按地区官方名称处理；意日韩写法待上线前核对。新歧义必须报告。",
+  "terms": {
+    "World": {"zh-TW": "世界", "es": "Mundo", "pt": "Mundo", "fr": "Monde", "de": "Welt", "it": "Mondo", "ja": "ワールド", "ko": "월드"},
+    "Gems": {"zh-TW": "寶石", "es": "Gemas", "pt": "Gemas", "fr": "Gemmes", "de": "Gems", "it": "Gemme", "ja": "ジェム", "ko": "젬"},
+    "Tick": {"zh-TW": "Tick", "es": "Tick", "pt": "Tick", "fr": "Tick", "de": "Tick", "it": "Tick", "ja": "Tick", "ko": "Tick"},
+    "Apple Account": {"zh-TW": "Apple 帳號", "es": "cuenta de Apple", "pt": "Conta Apple", "fr": "compte Apple", "de": "Apple Account", "it": "Account Apple", "ja": "Apple Account", "ko": "Apple 계정"},
+    "Inspiration": {"zh-TW": "靈感", "es": "Inspiración", "pt": "Inspiração", "fr": "Inspiration", "de": "Inspiration", "it": "Ispirazione", "ja": "インスピレーション", "ko": "영감"},
+    "Discuss": {"zh-TW": "討論", "es": "Discusión", "pt": "Discussão", "fr": "Discussion", "de": "Diskussion", "it": "Discussione", "ja": "ディスカッション", "ko": "토론"},
+    "Launch": {"zh-TW": "啟動", "es": "Iniciar", "pt": "Iniciar", "fr": "Lancer", "de": "Starten", "it": "Avvia", "ja": "起動", "ko": "시작"},
+    "Save": {"zh-TW": "儲存", "es": "Guardar", "pt": "Salvar", "fr": "Enregistrer", "de": "Speichern", "it": "Salva", "ja": "保存", "ko": "저장"},
+    "Subscribe": {"zh-TW": "訂閱", "es": "Suscribirse", "pt": "Assinar", "fr": "S’abonner", "de": "Abonnieren", "it": "Abbonati", "ja": "登録する", "ko": "구독하기"}
+  }
+}

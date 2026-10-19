@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
@@ -353,13 +354,23 @@ class _WorldUpdatePushBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLocation = notice.kind == WorldContentUpdateKind.location;
     final name = notice.name.trim().isEmpty
-        ? (isLocation ? 'Unknown location' : 'Unknown character')
+        ? (isLocation
+              ? GenesisL10n
+                    .current
+                    .homeUnknownLocation
+              : GenesisL10n
+                    .current
+                    .homeUnknownCharacter)
         : notice.name.trim();
     final contextLabel = notice.contextLabel.trim();
     final detail = contextLabel.isEmpty ? name : '$name · $contextLabel';
     final category = isLocation
-        ? 'New Place Emerged'
-        : 'New Character Appeared';
+        ? GenesisL10n
+              .current
+              .homeNewPlaceEmerged
+        : GenesisL10n
+              .current
+              .homeNewCharacterAppeared;
     final detailText = Text.rich(
       TextSpan(
         text: name,

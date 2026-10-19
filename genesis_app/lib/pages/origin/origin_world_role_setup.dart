@@ -5,6 +5,11 @@ const Color _originSetupRoleSelectedAccentColor = Color(0x73FF2442);
 class _OriginSetupRoleSection extends StatefulWidget {
   const _OriginSetupRoleSection({
     super.key,
+    this.title,
+    this.bottomPadding = _bottomPadding,
+    this.indicatorGap = 14,
+    this.titleStyle,
+    this.shrinkWrap = false,
     required this.characters,
     required this.roleAvatarSnapshots,
     required this.launchBusy,
@@ -23,8 +28,13 @@ class _OriginSetupRoleSection extends StatefulWidget {
 
   static const double _cardWidth = 240;
   static const double _bottomPadding = 28;
-  static const double _composerClearance = 16;
+  static const double _composerClearance = 4;
 
+  final String? title;
+  final double bottomPadding;
+  final double indicatorGap;
+  final TextStyle? titleStyle;
+  final bool shrinkWrap;
   final List<OriginCharacter> characters;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
@@ -234,28 +244,29 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final cardsController = _cardsController;
     if (cardsController == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: _OriginSetupRoleSection._bottomPadding,
-      ),
+      padding: EdgeInsets.only(bottom: widget.bottomPadding),
       child: Column(
+        mainAxisSize: widget.shrinkWrap ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: const SizedBox(
+            child: SizedBox(
               width: double.infinity,
               child: Text(
-                'Select Your Role',
+                widget.title ?? GenesisL10n.current.worldoLaunchSelectRole,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: originWorldDetailSheetPrimaryTextColor,
-                  decoration: TextDecoration.none,
-                ),
+                style:
+                    widget.titleStyle ??
+                    const TextStyle(
+                      fontSize: 14,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: originWorldDetailSheetPrimaryTextColor,
+                      decoration: TextDecoration.none,
+                    ),
               ),
             ),
           ),
@@ -346,7 +357,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: widget.indicatorGap),
           _OriginRoleCardsIndicator(
             count: cardCount,
             currentIndex: currentCardIndex,
@@ -376,7 +387,10 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       key: const ValueKey<String>('origin-setup-role-page-indicator'),
-      label: '${currentIndex + 1} of $count role cards',
+      label: GenesisL10n.current.a11yRoleCards(
+        index: currentIndex + 1,
+        count: count,
+      ),
       child: Row(
         key: ValueKey<String>(
           'origin-setup-role-page-current-${currentIndex + 1}-of-$count',
@@ -773,7 +787,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
   String? get _editValidationMessage {
     final form = _editForm;
     if (form == null) return null;
-    if (form.name.text.trim().isEmpty) return 'Please enter a name';
+    if (form.name.text.trim().isEmpty) {
+      return GenesisL10n.current.enterNameValidation;
+    }
     return null;
   }
 
@@ -838,9 +854,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
     final cardWidth = widget.cardWidth;
     final stableId = content.stableId;
     final topLabel = content.isProfile
-        ? 'Your Profile'
+        ? GenesisL10n.current.worldoLaunchProfile
         : content.isRecommended
-        ? 'Suggested'
+        ? GenesisL10n.current.worldoLaunchSuggested
         : null;
     final editActionAvailable =
         !widget.busy && (!_editing || _editValidationMessage == null);
@@ -906,53 +922,49 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: SizedBox.square(
-                    dimension: 30,
-                    child: Material(
-                      key: ValueKey<String>(
-                        'origin-setup-role-edit-surface-$stableId',
+                  child: Material(
+                    key: ValueKey<String>(
+                      'origin-setup-role-edit-surface-$stableId',
+                    ),
+                    color: Colors.black.withValues(alpha: 0.68),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.16),
                       ),
-                      color: const Color(0xCC151517),
-                      borderRadius: BorderRadius.circular(8),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        key: ValueKey<String>(
-                          'origin-setup-role-edit-$stableId',
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      key: ValueKey<String>('origin-setup-role-edit-$stableId'),
+                      onTap: widget.busy ? null : _toggleEditing,
+                      child: Center(
+                        widthFactor: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            // Include the label's 1px border inset.
+                            horizontal: 9,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            _editing
+                                ? GenesisL10n.current.worldoLaunchDone
+                                : GenesisL10n.current.chatEdit,
+                            key: ValueKey<String>(
+                              _editing
+                                  ? 'origin-setup-role-edit-done-label-$stableId'
+                                  : 'origin-setup-role-edit-label-$stableId',
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.none,
+                              color: editActionAvailable
+                                  ? GenesisColors.redSecondary
+                                  : Colors.white.withValues(alpha: 0.35),
+                            ),
+                          ),
                         ),
-                        onTap: widget.busy ? null : _toggleEditing,
-                        child: _editing
-                            ? Icon(
-                                Icons.check_rounded,
-                                key: ValueKey<String>(
-                                  'origin-setup-role-edit-done-icon-$stableId',
-                                ),
-                                size: 16,
-                                color: editActionAvailable
-                                    ? GenesisColors.darkTextPrimary
-                                    : Colors.white.withValues(alpha: 0.35),
-                              )
-                            : Center(
-                                child: Transform.scale(
-                                  // Match the previous edit icon within its existing layout slot.
-                                  scale: 32 / 37.36,
-                                  child: SvgPicture.asset(
-                                    editSquareIconAsset,
-                                    key: ValueKey<String>(
-                                      'origin-setup-role-edit-icon-$stableId',
-                                    ),
-                                    width: 16,
-                                    height: 16,
-                                    colorFilter: ColorFilter.mode(
-                                      editActionAvailable
-                                          ? GenesisColors.darkTextPrimary
-                                          : Colors.white.withValues(
-                                              alpha: 0.35,
-                                            ),
-                                      BlendMode.srcIn,
-                                    ),
-                                  ),
-                                ),
-                              ),
                       ),
                     ),
                   ),
@@ -1069,7 +1081,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   tapTargetKey: ValueKey<String>(
                     'origin-setup-role-inline-name-tap-$stableId',
                   ),
-                  label: 'Name',
+                  label: GenesisL10n.current.worldoLaunchName,
                   controller: form.name,
                   focusNode: form.focusNodes.name,
                   nextFocusNode: form.focusNodes.identity,
@@ -1088,7 +1100,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   tapTargetKey: ValueKey<String>(
                     'origin-setup-role-inline-identity-tap-$stableId',
                   ),
-                  label: 'Identity',
+                  label: GenesisL10n.current.worldoLaunchIdentity,
                   controller: form.identity,
                   focusNode: form.focusNodes.identity,
                   nextFocusNode: form.focusNodes.personality,
@@ -1104,7 +1116,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   tapTargetKey: ValueKey<String>(
                     'origin-setup-role-inline-brief-tap-$stableId',
                   ),
-                  label: 'Personality',
+                  label: GenesisL10n.current.worldoLaunchPersonality,
                   controller: form.personality,
                   focusNode: form.focusNodes.personality,
                   maxLength: originCharacterPersonalityMaxLength,
@@ -1454,17 +1466,17 @@ class _OriginSetupRoleDetails extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _OriginSetupRoleDetailField(
-                label: 'Identity',
+                label: GenesisL10n.current.worldoLaunchIdentity,
                 value: content.identity,
               ),
               _OriginSetupRoleDetailField(
-                label: 'Personality',
+                label: GenesisL10n.current.worldoLaunchPersonality,
                 value: content.personality,
                 addBottomGap: !content.isProfile,
               ),
               if (!content.isProfile) ...[
                 _OriginSetupRoleDetailField(
-                  label: 'Goal',
+                  label: GenesisL10n.current.worldoLaunchGoal,
                   value: content.goal,
                   addBottomGap: false,
                 ),

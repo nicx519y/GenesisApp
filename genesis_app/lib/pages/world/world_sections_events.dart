@@ -376,8 +376,12 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
         children: [
           WorldEmptySection(
             text: widget.error == null
-                ? 'No events yet.'
-                : 'Load events failed.',
+                ? GenesisL10n
+                      .current
+                      .worldDetailNoEventsYet
+                : GenesisL10n
+                      .current
+                      .worldDetailLoadEventsFailed,
             fontSize: 14,
           ),
         ],

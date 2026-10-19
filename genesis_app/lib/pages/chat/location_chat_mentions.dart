@@ -170,6 +170,10 @@ ChatMentionCatalog locationChatMentionCatalogForState(
         name: normalizeGenesisUgcTextForDisplay(name),
         type: ChatMentionType.location,
         subtitle: normalizeGenesisUgcTextForDisplay(parentName),
+        imageUrl: GenesisImageResource.fromJson(
+          node.value['image'],
+          fallback: node.value['icon'],
+        ).displayUrl,
         isNew: isLevel3 && asBool(node.value['is_new']),
         isCurrentLocation: resolvedCurrentLocationIds.contains(id),
       ),
@@ -687,6 +691,7 @@ extension _LocationChatMentionActions on _LocationChatPanelState {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: false,
+      useRootNavigator: true,
       builder: (sheetContext) =>
           LocationChatMentionSheet(catalog: _textController.catalog),
     );
@@ -749,10 +754,47 @@ class LocationChatMentionSheet extends StatefulWidget {
 
 class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
     with SingleTickerProviderStateMixin {
+  static const double _leadingEdgeWidth = 24;
+  static const double _dismissDistance = 64;
+
   late final TabController _tabController = TabController(
     length: 2,
     vsync: this,
   );
+  int? _leadingEdgePointer;
+  double _leadingEdgeDragDistance = 0;
+  bool _leadingEdgeDismissed = false;
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final sheetWidth = context.size?.width ?? MediaQuery.sizeOf(context).width;
+    final leadingX = isRtl
+        ? sheetWidth - event.localPosition.dx
+        : event.localPosition.dx;
+    if (leadingX > _leadingEdgeWidth) return;
+    _leadingEdgePointer = event.pointer;
+    _leadingEdgeDragDistance = 0;
+    _leadingEdgeDismissed = false;
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (event.pointer != _leadingEdgePointer || _leadingEdgeDismissed) return;
+    final delta = Directionality.of(context) == TextDirection.rtl
+        ? -event.delta.dx
+        : event.delta.dx;
+    _leadingEdgeDragDistance = math.max(0, _leadingEdgeDragDistance + delta);
+    if (_leadingEdgeDragDistance < _dismissDistance) return;
+    _leadingEdgeDismissed = true;
+    Navigator.of(context).pop();
+  }
+
+  void _resetLeadingEdgePointer(PointerEvent event) {
+    if (event.pointer != _leadingEdgePointer) return;
+    _leadingEdgePointer = null;
+    _leadingEdgeDragDistance = 0;
+    _leadingEdgeDismissed = false;
+  }
 
   @override
   void dispose() {
@@ -763,125 +805,134 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height * 0.8;
-    return Material(
-      key: const ValueKey<String>('location-chat-mention-sheet'),
-      color: GenesisColors.darkRaisedBackground,
-      borderRadius: GenesisBottomSheetPanel.borderRadius,
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: height,
-          child: Column(
-            children: [
-              SizedBox(
-                key: const ValueKey<String>('location-chat-mention-header'),
-                height: 48,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 15,
-                      child: SizedBox(
-                        height: 28,
-                        child: const Center(
-                          child: Text(
-                            'Mention',
-                            style: TextStyle(
-                              color: _locationChatMentionPrimaryForeground,
-                              fontSize: 16,
-                              height: 1.6,
-                              fontWeight: FontWeight.w600,
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
+      onPointerUp: _resetLeadingEdgePointer,
+      onPointerCancel: _resetLeadingEdgePointer,
+      child: Material(
+        key: const ValueKey<String>('location-chat-mention-sheet'),
+        color: GenesisColors.darkRaisedBackground,
+        borderRadius: GenesisBottomSheetPanel.borderRadius,
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: height,
+            child: Column(
+              children: [
+                SizedBox(
+                  key: const ValueKey<String>('location-chat-mention-header'),
+                  height: 48,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 15,
+                        child: SizedBox(
+                          height: 28,
+                          child: Center(
+                            child: Text(
+                              GenesisL10n.current.chatMention,
+                              style: TextStyle(
+                                color: _locationChatMentionPrimaryForeground,
+                                fontSize: 16,
+                                height: 1.6,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 16,
-                      top: 17,
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: TextButton(
-                          key: const ValueKey<String>(
-                            'location-chat-mention-collapse',
-                          ),
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(24, 24),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            backgroundColor: GenesisColors.darkFaintFill,
-                            foregroundColor:
-                                _locationChatMentionPrimaryForeground,
-                            shape: const CircleBorder(),
-                          ),
-                          child: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 18,
+                      Positioned(
+                        left: 16,
+                        top: 17,
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: TextButton(
+                            key: const ValueKey<String>(
+                              'location-chat-mention-collapse',
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(24, 24),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              backgroundColor: GenesisColors.darkFaintFill,
+                              foregroundColor:
+                                  _locationChatMentionPrimaryForeground,
+                              shape: const CircleBorder(),
+                            ),
+                            child: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              GenesisTabBar(
-                controller: _tabController,
-                labels: const <String>['Characters', 'Locations'],
-                horizontalPadding: 8,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                labelFontSize: 14,
-                labelColor: _locationChatMentionPrimaryForeground,
-                unselectedLabelColor: GenesisColors.darkTextSecondary,
-                expanded: true,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: GenesisBottomSheetDragDismissArea(
-                  onDismiss: () => Navigator.of(context).pop(),
-                  child: ScrollConfiguration(
-                    key: const ValueKey<String>(
-                      'location-chat-mention-tab-scroll-configuration',
-                    ),
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(overscroll: false),
-                    child: TabBarView(
+                GenesisTabBar(
+                  controller: _tabController,
+                  labels: <String>[
+                    GenesisL10n.current.chatCharacters,
+                    GenesisL10n.current.worldModelsLocations,
+                  ],
+                  horizontalPadding: 8,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  labelFontSize: 14,
+                  labelColor: _locationChatMentionPrimaryForeground,
+                  unselectedLabelColor: GenesisColors.darkTextSecondary,
+                  expanded: true,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: GenesisBottomSheetDragDismissArea(
+                    onDismiss: () => Navigator.of(context).pop(),
+                    child: ScrollConfiguration(
                       key: const ValueKey<String>(
-                        'location-chat-mention-tab-view',
+                        'location-chat-mention-tab-scroll-configuration',
                       ),
-                      controller: _tabController,
-                      physics: const ClampingScrollPhysics(),
-                      children: [
-                        _LocationChatMentionList(
-                          key: const PageStorageKey<String>(
-                            'location-chat-character-mentions',
-                          ),
-                          entries: widget.catalog.characters,
-                          emptyLabel: 'No characters',
-                          currentEntryIds: widget
-                              .catalog
-                              .currentLocationCharacters
-                              .map((entry) => entry.id.trim())
-                              .where((id) => id.isNotEmpty)
-                              .toSet(),
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(overscroll: false),
+                      child: TabBarView(
+                        key: const ValueKey<String>(
+                          'location-chat-mention-tab-view',
                         ),
-                        _LocationChatMentionList(
-                          key: const PageStorageKey<String>(
-                            'location-chat-location-mentions',
+                        controller: _tabController,
+                        physics: const ClampingScrollPhysics(),
+                        children: [
+                          _LocationChatMentionList(
+                            key: const PageStorageKey<String>(
+                              'location-chat-character-mentions',
+                            ),
+                            entries: widget.catalog.characters,
+                            emptyLabel: GenesisL10n.current.chatNoCharacters,
+                            currentEntryIds: widget
+                                .catalog
+                                .currentLocationCharacters
+                                .map((entry) => entry.id.trim())
+                                .where((id) => id.isNotEmpty)
+                                .toSet(),
                           ),
-                          entries: widget.catalog.locations,
-                          emptyLabel: 'No locations',
-                        ),
-                      ],
+                          _LocationChatMentionList(
+                            key: const PageStorageKey<String>(
+                              'location-chat-location-mentions',
+                            ),
+                            entries: widget.catalog.locations,
+                            emptyLabel: GenesisL10n.current.chatNoLocations,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1071,8 +1122,8 @@ class _LocationChatMentionHereLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Here',
+    return Text(
+      GenesisL10n.current.chatHere,
       style: TextStyle(
         color: GenesisColors.darkTextTertiary,
         fontSize: 12,

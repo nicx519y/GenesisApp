@@ -1,4 +1,5 @@
 import '../api_client.dart';
+import '../../l10n/app_language_controller.dart';
 import 'app_api.dart';
 import 'common_api.dart';
 import 'device_api.dart';
@@ -23,11 +24,13 @@ class GenesisV1Api {
   GenesisV1Api(
     ApiClient client, {
     CurrentUserInfoSessionProvider? currentUserInfoSessionProvider,
+    AppLanguageController? languageController,
   }) : app = AppV1Api(client),
        device = DeviceV1Api(client),
        user = UserV1Api(
          client,
          currentUserInfoSessionProvider: currentUserInfoSessionProvider,
+         languageController: languageController,
        ),
        origin = OriginV1Api(client),
        world = WorldV1Api(client),

@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import '../../ui/tokens/genesis_colors.dart';
 
@@ -193,7 +194,9 @@ class WorldListItem {
   }
 
   String get subtitle => displaySubtitle.trim().isEmpty
-      ? 'Updated ${formatGenesisTimestamp(updatedAt)}'
+      ? GenesisL10n.current.updatedAt(
+          timestamp: formatGenesisTimestamp(updatedAt),
+        )
       : displaySubtitle.trim();
 
   String get progressSummary => lastProgressSummary.trim();
@@ -209,15 +212,20 @@ class WorldListItem {
 
   String get cardTickLabel {
     final subTick = lastProgressSubTickNo > 0 ? '-$lastProgressSubTickNo' : '';
-    return 'Tick $lastProgressTickNo$subTick';
+    return GenesisL10n.current.tickNumber(
+      tick: lastProgressTickNo.toString(),
+      suffix: subTick,
+    );
   }
 
   String get progressTickTimeLabel {
     final parts = <String>[];
     if (lastProgressTickNo > 0) {
       parts.add(
-        'Tick $lastProgressTickNo'
-        '${lastProgressSubTickNo > 0 ? '-$lastProgressSubTickNo' : ''}',
+        GenesisL10n.current.tickNumber(
+          tick: lastProgressTickNo.toString(),
+          suffix: lastProgressSubTickNo > 0 ? '-$lastProgressSubTickNo' : '',
+        ),
       );
     }
     final currentTime = lastProgressCurrentTime.trim();
@@ -277,13 +285,20 @@ class _WorldSummary extends StatelessWidget {
     final character = item.myCharacter;
     final characterName = character == null
         ? ''
-        : _mapString(character, const ['name'], fallback: 'Character');
+        : _mapString(
+            character,
+            const ['name'],
+            fallback:
+                GenesisL10n.current.homeWorldCharacter,
+          );
     final otherPlayerCount = character == null || item.playerCnt <= 1
         ? 0
         : item.playerCnt - 1;
     final otherPlayerLabel = otherPlayerCount == 1
-        ? '· 1 other Player'
-        : '· $otherPlayerCount other Players';
+        ? GenesisL10n.current.homeWorldSingleOtherPlayer
+        : GenesisL10n.current.homeWorldOtherPlayers(
+            otherPlayerCount: (otherPlayerCount).toString(),
+          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

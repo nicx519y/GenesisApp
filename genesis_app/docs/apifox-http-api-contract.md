@@ -91,7 +91,8 @@ Origin detail 增量核对时间：2026-08-05
 | origin | GET | `/api/v1/origin/hot_tags` | Origin 热门标签 |
 | origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | app | GET | `/api/v1/app/config` | App 启动全局配置 |
-| device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust 和广告标识 |
+| device | POST | `/api/v1/device/setlanguage` | 设置设备及当前登录用户语言 |
+| device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust、广告及 Firebase Analytics 标识 |
 | event | POST | `/api/v1/event/report` | 上报归因事件供服务端转发 Adjust S2S |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | origin | GET | `/api/v1/origin/map` | 读取 Origin 2.5D 地图 |
@@ -513,6 +514,8 @@ Apple 登录。请求和响应结构与 Google 登录一致。
 响应 `data`：空对象。
 
 ### GET `/api/v1/user/info`
+
+`data.user.language` 返回目标用户的设置语言，未设置时为空字符串。仅当前登录账号的响应用于更新本机语言；查询他人不影响本机语言。
 
 客户端不使用本接口反查或恢复 UID。当前账号查询前会先校验本地 UID；UID 缺失或为 `guest_` UID 时，直接清除 UID、Token 和缓存用户资料并按未登录处理。启动和会话校验还会同时检查 `auth token`，登录态不完整时同样清理。查看公开用户资料时继续显式传 `uid`。
 
@@ -1093,6 +1096,7 @@ Query：
 
 响应 `data`：
 
+- `language`: string，可为空；当前设备的设置语言。启动时非空有效值覆盖系统语言；为空或请求失败继续使用系统语言。
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
 - `show_personalization_form`: boolean；控制新用户填表入口。默认 `false`，启动时仅成功获取 boolean `true` 才请求 `/api/v1/device/personalization`，按当前身份的 `completed` 判断是否弹出表单；获取失败、字段缺失、`null` 或类型错误均不查询、不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
 - `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
@@ -1490,7 +1494,7 @@ Inspiration 及正式/候选 batch 在 HTTP 200 envelope 的 `data` 同级返回
 
 成功结果模型提供可选 `ChatroomFeatureQuota quota`。`remaining=0` 的最后一次操作仍已成功，不撤销正文或灵感；缺失、格式错误或功能不匹配的可选 quota 不把已提交成功改成失败。真实 POST 开始时捕获 `ChatroomHttpApi.onFeatureQuotaRequest` 回调，在合法成功/2030 响应中更新对应额度；GET 和灵感缓存复用不调用该回调，缓存序列化也不保存旧 quota。
 
-`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），英文文案为 `Feature quota exhausted`。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
+`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），异常保留服务端响应供诊断；Edit 保存的用户提示使用本地化 `chatEditFreeUsesExhausted`（英文 `No free edits remaining.`，繁中 `免費編輯次數不足`）。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并拉起订阅 sheet（来源 `from_chat_edit_save_quota`），保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
 
 ### POST `/aitown-chat/api/v1/worlds/{world_id}/locations/{location_id}/inspiration`
 
@@ -2653,10 +2657,10 @@ World：
 - 未登录用户不请求 wallet、不按游客月年会员类型做客户端购买拦截。游客继续依据 `/membership/guest/purchase/check` 的 `has_unbound_order` 触发登录绑定；该字段不是会员有效状态。启动时优先用已购买缓存中的 UUID 调用 check，不查询商店；没有已购买缓存时才只读查询当前 App 的 Google SUBS / Apple 有效订阅，排除待付款及已过期订单，按购买时间选择最新一笔取得原 UUID，只查这一笔。仅 prepare 的临时身份不参与 check；false 是正常结果，不触发退避重试。平台交易校验、归属校验、购买成功后的 report、成功弹窗 OK、强制登录及 claim 退避重试保持原链路。
 - 商品展示缓存为 v3，按账号、平台和环境隔离，仅存展示与选中套餐配置。last_account_uuid 和 has_subscription_order 仅保留本次响应的内存下单快照，不写商品磁盘缓存；重新进入或切换账号后使用新响应。report/claim 状态变化继续使快照失效并刷新商品。
 - 年付卡片展示完整年价除以 `billing_months` 的月均金额，底部按钮展示完整周期价格；币种及月额度相同才按月价乘 12 与年价计算 Save。实际扣款由商店确认。展示列表不查询平台，点击购买才查询匹配 store product/base plan/offer。
-- `report=completed` 后登录用户刷新 wallet，游客保留待绑定证明；accepted 提示确认中，rejected 提示失败。任一业务状态都结束 report，不再补报；claim 独立处理，完成后刷新 wallet，不重新触发 report。
+- `report=completed` 后登录用户刷新 wallet，游客保留待绑定证明；`report=rejected` 提示失败。购买 report 只接受这两种业务状态且不再补报；claim 独立处理，完成后刷新 wallet，不重新触发 report。
 - 商品权益仍由服务端返回并按当前套餐展示；title 保持现有固定页面标题行为，价格及权益不补本地数据。`enhanced/locked/included`、图标映射和加载表现保持现有样式。未登录仍隐藏 Buy Gems 和购买历史入口。
 - 普通 Gems 使用 `wallet.balance_cent`，会员 Blue Gems 使用 `membership.blue_gems_cent`，互不替换；原 Gems 购买、签到、补报逻辑不变。
-- 签到确认弹窗通过全局 `checkVip(callback)` 区分会员：有效会员把原 `Get 100` 按钮替换为 `Cancel`（去掉宝石图标），点击只关闭弹窗；`Check in` 保持原来的第二行位置、样式和签到行为，不展示订阅入口；明确非会员（含过期会员）的未签到弹窗保留 `Get 100` / `Check in`。签到入口（登录后自动弹出与 Buy Gems 手动入口共用）先等待当前账号的游客 claim 本轮处理及其完成后的 wallet 刷新，再调用全局 checkVip；不能用登录后、绑定前返回的非会员缓存提前选定弹窗按钮。claim 仍 accepted、失败或等待超时，以及绑定后 wallet 刷新失败时，都按会员状态暂不可确认处理。会员信息暂不可用时保留普通签到和取消，不引导重复订阅。会员待领奖按钮也使用 `Check in` 文案，底层仍按任务状态调用原 report/claim；已领取的禁用状态和奖励展示不变。登录后自动签到和 Buy Gems 签到入口共用此处理。
+- 签到确认弹窗通过全局 `checkVip(callback)` 区分会员：有效会员把原 `Get 100` 按钮替换为 `Cancel`（去掉宝石图标），点击只关闭弹窗；`Check in` 保持原来的第二行位置、样式和签到行为，不展示订阅入口；明确非会员（含过期会员）的未签到弹窗保留 `Get 100` / `Check in`。签到入口（登录后自动弹出与 Buy Gems 手动入口共用）先等待当前账号的游客 claim 本轮处理及其完成后的 wallet 刷新，再调用全局 checkVip；不能用登录后、绑定前返回的非会员缓存提前选定弹窗按钮。claim 被 rejected、请求失败或等待超时，以及绑定后 wallet 刷新失败时，都按会员状态暂不可确认处理。会员信息暂不可用时保留普通签到和取消，不引导重复订阅。会员待领奖按钮也使用 `Check in` 文案，底层仍按任务状态调用原 report/claim；已领取的禁用状态和奖励展示不变。登录后自动签到和 Buy Gems 签到入口共用此处理。
 - 2026-09-18 登录后的自动签到先等待当前账号游客 claim 及绑定后的 wallet 刷新完成，再请求 `gem/tasks` 获取签到金额与任务状态；不能提前保存绑定前的 `reward_gems_cent` 后仅刷新会员按钮。金额完全使用任务接口返回值，不在客户端按会员身份翻倍或写死 100。绑定仍未确认、等待超时或请求失败时跳过本次自动提示，避免显示未确认奖励及主 Tab 立即重复调度；切换账号、离开可展示页面后忽略迟到结果。
 - 本地 mock 返回 `{data: {list: [], last_account_uuid: "", has_subscription_order: false}}`，不伪造商品、标题、价格和权益。
 - 仅 Debug 包在 Subscription 购买按钮上方原有间距内显示 `debug 订单 id：…`。读取当前会话最近一次主动购买回调的 `transactionId`（Google 商店订单号／Apple 交易 ID），取得前显示 `暂无`；不使用本地 request_id、report_id、商品 ID 或 purchase_token 代替。新购买及切换账号清空显示，旧订单的后台补报不覆盖新购买。只观察现有购买状态，不增加网络或商店查询，Profile/Release 不显示该行且保留原布局。
@@ -2674,18 +2678,20 @@ World：
 ## Adjust 设备标识注册（2026-09-23 核对）
 
 - `POST /api/v1/device/register`：游客与登录用户均可调用。当前 Gateway 请求链提供必填 `X-Device-ID`、`X-App-ID`、`X-Platform`；UID 由服务端 session 读取，不在 body 中传递。
-- body 必填 `adid`、`environment`；`environment` 与当前进程的 Adjust SDK 环境保持一致，SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`。可选字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。客户端只在 Adjust 已取得非空 ADID 后调用。
-- 启动后注册为 best effort，不阻塞首帧。ADID 尚未取得或请求失败时，在下一次前台恢复重试；登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册。
-- 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
+- `adid` 服务端非必传；客户端暂未取得时传空串，服务端保留已有 ADID，新设备默认空串。客户端继续传 `environment`，与当前进程的 Adjust SDK 环境保持一致：SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`；当前 Apifox 请求体模型未列出该字段，保留现有客户端行为。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`；这些字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。
+- 启动后注册为 best effort，不阻塞首帧。四个标识分别尝试读取，取到就传：ADID 未取得时传空串；Android `gps_adid` 优先使用 Adjust `getGoogleAdId()` 的当前有效值，Adjust 返回空白、全零或读取失败／超时才实时通过 Google Play Services `AdvertisingIdClient` 读取；两者均不可用时传空串，不使用历史 GAID 缓存。iOS `idfa`、`idfv` 未取得（包括 SDK 返回空白、异常或超时）时也传空串。任何一个标识缺失都不阻断本次注册；按当前服务端契约，后三个字段传空串会清除其已有值。后续会话回调、前台恢复等时机可补齐新取得的值，请求失败按有限次数重试。登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册；空 ADID 的成功请求不视为 ADID 已补齐。
+- Gems／订阅共用完整购买页和购买底部弹层，任一标签在该页面／弹层实例中首次展示后，非阻塞地调用一次强制注册，重新读取当前平台的标识并实际发送请求；重建、同实例重复切换和回前台不因该兜底逻辑额外重复发送。重新打开购买页／弹层可再次兜底，不改变购买流程。
+- 本接口只保存设备与 Adjust／广告／Firebase Analytics 标识映射，不直接上报归因事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
+- 新增 `app_instance_id` 字符串字段：Android／iOS 均从 Firebase Analytics SDK 读取，去除首尾空白；取不到、返回空白、异常或超时时传 `""`，不阻断本次注册。该字段纳入进程内参数变化去重；Firebase 初始化完成后会再检查一次，后续正常注册触发时也重新读取并补报。它不是 Adjust ADID、Firebase App ID 或 Firebase Installation ID。服务端需确认接收、保存及空串更新语义；客户端代码和本地请求测试不代表服务端已上线该字段。
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 
-- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at`、购买类事件必填的 `transaction_id` 和字符串 map `params`。`occurred_at` 是事件进入 Firebase/S2S 共用上报入口时采集的 UTC Unix 秒时间戳；持久化重试保留原值。
-- 客户端同步 Firebase 当前实际触发的 16 个事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`、`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。本次不发送 `first_open` 和 `subscription_renew`。
-- 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`；购买事件参数为 `provider/product_id/device_id`，仅商店价格和 ISO 4217 币种同时有效时额外传 `value/currency`。S2S 的参数名和值与同次 Firebase 调用一致，值按接口要求转为字符串；不补造缺失参数。
-- 12 个购买衍生事件必须传不带业务类型前缀的 `transaction_id`：`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。Gems 优先使用服务端交易号，其次使用商店交易号或本次购买凭据；订阅使用当前付款周期商店交易号，缺失时回退本次购买凭据。登录和消息四个设备唯一事件不传 `transaction_id`。
-- 设备唯一事件先检查现有 Firebase 本地一次性标记：已标记为上报的老用户不向 Firebase 或 S2S 补报；未标记时才同时进入 Firebase 与 S2S。逐笔购买事件继续按交易身份独立判断，不受其他历史交易影响。
-- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
+- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at`、字符串 map `params` 和顶层布尔值 `reportFirebase`；下列 12 个购买事件另传 `transaction_id`，且 `reportFirebase: true`；下列 4 个首次登录／消息事件也为 `true`，其他事件默认 `false`。`occurred_at` 是事件触发时采集的 UTC Unix 秒时间戳；持久化重试保留原值，`reportFirebase` 在发送时计算，包括已入队的旧事件。客户端不直接向 Firebase 上报这 16 个事件，由后端根据该字段转发；普通 `login`、`message_sent` 的客户端 Firebase 上报保留。
+- 登录、消息事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`，客户端仅入队上报本接口并传 `reportFirebase: true`，由服务端转发 Firebase。购买事件仅由商店 `purchased` 回调进入本接口，不通过客户端直接发送至 Firebase Analytics：`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。不包含 `subscription_renew`。
+- 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`。S2S 保留原 Firebase 事件的参数名和值，值按接口要求转为字符串；这四个事件不传 `transaction_id`。
+- 购买事件参数为 `provider/product_id/device_id`，商店价格与三位货币码有效时再传 `value/currency`。`transaction_id` 来自当前商店交易凭据；普通事件按商店购买凭据去重（Google purchase token、Apple transaction ID），`_first` 事件按设备及上报环境只发送一次。Day0 以首次 Gateway 服务端时间同步为锚点，按 UTC+8 自然日判断；旧版事件的一次性标记继续生效，避免升级后重复上报。
+- 设备唯一事件先检查现有 Firebase 本地一次性标记：已标记为上报的老用户不向 Firebase 或 S2S 补报；未标记时，这四个首次事件仅进入持久化 S2S 队列，入队成功后记录原一次性标记。入队失败不记标记；网络失败由队列重试。`reportFirebase` 仍在发送时计算，旧待发送记录也遵循当前规则，不增加队列迁移。
+- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。已在旧版 SQLite v5 升级时清除的积压购买事件无法恢复；当前允许列表中的购买事件及其未送达队列可正常发送。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
 
 ## Pro 会员购买与上报（2026-09-16 更新）
 
@@ -2704,19 +2710,19 @@ World：
 - VIP 弹窗按本次 `request_id` 订阅状态，后台恢复或其他订单不能改变当前弹窗。Android、iOS 的两段超时与 Gems 对齐：点击进入购买立即开始 90 秒准备计时，覆盖本地加载、身份/资格检查、商店商品查询、游客 prepare、UUID 获取和发起支付；阶段切换不重置。Google 成功调起后停表，Apple 在原生准备完成、正式调用 `Product.purchase` 前通知 Dart 校验请求并停表，用户在系统支付页停留不计时。收到本次 SDK 购买结果后进入对应处理，后续 report 使用 HTTP 请求自身的超时，技术失败不重试，正常上报期间继续显示原等待弹窗。准备超时后结束等待，尚未发起的支付不得被迟到结果继续拉起，旧查询/发起结果不得覆盖后续购买或已收到的购买回调；已发起订单保留凭据和原请求键，迟到的真实回调可发起尚未执行的 report 及游客绑定。商店回调流异常、账号切换和页面销毁仍释放弹窗，包括正在 report 的弹窗。Gems 弹窗默认文案及原有 GEMS 上报、发货和恢复处理不变。
 - 登录购买上报 `POST /api/v1/membership/purchase/report`；游客上报 `POST /api/v1/membership/guest/purchase/report`，游客请求额外携带平级 `account_uuid`。共同字段为 `provider`、`store_product_id`；Google 额外传 `purchase_token`；Apple 额外传 `transaction_id`，游客 report/claim 还必须传 `signed_transaction`（StoreKit 签名交易 JWS）。2026-09-10 按用户最新要求，Android / iOS 登录 report、游客 report 及独立 claim 的请求均不发送 plan_code、request_id；两种 HTTP 请求模型已删除 requestId 字段及其校验。Google base_plan_id 也继续省略；商品目录及本地 checkout 保留套餐、base plan 与 offer 用于选择和匹配。prepare/check 原本就不传 plan_code 或 request_id。不传金额、uid、任意 payload 或客户端猜测的生产环境。
 - 游客购买成功后，由本次支付回调确定待 claim 订单；同 UUID 的旧未绑定记录不能替换它。登录后直接复用本次 report 的完整购买参数（包括 Apple JWS）请求 claim；完整凭据保存在安全存储中，重启也不重新查询 Apple。对于旧版本尚未绑定账号、未提交 claim、缺少 JWS 且误指向较早 completed report 的记录，启动时按本地付款凭据的持久化顺序修正为该 UUID 最近一笔 completed report，再按其原交易读取签名；已绑定账号或已收到 claim 状态的凭据不替换。本地 request_id 仅用于关联回调、弹窗、内存去重及游客绑定证明，不进入 HTTP 请求、查询参数或请求头。2026-09-17 已核对最新 Apifox claim 文档：明确不接收 request_id，plan_code 可省略；当前 claim 请求与此一致。
-- report 响应必须有合法业务 envelope 和 `data.status`，模型读取 status 及可选的 reason，不读取 report_id、membership_id。允许 completed、accepted、rejected；缺失或未知状态结束本次上报并提示 `Report failed.`，不重试。2026-09-17 按用户要求，rejected 的 Toast 使用可读文案：`account_mismatch` 与 Google 身份不一致错误共用 `Account identifiers don't match the previous subscription.`；其他原因（包括 `subscription_superseded`、缺失、空白或非字符串 reason）统一显示 `We couldn’t verify your subscription. Please contact support.`。不直接展示错误码，不表示 Apple 刚发生订阅变更。原始 reason 保留在本次记录中用于排查，不参与 UUID 比较或购买拦截。
-- report 的 completed 才表示官方校验及同步完成，随后刷新 wallet 并显示成功；accepted 提示确认中，rejected 显示上述 reason 文案。任一业务状态都结束本次 report，重复回调不重报。不创建持久化报告队列，不在启动、前台或定时器中恢复 report。仅平台 purchased 回调携带有效凭据时发送一次 report；pending、restored、取消及失败回调均不上报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误、业务错误、无效响应及未知状态均不重试；report 异常提示 `Report failed.`。
+- report 响应必须有合法业务 envelope 和 `data.status`，模型读取 status 及可选的 reason，不读取 report_id、membership_id。只允许 completed、rejected；缺失或未知状态结束本次上报并提示 `Report failed.`，不重试。2026-09-17 按用户要求，rejected 的 Toast 使用可读文案：`account_mismatch` 与 Google 身份不一致错误共用 `Account identifiers don't match the previous subscription.`；其他原因（包括 `subscription_superseded`、缺失、空白或非字符串 reason）统一显示 `We couldn’t verify your subscription. Please contact support.`。不直接展示错误码，不表示 Apple 刚发生订阅变更。原始 reason 保留在本次记录中用于排查，不参与 UUID 比较或购买拦截。
+- report 的 completed 才表示官方校验及同步完成，随后刷新 wallet 并显示成功；rejected 显示上述 reason 文案。任一业务状态都结束本次 report，重复回调不重报。不创建持久化报告队列，不在启动、前台或定时器中恢复 report。仅平台 purchased 回调携带有效凭据时发送一次 report；pending、restored、取消及失败回调均不上报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误、业务错误、无效响应及未知状态均不重试；report 异常提示 `Report failed.`。
 - Apple 自动续订购买直接调用 StoreKit `Product.purchase`，不扫描或拦截历史未完成订阅，不用本地到期时间、会员状态或旧订单替代平台结果；保留两端共有的有效年会员转月套餐弹窗及账号/商品/并发保护。Gems 等非订阅商品保留原未完成交易检查。
 - 2026-09-17 按用户要求统一商店收尾职责：Android / iOS 客户端上报真实购买凭据，不调用 acknowledge、consume 或 finish。服务端验单并持久化权益后，Google 初次订阅调用 acknowledge，Apple 调用 [App Store Server API Finish Transaction](https://developer.apple.com/documentation/appstoreserverapi/finish-transaction)，失败由服务端持久化任务重试。Apple 的 finish 不能用成功接收 report 或验单代替。这里约定职责，不代表已验证线上服务端实现。所有 report 状态均停止客户端报告；旧缓存只清理，不发起网络补报。游客购买证明独立留给 claim，旧 finished 字段仅作格式兼容。
 - Apple `Product.purchase` Future 已返回后，若 10 秒内仍未收到能关联本次购买的回调，结束前台等待并提示确认延迟，保留原身份与迟到回调处理。该计时不包含用户停留在 Apple 付款页的时间；正常回调收到后停止计时，report 沿用原 HTTP 超时。历史或其他账号回调不冒充本次成功，不自动重扣款或 finish。Android 调起后的等待行为不变。
 - Apple 本次 `Product.purchase` 的直接结果通过原生桥接回传本地 `checkoutAttemptId`，用于关联对应点击，不进入 Apple 购买参数、HTTP 或持久化。本次成功回调携带有效凭据后直接执行 report；即使回调商品与点击套餐不同，也按 checkoutAttemptId 接收，report/claim 使用回调商品 ID 和对应交易凭据，清除不适用的所选商品价格，不额外查询商品或等待 10 秒。不查找或比较本地历史 transactionId，不复用历史 report 状态，不生成本地“已拥有”提示。同一次购买按 requestId 去重，不比较 transactionId；同一交易的成功埋点仍去重。后台续费、恢复及未完成交易查询不携带该标识，只能继续唯一的待处理回调，不能占用刚发起的购买；迟到的直接结果仍按原点击处理。游客 claim 保留原始购买证明，该证明不用于拦截新购买。
 - VIP 本地持久化只用于游客购买身份/认领，不保存 report 重试队列。准备、取消、调起失败及无凭据回调不保存历史订单；登录购买任何 report 结果均不生成持久化记录，不另存成功订单归档。游客在调起支付前先单独持久化本次 UUID，保存失败不调起支付；仅身份缓存不表示已付款，不触发 check、登录或购买拦截。明确取消或平台拒绝调起时删除该次未成交 UUID；若同 UUID 仍有已付款凭据、待付款记录或已绑定归属，则保留。超时及未知网络错误不作为取消。付款后保存绑定所需凭据与购买时间；claim completed 且钱包刷新及本地清理成功后删除 UUID 和购买凭据，商店收尾由服务端负责，不留已绑定身份缓存。
-- iOS 历史交易查询从 `Transaction.all` 保留每笔已验证交易的 JWS，包括已 finish 的原订单；重启后的游客 claim 优先复用安全保存的原签名；仅旧缓存缺签名时按原交易 ID、商品恢复已验证签名，不因 UUID 差异丢弃 JWS，最终归属由服务端按签名判断；不用最新续费交易替换原凭据。重装后无本地 report 的认领在 `claim=completed` 后清理本地认领凭据，Apple finish 也由服务端按已验证交易处理。客户端本地清理失败保留 completed claim 及原凭据，重启后只重试清理，不重复 claim；`accepted/rejected` 保留对应凭据与原有重试/归属处理。客户端不批量 finish 订阅链中的历史交易。
+- iOS 历史交易查询从 `Transaction.all` 保留每笔已验证交易的 JWS，包括已 finish 的原订单；重启后的游客 claim 优先复用安全保存的原签名；仅旧缓存缺签名时按原交易 ID、商品恢复已验证签名，不因 UUID 差异丢弃 JWS，最终归属由服务端按签名判断；不用最新续费交易替换原凭据。重装后无本地 report 的认领在 `claim=completed` 后清理本地认领凭据，Apple finish 也由服务端按已验证交易处理。客户端本地清理失败保留 completed claim 及原凭据，重启后只重试清理，不重复 claim；`rejected` 保留原归属和凭据，但不再自动重试。客户端不批量 finish 订阅链中的历史交易。
 - `purchased/restored` 回调缺少凭据时不发送 report，也不生成旧订单恢复记录或阻止新购买；本次操作在内存中保留，迟到的真实回调仍可按原套餐上报。客户端不再通过旧缓存判定 purchase_processing，除 wallet 有效年转月限制外由平台处理购买资格，当前正在发起的支付仍防重复点击。
 - GEMS 回调与商店恢复入口增加会员分流，已知 GEMS 操作和持久记录沿用原处理。VIP 不进入 Gem 上报、发货弹窗或 Gem 埋点路径；互相购买期间拦截重复调起。普通 GEMS 请求和 TAB 按需加载保持原逻辑。
 - 会员接口继续排除 App 持久化网络捕获和原生 body 采集，使用支持按请求排除采集的 HTTP/2 传输。按产品要求，Debug 包的 Flutter DevTools 对 products、prepare、report、check、claim 显示原始 URI/header/body/响应及错误，不替换 UUID、token 或 JWS；非 Debug 的 products/report/check 保持脱敏，prepare/claim 不创建 profile。普通日志仍只记状态、错误类型及结构化错误码。
 - Subscription 页只加载商品，不自动查询并保存商店已购记录。启动、回前台和定时任务只维护游客身份/claim，不发起 report；无法关联当前购买的商店历史回调不创建报告记录。
-- 升级时清理旧 report/restore 缓存，无论失败、accepted 或终态，都不迁入新补报队列、不调用 report。已付款游客凭据仅保留为 claim 证明；清理存储失败只重试清理，不恢复报告。
+- 升级时清理旧 report/restore 缓存，无论旧状态为何，都不迁入新补报队列、不调用 report。已付款游客凭据仅保留为 claim 证明；清理存储失败只重试清理，不恢复报告。
 - Android、Apple 均不再因启动或进入 Subscription 而生成旧订单队列。已取得服务端最终状态但本地清理尚未完成时只重试本地清理，不重复 report；这类短暂清理重试不阻止新购买。
 - 补报复用实际购买时的 store_product_id 和凭据，HTTP 请求不发送 plan_code、request_id 或 base_plan_id；本地快照的套餐及记录编号不会重新注入上报参数。未知套餐的商店历史不猜测、不落入补报队列。已登录升级继续使用最新商品列表返回的原订阅 UUID/token 和目标 base plan，不依赖本地成功订单历史。
 - 本地 mock 对 prepare/report 返回 `5000`，不伪造购买身份、商店验单或会员发放。
@@ -2724,11 +2730,11 @@ World：
 ## 游客会员订单启动检查（2026-09-14）
 
 - App 主界面首次显示后（包括默认进入 Worldo 标签、尚未构建 Home），优先使用已购买缓存中的最新 UUID 调用 `POST /api/v1/membership/guest/purchase/check`。没有已购买缓存才用会员专用只读查询发现当前 App 的 Google SUBS / Apple 有效订阅，排除 pending 及过期订单，选择购买时间最新的一笔，用其 `obfuscatedAccountId` / `appAccountToken` 调用 check；不逐个检查历史 UUID，包括无缓存重装场景。已登录跳过；并发入口调用共用一个任务，登录或切账号使迟到结果失效。
-- 商店发现不要求先打开 VIP 页面或加载商品套餐；check=true 且已选定最新购买证明时，单独缓存 UUID、原商品 ID、Google token / Apple transaction ID 和新建后固定的认领 request_id，触发强制登录。此缓存不创建旧订单/补报记录，不调用 prepare/report。登录成功后，使用缓存购买证明直接进入 claim 及其失败/accepted 重试；Apple JWS 随该证明保存到安全存储，重启后直接复用；旧缓存缺签名时才按原交易读取。若不同交易证明的购买时间相同、无法确定最新一笔，则保留待处理，不任意选链认领。
+- 商店发现不要求先打开 VIP 页面或加载商品套餐；check=true 且已选定最新购买证明时，单独缓存 UUID、原商品 ID、Google token / Apple transaction ID 和新建后固定的认领 request_id，触发强制登录。此缓存不创建旧订单/补报记录，不调用 prepare/report。登录成功后，使用缓存购买证明直接进入 claim 及其请求异常重试；Apple JWS 随该证明保存到安全存储，重启后直接复用；旧缓存缺签名时才按原交易读取。若不同交易证明的购买时间相同、无法确定最新一笔，则保留待处理，不任意选链认领。
 - 2026-09-10 按用户最新要求，Android / iOS 登录 report、游客 report、claim 均不发送 plan_code 和 request_id，新购买、已有套餐缓存、无缓存重装及失败重试均适用。两端都使用原 UUID、商品 ID 和平台购买证明，认领流程不加载商品目录判断套餐。Apple 仍必须携带原 transaction_id 和对应 JWS。旧认领缓存的套餐字段读取时忽略，凭据和本地记录编号保留；本地编号不会进入 MembershipClaimRequest 或 MembershipPurchaseRequest。后端契约同步边界见上节。
 - 请求仅传原 account_uuid，不重新 prepare。`has_unbound_order=true` 触发强制登录，false 不弹；check 不用于设置 VIP 权益。接口失败保留缓存，不把失败当成 false。商店/check 请求各有 15 秒超时；查询失败、已付款但缺身份/凭据或无法确定最新订单时，最多自动退避重试 3 次（默认 15/30/60 秒）。pending 不参与 check，等实际付款回调后重新检查；check=false 正常结束，不发起重试。成功结果在 30 秒内复用，回前台不清空结果或重置重试；会话变化和新的购买状态才使其失效，重复交易回调去重。首页重入及回前台不能绕过已排定的退避；正常无订阅结束本轮，不无限轮询。两种布尔结果本身均不删除 UUID。
 - 本次游客购买的成功弹窗 → OK → 强制登录顺序保留。付款后缓存原 UUID、套餐、request_id、Google token 或 Apple transaction_id，供登录后按原凭据 claim。Apple JWS 随原交易凭据写入安全存储，重启后直接用于 claim，完成后一起清理。
-- 绑定 completed 且钱包刷新及本地清理成功后，删除对应游客 UUID、归属和认领缓存、购买凭据及终态 report 残留，停止自动 claim；旧版已绑定 UUID 缓存也在恢复时清理。之后退出登录由平台重新发现身份并交由 check 判断。失败/accepted 的 claim 仍固定原 owner_uid 重试，不能转给另一个账号。新游客购买复用同一 UUID 时建立新的待绑定缓存，不沿用上一次绑定账号。
+- 绑定 completed 且钱包刷新及本地清理成功后，删除对应游客 UUID、归属和认领缓存、购买凭据及终态 report 残留，停止自动 claim；旧版已绑定 UUID 缓存也在恢复时清理。之后退出登录由平台重新发现身份并交由 check 判断。请求异常的 claim 仍固定原 owner_uid 重试，不能转给另一个账号。新游客购买复用同一 UUID 时建立新的待绑定缓存，不沿用上一次绑定账号。
 - report 不做退避、持久化或重启补报；技术失败也只发送一次，不重试，所有业务状态结束报告。Gems 购买和恢复流程不变。
 - check 原始请求仍排除 App 持久化网络捕获及原生 body 采集；Debug DevTools profile 显示原始 account_uuid、header 和响应，非 Debug profile 仅展示 HTTP 状态、err_no 和 has_unbound_order，不展示 UUID 或认证凭据。
 
@@ -2747,8 +2753,8 @@ World：
 - 游客购买后的强制登录成功时，根导航栈切换到 Me 并移除购买页面及其上层弹窗，返回键不能再次回到已完成的购买流程；完整购买页、购买弹层及重启恢复的登录拦截共用此处理。跳转不等待 claim 或 wallet 请求完成，绑定及原退避重试继续由全局会员服务处理；只有绑定完成后的原清理流程才删除游客缓存。取消/失败仍停留强制登录，普通登录和 Gems 购买不变。
 - 登录成功后独立调用 `POST /api/v1/membership/claim`，有本地游客 report 时复用其 `account_uuid/provider/store_product_id` 和平台凭据（Google `purchase_token`；Apple `transaction_id/signed_transaction`）。重装无 report 时使用商店原证明；Android / iOS 无论套餐是否已知均不传 plan_code、request_id。归属由真实登录会话决定，不发送 uid、device_id、guest_id 或 claim_token；禁止仅凭 UUID 认领。首次认领前安全保存所选登录账号，超时、失败和重启后保持该账号，切换到其他账号时不重新认领。认领失败不撤销登录成功。
 - 客户端 claim 成功响应模型按产品要求只保留 `status`，不解析响应中的 account_uuid、reason、membership。`completed` 后重新请求 `GET /api/v1/gem/wallet`，会员状态和 Blue Gems 只读取该接口，普通 Gems 仍使用 wallet 字段；不把 claim 状态直接当作会员有效。VIP 刷新会等待正在进行的旧 wallet 请求结束，再发起新请求，避免把绑定前的数据当作绑定后的结果；原 Gems 刷新行为不变。
-- claim 网络失败、业务错误、缺失或非法 status，以及 `accepted` 未完成状态，在本轮首次请求后按 15、30、60、120、240 秒最多退避重试 5 次。前后台切换、订单恢复和重复 recover 不绕过间隔或追加次数。`completed` 和 `rejected` 停止绑定重试；`rejected` 保留原归属，不转给其他账号。重试耗尽保留游客缓存，当前会话不再自动请求；下次启动或新的登录会话重新开启有上限的一轮重试，仍只能由已锁定的账号认领。
-- claim 的 accepted 只沿用独立绑定重试，不重置或重新发送购买 report；绑定处理中仍保留原身份与证明，不猜测订单。
+- claim 网络失败、业务错误、缺失或非法 status，在本轮首次请求后按 15、30、60、120、240 秒最多退避重试 5 次。前后台切换、订单恢复和重复 recover 不绕过间隔或追加次数。`completed` 和 `rejected` 停止绑定重试；`rejected` 保留原归属，不转给其他账号。重试耗尽保留游客缓存，当前会话不再自动请求；下次启动或新的登录会话重新开启有上限的一轮重试，仍只能由已锁定的账号认领。
+- claim 仅接受 `completed`／`rejected`；请求异常只沿用独立绑定重试，不重置或重新发送购买 report；绑定处理中仍保留原身份与证明，不猜测订单。
 - 游客认领缓存独立安全持久化，保存原 UUID、购买确认状态、关联请求与凭据、归属和认领结果。登录成功本身不清缓存；claim completed 且收尾结束后删除认领所需交易凭据及 UUID 缓存，不保留登录用户的成功订单历史。此缓存只用于绑定，不用来恢复 report。
 - 先持久化绑定 completed 并刷新当前账号 wallet，再清理购买凭据，将 UUID 缓存压缩为已绑定身份。清理失败继续剩余步骤，不重复 claim，也不刷新其他账号权益。以后未登录启动仍对 UUID 调用 check，由结果决定登录弹窗；原始 claim body 继续排除捕获，mock 不伪造绑定。
 - VIP 服务监听统一 sessionRevision：普通登录、退出及接口触发的会话失效都会更新登录拦截与重试状态。账号变化会立即检查游客强制登录状态，不等待正在进行的网络恢复；已有恢复任务结束后再按新会话补跑，避免漏认领。登录购买 report 在发送前及异步获取凭据后再次检查账号，防止切换期间把旧订单作为新账号请求发送。
@@ -2772,6 +2778,27 @@ World：
 - 名字徽章仅用于展示。购买、钱包、会员卡及权限校验继续使用各自现有状态服务，不改授权或计费逻辑。
 
 
+### POST `/api/v1/device/setlanguage`
+
+Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
+
+必填 header：`X-Device-ID`，由当前设备身份提供。JSON body：`{"language":"zh-TW"}`。
+游客更新设备；登录用户同时更新设备及用户。成功响应为 `{err_no:0,err_msg:"succ",data:{device_id,language}}`；非零 err_no 按现有业务错误处理。
+
+客户端协议值固定为 `en`、`zh-TW`、`es`、`pt`、`fr`、`de`、`it`、`ja`、`ko`。config.language、data.user.language、setlanguage 请求、本地设置缓存及 x-setting-language 统一使用 `zh-TW`，不再接受旧协议值 `zh_TW`。Flutter 内部仍使用 Locale(zh, TW)，翻译资源文件与生成代码的 zh_TW 标识保留。
+
+公共 header 新增 `x-setting-language`：未获得用户设置语言时为空（不发送该 header），不使用系统语言填充；config、当前账号 user/info 的非空有效 language 表示已保存的设置，或手动保存成功后使用协议值。`x-system-language` 继续读取系统 locale，仅系统语言决定 UI 时不会产生设置语言。退出登录保留当前设置。
+启动优先读取有效本地语言缓存，无缓存时使用系统，再应用 config；当前账号非空 language 优先于 config，空值保持当前语言。config 迟到不能覆盖账号语言或手动切换。退出登录不改变语言。
+手动切换仅 err_no=0 后更新界面、header 和缓存；请求期间禁止重复提交；失败保持原语言并显示业务 err_msg。下一次启动先用缓存显示；config／userInfo 的有效语言仍优先，并同步更新缓存。服务端值与当前设置相同不重复切换、不递增数据语言版本；空值保留缓存／系统已确定的语言。当前界面语言包覆盖 en、zh-TW、es、pt、fr、de、it、ja、ko；繁中 ARB 内部标识为 zh_TW。
+
+
+### 切换语言后的页面数据刷新
+
+- 成功确认的请求语言变化时递增数据语言版本；保存失败、相同设置和空服务端 language 不触发刷新。
+- 保留页面 State、输入与筛选。可见数据页面刷新；被路由覆盖的页面、隐藏主 Tab 和列表子 Tab 在再次可见时检查版本并刷新。分页刷新从第一页开始。
+- `/api/` JSON GET/HEAD（除建立语言设置的 app/config、user/info）在返回时检查语言版本；旧版本结果按取消处理，不交给业务解析和页面。POST 等写操作正常完成，不因语言变化重发或取消。
+- Home、Worldo 首页及分类标签缓存按设置语言（未设置时按系统语言）区分；模型目录缓存按语言版本失效；Inbox 语言改变后的下一次同步使用全量会话请求，保留私信内容。
+- 不重建 App、不清理创建草稿、不重连聊天室、不重新翻译已发送的聊天／讨论原文。仍沿用各页面原有的错误提示与重试入口。
 ### P1 / P1i Tick 展示字段扩展（2026-09-23）
 
 `world/tick/list` 的 `list[].tick_result`、`origin/detail` 的 `ticks[].tick_result` 保持 `current_time/narrator/paragraphs`，新增 `global_status[]`。`paragraphs[]` 增加 `cast[{id,name}]` 和 `status[{owner,icon,form,content}]`，继续使用 `location_id/text/clue`。新结构无需 `visibility/visible_to/character_deltas`；客户端保留这些历史字段的读取。
@@ -2842,3 +2869,7 @@ Source: supplied `wallpaper.md` contract.
 - `GET /api/v1/world/miniphoneinfo?world_id=...`: required nonblank World ID; uses `world/info` visibility and permits guests. Returns `{background_image: string, default_background_images: [{image_url: string, title: string}]}` inside the standard `{err_no, err_msg, data}` envelope. Background is shared across Worlds for the current user; guests/unset backgrounds return `""`. An unconfigured catalogue returns `[]`.
 - `POST /api/v1/world/setminiphonebackground`: JSON `{world_id: string, background_image: string}`; logged-in, non-banned users only, visible World required, ownership is not required. Background belongs to the authenticated UID, not the World. Empty string clears it; otherwise use a credential-free HTTP/HTTPS URL of at most 512 characters, with no leading/trailing whitespace. Do not omit the field or send null. Repeated saves succeed. Success data is `{}`; nonzero `err_no` is an error even with HTTP 200.
 - MiniPhone requests on every opening while restoring account/environment-scoped local background and World-scoped catalogue data first; Settings reuses that result and exposes retry on failure. Background image files use the shared disk cache. An unchanged URL keeps the current image; a changed URL replaces it with a 300 ms crossfade only after the new image is downloaded and decoded. Request/image failures retain the last usable cached background. Selection is a draft until Apply succeeds. Device images use `POST /api/v1/upload/image` (multipart `file`) before saving the returned URL. Empty backgrounds, or unavailable backgrounds without a usable cache, display the bundled `wallpaper-01.png`; bundled images are not substituted for the server catalogue. The Reset phone action is not shown. Device selections use the shared Location-cover crop pipeline (1:2, crop size 1500 × 3000, decode longest edge ≤4096 and ≤16 million pixels, JPEG quality 90 or PNG when transparent, GIF rejected). There is no MiniPhone-specific 3 MiB input limit. Crop confirmation generates only a small in-memory preview. Apply prepares the full crop from the original selection, then uploads and saves it. The preview keeps its decoded image while a translucent black mask reveals the picture from bottom to top, without numbers or a spinner. Overall progress reserves 0–20% for image preparation, maps upload bytes to 21–90%, and starts at 91% during the background setter, then slowly simulates progress toward a 99% ceiling until actual success reaches 100%. Simulation stops on failure, account change, or page disposal. The button remains loading through submission. Successful preparation/upload is reused on retry. After the setter succeeds, full-resolution upload bytes are written to the shared disk cache under the returned URL, followed by account metadata; the on-screen preview is retained and no image re-download is required.
+
+### 2026-10-12 编辑页额度不足与历史轮次保存
+
+编辑页保存不再要求目标是当前最新轮次，不因 Tick 或轮次变化在客户端取消提交；仍用打开编辑页时的世界、地点、轮次及候选卡片 ID。服务端校验权限、可编辑状态和额度；无改动不请求，不能全删，消息 ID 校验和防重复提交继续保留。2030 展示一次本地化免费编辑次数不足 Toast，并打开会员 sheet；关闭或订阅后保留草稿，用户再次点击保存，不自动重试。其他错误仍按现有通路处理。

@@ -7,6 +7,7 @@ class GenesisMethodChannels {
   static const device = MethodChannel(deviceChannelName);
 
   static const getAndroidId = 'getAndroidId';
+  static const getGoogleAdvertisingId = 'getGoogleAdvertisingId';
   static const getAndroidSdkInt = 'getAndroidSdkInt';
   static const getAndroidDeviceIdDiagnostics = 'getAndroidDeviceIdDiagnostics';
   static const getDeviceIdentitySnapshot = 'getDeviceIdentitySnapshot';
