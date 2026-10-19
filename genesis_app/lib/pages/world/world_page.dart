@@ -57,7 +57,8 @@ import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_page_result.dart';
 import 'world_recap_cache.dart';
-import '../chat/location_chat_page.dart' show LocationChatOpeningPreview;
+import '../chat/location_chat_page.dart'
+    show LocationChatOpeningPreview, WorldHistoryViewCache;
 import 'world_sections.dart';
 import 'world_update_push_banner.dart';
 import 'world_update_push_target.dart';
@@ -241,6 +242,7 @@ class _WorldPageState extends State<WorldPage>
   );
   final _sectionsEventsCache = WorldSectionsEventsCache();
   final _recapCache = WorldRecapCache();
+  final _historyViewCache = WorldHistoryViewCache();
   static const _worldTickLockPollInterval = Duration(seconds: 10);
 
   void _setWorldPageState(VoidCallback callback) {
@@ -519,6 +521,7 @@ class _WorldPageState extends State<WorldPage>
   void didUpdateWidget(WorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.wid != widget.wid) {
+      _historyViewCache.dispose();
       _miniPhoneSession.dispose();
       _miniPhoneSession = MiniPhoneSession.forWorld(context, widget.wid);
     }
@@ -576,6 +579,7 @@ class _WorldPageState extends State<WorldPage>
     _mainTabController.dispose();
     _sectionsEventsCache.clear();
     _recapCache.dispose();
+    _historyViewCache.dispose();
     _locationChatPageCache.dispose();
     _tilemapRestorationController.dispose();
     _sectionsWorldNotifier.dispose();

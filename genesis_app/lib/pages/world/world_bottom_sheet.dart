@@ -32,7 +32,10 @@ import 'world_recap_cache.dart';
 import 'world_recap_section.dart';
 import 'world_sections.dart';
 import '../chat/location_chat_page.dart'
-    show WorldChatHistorySection, WorldChatHistoryBackground;
+    show
+        WorldChatHistorySection,
+        WorldChatHistoryBackground,
+        WorldHistoryViewCache;
 
 class WorldBottomTags extends StatelessWidget {
   const WorldBottomTags({
@@ -196,6 +199,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.newUserJoinNoticesListenable,
     required this.eventsCache,
     required this.recapCache,
+    this.historyCache,
     required this.currentUid,
     required this.recentChatLocationIds,
     required this.onLocationTap,
@@ -210,6 +214,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
   final WorldRecapCache recapCache;
+  final WorldHistoryViewCache? historyCache;
   final String currentUid;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint> onLocationTap;
@@ -233,7 +238,9 @@ class WorldSingleSectionBottomSheetState
 
   late final DraggableScrollableController _sheetController;
   late final PageController _pageController;
-  final _historyBackground = ValueNotifier<String>('');
+  late final _historyBackground = ValueNotifier<String>(
+    widget.historyCache?.backgroundImageUrl ?? '',
+  );
   late final List<ScrollController> _previewScrollControllers;
   var _changingPageFromSelection = false;
   var _sheetHostHeight = 1.0;
@@ -740,6 +747,7 @@ class WorldSingleSectionBottomSheetState
       ),
       WorldBottomSheetKind.events => _buildEventsSectionPage(scrollController),
       WorldBottomSheetKind.history => WorldChatHistorySection(
+        cache: widget.historyCache,
         onLocationTap: (locationId) {
           final point = _locationListDataForCurrentWorld().points
               .where(

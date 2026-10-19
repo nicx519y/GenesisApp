@@ -70,6 +70,7 @@ extension _WorldPageSheets on _WorldPageState {
             newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
             eventsCache: _sectionsEventsCache,
             recapCache: _recapCache,
+            historyCache: _historyViewCache,
             currentUid: _currentUid,
             recentChatLocationIds: _recentChatLocationIds,
             onLocationTap: _handleBottomSheetLocationTap,
@@ -113,9 +114,7 @@ extension _WorldPageSheets on _WorldPageState {
         !worldCanDeleteLaunchedOnlyBySelf(world, _currentUid)) {
       showGenesisToast(
         actionContext,
-        GenesisL10n
-            .current
-            .worldDetailOnlyWorldsLaunched,
+        GenesisL10n.current.worldDetailOnlyWorldsLaunched,
         duration: const Duration(seconds: 3),
         brightness: Brightness.dark,
       );
@@ -129,9 +128,7 @@ extension _WorldPageSheets on _WorldPageState {
       titleHeight: null,
       actions: [
         GenesisActionBoxAction<bool>(
-          label: GenesisL10n
-              .current
-              .worldDetailDelete,
+          label: GenesisL10n.current.worldDetailDelete,
           value: true,
         ),
       ],

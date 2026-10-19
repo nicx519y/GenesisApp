@@ -5,16 +5,19 @@ part of '../chat/location_chat_page.dart';
 class _WorldHistoryLoader {
   _WorldHistoryLoader(this.owner);
   final _WorldChatHistorySectionState owner;
-  final projection = WorldHistoryProjection();
-  WorldHistoryController? controller;
+  WorldHistoryViewCache get cache => owner._cache;
+  WorldHistoryProjection get projection => cache.projection;
+  WorldHistoryController? get controller => cache.controller;
+  WorldHistoryController? _listenedController;
   final _boundaryKeys = <String, GlobalKey>{};
   Set<String> _visibleIds = {};
-  String? _readingId;
-  String readingLocationId = '';
-  bool _started = false;
+  String? get _readingId => cache.readingId;
+  set _readingId(String? value) => cache.readingId = value;
+  String get readingLocationId => cache.readingLocationId;
+  set readingLocationId(String value) => cache.readingLocationId = value;
   bool _scheduled = false;
   int _scheduleGeneration = 0;
-  int _snapshot = -1;
+
   Object? _reportedError;
   Timer? _idleTimer;
 
@@ -29,17 +32,19 @@ class _WorldHistoryLoader {
   GlobalKey? existingBoundaryKey(String id) => _boundaryKeys[id];
 
   void bind() {
-    if (controller != null) return;
-    controller = WorldHistoryController(
+    cache.controller ??= WorldHistoryController(
       worldId: owner.widget.worldId,
       fetch: AppServicesScope.read(owner.context).api.getWorldHistory,
-    )..addListener(_changed);
+    );
+    if (identical(_listenedController, controller)) return;
+    _listenedController?.removeListener(_changed);
+    _listenedController = controller!..addListener(_changed);
   }
 
   void _changed() {
     final state = controller!;
-    if (state.snapshot != _snapshot) {
-      _snapshot = state.snapshot;
+    if (state.snapshot != cache.snapshot) {
+      cache.snapshot = state.snapshot;
       projection.clear();
       owner._historySections.reset();
       _readingId = null;
@@ -64,25 +69,24 @@ class _WorldHistoryLoader {
     owner._changed();
   }
 
-  void pause({bool leavingTab = false}) {
+  void pause() {
     _scheduleGeneration++;
     _scheduled = false;
     _idleTimer?.cancel();
     controller?.setActive(false);
-    if (leavingTab) _started = false;
+  }
+
+  void detach() {
+    pause();
+    _listenedController?.removeListener(_changed);
+    _listenedController = null;
   }
 
   void reset() {
-    pause(leavingTab: true);
-    controller?.removeListener(_changed);
-    controller?.dispose();
-    controller = null;
-    projection.clear();
+    detach();
+    cache.clear();
     _boundaryKeys.clear();
     _visibleIds.clear();
-    _readingId = null;
-    readingLocationId = '';
-    _snapshot = -1;
     _reportedError = null;
   }
 
@@ -95,10 +99,9 @@ class _WorldHistoryLoader {
       _scheduled = false;
       if (!enabled) return;
       bind();
-      // On tab re-entry discard a canceled operation's resume intent in favour
-      // of a new first-page snapshot. Coverage/foreground resume preserves it.
-      if (!_started) {
-        _started = true;
+      // Reopening resumes the same World-owned snapshot and reading position.
+      if (!cache.started) {
+        cache.started = true;
         controller!.requestEntryRefresh();
       } else {
         controller!.setActive(true);

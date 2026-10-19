@@ -1,10 +1,57 @@
 part of '../chat/location_chat_page.dart';
 
-/// Read-only World archive. Shares chat rendering/parsers but never constructs
-/// a live chat panel, joins a location, sends Enter, or enables reply actions.
+/// Owned by WorldPage, never by a modal sheet or a global singleton.
+class WorldHistoryViewCache {
+  final projection = WorldHistoryProjection();
+  final viewport = LocationChatViewportCache();
+  final collapsedMessages = <String>{};
+  WorldHistoryController? controller;
+  AppServices? _services;
+  String? _worldId, _uid;
+  String? readingId;
+  String readingLocationId = '';
+  bool started = false;
+  int? appVersion;
+  String get backgroundImageUrl =>
+      projection.metadata.locations[readingLocationId]?.imageUrl ?? '';
+  int snapshot = -1;
+
+  void bind(AppServices services, String worldId, String uid) {
+    if (identical(services, _services) && worldId == _worldId && uid == _uid) {
+      return;
+    }
+    dispose();
+    _services = services;
+    _worldId = worldId;
+    _uid = uid;
+    services.sessionRevision.addListener(clear);
+  }
+
+  void clear() {
+    started = false;
+    readingId = null;
+    readingLocationId = '';
+    projection.clear();
+    viewport.clear();
+    collapsedMessages.clear();
+    controller?.clear();
+    snapshot = controller?.snapshot ?? -1;
+  }
+
+  void dispose() {
+    _services?.sessionRevision.removeListener(clear);
+    _services = null;
+    controller?.dispose();
+    controller = null;
+    clear();
+  }
+}
+
+/// Read-only World archive. Shares chat rendering but never joins a location.
 class WorldChatHistorySection extends StatefulWidget {
   const WorldChatHistorySection({
     super.key,
+    this.cache,
     required this.world,
     required this.currentUid,
     required this.active,
@@ -13,6 +60,7 @@ class WorldChatHistorySection extends StatefulWidget {
     required this.onLocationTap,
   });
 
+  final WorldHistoryViewCache? cache;
   final WorldDetail world;
   final String currentUid;
   final bool active;
@@ -28,6 +76,7 @@ class WorldChatHistorySection extends StatefulWidget {
 
 class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  late final _cache = widget.cache ?? WorldHistoryViewCache();
   late final _worldHistory = _WorldHistoryLoader(this);
   late final _historySections = _WorldHistoryFolds(this);
   late LocationChatScrollCoordinator _scrollCoordinator;
@@ -67,6 +116,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     }
     _routeCurrent = ModalRoute.isCurrentOf(context) ?? true;
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _cache.bind(services, widget.worldId, widget.currentUid);
     if (!_requestsEnabled) _worldHistory.pause();
   }
 
@@ -102,7 +152,9 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
       controller: widget.scrollController,
     );
     _scrollCoordinator.controller.addListener(_worldHistory.onScroll);
-    unawaited(_loadMetadata());
+    _metadataReady = _cache.appVersion != null;
+    _messageAppVersion = _cache.appVersion ?? 0;
+    if (!_metadataReady) unawaited(_loadMetadata());
   }
 
   Future<void> _loadMetadata() async {
@@ -110,6 +162,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     if (!mounted) return;
     setState(() {
       _messageAppVersion = chatroomAppVersionNumber(version.versionName);
+      _cache.appVersion = _messageAppVersion;
       _metadataReady = true;
     });
   }
@@ -131,11 +184,12 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     if (oldWidget.worldId != widget.worldId ||
         oldWidget.currentUid != widget.currentUid) {
       _worldHistory.reset();
+      _cache.bind(_services!, widget.worldId, widget.currentUid);
       _historySections.reset();
       _scrollCoordinator.enter();
     }
     if (!widget.active && oldWidget.active) {
-      _worldHistory.pause(leavingTab: true);
+      _worldHistory.pause();
     }
   }
 
@@ -144,7 +198,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     WidgetsBinding.instance.removeObserver(this);
     _services?.sessionRevision.removeListener(_sessionChanged);
     _presentation?.removeListener(_visibilityChanged);
-    _worldHistory.reset();
+    _worldHistory.detach();
+    if (widget.cache == null) _cache.dispose();
     _scrollCoordinator.controller.removeListener(_worldHistory.onScroll);
     _scrollCoordinator.dispose();
     super.dispose();
@@ -199,10 +254,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                           child: Text(context.l10n.homeRetry),
                         )
                       : !_worldHistory.ready || _worldHistory.loading
-                      ? const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const _WorldHistoryLoadingSkeleton()
                       : _worldHistory.hasMore || _worldHistory.hasNewer
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
@@ -239,6 +291,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
               child: LocationChatAnchoredMessageList(
                 key: ValueKey((widget.worldId, widget.currentUid)),
                 coordinator: _scrollCoordinator,
+                viewportCache: _cache.viewport,
                 messages: messages,
                 topTitle: '',
                 active: _requestsEnabled,
@@ -574,6 +627,57 @@ class WorldChatHistoryBackground extends StatelessWidget {
         previewImageUrl: null,
         color: kLocationChatStyle.conversationBackgroundColor,
         enabled: true,
+      ),
+    ),
+  );
+}
+
+/// Static placeholders follow the archive's location header and message rows.
+class _WorldHistoryLoadingSkeleton extends StatelessWidget {
+  const _WorldHistoryLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('world-history-loading-skeleton'),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var section = 0; section < 3; section++) ...[
+          _bone(0.38, 16),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: GenesisColors.darkFaintFill,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: _bone(0.3, 12)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _bone(1, 14),
+          const SizedBox(height: 8),
+          _bone(0.76, 14),
+          const SizedBox(height: 32),
+        ],
+      ],
+    ),
+  );
+
+  Widget _bone(double width, double height) => FractionallySizedBox(
+    widthFactor: width,
+    child: Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: GenesisColors.darkFaintFill,
+        borderRadius: BorderRadius.circular(4),
       ),
     ),
   );

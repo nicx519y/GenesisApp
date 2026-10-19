@@ -55,35 +55,44 @@ class Harness {
   }
   final Backend backend;
   late final AppServices services;
-  final scroll = ScrollController();
+  var scroll = ScrollController();
+  final cache = WorldHistoryViewCache();
   final presentation = PagePresentationController();
   final navigator = GlobalKey<NavigatorState>();
-  Widget build(WorldDetail world, {bool active = true, String uid = 'me'}) =>
-      AppServicesScope(
-        services: services,
-        child: MaterialApp(
-          navigatorKey: navigator,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: PagePresentationScope(
-              controller: presentation,
-              child: WorldChatHistorySection(
-                world: world,
-                currentUid: uid,
-                active: active,
-                scrollController: scroll,
-                onBackgroundChanged: (_) {},
-                onLocationTap: (_) {},
-              ),
-            ),
-          ),
+  Widget build(
+    WorldDetail world, {
+    bool active = true,
+    String uid = 'me',
+    bool shown = true,
+  }) => AppServicesScope(
+    services: services,
+    child: MaterialApp(
+      navigatorKey: navigator,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: PagePresentationScope(
+          controller: presentation,
+          child: !shown
+              ? const SizedBox.expand()
+              : WorldChatHistorySection(
+                  cache: cache,
+                  world: world,
+                  currentUid: uid,
+                  active: active,
+                  scrollController: scroll,
+                  onBackgroundChanged: (_) {},
+                  onLocationTap: (_) {},
+                ),
         ),
-      );
+      ),
+    ),
+  );
   Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     scroll.dispose();
+    cache.dispose();
     presentation.dispose();
   }
 }
@@ -105,6 +114,162 @@ void main() {
               : null,
         );
   });
+  testWidgets(
+    'first load uses a static skeleton, then cached reading resumes across sheets',
+    (tester) async {
+      final b = Backend()
+        ..pending = Completer<void>()
+        ..rows = List.generate(
+          50,
+          (i) => historyJson('$i', content: 'Archive row $i', version: 1),
+        );
+      final h = Harness(b);
+      final world = historyWorld();
+      await tester.pumpWidget(h.build(world));
+      await frames(tester, 3);
+      expect(
+        find.byKey(const ValueKey('world-history-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      b.pending!.complete();
+      b.pending = null;
+      await frames(tester);
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      list.coordinator.beginHistoryNavigation();
+      h.scroll.jumpTo(h.scroll.position.maxScrollExtent / 2);
+      await frames(tester);
+      final anchor = h.cache.viewport.anchor!;
+      final before = h.scroll.offset;
+      final projection = h.cache.projection;
+      final sheetScroll = h.scroll;
+      h.scroll = ScrollController();
+      final previewScroll = h.scroll;
+      await tester.pumpWidget(h.build(world, active: false));
+      await frames(tester);
+      h.scroll = sheetScroll;
+      await tester.pumpWidget(h.build(world));
+      expect(h.scroll.offset, closeTo(before, 1));
+      await frames(tester);
+      previewScroll.dispose();
+      expect(h.scroll.offset, closeTo(before, 1));
+      expect(b.requests.length, 1);
+      // Closing the modal removes the whole view and its controller.
+      await tester.pumpWidget(h.build(world, shown: false));
+      await frames(tester);
+      h.scroll.dispose();
+      h.scroll = ScrollController();
+      await tester.pumpWidget(h.build(world));
+      // The first painted frame already resumes at the cached position.
+      expect(h.scroll.offset, closeTo(before, 1));
+      await frames(tester);
+      expect(b.requests.length, 1);
+      expect(identical(h.cache.projection, projection), isTrue);
+      expect(h.cache.viewport.anchor!.localId, anchor.localId);
+      expect(
+        h.cache.viewport.anchor!.viewportOffset,
+        closeTo(anchor.viewportOffset, 1),
+      );
+      expect(h.scroll.offset, closeTo(before, 1));
+      expect(tester.takeException(), isNull);
+      // Exiting World releases the owner; a later visit starts a fresh archive.
+      await h.close(tester);
+      expect(h.cache.controller, isNull);
+      expect(h.cache.viewport.anchor, isNull);
+      final next = Harness(b);
+      await tester.pumpWidget(next.build(world));
+      await frames(tester);
+      expect(b.requests.length, 2);
+      await next.close(tester);
+    },
+  );
+
+  testWidgets('reopening near the tail into a taller viewport clamps safely', (
+    tester,
+  ) async {
+    final b = Backend()..rows = List.generate(40, (i) => historyJson('$i'));
+    final h = Harness(b);
+    final world = historyWorld();
+    await tester.pumpWidget(h.build(world));
+    await frames(tester);
+    expect(h.cache.viewport.anchor, isNotNull);
+    await tester.pumpWidget(h.build(world, shown: false));
+    await frames(tester);
+    tester.view.physicalSize =
+        const Size(800, 900) * tester.view.devicePixelRatio;
+    addTearDown(tester.view.resetPhysicalSize);
+    h.scroll.dispose();
+    h.scroll = ScrollController();
+    await tester.pumpWidget(h.build(world));
+    await frames(tester);
+    expect(h.scroll.offset, closeTo(h.scroll.position.maxScrollExtent, 1));
+    expect(b.requests.length, 1);
+    expect(tester.takeException(), isNull);
+    await h.close(tester);
+  });
+
+  testWidgets(
+    'fold choices survive sheet disposal; account changes clear hidden cache',
+    (tester) async {
+      final b = Backend()..rows = List.generate(8, (i) => historyJson('$i'));
+      final h = Harness(b);
+      final world = historyWorld();
+      await tester.pumpWidget(h.build(world));
+      await frames(tester);
+      await tester.tap(find.text('Collapse').hitTestable().first);
+      await frames(tester);
+      final collapsed = Set.of(h.cache.collapsedMessages);
+      expect(collapsed, isNotEmpty);
+      await tester.pumpWidget(h.build(world, shown: false));
+      await frames(tester);
+      await tester.pumpWidget(h.build(world));
+      await frames(tester);
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(h.cache.collapsedMessages, collapsed);
+      expect(list.hiddenMessageIds, isNotEmpty);
+      expect(b.requests.length, 1);
+      await tester.pumpWidget(h.build(world, shown: false));
+      await frames(tester);
+      h.services.sessionRevision.value++;
+      expect(h.cache.controller!.ready, isFalse);
+      expect(h.cache.collapsedMessages, isEmpty);
+      expect(h.cache.viewport.anchor, isNull);
+      b.rows = [historyJson('new-account')];
+      await tester.pumpWidget(h.build(world));
+      await frames(tester);
+      expect(b.requests.length, 2);
+      expect(h.cache.controller!.newestFirst.single.id, 'new-account');
+      await h.close(tester);
+    },
+  );
+
+  testWidgets(
+    'failed first load is retained without automatic retry on reopening',
+    (tester) async {
+      final b = Backend()..fail = true;
+      final h = Harness(b);
+      final world = historyWorld();
+      await tester.pumpWidget(h.build(world));
+      await frames(tester);
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.pumpWidget(h.build(world, shown: false));
+      await frames(tester);
+      await tester.pumpWidget(h.build(world));
+      await frames(tester);
+      expect(b.requests.length, 1);
+      b.fail = false;
+      await tester.tap(find.text('Retry'));
+      await frames(tester);
+      expect(b.requests.length, 2);
+      expect(find.byType(LocationChatAnchoredMessageList), findsOneWidget);
+      await h.close(tester);
+    },
+  );
+
   testWidgets(
     '12+ locations: single world request, metadata and clock do not fetch',
     (tester) async {
@@ -159,7 +324,7 @@ void main() {
     },
   );
   testWidgets(
-    'failure stops retries; foreground/cover resume do not refresh completed page',
+    'foreground, coverage and tab reentry retain the completed snapshot',
     (tester) async {
       final b = Backend();
       final h = Harness(b);
@@ -181,14 +346,14 @@ void main() {
       b.fail = true;
       await tester.pumpWidget(h.build(world));
       await frames(tester);
-      expect(b.requests.length, 2);
-      expect(find.text('History permission denied'), findsOneWidget);
+      expect(b.requests.length, 1);
+      expect(find.text('History permission denied'), findsNothing);
       final list = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
       expect(list.messages.length, 1);
       await tester.pump(const Duration(seconds: 60));
-      expect(b.requests.length, 2);
+      expect(b.requests.length, 1);
       await h.close(tester);
     },
   );
@@ -215,7 +380,7 @@ void main() {
     },
   );
   testWidgets(
-    'route coverage pauses requests; reentry refreshes exactly once',
+    'route coverage and tab reentry never refresh completed history',
     (tester) async {
       final b = Backend();
       final h = Harness(b);
@@ -236,7 +401,7 @@ void main() {
       await frames(tester);
       await tester.pumpWidget(h.build(world));
       await frames(tester);
-      expect(b.requests.length, 2);
+      expect(b.requests.length, 1);
       await h.close(tester);
     },
   );
@@ -262,6 +427,7 @@ void main() {
     expect(list.messages.single.localId, contains('new'));
     expect(b.requests.length, 2);
     b.pending = Completer<void>();
+    h.services.sessionRevision.value++;
     await tester.pumpWidget(h.build(historyWorld(), active: false));
     await frames(tester);
     await tester.pumpWidget(h.build(historyWorld()));

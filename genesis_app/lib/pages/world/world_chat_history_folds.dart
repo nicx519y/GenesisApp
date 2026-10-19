@@ -17,7 +17,7 @@ class _WorldHistoryFolds {
   Map<String, _WorldHistoryFold> _byId = {};
   Map<String, _WorldHistoryFold> _latestByLocation = {};
   Set<String> hidden = {};
-  final _collapsedMessages = <String>{};
+  Set<String> get _collapsedMessages => owner._cache.collapsedMessages;
   List<ChatMessageVm>? _lastMessages;
   Map<String, String> _expandedHeaders = {};
   ({int generation, String localId})? reveal;

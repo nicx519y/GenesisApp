@@ -603,10 +603,23 @@ class _LocationChatScrollPosition extends ScrollPositionWithSingleContext {
   }
 }
 
+/// Optional, caller-owned reading state for a read-only archive. Contains no
+/// widgets or render objects; ordinary chat keeps its existing entry behavior.
+class LocationChatViewportCache {
+  final geometry = LocationChatGeometryCache();
+  ({String localId, double viewportOffset})? anchor;
+
+  void clear() {
+    geometry.clear();
+    anchor = null;
+  }
+}
+
 class LocationChatAnchoredMessageList extends StatefulWidget {
   const LocationChatAnchoredMessageList({
     super.key,
     required this.coordinator,
+    this.viewportCache,
     required this.messages,
     required this.topTitle,
     this.restoreInitialCompletedContent = false,
@@ -678,6 +691,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   });
 
   final LocationChatScrollCoordinator coordinator;
+  final LocationChatViewportCache? viewportCache;
   final List<ChatMessageVm> messages;
   final Map<String, VoidCallback> historyGapLoaders;
   final ValueChanged<Set<String>>? onVisibleMessagesChanged;
@@ -807,7 +821,76 @@ class _LocationChatAnchoredMessageListState
   bool _waitingPositionPending = false;
   double? _waitingPositionTargetOffset;
   final _naturalContentEndKey = GlobalKey();
-  final _geometryCache = LocationChatGeometryCache();
+  late final _geometryCache =
+      widget.viewportCache?.geometry ?? LocationChatGeometryCache();
+  ({String localId, double viewportOffset})? _restoringViewport;
+  int? _restoreViewportGeneration;
+
+  void _resumeCachedViewport() {
+    final anchor = widget.viewportCache?.anchor;
+    if (anchor == null || !_messageLocalIds.contains(anchor.localId)) return;
+    _restoringViewport = anchor;
+    _restoreViewportGeneration = widget.coordinator.beginHistoryNavigation();
+  }
+
+  void _saveCachedViewport() {
+    final cache = widget.viewportCache;
+    if (cache == null ||
+        _restoringViewport != null ||
+        !widget.coordinator.controller.hasClients) {
+      return;
+    }
+    final anchor = _visibleRetainedAnchor(
+      _messageLocalIds,
+      _messageLocalIds.toSet(),
+    );
+    if (anchor == null) return;
+    final offset = _messageContentOffset(anchor.localId);
+    if (offset == null) return;
+    cache.anchor = (
+      localId: anchor.localId,
+      viewportOffset: offset - widget.coordinator.controller.position.pixels,
+    );
+  }
+
+  double? _takeCachedViewportCorrection() {
+    final anchor = _restoringViewport;
+    if (anchor == null || !widget.coordinator.controller.hasClients) {
+      return null;
+    }
+    if (_restoreViewportGeneration != widget.coordinator.commandGeneration) {
+      _restoringViewport = null;
+      return null;
+    }
+    final index = _messageIndexByLocalId[anchor.localId];
+    final extent = index == null ? null : _entryExtents[_entryKey(index)];
+    if (extent == null) return null;
+    final position = widget.coordinator.controller.position;
+    final contentEnd = _entryExtents.values.fold<double>(
+      0,
+      (end, row) =>
+          end > row.offset + row.height ? end : row.offset + row.height,
+    );
+    final bottomPadding =
+        (widget.style ?? ChatUiStyleConfig.standard).messageListPadding.bottom;
+    // A taller reopened sheet may no longer have enough content below the
+    // anchor. Clamp to this layout's real tail instead of correcting forever.
+    final maxOffset = (contentEnd + bottomPadding - position.viewportDimension)
+        .clamp(0.0, double.infinity);
+    final target = (extent.offset - anchor.viewportOffset).clamp(
+      0.0,
+      maxOffset,
+    );
+    final delta = target - position.pixels;
+    if (delta.abs() > precisionErrorTolerance) return delta;
+    _restoringViewport = null;
+    _detachedLayoutAnchor = (
+      localId: anchor.localId,
+      contentOffset: extent.offset,
+    );
+    return null;
+  }
+
   final _entryExtents = <Key, ({double offset, double height})>{};
   final _readingMarkerOffsets = <String, double>{};
   ({int generation, String localId})? _historyRevealTarget;
@@ -1025,6 +1108,7 @@ class _LocationChatAnchoredMessageListState
         _scrollViewportKey.currentContext?.findRenderObject(),
       );
       if (viewport == null) return;
+      _saveCachedViewport();
       final last = _renderedMessages.lastOrNull;
       if (last == null) {
         widget.coordinator.reportMessageContentBelowViewport(false);
@@ -1881,6 +1965,7 @@ class _LocationChatAnchoredMessageListState
     _previousReceiptIds = widget.messages.map(_receiptIdentity).toSet();
     _captureRestoredEntryContent();
     _rebuildMessageIndex();
+    _resumeCachedViewport();
     _oldestEdgeLoadingController = AnimationController(
       vsync: this,
       duration: locationChatOldestEdgeLoadingAnimationDuration,
@@ -1933,7 +2018,7 @@ class _LocationChatAnchoredMessageListState
           ? _locationChatLayoutCorrectionExtentSignal
           : 0;
     }
-    if (!oldWidget.active && widget.active) {
+    if (!oldWidget.active && widget.active && widget.viewportCache == null) {
       // Re-enter at the real tail, without the previous visit's reserved
       // reply space or detached reading anchor. User drags still cancel
       // the normal entry-to-bottom command through the coordinator.
@@ -2194,6 +2279,7 @@ class _LocationChatAnchoredMessageListState
       widget.coordinator.addListener(_handleCoordinatorChanged);
       widget.coordinator.controller.addListener(_scheduleContentVisibility);
       _detachedLayoutAnchor = null;
+      _resumeCachedViewport();
       _scheduleDetachedAnchorSnapshot();
     }
     final loadingStarted =
@@ -2764,6 +2850,8 @@ class _LocationChatAnchoredMessageListState
             .where(
               (entry) =>
                   entry < 0 ||
+                  _renderedMessages[entry].localId ==
+                      _restoringViewport?.localId ||
                   widget.coordinator.retainedMessageLocalIds.contains(
                     _renderedMessages[entry].localId,
                   ) ||
@@ -2800,6 +2888,7 @@ class _LocationChatAnchoredMessageListState
         _GeometryCorrectionSliver(
           correction: () {
             final correction =
+                _takeCachedViewportCorrection() ??
                 _takeHistoryRevealCorrection() ??
                 _takeReplyPresentationLayoutCorrection() ??
                 _takeDetachedLayoutCorrection();
@@ -2886,6 +2975,8 @@ class _LocationChatAnchoredMessageListState
                         ),
                   pinned:
                       entry < 0 ||
+                      _renderedMessages[entry].localId ==
+                          _restoringViewport?.localId ||
                       _renderedMessages[entry].localId ==
                           widget.entrySectionMessageId ||
                       (_revealingHistory &&
