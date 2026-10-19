@@ -4338,5 +4338,14 @@
   "rateWorldoStoreFailed": "앱 스토어를 열 수 없습니다. 다시 시도해 주세요.",
   "@rateWorldoStoreFailed": {
     "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
+  },
+  "gemsDailyResetsIn": "초기화까지 {time}",
+  "@gemsDailyResetsIn": {
+    "description": "Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -36,6 +36,95 @@ const _wrappingTaskDescription =
     'and interacting with characters to move its story forward.';
 
 void main() {
+  testWidgets('Daily zero refreshes tasks once without a request loop', (
+    tester,
+  ) async {
+    var loads = 0;
+    final wallet = GemWalletStore(
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    addTearDown(wallet.dispose);
+    addTearDown(billing.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.light(),
+        home: GemWalletPage(
+          membershipProductsLoader: loadTestMembershipOffers,
+          walletStore: wallet,
+          billingService: billing,
+          productsLoader: (_) async => [],
+          tasksLoader: (_) async {
+            loads++;
+            return [
+              GemTaskGroup(
+                groupCode: 'daily',
+                groupTitle: 'Daily',
+                nextClaimCountdownSeconds: 0, // Locally expired clock guard.
+                tasks: [
+                  GemTask.fromJson({
+                    'reward_gems_cent': 100,
+                    'title': 'Daily task',
+                  }),
+                ],
+              ),
+            ];
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Resets in 00:00:00'), findsOneWidget);
+    expect(loads, 2);
+    await tester.pump(const Duration(seconds: 5));
+    expect(loads, 2);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('Daily displays countdown from group response field', (
+    tester,
+  ) async {
+    var loads = 0;
+    final wallet = GemWalletStore(
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    addTearDown(wallet.dispose);
+    addTearDown(billing.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.light(),
+        home: GemWalletPage(
+          membershipProductsLoader: loadTestMembershipOffers,
+          walletStore: wallet,
+          billingService: billing,
+          productsLoader: (_) async => [],
+          tasksLoader: (_) async {
+            loads++;
+            return [
+              GemTaskGroup(
+                groupCode: 'daily',
+                groupTitle: 'Daily',
+                nextClaimCountdownSeconds: 3600,
+                tasks: [
+                  GemTask.fromJson({
+                    'reward_gems_cent': 100,
+                    'title': 'Daily task',
+                  }),
+                ],
+              ),
+            ];
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Resets in 01:00:00'), findsOneWidget);
+    expect(loads, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   tearDown(GenesisTelemetry.resetForTesting);
 
   for (final subscriptionFirst in [false, true]) {

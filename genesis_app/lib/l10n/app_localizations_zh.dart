@@ -3232,6 +3232,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get rateWorldoStoreFailed =>
       'Unable to open the app store. Please try again.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'Resets in $time';
+  }
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6308,4 +6313,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get rateWorldoStoreFailed => '無法開啟應用程式商店，請再試一次。';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return '距離重置還有 $time';
+  }
 }

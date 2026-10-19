@@ -3137,4 +3137,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get rateWorldoStoreFailed => '앱 스토어를 열 수 없습니다. 다시 시도해 주세요.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return '초기화까지 $time';
+  }
 }

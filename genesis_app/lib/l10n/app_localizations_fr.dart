@@ -3284,4 +3284,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get rateWorldoStoreFailed =>
       'Impossible d’ouvrir la boutique d’applications. Veuillez réessayer.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'Réinitialisation dans $time';
+  }
 }

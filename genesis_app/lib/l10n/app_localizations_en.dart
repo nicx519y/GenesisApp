@@ -3232,4 +3232,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get rateWorldoStoreFailed =>
       'Unable to open the app store. Please try again.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'Resets in $time';
+  }
 }

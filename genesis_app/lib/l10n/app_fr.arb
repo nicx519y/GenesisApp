@@ -4338,5 +4338,14 @@
   "rateWorldoStoreFailed": "Impossible d’ouvrir la boutique d’applications. Veuillez réessayer.",
   "@rateWorldoStoreFailed": {
     "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
+  },
+  "gemsDailyResetsIn": "Réinitialisation dans {time}",
+  "@gemsDailyResetsIn": {
+    "description": "Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

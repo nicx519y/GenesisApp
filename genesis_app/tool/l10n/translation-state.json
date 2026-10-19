@@ -5188,6 +5188,12 @@
           "text_hash": "0f1eed26ca33e7fa28104b21b1103d2155c75e791b69d92cc2e8ba2f3707874f",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "9f2cb6303d29c91c010a9cfa10d825efca1ce26734cb16cf7d941162f02564cb",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -10377,6 +10383,12 @@
           "text_hash": "707fb5883857707da3b2d3096b4c468e82dea6c47c04c0bd75deb0795c6f6fcc",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "b89cd22ccba3cc1291a6c9d27d4094cbac27436134ee193978e286fd61c46b4c",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -15566,6 +15578,12 @@
           "text_hash": "7e3cbc73ce656dc4bb8f461ca78f0a88523e508c6a74ae7ceca4e804dbed524e",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "e2e8c854f0604b96296cbbf7039e74bfe3d236137296a212625137e78ed94c78",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -20755,6 +20773,12 @@
           "text_hash": "e05a97b00e434a3d18fa0447e5dab1dd336111d448cad87aefe1db51a3bccc9e",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "3dd23308f617c8f9bbc82bf6007e20f0bc49cb14a57aa991118748a8aa1a433d",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -25944,6 +25968,12 @@
           "text_hash": "18d42747b64e4afa2d29e9f0689a5af6792e8d7d9a7589de5bbad2f22d59be64",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "d3fa37a030f6e3a1d342d6e41620deb5ab824a914e3c935ff33d40dabe90f488",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -31133,6 +31163,12 @@
           "text_hash": "8647c1ac572a2ece94efcb6129113ebe1e6c266815683372d482e045e0139a75",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "d7bf7d8432618df6014214a8103e75e8eeaec43e369145e6f6955e406f0b8c9f",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -36322,6 +36358,12 @@
           "text_hash": "98e93743329e0956fc668a68db15051617c59633e363c64025a63bdd484bb92f",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "e202dbd9cb1c1ec41baf745b9c63ba4aa90db35296a62df941d26f10cd934bce",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     },
@@ -41511,6 +41553,12 @@
           "text_hash": "b9c85ddb691acfcc0e1a9b8ef461ebf3d90f8997a109c694a6432af2bc09af8f",
           "status": "ai",
           "note": "Localized in-app feedback acknowledgement/reward copy; no claim that a store review was submitted."
+        },
+        "gemsDailyResetsIn": {
+          "source_hash": "c23ae7c4d3da5e0946a6d0b180c46a1378225459e3e87e28fc03b64488f3c395",
+          "text_hash": "53867cbc7a1e15eee8555bff5f08135a1f59b32935fa2d696782dd13a37d50d5",
+          "status": "ai",
+          "note": "Daily task reset countdown; preserves time placeholder."
         }
       }
     }

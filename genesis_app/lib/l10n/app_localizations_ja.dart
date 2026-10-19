@@ -3131,4 +3131,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get rateWorldoStoreFailed => 'アプリストアを開けませんでした。もう一度お試しください。';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'リセットまで $time';
+  }
 }

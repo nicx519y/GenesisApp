@@ -5406,6 +5406,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to open the app store. Please try again.'**
   String get rateWorldoStoreFailed;
+
+  /// Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.
+  ///
+  /// In en, this message translates to:
+  /// **'Resets in {time}'**
+  String gemsDailyResetsIn({required String time});
 }
 
 class _AppLocalizationsDelegate

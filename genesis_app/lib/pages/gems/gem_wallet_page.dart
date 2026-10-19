@@ -1,6 +1,7 @@
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import '../../components/gems/gem_daily_reset_countdown.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -138,6 +139,15 @@ class _GemWalletPageState extends State<GemWalletPage>
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;
+  GemDailyResetClock? _dailyResetClock;
+  bool _dailyResetRefreshRequested = false;
+
+  void _onDailyReset() {
+    if (!mounted || _dailyResetRefreshRequested) return;
+    _dailyResetRefreshRequested = true;
+    unawaited(_refreshTasks(silent: true));
+  }
+
   Object? _productsError;
   Object? _tasksError;
   bool _productsLoading = false;
@@ -387,6 +397,8 @@ class _GemWalletPageState extends State<GemWalletPage>
       child: _GemWalletContent(
         products: _products,
         taskGroups: _taskGroups,
+        dailyResetClock: _dailyResetClock,
+        onDailyReset: _onDailyReset,
         productsLoading: _productsLoading,
         tasksLoading: _tasksLoading,
         productsError: _productsError,

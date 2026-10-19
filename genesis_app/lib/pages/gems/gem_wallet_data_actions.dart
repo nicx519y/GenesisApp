@@ -78,6 +78,13 @@ extension _GemWalletDataActions on _GemWalletPageState {
       if (!mounted || generation != _tasksRequestGeneration) return;
       _updateState(() {
         _taskGroups = groups;
+        final seconds = groups
+            .where((group) => group.groupCode == 'daily')
+            .map((group) => group.nextClaimCountdownSeconds)
+            .whereType<int>()
+            .firstOrNull;
+        _dailyResetClock = seconds == null ? null : GemDailyResetClock(seconds);
+        if (seconds != null && seconds > 0) _dailyResetRefreshRequested = false;
         _tasksError = null;
         _tasksLoading = false;
         _taskStatusOverrides.clear();
