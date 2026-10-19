@@ -2,11 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/font_expectations.dart';
@@ -21,6 +25,77 @@ void main() {
 
   tearDown(() {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
+  });
+
+  testWidgets('late create poll cannot clear a different account draft', (
+    tester,
+  ) async {
+    final session = MemoryUserSessionStore();
+    await session.saveUid('account_a');
+    final services = ServiceRegistry.build(
+      config: const AppConfig(useMock: true),
+      sessionStoreOverride: session,
+    );
+    late BuildContext pageContext;
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) {
+              pageContext = context;
+              return const Scaffold(body: Text('Create'));
+            },
+          ),
+        ),
+      ),
+    );
+    CreateOriginDraft draft(String name) => CreateOriginDraft.empty().copyWith(
+      basics: BasicsDraft(originName: name),
+      basicsSaved: true,
+    );
+    await CreateOriginDraftStore.saveFinal(
+      draft('Draft A'),
+      sessionStore: session,
+    );
+    final response = Completer<Map<String, dynamic>>();
+    await OriginPendingSubmissionCoordinator.instance.startCreating(
+      originId: 'origin_a',
+      loadOriginInfo: (_) => response.future,
+      context: pageContext,
+    );
+    await tester.pump();
+
+    await session.saveUid('account_b');
+    await CreateOriginDraftStore.saveFinal(
+      draft('Draft B'),
+      sessionStore: session,
+    );
+    response.complete(const <String, dynamic>{});
+    await tester.pumpAndSettle();
+
+    expect(
+      (await CreateOriginDraftStore.loadFinal(
+        sessionStore: session,
+      )).basics.originName,
+      'Draft B',
+    );
+    expect(
+      (await CreateOriginDraftStore.loadFinal(
+        ownerUid: 'account_a',
+      )).basics.originName,
+      'Draft A',
+    );
+    expect(
+      (await OriginPendingSubmissionStore.loadCreating(
+        ownerUid: 'account_a',
+      ))?.originId,
+      'origin_a',
+    );
+    expect(
+      OriginPendingSubmissionCoordinator.instance.creatingState.value,
+      isNull,
+    );
   });
 
   test(

@@ -7,19 +7,25 @@ import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../ui/components/genesis_localized_rich_text.dart';
 import '../../l10n/genesis_localizations.dart';
+import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../platform/session/user_session_store.dart';
 import '../create/create_origin_draft_store.dart';
 import 'origin_pending_submission_store.dart';
 
 typedef OriginInfoLoader =
     Future<Map<String, dynamic>> Function(String originId);
 typedef OriginPendingSubmissionSaver =
-    Future<void> Function(String originId, {String originName});
+    Future<void> Function(
+      String ownerUid,
+      String originId, {
+      String originName,
+    });
 
 enum OriginPendingSubmissionKind { create, publish }
 
@@ -58,10 +64,18 @@ class OriginPendingSubmissionCoordinator {
     _createPoller = _OriginPendingSubmissionPoller(
       kind: OriginPendingSubmissionKind.create,
       state: creatingState,
-      loadPending: OriginPendingSubmissionStore.loadCreating,
-      savePending: OriginPendingSubmissionStore.saveCreating,
-      clearPending: OriginPendingSubmissionStore.clearCreating,
-      clearDraft: CreateOriginDraftStore.clear,
+      loadPending: (ownerUid) =>
+          OriginPendingSubmissionStore.loadCreating(ownerUid: ownerUid),
+      savePending: (ownerUid, originId, {originName = ''}) =>
+          OriginPendingSubmissionStore.saveCreating(
+            originId,
+            originName: originName,
+            ownerUid: ownerUid,
+          ),
+      clearPending: (ownerUid) =>
+          OriginPendingSubmissionStore.clearCreating(ownerUid: ownerUid),
+      clearDraft: (ownerUid) =>
+          CreateOriginDraftStore.clear(ownerUid: ownerUid),
       timeoutMessage: () => GenesisL10n.current.createTimeout,
       completeOnTimeout: true,
       completeOnPollError: true,
@@ -72,9 +86,13 @@ class OriginPendingSubmissionCoordinator {
     _publishPoller = _OriginPendingSubmissionPoller(
       kind: OriginPendingSubmissionKind.publish,
       state: publishingState,
-      loadPending: OriginPendingSubmissionStore.loadPublishing,
-      savePending: OriginPendingSubmissionStore.savePublishing,
-      clearPending: OriginPendingSubmissionStore.clearPublishing,
+      loadPending: (_) => OriginPendingSubmissionStore.loadPublishing(),
+      savePending: (_, originId, {originName = ''}) =>
+          OriginPendingSubmissionStore.savePublishing(
+            originId,
+            originName: originName,
+          ),
+      clearPending: (_) => OriginPendingSubmissionStore.clearPublishing(),
       timeoutMessage: () => GenesisL10n.current.publishTimeout,
       completeOnTimeout: true,
       completeOnPollError: true,
@@ -115,12 +133,14 @@ class OriginPendingSubmissionCoordinator {
   Future<void> startCreating({
     required String originId,
     String originName = '',
+    String? ownerUid,
     required OriginInfoLoader loadOriginInfo,
     BuildContext? context,
   }) {
     return _createPoller.start(
       originId: originId,
       originName: originName,
+      ownerUid: ownerUid,
       loadOriginInfo: loadOriginInfo,
       context: context,
     );
@@ -201,10 +221,10 @@ class _OriginPendingSubmissionPoller {
 
   final OriginPendingSubmissionKind kind;
   final ValueNotifier<OriginPendingSubmissionRuntimeState?> state;
-  final Future<OriginPendingSubmission?> Function() loadPending;
+  final Future<OriginPendingSubmission?> Function(String ownerUid) loadPending;
   final OriginPendingSubmissionSaver savePending;
-  final Future<void> Function() clearPending;
-  final Future<void> Function()? clearDraft;
+  final Future<void> Function(String ownerUid) clearPending;
+  final Future<void> Function(String ownerUid)? clearDraft;
   final String Function() timeoutMessage;
   final String Function(String originName) successTitle;
   final ValueChanged<OriginPendingSubmissionOutcome> notifyOutcome;
@@ -213,18 +233,23 @@ class _OriginPendingSubmissionPoller {
 
   Timer? _timer;
   String? _originId;
+  String? _ownerUid;
   String? _originName;
   OriginInfoLoader? _loadOriginInfo;
   BuildContext? _fallbackContext;
+  UserSessionStore? _sessionStore;
   bool _pollInFlight = false;
+  int _pollRevision = 0;
 
   Future<void> start({
     required String originId,
     String originName = '',
+    String? ownerUid,
     required OriginInfoLoader loadOriginInfo,
     BuildContext? context,
   }) async {
     _rememberContext(context);
+    final pendingOwner = ownerUid ?? await _currentOwner();
     final resolvedOriginId = originId.trim();
     if (resolvedOriginId.isEmpty) {
       throw StateError('origin_id is missing from accepted upsert response');
@@ -234,13 +259,18 @@ class _OriginPendingSubmissionPoller {
         : originName.trim();
     OriginPendingSubmission? pending;
     try {
-      await savePending(resolvedOriginId, originName: resolvedOriginName);
-      pending = await loadPending();
+      await savePending(
+        pendingOwner,
+        resolvedOriginId,
+        originName: resolvedOriginName,
+      );
+      pending = await loadPending(pendingOwner);
     } catch (_) {
       if (!completeOnPollError) rethrow;
       await _handleCompleted(
         originId: resolvedOriginId,
         originName: resolvedOriginName,
+        ownerUid: pendingOwner,
       );
       return;
     }
@@ -249,10 +279,15 @@ class _OriginPendingSubmissionPoller {
       await _handleCompleted(
         originId: resolvedOriginId,
         originName: resolvedOriginName,
+        ownerUid: pendingOwner,
       );
       return;
     }
-    _begin(pending: pending, loadOriginInfo: loadOriginInfo);
+    _begin(
+      pending: pending,
+      loadOriginInfo: loadOriginInfo,
+      context: context != null && context.mounted ? context : null,
+    );
   }
 
   Future<void> ensure({
@@ -260,8 +295,10 @@ class _OriginPendingSubmissionPoller {
     BuildContext? context,
   }) async {
     _rememberContext(context);
-    final pending = await loadPending();
+    final ownerUid = await _currentOwner();
+    final pending = await loadPending(ownerUid);
     if (pending == null) {
+      if (_originId != null && _ownerUid != ownerUid) cancel();
       if (_originId == null) state.value = null;
       return;
     }
@@ -269,16 +306,23 @@ class _OriginPendingSubmissionPoller {
       await _handleExpired(pending);
       return;
     }
-    _begin(pending: pending, loadOriginInfo: loadOriginInfo);
+    _begin(
+      pending: pending,
+      loadOriginInfo: loadOriginInfo,
+      context: context != null && context.mounted ? context : null,
+    );
   }
 
   void cancel() {
+    _pollRevision += 1;
     _timer?.cancel();
     _timer = null;
     _originId = null;
+    _ownerUid = null;
     _originName = null;
     _loadOriginInfo = null;
     _fallbackContext = null;
+    _sessionStore = null;
     _pollInFlight = false;
   }
 
@@ -287,16 +331,20 @@ class _OriginPendingSubmissionPoller {
     required OriginInfoLoader loadOriginInfo,
     BuildContext? context,
   }) {
-    _loadOriginInfo = loadOriginInfo;
-    if (context != null && context.mounted) {
-      _fallbackContext = context;
-    }
     if (_originId == pending.originId &&
+        _ownerUid == pending.ownerUid &&
         (_pollInFlight || _timer?.isActive == true)) {
       return;
     }
+    if (_originId != null &&
+        (_originId != pending.originId || _ownerUid != pending.ownerUid)) {
+      cancel();
+    }
+    _rememberContext(context);
+    _loadOriginInfo = loadOriginInfo;
     _timer?.cancel();
     _originId = pending.originId;
+    _ownerUid = pending.ownerUid;
     _originName = pending.originName.trim().isEmpty
         ? pending.originId
         : pending.originName.trim();
@@ -311,11 +359,30 @@ class _OriginPendingSubmissionPoller {
   void _rememberContext(BuildContext? context) {
     if (context != null && context.mounted) {
       _fallbackContext = context;
+      _sessionStore = AppServicesScope.maybeRead(context)?.sessionStore;
+    }
+  }
+
+  Future<String> _currentOwner() => kind == OriginPendingSubmissionKind.create
+      ? CreateOriginDraftStore.readOwnerUid(sessionStore: _sessionStore)
+      : Future.value(CreateOriginDraftStore.anonymousOwner);
+
+  Future<bool> _ownerStillCurrent(String ownerUid) async {
+    try {
+      return await _currentOwner() == ownerUid;
+    } catch (_) {
+      // An unreadable session must never let an old poll affect a new owner.
+      return false;
     }
   }
 
   Future<void> _poll(OriginPendingSubmission pending) async {
-    if (_originId != pending.originId || _pollInFlight) return;
+    if (_originId != pending.originId ||
+        _ownerUid != pending.ownerUid ||
+        _pollInFlight) {
+      return;
+    }
+    final pollRevision = _pollRevision;
     if (pending.isExpired) {
       await _handleExpired(pending);
       return;
@@ -323,10 +390,29 @@ class _OriginPendingSubmissionPoller {
 
     _pollInFlight = true;
     try {
+      if (kind == OriginPendingSubmissionKind.create &&
+          !await _ownerStillCurrent(pending.ownerUid)) {
+        if (pollRevision == _pollRevision) {
+          cancel();
+          state.value = null;
+        }
+        return;
+      }
+      if (pollRevision != _pollRevision || _ownerUid != pending.ownerUid) {
+        return;
+      }
       final loadOriginInfo = _loadOriginInfo;
       if (loadOriginInfo == null) return;
       final info = await loadOriginInfo(pending.originId);
-      if (_originId != pending.originId) return;
+      if (pollRevision != _pollRevision || _ownerUid != pending.ownerUid) {
+        return;
+      }
+      if (kind == OriginPendingSubmissionKind.create &&
+          !await _ownerStillCurrent(pending.ownerUid)) {
+        cancel();
+        state.value = null;
+        return;
+      }
       final status = _originInfoStatus(info);
       if (status == 10) {
         await _handleCompleted(
@@ -335,27 +421,37 @@ class _OriginPendingSubmissionPoller {
             info,
             fallback: _completionOriginName(pending),
           ),
+          ownerUid: pending.ownerUid,
         );
         return;
       }
     } catch (_) {
-      if (_originId != pending.originId) return;
+      if (pollRevision != _pollRevision || _ownerUid != pending.ownerUid) {
+        return;
+      }
+      if (kind == OriginPendingSubmissionKind.create &&
+          !await _ownerStillCurrent(pending.ownerUid)) {
+        cancel();
+        state.value = null;
+        return;
+      }
       if (completeOnPollError) {
         await _handleCompleted(
           originId: pending.originId,
           originName: _completionOriginName(pending),
+          ownerUid: pending.ownerUid,
         );
         return;
       }
     } finally {
-      _pollInFlight = false;
+      if (pollRevision == _pollRevision) _pollInFlight = false;
     }
 
-    _scheduleNextPoll(pending);
+    if (pollRevision == _pollRevision) _scheduleNextPoll(pending);
   }
 
   void _scheduleNextPoll(OriginPendingSubmission pending) {
-    if (_originId != pending.originId) return;
+    if (_originId != pending.originId || _ownerUid != pending.ownerUid) return;
     if (pending.isExpired) {
       unawaited(_handleExpired(pending));
       return;
@@ -372,14 +468,23 @@ class _OriginPendingSubmissionPoller {
   Future<void> _handleCompleted({
     required String originId,
     required String originName,
+    required String ownerUid,
   }) async {
-    cancel();
-    await _runBestEffort(clearPending);
+    final sessionStore = _sessionStore;
+    final affectsActive =
+        _originId == null || (_originId == originId && _ownerUid == ownerUid);
+    if (affectsActive) cancel();
+    await _runBestEffort(() => clearPending(ownerUid));
     final clearDraftAction = clearDraft;
     if (clearDraftAction != null) {
-      await _runBestEffort(clearDraftAction);
+      await _runBestEffort(() => clearDraftAction(ownerUid));
     }
-    state.value = null;
+    if (affectsActive) state.value = null;
+    if (kind == OriginPendingSubmissionKind.create &&
+        await CreateOriginDraftStore.readOwnerUid(sessionStore: sessionStore) !=
+            ownerUid) {
+      return;
+    }
     notifyOutcome(
       OriginPendingSubmissionOutcome(
         kind: kind,
@@ -398,6 +503,11 @@ class _OriginPendingSubmissionPoller {
 
     final shouldGo = await _showSuccessDialog(originName);
     if (shouldGo != true) return;
+    if (kind == OriginPendingSubmissionKind.create &&
+        await CreateOriginDraftStore.readOwnerUid(sessionStore: sessionStore) !=
+            ownerUid) {
+      return;
+    }
     final navigator = genesisNavigatorKey.currentState;
     if (navigator == null) return;
     navigator.pushNamedAndRemoveUntil(RouteNames.home, (_) => false);
@@ -438,11 +548,12 @@ class _OriginPendingSubmissionPoller {
 
   Future<void> _handleExpired(OriginPendingSubmission pending) {
     if (!completeOnTimeout) {
-      return _handleTimedOut(pending.originId);
+      return _handleTimedOut(pending.originId, pending.ownerUid);
     }
     return _handleCompleted(
       originId: pending.originId,
       originName: _completionOriginName(pending),
+      ownerUid: pending.ownerUid,
     );
   }
 
@@ -462,12 +573,20 @@ class _OriginPendingSubmissionPoller {
     }
   }
 
-  Future<void> _handleTimedOut(String originId) async {
+  Future<void> _handleTimedOut(String originId, String ownerUid) async {
     final overlay = genesisNavigatorKey.currentState?.overlay;
     final context = _fallbackContext;
-    cancel();
-    await clearPending();
-    state.value = null;
+    final sessionStore = _sessionStore;
+    final affectsActive =
+        _originId == null || (_originId == originId && _ownerUid == ownerUid);
+    if (affectsActive) cancel();
+    await clearPending(ownerUid);
+    if (affectsActive) state.value = null;
+    if (kind == OriginPendingSubmissionKind.create &&
+        await CreateOriginDraftStore.readOwnerUid(sessionStore: sessionStore) !=
+            ownerUid) {
+      return;
+    }
     notifyOutcome(
       OriginPendingSubmissionOutcome(
         kind: kind,

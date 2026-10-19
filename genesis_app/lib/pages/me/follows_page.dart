@@ -41,6 +41,8 @@ class FollowsPage extends StatefulWidget {
 
 class _FollowsPageState extends State<FollowsPage>
     with SingleTickerProviderStateMixin, LanguageDataRefresh<FollowsPage> {
+  static const int _pageSize = 20;
+
   @override
   Future<void> refreshLanguageData() async {
     _reloadForSession();
@@ -54,6 +56,8 @@ class _FollowsPageState extends State<FollowsPage>
   late final SessionRevisionSubscription _sessionRevision;
   Future<List<_FollowUserItem>>? _followingFuture;
   Future<List<_FollowUserItem>>? _followersFuture;
+  final _followingPage = _FollowListPage();
+  final _followersPage = _FollowListPage();
   final Set<String> _loadingUids = <String>{};
   final Map<String, bool> _followStateOverrides = <String, bool>{};
   String _title = GenesisL10n.current.meFollows;
@@ -91,8 +95,18 @@ class _FollowsPageState extends State<FollowsPage>
 
   void _reloadForSession() {
     final generation = ++_loadGeneration;
-    final following = _startUsersLoad(_FollowListType.following, generation);
-    final followers = _startUsersLoad(_FollowListType.followers, generation);
+    _followingPage.reset();
+    _followersPage.reset();
+    final following = _startUsersLoad(
+      _FollowListType.following,
+      generation,
+      pageRevision: _followingPage.revision,
+    );
+    final followers = _startUsersLoad(
+      _FollowListType.followers,
+      generation,
+      pageRevision: _followersPage.revision,
+    );
     setState(() {
       _loadingUids.clear();
       _followStateOverrides.clear();
@@ -172,22 +186,32 @@ class _FollowsPageState extends State<FollowsPage>
   Future<List<_FollowUserItem>> _loadUsers(
     _FollowListType type,
     int generation,
-  ) async {
+    int pageRevision, {
+    int pageNumber = 1,
+  }) async {
     final uid = widget.uid.trim();
     if (uid.isEmpty) return const <_FollowUserItem>[];
 
     final followApi = AppServicesScope.read(context).api.v1.follow;
     final response = type == _FollowListType.following
-        ? await followApi.following(uid: uid, pn: 1, rn: 50)
-        : await followApi.followers(uid: uid, pn: 1, rn: 50);
+        ? await followApi.following(uid: uid, pn: pageNumber, rn: _pageSize)
+        : await followApi.followers(uid: uid, pn: pageNumber, rn: _pageSize);
     final rawList = _asList(response['list']);
     final items = rawList
         .map((entry) => _FollowUserItem.fromJson(entry, type: type))
         .where((item) => item.uid.trim().isNotEmpty)
         .toList(growable: false);
     final total = _mapInt(response, 'total', fallback: items.length);
-    if (mounted && generation == _loadGeneration) {
+    final page = _pageFor(type);
+    if (mounted &&
+        generation == _loadGeneration &&
+        pageRevision == page.revision) {
       setState(() {
+        page.items = pageNumber == 1
+            ? items
+            : _mergeFollowUsers(page.items, items);
+        page.loadedPage = pageNumber;
+        page.hasMore = items.isNotEmpty && pageNumber * _pageSize < total;
         if (type == _FollowListType.following) {
           _followingTotal = total;
         } else {
@@ -200,9 +224,10 @@ class _FollowsPageState extends State<FollowsPage>
 
   Future<List<_FollowUserItem>> _startUsersLoad(
     _FollowListType type,
-    int generation,
-  ) {
-    final load = _loadUsers(type, generation);
+    int generation, {
+    required int pageRevision,
+  }) {
+    final load = _loadUsers(type, generation, pageRevision);
     // Both tab requests start before TabBarView necessarily mounts each
     // FutureBuilder. Attach an error handler immediately; the original future
     // still retains its error for the owning FutureBuilder to render.
@@ -251,10 +276,19 @@ class _FollowsPageState extends State<FollowsPage>
   Future<void> _refresh(_FollowListType type) async {
     late final Future<List<_FollowUserItem>> refresh;
     setState(() {
+      final page = _pageFor(type)..reset();
       if (type == _FollowListType.following) {
-        refresh = _followingFuture = _startUsersLoad(type, _loadGeneration);
+        refresh = _followingFuture = _startUsersLoad(
+          type,
+          _loadGeneration,
+          pageRevision: page.revision,
+        );
       } else {
-        refresh = _followersFuture = _startUsersLoad(type, _loadGeneration);
+        refresh = _followersFuture = _startUsersLoad(
+          type,
+          _loadGeneration,
+          pageRevision: page.revision,
+        );
       }
     });
     try {
@@ -262,6 +296,36 @@ class _FollowsPageState extends State<FollowsPage>
     } on ApiException {
       // FutureBuilder renders the failure. Keep Retry/RefreshIndicator from
       // forwarding an expected request error to PlatformDispatcher.
+    }
+  }
+
+  _FollowListPage _pageFor(_FollowListType type) =>
+      type == _FollowListType.following ? _followingPage : _followersPage;
+
+  Future<void> _loadMore(_FollowListType type) async {
+    final page = _pageFor(type);
+    if (page.loadedPage == 0 || !page.hasMore || page.loadingMore) return;
+    final generation = _loadGeneration;
+    final pageRevision = page.revision;
+    final nextPage = page.loadedPage + 1;
+    setState(() {
+      page.loadingMore = true;
+      page.loadMoreFailed = false;
+    });
+    try {
+      await _loadUsers(type, generation, pageRevision, pageNumber: nextPage);
+    } catch (_) {
+      if (mounted &&
+          generation == _loadGeneration &&
+          pageRevision == page.revision) {
+        setState(() => page.loadMoreFailed = true);
+      }
+    } finally {
+      if (mounted &&
+          generation == _loadGeneration &&
+          pageRevision == page.revision) {
+        setState(() => page.loadingMore = false);
+      }
     }
   }
 
@@ -309,24 +373,28 @@ class _FollowsPageState extends State<FollowsPage>
                       future:
                           _followingFuture ??
                           Future.value(const <_FollowUserItem>[]),
+                      page: _followingPage,
                       emptyText: GenesisL10n.current.meNoFollowingYet,
                       defaultFollowed: true,
                       loadingUids: _loadingUids,
                       followStateOverrides: _followStateOverrides,
                       canToggleFollow: _canToggleFollow,
                       onRefresh: () => _refresh(_FollowListType.following),
+                      onLoadMore: () => _loadMore(_FollowListType.following),
                       onToggleFollow: _toggleFollow,
                     ),
                     _FollowUsersPane(
                       future:
                           _followersFuture ??
                           Future.value(const <_FollowUserItem>[]),
+                      page: _followersPage,
                       emptyText: GenesisL10n.current.meNoFollowersYet,
                       defaultFollowed: false,
                       loadingUids: _loadingUids,
                       followStateOverrides: _followStateOverrides,
                       canToggleFollow: _canToggleFollow,
                       onRefresh: () => _refresh(_FollowListType.followers),
+                      onLoadMore: () => _loadMore(_FollowListType.followers),
                       onToggleFollow: _toggleFollow,
                     ),
                   ],
@@ -343,22 +411,26 @@ class _FollowsPageState extends State<FollowsPage>
 class _FollowUsersPane extends StatelessWidget {
   const _FollowUsersPane({
     required this.future,
+    required this.page,
     required this.emptyText,
     required this.defaultFollowed,
     required this.loadingUids,
     required this.followStateOverrides,
     required this.canToggleFollow,
     required this.onRefresh,
+    required this.onLoadMore,
     required this.onToggleFollow,
   });
 
   final Future<List<_FollowUserItem>> future;
+  final _FollowListPage page;
   final String emptyText;
   final bool defaultFollowed;
   final Set<String> loadingUids;
   final Map<String, bool> followStateOverrides;
   final bool canToggleFollow;
   final Future<void> Function() onRefresh;
+  final Future<void> Function() onLoadMore;
   final Future<void> Function(_FollowUserItem item, bool isFollowed)
   onToggleFollow;
 
@@ -367,7 +439,7 @@ class _FollowUsersPane extends StatelessWidget {
     return FutureBuilder<List<_FollowUserItem>>(
       future: future,
       builder: (context, snapshot) {
-        final items = snapshot.data ?? const <_FollowUserItem>[];
+        final items = page.items;
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return const Center(child: GenesisLoadingIndicator());
@@ -425,8 +497,24 @@ class _FollowUsersPane extends StatelessWidget {
             itemExtent: GenesisFollowUserListTile.itemExtent,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-            itemCount: items.length,
+            itemCount: items.length + (page.hasMore ? 1 : 0),
             itemBuilder: (context, index) {
+              if (index == items.length) {
+                if (page.loadMoreFailed) {
+                  return Center(
+                    child: TextButton(
+                      onPressed: onLoadMore,
+                      child: Text(GenesisL10n.current.homeRetry),
+                    ),
+                  );
+                }
+                if (!page.loadingMore) {
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => unawaited(onLoadMore()),
+                  );
+                }
+                return const Center(child: GenesisLoadingIndicator());
+              }
               final item = items[index];
               final isFollowed =
                   followStateOverrides[item.uid] ??
@@ -452,6 +540,37 @@ class _FollowUsersPane extends StatelessWidget {
 }
 
 enum _FollowListType { following, followers }
+
+class _FollowListPage {
+  List<_FollowUserItem> items = const [];
+  int loadedPage = 0;
+  int revision = 0;
+  bool hasMore = false;
+  bool loadingMore = false;
+  bool loadMoreFailed = false;
+
+  void reset() {
+    revision += 1;
+    items = const [];
+    loadedPage = 0;
+    hasMore = false;
+    loadingMore = false;
+    loadMoreFailed = false;
+  }
+}
+
+List<_FollowUserItem> _mergeFollowUsers(
+  List<_FollowUserItem> previous,
+  List<_FollowUserItem> next,
+) {
+  final byUid = <String, _FollowUserItem>{
+    for (final item in previous) item.uid: item,
+  };
+  for (final item in next) {
+    byUid[item.uid] = item;
+  }
+  return byUid.values.toList(growable: false);
+}
 
 class _FollowUserItem {
   const _FollowUserItem({

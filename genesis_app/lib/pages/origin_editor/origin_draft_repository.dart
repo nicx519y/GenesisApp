@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../network/json_utils.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../create/create_origin_draft_store.dart';
 
@@ -23,30 +24,43 @@ abstract class OriginDraftRepository {
 }
 
 class CreateOriginDraftRepository extends OriginDraftRepository {
-  const CreateOriginDraftRepository();
+  CreateOriginDraftRepository({this.sessionStore});
+
+  final UserSessionStore? sessionStore;
+  Future<String>? _ownerFuture;
+
+  // Keep every read/write from one editor visit on the same account even if
+  // the session changes while an asynchronous save is in flight.
+  Future<String> get ownerUid => _ownerFuture ??=
+      CreateOriginDraftStore.readOwnerUid(sessionStore: sessionStore);
 
   @override
   bool get supportsTempDrafts => true;
 
   @override
-  Future<CreateOriginDraft> loadDraft() => CreateOriginDraftStore.load();
+  Future<CreateOriginDraft> loadDraft() async =>
+      CreateOriginDraftStore.load(ownerUid: await ownerUid);
 
   @override
-  Future<CreateOriginDraft> loadSummaryDraft() =>
-      CreateOriginDraftStore.loadFinal();
+  Future<CreateOriginDraft> loadSummaryDraft() async =>
+      CreateOriginDraftStore.loadFinal(ownerUid: await ownerUid);
 
   @override
-  Future<List<CharacterDraft>> loadSavedCharacters() =>
-      CreateOriginDraftStore.loadFinalCharacters();
+  Future<List<CharacterDraft>> loadSavedCharacters() async =>
+      CreateOriginDraftStore.loadFinalCharacters(ownerUid: await ownerUid);
 
   @override
-  Future<void> saveTempDraft(CreateOriginDraft draft) {
-    return CreateOriginDraftStore.saveTemp(draft, syncedToFinal: false);
+  Future<void> saveTempDraft(CreateOriginDraft draft) async {
+    return CreateOriginDraftStore.saveTemp(
+      draft,
+      syncedToFinal: false,
+      ownerUid: await ownerUid,
+    );
   }
 
   @override
-  Future<void> saveFinalDraft(CreateOriginDraft draft) {
-    return CreateOriginDraftStore.saveFinal(draft);
+  Future<void> saveFinalDraft(CreateOriginDraft draft) async {
+    return CreateOriginDraftStore.saveFinal(draft, ownerUid: await ownerUid);
   }
 
   @override
