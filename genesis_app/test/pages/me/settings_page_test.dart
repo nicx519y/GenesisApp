@@ -511,7 +511,7 @@ void main() {
             transport.decodedBody(
               transport.requestsFor('/api/v1/feedback/create').single,
             ),
-            {'content': 'Rating feedback', 'rating': 3},
+            {'content': '3 Star Rating feedback', 'rating': 3},
           );
           expect(find.byType(WorldoRatingContent), findsNothing);
           await tester.pump(const Duration(seconds: 3));
@@ -567,7 +567,7 @@ void main() {
             transport.decodedBody(
               transport.requestsFor('/api/v1/feedback/create').single,
             ),
-            {'content': 'Rating feedback', 'rating': stars},
+            {'content': '$stars Star Rating feedback', 'rating': stars},
           );
         }
         if (stars >= 1) {

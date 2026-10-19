@@ -122,7 +122,7 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
       }
       await api.v1.feedback.create(
         rating: _rating,
-        content: content.isEmpty ? null : content,
+        content: content.isEmpty ? null : '$_rating Star $content',
       );
       if (!mounted) return;
       if (services.sessionRevision.value != revision) {
