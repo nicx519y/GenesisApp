@@ -62,6 +62,7 @@ import '../../network/json_utils.dart';
 import '../../network/models/gem_model.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
+import '../../network/mini_phone/mini_phone_models.dart' show PhonePerson;
 import '../../platform/device/android_sdk_version.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/session/user_session_store.dart';
@@ -572,6 +573,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _showMessageActionMenu;
   late final ChatMessageTap _failedMessageTapHandler = _handleFailedMessageTap;
   late final ChatCharacterMovementTap _movementTapHandler = _handleMovementTap;
+  late final ChatMessageTap _avatarTapHandler = _handleAvatarTap;
+
+  void _handleAvatarTap(ChatMessageVm message) {
+    unawaited(_openCharacterChat(message));
+  }
+
   late final ValueChanged<bool> _replyTransitionChangedHandler =
       _handleReplyTransitionChanged;
 
@@ -776,6 +783,53 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
   bool _openingModelPage = false;
+  bool _openingCharacterChat = false;
+
+  Future<void> _openCharacterChat(ChatMessageVm message) async {
+    if (_openingCharacterChat || !widget.active || message.isMe) return;
+    final world = (_service?.state ?? _chatroomState).world;
+    final characterId = message.senderId.trim();
+    if (world == null || characterId.isEmpty) return;
+    final character = world.characters.where((character) {
+      return _firstMapString(character, const [
+            'char_id',
+            'character_id',
+            'id',
+          ]).trim() ==
+          characterId;
+    }).firstOrNull;
+    if (character == null) return;
+    final name = _firstMapString(character, const [
+      'name',
+      'char_name',
+      'role_nickname',
+      'role_name',
+      'character_name',
+    ]);
+    _openingCharacterChat = true;
+    try {
+      await PagePresentationScope.runCovered(
+        context,
+        () => showMiniPhone(
+          context,
+          worldId: _modelWorldId,
+          modelCache: _modelRequestCache,
+          initialContact: PhonePerson(
+            characterId,
+            name.isEmpty ? message.senderName : name,
+            _firstMapImageUrl(character, const [
+              'avatar_url',
+              'avatar',
+              'image',
+            ]),
+          ),
+        ),
+      );
+    } finally {
+      _openingCharacterChat = false;
+    }
+  }
+
   late bool _retainModelEntryInHeader;
   int _serviceGeneration = 0;
   int _selectedModelLoadGeneration = 0;

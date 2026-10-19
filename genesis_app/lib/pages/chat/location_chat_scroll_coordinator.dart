@@ -132,6 +132,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   bool _stopAtOldestMessageForCurrentDrag = false;
   bool _disposed = false;
   bool _holdingReplyPosition = false;
+  bool _holdingEnterPosition = false;
   bool Function()? _prepareComposerTailConsumption;
   Object? _messageListOwner;
   bool _userScrollIncludesTemporaryTail = false;
@@ -240,6 +241,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   }) {
     if (_disposed) return;
     if (_holdingReplyPosition &&
+        !_holdingEnterPosition &&
         reason == LocationChatBottomReason.replyGeneration) {
       return;
     }
@@ -247,6 +249,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
         reason == LocationChatBottomReason.composerFocus &&
         (_prepareComposerTailConsumption?.call() ?? false);
     _holdingReplyPosition = false;
+    _holdingEnterPosition = false;
     final generation = ++_commandGeneration;
     _animatedBottomScrollGeneration =
         !consumeTail && behavior == LocationChatBottomBehavior.animate
@@ -298,6 +301,12 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     _setMode(LocationChatViewportMode.detached);
     if (controller.hasClients) _jumpTo(controller.position.pixels);
     return needsLatestMessageReveal;
+  }
+
+  void _holdEnterConversationPosition() {
+    prepareWaitingReplyPosition();
+    // An explicit Go On still owns the viewport when reply positioning is off.
+    _holdingEnterPosition = true;
   }
 
   /// Move once, then let incoming content fill the space below this viewport.
@@ -464,6 +473,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   void _cancelPendingCommands() {
     _commandGeneration += 1;
     _animatedBottomScrollGeneration = null;
+    _holdingEnterPosition = false;
   }
 
   bool _commandIsCurrent(int generation) {
@@ -628,6 +638,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.loadingIdentity,
     this.enterWaitingAfterMessageLocalId,
     this.enterWaitingIdentity,
+    this.enterConversation,
     this.preAckWaitingAfterMessageLocalId,
     this.preAckWaitingIdentity,
     this.waitingPositionResetRevision = 0,
@@ -639,6 +650,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
         LocationChatBubbleLayoutSettings.defaultReplyViewportReserveFraction,
     this.active = true,
     this.onMessageLongPressStart,
+    this.onAvatarTap,
     this.onFailedMessageTap,
     this.onCharactersMovedLocationTap,
     this.keyboardDismissBehavior,
@@ -678,6 +690,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.otherMessageBubbleMaxWidthCap,
     this.style,
     this.historyGapLoaders = const {},
+    this.captureReadingAnchorOnDragStart = false,
     this.onVisibleMessagesChanged,
     this.onReadingMessageChanged,
     this.messageReadingMarkerKey,
@@ -694,6 +707,10 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final LocationChatViewportCache? viewportCache;
   final List<ChatMessageVm> messages;
   final Map<String, VoidCallback> historyGapLoaders;
+
+  /// Archives opt in to capturing before a drag releases the current hold.
+  /// Live chat retains its existing post-layout anchor snapshot behavior.
+  final bool captureReadingAnchorOnDragStart;
   final ValueChanged<Set<String>>? onVisibleMessagesChanged;
   final ValueChanged<String?>? onReadingMessageChanged;
   final GlobalKey? Function(String localId)? messageReadingMarkerKey;
@@ -727,6 +744,9 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   /// participates in message persistence, ordering, unread, or reply actions.
   final String? enterWaitingAfterMessageLocalId;
   final String? enterWaitingIdentity;
+
+  /// Active Enter round, including frames after the waiting row disappears.
+  final ({String messageLocalId, String identity})? enterConversation;
   final String? preAckWaitingAfterMessageLocalId;
   final String? preAckWaitingIdentity;
   final int waitingPositionResetRevision;
@@ -745,6 +765,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final double replyViewportReserveFraction;
   final bool active;
   final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ChatMessageTap? onAvatarTap;
   final ChatMessageTap? onFailedMessageTap;
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
@@ -819,6 +840,11 @@ class _LocationChatAnchoredMessageListState
   String? _lastWaitingOperation;
   String? _waitingAnchorLayoutId;
   bool _waitingPositionPending = false;
+  String? _lastEnterHoldIdentity;
+  int? _enterHoldGeneration;
+  bool get _holdingEnterPosition =>
+      _enterHoldGeneration == widget.coordinator.commandGeneration &&
+      widget.coordinator._holdingReplyPosition;
   double? _waitingPositionTargetOffset;
   final _naturalContentEndKey = GlobalKey();
   late final _geometryCache =
@@ -1068,7 +1094,9 @@ class _LocationChatAnchoredMessageListState
       // Capture before the outer coordinator releases its entry/reply hold.
       // A post-frame snapshot is too late if lazy row measurement or history
       // hydration changes the content coordinates during this first gesture.
-      _captureUserScrollAnchor();
+      if (widget.captureReadingAnchorOnDragStart) {
+        _captureUserScrollAnchor();
+      }
       _consumingTemporaryTail = true;
     } else if (notification is UserScrollNotification) {
       _consumingTemporaryTail = notification.direction != ScrollDirection.idle;
@@ -1309,6 +1337,53 @@ class _LocationChatAnchoredMessageListState
                           ? null
                           : list.loadingIdentity ??
                                 list.loadingAfterMessageLocalId));
+
+  void _scheduleEnterPositionHold() {
+    final conversation = widget.enterConversation;
+    if (!widget.active ||
+        conversation == null ||
+        conversation.identity == _lastEnterHoldIdentity) {
+      return;
+    }
+    _lastEnterHoldIdentity = conversation.identity;
+    final coordinator = widget.coordinator;
+    final generation = coordinator.commandGeneration;
+    // Let the Enter row use the normal first layout, then keep that position.
+    // A drag or explicit command before this callback owns the viewport.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !widget.active ||
+          widget.coordinator != coordinator ||
+          widget.enterConversation?.identity != conversation.identity ||
+          coordinator.commandGeneration != generation ||
+          !coordinator.canPositionWaitingReply ||
+          !coordinator.controller.hasClients) {
+        return;
+      }
+      final message = widget.messages
+          .where((message) => message.localId == conversation.messageLocalId)
+          .firstOrNull;
+      if (message == null) return;
+      final position = coordinator.controller.position;
+      final anchorId = _messageLayoutId(message);
+      final offset = _messageContentOffset(anchorId);
+      coordinator._holdEnterConversationPosition();
+      setState(() {
+        _enterHoldGeneration = coordinator.commandGeneration;
+        _waitingAnchorLayoutId = anchorId;
+        _waitingPositionPending = false;
+        _waitingPositionTargetOffset = null;
+        _heldReplyPrefixAnchor = null;
+        _composerTailAnchor = null;
+        _detachedLayoutAnchor = offset == null
+            ? null
+            : (localId: anchorId, contentOffset: offset);
+        // Keep enough extent for the current viewport when loading collapses.
+        // AI growth consumes this space without changing the held offset.
+        _waitingMinContentExtent = position.pixels + position.viewportDimension;
+      });
+    });
+  }
 
   void _scheduleWaitingPosition({LocationChatAnchoredMessageList? previous}) {
     final identity = _waitingIdentity(widget);
@@ -1790,6 +1865,7 @@ class _LocationChatAnchoredMessageListState
           widget.selfMessageBubbleMaxWidthCap,
           widget.otherMessageBubbleMaxWidthCap,
           widget.onMessageLongPressStart,
+          widget.onAvatarTap,
           widget.onFailedMessageTap,
           widget.onCharactersMovedLocationTap,
         ),
@@ -1864,6 +1940,7 @@ class _LocationChatAnchoredMessageListState
       widget.selfMessageBubbleMaxWidthCap,
       widget.otherMessageBubbleMaxWidthCap,
       widget.onMessageLongPressStart,
+      widget.onAvatarTap,
       widget.onFailedMessageTap,
       widget.onCharactersMovedLocationTap,
     );
@@ -1983,12 +2060,17 @@ class _LocationChatAnchoredMessageListState
     widget.coordinator.controller.addListener(_scheduleContentVisibility);
     _scheduleInitialViewportLayout();
     _scheduleWaitingPosition();
+    _scheduleEnterPositionHold();
     _scheduleDetachedAnchorSnapshot();
   }
 
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!oldWidget.active && widget.active ||
+        oldWidget.coordinator != widget.coordinator) {
+      _lastEnterHoldIdentity = null;
+    }
     if (oldWidget.historyReveal != widget.historyReveal) {
       final targetIndex = _messageIndexByLocalId[widget.historyReveal?.localId];
       final oldExtent = targetIndex == null
@@ -2017,28 +2099,6 @@ class _LocationChatAnchoredMessageListState
       _layoutCorrectionExtentSignal = _layoutCorrectionExtentSignal == 0
           ? _locationChatLayoutCorrectionExtentSignal
           : 0;
-    }
-    if (!oldWidget.active && widget.active && widget.viewportCache == null) {
-      // Re-enter at the real tail, without the previous visit's reserved
-      // reply space or detached reading anchor. User drags still cancel
-      // the normal entry-to-bottom command through the coordinator.
-      _waitingMinContentExtent = 0;
-      _waitingPositionPending = false;
-      _waitingPositionTargetOffset = null;
-      _waitingAnchorLayoutId = null;
-      _waitingAnchorNeedsLayout = false;
-      _positioningIdentity = null;
-      _lastWaitingOperation = _waitingIdentity(widget);
-      _heldReplyPrefixAnchor = null;
-      _composerTailAnchor = null;
-      _detachedLayoutAnchor = null;
-      _anchorRestorePending = false;
-      _replySwitchAnchor = null;
-      _replyActionReplacementAnchor = null;
-      _replyLayoutFinishGeneration++;
-      _replyLayoutFinishing = false;
-      _replyLayoutBridge.cancel(clearMeasurements: true);
-      widget.coordinator.enter();
     }
     final previousLayoutIds = oldWidget.messages
         .map(
@@ -2098,7 +2158,7 @@ class _LocationChatAnchoredMessageListState
     final disabledWaitingPositioning =
         oldWidget.replyWaitingPositioningEnabled &&
         !widget.replyWaitingPositioningEnabled;
-    if (!widget.replyWaitingPositioningEnabled ||
+    if ((!widget.replyWaitingPositioningEnabled && !_holdingEnterPosition) ||
         !widget.active ||
         oldWidget.coordinator != widget.coordinator ||
         widget.coordinator.mode == LocationChatViewportMode.initializing) {
@@ -2110,7 +2170,7 @@ class _LocationChatAnchoredMessageListState
       _composerTailAnchor = null;
       _cardSwitcherKey.currentState?.resumeRegenerateCollapse();
     }
-    if (disabledWaitingPositioning) {
+    if (disabledWaitingPositioning && !_holdingEnterPosition) {
       oldWidget.coordinator.releaseWaitingReplyPosition();
     }
     _retainExtentOnStreamCompletion();
@@ -2336,6 +2396,7 @@ class _LocationChatAnchoredMessageListState
             _oldestEdgeLoadingController.value >= 1)) {
       _oldestEdgeLoadingController.reverse();
     }
+    _scheduleEnterPositionHold();
   }
 
   void _handleOldestEdgeLoadingStatus(AnimationStatus status) {
@@ -2793,41 +2854,48 @@ class _LocationChatAnchoredMessageListState
               onNotification: _handleTemporaryTailScroll,
               child: BackdropGroup(
                 backdropKey: _messageBackdropKey,
-                child: ValueListenableBuilder<String?>(
-                  valueListenable: _pinnedHistoryHeader,
-                  child: _buildLazyMessageView(
-                    style: style,
-                    hasOldestEdgeContent: hasOldestEdgeContent,
-                  ),
-                  builder: (context, id, messages) {
-                    final pinned =
-                        id != null &&
-                        widget.expandedHistoryHeaders.containsValue(id);
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ClipRect(
-                          clipper: _HistoryHeaderContentClipper(
-                            pinned ? _pinnedHistoryHeaderKey : null,
-                          ),
-                          child: messages,
+                child: widget.pinnedHistoryHeaderBuilder == null
+                    ? _buildLazyMessageView(
+                        style: style,
+                        hasOldestEdgeContent: hasOldestEdgeContent,
+                      )
+                    : ValueListenableBuilder<String?>(
+                        valueListenable: _pinnedHistoryHeader,
+                        child: _buildLazyMessageView(
+                          style: style,
+                          hasOldestEdgeContent: hasOldestEdgeContent,
                         ),
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: SizedBox(
-                            key: _pinnedHistoryHeaderKey,
-                            child: pinned
-                                ? widget.pinnedHistoryHeaderBuilder?.call(id) ??
-                                      const SizedBox.shrink()
-                                : const SizedBox.shrink(),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                        builder: (context, id, messages) {
+                          final pinned =
+                              id != null &&
+                              widget.expandedHistoryHeaders.containsValue(id);
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRect(
+                                clipper: _HistoryHeaderContentClipper(
+                                  pinned ? _pinnedHistoryHeaderKey : null,
+                                ),
+                                child: messages,
+                              ),
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: SizedBox(
+                                  key: _pinnedHistoryHeaderKey,
+                                  child: pinned
+                                      ? widget.pinnedHistoryHeaderBuilder?.call(
+                                              id,
+                                            ) ??
+                                            const SizedBox.shrink()
+                                      : const SizedBox.shrink(),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
               ),
             ),
           );
@@ -3428,6 +3496,7 @@ class _LocationChatAnchoredMessageListState
       widget.selfMessageBubbleMaxWidthCap,
       widget.otherMessageBubbleMaxWidthCap,
       widget.onMessageLongPressStart,
+      widget.onAvatarTap,
       widget.onFailedMessageTap,
       widget.onCharactersMovedLocationTap,
       widget.messageDecorationVersion?.call(current, previous),
@@ -3533,6 +3602,9 @@ class _LocationChatAnchoredMessageListState
       selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
       otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
       onMessageLongPressStart: widget.onMessageLongPressStart,
+      onAvatarTap: widget.onAvatarTap == null
+          ? null
+          : () => widget.onAvatarTap!(message),
       onFailedMessageTap: widget.onFailedMessageTap,
       onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
       showDateDivider: showDateDivider,

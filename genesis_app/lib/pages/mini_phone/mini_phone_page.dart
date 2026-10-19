@@ -38,6 +38,7 @@ import 'session/mini_phone_screen.dart';
 Future<void> showMiniPhone(
   BuildContext context, {
   MiniPhoneScreen? initialScreen,
+  PhonePerson? initialContact,
   String worldId = '',
   MemoryModelPageCache? modelCache,
   MiniPhoneSession? session,
@@ -79,6 +80,11 @@ Future<void> showMiniPhone(
     cached: modelCache?.modelCatalog,
   );
   try {
+    if (initialContact != null && phone.data != null) {
+      // Resolve the account before its initial notification can clear the target.
+      await phone.data!.localReady;
+      if (!context.mounted || phone.isDisposed) return;
+    }
     await phone.push<void>(
       context,
       MaterialPageRoute(
@@ -87,6 +93,7 @@ Future<void> showMiniPhone(
           worldId: worldId,
           session: phone,
           initialScreen: initialScreen ?? phone.resume.screen,
+          initialContact: initialContact,
         ),
       ),
     );
@@ -123,12 +130,14 @@ class MiniPhonePage extends StatefulWidget {
   const MiniPhonePage({
     super.key,
     this.initialScreen = MiniPhoneScreen.home,
+    this.initialContact,
     this.worldId = '',
     this.wallpaperController,
     this.session,
   });
   final MiniPhoneSession? session;
   final MiniPhoneScreen initialScreen;
+  final PhonePerson? initialContact;
   final String worldId;
   final MiniPhoneWallpaperController? wallpaperController;
   @override
@@ -184,8 +193,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _miniResume.viewerPhotos = null;
       _miniResume.viewerIndex = 0;
     }
-    screen = widget.initialScreen;
+    screen = widget.initialContact != null
+        ? MiniPhoneScreen.chat
+        : widget.initialScreen;
     if (accountChanged &&
+        widget.initialContact == null &&
         (screen == MiniPhoneScreen.chat ||
             screen == MiniPhoneScreen.comments ||
             screen == MiniPhoneScreen.create)) {
@@ -194,7 +206,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _launchTransition = AppLaunchTransitionController(
       initiallyOpen: screen != MiniPhoneScreen.home,
     );
-    liveContact = _miniResume.liveContact;
+    liveContact = widget.initialContact ?? _miniResume.liveContact;
     livePostId = _miniResume.livePostId;
     store.addListener(_changed);
     _phoneOwner = phone?.uid;
@@ -404,7 +416,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       case MiniPhoneScreen.models:
         _go(_miniModelReturnScreen);
       case MiniPhoneScreen.chat:
-        _go(MiniPhoneScreen.messages);
+        if (widget.initialContact != null) {
+          _close();
+        } else {
+          _go(MiniPhoneScreen.messages);
+        }
       case MiniPhoneScreen.comments:
       case MiniPhoneScreen.create:
         _go(MiniPhoneScreen.posts);
@@ -416,7 +432,10 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _closing || screen == MiniPhoneScreen.home,
+      canPop:
+          _closing ||
+          screen == MiniPhoneScreen.home ||
+          (widget.initialContact != null && screen == MiniPhoneScreen.chat),
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           _closing = true;
@@ -496,7 +515,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   List<MiniPhoneScreen> _pageStack(MiniPhoneScreen destination) =>
       switch (destination) {
         MiniPhoneScreen.chat => [
-          MiniPhoneScreen.messages,
+          if (widget.initialContact == null) MiniPhoneScreen.messages,
           MiniPhoneScreen.chat,
         ],
         MiniPhoneScreen.models => [

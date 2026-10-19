@@ -91,6 +91,18 @@ Validation for this scheduling change:
 
 ## User behavior
 
+- Tapping a left-side character avatar in LocationChat opens that character's
+  MiniPhone private chat only when its sender ID matches the current World's
+  `characters` roster. Matching uses the full World roster, independent of the
+  character's current location. The direct target overrides the resumed chat,
+  reuses the World-owned MiniPhone session and its caches, and uses the existing
+  private-chat session discovery when no DM session is cached. Unknown characters
+  leave the LocationChat page unchanged; no synthetic Messages rows are added.
+  A direct chat has no Messages page below it: its header Back, system Back and
+  iOS swipe back return to the calling LocationChat page. Returning from model
+  settings first returns to that chat. Chats opened inside MiniPhone retain their
+  existing Messages return path.
+
 - Opening MiniPhone warms the first pages of Messages, Posts (including authors), and Photos concurrently in the world-owned session cache. Opening directly to an app shares that app entry request with warm-up. Each later app entry refreshes its own first page once, keeping cached content visible until success and retaining it on failure. Closing/reopening keeps the cache and warms it again; account/world/environment isolation is unchanged. Posts/Photos pull-to-refresh, author changes and scroll pagination remain explicit requests. Messages lists and DM conversations do not offer pull-to-refresh; entry synchronization, automatic message synchronization and history pagination remain available. Timers, pushes, reconnects, foreground recovery, read receipts and writes do not refresh these app lists. Home/unread summaries remain independent; per-request DM status recovery and foreground chat history are separate from app-list refresh. Liking uses the queried post detail for the visible interaction state instead of reloading Feed.
 
 - Page/list reads show no standalone loading icons in Messages, Posts, comments,

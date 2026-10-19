@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/ui/navigation/genesis_dark_page_route.dart';
 import '../../support/mini_phone_chat_backend.dart';
@@ -20,6 +21,7 @@ void main() {
     WidgetTester tester,
     TargetPlatform platform, {
     bool outerRoute = false,
+    bool directChat = false,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -49,6 +51,9 @@ void main() {
     Widget phone() => MiniPhonePage(
       session: session,
       initialScreen: MiniPhoneScreen.messages,
+      initialContact: directChat
+          ? const PhonePerson('c0', 'Person 0', '')
+          : null,
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -186,6 +191,25 @@ void main() {
     expect(find.byType(MiniPhoneLiveChat), findsNothing);
     expect(find.byType(MiniPhonePage), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('iOS swipe back from a direct chat returns to its caller', (
+    tester,
+  ) async {
+    final session = await mount(
+      tester,
+      TargetPlatform.iOS,
+      outerRoute: true,
+      directChat: true,
+    );
+    expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+    await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+    await settle(tester);
+    expect(find.byType(MiniPhonePage), findsNothing);
+    expect(find.text('Open phone'), findsOneWidget);
+    expect(session.isDisposed, isFalse);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

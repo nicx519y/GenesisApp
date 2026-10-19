@@ -305,6 +305,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 key: ValueKey((widget.worldId, widget.currentUid)),
                 coordinator: _scrollCoordinator,
                 viewportCache: _cache.viewport,
+                captureReadingAnchorOnDragStart: true,
                 messages: messages,
                 topTitle: '',
                 active: _requestsEnabled,

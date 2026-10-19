@@ -21,7 +21,10 @@ void main() {
     ];
   }
 
-  Widget viewport(LocationChatScrollCoordinator coordinator) {
+  Widget viewport(
+    LocationChatScrollCoordinator coordinator, {
+    bool active = true,
+  }) {
     return MaterialApp(
       home: Scaffold(
         body: SizedBox(
@@ -33,6 +36,7 @@ void main() {
                 onNotification: coordinator.handleScrollNotification,
                 child: LocationChatAnchoredMessageList(
                   coordinator: coordinator,
+                  active: active,
                   messages: messages(30),
                   topTitle: '',
                   showDateDividers: false,
@@ -260,6 +264,31 @@ void main() {
     expect(coordinator.mode, LocationChatViewportMode.followingLatest);
     expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
   });
+
+  testWidgets(
+    'chat list reactivation preserves its detached reading position',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(viewport(coordinator));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 240));
+      await tester.pumpAndSettle();
+      expect(coordinator.isReadingHistory, isTrue);
+      final pixels = coordinator.controller.position.pixels;
+      final generation = coordinator.commandGeneration;
+
+      await tester.pumpWidget(viewport(coordinator, active: false));
+      await tester.pump();
+      await tester.pumpWidget(viewport(coordinator));
+      await tester.pumpAndSettle();
+
+      expect(coordinator.isReadingHistory, isTrue);
+      expect(coordinator.commandGeneration, generation);
+      expect(coordinator.controller.position.pixels, closeTo(pixels, 0.1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'reply generation scrolls over 500ms and respects a user interruption',

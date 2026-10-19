@@ -27,6 +27,155 @@ double waitingPredecessorBottom(WidgetTester tester) {
 }
 
 void main() {
+  for (final historyCount in [0, 30]) {
+    for (final positioningEnabled in [false, true]) {
+      testWidgets('Enter holds its viewport through streaming and completion '
+          '($historyCount history, positioning $positioningEnabled)', (
+        tester,
+      ) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        final history = List.generate(
+          historyCount,
+          (i) => ChatMessageVm(
+            localId: 'old-$i',
+            senderId: 'peer',
+            senderName: 'Peer',
+            text: 'Earlier message $i',
+            isMe: false,
+            status: 'sent',
+          ),
+        );
+        final enter = ChatMessageVm(
+          localId: 'enter',
+          senderId: 'peer',
+          senderName: 'Peer',
+          senderType: 'user_enter_location',
+          text: 'Peer entered the location.',
+          roundId: '401',
+          isMe: false,
+          status: 'sent',
+        );
+        var rows = history;
+        var processing = false;
+        var waiting = false;
+        Widget build() => MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: coordinator.handleScrollNotification,
+                child: ChatStreamingEffects(
+                  settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+                    streamingTextDurationMs: 1,
+                  ),
+                  child: LocationChatAnchoredMessageList(
+                    coordinator: coordinator,
+                    messages: rows,
+                    topTitle: '',
+                    showDateDividers: false,
+                    replyWaitingPositioningEnabled: positioningEnabled,
+                    enterConversation: processing
+                        ? (messageLocalId: 'enter', identity: 'round-401')
+                        : null,
+                    enterWaitingAfterMessageLocalId: waiting ? 'enter' : null,
+                    enterWaitingIdentity: waiting ? 'round-401' : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+        processing = waiting = true;
+        rows = [...history, enter];
+        await tester.pumpWidget(build());
+        await tester.pump();
+        await tester.pump();
+        final heldPixels = coordinator.controller.position.pixels;
+        final enterBottom = messageBubbleBottom(tester, 'enter');
+        expect(coordinator.shouldFollowLatest, isFalse);
+        expect(coordinator.isReadingHistory, isFalse);
+
+        ChatMessageVm reply(int lines, String status) => ChatMessageVm(
+          localId: 'reply',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: List.filled(
+            lines,
+            'AI reply grows on another line.',
+          ).join('\n'),
+          roundId: '401',
+          isMe: false,
+          status: status,
+        );
+        waiting = false;
+        for (final lines in [1, 8, 20]) {
+          rows = [...history, enter, reply(lines, 'streaming')];
+          await tester.pumpWidget(build());
+          for (var frame = 0; frame < 80; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(
+              coordinator.controller.position.pixels,
+              closeTo(heldPixels, 0.5),
+            );
+            expect(
+              messageBubbleBottom(tester, 'enter'),
+              closeTo(enterBottom, 0.5),
+            );
+          }
+        }
+        processing = false;
+        rows = [...history, enter, reply(20, 'sent')];
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+        expect(
+          coordinator.controller.position.pixels,
+          closeTo(heldPixels, 0.5),
+        );
+        expect(
+          coordinator.controller.position.maxScrollExtent,
+          greaterThan(heldPixels + 100),
+        );
+
+        if (!positioningEnabled) {
+          // Go On uses an explicit bottom request with positioning disabled.
+          coordinator.requestBottom(
+            reason: LocationChatBottomReason.replyGeneration,
+            behavior: LocationChatBottomBehavior.jump,
+          );
+          await tester.pumpWidget(build());
+          await tester.pumpAndSettle();
+          expect(coordinator.shouldFollowLatest, isTrue);
+          expect(coordinator.isAtBottom, isTrue);
+          return;
+        }
+
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+        await tester.pumpAndSettle();
+        expect(
+          coordinator.controller.position.pixels,
+          greaterThan(heldPixels + 20),
+        );
+        expect(coordinator.isReadingHistory, isTrue);
+        // An explicit latest-message action still takes ownership.
+        coordinator.requestBottom(
+          reason: LocationChatBottomReason.unseenMessageNotice,
+          behavior: LocationChatBottomBehavior.jump,
+        );
+        // The page rebuilds its viewport on coordinator notifications.
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+        expect(coordinator.shouldFollowLatest, isTrue);
+        expect(
+          coordinator.controller.position.pixels,
+          closeTo(coordinator.controller.position.maxScrollExtent, 0.5),
+        );
+      });
+    }
+  }
+
   testWidgets('restored middle history does not enter the live reveal queue', (
     tester,
   ) async {
@@ -2218,6 +2367,42 @@ void main() {
       await tester.pumpWidget(tree(coordinator, count: 1));
       await tester.pump(const Duration(milliseconds: 300));
       expect(coordinator.controller.position.pixels, closeTo(held, 1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'chat list reactivation does not release the reply position hold',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(tree(coordinator));
+      await tester.pump();
+      await tester.pumpWidget(tree(coordinator, waiting: 'round-1'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(coordinator.isDetached, isTrue);
+      expect(coordinator.isReadingHistory, isFalse);
+
+      await tester.pumpWidget(
+        tree(coordinator, waiting: 'round-1', active: false),
+      );
+      await tester.pump();
+      await tester.pumpWidget(tree(coordinator, waiting: 'round-1'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(coordinator.isDetached, isTrue);
+      expect(coordinator.isReadingHistory, isFalse);
+      final heldPixels = coordinator.controller.position.pixels;
+      coordinator.requestBottom(
+        reason: LocationChatBottomReason.replyGeneration,
+        behavior: LocationChatBottomBehavior.jump,
+      );
+      await tester.pump();
+      expect(coordinator.isDetached, isTrue);
+      expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

@@ -46,6 +46,12 @@ import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.d
 import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat_message_parsers.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page_cache.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
+import '../../support/mini_phone_chat_backend.dart';
+import '../../support/mini_phone_memory_cache.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -114,6 +120,169 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  for (final replyCard in [false, true]) {
+    testWidgets(
+      'character avatar opens World MiniPhone chat (card: $replyCard)',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final backend = _LocationChatReplyHttpTransport()
+          ..seedReplyRound(
+            conversationType: replyCard ? 'user_message' : '',
+            triggerUid: replyCard ? 'user-1' : '',
+          );
+        final harness = await _connectedLocationChatTestService(
+          replyTransport: backend,
+        );
+        final world = WorldDetail.fromJson({
+          'world_id': 'world-current',
+          'characters': [
+            {'char_id': 'char-1', 'name': 'World Alice'},
+          ],
+          'locations': [
+            {'location_id': 'location-current', 'name': 'Location'},
+          ],
+          'character_positions': <Object?>[],
+        });
+        final phoneBackend = PhoneBackend();
+        phoneBackend.respond = (request) =>
+            request.uri.path.endsWith('/dm_sessions')
+            ? ok(
+                page(
+                  replyCard
+                      ? [
+                          {
+                            ...phoneSession(),
+                            'world_id': 'world-current',
+                            'char_id': 'char-1',
+                          },
+                        ]
+                      : [],
+                ),
+              )
+            : null;
+        final phoneUid = Completer<String?>();
+        if (replyCard) phoneUid.complete('user-1');
+        final data = MiniPhoneStore(
+          api: phoneBackend.api,
+          worldId: 'world-current',
+          namespace: 'avatar-navigation-$replyCard',
+          readUid: () => phoneUid.future,
+          loadWorld: () async => world,
+          accountRevision: ValueNotifier(0),
+          cacheStorage: MemoryMiniPhoneCacheStorage(),
+        );
+        if (replyCard) {
+          await tester.runAsync(() async {
+            await data.ready;
+            await data.refreshSessions();
+          });
+        }
+        final session = MiniPhoneSession(worldId: 'world-current', data: data);
+        // A direct target must override the last chat remembered by the phone.
+        session.resume.liveContact = const PhonePerson(
+          'char-2',
+          'Old chat',
+          '',
+        );
+        session.resume.screen = MiniPhoneScreen.chat;
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          session.dispose();
+          unawaited(harness.service.dispose());
+        });
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: MiniPhoneSessionScope(
+                session: session,
+                worldDetailReady: true,
+                child: LocationChatPanel(
+                  worldId: 'world-current',
+                  locationId: 'location-current',
+                  service: harness.service,
+                  leaveOnInactive: false,
+                  messageQueueInitializationCovered: true,
+                ),
+              ),
+            ),
+          ),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find.text('Second reply.').evaluate().isNotEmpty,
+        );
+        harness.service.applyWorldSnapshot(world);
+        await tester.pumpAndSettle();
+        Finder avatarFor(String text) => find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is ChatOtherMessageBubble && widget.message.text == text,
+          ),
+          matching: find.byType(ChatAvatar),
+        );
+        // char-2 shares the same message display name, but is absent from World.
+        await tester.tap(avatarFor('Second reply.'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MiniPhonePage), findsNothing);
+        await tester.tap(avatarFor('Original reply.'));
+        await tester.pump();
+        if (!replyCard) {
+          expect(find.byType(MiniPhonePage), findsNothing);
+          phoneUid.complete('user-1');
+        }
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+        });
+        await tester.pumpAndSettle();
+        expect(find.byType(MiniPhonePage), findsOneWidget);
+        final chat = tester.widget<MiniPhoneLiveChat>(
+          find.byType(MiniPhoneLiveChat),
+        );
+        expect(chat.store, same(data));
+        expect(chat.person.id, 'char-1');
+        expect(chat.person.name, 'World Alice');
+        expect(data.activeCharId, 'char-1');
+        if (replyCard) {
+          expect(phoneBackend.calls('messages'), hasLength(1));
+          expect(
+            phoneBackend
+                .calls('messages')
+                .single
+                .uri
+                .queryParameters['dm_session_id'],
+            '9',
+          );
+        } else {
+          expect(phoneBackend.calls('messages'), isEmpty);
+          expect(phoneBackend.calls('dm_session/read'), isEmpty);
+        }
+        if (replyCard) {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.widgetWithText(TextButton, 'World Alice'));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(MiniPhonePage), findsNothing);
+        expect(find.byType(LocationChatPanel), findsOneWidget);
+        expect(find.text('Original reply.'), findsOneWidget);
+        expect(data.phoneVisible, isFalse);
+        expect(data.activeCharId, isNull);
+        expect(session.isDisposed, isFalse);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        session.dispose();
+        unawaited(harness.service.dispose());
+        await tester.pump();
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+  }
+
   void narrationVersion(String version) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(GenesisMethodChannels.device, (call) async {
@@ -2376,6 +2545,7 @@ void main() {
       );
       expect(enter.isMe, isFalse);
       expect(list.enterWaitingAfterMessageLocalId, enter.localId);
+      expect(list.enterConversation?.messageLocalId, enter.localId);
       expect(
         list.enterWaitingIdentity,
         'world-current/location-current/401/${enter.localId}',
@@ -2444,6 +2614,8 @@ void main() {
         }
       }
       expect(contentRendered, isTrue);
+      expect(list.enterConversation?.messageLocalId, enter.localId);
+      expect(list.coordinator.shouldFollowLatest, isFalse);
       expect(enterLoading, findsNothing);
       expect(find.byType(ChatReplyWaitingBubble), findsNothing);
       expect(
@@ -2523,6 +2695,52 @@ void main() {
       await _disposeEnterConversationPanel(tester, harness.service);
     },
   );
+
+  testWidgets('Enter holds even when content arrives before round waiting', (
+    tester,
+  ) async {
+    final harness = await _mountEnterConversationPanel(tester);
+    harness.socket.serverUserEnterLocation(
+      roundId: 401,
+      messageId: 401,
+      locationMessageId: 401,
+    );
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_start',
+      roundId: 401,
+      messageId: 402,
+    );
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      roundId: 401,
+      messageId: 402,
+      seq: 1,
+      content: 'Enter reply arrived before the waiting event.',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages
+          .any((message) => message.text.contains('before the waiting event')),
+    );
+    harness.socket.serverWaitingConversationRound(roundId: 401);
+    await _pumpUntilLocationChatTest(tester, () {
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      return list.enterConversation != null &&
+          !list.coordinator.shouldFollowLatest;
+    });
+    final list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(list.enterWaitingIdentity, isNull);
+    expect(list.coordinator.isReadingHistory, isFalse);
+    await _disposeEnterConversationPanel(tester, harness.service);
+  });
 
   testWidgets('Enter waiting follows the existing conversation timeout', (
     tester,
@@ -3408,12 +3626,7 @@ void main() {
       pageSource,
       isNot(contains('MediaQuery.maybeOf(context)?.devicePixelRatio')),
     );
-    expect(
-      pageSource,
-      contains(
-        'with LanguageDataRefresh<LocationChatPanel>',
-      ),
-    );
+    expect(pageSource, contains('with LanguageDataRefresh<LocationChatPanel>'));
     expect(pageSource, contains('class _LocationChatKeyboardInsetLayoutState'));
     expect(
       RegExp(r'void didChangeMetrics\(\)').allMatches(pageSource),

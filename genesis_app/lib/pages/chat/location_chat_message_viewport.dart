@@ -193,6 +193,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             loadingIdentity: _ackLoadingClientMsgId,
             enterWaitingAfterMessageLocalId: enterWaiting?.messageLocalId,
             enterWaitingIdentity: enterWaiting?.identity,
+            enterConversation: _enterConversationFor(displayMessages),
             preAckWaitingAfterMessageLocalId: _preAckWaitingMessageLocalId,
             preAckWaitingIdentity: _preAckWaitingClientMsgId,
             waitingPositionResetRevision: _waitingPositionResetRevision,
@@ -250,6 +251,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             oldestEdgeLoading: _showOlderMessagesLoading,
             onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
             onMessageLongPressStart: _messageLongPressHandler,
+            onAvatarTap: _avatarTapHandler,
             onFailedMessageTap: _failedMessageTapHandler,
             onCharactersMovedLocationTap:
                 widget.onCharactersMovedLocationTap == null
@@ -299,6 +301,25 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
   ({String messageLocalId, String identity})? _enterConversationWaitingFor(
     List<ChatMessageVm> messages,
   ) {
+    final conversation = _enterConversationFor(messages);
+    if (conversation == null) return null;
+    final enterIndex = messages.indexWhere(
+      (message) => message.localId == conversation.messageLocalId,
+    );
+    final roundId = messages[enterIndex].roundId.trim();
+    final contentStarted = messages
+        .skip(enterIndex + 1)
+        .any(
+          (message) =>
+              message.roundId.trim() == roundId &&
+              _isVisibleEnterConversationContent(message),
+        );
+    return contentStarted ? null : conversation;
+  }
+
+  ({String messageLocalId, String identity})? _enterConversationFor(
+    List<ChatMessageVm> messages,
+  ) {
     final state = _service?.state ?? _chatroomState;
     final activeRound =
         state.conversationRoundStatesByLocation[widget.locationId];
@@ -313,15 +334,6 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
           message.isUserEnterLocation && message.roundId.trim() == roundId,
     );
     if (enterIndex < 0) return null;
-
-    final contentStarted = messages
-        .skip(enterIndex + 1)
-        .any(
-          (message) =>
-              message.roundId.trim() == roundId &&
-              _isVisibleEnterConversationContent(message),
-        );
-    if (contentStarted) return null;
 
     final enterMessage = messages[enterIndex];
     return (
