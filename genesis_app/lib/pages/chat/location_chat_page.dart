@@ -806,6 +806,25 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'role_name',
       'character_name',
     ]);
+    final avatar = _firstMapImageUrl(character, const [
+      'avatar_url',
+      'avatar',
+      'image',
+    ]);
+    await _openPhoneContact(
+      PhonePerson(
+        characterId,
+        name.isEmpty ? message.senderName : name,
+        avatar,
+      ),
+    );
+  }
+
+  Future<void> _openPhoneContact(PhonePerson contact) async {
+    if (_openingCharacterChat || !widget.active) {
+      return;
+    }
+    if (_rosterOpen) setState(() => _rosterOpen = false);
     _openingCharacterChat = true;
     try {
       await PagePresentationScope.runCovered(
@@ -814,15 +833,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           context,
           worldId: _modelWorldId,
           modelCache: _modelRequestCache,
-          initialContact: PhonePerson(
-            characterId,
-            name.isEmpty ? message.senderName : name,
-            _firstMapImageUrl(character, const [
-              'avatar_url',
-              'avatar',
-              'image',
-            ]),
-          ),
+          initialContact: contact,
         ),
       );
     } finally {
@@ -1645,6 +1656,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                       key: const ValueKey<String>('location-chat-roster'),
                       occupants: occupants,
                       selfOccupantId: selfOccupantId,
+                      onCharacterTap: (entity) => unawaited(
+                        _openPhoneContact(
+                          PhonePerson(entity.id, entity.name, entity.avatarUrl),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1667,12 +1683,14 @@ class _LocationChatRoster extends StatelessWidget {
     super.key,
     required this.occupants,
     required this.selfOccupantId,
+    required this.onCharacterTap,
   });
 
   static const double _blurSigma = GenesisBlur.strong;
 
   final List<WorldChatroomEntity> occupants;
   final String selfOccupantId;
+  final ValueChanged<WorldChatroomEntity> onCharacterTap;
 
   bool _isSelf(WorldChatroomEntity entity) {
     final id = selfOccupantId.trim();
@@ -1744,16 +1762,27 @@ class _LocationChatRoster extends StatelessWidget {
                               ),
                               child: Row(
                                 children: [
-                                  GenesisCharacterAvatar(
-                                    url: entity.avatarUrl,
-                                    name: entity.name,
-                                    size: 22,
-                                    border: isSelf
-                                        ? Border.all(color: accent, width: 1.5)
-                                        : null,
-                                    showFallbackWhileLoading: false,
-                                    maxDevicePixelRatio:
-                                        MediaQuery.devicePixelRatioOf(context),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: isSelf
+                                        ? null
+                                        : () => onCharacterTap(entity),
+                                    child: GenesisCharacterAvatar(
+                                      url: entity.avatarUrl,
+                                      name: entity.name,
+                                      size: 22,
+                                      border: isSelf
+                                          ? Border.all(
+                                              color: accent,
+                                              width: 1.5,
+                                            )
+                                          : null,
+                                      showFallbackWhileLoading: false,
+                                      maxDevicePixelRatio:
+                                          MediaQuery.devicePixelRatioOf(
+                                            context,
+                                          ),
+                                    ),
                                   ),
                                   const SizedBox(width: 9),
                                   Expanded(

@@ -403,7 +403,7 @@ class _MiniMusicSeekBarState extends State<MiniMusicSeekBar> {
       style: style,
     );
     final slider = SizedBox(
-      height: 48,
+      height: widget.compact ? 20 : 48,
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
           trackHeight: widget.compact ? 3 : 4,

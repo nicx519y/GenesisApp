@@ -276,7 +276,12 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
   Widget _control(String icon, String label, VoidCallback onTap) => IconButton(
     tooltip: label,
     onPressed: music.loading ? null : onTap,
-    constraints: const BoxConstraints.tightFor(width: 48, height: 40),
+    style: IconButton.styleFrom(
+      fixedSize: const Size(48, 40),
+      padding: EdgeInsets.zero,
+      alignment: Alignment.center,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
     padding: EdgeInsets.zero,
     icon: MiniIcon(icon, size: 24),
   );
@@ -291,7 +296,7 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
       outlined: false,
       opacity: .36,
       radius: 21,
-      padding: const EdgeInsets.fromLTRB(13, 8, 13, 2),
+      padding: const EdgeInsets.fromLTRB(13, 8, 13, 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -322,7 +327,7 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
                           text: track.title,
                           style: miniStyle(16, FontWeight.w600),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         MiniMusicMarquee(
                           identity: (track.file, 'artist'),
                           text: track.artist,
@@ -358,6 +363,9 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
                     backgroundColor: Colors.transparent,
                     minimumSize: const Size(48, 40),
                     maximumSize: const Size(48, 40),
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.center,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   icon: Transform.translate(
                     offset: Offset(music.playRequested ? 0 : 2, 0),

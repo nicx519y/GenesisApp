@@ -87,6 +87,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   bool _backgroundScheduled = false;
   bool? _reportedDragDismissAllowed;
   bool _metadataReady = false;
+  bool _returningToBottom = false;
   int _messageAppVersion = 0;
 
   AppServices? _services;
@@ -216,6 +217,35 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     if (mounted) setState(() {});
   }
 
+  Future<void> _returnToBottom() async {
+    final controller = _worldHistory.controller;
+    if (_returningToBottom ||
+        !_requestsEnabled ||
+        controller == null ||
+        controller.loading) {
+      return;
+    }
+    final generation = _scrollCoordinator.beginHistoryNavigation();
+    _update(() => _returningToBottom = true);
+    try {
+      final ready = await controller.returnToNewest();
+      if (!mounted ||
+          !_requestsEnabled ||
+          !ready ||
+          generation != _scrollCoordinator.commandGeneration) {
+        return;
+      }
+      _historySections.reveal = null;
+      _cache.readingId = null;
+      _scrollCoordinator.requestBottom(
+        reason: LocationChatBottomReason.unseenMessageNotice,
+        behavior: LocationChatBottomBehavior.jump,
+      );
+    } finally {
+      if (mounted) _update(() => _returningToBottom = false);
+    }
+  }
+
   List<String>? _locationBoundaryParts(
     ChatMessageVm message,
     ChatMessageVm? previous,
@@ -338,6 +368,48 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
       fit: StackFit.expand,
       children: [
         body,
+        if (_worldHistory.ready && messages.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 12,
+            child: Center(
+              child: AnimatedBuilder(
+                animation: _scrollCoordinator,
+                builder: (context, _) => AnimatedBuilder(
+                  animation: widget.scrollController,
+                  builder: (context, _) {
+                    final visible =
+                        widget.active &&
+                        (_returningToBottom ||
+                            _worldHistory.hasNewer ||
+                            !_scrollCoordinator.isAtBottom);
+                    if (!visible) return const SizedBox.shrink();
+                    final disabled =
+                        _returningToBottom || _worldHistory.loading;
+                    return Tooltip(
+                      message: MaterialLocalizations.of(
+                        context,
+                      ).lastPageTooltip,
+                      child: _LocationChatFloatingNotice(
+                        actionKey: const ValueKey(
+                          'world-history-return-to-bottom',
+                        ),
+                        onTap: disabled ? null : _returnToBottom,
+                        child: Icon(
+                          Icons.keyboard_double_arrow_down,
+                          size: 24,
+                          color: disabled
+                              ? GenesisColors.darkTextTertiary
+                              : Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
         if (_worldHistory.ready && hasFailure && messages.isNotEmpty)
           Positioned(
             top: 0,

@@ -5,6 +5,7 @@ import '../../../network/models/world.dart';
 import '../../../network/models/world_history.dart';
 import '../../../network/json_utils.dart';
 import '../../../utils/genesis_ugc_text.dart';
+import 'world_history_tick_participation.dart';
 
 /// Metadata has a separate lifetime from archive bodies. World clock, loading
 /// and Tick count changes reuse these maps without walking characters per row.
@@ -145,6 +146,7 @@ class WorldHistoryProjection {
     required WorldDetail world,
     required String uid,
     required int appVersion,
+    Map<String, Set<String>>? tickUserLocations,
   }) {
     metadata.update(world, uid);
     if (_dataRevision == dataRevision &&
@@ -162,12 +164,17 @@ class WorldHistoryProjection {
     for (final row in newestFirst) {
       unique.putIfAbsent(row.id, () => row);
     }
+    final participation =
+        tickUserLocations ??
+        historyTickUserLocations(summarizeHistoryTickActivity(unique.values));
     rows = [
       for (final row in unique.values.toList().reversed)
         if (row.minAppVersion <= appVersion || row.minAppVersion == 0)
           for (final location
               in row.locationRefs.isEmpty ? [''] : row.locationRefs.toSet())
-            HistoryDisplayRow(row, location),
+            if (row.type != 'tick' ||
+                (participation[row.id]?.contains(location) ?? false))
+              HistoryDisplayRow(row, location),
     ];
     byId = {for (final row in rows) row.id: row};
     _cache.removeWhere((id, _) => !byId.containsKey(id));
@@ -228,9 +235,9 @@ class WorldHistoryProjection {
     final mine = row.type == 'user' && _uid.isNotEmpty && row.userId == _uid;
     final vm = ChatMessageVm(
       localId: display.id,
-      // Existing shared-renderer sentinel means an unnumbered Tick. This is
-      // presentation only; the history DTO never invents a protocol Tick ID.
-      tickNo: row.type == 'tick' ? -1 : 0,
+      // Unknown server numbers stay unnumbered; pagination is not a Tick ID.
+      tickNo: row.type == 'tick' ? row.tickNo ?? -1 : 0,
+      subTickNo: row.type == 'tick' ? row.subTickNo ?? 0 : 0,
       senderId: row.senderId,
       senderName:
           character?.name ?? normalizeGenesisUgcTextForDisplay(row.senderName),
@@ -284,26 +291,6 @@ class WorldHistoryProjection {
             for (var i = 0; i < tick.events.length; i++)
               if (tick.events[i].locationId == locationId)
                 _event(tick.events[i], i),
-          ],
-        ),
-        charactersMoved: ChatCharactersMovedPayloadVm(
-          movements: [
-            for (final move in tick.movements)
-              if (locationId.isNotEmpty &&
-                  (move.oldLocationId == locationId ||
-                      move.toLocationId == locationId))
-                ChatCharacterMovementVm(
-                  characterId: move.characterId,
-                  characterName:
-                      metadata.characters[move.characterId]?.name ??
-                      move.characterId,
-                  oldLocationId: move.oldLocationId,
-                  toLocationId: move.toLocationId,
-                  toLocationName:
-                      metadata.locations[move.toLocationId]?.name ??
-                      move.toLocationId,
-                  isDestinationCurrentLocation: move.toLocationId == locationId,
-                ),
           ],
         ),
       );

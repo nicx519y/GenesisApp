@@ -360,26 +360,45 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _LocationChatFloatingNotice(
+      actionKey: const ValueKey('location-chat-new-message-notice'),
+      onTap: onTap,
+      child: Text(
+        GenesisL10n.current.chatCountNewMessage(count: count),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared surface for the chat new-message notice and History's bottom action.
+class _LocationChatFloatingNotice extends StatelessWidget {
+  const _LocationChatFloatingNotice({
+    required this.actionKey,
+    required this.onTap,
+    required this.child,
+  });
+
+  final Key actionKey;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Material(
       color: const Color(0xCC1E1E24),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        key: const ValueKey('location-chat-new-message-notice'),
+        key: actionKey,
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(
-            GenesisL10n.current
-                .chatCountNewMessage(
-                  count: count,
-                ),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: child,
         ),
       ),
     );

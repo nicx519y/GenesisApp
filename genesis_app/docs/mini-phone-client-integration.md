@@ -315,8 +315,12 @@ AI replies.
   discover their real IDs through paged `/dm_sessions`; ordinary recovery with no
   pending unknown target never scans that endpoint.
 - The optional legacy Feed `comments_preview` extension is still consumed if
-  present. Current dev does not define it; absent previews cause no per-post
-  requests and do not supply comment IDs. Real replies use `/comments`.
+  present. For visible posts with insufficient previews, the feed reads the
+  first three real comments using `/comments?pn=1&rn=3`, with at most two reads
+  in flight. Previews are separate from detail pagination, scoped to the account
+  and World, and refreshed after feed refresh or a changed comment count. No
+  full-detail fan-out is used. Only posts with more than three comments show the
+  view-all link; the Comments action remains available for every post.
 - Controlled transports prove client behavior only. Live authorization, player
   delivery, charging, upload readability and Android/iOS acceptance remain to be
   exercised with real accounts/devices. An upload URL may briefly be unreadable;
@@ -552,3 +556,7 @@ flutter analyze --no-pub lib/network/mini_phone lib/network/chatroom lib/network
 flutter build apk --debug --flavor production --target-platform android-arm64 --no-pub
 git diff --check
 ```
+
+### 2026-10-20 Feed comment preview refresh correction
+
+Feed refresh invalidates earlier comment-preview request versions and releases their busy markers together; stale requests cannot clear them in version-guarded completion. Cached visible comments remain until replacement succeeds (zero-count posts clear the preview). Only visible posts load previews, with at most two concurrent requests; account reset still clears all previews.

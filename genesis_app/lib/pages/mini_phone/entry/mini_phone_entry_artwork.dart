@@ -7,16 +7,20 @@ import '../shared/mini_phone_ui.dart';
 import 'mini_phone_entry_motion.dart';
 import 'mini_phone_entry_style.dart';
 
-Widget entrySvg(String name, {double? width, double? height, Color? color}) =>
-    SvgPicture.asset(
-      'assets/mini_phone/icons/$name.svg',
-      width: width,
-      height: height,
-      excludeFromSemantics: true,
-      colorFilter: color == null
-          ? null
-          : ColorFilter.mode(color, BlendMode.srcIn),
-    );
+Widget entrySvg(
+  String name, {
+  double? width,
+  double? height,
+  Color? color,
+  BoxFit fit = BoxFit.contain,
+}) => SvgPicture.asset(
+  'assets/mini_phone/icons/$name.svg',
+  width: width,
+  height: height,
+  fit: fit,
+  excludeFromSemantics: true,
+  colorFilter: color == null ? null : ColorFilter.mode(color, BlendMode.srcIn),
+);
 
 /// One rendering pipeline for every skin; it has no style-specific branches or
 /// session effects. Dynamic time/counts/avatars never come from sample SVG text.
@@ -148,8 +152,8 @@ class MiniPhoneEntryBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = SizedBox(
-      width: 26,
-      height: 31,
+      width: 36,
+      height: 41,
       child: Stack(
         children: [
           entrySvg(
@@ -158,32 +162,33 @@ class MiniPhoneEntryBubble extends StatelessWidget {
                 : playRequested == true
                 ? 'entry-pause-bubble'
                 : 'entry-play-bubble',
-            width: 26,
-            height: 31,
+            width: 36,
+            height: 41,
+            fit: BoxFit.fill,
           ),
           if (avatar != null)
             Positioned(
-              left: 1,
-              top: 1,
-              width: 24,
-              height: 24,
+              left: 2,
+              top: 2,
+              width: 32,
+              height: 32,
               child: ClipOval(child: avatar),
             ),
           if (avatar != null && playRequested != null)
             Positioned(
-              right: 1,
-              top: 14,
+              right: 2,
+              top: 18,
               child: Container(
-                width: 12,
-                height: 12,
+                width: 17,
+                height: 17,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF303435),
+                  color: Color(0xFF232228),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: MiniIcon(
                     playRequested! ? 'music-pause' : 'music-play',
-                    size: 8,
+                    size: 10,
                   ),
                 ),
               ),
@@ -201,7 +206,7 @@ class MiniPhoneEntryBubble extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: Padding(padding: const EdgeInsets.all(9), child: child),
+          child: Padding(padding: const EdgeInsets.all(4), child: child),
         ),
       ),
     );

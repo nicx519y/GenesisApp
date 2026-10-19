@@ -54,13 +54,13 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
   bool get _arriving => _unread > 0 && _arrival.isAnimating && !_reducedMotion;
   Widget get _arrivalAvatar {
     final data = _session.data;
-    if (data == null) return MiniAvatar(miniDemoPeople.first, size: 24);
+    if (data == null) return MiniAvatar(miniDemoPeople.first, size: 32);
     final person = data.person(data.latestUnreadCharId ?? '');
     return GenesisAvatar(
       url: person.avatar,
       name: person.name,
-      size: 24,
-      borderRadius: 12,
+      size: 32,
+      borderRadius: 16,
     );
   }
 
@@ -147,7 +147,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
               child: CompositedTransformFollower(
                 link: _entryLink,
                 showWhenUnlinked: false,
-                offset: const Offset(-5, -43),
+                offset: const Offset(-5, -48),
                 child: MiniPhoneEntryBubble(
                   avatar: _arriving ? _arrivalAvatar : null,
                   playRequested: _music.playRequested,
@@ -190,8 +190,8 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
                     ),
                   if (_arriving && !_music.activated)
                     Positioned(
-                      left: 4,
-                      top: -34,
+                      left: -1,
+                      top: -44,
                       child: IgnorePointer(
                         child: entryAvatarMotion
                             .sample(_arrival.value)

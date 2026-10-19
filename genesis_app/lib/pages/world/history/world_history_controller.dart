@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../network/http_transport.dart';
 import '../../../network/models/world_history.dart';
+import 'world_history_tick_participation.dart';
 
 typedef WorldHistoryFetch =
     Future<WorldHistoryPage> Function({
@@ -18,11 +19,13 @@ class HistoryPageSlot {
       hasMore = page.hasMore,
       firstId = page.messages.firstOrNull?.id,
       lastId = page.messages.lastOrNull?.id,
+      tickActivity = summarizeHistoryTickActivity(page.messages),
       messages = page.messages;
   final String? requestCursor;
   final String responseCursor;
   final bool hasMore;
   final String? firstId, lastId;
+  final List<HistoryTickActivity> tickActivity;
   List<WorldHistoryMessage>? messages;
 }
 
@@ -40,6 +43,7 @@ class WorldHistoryController extends ChangeNotifier {
   final WorldHistoryFetch fetch;
   final int maxMessages, maxBytes;
   final List<HistoryPageSlot> _pages = [];
+  Map<String, Set<String>> tickUserLocations = const {};
   List<HistoryPageSlot> get pages => List.unmodifiable(_pages);
   int revision = 0;
   int snapshot = 0;
@@ -105,6 +109,32 @@ class WorldHistoryController extends ChangeNotifier {
 
   Future<void> loadNewer() =>
       hasNewer ? _run(firstResident - 1) : Future.value();
+
+  /// Explicit navigation to the newest page of this snapshot, not a refresh.
+  /// Fetch successfully before releasing the reader's current message window.
+  Future<bool> returnToNewest() async {
+    if (_disposed || !active || !ready || loading) return false;
+    if (!hasNewer) return true;
+    final generation = _generation, currentSnapshot = snapshot;
+    await _run(0);
+    if (_disposed ||
+        !active ||
+        generation != _generation ||
+        snapshot != currentSnapshot ||
+        failed ||
+        _pages.first.messages == null) {
+      return false;
+    }
+    for (final page in _pages.skip(1)) {
+      page.messages = null;
+    }
+    _readingPage = 0;
+    _pinnedPages.clear();
+    _arrivingPage = 0;
+    revision++;
+    notifyListeners();
+    return true;
+  }
 
   Future<void> _run(int operation) {
     if (_disposed) return Future.value();
@@ -177,6 +207,9 @@ class WorldHistoryController extends ChangeNotifier {
         } else {
           _pages.add(HistoryPageSlot(cursor, page));
         }
+        tickUserLocations = historyTickUserLocations(
+          _pages.expand((page) => page.tickActivity),
+        );
         ready = true;
         _arrivingPage = operation < 0 ? 0 : operation;
         revision++;
@@ -270,6 +303,7 @@ class WorldHistoryController extends ChangeNotifier {
     error = null;
     _pages.clear();
     _pinnedPages.clear();
+    tickUserLocations = const {};
     _arrivingPage = null;
     ready = false;
     revision++;

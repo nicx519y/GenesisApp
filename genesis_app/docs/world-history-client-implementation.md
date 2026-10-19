@@ -7,11 +7,14 @@
 - `GenesisApi.getWorldHistory` → `ChatroomHttpApi.getWorldHistory`，复用 Chatroom 根地址 HTTP 客户端、登录 Header、Gateway 拦截器和取消 token。路径为 `/aitown-chat/api/v1/world/history`，不是主 API 的 `/api/v1/world`。默认 20 条，首次省略 cursor，其后原样传递，不传 user_id。
 - `network/models/world_history.dart` 独立保存字符串消息 ID、服务端顺序、World 级游标。拒绝错误 World、非严格分页字段、未推进／循环游标；非零 err_no 保留原始错误。无旧消息接口回退。
 - `WorldHistoryController` 只负责世界分页快照。同参数请求合并，不同操作串行；刷新成功原子替换窗口，失败保留原内容与游标。回载校验页边界、响应游标和 has_more，快照变化时报错，不拼接新旧快照。
-- `WorldHistoryProjection` 仅逆转消息方向，保留每条 location_refs 顺序。字符串 ID 与地点 ID 构成无歧义显示标识；不按 ID、时间、轮次排序。不生成轮次或协议 Tick 编号，气泡使用现有“不显示编号”的显示约定。
-- 每条 Tick 的字符串正文懒解码一次，缓存随原始消息释放。共享旁白／时间／世界状态在每个关联地点出现，事件按其 location_id 过滤；没有地点事件仍显示 Tick。移动只供显示，不更新实时角色位置，不补关联。未知 visibility 不丢弃，缺失／null 可选数组按空数组，解析失败或非 Tick JSON 显示原正文。
-- 空关联只显示一次，不生成地点段或跳转。未知地点显示 ID，元数据到达后更新名称、路径和背景；只有已知地点提供“在这里继续”。新增地点不影响分页状态，也不会补入旧 Tick 的关联。
+- `WorldHistoryProjection` 仅逆转消息方向，保留每条 location_refs 顺序。字符串 ID 与地点 ID 构成无歧义显示标识；不按 ID、时间、轮次排序。客户端兼容顶层可选 `tick_no`、`sub_tick_no`（兼容 `subtick_no`）非负整数；仅服务器给出真实编号时复用聊天的 Tick 1-1 标签，否则保持无编号，不能按分页位置推算。目前正式 History 设计稿明确不返回这些编号，实际恢复需后端补字段。
+- 每条 Tick 的字符串正文懒解码一次，缓存随原始消息释放。History 只在该 Tick 之后、下一条 Tick 之前存在 `type=user` 消息的地点展示这条 Tick，并与 Tick 自身 location_refs 取交集；不因为地点以前聊过就展示全部后续 Tick，不把 character/narrator 当用户消息。用户确认接受其他 Tick 内容在 History 中缺失。分页目录保留轻量 Tick/用户地点摘要，跨页、正文回收和回载后仍能判定。
+- 符合条件的地点继续展示共享旁白／时间／世界状态及该地点事件；History 不展示 `characters_moved`，普通 Chatroom/Events 不受影响。未知 visibility 不丢弃，缺失／null 可选数组按空数组处理，旧 Tick 纯文本仍使用原始正文但同样执行地点过滤。
+- 普通消息空关联只显示一次，不生成地点段或跳转；无关联 Tick 无法匹配参与地点而不展示。未知地点显示 ID，元数据到达后更新名称、路径和背景；只有已知地点提供“在这里继续”。新增地点不影响分页状态，也不会补入旧 Tick 的关联。
 
 ## 生命周期与窗口
+
+- History 底部居中显示双下箭头置底按钮，距底12：离开底部或最新页已回收时出现，到底后消失。与 Location Chatroom 新消息提示复用 `_LocationChatFloatingNotice`，底色0xCC1E1E24、圆角16、水平12/垂直8内边距，无额外边框或阴影，保留24px白色双下箭头；无新增自定义文案，辅助提示复用 Material 本地化末页标签。点击复用共享滚动协调器，最新页被回收时先按原快照游标回载，成功后置底；失败保留原阅读内容。折叠选择不重置。
 
 - 标签激活、当前路由可见、PagePresentationScope、TickerMode 和应用前台共同控制请求。暂停取消请求、待调度加载和滚动防抖；恢复只续接被取消的操作。错误没有自动重试计时器，通过公共 Toast 和手动 Retry 处理。
 - 首次进入 History 使用静态骨架并加载首屏。`WorldPage` 持有 `WorldHistoryViewCache`，保留分页窗口、正文投影、折叠选择及共享列表的有界布局缓存和稳定消息阅读锚点；切换标签或关闭再打开 Sheet 不刷新、不跳到最新消息，首帧恢复阅读位置。覆盖恢复／前台恢复同样不刷新已完成快照，仅续接被取消的必要操作。退出 World 释放缓存，无磁盘缓存；账号 sessionRevision（包括 Sheet 关闭期间）、服务实例／环境和 World 切换清空旧状态，晚到响应不能提交。

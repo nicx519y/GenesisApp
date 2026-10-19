@@ -20,6 +20,7 @@ class MiniPhonePostFeed extends StatefulWidget {
     required this.itemBuilder,
     required this.resetKey,
     this.active = true,
+    this.onVisiblePosts,
   });
 
   final List<PhonePost> posts;
@@ -27,6 +28,7 @@ class MiniPhonePostFeed extends StatefulWidget {
   final Widget Function(PhonePost post) itemBuilder;
   final Object resetKey;
   final bool active;
+  final ValueChanged<List<PhonePost>>? onVisiblePosts;
 
   @override
   State<MiniPhonePostFeed> createState() => _MiniPhonePostFeedState();
@@ -101,6 +103,7 @@ class _MiniPhonePostFeedState extends State<MiniPhonePostFeed> {
       return;
     }
     int? lastVisible;
+    final visiblePosts = <PhonePost>[];
     for (final entry in _rows.entries) {
       final row = entry.value.currentContext?.findRenderObject();
       final index = _indices[entry.key];
@@ -108,8 +111,10 @@ class _MiniPhonePostFeedState extends State<MiniPhonePostFeed> {
       final top = row.localToGlobal(Offset.zero, ancestor: viewport).dy;
       if (top < viewport.size.height && top + row.size.height > 0) {
         lastVisible = math.max(lastVisible ?? index, index);
+        visiblePosts.add(widget.posts[index]);
       }
     }
+    widget.onVisiblePosts?.call(visiblePosts);
     _desired = [
       if (lastVisible != null)
         for (final post in widget.posts.skip(lastVisible + 1).take(5))

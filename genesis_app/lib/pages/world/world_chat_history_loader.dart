@@ -141,6 +141,7 @@ class _WorldHistoryLoader {
       world: owner.widget.world,
       uid: owner.widget.currentUid,
       appVersion: owner._messageAppVersion,
+      tickUserLocations: state?.tickUserLocations,
     );
     _boundaryKeys.removeWhere((id, _) => !projection.byId.containsKey(id));
     if (_readingId == null && result.isNotEmpty) {
@@ -189,6 +190,7 @@ class _WorldHistoryLoader {
     _idleTimer?.cancel();
     final scroll = owner._scrollCoordinator.controller;
     if (!enabled ||
+        owner._returningToBottom ||
         loading ||
         failed ||
         !ready ||

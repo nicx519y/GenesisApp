@@ -223,15 +223,13 @@ extension _MiniPhonePosts on _MiniPhonePreviewState {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 3),
-                        Text(
-                          p.comments.length > 3
-                              ? 'View all ${p.comments.length} comments'
-                              : p.comments.isEmpty
-                              ? 'Be the first to comment'
-                              : 'View comments',
-                          style: miniStyle(12, FontWeight.w400, miniPink),
-                        ),
+                        if (p.comments.length > 3) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            'View all ${p.comments.length} comments',
+                            style: miniStyle(12, FontWeight.w400, miniPink),
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -155,15 +155,13 @@ class MiniPhonePostContent extends StatelessWidget {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 3),
-                        Text(
-                          commentCount > 3
-                              ? 'View all $commentCount comments'
-                              : commentCount == 0
-                              ? 'Be the first to comment'
-                              : 'View comments',
-                          style: miniStyle(12, FontWeight.w400, miniPink),
-                        ),
+                        if (commentCount > 3) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            'View all $commentCount comments',
+                            style: miniStyle(12, FontWeight.w400, miniPink),
+                          ),
+                        ],
                       ],
                     ),
                   ),
