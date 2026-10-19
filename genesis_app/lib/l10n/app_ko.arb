@@ -4328,5 +4328,25 @@
   "miniPhonePublish": "게시",
   "@miniPhonePublish": {
     "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
+  },
+  "chatHistoryExpand": "펼치기",
+  "@chatHistoryExpand": {
+    "description": "Location chat: action on a collapsed contiguous history section from another location; reveals that section's messages for reading."
+  },
+  "chatHistoryCollapse": "접기",
+  "@chatHistoryCollapse": {
+    "description": "Location chat: fixed lower-right button that collapses an expanded history section from another location back to its section header; does not leave or change the actual joined location."
+  },
+  "worldHistory": "기록",
+  "@worldHistory": {
+    "description": "World detail page: tab label for read-only chat history from all locations in the current world, displayed in chronological order. Refers to past chat messages, not historical lore; opening the tab does not join a location or allow sending messages."
+  },
+  "worldHistoryEmpty": "내 월드의 채팅 기록이 여기에 표시됩니다.",
+  "@worldHistoryEmpty": {
+    "description": "World detail History tab: empty-state message after chat history has loaded successfully and no messages exist across any location in the current world. This read-only view displays chat messages in chronological order; this text is not shown for loading or request failures."
+  },
+  "worldHistoryContinueHere": "여기서 계속하기",
+  "@worldHistoryContinueHere": {
+    "description": "World detail History tab: heading above the location card at the end of each location's most recent chat segment. Tapping the card opens that location's live chat to continue the story."
   }
 }

@@ -65,6 +65,7 @@ import '../../platform/app/app_metadata_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_localized_rich_text.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
@@ -82,6 +83,8 @@ import 'location_chat_reply_render_snapshot.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
 import '../gems/memory_model_page_cache.dart';
 import '../world/world_constants.dart' show worldCharacterAvatarLogicalSize;
+import '../world/world_map_data.dart'
+    show worldAvatarsByLocationFromCharacterPositions;
 
 part 'location_chat_panel_connection.dart';
 part 'location_chat_message_reconciler.dart';
@@ -109,6 +112,10 @@ part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_message_viewport.dart';
 part 'location_chat_shared.dart';
+part '../world/world_chat_history_section.dart';
+part '../world/world_chat_history_loader.dart';
+part '../world/world_chat_history_folds.dart';
+part '../world/world_chat_history_ticks.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 const double _locationChatComposerBottomExtension = 60;

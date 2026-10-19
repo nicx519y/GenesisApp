@@ -133,6 +133,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   bool _disposed = false;
   bool _holdingReplyPosition = false;
   bool Function()? _prepareComposerTailConsumption;
+  Object? _messageListOwner;
   bool _userScrollIncludesTemporaryTail = false;
   bool _hasMessageContentBelowViewport = false;
   Set<String> _messageLocalIdsBelowViewport = const {};
@@ -203,6 +204,17 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     _cancelPendingCommands();
     _entryRevealScheduled = false;
     _setMode(LocationChatViewportMode.detached);
+  }
+
+  /// Explicit archive navigation owns its own layout target, never reply hold
+  /// or the complete world's tail. A subsequent drag/send cancels it.
+  int beginHistoryNavigation() {
+    _holdingReplyPosition = false;
+    _cancelPendingCommands();
+    _entryRevealScheduled = false;
+    _setMode(LocationChatViewportMode.detached);
+    if (controller.hasClients) _jumpTo(controller.position.pixels);
+    return _commandGeneration;
   }
 
   void onViewportLaidOut() {
@@ -653,11 +665,40 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.otherMessageBubbleMaxWidthCap,
     this.style,
     this.historyGapLoaders = const {},
+    this.onVisibleMessagesChanged,
+    this.onReadingMessageChanged,
+    this.messageReadingMarkerKey,
+    this.messageDecorator,
+    this.messageDecorationVersion,
+    this.entrySectionMessageId,
+    this.hiddenMessageIds = const {},
+    this.historyReveal,
+    this.expandedHistoryHeaders = const {},
+    this.pinnedHistoryHeaderBuilder,
   });
 
   final LocationChatScrollCoordinator coordinator;
   final List<ChatMessageVm> messages;
   final Map<String, VoidCallback> historyGapLoaders;
+  final ValueChanged<Set<String>>? onVisibleMessagesChanged;
+  final ValueChanged<String?>? onReadingMessageChanged;
+  final GlobalKey? Function(String localId)? messageReadingMarkerKey;
+  final Widget Function(ChatMessageVm, ChatMessageVm?, Widget)?
+  messageDecorator;
+  // Value-based layout identity, independent of render callback allocation.
+  final Object? Function(ChatMessageVm, ChatMessageVm?)?
+  messageDecorationVersion;
+
+  /// A fresh location begins at the top of a viewport-sized tail section.
+  /// Earlier messages remain in the same scrollable history above it.
+  final String? entrySectionMessageId;
+  // Presentation only: retain full messages for reply and receipt semantics.
+  final Set<String> hiddenMessageIds;
+  final ({int generation, String localId})? historyReveal;
+
+  /// Expanded message ID -> its section's first message ID.
+  final Map<String, String> expandedHistoryHeaders;
+  final Widget Function(String headerId)? pinnedHistoryHeaderBuilder;
   final String topTitle;
 
   /// Page entry snapshots are not new stream arrivals. Async hydration may
@@ -768,6 +809,59 @@ class _LocationChatAnchoredMessageListState
   final _naturalContentEndKey = GlobalKey();
   final _geometryCache = LocationChatGeometryCache();
   final _entryExtents = <Key, ({double offset, double height})>{};
+  final _readingMarkerOffsets = <String, double>{};
+  ({int generation, String localId})? _historyRevealTarget;
+  double _historyRevealViewportOffset = 0;
+  final _pinnedHistoryHeader = ValueNotifier<String?>(null);
+  final _pinnedHistoryHeaderKey = GlobalKey();
+  bool get _revealingHistory =>
+      _historyRevealTarget != null &&
+      widget.active &&
+      _historyRevealTarget!.generation == widget.coordinator.commandGeneration;
+
+  double? _takeHistoryRevealCorrection() {
+    if (!_revealingHistory || !widget.coordinator.controller.hasClients) {
+      return null;
+    }
+    final index = _messageIndexByLocalId[_historyRevealTarget!.localId];
+    if (index == null ||
+        widget.hiddenMessageIds.contains(_historyRevealTarget!.localId)) {
+      return null;
+    }
+    // This target is pinned, so its height is measured even when offscreen.
+    // Earlier unmounted rows may refine their estimates on the retry layout;
+    // retain the same start anchor until the user starts scrolling.
+    final extent = _entryExtents[_entryKey(index)];
+    if (extent == null) return null;
+    final position = widget.coordinator.controller.position;
+    var contentEnd = _entryExtents.values.fold<double>(
+      0,
+      (end, row) =>
+          end > row.offset + row.height ? end : row.offset + row.height,
+    );
+    final visitIndex = _messageIndexByLocalId[widget.entrySectionMessageId];
+    final visitExtent = visitIndex == null
+        ? null
+        : _entryExtents[_entryKey(visitIndex)];
+    if (visitExtent != null) {
+      final visitEnd = visitExtent.offset + position.viewportDimension;
+      if (visitEnd > contentEnd) contentEnd = visitEnd;
+    }
+    // Use this layout's content extent, not last frame's maxScrollExtent.
+    // A short final segment cannot be top-aligned beyond the actual tail.
+    final maxOffset = (contentEnd - position.viewportDimension).clamp(
+      0.0,
+      double.infinity,
+    );
+    final target = (extent.offset - _historyRevealViewportOffset).clamp(
+      0.0,
+      maxOffset,
+    );
+    _detachedLayoutAnchor = null;
+    _anchorRestorePending = false;
+    return target - position.pixels;
+  }
+
   ({int generation, double pixels})? _composerTailAnchor;
   bool _waitingAnchorNeedsLayout = false;
   ({String localId, double contentOffset, double pixels, int generation})?
@@ -888,6 +982,10 @@ class _LocationChatAnchoredMessageListState
     }
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
+      // Capture before the outer coordinator releases its entry/reply hold.
+      // A post-frame snapshot is too late if lazy row measurement or history
+      // hydration changes the content coordinates during this first gesture.
+      _captureUserScrollAnchor();
       _consumingTemporaryTail = true;
     } else if (notification is UserScrollNotification) {
       _consumingTemporaryTail = notification.direction != ScrollDirection.idle;
@@ -955,6 +1053,14 @@ class _LocationChatAnchoredMessageListState
           bottom == null || bottom - bottomGap > viewport.bottom + 0.5;
       final below = <String>{};
       final visible = <String>{};
+      String? readingMessageId;
+      String? pinnedHeaderId;
+      // Use the physical screen's midpoint, constrained to the chat viewport
+      // when the keyboard reduces the available reading area.
+      final readingLine = (MediaQuery.sizeOf(context).height / 2).clamp(
+        viewport.top,
+        viewport.bottom,
+      );
       final rows = <Rect?>[];
       final retained = <String>{};
       final neighborhood = Rect.fromLTRB(
@@ -965,6 +1071,10 @@ class _LocationChatAnchoredMessageListState
       );
       for (var index = 0; index < _renderedMessages.length; index++) {
         final message = _renderedMessages[index];
+        if (widget.hiddenMessageIds.contains(message.localId)) {
+          rows.add(null);
+          continue;
+        }
         final layoutId = _messageLayoutId(message);
         final extent = _entryExtents[_entryKey(index)];
         final row =
@@ -980,6 +1090,33 @@ class _LocationChatAnchoredMessageListState
                     extent.height,
                   ));
         rows.add(row);
+        if (row != null && row.height > 0 && !message.isAiContentDisclaimer) {
+          final markerKey = widget.messageReadingMarkerKey?.call(
+            message.localId,
+          );
+          if (markerKey == null) _readingMarkerOffsets.remove(message.localId);
+          final marker = _globalBounds(
+            markerKey?.currentContext?.findRenderObject(),
+          );
+          if (marker != null) {
+            _readingMarkerOffsets[message.localId] = marker.center.dy - row.top;
+          }
+          final markerY =
+              row.top + (_readingMarkerOffsets[message.localId] ?? 0);
+          if (markerY <= readingLine) {
+            readingMessageId = message.localId;
+          }
+          if (row.top <= viewport.top) {
+            final headerId = widget.expandedHistoryHeaders[message.localId];
+            // Wait until the original header reaches the viewport edge.
+            pinnedHeaderId =
+                headerId == message.localId &&
+                    marker != null &&
+                    marker.top > viewport.top
+                ? null
+                : headerId;
+          }
+        }
         if ((row != null && row.overlaps(neighborhood)) ||
             layoutId == _waitingAnchorLayoutId ||
             layoutId == _detachedLayoutAnchor?.localId ||
@@ -1025,6 +1162,9 @@ class _LocationChatAnchoredMessageListState
           }
         }
       }
+      widget.onVisibleMessagesChanged?.call(visible);
+      _pinnedHistoryHeader.value = pinnedHeaderId;
+      widget.onReadingMessageChanged?.call(readingMessageId);
       widget.coordinator.reportMessageContentBelowViewport(
         hasContentBelow,
         messageLocalIds: below,
@@ -1292,6 +1432,15 @@ class _LocationChatAnchoredMessageListState
       widget.replyCardCount > 1 &&
       !(widget.replyCardsConfirmed && !widget.showConfirmedCardPagination);
 
+  // A fresh visit is a boundary after the conversation, not a reply. Keep
+  // its preceding conversation's controls above it until new content arrives.
+  int? get _trailingVisitBoundaryIndex =>
+      widget.entrySectionMessageId != null &&
+          _renderedMessages.isNotEmpty &&
+          _renderedMessages.last.localId == widget.entrySectionMessageId
+      ? _renderedMessages.length - 1
+      : null;
+
   bool get _replyControlsGroupedBeforeFollowingMessage =>
       _currentReplyCard != null &&
       widget.replyGroupBeforeMessageLocalId != null &&
@@ -1310,7 +1459,12 @@ class _LocationChatAnchoredMessageListState
       (_replyControlsGroupedBeforeFollowingMessage ||
           (_renderedMessages.isNotEmpty &&
               _currentReplyCard?.messages.lastOrNull?.localId ==
-                  _renderedMessages.last.localId));
+                  _renderedMessages
+                      .take(
+                        _trailingVisitBoundaryIndex ?? _renderedMessages.length,
+                      )
+                      .lastOrNull
+                      ?.localId));
 
   bool get _immediateSendWaitingActive =>
       widget.replyWaitingPositioningEnabled &&
@@ -1378,18 +1532,21 @@ class _LocationChatAnchoredMessageListState
         ? firstCardMessageIndex
         : _replyInsertionIndex ?? count;
     final groupControls = _replyControlsGroupedBeforeFollowingMessage;
+    final controlsIndex = _trailingVisitBoundaryIndex ?? count;
     final identity = (
       _messageLocalIds,
       count,
       start,
       Object.hashAll(cardMessageIds ?? const <String>{}),
       groupControls,
+      controlsIndex,
       _replyIdentity,
       _waitingAfterMessageLocalId,
       _waitingIndicatorIdentity,
       widget.loadingAfterMessageLocalId != null,
       widget.enterWaitingAfterMessageLocalId,
       widget.enterWaitingIdentity,
+      Object.hashAllUnordered(widget.hiddenMessageIds),
     );
     if (_timelineIdentity == identity) return _cachedTimelineEntries;
     _timelineIdentity = identity;
@@ -1397,8 +1554,9 @@ class _LocationChatAnchoredMessageListState
       for (var i = 0; i <= count; i++) ...[
         if (i == start) -2,
         if (i == start && groupControls) -1,
-        if (i == count && !groupControls) -1,
+        if (i == controlsIndex && !groupControls) -1,
         if (i < count &&
+            !widget.hiddenMessageIds.contains(_renderedMessages[i].localId) &&
             !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
           i,
         if (i < count &&
@@ -1691,7 +1849,7 @@ class _LocationChatAnchoredMessageListState
       final index = _messageIndexByLocalId[before];
       if (index != null) return index;
     }
-    return _renderedMessages.length;
+    return _trailingVisitBoundaryIndex ?? _renderedMessages.length;
   }
 
   final BackdropKey _messageBackdropKey = BackdropKey();
@@ -1734,6 +1892,7 @@ class _LocationChatAnchoredMessageListState
       reverseCurve: Curves.easeInOutCubic,
     );
     widget.coordinator.addListener(_handleCoordinatorChanged);
+    widget.coordinator._messageListOwner = this;
     widget.coordinator._prepareComposerTailConsumption =
         _prepareComposerTailConsumption;
     widget.coordinator.controller.addListener(_scheduleContentVisibility);
@@ -1745,6 +1904,57 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.historyReveal != widget.historyReveal) {
+      final targetIndex = _messageIndexByLocalId[widget.historyReveal?.localId];
+      final oldExtent = targetIndex == null
+          ? null
+          : _entryExtents[_entryKey(targetIndex)];
+      // Preserve the clicked separator's screen position. A pinned header
+      // collapses back to the top, rather than restoring an offscreen row.
+      _historyRevealViewportOffset =
+          oldExtent == null || !widget.coordinator.controller.hasClients
+          ? 0
+          : (oldExtent.offset - widget.coordinator.controller.position.pixels)
+                .clamp(0.0, double.infinity);
+      _historyRevealTarget = widget.historyReveal;
+      _detachedLayoutAnchor = null;
+      _anchorRestorePending = false;
+      _heldReplyPrefixAnchor = null;
+      _composerTailAnchor = null;
+      _replySwitchAnchor = null;
+      _replyActionReplacementAnchor = null;
+      _replyLayoutBridge.cancel(clearMeasurements: true);
+      _waitingPositionPending = false;
+      _waitingPositionTargetOffset = null;
+      _waitingMinContentExtent = 0;
+      _waitingAnchorLayoutId = null;
+      _waitingAnchorNeedsLayout = false;
+      _layoutCorrectionExtentSignal = _layoutCorrectionExtentSignal == 0
+          ? _locationChatLayoutCorrectionExtentSignal
+          : 0;
+    }
+    if (!oldWidget.active && widget.active) {
+      // Re-enter at the real tail, without the previous visit's reserved
+      // reply space or detached reading anchor. User drags still cancel
+      // the normal entry-to-bottom command through the coordinator.
+      _waitingMinContentExtent = 0;
+      _waitingPositionPending = false;
+      _waitingPositionTargetOffset = null;
+      _waitingAnchorLayoutId = null;
+      _waitingAnchorNeedsLayout = false;
+      _positioningIdentity = null;
+      _lastWaitingOperation = _waitingIdentity(widget);
+      _heldReplyPrefixAnchor = null;
+      _composerTailAnchor = null;
+      _detachedLayoutAnchor = null;
+      _anchorRestorePending = false;
+      _replySwitchAnchor = null;
+      _replyActionReplacementAnchor = null;
+      _replyLayoutFinishGeneration++;
+      _replyLayoutFinishing = false;
+      _replyLayoutBridge.cancel(clearMeasurements: true);
+      widget.coordinator.enter();
+    }
     final previousLayoutIds = oldWidget.messages
         .map(
           (message) =>
@@ -1967,7 +2177,12 @@ class _LocationChatAnchoredMessageListState
       _inspirationPromptExpanded = true;
     }
     if (oldWidget.coordinator != widget.coordinator) {
-      oldWidget.coordinator._prepareComposerTailConsumption = null;
+      if (identical(oldWidget.coordinator._messageListOwner, this)) {
+        oldWidget.coordinator._messageListOwner = null;
+        oldWidget.coordinator._prepareComposerTailConsumption = null;
+        oldWidget.coordinator.setOldestMessageStopOffset(null);
+      }
+      widget.coordinator._messageListOwner = this;
       widget.coordinator._prepareComposerTailConsumption =
           _prepareComposerTailConsumption;
       _composerTailAnchor = null;
@@ -2095,6 +2310,7 @@ class _LocationChatAnchoredMessageListState
     _captureHeldReplyPrefixAnchor(previousLocalIds, nextLocalIds, nextMessages);
 
     final shouldPreserveAnchor =
+        !_revealingHistory &&
         !_cardTransitionBusy &&
         !_replyLayoutFinishing &&
         !_replyLayoutBridge.isActive &&
@@ -2243,12 +2459,25 @@ class _LocationChatAnchoredMessageListState
     _scheduleDetachedAnchorSnapshot();
   }
 
+  void _captureUserScrollAnchor() {
+    if (!widget.active || !widget.coordinator.controller.hasClients) return;
+    final anchor = _visibleRetainedAnchor(
+      _messageLocalIds,
+      _messageLocalIds.toSet(),
+    );
+    if (anchor == null) return;
+    final offset = _messageContentOffset(anchor.localId);
+    if (offset == null) return;
+    _detachedLayoutAnchor = (localId: anchor.localId, contentOffset: offset);
+  }
+
   void _scheduleDetachedAnchorSnapshot() {
     if (_detachedAnchorSnapshotScheduled) return;
     _detachedAnchorSnapshotScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _detachedAnchorSnapshotScheduled = false;
       if (!mounted ||
+          _revealingHistory ||
           !widget.coordinator.isDetached ||
           _waitingPositionPending) {
         return;
@@ -2345,12 +2574,15 @@ class _LocationChatAnchoredMessageListState
   @override
   void dispose() {
     widget.coordinator.removeListener(_handleCoordinatorChanged);
-    widget.coordinator._prepareComposerTailConsumption = null;
+    if (identical(widget.coordinator._messageListOwner, this)) {
+      widget.coordinator._messageListOwner = null;
+      widget.coordinator._prepareComposerTailConsumption = null;
+      widget.coordinator.setOldestMessageStopOffset(null);
+    }
     widget.coordinator.controller.removeListener(_scheduleContentVisibility);
     _replyLayoutBridge.cancel(clearMeasurements: true);
     _rowChildren.clear();
     _cardRowChildren.clear();
-    widget.coordinator.setOldestMessageStopOffset(null);
     _historyCommitGeneration += 1;
     _detachedLayoutAnchor = null;
     _oldestEdgeLoadingController
@@ -2358,6 +2590,7 @@ class _LocationChatAnchoredMessageListState
       ..dispose();
     _messageLayoutKeys.clear();
     _messageVisibilityKeys.clear();
+    _pinnedHistoryHeader.dispose();
     super.dispose();
   }
 
@@ -2399,6 +2632,7 @@ class _LocationChatAnchoredMessageListState
                   ),
             streaming: message.status == 'streaming',
             restoredContent:
+                message.localId == widget.entrySectionMessageId ||
                 _restoredEntryContent[_streamIdentity(message)] == message.text,
             animateArrival: _liveRevealMessageIds.contains(
               _receiptIdentity(message),
@@ -2473,9 +2707,40 @@ class _LocationChatAnchoredMessageListState
               onNotification: _handleTemporaryTailScroll,
               child: BackdropGroup(
                 backdropKey: _messageBackdropKey,
-                child: _buildLazyMessageView(
-                  style: style,
-                  hasOldestEdgeContent: hasOldestEdgeContent,
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: _pinnedHistoryHeader,
+                  child: _buildLazyMessageView(
+                    style: style,
+                    hasOldestEdgeContent: hasOldestEdgeContent,
+                  ),
+                  builder: (context, id, messages) {
+                    final pinned =
+                        id != null &&
+                        widget.expandedHistoryHeaders.containsValue(id);
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRect(
+                          clipper: _HistoryHeaderContentClipper(
+                            pinned ? _pinnedHistoryHeaderKey : null,
+                          ),
+                          child: messages,
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: SizedBox(
+                            key: _pinnedHistoryHeaderKey,
+                            child: pinned
+                                ? widget.pinnedHistoryHeaderBuilder?.call(id) ??
+                                      const SizedBox.shrink()
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -2506,6 +2771,9 @@ class _LocationChatAnchoredMessageListState
                       _waitingAnchorLayoutId ||
                   _messageLayoutId(_renderedMessages[entry]) ==
                       _detachedLayoutAnchor?.localId ||
+                  (_revealingHistory &&
+                      _renderedMessages[entry].localId ==
+                          _historyRevealTarget!.localId) ||
                   ChatStreamingEffects.needsLayoutOf(context, (
                     'timeline',
                     _receiptIdentity(_renderedMessages[entry]),
@@ -2532,6 +2800,7 @@ class _LocationChatAnchoredMessageListState
         _GeometryCorrectionSliver(
           correction: () {
             final correction =
+                _takeHistoryRevealCorrection() ??
                 _takeReplyPresentationLayoutCorrection() ??
                 _takeDetachedLayoutCorrection();
             if (correction == null ||
@@ -2597,6 +2866,10 @@ class _LocationChatAnchoredMessageListState
                           _renderedMessages[entry].isMe,
                           _renderedMessages[entry].timelinePayload,
                           _renderedMessages[entry].currentTime,
+                          widget.messageDecorationVersion?.call(
+                            _renderedMessages[entry],
+                            entry > 0 ? _renderedMessages[entry - 1] : null,
+                          ),
                           widget.historyGapLoaders.containsKey(
                             _renderedMessages[entry].localId,
                           ),
@@ -2613,6 +2886,11 @@ class _LocationChatAnchoredMessageListState
                         ),
                   pinned:
                       entry < 0 ||
+                      _renderedMessages[entry].localId ==
+                          widget.entrySectionMessageId ||
+                      (_revealingHistory &&
+                          _renderedMessages[entry].localId ==
+                              _historyRevealTarget!.localId) ||
                       _messageLayoutId(_renderedMessages[entry]) ==
                           _waitingAnchorLayoutId ||
                       _messageLayoutId(_renderedMessages[entry]) ==
@@ -2623,6 +2901,8 @@ class _LocationChatAnchoredMessageListState
                       )),
                   empty:
                       entry >= 0 &&
+                      _renderedMessages[entry].localId !=
+                          widget.entrySectionMessageId &&
                       ChatStreamingEffects.isQueuedOf(context, (
                         'timeline',
                         _receiptIdentity(_renderedMessages[entry]),
@@ -2640,9 +2920,7 @@ class _LocationChatAnchoredMessageListState
                               TextButton(
                                 onPressed: gapLoader,
                                 child: Text(
-                                  GenesisL10n
-                                      .current
-                                      .chatLoadEarlierMessages,
+                                  GenesisL10n.current.chatLoadEarlierMessages,
                                 ),
                               ),
                               row,
@@ -2670,6 +2948,18 @@ class _LocationChatAnchoredMessageListState
         ),
         SliverLayoutBuilder(
           builder: (context, constraints) {
+            final entryId = widget.entrySectionMessageId;
+            final entryMessage = entryId == null
+                ? null
+                : _renderedMessages
+                      .where((m) => m.localId == entryId)
+                      .firstOrNull;
+            final entryOffset = entryMessage != null
+                ? _messageContentOffset(_messageLayoutId(entryMessage))
+                : null;
+            final entryMinExtent = entryOffset == null
+                ? 0.0
+                : entryOffset + constraints.viewportMainAxisExtent;
             var waitingMinContentExtent = _waitingMinContentExtent > 0
                 ? _waitingMinContentExtent +
                       _replyLayoutBridge.layoutExtentDelta
@@ -2683,6 +2973,9 @@ class _LocationChatAnchoredMessageListState
                 double.infinity,
               );
             }
+            waitingMinContentExtent = waitingMinContentExtent < entryMinExtent
+                ? entryMinExtent
+                : waitingMinContentExtent;
             return SliverToBoxAdapter(
               child: SizedBox(
                 height:
@@ -2857,6 +3150,7 @@ class _LocationChatAnchoredMessageListState
   }
 
   double? _takeDetachedLayoutCorrection() {
+    if (_revealingHistory) return null;
     final heldCorrection = _takeHeldReplyPrefixCorrection();
     if (heldCorrection != null) return heldCorrection;
     if (!widget.coordinator.isReadingHistory &&
@@ -3045,6 +3339,7 @@ class _LocationChatAnchoredMessageListState
       widget.onMessageLongPressStart,
       widget.onFailedMessageTap,
       widget.onCharactersMovedLocationTap,
+      widget.messageDecorationVersion?.call(current, previous),
     );
     final cached = _rowChildren[layoutId];
     if (cached != null &&
@@ -3057,36 +3352,39 @@ class _LocationChatAnchoredMessageListState
       return true;
     }());
     _scheduleRowCacheCleanup();
-    final row = KeyedSubtree(
-      key: layoutKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _messageRow(
-            key: ValueKey(layoutId),
-            visibilityKey: _messageVisibilityKeys.putIfAbsent(
-              layoutId,
-              GlobalKey.new,
-            ),
-            streamIdentity: ('timeline', _receiptIdentity(current)),
-            streamOrder: () => _renderedMessages
-                .indexWhere((message) => _messageLayoutId(message) == layoutId)
-                .toDouble(),
-            message: current,
-            imageViewerMessages: _imageViewerMessages,
-            style: style,
-            compact: showReplyActions,
-            showDateDivider: divider,
+    final row = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _messageRow(
+          key: ValueKey(layoutId),
+          visibilityKey: _messageVisibilityKeys.putIfAbsent(
+            layoutId,
+            GlobalKey.new,
           ),
-        ],
-      ),
+          streamIdentity: ('timeline', _receiptIdentity(current)),
+          streamOrder: () => _renderedMessages
+              .indexWhere((message) => _messageLayoutId(message) == layoutId)
+              .toDouble(),
+          message: current,
+          imageViewerMessages: _imageViewerMessages,
+          style: style,
+          compact: showReplyActions,
+          showDateDivider: divider,
+        ),
+      ],
+    );
+    // Include the boundary in the measured row, so anchoring/pagination use
+    // the same height as the actual sliver child.
+    final decoratedRow = KeyedSubtree(
+      key: layoutKey,
+      child: widget.messageDecorator?.call(current, previous, row) ?? row,
     );
     final child = lazy
         ? KeyedSubtree(
             key: ValueKey<String>('location-chat-message-row:$layoutId'),
-            child: row,
+            child: decoratedRow,
           )
-        : row;
+        : decoratedRow;
     _rowChildren[layoutId] = (
       identity: identity,
       snapshot: freezeLocationChatReplyMessage(current),
@@ -3507,4 +3805,29 @@ class _RenderGeometryCorrectionSliver extends RenderSliverMainAxisGroup {
       geometry = SliverGeometry(scrollOffsetCorrection: delta);
     }
   }
+}
+
+/// Keep scrolling text below the transparent pinned separator. The header is
+/// laid out by the same Stack before painting; measuring its actual height
+/// also accommodates wrapped paths and accessibility text scaling.
+class _HistoryHeaderContentClipper extends CustomClipper<Rect> {
+  const _HistoryHeaderContentClipper(this.headerKey);
+  final GlobalKey? headerKey;
+
+  @override
+  Rect getClip(Size size) {
+    final header = headerKey?.currentContext?.findRenderObject();
+    final height = header is RenderBox && header.hasSize
+        ? header.size.height
+        : 0.0;
+    return Rect.fromLTRB(
+      0,
+      height.clamp(0.0, size.height),
+      size.width,
+      size.height,
+    );
+  }
+
+  @override
+  bool shouldReclip(_HistoryHeaderContentClipper oldClipper) => true;
 }

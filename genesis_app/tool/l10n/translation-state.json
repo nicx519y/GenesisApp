@@ -5188,6 +5188,36 @@
           "text_hash": "c5c5b217fb2094d8f17abbfd1d84b6a2e87f53df5b6499d223eb11d5212de77a",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "4895c3049e35cdaca5bcfa1726a12bb9744fca875cb9f6a1e2eef055b24b7b27",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "e7a332eab73c653563439c5fbfebaafeffcfd72e4cf141235938102dd8eef72d",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "5eae222cf0888d580504e86cc1072fe4fa70c223ee2f7665d42249fe3e93a4b5",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "d7d10748b1270c55996d0bcdba5a697ca78d83b3258f3ee98da9d953e5347a79",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "ab3015b929e5c3cda7d42ecd0f6fb5a505541a9f9c3aca657ccc5722bdea9a93",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -10377,6 +10407,36 @@
           "text_hash": "60b558b4abf64f4a7792f2c67db6b0e0d0ca605c34c601755fe9dafad24f1e1f",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "d4df46da2ca5f1198f8e0c7db0b94cf0a2edd4020a3afce81037f5cc1f56dba7",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "1a60fa19824f890ef7caaccd2c62f860b4e12f19f6c91de36b13d4a59cc32a3d",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "45dcfbc5e64eb30288d5bf355e77fac6bd4b42eaa0303fccba2a21012753f9a8",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "1ac6c96679501df8b37869721a55fa8591aa5b9f89f646431f451fb3b793361b",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "9ea94db3c7d5b5aa16c54c7c6425a103d95acedbfcf7b1bdd05e3b30e95ae028",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -15566,6 +15626,36 @@
           "text_hash": "60b558b4abf64f4a7792f2c67db6b0e0d0ca605c34c601755fe9dafad24f1e1f",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "d4df46da2ca5f1198f8e0c7db0b94cf0a2edd4020a3afce81037f5cc1f56dba7",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "58811dfeed6c6759a8e9ad926d1b52f8f85b648f9e1de4d14fe5771c63d9cf8b",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "e01382e0dcfb09eb73c605082c16534a6d02b30594b8dec1d16d9a86d1e9f1fa",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "d95f7766850d6290f8c0afecf63f16ce80041e5bb43899d4bafc36813bd1b10e",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "d99a9eb1bd17b9cd36c6553d44116f8d8dae29b6aca103190347a3ccf6e2c933",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -20755,6 +20845,36 @@
           "text_hash": "d986b282c090faefc246e3eff7f9c0dff32f201469797a01290874ff9a324613",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "cab9276dc77d0555162d5d72c2b6023982304b56fa6f9986a3c7a2875140e749",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "12f9661c4893a427f252fe9fd3d398722c7c767a54eca3b470fe5ee4321ed4e0",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "58354f9996d1c86af704ba9b2f57e02c659dd135f2a61f8e569b6044a03d5e31",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "f0d3a11c3350a9ec1970dfd8018a6439594b2bf00a253f35324f773a8a8921b3",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "aec945b5d6007380fdfbaf495b21f9dbb9884841c88c29307e2a7f8ad0357570",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -25944,6 +26064,36 @@
           "text_hash": "d432e4a7355713b02b9f78363b7dd9e3fa3ed8d8ed469486f4c95f5ea61ac049",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "c4bd0f5b60e5f58585ca7e71d142f517d5009147b790e4fc1a9314c24b1e823e",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "b297191ff2caac16768a360c35d1d0569647a5879939a809ac659c1791f1abad",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "664598d2afa998da7e4946db59bd886cf8b953d4cd91459436cd16dd444bfee4",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "dd97c749e73273137495466441b2062e55fd6b6a35207f52d94972b42f60f1b6",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "0287327c3e0fc6488efad2f51ef0bf0d0f18fd42c6b35679cbcba5b871898e75",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -31133,6 +31283,36 @@
           "text_hash": "e0bc45a7ae806cbb99e5bdf94877f22a39b154e119d549781e44587103c60a13",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "fcf07cb0d11a39a351c5733a487db80b2dc429dce69302f7a2ce0902b7771913",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "da01e918876a9e59db4ce09e22e6e1e83d8298aa94967441c3205b9954a24457",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "b2f8379245fc1280e08e5cd5c06d5a4850a335bd2b96e9466c04136d76ef3414",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "333bce695d415555eb29fd3bddf2399b3088ea238612e4515e3ce53abeab0a35",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "93a74f92350d8e886ad42346f2a3a443fd4d2e364ed2879a2e16bd438d727007",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -36322,6 +36502,36 @@
           "text_hash": "be0f3880b624b393b111090d526e2f24653c908d8ace79ddcaab2d81dce636c5",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "4895c3049e35cdaca5bcfa1726a12bb9744fca875cb9f6a1e2eef055b24b7b27",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "21a62e52b420deb68f5afcf3dad183993fa1f61fb9d38b279a35d50bec15f3f3",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "124593d12b00f9ef19a1d28e418c9d5e82f32d71360a678d3cc8179f9e88a786",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "0ade72e592f5f29dcc18e3bbd890b2c7f4931ad7403732d4dbd385be521ea558",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "813349a8d860d63fab1e353b499cafc0e3ae61a043a64e0698b809f3c753a408",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     },
@@ -41511,6 +41721,36 @@
           "text_hash": "6a21fb07585134b3f4335e6079c8a1f8950e7444a973406da51f60efa5e26e58",
           "status": "ai",
           "note": "AI translation for MiniPhone post composition controls."
+        },
+        "chatHistoryExpand": {
+          "source_hash": "bcfe5c9972966fec6e905bcad861979fa1c99b4b97213103a82d10c477555e8b",
+          "text_hash": "b469d666d174584f760ca3c233a2b385083540bbe9afcdf9067f24f7009a1bcb",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "chatHistoryCollapse": {
+          "source_hash": "d216a7d16a37a88e34db689586857b8a8dfd6cb261c585d32127a2d56de6e5d7",
+          "text_hash": "de0fcac8aee68ac1ce356ef388ff1f1b07e7eda0e2b129d445c07e28855cb8d3",
+          "status": "ai",
+          "note": "Concise location-history section action; collapse folds the section without changing rooms."
+        },
+        "worldHistory": {
+          "source_hash": "f2a051205761d2fbc95c1c641bf7b9eff9bcda7d1f1f7193eddc8e184fdd9d54",
+          "text_hash": "44010ee0b2ee298483b2b60205fcff974917c3e0fae694aeac1de8478136d356",
+          "status": "ai",
+          "note": "Short tab label for the chronological chat record across all locations in the current world; read-only history, not historical lore."
+        },
+        "worldHistoryEmpty": {
+          "source_hash": "4a894738c5140e4798e5ea682caa634b26ad3454be9618d97a0ff60b25a60051",
+          "text_hash": "b4207bb2da10435ea31d01b46519c6890a339b266a6ae55ebf50abfdcfa5e662",
+          "status": "ai",
+          "note": "Shown only after a successful empty history load across all locations in the current world; not a loading or failure message."
+        },
+        "worldHistoryContinueHere": {
+          "source_hash": "9100255e1e997b796ea64b2e4088a2e812dbc246ed2c7d16dd446d5f78571cc8",
+          "text_hash": "4ec5824863003faf4ce7a8e379271ab6279d6912af5473dc855bc13d86f41bcc",
+          "status": "ai",
+          "note": "Heading for resuming the story in this location from World History."
         }
       }
     }

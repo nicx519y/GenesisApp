@@ -81,6 +81,7 @@ class TickMessageParser implements LocationChatMessageParser {
       viewModels.add(
         ChatCharacterMovementVm(
           characterId: characterId,
+          oldLocationId: movement.oldLocationId.trim(),
           characterName: context.characterName(characterId),
           toLocationId: toLocationId,
           toLocationName: context.locationName(toLocationId),

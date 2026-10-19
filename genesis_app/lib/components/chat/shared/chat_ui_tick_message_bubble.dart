@@ -540,6 +540,7 @@ List<ChatCharacterMovementVm> _groupTickCharacterMovements(
     groupedMovements.add(
       ChatCharacterMovementVm(
         characterId: first.characterId,
+        oldLocationId: first.oldLocationId,
         characterName: group
             .map((movement) => movement.characterName.trim())
             .where((name) => name.isNotEmpty)

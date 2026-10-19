@@ -4328,5 +4328,25 @@
   "miniPhonePublish": "投稿",
   "@miniPhonePublish": {
     "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
+  },
+  "chatHistoryExpand": "展開",
+  "@chatHistoryExpand": {
+    "description": "Location chat: action on a collapsed contiguous history section from another location; reveals that section's messages for reading."
+  },
+  "chatHistoryCollapse": "折りたたむ",
+  "@chatHistoryCollapse": {
+    "description": "Location chat: fixed lower-right button that collapses an expanded history section from another location back to its section header; does not leave or change the actual joined location."
+  },
+  "worldHistory": "履歴",
+  "@worldHistory": {
+    "description": "World detail page: tab label for read-only chat history from all locations in the current world, displayed in chronological order. Refers to past chat messages, not historical lore; opening the tab does not join a location or allow sending messages."
+  },
+  "worldHistoryEmpty": "あなたのワールドのチャット履歴がここに表示されます。",
+  "@worldHistoryEmpty": {
+    "description": "World detail History tab: empty-state message after chat history has loaded successfully and no messages exist across any location in the current world. This read-only view displays chat messages in chronological order; this text is not shown for loading or request failures."
+  },
+  "worldHistoryContinueHere": "ここから続ける",
+  "@worldHistoryContinueHere": {
+    "description": "World detail History tab: heading above the location card at the end of each location's most recent chat segment. Tapping the card opens that location's live chat to continue the story."
   }
 }

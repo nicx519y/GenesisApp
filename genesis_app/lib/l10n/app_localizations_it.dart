@@ -3255,6 +3255,22 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get chatHistoryExpand => 'Espandi';
+
+  @override
+  String get chatHistoryCollapse => 'Comprimi';
+
+  @override
+  String get worldHistory => 'Cronologia';
+
+  @override
+  String get worldHistoryEmpty =>
+      'La cronologia della chat del tuo mondo apparirà qui.';
+
+  @override
+  String get worldHistoryContinueHere => 'Continua qui';
+
+  @override
   String get chatCharacterMovement => 'Spostamento dei personaggi';
 
   @override
