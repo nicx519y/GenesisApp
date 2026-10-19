@@ -94,7 +94,6 @@ class _RatingPromptHostState extends State<RatingPromptHost> {
       mounted &&
       ratingPromptRouteObserver.canPresent &&
       !PendingRatingReward.flowActive &&
-      !PendingRatingReward.waitingForStore &&
       (WidgetsBinding.instance.lifecycleState == null ||
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
 

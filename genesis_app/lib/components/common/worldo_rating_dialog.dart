@@ -55,9 +55,6 @@ Future<int?> showWorldoRatingDialog(
     if (owner == null || owner != loginUid || !current()) return rating;
     await PendingRatingReward.save(owner, rating);
     PendingRatingReward.flowActive = true;
-    PendingRatingReward.leftApp = false;
-    // Arm before opening another app: lifecycle events can precede its Future.
-    PendingRatingReward.waitingForStore = rating >= 4;
     AppReviewOutcome? outcome;
     if (rating >= 4) {
       try {
@@ -66,22 +63,10 @@ Future<int?> showWorldoRatingDialog(
           isCurrent: current,
         );
       } catch (_) {
-        if (context.mounted && current()) {
-          showGenesisToast(
-            context,
-            context.l10n.rateWorldoStoreFailed,
-            brightness: Brightness.dark,
-          );
-        }
+        // In-app review failures never open a store or block the feedback reward.
       }
     }
-    PendingRatingReward.waitingForStore =
-        outcome == AppReviewOutcome.storeOpened &&
-        !(PendingRatingReward.leftApp && current());
-    if (outcome != AppReviewOutcome.deferred &&
-        !PendingRatingReward.waitingForStore &&
-        context.mounted &&
-        current()) {
+    if (outcome != AppReviewOutcome.deferred && context.mounted && current()) {
       await PendingRatingReward.show(context, owner, rating);
     }
     return rating;
