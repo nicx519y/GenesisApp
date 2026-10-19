@@ -25,6 +25,32 @@ class _RatingPromptDebugSectionState extends State<RatingPromptDebugSection> {
   Listenable? _changes;
   Future<String?>? _loginUid;
   int _generation = 0;
+  bool _openingRateDialog = false;
+
+  Future<void> _showRateDialog() async {
+    if (_openingRateDialog) return;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    final routeNavigator = Navigator.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final target = rootNavigator.overlay?.context ?? rootNavigator.context;
+    final services = _services!;
+    final revision = services.sessionRevision.value;
+    setState(() => _openingRateDialog = true);
+    try {
+      if (route != null && routeNavigator.canPop()) {
+        final dismissed = await routeNavigator.maybePop();
+        if (!dismissed || route.isCurrent) return;
+        // maybePop finishes before the sheet/page's reverse transition does.
+        // Keep the preview off the developer UI and its soon-disposed context.
+        await route.completed;
+      }
+      if (!target.mounted || services.sessionRevision.value != revision) return;
+      await showWorldoRatingDialog(target);
+    } finally {
+      if (mounted) setState(() => _openingRateDialog = false);
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -70,7 +96,7 @@ class _RatingPromptDebugSectionState extends State<RatingPromptDebugSection> {
           GenesisPrimaryButton(
             key: const ValueKey('developer-rate-button'),
             label: 'Rate Dialog',
-            onPressed: () => showWorldoRatingDialog(context),
+            onPressed: _openingRateDialog ? null : _showRateDialog,
             backgroundColor: GenesisColors.darkFaintFill,
             foregroundColor: GenesisColors.darkTextPrimary,
           ),

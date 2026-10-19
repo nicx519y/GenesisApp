@@ -19,6 +19,7 @@ class ApiResponse {
     required this.bodyBytes,
     required this.data,
     required this.uri,
+    this.requestAuthorization,
   });
 
   final int statusCode;
@@ -27,6 +28,10 @@ class ApiResponse {
   final List<int> bodyBytes;
   final Object? data;
   final Uri uri;
+
+  /// Request credential used only to scope session-expiry side effects. Never
+  /// include this value in diagnostics, telemetry, or persisted responses.
+  final String? requestAuthorization;
 }
 
 enum ApiResponseType { json, text, bytes }
@@ -398,6 +403,7 @@ class ApiClient {
     }
 
     TransportResponse transportResponse;
+    String? requestAuthorization;
     late Stopwatch attemptStopwatch;
     Duration? transportDuration;
     Stopwatch? activeTransportStopwatch;
@@ -414,6 +420,10 @@ class ApiClient {
       Future<TransportResponse> sendWithTiming(
         TransportRequest outgoingRequest,
       ) async {
+        requestAuthorization = outgoingRequest.headers.entries
+            .where((entry) => entry.key.toLowerCase() == 'authorization')
+            .firstOrNull
+            ?.value;
         final transportStopwatch = Stopwatch()..start();
         activeTransportStopwatch = transportStopwatch;
         transportDuration = null;
@@ -591,6 +601,7 @@ class ApiClient {
       bodyBytes: bodyBytes,
       data: decoded,
       uri: uri,
+      requestAuthorization: requestAuthorization,
     );
     collectRequest?.inspectResponse(
       response: apiResponse,

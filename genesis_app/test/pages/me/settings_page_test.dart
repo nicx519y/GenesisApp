@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/review/app_review_service.dart';
 import 'package:genesis_flutter_android/components/common/rating_reward_dialog.dart';
 import 'package:genesis_flutter_android/components/common/worldo_rating_dialog.dart';
+import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -34,6 +35,89 @@ import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final sheet in [true, false]) {
+    testWidgets(
+      'Rate Dialog dismisses developer ${sheet ? 'sheet' : 'page'} before preview',
+      (tester) async {
+        final services = _feedbackTestServices(_RecordingFeedbackTransport());
+        await services.sessionStore.saveUid('u_debug_preview');
+        final navigatorKey = GlobalKey<NavigatorState>();
+        var developerTransitionCompleted = false;
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              navigatorKey: navigatorKey,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: Scaffold(
+                key: const ValueKey('actual-page-behind-developer'),
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () {
+                      Widget developer(BuildContext context) {
+                        ModalRoute.of(context)!.completed.then((_) {
+                          developerTransitionCompleted = true;
+                        });
+                        return const Scaffold(
+                          key: ValueKey('developer-preview-surface'),
+                          body: SingleChildScrollView(
+                            child: RatingPromptDebugSection(),
+                          ),
+                        );
+                      }
+
+                      if (sheet) {
+                        showGenesisModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: developer,
+                        );
+                      } else {
+                        Navigator.of(
+                          context,
+                        ).push(MaterialPageRoute<void>(builder: developer));
+                      }
+                    },
+                    child: const Text('Open developer'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open developer'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('developer-preview-surface')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('developer-rate-button')));
+        await tester.pump();
+        expect(find.byType(WorldoRatingContent), findsNothing);
+        await tester.pumpAndSettle();
+
+        expect(developerTransitionCompleted, isTrue);
+        expect(
+          find.byKey(const ValueKey('developer-preview-surface')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('actual-page-behind-developer')),
+          findsOneWidget,
+        );
+        expect(find.byType(WorldoRatingContent), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        navigatorKey.currentState!.pop();
+        await tester.pumpAndSettle();
+        expect(navigatorKey.currentState!.canPop(), isFalse);
+        expect(find.byType(WorldoRatingContent), findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'developer rating section is hidden for guests and follows login changes',
     (tester) async {
