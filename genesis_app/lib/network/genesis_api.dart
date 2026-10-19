@@ -19,6 +19,7 @@ import 'models/paged_response.dart';
 import 'models/tilemap_definition.dart';
 import 'models/user.dart';
 import 'models/world.dart';
+import 'models/world_history.dart';
 import 'models/world_recent_summary.dart';
 import 'models/world_message.dart';
 import 'http_transport.dart';
@@ -89,6 +90,18 @@ class GenesisApi extends _GenesisApiContext
     super.onSessionExpired,
     super.onChatroomMessageMutationError,
   });
+
+  Future<WorldHistoryPage> getWorldHistory({
+    required String worldId,
+    String? cursor,
+    int limit = 20,
+    NetworkCancellationToken? cancellationToken,
+  }) => chatroomHttp.getWorldHistory(
+    worldId: worldId,
+    cursor: cursor,
+    limit: limit,
+    cancellationToken: cancellationToken,
+  );
 
   Future<MusicCatalog> fetchMusicCatalog() => v1.music.list();
 

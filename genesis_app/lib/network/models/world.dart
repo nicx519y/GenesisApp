@@ -51,6 +51,37 @@ class World {
   }
 }
 
+/// Final style of this World's map. Missing historical styles remain null.
+@immutable
+class WorldMapStyle {
+  const WorldMapStyle({
+    this.era = '',
+    this.biome = '',
+    this.palette = '',
+    this.medium = '',
+  });
+  final String era, biome, palette, medium;
+
+  static WorldMapStyle? fromJson(Object? value) {
+    if (value is! Map) return null;
+    String field(String key) =>
+        value[key] is String ? (value[key] as String).trim() : '';
+    return WorldMapStyle(
+      era: field('era'),
+      biome: field('biome'),
+      palette: field('palette'),
+      medium: field('medium'),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'era': era,
+    'biome': biome,
+    'palette': palette,
+    'medium': medium,
+  };
+}
+
 @immutable
 class WorldDetail {
   WorldDetail({
@@ -74,6 +105,7 @@ class WorldDetail {
     required this.currentTime,
     this.lastChatLocationId = '',
     this.mapImageUrl = '',
+    this.mapStyle,
     required this.latestTickAt,
     required this.latestNarrator,
     required this.isProgressing,
@@ -114,6 +146,7 @@ class WorldDetail {
   final String currentTime;
   final String lastChatLocationId;
   final String mapImageUrl;
+  final WorldMapStyle? mapStyle;
   final DateTime? latestTickAt;
   final String latestNarrator;
   final bool isProgressing;
@@ -152,6 +185,8 @@ class WorldDetail {
     String? currentTime,
     String? lastChatLocationId,
     String? mapImageUrl,
+    WorldMapStyle? mapStyle,
+    bool clearMapStyle = false,
     DateTime? latestTickAt,
     String? latestNarrator,
     bool? isProgressing,
@@ -205,6 +240,7 @@ class WorldDetail {
       currentTime: currentTime ?? this.currentTime,
       lastChatLocationId: lastChatLocationId ?? this.lastChatLocationId,
       mapImageUrl: mapImageUrl ?? this.mapImageUrl,
+      mapStyle: clearMapStyle ? null : mapStyle ?? this.mapStyle,
       latestTickAt: latestTickAt ?? this.latestTickAt,
       latestNarrator: latestNarrator ?? this.latestNarrator,
       isProgressing: isProgressing ?? this.isProgressing,
@@ -288,6 +324,7 @@ class WorldDetail {
           ? asString(json['last_chat_location_id']).trim()
           : '',
       mapImageUrl: worldMapUrl,
+      mapStyle: WorldMapStyle.fromJson(json['map_style']),
       latestTickAt: asDateTime(json['latest_tick_at']),
       latestNarrator: asString(json['latest_narrator']),
       isProgressing: asBool(json['is_progressing']),

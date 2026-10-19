@@ -10,6 +10,7 @@ import '../ui/components/genesis_list_image.dart';
 import '../ui/tokens/genesis_image_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
+import '../utils/genesis_display_text.dart';
 import 'world_details_shell.dart';
 import 'world_new_badge.dart';
 import 'world_point.dart';
@@ -643,7 +644,10 @@ class _PointListItem extends StatelessWidget {
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
-                          point.name,
+                          genesisSafeDisplayText(
+                            point.name,
+                            source: 'world.location.name',
+                          ),
                           style: _locationNameStyle(context, level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -707,7 +711,7 @@ class _NodeHeader extends StatelessWidget {
             Flexible(
               fit: FlexFit.loose,
               child: Text(
-                '- ${point.name}',
+                '- ${genesisSafeDisplayText(point.name, source: 'world.location.name')}',
                 style: _locationNameStyle(context, level),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -778,7 +782,10 @@ class _LocationCard extends StatelessWidget {
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
-                          point.name,
+                          genesisSafeDisplayText(
+                            point.name,
+                            source: 'world.location.name',
+                          ),
                           style: _locationNameStyle(context, level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -938,7 +945,14 @@ class _PointCharacterGroupRow extends StatelessWidget {
     for (var index = 0; index < users.length; index += 1) {
       final user = users[index];
       final name = (user.name ?? user.initials).trim();
-      spans.add(TextSpan(text: name));
+      spans.add(
+        TextSpan(
+          text: genesisSafeDisplayText(
+            name,
+            source: 'world.location.character',
+          ),
+        ),
+      );
       if (user.isNew) {
         final stableId = user.id.trim().isNotEmpty ? user.id.trim() : name;
         spans
@@ -973,7 +987,7 @@ class _PointSummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      description,
+      genesisSafeDisplayText(description, source: 'world.location.description'),
       style: TextStyle(
         fontSize: 12,
         height: 1.25,

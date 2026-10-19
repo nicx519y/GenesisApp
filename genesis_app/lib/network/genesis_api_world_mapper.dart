@@ -80,6 +80,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
         ? asString(world['last_chat_location_id']).trim()
         : '',
     mapImageUrl: mapUrl,
+    mapStyle: WorldMapStyle.fromJson(world['map_style']),
     latestTickAt: _apiDateTime(lastTick['created_at'] ?? world['created_at']),
     latestNarrator: asString(lastTickResult['narrator']),
     isProgressing: asInt(world['status']) == 20,

@@ -27,7 +27,7 @@ class WorldChatHistorySection extends StatefulWidget {
 }
 
 class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   late final _worldHistory = _WorldHistoryLoader(this);
   late final _historySections = _WorldHistoryFolds(this);
   late LocationChatScrollCoordinator _scrollCoordinator;
@@ -37,14 +37,67 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   bool _metadataReady = false;
   int _messageAppVersion = 0;
 
-  WorldChatroomState get _chatroomState =>
-      WorldChatroomState(world: widget.world);
+  AppServices? _services;
+  PagePresentationController? _presentation;
+  bool _foreground = true;
+  bool _routeCurrent = true;
+  bool _tickerEnabled = true;
+  bool get _requestsEnabled =>
+      widget.active &&
+      _foreground &&
+      _routeCurrent &&
+      _tickerEnabled &&
+      !(_presentation?.paused ?? false);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final services = AppServicesScope.of(context);
+    if (!identical(services, _services)) {
+      _services?.sessionRevision.removeListener(_sessionChanged);
+      if (_services != null) _worldHistory.reset();
+      _services = services;
+      services.sessionRevision.addListener(_sessionChanged);
+    }
+    final presentation = PagePresentationScope.maybeRead(context);
+    if (!identical(presentation, _presentation)) {
+      _presentation?.removeListener(_visibilityChanged);
+      _presentation = presentation;
+      presentation?.addListener(_visibilityChanged);
+    }
+    _routeCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (!_requestsEnabled) _worldHistory.pause();
+  }
+
+  void _sessionChanged() {
+    _worldHistory.reset();
+    _historySections.reset();
+    _scrollCoordinator.enter();
+    _changed();
+  }
+
+  void _visibilityChanged() {
+    if (!_requestsEnabled) _worldHistory.pause();
+    _changed();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _visibilityChanged();
+  }
+
   @override
   bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     _scrollCoordinator = LocationChatScrollCoordinator(
       controller: widget.scrollController,
     );
@@ -81,12 +134,17 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
       _historySections.reset();
       _scrollCoordinator.enter();
     }
-    if (!widget.active && oldWidget.active) _worldHistory.pause();
+    if (!widget.active && oldWidget.active) {
+      _worldHistory.pause(leavingTab: true);
+    }
   }
 
   @override
   void dispose() {
-    _worldHistory.pause();
+    WidgetsBinding.instance.removeObserver(this);
+    _services?.sessionRevision.removeListener(_sessionChanged);
+    _presentation?.removeListener(_visibilityChanged);
+    _worldHistory.reset();
     _scrollCoordinator.controller.removeListener(_worldHistory.onScroll);
     _scrollCoordinator.dispose();
     super.dispose();
@@ -100,47 +158,11 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     if (mounted) setState(() {});
   }
 
-  ChatMentionCatalog _mentionCatalogForState(WorldChatroomState state) =>
-      locationChatMentionCatalogForState(
-        state,
-        currentUserIds: [widget.currentUid],
-        currentSenderIds: const [],
-      );
-
-  bool _messageVersionIsVisible(WorldChatroomMessage row) =>
-      chatroomMessageVersionIsVisible(row.minAppVersion, _messageAppVersion);
-  LocationChatMessageParser? _parserForMessage(WorldChatroomMessage row) =>
-      locationChatMessageParserForTesting(row, appVersion: _messageAppVersion);
-  bool _isMineMessage(WorldChatroomMessage row) =>
-      _locationChatMessageBelongsToCurrentRole(
-        messageBusinessType: row.businessType,
-        messageUserId: row.userId,
-        currentUserId: widget.currentUid,
-      );
-  String _messageSenderDisplayName(WorldChatroomMessage row) =>
-      resolveLocationChatMessageSenderNameForTesting(
-        senderId: row.senderId,
-        senderName: row.senderName,
-        characters: widget.world.characters,
-      );
-  String _messageAvatarUrl(WorldChatroomMessage row) =>
-      resolveLocationChatMessageAvatarForTesting(
-        businessType: row.businessType,
-        userId: row.userId,
-        senderId: row.senderId,
-        characters: widget.world.characters,
-        entitiesById: const {},
-      );
-  bool _messageSenderIsPlayerControlledRole(WorldChatroomMessage row) =>
-      _isMineMessage(row) ||
-      _mentionCatalogForState(_chatroomState).characters.any(
-        (entry) => entry.id == row.senderId && entry.isPlayerControlled,
-      );
-
   List<String>? _locationBoundaryParts(
     ChatMessageVm message,
     ChatMessageVm? previous,
   ) {
+    if (_worldHistory.locationFor(message).isEmpty) return null;
     if (previous != null &&
         _worldHistory.locationFor(message) ==
             _worldHistory.locationFor(previous)) {
@@ -155,13 +177,13 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     final messages = _worldHistory.project();
     _historySections.project(messages);
     _worldHistory.ensureVisibleWindow();
-    final catalog = _mentionCatalogForState(_chatroomState);
+    final catalog = _worldHistory.projection.metadata.catalog;
     final locationId = _worldHistory.readingLocationId;
     final location = catalog.locations
         .where((l) => l.id == locationId)
         .firstOrNull;
     _reportBackground(location?.imageUrl ?? '');
-    final hasFailure = _worldHistory._failed.isNotEmpty;
+    final hasFailure = _worldHistory.failed;
     final body = !_worldHistory.ready || messages.isEmpty
         ? CustomScrollView(
             controller: widget.scrollController,
@@ -172,7 +194,6 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                   child: hasFailure
                       ? TextButton(
                           onPressed: () {
-                            _worldHistory._retryAfter = null;
                             unawaited(_worldHistory.loadOlder());
                           },
                           child: Text(context.l10n.homeRetry),
@@ -181,6 +202,21 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                       ? const SizedBox.square(
                           dimension: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : _worldHistory.hasMore || _worldHistory.hasNewer
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_worldHistory.hasMore)
+                              TextButton(
+                                onPressed: () =>
+                                    unawaited(_worldHistory.loadOlder()),
+                                child: Text(
+                                  context.l10n.chatLoadEarlierMessages,
+                                ),
+                              ),
+                            if (_worldHistory.hasNewer) _loadNewerButton(),
+                          ],
                         )
                       : Padding(
                           padding: const EdgeInsets.all(24),
@@ -205,7 +241,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 coordinator: _scrollCoordinator,
                 messages: messages,
                 topTitle: '',
-                active: widget.active,
+                active: _requestsEnabled,
                 initialContentReady: _worldHistory.ready,
                 restoreInitialCompletedContent: true,
                 replyActionsVisible: false,
@@ -222,6 +258,12 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 messageDecorationVersion: _locationBoundaryVersion,
                 messageReadingMarkerKey: _worldHistory.existingBoundaryKey,
                 onReadingMessageChanged: _historySections.reading,
+                onVisibleMessagesChanged: _worldHistory.visible,
+                historyGapLoaders: {
+                  if (_worldHistory.hasMore && !_worldHistory.loading)
+                    messages.first.localId: () =>
+                        unawaited(_worldHistory.loadOlder()),
+                },
               ),
             ),
           );
@@ -237,7 +279,6 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
             child: Center(
               child: TextButton(
                 onPressed: () {
-                  _worldHistory._retryAfter = null;
                   unawaited(_worldHistory.loadOlder());
                 },
                 child: Text(context.l10n.homeRetry),
@@ -264,28 +305,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     });
   }
 
-  List<String> _locationPathParts(String id) {
-    final location = _mentionCatalogForState(
-      _chatroomState,
-    ).locations.where((l) => l.id == id).firstOrNull;
-    final tree = _chatroomState.world?.processedLocationTree;
-    var node = tree?.nodeById(id);
-    final names = <String>[];
-    final visited = <String>{};
-    while (node != null && visited.add(node.id)) {
-      final name = normalizeGenesisUgcTextForDisplay(
-        _firstMapString(node.value, const ['location_name', 'name']),
-      ).trim();
-      if (name.isNotEmpty) names.insert(0, name);
-      node = tree?.nodeById(node.parentId);
-    }
-    return names.isNotEmpty
-        ? names
-        : [
-            if (location?.subtitle.isNotEmpty ?? false) location!.subtitle,
-            location?.name ?? id,
-          ];
-  }
+  List<String> _locationPathParts(String id) =>
+      _worldHistory.projection.metadata.paths[id] ?? [id];
 
   Object? _locationBoundaryVersion(
     ChatMessageVm message,
@@ -308,11 +329,30 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
         _historySections.expanded.contains(section.id),
         _locationPathParts(section.locationId).join(' > '),
         footerVersion,
+        _worldHistory.hasNewer,
+        _worldHistory.loading,
       );
     }
     final parts = _locationBoundaryParts(message, previous);
-    return (parts?.join(' > '), footerVersion);
+    return (
+      parts?.join(' > '),
+      footerVersion,
+      _newerBoundary(message),
+      _worldHistory.loading,
+    );
   }
+
+  bool _newerBoundary(ChatMessageVm message) =>
+      _worldHistory.hasNewer &&
+      _worldHistory.projection.rows.lastOrNull?.id == message.localId;
+
+  Widget _loadNewerButton() => TextButton.icon(
+    onPressed: _worldHistory.loading
+        ? null
+        : () => unawaited(_worldHistory.loadNewer()),
+    icon: const Icon(Icons.keyboard_arrow_down),
+    label: Text(context.l10n.loadMoreAction),
+  );
 
   Widget _decorateLocationBoundary(
     ChatMessageVm message,
@@ -325,6 +365,21 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [child, _continueLocationCard(continueLocation)],
+      );
+    }
+    if (_newerBoundary(message)) {
+      child = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          child,
+          TextButton.icon(
+            onPressed: _worldHistory.loading
+                ? null
+                : () => unawaited(_worldHistory.loadNewer()),
+            icon: const Icon(Icons.keyboard_arrow_down),
+            label: Text(context.l10n.loadMoreAction),
+          ),
+        ],
       );
     }
     final section = _historySections.headerFor(message);
@@ -344,7 +399,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
           if (_historySections.expanded.contains(section.id)) ...[
             const SizedBox(height: 12),
             child,
-          ],
+          ] else if (_newerBoundary(section.messages.last))
+            _loadNewerButton(),
         ],
       );
     }
@@ -364,9 +420,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   }
 
   Widget _continueLocationCard(String locationId) {
-    final location = _mentionCatalogForState(
-      _chatroomState,
-    ).locations.where((item) => item.id == locationId).firstOrNull;
+    final location = _worldHistory.projection.metadata.locations[locationId];
     final path = _locationPathParts(locationId);
     // Use current World occupancy, never infer "now at" from old speakers.
     final occupants =

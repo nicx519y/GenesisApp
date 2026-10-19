@@ -23,6 +23,8 @@ class LocalMockGenesisTransport implements HttpTransport {
   final _personalizationProfiles = <String, Map<String, Object?>>{};
   final _miniphoneBackgrounds = <String, String>{};
   final _musicLikes = <String, Set<String>>{};
+  final _historySnapshots = <String, (String, List<Map<String, dynamic>>)>{};
+  int _historySnapshotSequence = 0;
 
   @visibleForTesting
   void resetFeatureQuotaUsage() {
@@ -363,6 +365,49 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'aitown-chat/api/v1/world/history') {
+      final worldId = query['world_id'] ?? '';
+      final limit = int.tryParse(query['limit'] ?? '20');
+      if (worldId.isEmpty || limit == null || limit < 1 || limit > 100) {
+        return _v1BusinessError(1001, 'Invalid history parameters');
+      }
+      var offset = 0;
+      late String snapshot;
+      final cursor = query['cursor'];
+      if (cursor == null) {
+        snapshot = 'mock-history-${++_historySnapshotSequence}';
+        _historySnapshots[snapshot] = (
+          worldId,
+          _state.worldHistoryFixture(worldId),
+        );
+        while (_historySnapshots.length > 10) {
+          _historySnapshots.remove(_historySnapshots.keys.first);
+        }
+      } else {
+        final parts = cursor.split(':');
+        final parsedOffset = parts.length == 2 ? int.tryParse(parts[1]) : null;
+        if (parsedOffset == null ||
+            parsedOffset < 0 ||
+            _historySnapshots[parts.first]?.$1 != worldId) {
+          return _v1BusinessError(1001, 'Invalid history cursor');
+        }
+        snapshot = parts.first;
+        offset = parsedOffset;
+      }
+      final messages = _historySnapshots[snapshot]!.$2;
+      if (offset > messages.length) {
+        return _v1BusinessError(1001, 'Invalid history cursor');
+      }
+      final rows = messages.skip(offset).take(limit).toList();
+      final next = offset + rows.length;
+      return _v1Ok({
+        'world_id': worldId,
+        'messages': rows,
+        'has_more': next < messages.length,
+        'cursor': next < messages.length ? '$snapshot:$next' : '',
+      });
+    }
+
     if (method == 'GET' && path == 'aitown-chat/api/v1/feature-quotas') {
       return _v1Ok(_state.featureQuotas());
     }
@@ -1849,6 +1894,53 @@ class _MockState {
       ),
     );
     return _deepCopyMap(msg);
+  }
+
+  // Dedicated archive fixtures. They do not simulate permissions or guarantee
+  // a live backend's cursor stability; those require service integration tests.
+  List<Map<String, dynamic>> worldHistoryFixture(String worldId) {
+    final locations = _chatroomMessagesForWorld(worldId)
+        .map((m) => asString(m['location_id']))
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    final refs = locations.take(2).toList();
+    return List.generate(
+      45,
+      (index) => {
+        'global_message_id': '9007199254740993$index',
+        'type': index % 5 == 0 ? 'tick' : 'narrator',
+        'sender_id': index % 5 == 0 ? 'tick' : 'narrator',
+        'sender_name': '',
+        'user_id': null,
+        'message_type': 'text',
+        'content': index % 5 == 0
+            ? jsonEncode({
+                'current_time': 'Day 1',
+                'global': 'Archive chapter $index',
+                'global_status': null,
+                'story_events': [
+                  if (refs.isNotEmpty)
+                    {
+                      'location_id': refs.first,
+                      'timestamp': 'Day 1',
+                      'visibility': 'public',
+                      'visible_to': null,
+                      'text': 'Archive event $index',
+                      'clue': '',
+                      'cast': null,
+                      'status': null,
+                    },
+                ],
+                'characters_moved': [],
+              })
+            : 'Archive message $index',
+        'min_app_version': 0,
+        'current_time': 'Day 1',
+        'created_at': '2026-10-19T12:00:00+08:00',
+        'location_refs': index % 5 == 0 ? refs : refs.take(1).toList(),
+      },
+    );
   }
 
   Map<String, dynamic> chatroomWorldMessages(String worldId) {
@@ -3712,6 +3804,10 @@ class _MockState {
       ...contractItem,
       'info': {
         ...info,
+        // Historical mock Worlds do not invent a style from Origin metadata.
+        'map_style': world['map_style'] is Map
+            ? _deepCopyMap(asJsonMap(world['map_style']))
+            : null,
         'last_chat_location_id': asString(
           world['last_chat_location_id'],
           fallback: 'loc_gate',

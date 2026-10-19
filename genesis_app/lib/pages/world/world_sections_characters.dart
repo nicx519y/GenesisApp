@@ -13,9 +13,7 @@ class WorldStatusSection extends StatelessWidget {
     return WorldCharacterList(
       characters: world.characters,
       currentUid: currentUid,
-      emptyText: GenesisL10n
-          .current
-          .worldDetailNoCharacterStatusYet,
+      emptyText: GenesisL10n.current.worldDetailNoCharacterStatusYet,
       subtitleBuilder: (character) =>
           worldMetricStatusText(world.metric, character),
       subtitleColor: GenesisColors.darkTextSecondary,
@@ -35,9 +33,7 @@ class WorldCharactersSection extends StatelessWidget {
     return WorldCharacterList(
       characters: world.characters,
       currentUid: currentUid,
-      emptyText: GenesisL10n
-          .current
-          .worldDetailNoCharactersYet,
+      emptyText: GenesisL10n.current.worldDetailNoCharactersYet,
       subtitleBuilder: worldCharacterDescriptionText,
       subtitleColor: GenesisColors.darkTextSecondary,
       showCharacterDetails: true,
@@ -156,14 +152,18 @@ class WorldCharacterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = worldMapString(
-      character,
-      const ['name'],
-      fallback: GenesisL10n.current.homeWorldCharacter,
+    final name = genesisSafeDisplayText(
+      worldMapString(character, const [
+        'name',
+      ], fallback: GenesisL10n.current.homeWorldCharacter),
+      source: 'world.character.name',
     );
     final avatarUrl = worldResizedCharacterAvatarUrl(context, character);
     final playerUid = worldMapString(character, const ['player_uid']);
-    final username = worldMapString(character, const ['player_username']);
+    final username = genesisSafeDisplayText(
+      worldMapString(character, const ['player_username']),
+      source: 'world.character.username',
+    );
     final playerDeleted = entityDeleted(character['player_deleted']);
     final suffix = worldCharacterNameSuffix(
       currentUid: currentUid,
@@ -175,12 +175,19 @@ class WorldCharacterRow extends StatelessWidget {
     final isNew = shouldMarkWorldContentAsNew(asBool(character['is_new']));
     final roleLabel = isCharacterRole
         ? GenesisL10n.current.homeWorldCharacter
-        : GenesisL10n
-              .current
-              .worldDetailPlayer;
-    final identity = worldMapString(character, const ['identity']);
-    final brief = worldMapString(character, const ['brief']);
-    final goal = worldMapString(character, const ['goal']);
+        : GenesisL10n.current.worldDetailPlayer;
+    final identity = genesisSafeDisplayText(
+      worldMapString(character, const ['identity']),
+      source: 'world.character.identity',
+    );
+    final brief = genesisSafeDisplayText(
+      worldMapString(character, const ['brief']),
+      source: 'world.character.brief',
+    );
+    final goal = genesisSafeDisplayText(
+      worldMapString(character, const ['goal']),
+      source: 'world.character.goal',
+    );
     final hasDisplayedDetails =
         identity.isNotEmpty ||
         brief.isNotEmpty ||
@@ -297,10 +304,9 @@ class WorldCharacterRow extends StatelessWidget {
                   if (isCharacterRole && goal.isNotEmpty) ...[
                     const SizedBox(height: 5),
                     Text(
-                      GenesisL10n.current
-                          .worldDetailGoal(
-                            goal: (goal).toString(),
-                          ),
+                      GenesisL10n.current.worldDetailGoal(
+                        goal: (goal).toString(),
+                      ),
                       style: bodyStyle,
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
@@ -309,9 +315,7 @@ class WorldCharacterRow extends StatelessWidget {
                   if (isCharacterRole && !hasDisplayedDetails) ...[
                     const SizedBox(height: 5),
                     Text(
-                      GenesisL10n
-                          .current
-                          .worldDetailNoCharacterDetailsYet,
+                      GenesisL10n.current.worldDetailNoCharacterDetailsYet,
                       style: bodyStyle.copyWith(color: subtitleColor),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
@@ -320,7 +324,10 @@ class WorldCharacterRow extends StatelessWidget {
                 ] else ...[
                   const SizedBox(height: 4),
                   Text(
-                    subtitle,
+                    genesisSafeDisplayText(
+                      subtitle,
+                      source: 'world.character.subtitle',
+                    ),
                     style: const TextStyle(
                       fontSize: 13,
                       height: 1.35,
@@ -444,27 +451,30 @@ String worldEventBody(WorldDetail world) {
 }
 
 String worldCharacterDescriptionText(Map<String, dynamic> character) {
-  final identity = worldMapString(character, const ['identity']);
-  final brief = worldMapString(character, const ['brief']);
+  final identity = genesisSafeDisplayText(
+    worldMapString(character, const ['identity']),
+    source: 'world.character.identity',
+  );
+  final brief = genesisSafeDisplayText(
+    worldMapString(character, const ['brief']),
+    source: 'world.character.brief',
+  );
   if (!worldIsCharacterRole(character)) {
     final details = worldOrderedNonEmptyStrings([identity, brief]);
     return details.join('\n');
   }
 
-  final goal = worldMapString(character, const ['goal']);
+  final goal = genesisSafeDisplayText(
+    worldMapString(character, const ['goal']),
+    source: 'world.character.goal',
+  );
   final details = worldOrderedNonEmptyStrings([
     identity,
     brief,
-    goal.isEmpty
-        ? ''
-        : GenesisL10n.current.worldDetailGoal(
-            goal: goal,
-          ),
+    goal.isEmpty ? '' : GenesisL10n.current.worldDetailGoal(goal: goal),
   ]);
   return details.isEmpty
-      ? GenesisL10n
-            .current
-            .worldDetailNoCharacterDetailsYet
+      ? GenesisL10n.current.worldDetailNoCharacterDetailsYet
       : details.join('\n');
 }
 

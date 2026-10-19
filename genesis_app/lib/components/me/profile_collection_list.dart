@@ -119,6 +119,63 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       bottom: 16 + bottomInset + _collapseCompensation,
     );
 
+    if (widget.injectNestedOverlap && !widget.sliverMode) {
+      // Keep this viewport and its ScrollPosition through async empty/loading
+      // transitions. Only the slivers change, never the enclosing scrollable.
+      final loading =
+          widget.items.isEmpty && widget.isLoading && !widget.hasLoaded;
+      final placeholder = loading
+          ? SizedBox(
+              key: widget.loadingKey,
+              width: 24,
+              height: 24,
+              child: const GenesisLoadingIndicator(),
+            )
+          : Text(
+              widget.emptyText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? GenesisColors.darkTextSecondary
+                    : const Color(0xFF8A8A8A),
+              ),
+            );
+      return _observeList(
+        CustomScrollView(
+          physics: widget.onRefresh != null || widget.alwaysScrollable
+              ? const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                )
+              : const BouncingScrollPhysics(),
+          clipBehavior: Clip.hardEdge,
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            if (widget.items.isEmpty)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: Center(child: placeholder),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: listPadding,
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    _buildItem,
+                    childCount: _childCount,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
     if (widget.items.isEmpty && widget.isLoading && !widget.hasLoaded) {
       final loading = SizedBox(
         key: widget.loadingKey,
@@ -159,34 +216,17 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
     final physics = widget.onRefresh != null || widget.alwaysScrollable
         ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
         : const BouncingScrollPhysics();
-    final list = widget.injectNestedOverlap
-        ? CustomScrollView(
-            physics: physics,
-            clipBehavior: Clip.hardEdge,
-            slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                  context,
-                ),
-              ),
-              SliverPadding(
-                padding: listPadding,
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    _buildItem,
-                    childCount: _childCount,
-                  ),
-                ),
-              ),
-            ],
-          )
-        : ListView.builder(
-            itemCount: _childCount,
-            physics: physics,
-            clipBehavior: Clip.hardEdge,
-            padding: listPadding,
-            itemBuilder: _buildItem,
-          );
+    final list = ListView.builder(
+      itemCount: _childCount,
+      physics: physics,
+      clipBehavior: Clip.hardEdge,
+      padding: listPadding,
+      itemBuilder: _buildItem,
+    );
+    return _observeList(list);
+  }
+
+  Widget _observeList(Widget list) {
     return _wrapRefreshIndicator(
       NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
@@ -275,19 +315,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       height: MediaQuery.sizeOf(context).height * 0.45,
       child: Center(child: child),
     );
-    final list = widget.injectNestedOverlap
-        ? CustomScrollView(
-            physics: physics,
-            slivers: [
-              SliverOverlapInjector(
-                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
-                  context,
-                ),
-              ),
-              SliverToBoxAdapter(child: placeholder),
-            ],
-          )
-        : ListView(physics: physics, children: [placeholder]);
+    final list = ListView(physics: physics, children: [placeholder]);
     return widget.onRefresh == null ? list : _wrapRefreshIndicator(list);
   }
 

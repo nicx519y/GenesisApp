@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/bootstrap/app_services_scope.dart';
 import '../../../network/models/music.dart';
+import '../../../network/models/world.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../music/mini_phone_music_service.dart';
 import '../music/mini_phone_music_progress.dart';
@@ -113,14 +114,22 @@ class MiniPhoneSessionScope extends InheritedWidget {
   const MiniPhoneSessionScope({
     super.key,
     required this.session,
+    required this.worldDetailReady,
+    this.mapStyle,
     required super.child,
   });
   final MiniPhoneSession session;
+  final bool worldDetailReady;
+  final WorldMapStyle? mapStyle;
+  static MiniPhoneSessionScope? watch(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MiniPhoneSessionScope>();
   static MiniPhoneSession? read(BuildContext context) =>
       context.getInheritedWidgetOfExactType<MiniPhoneSessionScope>()?.session;
   @override
   bool updateShouldNotify(MiniPhoneSessionScope oldWidget) =>
-      oldWidget.session != session;
+      oldWidget.session != session ||
+      oldWidget.worldDetailReady != worldDetailReady ||
+      oldWidget.mapStyle != mapStyle;
 }
 
 class MiniPhoneResume {

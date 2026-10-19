@@ -695,6 +695,8 @@ Query：
 
 ### GET `/api/v1/world/detail`
 
+`data.info.map_style`（2026-10-19 新契约）：`{era, biome, palette, medium}`，四项为 string；整字段可为 `null`。它来自 `tbl_world.map_json.map_style` 的最终全局地图风格；历史数据缺失或地图 JSON 解析失败时返回 `null`，不读取 Origin、不重新推断。客户端 `WorldDetail.mapStyle` 保留四项，局部 `copyWith` 更新继续保留；缺失/null/非对象兼容为 null，非法子字段归为空字符串。MiniPhone 仅用 `era` 选择入口：`modern/near_future/cyberpunk/space_scifi/post_apocalyptic` → Classic Handset；`mythic_ancient/historical_east/medieval_fantasy/victorian/steampunk` → Arcane Grimoire。缺失、空值、未知时代 → Classic Handset。World 地图和地点聊天共用 World 快照，不为选样式增加请求。
+
 返回单个 world 的完整详情：基本信息、统计信息、角色列表和 location。`info` 返回 `definition_version` 和当前用户的 `last_chat_location_id`，后者用于客户端进入 World 时初始化 Recent Message 标签；不返回 `tile_types`。主地图及 location 不返回 `map_json`，需要时调用 `/api/v1/world/map`。完整 tick 列表使用 `/api/v1/world/tick/list`。
 
 Query：
@@ -2516,7 +2518,7 @@ query：
 | `DELETE /api/v1/user/world-history-settings` | 已新增 `UserV1Api.resetWorldHistorySettings`，无 body，成功后用服务端返回的默认生效值刷新输入框。 |
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `scene/tag/origin_id/uid/keyword/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；首页和个人 world 列表可消费 `list[].info + stats`；详情入口使用 `info.definition_version/default_map_location_id` 立即挂载不可交互的 Tilemap，地图返回后即可渲染，detail 返回后再补齐 location tree 与交互。 |
 | `GET /api/v1/world/info` | 已新增 `WorldV1Api.info(worldId)` 与 `GenesisApi.getWorldInfo(wid)`，query 使用 `world_id`；响应消费 `info + stats`，不期待 `relation_status/characters/locations/ticks`。 |
-| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 消费 `info.definition_version`、`info.last_chat_location_id`、`info.metric`、`relation_status` 与 `locations[].location_description/location_paragraph/location_timestamp/dialogue`；`last_chat_location_id` 用于进入 World 时初始化地图和 Location List 的 Recent Message 标签，本次页面会话内再由发送成功后的内存临时记录覆盖；地图 JSON 按需通过 `/world/map` 获取，完整 tick 列表通过 `/world/tick/list` 获取。 |
+| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 消费 `info.map_style`、`info.definition_version`、`info.last_chat_location_id`、`info.metric`、`relation_status` 与 `locations[].location_description/location_paragraph/location_timestamp/dialogue`；`last_chat_location_id` 用于进入 World 时初始化地图和 Location List 的 Recent Message 标签，本次页面会话内再由发送成功后的内存临时记录覆盖；地图 JSON 按需通过 `/world/map` 获取，完整 tick 列表通过 `/world/tick/list` 获取。 |
 | `GET /api/v1/world/map` | 已新增 `WorldV1Api.map(worldId,locationId)` 与 `GenesisApi.getWorldMap(...)`，query 使用 `world_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v1/world/tick/list` | `WorldV1Api.tickList(worldId,pn,rn)` 与 `GenesisApi.getWorldTicks(wid,limit,offset)` 使用 `world_id/pn/rn`；服务端只返回 `status=50 (p2_done)` 的最新完成 tick，客户端完整保留 `sub_tick_no`、`tick_result.current_time`、段落可见性/线索/整数指标增量及 location groups。 |
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
@@ -2873,3 +2875,10 @@ Source: supplied `wallpaper.md` contract.
 ### 2026-10-12 编辑页额度不足与历史轮次保存
 
 编辑页保存不再要求目标是当前最新轮次，不因 Tick 或轮次变化在客户端取消提交；仍用打开编辑页时的世界、地点、轮次及候选卡片 ID。服务端校验权限、可编辑状态和额度；无改动不请求，不能全删，消息 ID 校验和防重复提交继续保留。2030 展示一次本地化免费编辑次数不足 Toast，并打开会员 sheet；关闭或订阅后保留草稿，用户再次点击保存，不自动重试。其他错误仍按现有通路处理。
+
+
+## World 主线 History 专用接口（2026-10-19 设计稿）
+
+`GET /aitown-chat/api/v1/world/history` 由 `ChatroomHttpApi.getWorldHistory` 与 `GenesisApi.getWorldHistory` 接入。沿用 Chatroom HTTP 认证、Gateway 签名及取消机制，首次仅传 `world_id` / `limit=20`，随后原样传 `cursor`。消息 ID 是字符串；响应按世界分页，`location_refs` 是唯一地点归属依据。
+
+完整契约见 [world-history-client-guide.md](world-history-client-guide.md)，客户端窗口、生命周期和测试入口见 [world-history-client-implementation.md](world-history-client-implementation.md)。此接口不是用户 History 水位设置接口，也不改变普通地点聊天、MiniPhone 和 World Events 的协议。设计稿明确 Chat history 服务尚未实现；当前完成的是客户端与受控验证，真实服务验收待服务可用。

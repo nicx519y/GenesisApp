@@ -82,6 +82,8 @@ class _UserProfileContentState extends State<UserProfileContent>
   late final ScrollController _scrollController;
   final ValueNotifier<double> _profilePullOffset = ValueNotifier<double>(0);
   final GlobalKey _profileHeaderKey = GlobalKey();
+  final GlobalKey<NestedScrollViewState> _nestedScrollKey =
+      GlobalKey<NestedScrollViewState>();
   bool? _isFollowedOverride;
   int? _followerCountOverride;
   bool _followLoading = false;
@@ -105,6 +107,10 @@ class _UserProfileContentState extends State<UserProfileContent>
   @override
   void didUpdateWidget(covariant UserProfileContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isBlocking != widget.isBlocking ||
+        oldWidget.isBlocked != widget.isBlocked) {
+      _stopNestedScrolling();
+    }
     if (oldWidget.reselectionListenable != widget.reselectionListenable) {
       oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
       widget.reselectionListenable?.addListener(_handleMainNavReselected);
@@ -144,6 +150,7 @@ class _UserProfileContentState extends State<UserProfileContent>
 
     final refresh = widget.onRefresh;
     final scrollView = NestedScrollView(
+      key: _nestedScrollKey,
       controller: _scrollController,
       physics: refresh == null
           ? null
@@ -174,7 +181,15 @@ class _UserProfileContentState extends State<UserProfileContent>
             ),
         ];
       },
-      body: _buildCollectionBody(data),
+      body: NotificationListener<ScrollStartNotification>(
+        onNotification: (notification) {
+          if (notification.metrics.axis == Axis.horizontal) {
+            _stopNestedScrolling();
+          }
+          return false;
+        },
+        child: _buildCollectionBody(data),
+      ),
     );
     if (refresh == null) return scrollView;
 
@@ -308,12 +323,8 @@ class _UserProfileContentState extends State<UserProfileContent>
               child: _OriginProfileCollectionList(
                 items: data.origins,
                 emptyText: data.isSelf
-                    ? GenesisL10n
-                          .current
-                          .meNoWorldoCreatedYet
-                    : GenesisL10n
-                          .current
-                          .meNoWorldoYet,
+                    ? GenesisL10n.current.meNoWorldoCreatedYet
+                    : GenesisL10n.current.meNoWorldoYet,
                 isLoading: widget.originsLoading,
                 listenable: widget.originsListenable,
                 onLoadMore: widget.onLoadMoreOrigins,
@@ -333,12 +344,8 @@ class _UserProfileContentState extends State<UserProfileContent>
                 items: data.worlds,
                 profileUid: data.uid,
                 emptyText: data.isSelf
-                    ? GenesisL10n
-                          .current
-                          .meNoWorldsCreatedYet
-                    : GenesisL10n
-                          .current
-                          .meNoWorldsYet,
+                    ? GenesisL10n.current.meNoWorldsCreatedYet
+                    : GenesisL10n.current.meNoWorldsYet,
                 isLoading: widget.worldsLoading,
                 listenable: widget.worldsListenable,
                 onLoadMore: widget.onLoadMoreWorlds,
@@ -364,7 +371,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     required Widget child,
   }) {
     final animation = _tabController.animation;
-    final page = SizedBox.expand(key: pageKey, child: child);
+    final page = _ProfileCollectionPage(key: pageKey, child: child);
     if (animation == null) return page;
 
     return AnimatedBuilder(
@@ -448,9 +455,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                       if (widget.nameUidGap > 0)
                         SizedBox(height: widget.nameUidGap),
                       CopyableIdLabel(
-                        label: GenesisL10n
-                            .current
-                            .profileUID,
+                        label: GenesisL10n.current.profileUID,
                         customTextStyle:
                             Theme.of(context).brightness == Brightness.dark
                             ? CopyableIdLabel.textStyle.copyWith(
@@ -529,7 +534,10 @@ class _UserProfileContentState extends State<UserProfileContent>
   }
 
   void _updateCollapsedState() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients ||
+        !_scrollController.position.hasPixels) {
+      return;
+    }
     final threshold = _profileHeaderHeight > 0 ? _profileHeaderHeight - 1 : 120;
     final collapsed = _scrollController.offset >= threshold;
     if (collapsed == _lastCollapsed) return;
@@ -568,13 +576,27 @@ class _UserProfileContentState extends State<UserProfileContent>
         !_scrollController.hasClients) {
       return;
     }
+    _stopNestedScrolling();
+    if (!_nestedPositionsHaveDimensions) {
+      // A newly attached Tab viewport will acquire dimensions at layout. Keep
+      // the departure reset, but do not make the coordinator query it early.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            widget.isActiveListenable?.value == false &&
+            _nestedPositionsHaveDimensions) {
+          _scrollController.jumpTo(_scrollController.position.minScrollExtent);
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+      return;
+    }
     // Bottom-tab departure resets both nested scroll regions synchronously.
     // Detail routes do not change tab activity, so their return keeps position.
     _scrollController.jumpTo(_scrollController.position.minScrollExtent);
   }
 
   void _handleMainNavReselected() {
-    if (!_scrollController.hasClients) return;
+    if (!_nestedPositionsHaveDimensions) return;
     final position = _scrollController.position;
     if (position.pixels <= position.minScrollExtent) return;
     unawaited(
@@ -586,8 +608,41 @@ class _UserProfileContentState extends State<UserProfileContent>
     );
   }
 
+  bool get _nestedPositionsHaveDimensions {
+    final state = _nestedScrollKey.currentState;
+    return state != null &&
+        _scrollController.hasClients &&
+        <ScrollPosition>[
+          ...state.outerController.positions,
+          ...state.innerController.positions,
+        ].every(
+          (position) => position.hasPixels && position.hasContentDimensions,
+        );
+  }
+
+  void _stopNestedScrolling() {
+    final state = _nestedScrollKey.currentState;
+    if (state == null) return;
+    // Stop without jumpTo/goBallistic: those would immediately read dimensions
+    // of a newly attached inner viewport, which is the original crash path.
+    for (final position in <ScrollPosition>[
+      ...state.outerController.positions,
+      ...state.innerController.positions,
+    ]) {
+      if (position.hasPixels &&
+          position.hasContentDimensions &&
+          position.isScrollingNotifier.value &&
+          position is ScrollActivityDelegate) {
+        (position as ScrollActivityDelegate).goIdle();
+      }
+    }
+  }
+
   void _handleTabControllerChanged() {
-    if (_tabController.indexIsChanging) return;
+    if (_tabController.indexIsChanging) {
+      _stopNestedScrolling();
+      return;
+    }
     _reportCollectionTab(_tabController.index);
   }
 
@@ -781,9 +836,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                             child: _GemBalance(
                               key: redBoundsKey,
                               iconAsset: gemIconAsset,
-                              label: GenesisL10n
-                                  .current
-                                  .gemsRed,
+                              label: GenesisL10n.current.gemsRed,
                               balanceCent: redCent,
                               valueKey: const ValueKey(
                                 'user-profile-gems-balance',
@@ -818,9 +871,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                                 child: _GemBalance(
                                   key: pinkBoundsKey,
                                   iconAsset: roseGemIconAsset,
-                                  label: GenesisL10n
-                                      .current
-                                      .gemsPink,
+                                  label: GenesisL10n.current.gemsPink,
                                   balanceCent: roseCent,
                                   valueKey: const ValueKey(
                                     'user-profile-rose-gems-balance',
@@ -848,9 +899,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          GenesisL10n
-                              .current
-                              .gemsTop,
+                          GenesisL10n.current.gemsTop,
                           style: TextStyle(
                             color: GenesisColors.darkTextPrimary,
                             fontSize: 12,
@@ -1134,5 +1183,23 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _ProfileTabsHeaderDelegate oldDelegate) {
     return child != oldDelegate.child ||
         pullOffsetListenable != oldDelegate.pullOffsetListenable;
+  }
+}
+
+class _ProfileCollectionPage extends StatefulWidget {
+  const _ProfileCollectionPage({super.key, required this.child});
+  final Widget child;
+  @override
+  State<_ProfileCollectionPage> createState() => _ProfileCollectionPageState();
+}
+
+class _ProfileCollectionPageState extends State<_ProfileCollectionPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return SizedBox.expand(child: widget.child);
   }
 }

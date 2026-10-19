@@ -7,6 +7,36 @@ import 'package:genesis_flutter_android/app/attribution/adjust_network_recovery.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'network stream can resubscribe after cancellation and native end',
+    () async {
+      const channel = MethodChannel('com.worldo.ai/network_availability');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final first = NetworkAvailabilityEvents.changes.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      await first.cancel();
+      await Future<void>.delayed(Duration.zero);
+      final ended = Completer<void>();
+      NetworkAvailabilityEvents.changes.listen((_) {}, onDone: ended.complete);
+      await Future<void>.delayed(Duration.zero);
+      ServicesBinding.instance.channelBuffers.push(channel.name, null, (_) {});
+      await ended.future;
+      await Future<void>.delayed(Duration.zero);
+      final last = NetworkAvailabilityEvents.changes.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      expect(calls.where((call) => call == 'listen'), hasLength(3));
+      await last.cancel();
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
+
   test('network subscribers share one native listen and cancel', () async {
     const channel = MethodChannel('com.worldo.ai/network_availability');
     final listened = Completer<void>();

@@ -103,6 +103,7 @@ Chatroom WebSocket/HTTP 另有独立契约：
 - 世界聊天室业务服务：`lib/network/chatroom/world_chatroom_service.dart`
 - Chatroom HTTP resource：`lib/network/chatroom/chatroom_http_api.dart`
 - Chatroom HTTP models：`lib/network/chatroom/chatroom_http_models.dart`
+- World History 专用契约：[world-history-client-guide.md](world-history-client-guide.md)；分页窗口、生命周期和验证：[world-history-client-implementation.md](world-history-client-implementation.md)。该只读档案使用世界级接口，不枚举地点，也不写入实时聊天室状态。
 - 消息本地缓存：`lib/network/chatroom/chatroom_message_storage.dart`
 - 主要测试：`test/network/chatroom/chatroom_client_test.dart`、`test/network/chatroom/world_chatroom_service_test.dart`、`test/network/chatroom_http_api_test.dart`
 
@@ -284,6 +285,12 @@ HTTP 映射层的图片规则：
 - `ButtonStyle.textStyle` / `styleFrom(textStyle: ...)` 会替换按钮的主题文字样式，不能按普通 Text 的合并规则处理；自定义按钮文字样式必须包含公共字体。公共主次按钮通过 `GenesisPrimaryButton.defaultTextStyle` 集中管理。
 - 不在页面添加分平台系统字体或独立的 `monospace`；新增字体例外必须在本规范写明用途。斜体继续遵守下一节。
 
+### UGC 文本与测量安全
+
+- 地图气泡分页在测量前复用 `normalizeGenesisUgcTextForDisplay`，候选页和最终页均按完整字素边界切分；临时 `TextPainter` 必须释放。
+- World 角色、地点角色及 Tick 富文本在显示入口调用 `genesisSafeDisplayText`，不修改模型、ID、URL 或存储原文。非法 UTF-16 的 non-fatal 诊断仅含固定组件名、长度和最多 8 个非法偏移，每进程每组件最多一次，总计最多 32 个来源；不记录正文。
+- 输入格式化器将完整转换与选区偏移映射放在同一次遍历，不能通过独立转换前缀推算光标。发生转换时清除 composing，未转换时仍验证选区和 composing 边界。
+
 ### iOS 字体倾斜规则
 
 - 用户可见的斜体统一使用 `GenesisSoftItalicText`，或在富文本场景使用同一文件提供的 `genesisSoftItalicStyle` 与 `genesisSoftItalicForPlatform`；当前 iOS 和非 iOS 默认都使用内置的 Inter Italic 字形。
@@ -417,6 +424,7 @@ HTTP 映射层的图片规则：
 - 不得在页面或共享组件中重新引入 `StretchingOverscrollIndicator`，也不得通过局部 `ScrollConfiguration` 恢复 overscroll decoration。新增独立 `MaterialApp` 运行入口时，同样必须配置 `GenesisScrollBehavior`。
 - 允许按交互需要使用 `BouncingScrollPhysics` 实现 iOS 风格的整体内容位移回弹，或使用自定义 physics 实现明确的边缘手势；这种整体位移不等同于禁止的内容拉伸变形。
 - 页面可以继续使用 `ClampingScrollPhysics`、`PageScrollPhysics`、`AlwaysScrollableScrollPhysics` 和下拉刷新。不要为了关闭拉伸效果而破坏横向分页、纵向滚动、RefreshIndicator 或既有边缘手势。
+- 共享个人主页的加载、空态和列表共用稳定的内层 `CustomScrollView`，两个集合 Tab 保持状态。切 Tab 或替换滚动子树前停止旧惯性活动；自己的回顶逻辑必须先检查 `hasPixels` 和 `hasContentDimensions`，不能用 `jumpTo` 代替停止活动来触发未布局位置的尺寸查询。
 
 ### 原生启动页
 
@@ -481,3 +489,10 @@ HTTP 映射层的图片规则：
 - 页面流：优先使用 `test/widget_test.dart --plain-name "<case name>"` 跑相关窄用例，不要默认只跑全量大烟测。
 
 完成前报告实际跑过的命令；不能运行时说明原因和剩余风险。
+
+### Android release 证据归档
+
+- 使用 `python3 tool/build_verified_android_release.py --build-name <正式版本> --build-number <正式版本号>` 构建上述 production ARM64 APK，并从最终 APK 检查 AndroidX Startup Provider 的 authority、启用状态及生命周期初始化元数据。检查工具的回归：`python3 -m unittest discover -s tool -p 'test_android_release.py'`。
+- 证据保存在 `build/release-evidence/<UTC时间>/`：APK、最终 Manifest、实际解析的 Android 依赖、Git SHA、工作区差异及未跟踪源文件、Flutter 版本、原生 mapping、Dart symbols 和哈希。Crashlytics 同步记录构建 SHA、Flutter 版本和工作区差异哈希。
+- 不传版本参数时沿用工程版本；`9.9.9+999` 仅用于本地构建验证，记录会标为占位版本。脚本不安装、不上传、不发布；正式发布需使用正式版本与干净的已提交代码，并保存对应证据目录。
+- Manifest 存在不代表原生启动异常已修复。Samsung Android 13 冷启动、后台启动和覆盖安装，以及 Android 15 输入法仍需单独真机验证。上线后按新版本使用量核对 24 小时和 7 天事件，不能把旧包事件或新包暂未上报当作结论。

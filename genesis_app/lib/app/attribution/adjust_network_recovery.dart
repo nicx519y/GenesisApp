@@ -11,12 +11,28 @@ class NetworkAvailabilityEvents {
     'com.worldo.ai/network_availability',
   );
 
-  static final Stream<bool> _changes = _channel
-      .receiveBroadcastStream()
-      .where((event) => event is bool)
-      .cast<bool>();
+  static Stream<bool>? _changes;
 
-  static Stream<bool> get changes => _changes;
+  static Stream<bool> get changes {
+    final existing = _changes;
+    if (existing != null) return existing;
+    late final Stream<bool> stream;
+    stream = _channel
+        .receiveBroadcastStream()
+        .where((event) => event is bool)
+        .cast<bool>()
+        .transform(
+          StreamTransformer<bool, bool>.fromHandlers(
+            handleDone: (sink) {
+              // A native end-of-stream closes the broadcast controller permanently.
+              // The next lifecycle owner must get a fresh stream, not that closed one.
+              if (identical(_changes, stream)) _changes = null;
+              sink.close();
+            },
+          ),
+        );
+    return _changes = stream;
+  }
 }
 
 /// Coalesces the initial network snapshot and offline-to-online transitions.

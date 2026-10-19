@@ -1,18 +1,30 @@
-import 'mini_phone_dock_position.dart';
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../../../ui/components/genesis_avatar.dart';
-import '../session/mini_phone_session.dart';
+import '../music/mini_phone_music_service.dart';
 import '../preview/mini_phone_demo_store.dart';
 import '../preview/mini_phone_preview_avatar.dart';
-import '../music/mini_phone_music_service.dart';
-import '../shared/mini_phone_ui.dart';
+import '../session/mini_phone_session.dart';
+import 'mini_phone_dock_position.dart';
+import 'mini_phone_entry_artwork.dart';
+import 'mini_phone_entry_motion.dart';
+import 'mini_phone_entry_style.dart';
 
 class MiniPhoneEntry extends StatefulWidget {
-  const MiniPhoneEntry({super.key, required this.onPressed, this.session});
+  const MiniPhoneEntry({
+    super.key,
+    required this.onPressed,
+    this.session,
+    this.style,
+  });
   final MiniPhoneSession? session;
   final VoidCallback onPressed;
+
+  /// Explicit preview override; null selects from the current World's map era.
+  final MiniPhoneEntryStyle? style;
   @override
   State<MiniPhoneEntry> createState() => _MiniPhoneEntryState();
 }
@@ -28,17 +40,27 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
   MiniPhoneMusicService get _music => _session.music;
   MiniPhoneDemoStore get _store => _session.store;
   int _unread = 0;
+  bool _reducedMotion = false;
+  MiniPhoneEntryStyle _resolvedStyle(BuildContext context) {
+    final scope = MiniPhoneSessionScope.watch(context);
+    return widget.style ??
+        MiniPhoneEntryStyle.fromMapEra(
+          (scope != null ? scope.mapStyle : _session.data?.mapStyle)?.era,
+        );
+  }
+
   int get _currentUnread =>
       _session.data?.totalUnreadCount ?? _store.totalUnread;
+  bool get _arriving => _unread > 0 && _arrival.isAnimating && !_reducedMotion;
   Widget get _arrivalAvatar {
     final data = _session.data;
-    if (data == null) return MiniAvatar(miniDemoPeople.first, size: 32);
+    if (data == null) return MiniAvatar(miniDemoPeople.first, size: 24);
     final person = data.person(data.latestUnreadCharId ?? '');
     return GenesisAvatar(
       url: person.avatar,
       name: person.name,
-      size: 32,
-      borderRadius: 16,
+      size: 24,
+      borderRadius: 12,
     );
   }
 
@@ -49,31 +71,42 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
     _session = widget.session ?? MiniPhoneSession();
     _arrival = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: Duration(milliseconds: entryAvatarMotion.durationMs),
     );
     _musicPulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: Duration(milliseconds: entryMusicMotion.durationMs),
     );
     _music.addListener(_musicChanged);
     _unread = _currentUnread;
     _store.addListener(_changed);
     _session.data?.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _musicChanged();
-      if (mounted && _unread > 0 && !MediaQuery.disableAnimationsOf(context)) {
-        _arrival.forward();
-      }
+      if (!mounted) return;
+      _musicChanged();
+      if (_unread > 0 && !_reducedMotion) _arrival.forward();
     });
   }
 
-  void _musicChanged() {
-    if (!mounted) return;
-    if (_music.playing && !MediaQuery.disableAnimationsOf(context)) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reducedMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reducedMotion) _arrival.stop();
+    _syncMusicAnimation();
+  }
+
+  void _syncMusicAnimation() {
+    if (_music.playing && !_reducedMotion) {
       if (!_musicPulse.isAnimating) _musicPulse.repeat();
     } else {
       _musicPulse.stop();
     }
+  }
+
+  void _musicChanged() {
+    if (!mounted) return;
+    _syncMusicAnimation();
     if (_music.activated) {
       if (_music.track == null) _session.ensureMusicCatalog();
       _musicOverlay.show();
@@ -85,9 +118,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
 
   void _changed() {
     final unread = _currentUnread;
-    if (unread > _unread && !MediaQuery.disableAnimationsOf(context)) {
-      _arrival.forward(from: 0);
-    }
+    if (unread > _unread && !_reducedMotion) _arrival.forward(from: 0);
     if (unread == 0) _arrival.stop();
     setState(() => _unread = unread);
   }
@@ -116,62 +147,11 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
               child: CompositedTransformFollower(
                 link: _entryLink,
                 showWhenUnlinked: false,
-                offset: const Offset(-1, -48),
-                child: _MiniPhonePopup(
-                  child: Material(
-                    color: const Color(0xFF303435),
-                    shape: const CircleBorder(),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: _music.toggle,
-                      child: Tooltip(
-                        message: _music.playRequested
-                            ? 'Pause music'
-                            : 'Play music',
-                        child: Semantics(
-                          button: true,
-                          label: _music.playRequested
-                              ? 'Pause music'
-                              : 'Play music',
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              if (_unread > 0 && _arrival.isAnimating)
-                                _arrivalAvatar,
-                              if (_unread > 0 && _arrival.isAnimating)
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    width: 17,
-                                    height: 17,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF303435),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: MiniIcon(
-                                        _music.playRequested
-                                            ? 'music-pause'
-                                            : 'music-play',
-                                        size: 10,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                MiniIcon(
-                                  _music.playRequested
-                                      ? 'music-pause'
-                                      : 'music-play',
-                                  size: 16,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                offset: const Offset(-5, -43),
+                child: MiniPhoneEntryBubble(
+                  avatar: _arriving ? _arrivalAvatar : null,
+                  playRequested: _music.playRequested,
+                  onTap: _music.toggle,
                 ),
               ),
             ),
@@ -185,202 +165,41 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
           onTap: widget.onPressed,
           child: AnimatedBuilder(
             animation: Listenable.merge([_arrival, _musicPulse]),
-            builder: (context, child) {
-              final seconds = _arrival.value * 3;
-              final vibrating = _arrival.isAnimating && seconds < .76;
-              final wave = vibrating
-                  ? math.sin(seconds / .76 * math.pi * 8) * (1 - seconds / .76)
-                  : 0.0;
-              final music = _music.activated;
-              final visible = _unread > 0 && _arrival.isAnimating;
-              final alpha = visible
-                  ? (_arrival.value < .1
-                        ? _arrival.value / .1
-                        : _arrival.value > .85
-                        ? (1 - _arrival.value) / .15
-                        : 1.0)
-                  : 0.0;
-              final reveal = (_arrival.isAnimating ? seconds / .9 : 1.0).clamp(
-                0.0,
-                1.0,
-              );
-              return SizedBox(
-                width: 34,
-                height: 57,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Transform.translate(
-                      offset: Offset(wave * 1.2, 0),
-                      child: Transform.rotate(
-                        angle: wave * math.pi / 22,
-                        child: child,
-                      ),
-                    ),
-                    if (_unread > 0)
-                      Positioned(
-                        right: -5,
-                        top: -6,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 17),
-                          height: 17,
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          decoration: BoxDecoration(
-                            color: miniRed,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white, width: 1.5),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$_unread',
-                              style: miniStyle(
-                                9,
-                                FontWeight.w600,
-                              ).copyWith(height: 1),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (music && _unread == 0) ...[
-                      Positioned(
-                        top: 26,
-                        left: 9,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: _music.playing
-                                ? .9 +
-                                      .1 *
-                                          math.sin(
-                                            _musicPulse.value * math.pi * 2,
-                                          )
-                                : .55,
-                            child: Transform.translate(
-                              offset: Offset(
-                                0,
-                                _music.playing
-                                    ? math.cos(_musicPulse.value * math.pi * 2)
-                                    : 0,
-                              ),
-                              child: Transform.rotate(
-                                angle: _music.playing
-                                    ? math.sin(
-                                            _musicPulse.value * math.pi * 2,
-                                          ) *
-                                          math.pi /
-                                          30
-                                    : 0,
-                                child: const MiniIcon(
-                                  'music-musical-note',
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (visible && !music)
-                      Positioned(
-                        left: -1,
-                        top: -48,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: alpha.clamp(0.0, 1.0),
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - alpha) * 8),
-                              child: _MiniPhonePopup(child: _arrivalAvatar),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (_unread > 0)
-                      Positioned(
-                        top: 28,
-                        left: 5,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: reveal,
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - reveal) * 7),
-                              child: Container(
-                                width: 24,
-                                height: 12,
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x1CFFFFFF),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF929294),
-                                        borderRadius: BorderRadius.circular(1),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 10,
-                                          height: 1.5,
-                                          color: const Color(0xFFC9C9CB),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Container(
-                                          width: 7,
-                                          height: 1.5,
-                                          color: const Color(0xFF8D8D90),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-            child: Container(
+            builder: (context, _) => SizedBox(
               width: 34,
               height: 57,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white, width: 2),
-                color: const Color(0xFF232228),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black38,
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const SizedBox(height: 4),
-                  Container(width: 11, height: 2, color: Colors.white),
-                  const SizedBox(height: 6),
-                  Text(
-                    _session.entryClockTime,
-                    style: miniStyle(
-                      7,
-                      FontWeight.w900,
-                    ).copyWith(height: 1, letterSpacing: -.175),
+                  MiniPhoneEntryArtwork(
+                    skin: _resolvedStyle(context).skin,
+                    unread: _unread > 0,
+                    showMusic: _music.activated && _unread == 0,
+                    playing: _music.playing,
+                    arriving: _arriving,
+                    arrivalProgress: _arrival.value,
+                    musicProgress: _musicPulse.value,
+                    clockTime: _session.entryClockTime,
+                    reducedMotion: _reducedMotion,
                   ),
-                  const Spacer(),
-                  Container(width: 12, height: 2, color: Colors.white),
-                  const SizedBox(height: 4),
+                  if (_unread > 0)
+                    Positioned(
+                      right: -5,
+                      top: -6,
+                      child: MiniPhoneEntryBadge(count: _unread),
+                    ),
+                  if (_arriving && !_music.activated)
+                    Positioned(
+                      left: 4,
+                      top: -34,
+                      child: IgnorePointer(
+                        child: entryAvatarMotion
+                            .sample(_arrival.value)
+                            .apply(
+                              MiniPhoneEntryBubble(avatar: _arrivalAvatar),
+                            ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -389,46 +208,6 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
       ),
     ),
   );
-}
-
-class _MiniPhonePopup extends StatelessWidget {
-  const _MiniPhonePopup({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 36,
-    height: 41,
-    child: Stack(
-      children: [
-        Positioned.fill(child: CustomPaint(painter: _MiniPhonePopupPainter())),
-        Positioned(
-          left: 2,
-          top: 2,
-          width: 32,
-          height: 32,
-          child: ClipOval(child: child),
-        ),
-      ],
-    ),
-  );
-}
-
-class _MiniPhonePopupPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final circle = Path()..addOval(const Rect.fromLTWH(0, 0, 36, 36));
-    final pointer = Path()
-      ..moveTo(12, 34)
-      ..lineTo(24, 34)
-      ..lineTo(18, 41)
-      ..close();
-    final frame = Path.combine(PathOperation.union, circle, pointer);
-    canvas.drawShadow(frame, Colors.black38, 3, false);
-    canvas.drawPath(frame, Paint()..color = const Color(0xFFFFFFFF));
-  }
-
-  @override
-  bool shouldRepaint(_MiniPhonePopupPainter oldDelegate) => false;
 }
 
 // Local UI position only; the handle snaps to a side after every drag.
@@ -441,7 +220,9 @@ class MiniPhoneEdgeDock extends StatefulWidget {
     this.positionStore,
     this.worldId = '',
     this.leftBottomInset,
+    this.style,
   });
+  final MiniPhoneEntryStyle? style;
   final String worldId;
   final double topInset, bottomInset;
   final double? leftBottomInset;
@@ -486,7 +267,22 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) {
+    final scope = MiniPhoneSessionScope.watch(context);
+    return ListenableBuilder(
+      listenable: _session.data ?? _session.store,
+      builder: (context, _) {
+        final ready =
+            scope?.worldDetailReady ??
+            (_session.data?.worldDetailLoaded ?? _session.worldId.isEmpty);
+        // Do not mount the icon or its music/avatar overlays until the World
+        // snapshot has resolved. A loaded null map_style can then use Classic.
+        return ready ? _buildDock(context) : const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildDock(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
       const inset = 12.0;
       final left = inset;
@@ -547,6 +343,7 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
               onPanEnd: (_) => snap(),
               onPanCancel: snap,
               child: MiniPhoneEntry(
+                style: widget.style,
                 session: _session,
                 onPressed: () => widget.onPressed(_session),
               ),

@@ -64,6 +64,29 @@ void main() {
     );
   });
 
+  test('same platform message outside stream cancellation stays fatal', () {
+    for (final context in <DiagnosticsNode?>[
+      null,
+      ErrorDescription(
+        'while activating platform stream on channel test/channel',
+      ),
+    ]) {
+      expect(
+        isFirebaseFlutterErrorFatal(
+          FlutterErrorDetails(
+            exception: PlatformException(
+              code: 'error',
+              message: 'No active stream to cancel',
+            ),
+            library: 'services library',
+            context: context,
+          ),
+        ),
+        isTrue,
+      );
+    }
+  });
+
   test('expected cover cancellation is not recorded as a fatal error', () {
     expect(
       shouldRecordFirebaseFlutterError(

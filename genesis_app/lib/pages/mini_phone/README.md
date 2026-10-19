@@ -10,6 +10,7 @@ MiniPhone 是 World 持有的手机会话。正式页面使用 `GenesisApi.miniP
 - `showMiniPhonePreview`：Developer 的明确预览入口。
 - `MiniPhoneSession` / `MiniPhoneSessionScope`：World 会话所有权与作用域。
 - `MiniPhoneEntry` / `MiniPhoneEdgeDock`：手机入口与可拖动 Dock。
+- 两个入口组件均接受 `style: MiniPhoneEntryStyle.arcaneGrimoire`；省略时根据 World Detail 的 `map_style.era` 自动选择，缺失或未知时回退 `classicHandset`。两套都使用交付 SVG，由同一 `MiniPhoneEntryArtwork` 渲染、同一 `EntryMotion` 播放关键帧；`mini_phone_entry_style.dart` 仅配置资源、坐标与动效。状态、点击、音乐控制、拖动及会话保持共用。动态时间、未读数字和头像绑定运行数据；资源授权位于 `assets/mini_phone/entry-icons-LICENSES.txt`。
 - `MiniPhoneScreen`、`MiniPhonePage`：指定初始页面及页面装配。
 
 Dock 位置保留旧的本地存储键，避免整理命名后丢失已有位置。路由名为 `mini-phone`。

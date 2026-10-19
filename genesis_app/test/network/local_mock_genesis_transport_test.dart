@@ -1492,6 +1492,8 @@ void main() {
     );
     final worldDetail = await api.v1.world.detail(worldId: world);
     expect(((worldDetail['info'] as Map)['last_chat_location_id']), 'loc_gate');
+    expect((worldDetail['info'] as Map).containsKey('map_style'), isTrue);
+    expect((worldDetail['info'] as Map)['map_style'], isNull);
     final worldInfo = await api.v1.world.info(worldId: world);
     expect(
       (worldInfo['info'] as Map).containsKey('last_chat_location_id'),

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../ui/tokens/genesis_blur.dart';
+import '../utils/genesis_ugc_text.dart';
 import '../ui/tokens/genesis_typography.dart';
 
 import 'world_point.dart';
@@ -140,18 +141,23 @@ double resolveWorldMapMessageBubbleWidth(
   if (preservePageWidth) return worldMapMessageBubbleMaxWidth;
   final painter = TextPainter(
     text: TextSpan(
-      text: text.trim(),
+      text: normalizeGenesisUgcTextForDisplay(text).trim(),
       style: resolveWorldMapMessageBubbleTextStyle(context),
     ),
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  const horizontalInsets = worldMapMessageBubbleHorizontalPadding * 2;
-  const minimumWidth = worldMapMessageBubblePointerWidth * 3;
-  const layoutSafetyWidth = 2.0;
-  return (painter.width.ceilToDouble() + layoutSafetyWidth + horizontalInsets)
-      .clamp(minimumWidth, worldMapMessageBubbleMaxWidth)
-      .toDouble();
+  );
+  try {
+    painter.layout();
+    const horizontalInsets = worldMapMessageBubbleHorizontalPadding * 2;
+    const minimumWidth = worldMapMessageBubblePointerWidth * 3;
+    const layoutSafetyWidth = 2.0;
+    return (painter.width.ceilToDouble() + layoutSafetyWidth + horizontalInsets)
+        .clamp(minimumWidth, worldMapMessageBubbleMaxWidth)
+        .toDouble();
+  } finally {
+    painter.dispose();
+  }
 }
 
 List<String> resolveWorldMapMessageBubblePages(
@@ -172,7 +178,9 @@ List<String> splitWorldMapMessageBubblePages(
   TextScaler? textScaler,
   TextStyle? textStyle,
 }) {
-  final normalized = content.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final normalized = normalizeGenesisUgcTextForDisplay(
+    content,
+  ).trim().replaceAll(RegExp(r'\s+'), ' ');
   if (normalized.isEmpty) return const <String>[];
   final resolvedTextScaler = textScaler ?? TextScaler.noScaling;
   final resolvedTextStyle = textStyle ?? worldMapMessageBubbleTextStyle;
@@ -189,12 +197,19 @@ List<String> splitWorldMapMessageBubblePages(
       break;
     }
 
-    var low = 1;
-    var high = remaining.length;
-    var bestFit = 1;
+    // Every measurement must end on a grapheme boundary, not only the final page.
+    final boundaries = <int>[];
+    var offset = 0;
+    for (final character in remaining.characters) {
+      offset += character.length;
+      boundaries.add(offset);
+    }
+    var low = 0;
+    var high = boundaries.length - 1;
+    var bestFit = boundaries.first;
     while (low <= high) {
       final middle = (low + high) ~/ 2;
-      final candidate = remaining.substring(0, middle).trimRight();
+      final candidate = remaining.substring(0, boundaries[middle]).trimRight();
       if (candidate.isNotEmpty &&
           _worldMapMessageBubbleTextFitsPage(
             candidate,
@@ -202,7 +217,7 @@ List<String> splitWorldMapMessageBubblePages(
             textScaler: resolvedTextScaler,
             textStyle: resolvedTextStyle,
           )) {
-        bestFit = middle;
+        bestFit = boundaries[middle];
         low = middle + 1;
       } else {
         high = middle - 1;
@@ -210,14 +225,9 @@ List<String> splitWorldMapMessageBubblePages(
     }
 
     var split = remaining.lastIndexOf(' ', bestFit);
-    if (split <= 0) split = _safeWorldMapMessageBubbleSplit(remaining, bestFit);
-    final page = remaining.substring(0, split).trim();
-    if (page.isEmpty) {
-      split = _safeWorldMapMessageBubbleSplit(remaining, bestFit);
-      pages.add(remaining.substring(0, split).trim());
-    } else {
-      pages.add(page);
-    }
+    // A space can itself belong to a combining sequence. Never cut inside it.
+    if (split <= 0 || !boundaries.contains(split)) split = bestFit;
+    pages.add(remaining.substring(0, split).trim());
     remaining = remaining.substring(split).trim();
   }
   return List<String>.unmodifiable(pages);
@@ -237,24 +247,14 @@ bool _worldMapMessageBubbleTextFitsPage(
     maxLines: 3,
     textDirection: textDirection,
     textScaler: textScaler,
-  )..layout(maxWidth: textMaxWidth);
-  return !painter.didExceedMaxLines;
-}
-
-int _safeWorldMapMessageBubbleSplit(String text, int split) {
-  if (text.length <= 1) return text.length;
-  var safeSplit = split.clamp(1, text.length - 1).toInt();
-  if (safeSplit < text.length &&
-      _isHighSurrogate(text.codeUnitAt(safeSplit - 1)) &&
-      _isLowSurrogate(text.codeUnitAt(safeSplit))) {
-    safeSplit -= 1;
+  );
+  try {
+    painter.layout(maxWidth: textMaxWidth);
+    return !painter.didExceedMaxLines;
+  } finally {
+    painter.dispose();
   }
-  return safeSplit;
 }
-
-bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
-
-bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
 
 @immutable
 class WorldMapHorizontalPanState {

@@ -30,15 +30,42 @@ class GenesisConsecutiveNewlineLimiter extends TextInputFormatter {
 }
 
 TextEditingValue genesisDisplaySafeTextEditingValue(TextEditingValue value) {
-  final text = genesisDisplaySafeText(value.text);
-  if (text == value.text) return value;
-
-  return TextEditingValue(
+  final offsets = List<int>.filled(value.text.length + 1, 0);
+  final text = _transformDisplaySafeText(value.text, offsets: offsets);
+  final selection = value.selection;
+  final nextSelection =
+      selection.baseOffset == -1 && selection.extentOffset == -1
+      ? selection
+      : TextSelection(
+          baseOffset: offsets[selection.baseOffset.clamp(0, value.text.length)],
+          extentOffset:
+              offsets[selection.extentOffset.clamp(0, value.text.length)],
+          affinity: selection.affinity,
+          isDirectional: selection.isDirectional,
+        );
+  final composing = value.composing;
+  final validComposing =
+      composing.isValid &&
+      composing.isNormalized &&
+      composing.end <= text.length &&
+      _isCodePointBoundary(text, composing.start) &&
+      _isCodePointBoundary(text, composing.end);
+  return value.copyWith(
     text: text,
-    selection: _shiftSelectionForTransformedText(value),
-    composing: TextRange.empty,
+    selection: nextSelection,
+    composing: text == value.text && validComposing
+        ? composing
+        : TextRange.empty,
   );
 }
+
+bool _isCodePointBoundary(String text, int offset) =>
+    offset <= 0 ||
+    offset >= text.length ||
+    !(text.codeUnitAt(offset - 1) >= 0xD800 &&
+        text.codeUnitAt(offset - 1) <= 0xDBFF &&
+        text.codeUnitAt(offset) >= 0xDC00 &&
+        text.codeUnitAt(offset) <= 0xDFFF);
 
 TextEditingValue genesisConsecutiveNewlineLimitedTextEditingValue(
   TextEditingValue value, {
@@ -60,22 +87,26 @@ TextEditingValue genesisConsecutiveNewlineLimitedTextEditingValue(
   );
 }
 
-String genesisDisplaySafeText(String text) {
-  if (text.isEmpty) return text;
+String genesisDisplaySafeText(String text) => _transformDisplaySafeText(text);
 
+String _transformDisplaySafeText(String text, {List<int>? offsets}) {
   final buffer = StringBuffer();
   var index = 0;
+  var outputOffset = 0;
   while (index < text.length) {
     final replacement = _decorativeReplacementAt(text, index);
-    if (replacement != null) {
-      buffer.write(replacement.text);
-      index += replacement.sourceLength;
-      continue;
+    final rune = replacement == null ? _displaySafeRuneAt(text, index) : null;
+    final output = replacement?.text ?? String.fromCharCode(rune!.codePoint);
+    final length = replacement?.sourceLength ?? rune!.sourceLength;
+    buffer.write(output);
+    outputOffset += output.length;
+    // Interior offsets snap to the end of this complete replacement/code point.
+    if (offsets != null) {
+      for (var i = index + 1; i <= index + length; i++) {
+        offsets[i] = outputOffset;
+      }
     }
-
-    final rune = _displaySafeRuneAt(text, index);
-    buffer.writeCharCode(rune.codePoint);
-    index += rune.sourceLength;
+    index += length;
   }
   return buffer.toString();
 }
@@ -113,22 +144,6 @@ _DisplaySafeRune _displaySafeRuneAt(String text, int index) {
   );
 }
 
-TextSelection _shiftSelectionForTransformedText(TextEditingValue value) {
-  final selection = value.selection;
-  if (!selection.isValid) {
-    return TextSelection.collapsed(
-      offset: genesisDisplaySafeText(value.text).length,
-    );
-  }
-
-  return TextSelection(
-    baseOffset: _transformedOffsetBefore(value.text, selection.baseOffset),
-    extentOffset: _transformedOffsetBefore(value.text, selection.extentOffset),
-    affinity: selection.affinity,
-    isDirectional: selection.isDirectional,
-  );
-}
-
 TextSelection _shiftSelectionForConsecutiveNewlineLimit(
   TextEditingValue value,
   int maxConsecutiveNewlines,
@@ -157,11 +172,6 @@ TextSelection _shiftSelectionForConsecutiveNewlineLimit(
     affinity: selection.affinity,
     isDirectional: selection.isDirectional,
   );
-}
-
-int _transformedOffsetBefore(String text, int offset) {
-  final clampedOffset = offset.clamp(0, text.length);
-  return genesisDisplaySafeText(text.substring(0, clampedOffset)).length;
 }
 
 int _newlineLimitedOffsetBefore(

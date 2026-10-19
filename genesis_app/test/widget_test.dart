@@ -1,4 +1,5 @@
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/entry/mini_phone_entry_artwork.dart';
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
@@ -746,6 +747,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   _RecordingV1ListTransport({
     this.worldListTotal = total,
     this.worldRelationStatus = 'owner',
+    this.worldMapStyle,
     this.originDiscussCount = 9,
     this.discussTotalAll = 25,
     this.originDetailCompleter,
@@ -790,6 +792,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   static const _defaultHotTags = ['Destroyed'];
   final int worldListTotal;
   String worldRelationStatus;
+  final Map<String, Object?>? worldMapStyle;
   final int originDiscussCount;
   final int discussTotalAll;
   final Completer<TransportResponse>? originDetailCompleter;
@@ -1534,6 +1537,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     final fallback = wid.isEmpty ? 'w_test_1' : wid;
     return {
       'info': {
+        'map_style': worldMapStyle,
         'world_id': fallback,
         'world_name': 'World detail $fallback',
         'origin_id': 'o_for_$fallback',
@@ -34426,16 +34430,22 @@ void main() {
   ) async {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'anonymous',
+      worldMapStyle: const {'era': 'steampunk'},
     );
     final services = await _testServices(transport: transport, useMock: false);
     final initialWorld = await services.api.getWorld('w_test_1');
+    final phone = MiniPhoneSession();
     transport.requests.clear();
 
     await tester.pumpWidget(
       AppServicesScope(
         services: services,
         child: MaterialApp(
-          home: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+          home: WorldPage(
+            wid: 'w_test_1',
+            initialWorldDetail: initialWorld,
+            miniPhoneSession: phone,
+          ),
         ),
       ),
     );
@@ -34444,6 +34454,7 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-loading-background')),
       findsOneWidget,
     );
+    expect(find.byType(MiniPhoneEntry), findsNothing);
     expect(find.byType(WorldMapIdentityPill), findsOneWidget);
     expect(find.byType(WorldFeedContent), findsNothing);
     expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
@@ -34468,6 +34479,12 @@ void main() {
 
     await tester.pump();
 
+    expect(
+      tester
+          .widget<MiniPhoneEntryArtwork>(find.byType(MiniPhoneEntryArtwork))
+          .skin,
+      same(MiniPhoneEntryStyle.arcaneGrimoire.skin),
+    );
     expect(find.byType(WorldMapIdentityPill), findsOneWidget);
     expect(find.byType(WorldFeedContent), findsNothing);
     expect(find.byType(WorldMap), findsNothing);
@@ -35821,6 +35838,62 @@ void main() {
     },
   );
 
+  testWidgets(
+    'MiniPhone entry waits for detail on direct location chat entry',
+    (tester) async {
+      final detailResponse = Completer<TransportResponse>();
+      final mapResponse = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 2,
+        worldMapStyle: const {'era': 'medieval_fantasy'},
+        worldDetailCompleter: detailResponse,
+        worldMapCompleter: mapResponse,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: _FakeChatroomClient(),
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialLocationId: 'l_w_test_1_child',
+              miniPhoneSession: MiniPhoneSession(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(find.byType(MiniPhoneEntry), findsNothing);
+      expect(find.byType(MiniPhoneEntryArtwork), findsNothing);
+      detailResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      for (var frame = 0; frame < 8; frame++) {
+        await tester.pump();
+      }
+      expect(
+        tester
+            .widget<MiniPhoneEntryArtwork>(find.byType(MiniPhoneEntryArtwork))
+            .skin,
+        same(MiniPhoneEntryStyle.arcaneGrimoire.skin),
+      );
+      expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
+      mapResponse.complete(transport._jsonResponse({}));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
   testWidgets('system back closes initial location chat while world loads', (
     WidgetTester tester,
   ) async {
@@ -36944,7 +37017,15 @@ void main() {
   testWidgets('MiniPhone pauses World presentation and restores the same map', (
     tester,
   ) async {
-    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldMapStyle: const {
+        'era': 'medieval_fantasy',
+        'biome': 'forest',
+        'palette': 'cool',
+        'medium': 'pixel',
+      },
+    );
     final chatroom = _FakeChatroomClient();
     final services = await _testServices(
       transport: transport,
@@ -36964,6 +37045,12 @@ void main() {
     final restoration = map().tilemap.restorationController;
     expect(map().tilemap.animationsPaused, isFalse);
     final phoneDock = find.byType(MiniPhoneEdgeDock);
+    expect(
+      tester
+          .widget<MiniPhoneEntryArtwork>(find.byType(MiniPhoneEntryArtwork))
+          .skin,
+      same(MiniPhoneEntryStyle.arcaneGrimoire.skin),
+    );
     tester
         .widget<MiniPhoneEdgeDock>(phoneDock)
         .onPressed(MiniPhoneSessionScope.read(tester.element(phoneDock))!);

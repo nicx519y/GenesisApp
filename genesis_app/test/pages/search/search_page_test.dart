@@ -33,8 +33,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // The language-change case persists its locale. Reset the controller too,
+    // so later English assertions do not inherit that case's in-memory state.
+    await appLanguageController.load();
   });
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {

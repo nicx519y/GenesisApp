@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -3386,6 +3387,118 @@ void main() {
     expect(body['deleted_location_ids'], ['loc_removed']);
     expect(body.containsKey('init_location_group'), isFalse);
   });
+
+  test(
+    'getWorld maps final map_style and preserves it in copied snapshots',
+    () async {
+      const style = {
+        'era': 'medieval_fantasy',
+        'biome': 'forest',
+        'palette': 'cool',
+        'medium': 'pixel',
+      };
+      final apiTransport = _FakeTransport(
+        handler: (_) => TransportResponse(
+          statusCode: 200,
+          headers: const {},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {
+              'info': {
+                'world_id': 'w_style',
+                'world_name': 'Style World',
+                'map_style': style,
+              },
+              'stats': {},
+              'characters': [],
+              'locations': [],
+              'relation_status': 'owner',
+            },
+          }),
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {},
+          body: '{"status":"ok"}',
+        ),
+      );
+      final world = await _apiWith(
+        apiTransport,
+        healthTransport,
+      ).getWorld('w_style');
+      expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/detail');
+      expect(world.mapStyle!.toJson(), style);
+      expect(
+        world.copyWith(currentTime: 'Day 8, 12:00').mapStyle,
+        same(world.mapStyle),
+      );
+      expect(
+        world
+            .copyWith(mapStyle: const WorldMapStyle(era: 'modern'))
+            .mapStyle!
+            .era,
+        'modern',
+      );
+      expect(world.copyWith(clearMapStyle: true).mapStyle, isNull);
+      expect(
+        WorldDetail.fromJson({'map_style': style}).mapStyle!.toJson(),
+        style,
+      );
+    },
+  );
+
+  test(
+    'getWorld accepts missing null malformed and future map_style values',
+    () async {
+      for (final info in <Map<String, dynamic>>[
+        {},
+        {'map_style': null},
+        {'map_style': 'medieval_fantasy'},
+        {'map_style': []},
+        {
+          'map_style': {'era': null, 'biome': 123},
+        },
+        {
+          'map_style': {'era': 'future_unknown', 'extra_field': true},
+        },
+      ]) {
+        final apiTransport = _FakeTransport(
+          handler: (_) => TransportResponse(
+            statusCode: 200,
+            headers: const {},
+            body: jsonEncode({
+              'err_no': 0,
+              'err_msg': 'succ',
+              'data': {
+                'info': {'world_id': 'w_style', ...info},
+                'stats': {},
+              },
+            }),
+          ),
+        );
+        final healthTransport = _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {},
+            body: '{"status":"ok"}',
+          ),
+        );
+        final world = await _apiWith(
+          apiTransport,
+          healthTransport,
+        ).getWorld('w_style');
+        if (info['map_style'] is Map) {
+          expect(world.mapStyle!.era, (info['map_style'] as Map)['era'] ?? '');
+          expect(world.mapStyle!.biome, '');
+        } else {
+          expect(world.mapStyle, isNull);
+        }
+      }
+    },
+  );
 
   test('getWorld maps tick_result narrator paragraphs from detail', () async {
     final apiTransport = _FakeTransport(

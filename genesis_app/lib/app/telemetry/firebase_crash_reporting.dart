@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../components/origin/origin_item_cover_throttled_image_provider.dart';
+import '../../utils/genesis_display_text.dart';
 import 'telemetry_upload_policy.dart';
 
 @visibleForTesting
@@ -51,6 +52,7 @@ class FirebaseCrashReporting {
 
   static bool _enabled = false;
   static bool _handlersInstalled = false;
+  static final Set<String> _textDiagnosticSources = <String>{};
 
   static Future<void> enable() {
     return configure(TelemetryUploadPolicy.state.value.crashlyticsEnabled);
@@ -60,6 +62,8 @@ class FirebaseCrashReporting {
     final crashlytics = FirebaseCrashlytics.instance;
     if (!enabled) {
       _enabled = false;
+      onMalformedDisplayText = null;
+      _textDiagnosticSources.clear();
       try {
         await crashlytics.setCrashlyticsCollectionEnabled(false);
         await crashlytics.deleteUnsentReports();
@@ -76,12 +80,43 @@ class FirebaseCrashReporting {
     if (_enabled) return;
     try {
       await crashlytics.setCrashlyticsCollectionEnabled(true);
+      await recordFirebaseCrashlyticsBestEffort(() async {
+        await crashlytics.setCustomKey(
+          'build_git_sha',
+          const String.fromEnvironment(
+            'BUILD_GIT_SHA',
+            defaultValue: 'unrecorded',
+          ),
+        );
+        await crashlytics.setCustomKey(
+          'build_flutter_version',
+          const String.fromEnvironment(
+            'BUILD_FLUTTER_VERSION',
+            defaultValue: 'unrecorded',
+          ),
+        );
+        await crashlytics.setCustomKey(
+          'build_diff_sha256',
+          const String.fromEnvironment(
+            'BUILD_DIFF_SHA256',
+            defaultValue: 'unrecorded',
+          ),
+        );
+      }, operation: 'record build provenance');
       if (!_handlersInstalled) {
         _installFlutterErrorHandler();
         _installPlatformErrorHandler();
         _handlersInstalled = true;
       }
       _enabled = true;
+      onMalformedDisplayText = (diagnostic) {
+        // Bound reports to one per component per process, without retaining UGC.
+        if (_textDiagnosticSources.length >= 32 ||
+            !_textDiagnosticSources.add(diagnostic.source)) {
+          return;
+        }
+        recordNonFatal(diagnostic, StackTrace.current);
+      };
       debugPrint('[Telemetry][FirebaseCrashlytics] collection enabled');
     } catch (e, st) {
       debugPrint('[Telemetry][FirebaseCrashlytics] enable failed: $e');

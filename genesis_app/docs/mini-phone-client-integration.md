@@ -348,6 +348,12 @@ AI replies.
 
 ### Code entry points
 
+入口显示等待 World Detail 成功返回并应用：World Scope 用 `worldDetailReady` 区分未加载与已加载的 null 风格；共享 Dock 在就绪前不创建入口 Widget、头像气泡或音乐按钮。预取详情应用前同样隐藏，应用后按其真实风格首次显示。独立 Dock 等 Store 既有 `refreshPeople` 成功取得详情（`worldDetailLoaded`）；首次失败继续隐藏，已取得详情后的刷新不重新隐藏。无世界预览正常显示。
+
+World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cyberpunk/space_scifi/post_apocalyptic` → Classic Handset；`mythic_ancient/historical_east/medieval_fantasy/victorian/steampunk` → Arcane Grimoire；缺失/null/空值/未知 → Classic。World 的 `MiniPhoneSessionScope.mapStyle` 让地图与地点聊天共用当前快照；无 World Scope 的独立入口复用 Store 既有 World 详情读取结果。`style` 仅作为显式预览覆盖，不增加风格查询或推断。
+
+2026-10-19：入口支持 `MiniPhoneEntryStyle.classicHandset`（缺失风格时回退）和 `arcaneGrimoire`，通过 `MiniPhoneEntry` / `MiniPhoneEdgeDock.style` 指定。两种样式统一使用 Worldo-Entry-Icons SVG 图层和一套 `MiniPhoneEntryArtwork` 渲染器；样式配置只包含资源、坐标、时长和关键帧。交付 CSS/JS 的动作由同一个原生 `EntryMotion` 插值器与公共动画控制器执行，不依赖 SVG CSS 或 WebView。共同尺寸为 34×57 主体、26×31 上方气泡、44×49 音乐热区；头像提示 3s、音乐循环 1.4s。手机到达摇晃 760ms、屏内消息展开 900ms；书本到达上浮倾斜 900ms。动态时间、未读数字和真实头像不使用资源样例；未读优先于封面音符，音乐按钮保持可操作。减少动态效果时停止到达与音乐动画。没有新增 API 或设置页。
+
 以下页面路径均相对 `lib/pages/mini_phone/`。完整目录与依赖规则见 [模块 README](../lib/pages/mini_phone/README.md)。
 
 | 入口 | 职责 |

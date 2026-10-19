@@ -1,3 +1,6 @@
+import 'package:genesis_flutter_android/network/models/world.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
+import '../../support/mini_phone_memory_cache.dart';
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +18,43 @@ Future<void> flush() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'map style follows existing world refresh and clears for historical worlds',
+    () async {
+      final backend = PhoneBackend();
+      Map<String, dynamic>? style = {'era': 'steampunk', 'biome': 'urban'};
+      var reads = 0;
+      var failWorld = true;
+      final store = MiniPhoneStore(
+        api: backend.api,
+        worldId: 'w',
+        namespace: 'style-refresh',
+        cacheStorage: MemoryMiniPhoneCacheStorage(),
+        readUid: () async => 'u',
+        accountRevision: backend.revision,
+        loadWorld: () async {
+          reads++;
+          if (failWorld) throw StateError("world unavailable");
+          return WorldDetail.fromJson({'world_id': 'w', 'map_style': style});
+        },
+      );
+      addTearDown(store.dispose);
+      expect(store.worldDetailLoaded, isFalse);
+      await store.ready;
+      expect(store.worldDetailLoaded, isFalse);
+      failWorld = false;
+      await store.refreshPeople();
+      expect(store.worldDetailLoaded, isTrue);
+      expect(store.mapStyle!.era, 'steampunk');
+      final before = reads;
+      style = null;
+      await store.refreshPeople();
+      expect(reads, before + 1);
+      expect(store.mapStyle, isNull);
+      expect(store.worldDetailLoaded, isTrue);
+    },
+  );
+
   test(
     'background recovery, foreground, notifications and writes do not refresh cached app lists',
     () async {

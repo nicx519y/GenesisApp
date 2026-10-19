@@ -1,4 +1,5 @@
 import '../api_client.dart';
+import '../models/world_history.dart';
 import '../api_exception.dart';
 import '../http_transport.dart';
 import '../json_utils.dart';
@@ -40,6 +41,36 @@ class ChatroomHttpApi {
       );
     }
     return (data: handleV1ResponseErrNo(envelope), quota: quota);
+  }
+
+  Future<WorldHistoryPage> getWorldHistory({
+    required String worldId,
+    String? cursor,
+    int limit = 20,
+    NetworkCancellationToken? cancellationToken,
+  }) async {
+    if (limit < 1 || limit > 100) throw RangeError.range(limit, 1, 100);
+    final requestedWorld = _required(worldId, 'worldId');
+    final data = await _getMap(
+      'aitown-chat/api/v1/world/history',
+      {
+        'world_id': requestedWorld,
+        'limit': limit,
+        if (cursor != null) 'cursor': cursor,
+      },
+      cancellationToken: cancellationToken,
+      strictEnvelope: true,
+    );
+    try {
+      final page = WorldHistoryPage.fromJson(data);
+      page.validate(requestedWorld, cursor);
+      return page;
+    } on FormatException catch (error) {
+      throw ApiException(
+        message: error.message,
+        kind: ApiExceptionKind.response,
+      );
+    }
   }
 
   /// GET /aitown-chat/api/v1/feature-quotas

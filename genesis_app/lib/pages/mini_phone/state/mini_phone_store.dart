@@ -116,6 +116,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   PhoneHome home = const PhoneHome();
   PhoneUnread unread = const PhoneUnread(0, null);
   String worldName = '', currentTime = '';
+  WorldMapStyle? mapStyle;
+  bool worldDetailLoaded = false;
   final worldCoverImageKeys = <String>{};
   String get clockTime =>
       RegExp(
@@ -340,6 +342,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     posts = [];
     album = [];
     worldCoverImageKeys.clear();
+    mapStyle = null;
+    worldDetailLoaded = false;
     currentTime = '';
     notifications = null;
     people.clear();
@@ -420,6 +424,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> refreshPeople() => load('people', loadWorld, (w) {
     _authors = null;
     worldName = w.name;
+    mapStyle = w.mapStyle;
+    worldDetailLoaded = true;
     worldCoverImageKeys
       ..clear()
       ..addAll(GenesisImageResourceRegistry.resolve(w.cover).keys);

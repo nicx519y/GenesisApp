@@ -85,6 +85,8 @@ class WorldV1Api extends V1ApiResource {
   }
 
   /// GET /api/v1/world/detail
+  /// `data.info.map_style` is the final World map style (era/biome/palette/medium),
+  /// or null for historical/malformed stored maps. It is not inferred from Origin.
   ///
   /// Request parameters:
   /// ```json
@@ -93,7 +95,7 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","definition_version":2,"current_time":"Day 7, 19:10","last_chat_location_id":"loc_1_2","owner_uid":"string","owner_name":"string","brief":"string","metric":{},"created_at":0,"cover":"string","map_url":"string","status":10},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"sub_tick_no":3,"player_cnt":0},"relation_status":"owner","characters":[],"locations":[]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","definition_version":2,"current_time":"Day 7, 19:10","last_chat_location_id":"loc_1_2","owner_uid":"string","owner_name":"string","brief":"string","metric":{},"created_at":0,"cover":"string","map_url":"string","status":10,"map_style":{"era":"modern","biome":"urban_dense","palette":"warm_cozy","medium":"anime_cel"}},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"sub_tick_no":3,"player_cnt":0},"relation_status":"owner","characters":[],"locations":[]}}
   /// ```
   Future<Map<String, dynamic>> detail({
     required String worldId,

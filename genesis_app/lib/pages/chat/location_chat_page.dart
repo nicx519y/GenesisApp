@@ -1,3 +1,5 @@
+import '../world/history/world_history_controller.dart';
+import '../world/history/world_history_projection.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../l10n/language_data_refresh.dart';
@@ -115,7 +117,6 @@ part 'location_chat_shared.dart';
 part '../world/world_chat_history_section.dart';
 part '../world/world_chat_history_loader.dart';
 part '../world/world_chat_history_folds.dart';
-part '../world/world_chat_history_ticks.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 const double _locationChatComposerBottomExtension = 60;

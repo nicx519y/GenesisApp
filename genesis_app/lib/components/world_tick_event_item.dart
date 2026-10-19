@@ -11,6 +11,7 @@ import '../utils/genesis_image_resource.dart';
 import 'chat/shared/chat_ui.dart';
 import '../ui/components/genesis_soft_italic_text.dart';
 import '../utils/genesis_timestamp_formatter.dart';
+import '../utils/genesis_display_text.dart';
 
 class WorldTickEventItem extends StatelessWidget {
   const WorldTickEventItem({
@@ -272,7 +273,10 @@ class _GlobalEventCard extends StatelessWidget {
       GenesisL10n.current.worldDetailGlobal,
       style: labelStyle ?? _labelStyle,
     );
-    final bodyText = Text(body, style: bodyStyle ?? _bodyStyle);
+    final bodyText = Text(
+      genesisSafeDisplayText(body, source: 'world.tick.body'),
+      style: bodyStyle ?? _bodyStyle,
+    );
 
     return Container(
       width: double.infinity,
@@ -418,7 +422,10 @@ class _TickParagraphRow extends StatelessWidget {
       style: labelStyle,
     );
     final resolvedBodyStyle = bodyStyle ?? _bodyStyle;
-    final bodyText = Text(body, style: resolvedBodyStyle);
+    final bodyText = Text(
+      genesisSafeDisplayText(body, source: 'world.tick.body'),
+      style: resolvedBodyStyle,
+    );
     final clueText = clue.isEmpty
         ? null
         : _ClueText(text: clue, style: resolvedBodyStyle);
@@ -512,7 +519,12 @@ class _ClueText extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 5),
-        Expanded(child: GenesisSoftItalicText(text, style: textStyle)),
+        Expanded(
+          child: GenesisSoftItalicText(
+            genesisSafeDisplayText(text, source: 'world.tick.clue'),
+            style: textStyle,
+          ),
+        ),
       ],
     );
   }
@@ -568,12 +580,21 @@ class _CharacterDetailsText extends StatelessWidget {
           for (int index = 0; index < details.length; index++) ...[
             if (index > 0) const TextSpan(text: '\n'),
             if (details[index].name.isNotEmpty)
-              TextSpan(text: details[index].name, style: nameStyle),
+              TextSpan(
+                text: genesisSafeDisplayText(
+                  details[index].name,
+                  source: 'world.tick.character_name',
+                ),
+                style: nameStyle,
+              ),
             if (details[index].delta.isNotEmpty)
               TextSpan(
-                text: details[index].name.isEmpty
-                    ? details[index].delta
-                    : ' ${details[index].delta}',
+                text: genesisSafeDisplayText(
+                  details[index].name.isEmpty
+                      ? details[index].delta
+                      : ' ${details[index].delta}',
+                  source: 'world.tick.character_delta',
+                ),
                 style: details[index].deltaColor == null
                     ? null
                     : emphasized.copyWith(color: details[index].deltaColor),
@@ -599,7 +620,12 @@ class _LocationLabel extends StatelessWidget {
       children: [
         const Icon(Icons.place_outlined, size: 12, color: Color(0xFF111111)),
         const SizedBox(width: 4),
-        Flexible(child: Text(text, style: style ?? _labelStyle)),
+        Flexible(
+          child: Text(
+            genesisSafeDisplayText(text, source: 'world.tick.label'),
+            style: style ?? _labelStyle,
+          ),
+        ),
       ],
     );
   }
@@ -621,7 +647,12 @@ class _TimestampLabel extends StatelessWidget {
       children: [
         const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
         const SizedBox(width: 4),
-        Flexible(child: Text(text, style: resolvedStyle)),
+        Flexible(
+          child: Text(
+            genesisSafeDisplayText(text, source: 'world.tick.label'),
+            style: resolvedStyle,
+          ),
+        ),
       ],
     );
   }
@@ -699,7 +730,15 @@ class _VisibleRoleGroup extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Flexible(child: Text(names.join(', '), style: resolvedStyle)),
+        Flexible(
+          child: Text(
+            genesisSafeDisplayText(
+              names.join(', '),
+              source: 'world.tick.visible_roles',
+            ),
+            style: resolvedStyle,
+          ),
+        ),
       ],
     );
   }

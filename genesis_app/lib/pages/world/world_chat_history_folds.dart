@@ -17,10 +17,16 @@ class _WorldHistoryFolds {
   Map<String, _WorldHistoryFold> _byId = {};
   Map<String, _WorldHistoryFold> _latestByLocation = {};
   Set<String> hidden = {};
+  final _collapsedMessages = <String>{};
+  List<ChatMessageVm>? _lastMessages;
+  Map<String, String> _expandedHeaders = {};
   ({int generation, String localId})? reveal;
 
   void reset() {
     expanded.clear();
+    _collapsedMessages.clear();
+    _lastMessages = null;
+    _expandedHeaders = {};
     _byMessage.clear();
     _byId.clear();
     _latestByLocation.clear();
@@ -29,7 +35,10 @@ class _WorldHistoryFolds {
   }
 
   void project(List<ChatMessageVm> messages) {
-    if (!owner._worldHistory.ready) return;
+    if (!owner._worldHistory.ready || identical(messages, _lastMessages)) {
+      return;
+    }
+    _lastMessages = messages;
     final nextByMessage = <String, _WorldHistoryFold>{};
     final nextById = <String, _WorldHistoryFold>{};
     final nextHidden = <String>{};
@@ -43,7 +52,7 @@ class _WorldHistoryFolds {
           owner._worldHistory.locationFor(messages[end]) == room) {
         end++;
       }
-      if (!first.isAiContentDisclaimer) {
+      if (!first.isAiContentDisclaimer && room.isNotEmpty) {
         final rows = messages.sublist(start, end);
         // Earlier pagination can prepend rows to an existing visit. Keep its
         // identity/expansion by overlap instead of re-keying by array index.
@@ -59,7 +68,9 @@ class _WorldHistoryFolds {
         );
         // Open newly discovered visits, including older pages. Rebuilds keep
         // the user's explicit collapse choice for an existing visit.
-        if (retained == null && !_byId.containsKey(section.id)) {
+        if (retained == null &&
+            !_byId.containsKey(section.id) &&
+            !rows.any((m) => _collapsedMessages.contains(m.localId))) {
           expanded.add(section.id);
         }
         nextById[section.id] = section;
@@ -79,6 +90,7 @@ class _WorldHistoryFolds {
     };
     hidden = Set.unmodifiable(nextHidden);
     expanded.removeWhere((id) => !nextById.containsKey(id));
+    _updateHeaders();
   }
 
   _WorldHistoryFold? headerFor(ChatMessageVm message) {
@@ -90,7 +102,9 @@ class _WorldHistoryFolds {
     final section = _byMessage[message.localId];
     if (section == null ||
         !expanded.contains(section.id) ||
-        section.locationId.isEmpty ||
+        !owner._worldHistory.projection.metadata.locations.containsKey(
+          section.locationId,
+        ) ||
         _latestByLocation[section.locationId]?.id != section.id ||
         section.messages.last.localId != message.localId) {
       return null;
@@ -98,12 +112,15 @@ class _WorldHistoryFolds {
     return section.locationId;
   }
 
-  Map<String, String> get expandedHeaders => {
-    for (final section in _byId.values)
-      if (expanded.contains(section.id))
-        for (final message in section.messages)
-          message.localId: section.messages.first.localId,
-  };
+  Map<String, String> get expandedHeaders => _expandedHeaders;
+  void _updateHeaders() {
+    _expandedHeaders = {
+      for (final section in _byId.values)
+        if (expanded.contains(section.id))
+          for (final message in section.messages)
+            message.localId: section.messages.first.localId,
+    };
+  }
 
   Widget pinnedHeader(String headerId) {
     final section = _byMessage[headerId];
@@ -122,12 +139,8 @@ class _WorldHistoryFolds {
   }
 
   void reading(String? localId) {
-    final section = _byMessage[localId];
-    // Collapsed paths do not represent a location being read. There is no
-    // joined/current room in this read-only archive.
-    if (section != null && expanded.contains(section.id)) {
-      owner._worldHistory.reading(localId);
-    }
+    // Even a collapsed header pins its page while the reader crosses it.
+    owner._worldHistory.reading(localId);
   }
 
   void toggle(_WorldHistoryFold section) {
@@ -138,14 +151,30 @@ class _WorldHistoryFolds {
     owner._update(() {
       final opening = expanded.add(section.id);
       if (!opening) expanded.remove(section.id);
+      final ids = current.messages.map((m) => m.localId);
+      if (opening) {
+        _collapsedMessages.removeAll(ids);
+      } else {
+        _collapsedMessages.addAll(ids);
+      }
+      hidden = Set.of(hidden);
+      if (opening) {
+        hidden.removeAll(ids);
+      } else {
+        hidden.addAll(ids.skip(1));
+      }
+      _updateHeaders();
       reveal = (
         generation: generation,
         localId: current.messages.first.localId,
       );
     });
-    if (expanded.contains(section.id)) {
-      owner._worldHistory.reading(current.messages.first.localId);
-    }
+    owner._worldHistory.reading(current.messages.first.localId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!owner.mounted || reveal?.generation != generation) return;
+      // Shared coordinator retains the navigation anchor through layout.
+      reveal = null;
+    });
   }
 
   Widget button(_WorldHistoryFold section, {Key? key}) {

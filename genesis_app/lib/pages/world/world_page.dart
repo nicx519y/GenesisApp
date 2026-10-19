@@ -594,6 +594,8 @@ class _WorldPageState extends State<WorldPage>
   @override
   Widget build(BuildContext context) => MiniPhoneSessionScope(
     session: _miniPhoneSession,
+    worldDetailReady: _world != null,
+    mapStyle: _world?.mapStyle,
     child: PagePresentationScope(
       controller: _presentation,
       child: TickerMode(
