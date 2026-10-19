@@ -118,37 +118,38 @@ class _RatingRewardDialogState extends State<RatingRewardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    if (_checking || _claimed) return const SizedBox.shrink();
     return PopScope(
-      canPop: !_claiming,
-      child: GenesisActionBox<void>(
-        title: context.l10n.rateWorldoThanks,
-        titleHeight: null,
-        titleContent: Text(
-          context.l10n.rateWorldoRewardMessage(
-            gems: ratingRewardGemsCent ~/ 100,
-          ),
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.4,
-            fontWeight: FontWeight.w400,
-            color: GenesisColors.darkTextSecondary,
-          ),
-        ),
-        actions: [
-          if (!_claimed)
-            GenesisActionBoxAction<void>(
-              label: context.l10n.gemsClaim,
-              value: null,
-              enabled: !_checking && !_claiming,
+      canPop: false,
+      child: _checking || _claimed
+          ? const SizedBox.shrink()
+          : GenesisActionBox<void>(
+              title: context.l10n.rateWorldoThanks,
+              titleHeight: null,
+              titleContent: Text(
+                context.l10n.rateWorldoRewardMessage(
+                  gems: ratingRewardGemsCent ~/ 100,
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  fontWeight: FontWeight.w400,
+                  color: GenesisColors.darkTextSecondary,
+                ),
+              ),
+              actions: [
+                if (!_claimed)
+                  GenesisActionBoxAction<void>(
+                    label: context.l10n.gemsClaim,
+                    value: null,
+                    enabled: !_checking && !_claiming,
+                  ),
+              ],
+              onActionSelected: (_) => _claim(),
+              onCancel: () {
+                if (!_claiming) Navigator.of(context).pop();
+              },
             ),
-        ],
-        onActionSelected: (_) => _claim(),
-        onCancel: () {
-          if (!_claiming) Navigator.of(context).pop();
-        },
-      ),
     );
   }
 }

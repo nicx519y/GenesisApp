@@ -690,6 +690,15 @@ void main() {
       );
       if (!claimed) {
         expect(find.text('Claim'), findsOneWidget);
+        await tester.tapAt(const Offset(1, 1));
+        await tester.pumpAndSettle();
+        expect(find.byType(RatingRewardDialog), findsOneWidget);
+        await tester.dragFrom(const Offset(1, 400), const Offset(250, 0));
+        await tester.pumpAndSettle();
+        expect(find.byType(RatingRewardDialog), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(RatingRewardDialog), findsOneWidget);
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
       }
