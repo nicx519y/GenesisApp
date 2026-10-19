@@ -417,7 +417,7 @@ void main() {
     (5, false),
   ]) {
     testWidgets(
-      'rating $stars content=$withContent submits optional feedback',
+      'rating $stars content=$withContent enforces feedback requirement',
       (tester) async {
         final transport = _RecordingFeedbackTransport();
         final services = _feedbackTestServices(transport);
@@ -525,10 +525,41 @@ void main() {
             );
             await tester.pumpAndSettle();
           }
-          final actionBox = tester.widget<GenesisActionBox<int>>(
+          var actionBox = tester.widget<GenesisActionBox<int>>(
+            find.byType(GenesisActionBox<int>),
+          );
+          expect(actionBox.actions.single.enabled, isFalse);
+          expect(
+            tester.widget<Text>(find.text('Submit')).style?.color,
+            GenesisColors.darkTextTertiary,
+          );
+          await tester.ensureVisible(find.text('Submit'));
+          await tester.tap(find.text('Submit'));
+          await tester.pumpAndSettle();
+          expect(find.byType(WorldoRatingContent), findsOneWidget);
+          expect(transport.requestsFor('/api/v1/feedback/create'), isEmpty);
+
+          final input = find.byKey(
+            const ValueKey('genesis-feedback-content-input'),
+          );
+          await tester.enterText(input, 'Rating feedback');
+          await tester.pumpAndSettle();
+          actionBox = tester.widget<GenesisActionBox<int>>(
             find.byType(GenesisActionBox<int>),
           );
           expect(actionBox.actions.single.enabled, isTrue);
+          expect(
+            tester.widget<Text>(find.text('Submit')).style?.color,
+            GenesisColors.redSecondary,
+          );
+          await tester.enterText(input, '');
+          await tester.pumpAndSettle();
+          actionBox = tester.widget<GenesisActionBox<int>>(
+            find.byType(GenesisActionBox<int>),
+          );
+          expect(actionBox.actions.single.enabled, isFalse);
+          await tester.enterText(input, 'Rating feedback');
+          await tester.pumpAndSettle();
           await tester.ensureVisible(find.text('Submit'));
           await tester.tap(find.text('Submit'));
           await tester.pumpAndSettle();
@@ -536,7 +567,7 @@ void main() {
             transport.decodedBody(
               transport.requestsFor('/api/v1/feedback/create').single,
             ),
-            {'rating': stars},
+            {'content': 'Rating feedback', 'rating': stars},
           );
         }
         if (stars >= 1) {

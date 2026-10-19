@@ -103,7 +103,9 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
 
   Future<void> _submit() async {
     final content = _rating <= 3 ? _controller.text.trim() : '';
-    if (_rating == 0 || _submitting) return;
+    if (_rating == 0 || _submitting || (_rating <= 3 && content.isEmpty)) {
+      return;
+    }
     final api = AppServicesScope.read(context).api;
     final failure = context.l10n.feedbackFailed;
     final services = AppServicesScope.read(context);
@@ -169,7 +171,9 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
                   ? context.l10n.homeRetry
                   : context.l10n.createSubmit,
               value: _rating,
-              enabled: !_submitting,
+              enabled:
+                  !_submitting &&
+                  (!_feedback || _controller.text.trim().isNotEmpty),
             ),
         ],
         onActionSelected: (_) => _submit(),
