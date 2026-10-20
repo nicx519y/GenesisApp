@@ -51,7 +51,6 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
       me.name,
       me.avatar,
       phone.postsController.interactionRevision,
-      phone.postsController.previewRevision,
     );
   }
 
@@ -89,7 +88,6 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
           footer: const SizedBox.shrink(),
           resetKey: (phone.accountGeneration, phone.authorFilter),
           active: widget.active && phone.foreground,
-          onVisiblePosts: phone.postsController.ensureCommentPreviews,
           itemBuilder: _livePostCard,
           header: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -104,6 +102,14 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
               selectedId: phone.authorFilter,
               onCreate: widget.onCreate,
               onSelect: (id) {
+                if (phone.authorFilter != id) {
+                  phone.analytics.event(
+                    'post_filter',
+                    target: id ?? 'all',
+                    stage: 'select',
+                    data: phone.analytics.context('posts'),
+                  );
+                }
                 phone.authorFilter = id;
                 unawaited(phone.refreshPosts());
               },
@@ -124,7 +130,6 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
     time: p.currentTime,
     likeCount: phone.details[p.id]?.likeCount ?? p.likeCount,
     isLiked: phone.details[p.id]?.isLiked ?? p.isLiked,
-    commentCount: phone.details[p.id]?.commentCount ?? p.commentCount,
-    previews: phone.postsController.commentPreviews[p.id] ?? p.commentsPreview,
+    previews: p.comments,
   );
 }

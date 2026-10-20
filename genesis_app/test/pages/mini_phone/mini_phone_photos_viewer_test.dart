@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,7 @@ import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 import '../../support/mini_phone_chat_backend.dart';
+import '../../support/mini_phone_collect_probe.dart';
 
 void main() {
   setUp(() {
@@ -22,6 +24,74 @@ void main() {
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
   });
+
+  testWidgets(
+    'Photos counts initial, next, revisit and reopen, never preload or rebuild',
+    (tester) async {
+      final collect = MiniPhoneCollectProbe();
+      addTearDown(collect.dispose);
+      final probe = await _mount(tester, [_photo(1), _photo(2), _photo(3)]);
+      await tester.runAsync(collect.take);
+      final tile = find.byKey(const ValueKey('mini-phone-album-1'));
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      Future<void> expectViews(int count) async {
+        final events = (await tester.runAsync(collect.take))!;
+        final views = events
+            .where((e) => e.action == 'mini_phone_photo_view')
+            .toList();
+        expect(views, hasLength(count));
+        for (final e in views) {
+          expect(
+            [e.object2, e.object3, e.object4, e.extData],
+            ['', '', '', ''],
+          );
+        }
+      }
+
+      await expectViews(1);
+      await tester.pump();
+      await expectViews(0);
+      final page = find.byKey(const ValueKey('genesis-image-viewer-page-view'));
+      await tester.drag(page, const Offset(-350, 0));
+      await tester.pumpAndSettle();
+      await expectViews(1);
+      await tester.drag(page, const Offset(350, 0));
+      await tester.pumpAndSettle();
+      await expectViews(1);
+      final interactive = tester
+          .widgetList<InteractiveViewer>(find.byType(InteractiveViewer))
+          .first;
+      interactive.transformationController!.value = Matrix4.diagonal3Values(
+        2,
+        2,
+        1,
+      );
+      await tester.pumpAndSettle();
+      await expectViews(0);
+      await tester.tap(
+        find.byKey(const ValueKey('genesis-image-viewer-close')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      await expectViews(1);
+      await tester.tap(
+        find.byKey(const ValueKey('genesis-image-viewer-close')),
+      );
+      await tester.pumpAndSettle();
+      unawaited(
+        showGenesisImageViewer(
+          tester.element(find.byType(MiniPhonePage)),
+          imageUrls: const ['https://cdn.example/full-1.png'],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await expectViews(0);
+      await tester.pumpWidget(const SizedBox.shrink());
+      probe.session.dispose();
+    },
+  );
 
   testWidgets('Photos requests CDN thumbnails even without thumbnail URLs', (
     tester,

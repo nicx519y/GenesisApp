@@ -1,6 +1,6 @@
 # Mini Phone 客户端接口对接稿（当前 dev）
 
-更新日期：2026-10-16；客户端请求调度补充：2026-10-17（服务端字段与基线未变）。保留原文件名，本文整体替代之前的草案和“待实施”说明。
+更新日期：2026-10-16；客户端请求调度补充：2026-10-17；Posts 列表增量契约：2026-10-20（见 [phone_posts.yaml](phone_posts.yaml)，仅覆盖 `/posts`，优先于本文旧字段）。保留原文件名，本文整体替代之前的草案和“待实施”说明。
 
 对齐基线：Chat `origin/dev` **b21774e**；API `origin/dev` **50e0287f**。以这两个已推送版本的路由、DTO 和实际实现为准，未纳入其他任务的未提交修改。本次做源码契约核对，未使用登录账号执行 dev 端到端联调。
 
@@ -156,7 +156,9 @@ A 的玩家源消息和全部 AI 回复气泡拥有相同的 `client_request_id`
 | `image` | string | 完整图片 URL；纯文字帖为 `""` |
 | `like_count` | int64 | 有效点赞数 |
 | `is_liked` | boolean | 当前用户是否已点赞 |
-| `comment_count` | int64 | 全部评论及回复数 |
+| `comments` | PhoneComment[] | 最新至多 4 条评论及回复，按 published_at DESC、comment_id DESC；无评论为 `[]` |
+
+Feed 不返回 `comment_count`，不能由截断的 `comments` 数组推断总数。客户端按返回顺序最多展示最新 3 条，第 4 条仅用于判断存在更多评论，点击预览或评论入口打开完整评论页；不为 Feed 逐帖请求 `/comments` 或详情。`phone_posts.yaml` 引用的 `phone-query-types.yaml` 未随本次附件提供，评论对象沿用第 3.4 节 PhoneComment 解析。
 
 Feed 不直接返回 `author_char_id`。作者筛选用 `/post/authors` 的 char_id；详情返回作者 char_id，玩家 Feed 作者 UID 不能直接用作 char_id 筛选。
 
@@ -372,7 +374,7 @@ AI 的模型、历史快照和报价在首次接受时固定。当前收费为�
 /post/authors?world_id=world_1
 ```
 
-posts 返回分页 PhonePost，按 published_at DESC、post_id DESC；char_id 省略或空字符串表示全部作者，非空则同时筛选 list 和 total。玩家也用其角色 char_id，不传 author_type 或 UID。
+posts 返回分页 PhonePost，每帖内含最新至多 4 条 `comments`（倒序），不再返回 `comment_count`；按 published_at DESC、post_id DESC；char_id 省略或空字符串表示全部作者，非空则同时筛选 list 和 total。玩家也用其角色 char_id，不传 author_type 或 UID。
 
 post/authors 只返回已发帖作者的去重 char_id，包含玩家和 AI；char_id 升序，排除空 ID，不分页：
 

@@ -61,7 +61,7 @@ Map<String, dynamic> phonePost({bool liked = false}) => {
   'image': '',
   'like_count': liked ? 1 : 0,
   'is_liked': liked,
-  'comment_count': 0,
+  'comments': [],
 };
 Map<String, dynamic> phoneDetail({bool liked = false}) => {
   'char_id': 'c',

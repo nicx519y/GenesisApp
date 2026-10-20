@@ -25,7 +25,9 @@ class MiniPhoneSession {
     Future<MusicCatalog> Function()? musicLoader,
   }) : music = music ?? MiniPhoneMusicService(),
        store = store ?? MiniPhoneDemoStore(),
-       _musicLoader = musicLoader;
+       _musicLoader = musicLoader {
+    this.music.analytics = data?.analytics;
+  }
 
   factory MiniPhoneSession.forWorld(BuildContext context, String worldId) {
     final services = AppServicesScope.read(context);

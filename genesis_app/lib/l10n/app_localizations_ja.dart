@@ -3142,4 +3142,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get miniPhonePublish => '投稿';
+
+  @override
+  String get miniPhoneViewAllComments => 'すべてのコメントを見る';
 }

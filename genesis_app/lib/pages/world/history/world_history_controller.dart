@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import '../../../network/http_transport.dart';
 import '../../../network/models/world_history.dart';
-import 'world_history_tick_participation.dart';
+import 'world_history_section_participation.dart';
 
 typedef WorldHistoryFetch =
     Future<WorldHistoryPage> Function({
@@ -19,17 +20,15 @@ class HistoryPageSlot {
       hasMore = page.hasMore,
       firstId = page.messages.firstOrNull?.id,
       lastId = page.messages.lastOrNull?.id,
-      tickActivity = summarizeHistoryTickActivity(page.messages),
       messages = page.messages;
   final String? requestCursor;
   final String responseCursor;
   final bool hasMore;
   final String? firstId, lastId;
-  final List<HistoryTickActivity> tickActivity;
   List<WorldHistoryMessage>? messages;
 }
 
-/// One snapshot, one operation at a time. Cancellation invalidates callbacks
+/// One entry snapshot and a mutable archive chain, one operation at a time. Cancellation invalidates callbacks
 /// even with a transport that completes after cancel. Failures never retry on
 /// a timer and never modify the directory or the displayed window.
 class WorldHistoryController extends ChangeNotifier {
@@ -38,12 +37,27 @@ class WorldHistoryController extends ChangeNotifier {
     required this.fetch,
     this.maxMessages = 1000,
     this.maxBytes = 8 * 1024 * 1024,
-  });
+    int appVersion = 0x7fffffff,
+  }) : sectionParticipation = HistorySectionParticipation(
+         appVersion: appVersion,
+       );
   final String worldId;
   final WorldHistoryFetch fetch;
   final int maxMessages, maxBytes;
   final List<HistoryPageSlot> _pages = [];
-  Map<String, Set<String>> tickUserLocations = const {};
+  final HistorySectionParticipation sectionParticipation;
+  final _resident = SplayTreeMap<int, List<WorldHistoryMessage>>();
+  final _messagePages = <String, int>{};
+  List<WorldHistoryMessage> _residentMessages = const [];
+  int _residentBytes = 0;
+  int _chainRevision = 0;
+  int residentIndexBuilds = 0;
+  int readingUpdates = 0;
+  int? updatedPage;
+  bool updatedTowardNewer = false;
+  bool awaitingUserContinuation = false;
+  void allowContinuation() => awaitingUserContinuation = false;
+  List<WorldHistoryMessage>? _firstPageSnapshot;
   List<HistoryPageSlot> get pages => List.unmodifiable(_pages);
   int revision = 0;
   int snapshot = 0;
@@ -62,24 +76,44 @@ class WorldHistoryController extends ChangeNotifier {
 
   bool get loading => _completion != null;
   bool get failed => _failed != null;
-  int get firstResident => _pages.indexWhere((p) => p.messages != null);
-  int get lastResident => _pages.lastIndexWhere((p) => p.messages != null);
+  int get firstResident => _resident.firstKey() ?? -1;
+  int get lastResident => _resident.lastKey() ?? -1;
   bool get hasNewer => firstResident > 0;
   bool get hasOlder =>
       !ready ||
       lastResident >= 0 &&
           (lastResident < _pages.length - 1 || _pages.last.hasMore);
-  Iterable<WorldHistoryMessage> get newestFirst sync* {
-    final seen = <String>{};
-    for (final page in _pages) {
-      for (final row in page.messages ?? const <WorldHistoryMessage>[]) {
-        if (seen.add(row.id)) yield row;
-      }
+  Iterable<WorldHistoryMessage> get newestFirst => _residentMessages;
+  int get residentCount => _residentMessages.length;
+  int get residentBytes => _residentBytes;
+
+  void _setResident(int index, List<WorldHistoryMessage>? messages) {
+    _pages[index].messages = messages;
+    if (messages == null) {
+      _resident.remove(index);
+    } else {
+      _resident[index] = messages;
     }
   }
 
-  int get residentCount => newestFirst.length;
-  int get residentBytes => newestFirst.fold(0, (n, m) => n + m.contentBytes);
+  // Only page mutations rebuild this bounded resident index. Scrolling never
+  // walks the archive directory or recomputes body sizes.
+  void _indexResidents() {
+    residentIndexBuilds++;
+    _messagePages.clear();
+    final rows = <WorldHistoryMessage>[];
+    var bytes = 0;
+    for (final entry in _resident.entries) {
+      for (final message in entry.value) {
+        if (_messagePages.containsKey(message.id)) continue;
+        _messagePages[message.id] = entry.key;
+        rows.add(message);
+        bytes += message.contentBytes;
+      }
+    }
+    _residentMessages = rows;
+    _residentBytes = bytes;
+  }
 
   void setActive(bool value) {
     if (_disposed || active == value) return;
@@ -102,35 +136,39 @@ class WorldHistoryController extends ChangeNotifier {
   Future<void> refresh() => _run(-1);
   Future<void> retry() => _failed == null ? Future.value() : _run(_failed!);
   Future<void> loadOlder() {
+    allowContinuation();
     if (!ready) return refresh();
     if (!hasOlder) return Future.value();
     return _run(lastResident + 1);
   }
 
-  Future<void> loadNewer() =>
-      hasNewer ? _run(firstResident - 1) : Future.value();
+  Future<void> loadNewer() {
+    allowContinuation();
+    return hasNewer ? _run(firstResident - 1) : Future.value();
+  }
 
-  /// Explicit navigation to the newest page of this snapshot, not a refresh.
-  /// Fetch successfully before releasing the reader's current message window.
-  Future<bool> returnToNewest() async {
-    if (_disposed || !active || !ready || loading) return false;
-    if (!hasNewer) return true;
-    final generation = _generation, currentSnapshot = snapshot;
-    await _run(0);
+  /// Restore the World-owned entry snapshot synchronously, without HTTP.
+  bool returnToNewest() {
     if (_disposed ||
         !active ||
-        generation != _generation ||
-        snapshot != currentSnapshot ||
-        failed ||
-        _pages.first.messages == null) {
+        !ready ||
+        loading ||
+        _firstPageSnapshot == null) {
       return false;
     }
-    for (final page in _pages.skip(1)) {
-      page.messages = null;
+    updatedPage = null;
+    allowContinuation();
+    if (!hasNewer) return true;
+    for (final index in _resident.keys.toList()) {
+      _setResident(index, null);
     }
+    _setResident(0, _firstPageSnapshot);
+    _indexResidents();
     _readingPage = 0;
     _pinnedPages.clear();
     _arrivingPage = 0;
+    _failed = null;
+    error = null;
     revision++;
     notifyListeners();
     return true;
@@ -146,15 +184,30 @@ class WorldHistoryController extends ChangeNotifier {
     if (loading) {
       if (_operation == operation) return _completion!.future;
       final generation = _generation, requestedSnapshot = snapshot;
+      final chainRevision = _chainRevision;
       return _completion!.future.then<void>((_) async {
         if (_disposed ||
             !active ||
             generation != _generation ||
+            chainRevision != _chainRevision ||
             operation != -1 && requestedSnapshot != snapshot) {
           return;
         }
         await _run(operation);
       });
+    }
+    // Normal newer-page navigation uses the same saved first page too.
+    if (operation == 0 && _firstPageSnapshot != null) {
+      updatedPage = null;
+      _setResident(0, _firstPageSnapshot);
+      _indexResidents();
+      _failed = null;
+      error = null;
+      _arrivingPage = 0;
+      revision++;
+      _evict();
+      notifyListeners();
+      return Future.value();
     }
     final cursor = operation == -1
         ? null
@@ -188,28 +241,49 @@ class WorldHistoryController extends ChangeNotifier {
         }
         if (operation >= 0 && operation < _pages.length) {
           final old = _pages[operation];
+          updatedTowardNewer = operation < _readingPage;
           if (old.responseCursor != page.cursor ||
-              old.hasMore != page.hasMore ||
-              old.firstId != page.messages.firstOrNull?.id ||
-              old.lastId != page.messages.lastOrNull?.id) {
-            throw const FormatException(
-              'History snapshot changed; refresh required',
-            );
+              old.hasMore != page.hasMore) {
+            // Downstream request cursors belonged to the old chain. Do not
+            // combine them with the new response or automatically walk it.
+            for (final index
+                in _resident.keys.where((i) => i > operation).toList()) {
+              _resident.remove(index);
+            }
+            _pages.removeRange(operation + 1, _pages.length);
+            sectionParticipation.truncate(operation + 1);
+            _pinnedPages.removeWhere((i) => i > operation);
+            if (_readingPage > operation) _readingPage = operation;
+            _chainRevision++;
+            awaitingUserContinuation = true;
+            _resume = null;
           }
-          old.messages = page.messages;
+          _pages[operation] = HistoryPageSlot(old.requestCursor, page);
+          _setResident(operation, page.messages);
+          sectionParticipation.replacePage(operation, page.messages);
+          updatedPage = operation;
         } else if (operation == -1) {
           _pages.clear();
+          _resident.clear();
           _pages.add(HistoryPageSlot(null, page));
+          _setResident(0, page.messages);
+          updatedPage = null;
+          allowContinuation();
+          _chainRevision++;
+          _firstPageSnapshot = List.unmodifiable(page.messages);
+          sectionParticipation.clear();
+          sectionParticipation.appendOlder(page.messages);
           snapshot++;
           _readingPage = 0;
           _pinnedPages.clear();
           _arrivingPage = null;
         } else {
           _pages.add(HistoryPageSlot(cursor, page));
+          _setResident(_pages.length - 1, page.messages);
+          updatedPage = null;
+          sectionParticipation.appendOlder(page.messages);
         }
-        tickUserLocations = historyTickUserLocations(
-          _pages.expand((page) => page.tickActivity),
-        );
+        _indexResidents();
         ready = true;
         _arrivingPage = operation < 0 ? 0 : operation;
         revision++;
@@ -232,12 +306,7 @@ class WorldHistoryController extends ChangeNotifier {
     return completion.future;
   }
 
-  int? pageFor(String id) {
-    for (var index = 0; index < _pages.length; index++) {
-      if (_pages[index].messages?.any((m) => m.id == id) ?? false) return index;
-    }
-    return null;
-  }
+  int? pageFor(String id) => _messagePages[id];
 
   /// Called after layout with visible rows, plus any pending reveal/anchor.
   /// Neighbour pages stay resident. Eviction only removes an outside page so
@@ -248,10 +317,17 @@ class WorldHistoryController extends ChangeNotifier {
   }) {
     if (_disposed) return;
     final page = messageId == null ? null : pageFor(messageId);
+    final pins = pinnedIds.map(pageFor).whereType<int>().toSet();
+    if ((page == null || page == _readingPage) &&
+        setEquals(pins, _pinnedPages) &&
+        _arrivingPage == null) {
+      return;
+    }
+    readingUpdates++;
     if (page != null) _readingPage = page;
     _pinnedPages
       ..clear()
-      ..addAll(pinnedIds.map(pageFor).whereType<int>());
+      ..addAll(pins);
     _arrivingPage = null;
     if (_evict()) notifyListeners();
   }
@@ -278,7 +354,8 @@ class WorldHistoryController extends ChangeNotifier {
       candidates.sort(
         (a, b) => (b - _readingPage).abs().compareTo((a - _readingPage).abs()),
       );
-      _pages[candidates.first].messages = null;
+      _setResident(candidates.first, null);
+      _indexResidents();
       changed = true;
     }
     if (changed) revision++;
@@ -302,8 +379,14 @@ class WorldHistoryController extends ChangeNotifier {
     _failed = null;
     error = null;
     _pages.clear();
+    _resident.clear();
+    _indexResidents();
+    updatedPage = null;
+    _chainRevision++;
+    allowContinuation();
     _pinnedPages.clear();
-    tickUserLocations = const {};
+    _firstPageSnapshot = null;
+    sectionParticipation.clear();
     _arrivingPage = null;
     ready = false;
     revision++;
@@ -316,6 +399,10 @@ class WorldHistoryController extends ChangeNotifier {
     _disposed = true;
     _cancel(remember: false);
     _pages.clear();
+    _resident.clear();
+    _indexResidents();
+    _firstPageSnapshot = null;
+    sectionParticipation.clear();
     super.dispose();
   }
 }

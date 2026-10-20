@@ -1,106 +1,140 @@
-import 'dart:async';
-
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/l10n/app_localizations.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/posts/mini_phone_post_feed_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/mini_phone_chat_backend.dart';
 
-Future<void> flushPreview() async {
-  for (var i = 0; i < 12; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
-}
-
-Object commentPage(int id) => ok(
-  page([
-    {
-      'comment_id': id,
-      'post_id': 8,
-      'author_id': 'c',
-      'author_type': 2,
-      'comment_type': 2,
-      'author_name': 'Character',
-      'text': 'Comment $id',
-    },
-  ], rn: 3),
-);
+Map<String, dynamic> feedComment(int id) => {
+  'comment_id': id,
+  'post_id': 8,
+  'author_id': 'c',
+  'author_type': 2,
+  'comment_type': 2,
+  'author_name': 'Character',
+  'text': 'Comment $id',
+  'published_at': '2026-10-20T08:00:00Z',
+  'reply_to_comment_id': 9007199254740993,
+  'reply_to_char_id': 'player-char',
+};
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test(
-    'feed refresh releases a superseded preview and rejects its late result',
-    () async {
-      final backend = PhoneBackend();
-      final store = backend.store();
-      addTearDown(store.dispose);
-      await store.ready;
-      store.phoneVisible = store.postsVisible = true;
-      final oldRequest = Completer<Object>();
-      var reads = 0;
-      backend.respond = (request) {
-        if (request.uri.path.endsWith('/posts')) {
-          return ok(
-            page([
-              {...phonePost(), 'comment_count': 1},
-            ]),
+  for (final count in [0, 1, 3, 4]) {
+    testWidgets(
+      'feed shows latest three of $count embedded comments without reads',
+      (tester) async {
+        final backend = PhoneBackend();
+        backend.respond = (request) => request.uri.path.endsWith('/posts')
+            ? ok(
+                page([
+                  {
+                    ...phonePost(),
+                    'comments': [
+                      for (var i = count; i > 0; i--) feedComment(i),
+                    ],
+                  },
+                ]),
+              )
+            : null;
+        final store = (await tester.runAsync(() async {
+          final store = backend.store();
+          await store.ready;
+          store.phoneVisible = store.postsVisible = true;
+          await store.refreshPosts();
+          return store;
+        }))!;
+        addTearDown(store.dispose);
+        int? opened;
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: MiniPhonePostFeedPage(
+                store: store,
+                active: true,
+                header: const SizedBox.shrink(),
+                onCreate: () {},
+                onOpenPost: (id) => opened = id,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final visible = count > 3 ? 3 : count;
+        for (var i = count; i > count - visible; i--) {
+          expect(
+            find.textContaining('Comment $i', findRichText: true),
+            findsOneWidget,
           );
         }
-        if (request.uri.path.endsWith('/comments')) {
-          reads++;
-          return reads == 1 ? oldRequest.future : commentPage(2);
+        if (count == 4) {
+          expect(
+            find.textContaining('Comment 1', findRichText: true),
+            findsNothing,
+          );
+          final positions = [
+            for (final id in [4, 3, 2])
+              tester
+                  .getTopLeft(
+                    find.textContaining('Comment $id', findRichText: true),
+                  )
+                  .dy,
+          ];
+          expect(positions[0], lessThan(positions[1]));
+          expect(positions[1], lessThan(positions[2]));
+          await tester.tap(find.text('View all comments'));
+        } else {
+          expect(find.text('View all comments'), findsNothing);
+          await tester.tap(find.bySemanticsLabel('Comments'));
         }
-        return null;
-      };
-      await store.refreshPosts();
-      store.postsController.ensureCommentPreviews(store.posts);
-      await flushPreview();
-      expect(store.busy, contains('commentPreview:8'));
-      await store.refreshPosts();
-      expect(store.busy, isNot(contains('commentPreview:8')));
-      store.postsController.ensureCommentPreviews(store.posts);
-      await flushPreview();
-      expect(reads, 2);
-      expect(store.postsController.commentPreviews[8]!.single.id, 2);
-      oldRequest.complete(commentPage(1));
-      await flushPreview();
-      expect(store.postsController.commentPreviews[8]!.single.id, 2);
-      expect(store.busy, isNot(contains('commentPreview:8')));
-      expect(backend.calls('comments').last.uri.queryParameters['rn'], '3');
-      expect(backend.calls('post/detail'), isEmpty);
-    },
-  );
+        expect(opened, 8);
+        expect(find.bySemanticsLabel('Comments, 0'), findsNothing);
+        expect(backend.calls('comments'), isEmpty);
+        expect(backend.calls('post/detail'), isEmpty);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   test(
-    'feed refresh keeps loaded preview until replacement, zero count clears it',
+    'feed refresh replaces embedded comments and failures retain the old feed',
     () async {
       final backend = PhoneBackend();
       final store = backend.store();
       addTearDown(store.dispose);
       await store.ready;
-      store.phoneVisible = store.postsVisible = true;
-      var count = 1;
+      var ids = [4, 3, 2, 1];
+      var fail = false;
       backend.respond = (request) {
-        if (request.uri.path.endsWith('/posts')) {
-          return ok(
-            page([
-              {...phonePost(), 'comment_count': count},
-            ]),
-          );
-        }
-        if (request.uri.path.endsWith('/comments')) return commentPage(1);
-        return null;
+        if (!request.uri.path.endsWith('/posts')) return null;
+        if (fail) throw ApiException(message: 'Feed unavailable');
+        return ok(
+          page([
+            {...phonePost(), 'comments': ids.map(feedComment).toList()},
+          ]),
+        );
       };
       await store.refreshPosts();
-      store.postsController.ensureCommentPreviews(store.posts);
-      await flushPreview();
-      expect(store.postsController.commentPreviews[8]!.single.id, 1);
+      expect(store.posts.single.comments.map((c) => c.id), ids);
+      fail = true;
+      expect(await store.refreshPosts(), isFalse);
+      expect(store.posts.single.comments.map((c) => c.id), ids);
+      fail = false;
+      ids = [5];
       await store.refreshPosts();
-      expect(store.postsController.commentPreviews[8]!.single.id, 1);
-      count = 0;
+      expect(store.posts.single.comments.single.id, 5);
+      ids = [];
       await store.refreshPosts();
-      expect(store.postsController.commentPreviews[8], isNull);
+      expect(store.posts.single.comments, isEmpty);
+      expect(backend.calls('comments'), isEmpty);
+      expect(backend.calls('post/detail'), isEmpty);
     },
   );
 }

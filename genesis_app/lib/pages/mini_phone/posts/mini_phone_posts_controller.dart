@@ -1,4 +1,3 @@
-import 'dart:async';
 import '../../../network/mini_phone/mini_phone_api.dart';
 import '../state/mini_phone_requests.dart';
 
@@ -34,10 +33,6 @@ class MiniPhonePostsController {
   int _interactionRevision = 0;
   int get interactionRevision => _interactionRevision;
   final comments = <int, List<PhoneComment>>{};
-  final commentPreviews = <int, List<PhoneComment>>{};
-  final _previewCounts = <int, int>{};
-  int _previewRevision = 0;
-  int get previewRevision => _previewRevision;
   final _deferredPostReads = <String, Future<bool> Function()>{};
   Future<bool> load<T>(
     String key,
@@ -63,9 +58,6 @@ class MiniPhonePostsController {
     details.clear();
     _interactionRevision++;
     comments.clear();
-    commentPreviews.clear();
-    _previewCounts.clear();
-    _previewRevision++;
     _deferredPostReads.clear();
     _likeIntent.clear();
     _likeRunning.clear();
@@ -113,15 +105,6 @@ class MiniPhonePostsController {
         for (final p in page.list) {
           // A fresh feed supersedes interaction details cached before entry.
           details.remove(p.id);
-          _previewCounts.remove(p.id);
-          if (p.commentCount == 0) commentPreviews.remove(p.id);
-          final previewKey = 'commentPreview:${p.id}';
-          requests.versions[previewKey] =
-              (requests.versions[previewKey] ?? 0) + 1;
-          // Superseded loads cannot clear busy in their version-guarded
-          // completion. Release it here so the visible row can load again.
-          busy.remove(previewKey);
-          _previewRevision++;
           if (p.author.type == 1) users[p.author.id] = p.author;
         }
         pages['posts'] = pn;
@@ -143,40 +126,6 @@ class MiniPhonePostsController {
     }
     await authorsRefresh;
     return ok;
-  }
-
-  /// Fetch only visible feed previews, independently of detail pagination.
-  /// The feed API may omit comments_preview; never fetch full post details here.
-  void ensureCommentPreviews(List<PhonePost> visiblePosts) {
-    if (!postsVisible || !phoneVisible || !foreground || requests.uid == null) {
-      return;
-    }
-    for (final post in visiblePosts) {
-      final count = details[post.id]?.commentCount ?? post.commentCount;
-      if (count == 0 ||
-          post.commentsPreview.length >= (count < 3 ? count : 3) ||
-          _previewCounts[post.id] == count) {
-        continue;
-      }
-      if (busy.where((key) => key.startsWith('commentPreview:')).length >= 2) {
-        break;
-      }
-      final key = 'commentPreview:${post.id}';
-      if (busy.contains(key)) continue;
-      final generation = requests.generation;
-      _previewCounts[post.id] = count;
-      unawaited(
-        load(key, () => api.comments(worldId, post.id, rn: 3), (page) {
-          commentPreviews[post.id] = List.unmodifiable(page.list.take(3));
-          _previewRevision++;
-        }).whenComplete(() {
-          if (requests.isCurrent(generation)) {
-            _previewRevision++;
-            requests.notify();
-          }
-        }),
-      );
-    }
   }
 
   Future<bool> _confirmPostRead(

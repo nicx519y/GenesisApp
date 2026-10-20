@@ -9,9 +9,13 @@ Map<String, dynamic> historyJson(
   String content = 'Hello',
   List<String> locations = const ['A'],
   int version = 0,
+  int tick = 0,
+  int subTick = 0,
 }) => {
   'global_message_id': id,
   'type': type,
+  'tick': tick,
+  'sub_tick': subTick,
   'sender_id': 'c1',
   'sender_name': 'Role',
   'user_id': null,
@@ -28,6 +32,8 @@ WorldHistoryMessage historyMessage(
   String content = 'Hello',
   List<String> locations = const ['A'],
   int version = 0,
+  int tick = 0,
+  int subTick = 0,
 }) => WorldHistoryMessage.fromJson(
   historyJson(
     id,
@@ -35,6 +41,8 @@ WorldHistoryMessage historyMessage(
     content: content,
     locations: locations,
     version: version,
+    tick: tick,
+    subTick: subTick,
   ),
 );
 WorldHistoryPage historyPage(

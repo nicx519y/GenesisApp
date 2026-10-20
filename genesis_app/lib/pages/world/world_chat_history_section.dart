@@ -87,7 +87,6 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   bool _backgroundScheduled = false;
   bool? _reportedDragDismissAllowed;
   bool _metadataReady = false;
-  bool _returningToBottom = false;
   int _messageAppVersion = 0;
 
   AppServices? _services;
@@ -217,33 +216,18 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     if (mounted) setState(() {});
   }
 
-  Future<void> _returnToBottom() async {
+  void _returnToBottom() {
     final controller = _worldHistory.controller;
-    if (_returningToBottom ||
-        !_requestsEnabled ||
-        controller == null ||
-        controller.loading) {
-      return;
-    }
-    final generation = _scrollCoordinator.beginHistoryNavigation();
-    _update(() => _returningToBottom = true);
-    try {
-      final ready = await controller.returnToNewest();
-      if (!mounted ||
-          !_requestsEnabled ||
-          !ready ||
-          generation != _scrollCoordinator.commandGeneration) {
-        return;
-      }
-      _historySections.reveal = null;
-      _cache.readingId = null;
-      _scrollCoordinator.requestBottom(
-        reason: LocationChatBottomReason.unseenMessageNotice,
-        behavior: LocationChatBottomBehavior.jump,
-      );
-    } finally {
-      if (mounted) _update(() => _returningToBottom = false);
-    }
+    if (!_requestsEnabled || controller == null || controller.loading) return;
+    _scrollCoordinator.beginHistoryNavigation();
+    _worldHistory.cancelScheduledLoad();
+    if (!controller.returnToNewest()) return;
+    _historySections.reveal = null;
+    _cache.readingId = null;
+    _scrollCoordinator.requestBottom(
+      reason: LocationChatBottomReason.unseenMessageNotice,
+      behavior: LocationChatBottomBehavior.jump,
+    );
   }
 
   List<String>? _locationBoundaryParts(
@@ -252,8 +236,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   ) {
     if (_worldHistory.locationFor(message).isEmpty) return null;
     if (previous != null &&
-        _worldHistory.locationFor(message) ==
-            _worldHistory.locationFor(previous)) {
+        _worldHistory.sectionFor(message) ==
+            _worldHistory.sectionFor(previous)) {
       return null;
     }
     return _locationPathParts(_worldHistory.locationFor(message));
@@ -263,7 +247,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   Widget build(BuildContext context) {
     super.build(context);
     final messages = _worldHistory.project();
-    _historySections.project(messages);
+    _historySections.project(_worldHistory.projection.rows);
+    _worldHistory.restoreReading();
     _worldHistory.ensureVisibleWindow();
     final dragDismissAllowed =
         _worldHistory.ready && !_worldHistory.loading && !_worldHistory.hasMore;
@@ -330,7 +315,17 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
         : ChatMentionScope(
             catalog: catalog,
             child: NotificationListener<ScrollNotification>(
-              onNotification: _scrollCoordinator.handleScrollNotification,
+              onNotification: (notification) {
+                if (notification is ScrollStartNotification &&
+                    notification.dragDetails != null &&
+                    notification.depth == 0 &&
+                    notification.metrics.axis == Axis.vertical) {
+                  _worldHistory.controller?.allowContinuation();
+                }
+                return _scrollCoordinator.handleScrollNotification(
+                  notification,
+                );
+              },
               child: LocationChatAnchoredMessageList(
                 key: ValueKey((widget.worldId, widget.currentUid)),
                 coordinator: _scrollCoordinator,
@@ -340,6 +335,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 topTitle: '',
                 active: _requestsEnabled,
                 initialContentReady: _worldHistory.ready,
+                initialViewportPlaceholder:
+                    const _WorldHistoryLoadingSkeleton(),
                 restoreInitialCompletedContent: true,
                 replyActionsVisible: false,
                 replyWaitingPositioningEnabled: false,
@@ -368,7 +365,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
       fit: StackFit.expand,
       children: [
         body,
-        if (_worldHistory.ready && messages.isNotEmpty)
+        if (_worldHistory.ready &&
+            (messages.isNotEmpty || _worldHistory.hasNewer))
           Positioned(
             left: 0,
             right: 0,
@@ -381,12 +379,10 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                   builder: (context, _) {
                     final visible =
                         widget.active &&
-                        (_returningToBottom ||
-                            _worldHistory.hasNewer ||
+                        (_worldHistory.hasNewer ||
                             !_scrollCoordinator.isAtBottom);
                     if (!visible) return const SizedBox.shrink();
-                    final disabled =
-                        _returningToBottom || _worldHistory.loading;
+                    final disabled = _worldHistory.loading;
                     return Tooltip(
                       message: MaterialLocalizations.of(
                         context,
@@ -538,7 +534,9 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
           if (_historySections.expanded.contains(section.id)) ...[
             const SizedBox(height: 12),
             child,
-          ] else if (_newerBoundary(section.messages.last))
+          ] else if (_worldHistory.hasNewer &&
+              _worldHistory.projection.rows.lastOrNull?.id ==
+                  section.messageIds.last)
             _loadNewerButton(),
         ],
       );

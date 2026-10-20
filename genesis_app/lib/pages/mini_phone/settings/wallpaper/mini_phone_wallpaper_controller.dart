@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../network/models/miniphone_info.dart';
 import '../../../../platform/session/user_session_store.dart';
 import 'mini_phone_wallpaper_cache.dart';
+import '../../state/mini_phone_analytics.dart';
 
 typedef MiniWallpaperUploader =
     Future<String> Function(
@@ -40,6 +41,7 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
     sessionStore.userInfoRevision.addListener(_sessionChanged);
   }
 
+  MiniPhoneAnalytics? analytics;
   final String worldId;
   final UserSessionStore sessionStore;
   final Future<MiniphoneInfo> Function() _load;
@@ -315,6 +317,13 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
     if (_disposed || saving || selectedVersion != _draftVersion) return false;
     if (_uid == null) return false;
     final epoch = _epoch;
+    final attempt = analytics?.beginAttempt(
+      'wallpaper_save',
+      target: 'wallpaper',
+      source: 'settings',
+      data: {'wallpaper_type': draftPhoto == null ? 'preset' : 'custom'},
+    );
+    var sent = false;
     saving = true;
     saveProgress = uploadProgress = 0;
     feedback = null;
@@ -388,7 +397,9 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
       saveProgress = .91;
       _notify();
       _startSubmissionProgress(epoch, operation);
+      sent = true;
       await _save(url);
+      attempt?.finish('saved');
       if (!await _current(epoch)) return false;
       _stopSubmissionProgress();
       saveProgress = 1;
@@ -427,7 +438,18 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
       }
       feedback = 'Wallpaper applied. See it on Home.';
       return true;
-    } catch (_) {
+    } catch (error) {
+      attempt?.fail(
+        error,
+        sent: sent,
+        errorStage: sent
+            ? 'request'
+            : preparing
+            ? 'prepare'
+            : uploading
+            ? 'upload'
+            : 'validation',
+      );
       if (await _current(epoch)) {
         feedback = preparing
             ? 'Unable to prepare this photo. Please retry.'

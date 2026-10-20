@@ -164,6 +164,7 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
                 ),
             ],
             initialIndex: initialIndex,
+            onImageViewed: widget.store.analytics.photoViewer(),
             source: source,
           );
         },

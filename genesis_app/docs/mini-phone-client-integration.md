@@ -314,13 +314,14 @@ AI replies.
   pending request states without refreshing app lists. Pending first sends may
   discover their real IDs through paged `/dm_sessions`; ordinary recovery with no
   pending unknown target never scans that endpoint.
-- The optional legacy Feed `comments_preview` extension is still consumed if
-  present. For visible posts with insufficient previews, the feed reads the
-  first three real comments using `/comments?pn=1&rn=3`, with at most two reads
-  in flight. Previews are separate from detail pagination, scoped to the account
-  and World, and refreshed after feed refresh or a changed comment count. No
-  full-detail fan-out is used. Only posts with more than three comments show the
-  view-all link; the Comments action remains available for every post.
+- The 2026-10-20 `/posts` contract ([phone_posts.yaml](phone_posts.yaml))
+  returns `comments`: at most four recent comments/replies ordered by
+  `published_at DESC, comment_id DESC`, with no `comment_count`. Feed renders
+  the first three (the latest three) in that order. A fourth comment enables
+  the count-free view-all link; the Comments action stays available without an
+  invented total. Feed never queries `/comments` or detail to fill previews.
+  Refresh replaces comments with the successful feed response, including `[]`;
+  failed refresh retains the previous feed. Detail/reply reads remain separate.
 - Controlled transports prove client behavior only. Live authorization, player
   delivery, charging, upload readability and Android/iOS acceptance remain to be
   exercised with real accounts/devices. An upload URL may briefly be unreadable;
@@ -416,7 +417,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `POST /dm/send` | 发送角色私聊及首次私聊；提交 `world_id/char_id/client_request_id/content`；空成功响应不生成气泡 |
 | `POST /dm_session/read` | 前台会话成功加载或收到新消息后标记该会话已读；只提交 `dm_session_id`，成功后清除缓存会话的未读并重查未读聚合，不重拉会话列表 |
 | `GET /post/authors` | 只传 `world_id`，获取全世界已发帖角色 ID，不分页；关联世界角色名称和头像；Feed 刷新时一并更新 |
-| `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；写操作不顺带刷新 Feed（发布／评论返回 Posts 时走正常页面入口刷新）；读取 `comments_preview` 展示前三条评论 |
+| `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；写操作不顺带刷新 Feed（发布／评论返回 Posts 时走正常页面入口刷新）；读取 `comments` 展示最新至多三条评论／回复（服务端倒序最多返回四条）；无总评论数，不额外查询预览 |
 | `GET /post/detail` | 打开帖子／通知详情或下拉刷新；评论成功及点赞操作后查询实际状态，不随通知推送刷新 |
 | `POST /post/create` | 发布文字／图文帖子；提交 `content` 和可选图片 `image`，成功后只刷新帖子通知聚合，返回 Posts 时按页面入口刷新 Feed |
 | `POST /post/like` | 点赞；同帖操作串行，随后查询详情确认状态 |
@@ -449,7 +450,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - 音乐实现见 `lib/network/v1/music_api.dart`；壁纸、上传、角色和用户资料分别见 `world_api.dart`、`upload_api.dart`、`user_api.dart`；模型目录见 `gem_api.dart`。
 - 当前模型选择和记忆 Token 修改仅更新本地 `MiniPhoneSession`。不要将页面上的选择或折扣展示解释为后端设置／计费已生效。
 - 音频、封面、头像和相册图片还请求返回的媒体 URL；它们不计入上面的业务接口数。
-- 模型页复用 `MemoryModelPage` 的 Collect 上报：`pay_event/switch_model_page`、`pay_event/switch_model_save`。默认采集地址为 `https://collect.worldo.ai/api/v1/collect`，由公共配置和上传策略控制；当前模型页上报的 `object1` 是 `local-mini-phone-preview`。相关代码在 `lib/pages/gems/memory_model_page.dart` 和 `lib/app/telemetry/`。
+- MiniPhone 的 13 个 Collect 事件及完整字段见 [MiniPhone Collect 埋点表](mini-phone-collect-events.md)。复用公共队列、采集配置和上传策略，`object1` 使用真实 World ID。手机模型页关闭通用 `switch_model_page` / `switch_model_save`，改为本地模型/Token 变更事件；不代表后端设置或计费生效。Photos 仅统计大图浏览张次，帖子/评论图片不计入。
 
 ### World WebSocket events
 
@@ -477,7 +478,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - HTTP 200 下非零 `err_no` 仍为业务错误；展示原始 `ApiException.message`／`err_msg`，失败保留草稿。区分 Feed 的 `text` 和详情／提交的 `content`。
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
-- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览使用 Feed 返回值，不逐帖请求详情补齐；回复必须使用 `/comments` 的真实 ID。
+- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，按倒序最多展示最新三条；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
@@ -557,6 +558,14 @@ flutter build apk --debug --flavor production --target-platform android-arm64 --
 git diff --check
 ```
 
-### 2026-10-20 Feed comment preview refresh correction
+### 2026-10-20 Feed embedded comment contract
 
-Feed refresh invalidates earlier comment-preview request versions and releases their busy markers together; stale requests cannot clear them in version-guarded completion. Cached visible comments remain until replacement succeeds (zero-count posts clear the preview). Only visible posts load previews, with at most two concurrent requests; account reset still clears all previews.
+Supersedes the earlier preview-refresh correction: Feed now consumes the embedded
+`comments` array and removes separate preview requests, caches and request
+versions. Up to three of the newest comments/replies are shown, preserving the
+server order. Four returned items expose a count-free view-all action. Feed has
+no comment total; the full comment page retains its own reads and totals.
+
+The user-supplied `phone_posts.yaml` is saved alongside this guide. Its external
+`phone-query-types.yaml` reference was not supplied; comment parsing uses the
+existing PhoneComment contract above. No live backend/device acceptance is implied.

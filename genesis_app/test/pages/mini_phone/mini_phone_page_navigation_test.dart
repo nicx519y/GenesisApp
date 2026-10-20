@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,7 @@ import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dar
 import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/ui/navigation/genesis_dark_page_route.dart';
 import '../../support/mini_phone_chat_backend.dart';
+import '../../support/mini_phone_collect_probe.dart';
 
 Future<void> settle(WidgetTester tester) async {
   await tester.runAsync(
@@ -22,6 +24,7 @@ void main() {
     TargetPlatform platform, {
     bool outerRoute = false,
     bool directChat = false,
+    String entrySource = 'unknown',
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -50,6 +53,7 @@ void main() {
     addTearDown(session.dispose);
     Widget phone() => MiniPhonePage(
       session: session,
+      entrySource: entrySource,
       initialScreen: MiniPhoneScreen.messages,
       initialContact: directChat
           ? const PhonePerson('c0', 'Person 0', '')
@@ -77,6 +81,75 @@ void main() {
     await settle(tester);
     return session;
   }
+
+  for (final source in [
+    'world_dock',
+    'location_chat_dock',
+    'location_chat_avatar',
+    'location_chat_roster',
+  ]) {
+    testWidgets(
+      'Collect direct chat from $source has no phantom Home or Messages',
+      (tester) async {
+        final collect = MiniPhoneCollectProbe();
+        addTearDown(collect.dispose);
+        final session = await mount(
+          tester,
+          TargetPlatform.android,
+          directChat: true,
+          entrySource: source,
+        );
+        final events = (await tester.runAsync(collect.take))!;
+        expect(events.map((e) => e.action), [
+          'mini_phone_open',
+          'mini_phone_page',
+        ]);
+        expect(events.map((e) => e.object2), ['chat', 'chat']);
+        expect(jsonDecode(events.first.extData)['source'], source);
+        expect(jsonDecode(events.last.extData)['char_id'], 'c0');
+        await tester.runAsync(() => session.data!.refreshPosts());
+        await settle(tester);
+        expect(await tester.runAsync(collect.take), isEmpty);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets(
+    'Collect page transitions count visits once and preserve open ID',
+    (tester) async {
+      final collect = MiniPhoneCollectProbe();
+      addTearDown(collect.dispose);
+      final session = await mount(
+        tester,
+        TargetPlatform.android,
+        entrySource: 'world_dock',
+      );
+      final initial = (await tester.runAsync(collect.take))!;
+      expect(initial.map((e) => e.action), [
+        'mini_phone_open',
+        'mini_phone_page',
+      ]);
+      final openId = jsonDecode(initial.first.extData)['open_id'];
+      await tester.tap(
+        find.byKey(const ValueKey('mini-phone-conversation-c0')),
+      );
+      await tester.pump();
+      await settle(tester);
+      var events = (await tester.runAsync(collect.take))!;
+      expect(events.single.object2, 'chat');
+      expect(jsonDecode(events.single.extData)['source'], 'messages_list');
+      expect(jsonDecode(events.single.extData)['open_id'], openId);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await settle(tester);
+      events = (await tester.runAsync(collect.take))!;
+      expect(events.single.object2, 'messages');
+      expect(jsonDecode(events.single.extData)['navigation_type'], 'back');
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(session.data!.analytics.openId, isNull);
+    },
+  );
 
   testWidgets('content refresh leaves the shell Navigator unchanged', (
     tester,

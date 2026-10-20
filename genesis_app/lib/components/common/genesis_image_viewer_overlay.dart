@@ -85,6 +85,7 @@ Future<void> showGenesisImageViewer(
   int initialIndex = 0,
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   GenesisImageViewerSource? source,
+  ValueChanged<int>? onImageViewed,
 }) {
   final urls = <String>[];
   final previews = <ImageProvider<Object>?>[];
@@ -123,6 +124,7 @@ Future<void> showGenesisImageViewer(
         imageUrls: urls,
         previewImageProviders: previews,
         initialIndex: startIndex,
+        onImageViewed: onImageViewed,
         maxDevicePixelRatio: maxDevicePixelRatio,
       );
     },
@@ -146,12 +148,14 @@ class GenesisImageViewerOverlay extends StatefulWidget {
     required this.imageUrls,
     this.previewImageProviders = const <ImageProvider<Object>?>[],
     this.initialIndex = 0,
+    this.onImageViewed,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final List<String> imageUrls;
   final List<ImageProvider<Object>?> previewImageProviders;
   final int initialIndex;
+  final ValueChanged<int>? onImageViewed;
   final double maxDevicePixelRatio;
 
   @override
@@ -177,6 +181,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      _reportImageViewed(_currentIndex);
       _precacheAdjacentImages();
     });
     _currentIndex = widget.initialIndex.clamp(0, widget.imageUrls.length - 1);
@@ -199,7 +204,15 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     super.dispose();
   }
 
+  int? _lastViewedIndex;
+  void _reportImageViewed(int index) {
+    if (_lastViewedIndex == index) return;
+    _lastViewedIndex = index;
+    widget.onImageViewed?.call(index);
+  }
+
   void _handlePageChanged(int index) {
+    _reportImageViewed(index);
     setState(() => _currentIndex = index);
     for (var i = 0; i < _transformationControllers.length; i += 1) {
       if (i == index) continue;

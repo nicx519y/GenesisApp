@@ -820,7 +820,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  Future<void> _openPhoneContact(PhonePerson contact) async {
+  Future<void> _openPhoneContact(
+    PhonePerson contact, {
+    String source = 'location_chat_avatar',
+  }) async {
     if (_openingCharacterChat || !widget.active) {
       return;
     }
@@ -834,6 +837,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           worldId: _modelWorldId,
           modelCache: _modelRequestCache,
           initialContact: contact,
+          entrySource: source,
         ),
       );
     } finally {
@@ -1600,6 +1604,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                                     () => showMiniPhone(
                                       context,
                                       session: phone,
+                                      entrySource: 'location_chat_dock',
                                       worldId: _modelWorldId,
                                       modelCache: _modelRequestCache,
                                     ),
@@ -1659,6 +1664,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                       onCharacterTap: (entity) => unawaited(
                         _openPhoneContact(
                           PhonePerson(entity.id, entity.name, entity.avatarUrl),
+                          source: 'location_chat_roster',
                         ),
                       ),
                     ),

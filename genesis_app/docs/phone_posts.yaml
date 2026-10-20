@@ -1,0 +1,87 @@
+components:
+    securitySchemes:
+        bearerAuth:
+            scheme: bearer
+            type: http
+        sessionCookie:
+            in: cookie
+            name: AIUSS
+            type: apiKey
+info:
+    title: 手机查询 posts
+    version: 1.0.0
+openapi: 3.0.3
+paths:
+    /aitown-chat/api/v1/phone/posts:
+        get:
+            description: 需要登录，Authorization 优先于 AIUSS Cookie；不生成内容、不自动已读。时间为秒级 RFC3339 UTC。错误复用 err_no/err_msg/data，未登录 HTTP 200、err_no=10001；2060 记录不存在或不属于当前用户/世界。按 published_at、post_id 倒序，仅返回已发布帖子；点赞数与当前玩家状态实时统计。每帖 comments 携带最新至多 4 条评论及回复，按 published_at、comment_id 倒序；不足 4 条按实际返回，无评论为 []。列表不返回 comment_count。
+            parameters:
+                - description: 当前世界；服务端校验登录用户访问权
+                  in: query
+                  name: world_id
+                  required: true
+                  schema:
+                    maxLength: 64
+                    minLength: 1
+                    type: string
+                - description: 发帖人角色 ID；玩家也传世界角色 ID，不传 UID 或 author_type。省略或空字符串查询全部作者；传入时先筛选再统计 total 和分页，无匹配时 list 为空、total 为 0；非空值不得有首尾空白
+                  in: query
+                  name: char_id
+                  required: false
+                  schema:
+                    maxLength: 64
+                    type: string
+                - description: 页码，从 1 开始
+                  in: query
+                  name: pn
+                  schema:
+                    default: 1
+                    minimum: 1
+                    type: integer
+                - description: 每页条数，默认 10，最大 100
+                  in: query
+                  name: rn
+                  schema:
+                    default: 10
+                    maximum: 100
+                    minimum: 1
+                    type: integer
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        properties:
+                                            list:
+                                                items:
+                                                    $ref: ./phone-query-types.yaml#/components/schemas/PhonePost
+                                                type: array
+                                            pn:
+                                                type: integer
+                                            rn:
+                                                type: integer
+                                            total:
+                                                format: int64
+                                                type: integer
+                                        required:
+                                            - list
+                                            - total
+                                            - pn
+                                            - rn
+                                        type: object
+                                    err_msg:
+                                        type: string
+                                    err_no:
+                                        type: integer
+                                required:
+                                    - err_no
+                                    - err_msg
+                                    - data
+                                type: object
+                    description: 统一业务响应；检查 err_no，0 成功
+            security:
+                - bearerAuth: []
+                - sessionCookie: []
+            summary: 只读查询 posts

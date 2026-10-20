@@ -40,6 +40,7 @@ Future<void> showMiniPhone(
   MiniPhoneScreen? initialScreen,
   PhonePerson? initialContact,
   String worldId = '',
+  String entrySource = 'unknown',
   MemoryModelPageCache? modelCache,
   MiniPhoneSession? session,
 }) async {
@@ -94,6 +95,11 @@ Future<void> showMiniPhone(
           session: phone,
           initialScreen: initialScreen ?? phone.resume.screen,
           initialContact: initialContact,
+          entrySource: entrySource,
+          isRestored:
+              initialScreen == null &&
+              initialContact == null &&
+              phone.resume.accountGeneration != null,
         ),
       ),
     );
@@ -131,6 +137,8 @@ class MiniPhonePage extends StatefulWidget {
     super.key,
     this.initialScreen = MiniPhoneScreen.home,
     this.initialContact,
+    this.entrySource = 'unknown',
+    this.isRestored = false,
     this.worldId = '',
     this.wallpaperController,
     this.session,
@@ -138,6 +146,8 @@ class MiniPhonePage extends StatefulWidget {
   final MiniPhoneSession? session;
   final MiniPhoneScreen initialScreen;
   final PhonePerson? initialContact;
+  final String entrySource;
+  final bool isRestored;
   final String worldId;
   final MiniPhoneWallpaperController? wallpaperController;
   @override
@@ -166,6 +176,71 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   late final AppLaunchTransitionController _launchTransition;
   MiniPhoneScreen? _launchApp;
   bool _closing = false;
+  String? _analyticsOpenId;
+  bool _openTracked = false;
+  Object? _trackedPage;
+  String? _launchSource;
+  int _pageTrackRevision = 0;
+
+  void _trackPage({
+    required String source,
+    String from = '',
+    String navigation = 'push',
+  }) {
+    final revision = ++_pageTrackRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final data = phone;
+      if (data == null) return;
+      await data.localReady;
+      if (!mounted ||
+          _closing ||
+          revision != _pageTrackRevision ||
+          data.requests.disposed ||
+          !(ModalRoute.of(context)?.isCurrent ?? true)) {
+        return;
+      }
+      final identity = (
+        screen,
+        screen == MiniPhoneScreen.chat ? liveContact?.id : null,
+        screen == MiniPhoneScreen.comments ? livePostId : null,
+      );
+      if (identity == _trackedPage || data.uid == null) return;
+      _trackedPage = identity;
+      final analytics = data.analytics;
+      _analyticsOpenId ??= analytics.beginOpen();
+      if (!_openTracked) {
+        _openTracked = true;
+        analytics.event(
+          'open',
+          target: screen.name,
+          stage: 'open',
+          data: {
+            ...analytics.context(widget.entrySource),
+            'is_restored': widget.isRestored,
+          },
+        );
+        source = widget.entrySource;
+        from = '';
+        navigation = 'initial';
+      }
+      analytics.event(
+        'page',
+        type: 'pageview',
+        target: screen.name,
+        stage: 'view',
+        data: {
+          ...analytics.context(source),
+          'from_page': from,
+          'navigation_type': navigation,
+          if (screen == MiniPhoneScreen.chat && liveContact != null)
+            'char_id': liveContact!.id,
+          if (screen == MiniPhoneScreen.comments && livePostId != null)
+            'post_id': '$livePostId',
+        },
+      );
+    });
+  }
+
   late final MiniPhoneWallpaperController wallpaper;
   final _shownPhoneErrors = <String, String>{};
   bool _phoneErrorToastScheduled = false;
@@ -260,7 +335,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
             return GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
           },
         );
+    wallpaper.analytics = phone?.analytics;
     wallpaper.addListener(_changed);
+    _trackPage(source: widget.entrySource, navigation: 'initial');
     unawaited(wallpaper.refresh());
     unawaited(
       _session.modelSettings
@@ -293,6 +370,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
 
   @override
   void dispose() {
+    phone?.analytics.endOpen(_analyticsOpenId);
     _previewActivity.dispose();
     _launchTransition.dispose();
     _miniResume.accountGeneration = phone?.accountGeneration;
@@ -322,18 +400,32 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   void _changed() {
     final identityChanged = phone != null && _phoneOwner != phone!.uid;
     if (identityChanged) {
+      if (_phoneOwner != null) {
+        phone!.analytics.endOpen(_analyticsOpenId);
+        _analyticsOpenId = null;
+        _openTracked = false;
+        _trackedPage = null;
+      }
       _phoneOwner = phone!.uid;
       liveContact = null;
       livePostId = null;
     }
     if (mounted) {
       _notifyPhoneErrors();
-      if (identityChanged) _update(() {});
+      if (identityChanged) {
+        _update(() {});
+        _trackPage(source: 'restore', navigation: 'replace');
+      }
     }
   }
 
-  void _go(MiniPhoneScreen next) {
-    if (next == screen) return;
+  void _go(MiniPhoneScreen next, {String? source, String navigation = 'push'}) {
+    final from = screen.name;
+    final origin = _launchSource ?? source ?? 'header';
+    if (next == screen) {
+      _trackPage(source: origin, from: from, navigation: 'replace');
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     if (next == MiniPhoneScreen.home && _launchTransition.hasPage) {
       _launchTransition.close(fallbackSourceId: _launchApp);
@@ -346,6 +438,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _update(() {
       screen = next;
     });
+    _trackPage(source: origin, from: from, navigation: navigation);
     if (next == MiniPhoneScreen.settings) _prepareSettings();
     if (phone != null) {
       _loadLiveScreen(next);
@@ -360,16 +453,27 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       return;
     }
     _launchApp = app;
-    open();
+    _launchSource = sourceId is MiniPhoneScreen
+        ? 'home_icon'
+        : sourceId == 'home-music-card'
+        ? 'home_music_card'
+        : 'home_notification';
+    try {
+      open();
+    } finally {
+      _launchSource = null;
+    }
   }
 
   void _launchDismissed() {
     if (!mounted) return;
+    final from = screen.name;
     _update(() {
       screen = MiniPhoneScreen.home;
       if (phone != null) _loadLiveScreen(MiniPhoneScreen.home);
       _launchApp = null;
     });
+    _trackPage(source: 'back', from: from, navigation: 'back');
   }
 
   void _prepareSettings() {
@@ -414,18 +518,18 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       case MiniPhoneScreen.home:
         _close();
       case MiniPhoneScreen.models:
-        _go(_miniModelReturnScreen);
+        _go(_miniModelReturnScreen, source: 'back', navigation: 'back');
       case MiniPhoneScreen.chat:
         if (widget.initialContact != null) {
           _close();
         } else {
-          _go(MiniPhoneScreen.messages);
+          _go(MiniPhoneScreen.messages, source: 'back', navigation: 'back');
         }
       case MiniPhoneScreen.comments:
       case MiniPhoneScreen.create:
-        _go(MiniPhoneScreen.posts);
+        _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back');
       default:
-        _go(MiniPhoneScreen.home);
+        _go(MiniPhoneScreen.home, source: 'back', navigation: 'back');
     }
   }
 
@@ -584,6 +688,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     ),
     MiniPhoneScreen.models => MiniPhoneModelSettingsPage(
       settings: _session.modelSettings,
+      analytics: phone?.analytics,
       onBack: _back,
     ),
   };
@@ -620,7 +725,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     }),
     onBack: _back,
     onCreate: () => _go(MiniPhoneScreen.create),
-    onPublished: () => _go(MiniPhoneScreen.posts),
+    onPublished: () =>
+        _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back'),
     onOpenPost: _openLivePost,
   );
 
@@ -712,12 +818,12 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
 
   void _openLiveChat(PhonePerson p) {
     liveContact = p;
-    _go(MiniPhoneScreen.chat);
+    _go(MiniPhoneScreen.chat, source: 'messages_list');
   }
 
   void _openLivePost(int id) {
     livePostId = id;
-    _go(MiniPhoneScreen.comments);
+    _go(MiniPhoneScreen.comments, source: 'posts_feed');
   }
 
   Map<String, String> get _visiblePhoneErrors {

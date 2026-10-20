@@ -5,6 +5,9 @@ import 'package:just_audio/just_audio.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
 import '../../support/mini_phone_audio_player.dart';
+import '../../support/mini_phone_collect_probe.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_analytics.dart';
+import 'dart:convert';
 
 MusicCatalog catalog([int count = 3]) => MusicCatalog(
   preUrl: 'https://cdn.example/',
@@ -53,6 +56,46 @@ void main() {
     music.dispose();
     await flush();
   });
+
+  test(
+    'Collect tracks only user music commands and drops closed open ID',
+    () async {
+      final collect = MiniPhoneCollectProbe();
+      addTearDown(collect.dispose);
+      music.analytics = MiniPhoneAnalytics(
+        worldId: 'w',
+        enabled: () => true,
+        generation: () => 0,
+      );
+      final open = music.analytics!.beginOpen();
+      await music.loadCatalog(() async => catalog());
+      await music.userToggle('music');
+      await music.userToggle('home');
+      await music.userNext('music');
+      await music.userPrevious('music');
+      final events = await collect.take();
+      expect(events.map((e) => e.object3), [
+        'play',
+        'pause',
+        'next',
+        'previous',
+      ]);
+      expect(events.map((e) => e.object2), [
+        '0.mp3',
+        '0.mp3',
+        '0.mp3',
+        '1.mp3',
+      ]);
+      expect(jsonDecode(events.first.extData)['open_id'], open);
+      await music.next();
+      await music.pause();
+      expect(await collect.take(), isEmpty);
+      music.analytics!.endOpen(open);
+      await music.userToggle('dock');
+      final dock = (await collect.take()).single;
+      expect(jsonDecode(dock.extData), {'source': 'dock'});
+    },
+  );
 
   test(
     'catalogue loads are deduplicated and cached without creating decoders',

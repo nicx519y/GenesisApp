@@ -5,7 +5,7 @@ import '../../../network/models/world.dart';
 import '../../../network/models/world_history.dart';
 import '../../../network/json_utils.dart';
 import '../../../utils/genesis_ugc_text.dart';
-import 'world_history_tick_participation.dart';
+import 'world_history_section_participation.dart';
 
 /// Metadata has a separate lifetime from archive bodies. World clock, loading
 /// and Tick count changes reuse these maps without walking characters per row.
@@ -111,7 +111,8 @@ class HistoryMetadata {
 }
 
 class HistoryDisplayRow {
-  HistoryDisplayRow(this.message, this.locationId);
+  HistoryDisplayRow(this.message, this.locationId, this.sectionId);
+  final String sectionId;
   final WorldHistoryMessage message;
   final String locationId;
   // Length-prefixed IDs avoid collisions without converting numeric strings.
@@ -139,6 +140,7 @@ class WorldHistoryProjection {
   List<ChatMessageVm> _messages = const [];
   int get cacheSize => _cache.length;
   int parsedMessageCount = 0;
+  int parsedTickCount = 0;
 
   List<ChatMessageVm> project({
     required Iterable<WorldHistoryMessage> newestFirst,
@@ -146,7 +148,7 @@ class WorldHistoryProjection {
     required WorldDetail world,
     required String uid,
     required int appVersion,
-    Map<String, Set<String>>? tickUserLocations,
+    HistorySectionParticipation? sectionParticipation,
   }) {
     metadata.update(world, uid);
     if (_dataRevision == dataRevision &&
@@ -165,17 +167,28 @@ class WorldHistoryProjection {
       unique.putIfAbsent(row.id, () => row);
     }
     final participation =
-        tickUserLocations ??
-        historyTickUserLocations(summarizeHistoryTickActivity(unique.values));
-    rows = [
-      for (final row in unique.values.toList().reversed)
-        if (row.minAppVersion <= appVersion || row.minAppVersion == 0)
-          for (final location
-              in row.locationRefs.isEmpty ? [''] : row.locationRefs.toSet())
-            if (row.type != 'tick' ||
-                (participation[row.id]?.contains(location) ?? false))
-              HistoryDisplayRow(row, location),
-    ];
+        sectionParticipation ??
+        (HistorySectionParticipation(appVersion: appVersion)
+          ..appendOlder(unique.values));
+    rows = [];
+    String? previousLocation;
+    var sectionId = '';
+    for (final row in unique.values.toList().reversed) {
+      if (row.minAppVersion > appVersion) continue;
+      for (final location
+          in row.locationRefs.isEmpty ? [''] : row.locationRefs.toSet()) {
+        // Determine sections before hiding Ticks. An omitted all-Tick section
+        // must not merge separate visits to the same location on either side.
+        if (previousLocation != location) {
+          sectionId = 'section:${row.id.length}:${row.id}:$location';
+          previousLocation = location;
+        }
+        if (row.type != 'tick' ||
+            participation.includesTick(row.id, location)) {
+          rows.add(HistoryDisplayRow(row, location, sectionId));
+        }
+      }
+    }
     byId = {for (final row in rows) row.id: row};
     _cache.removeWhere((id, _) => !byId.containsKey(id));
     _rendered.removeWhere((id, _) => !byId.containsKey(id));
@@ -231,31 +244,37 @@ class WorldHistoryProjection {
     }
     parsedMessageCount++;
     final character = metadata.characters[row.senderId];
-    final tick = row.tick;
     final mine = row.type == 'user' && _uid.isNotEmpty && row.userId == _uid;
     final vm = ChatMessageVm(
       localId: display.id,
-      // Unknown server numbers stay unnumbered; pagination is not a Tick ID.
-      tickNo: row.type == 'tick' ? row.tickNo ?? -1 : 0,
-      subTickNo: row.type == 'tick' ? row.subTickNo ?? 0 : 0,
+      // History v1.1 supplies stored tick/sub_tick values, including Tick 0.
+      tickNo: row.type == 'tick' ? row.tickNo : 0,
+      subTickNo: row.type == 'tick' ? row.subTickNo : 0,
       senderId: row.senderId,
       senderName:
           character?.name ?? normalizeGenesisUgcTextForDisplay(row.senderName),
       avatarUrl: character?.imageUrl ?? '',
       isPlayerControlledRole: mine || (character?.isPlayerControlled ?? false),
       text: row.content,
-      currentTime: tick?.currentTime ?? row.currentTime,
+      currentTime: row.currentTime,
       isMe: mine,
       status: 'sent',
       senderType: row.type,
       messageType: row.messageType,
       createdAt: row.createdAt,
       imageUrl: row.messageType == 'image' ? row.content.trim() : '',
-      timelinePayload: row.type != 'tick'
+      deferredTick: row.type != 'tick'
           ? null
-          : tick == null
-          ? ChatTickPayloadVm(fallbackContent: row.content)
-          : _tick(tick, display.locationId),
+          : () {
+              parsedTickCount++;
+              final tick = row.tick;
+              return (
+                payload: tick == null
+                    ? ChatTickPayloadVm(fallbackContent: row.content)
+                    : _tick(tick, display.locationId),
+                currentTime: tick?.currentTime ?? row.currentTime,
+              );
+            },
     );
     if (current) {
       _cache[display.id] = (row, metadata.revision, _uid, vm);

@@ -16,6 +16,8 @@ class _WorldHistoryLoader {
   String get readingLocationId => cache.readingLocationId;
   set readingLocationId(String value) => cache.readingLocationId = value;
   bool _scheduled = false;
+  bool _protectScheduled = false;
+  int _recoveredRevision = -1;
   int _scheduleGeneration = 0;
 
   Object? _reportedError;
@@ -34,6 +36,7 @@ class _WorldHistoryLoader {
   void bind() {
     cache.controller ??= WorldHistoryController(
       worldId: owner.widget.worldId,
+      appVersion: owner._messageAppVersion,
       fetch: AppServicesScope.read(owner.context).api.getWorldHistory,
     );
     if (identical(_listenedController, controller)) return;
@@ -43,6 +46,7 @@ class _WorldHistoryLoader {
 
   void _changed() {
     final state = controller!;
+    if (state.awaitingUserContinuation) _idleTimer?.cancel();
     if (state.snapshot != cache.snapshot) {
       cache.snapshot = state.snapshot;
       projection.clear();
@@ -141,7 +145,7 @@ class _WorldHistoryLoader {
       world: owner.widget.world,
       uid: owner.widget.currentUid,
       appVersion: owner._messageAppVersion,
-      tickUserLocations: state?.tickUserLocations,
+      sectionParticipation: state?.sectionParticipation,
     );
     _boundaryKeys.removeWhere((id, _) => !projection.byId.containsKey(id));
     if (_readingId == null && result.isNotEmpty) {
@@ -152,9 +156,83 @@ class _WorldHistoryLoader {
 
   String locationFor(ChatMessageVm message) =>
       projection.byId[message.localId]?.locationId ?? '';
+  String? sectionFor(ChatMessageVm message) =>
+      projection.byId[message.localId]?.sectionId;
+
+  void cancelScheduledLoad() => _idleTimer?.cancel();
+
   void visible(Set<String> ids) {
     _visibleIds = ids;
-    _protectReading();
+    _scheduleProtectReading();
+  }
+
+  void _scheduleProtectReading() {
+    if (_protectScheduled) return;
+    _protectScheduled = true;
+    final generation = _scheduleGeneration;
+    scheduleMicrotask(() {
+      _protectScheduled = false;
+      if (!owner.mounted || generation != _scheduleGeneration || !enabled) {
+        return;
+      }
+      _protectReading();
+    });
+  }
+
+  // Normal replacement lets the shared viewport retain surviving visible
+  // anchors. Only an entirely lost visible range needs an explicit reveal.
+  void restoreReading() {
+    final state = controller;
+    if (state == null || state.revision == _recoveredRevision) return;
+    _recoveredRevision = state.revision;
+    if (state.updatedPage == null ||
+        _readingId == null ||
+        projection.byId.containsKey(_readingId)) {
+      return;
+    }
+    final retained = projection.rows.where(
+      (row) => _visibleIds.contains(row.id),
+    );
+    if (retained.isNotEmpty) {
+      _readingId = retained.first.id;
+      _scheduleProtectReading();
+      return;
+    }
+    final candidates = projection.rows
+        .where((row) => state.pageFor(row.message.id) == state.updatedPage)
+        .toList();
+    if (candidates.isEmpty) {
+      _readingId = null;
+      return;
+    }
+    var target =
+        (state.updatedTowardNewer ? candidates.first : candidates.last).id;
+    // A collapsed section is represented by its header, never a hidden body.
+    target = owner._historySections.visibleAnchorFor(target);
+    final generation = owner._scrollCoordinator.commandGeneration;
+    final revision = state.revision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!owner.mounted ||
+          !enabled ||
+          !identical(state, controller) ||
+          state.revision != revision ||
+          owner._scrollCoordinator.commandGeneration != generation ||
+          !projection.byId.containsKey(target)) {
+        return;
+      }
+      final command = owner._scrollCoordinator.beginHistoryNavigation();
+      owner._update(() {
+        _readingId = target;
+        owner._historySections.reveal = (generation: command, localId: target);
+      });
+      _scheduleProtectReading();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (owner.mounted &&
+            owner._historySections.reveal?.generation == command) {
+          owner._historySections.reveal = null;
+        }
+      });
+    });
   }
 
   void _protectReading() {
@@ -181,7 +259,7 @@ class _WorldHistoryLoader {
     if (location != readingLocationId) {
       owner._update(() => readingLocationId = location);
     }
-    _protectReading();
+    _scheduleProtectReading();
   }
 
   // Empty/version-filtered pages are deliberately manual, never auto-scanned.
@@ -190,7 +268,7 @@ class _WorldHistoryLoader {
     _idleTimer?.cancel();
     final scroll = owner._scrollCoordinator.controller;
     if (!enabled ||
-        owner._returningToBottom ||
+        (controller?.awaitingUserContinuation ?? false) ||
         loading ||
         failed ||
         !ready ||

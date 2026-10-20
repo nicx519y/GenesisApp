@@ -164,6 +164,7 @@ extension _WorldPageLayout on _WorldPageState {
                       () => showMiniPhone(
                         context,
                         session: phone,
+                        entrySource: 'world_dock',
                         worldId: world.worldId,
                         modelCache: _locationChatPageCache.memoryModelPageCache,
                       ),

@@ -199,18 +199,15 @@ class PhonePost {
       currentTime = phoneText(j['current_time']),
       publishedAt = phoneText(j['published_at']),
       likeCount = phoneCount(j['like_count']),
-      commentCount = phoneCount(j['comment_count']),
       isLiked = j['is_liked'] == true,
-      // Optional extension: absence must not trigger per-post detail requests.
-      commentsPreview = phoneList(
-        j['comments_preview'] ?? [],
-        PhoneComment.fromJson,
-      );
-  final int id, likeCount, commentCount;
+      comments = phoneList(j['comments'], PhoneComment.fromJson);
+  final int id, likeCount;
   final String worldId, text, image, currentTime, publishedAt;
   final PhonePerson author;
   final bool isLiked;
-  final List<PhoneComment> commentsPreview;
+
+  /// Latest comments and replies, newest first; the feed returns at most four.
+  final List<PhoneComment> comments;
 }
 
 class PhoneDetailComment {

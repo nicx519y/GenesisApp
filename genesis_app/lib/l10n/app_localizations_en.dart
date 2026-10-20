@@ -3240,4 +3240,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get miniPhonePublish => 'Post';
+
+  @override
+  String get miniPhoneViewAllComments => 'View all comments';
 }

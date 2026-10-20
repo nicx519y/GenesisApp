@@ -3240,6 +3240,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get miniPhonePublish => 'Post';
+
+  @override
+  String get miniPhoneViewAllComments => 'View all comments';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6327,4 +6330,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get miniPhonePublish => '發布';
+
+  @override
+  String get miniPhoneViewAllComments => '查看所有留言';
 }

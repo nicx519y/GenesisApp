@@ -4348,5 +4348,9 @@
   "worldHistoryContinueHere": "Continua qui",
   "@worldHistoryContinueHere": {
     "description": "World detail History tab: heading above the location card at the end of each location's most recent chat segment. Tapping the card opens that location's live chat to continue the story."
+  },
+  "miniPhoneViewAllComments": "Visualizza tutti i commenti",
+  "@miniPhoneViewAllComments": {
+    "description": "MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count."
   }
 }

@@ -130,11 +130,11 @@ Widget miniPhoneAllAuthorsShortcut({
 Widget miniPhonePostAction(
   String icon,
   String label,
-  int count,
+  int? count,
   VoidCallback action, {
   bool selected = false,
 }) => Semantics(
-  label: '$label, $count',
+  label: count == null ? label : '$label, $count',
   button: true,
   toggled: icon == 'heart' ? selected : null,
   child: InkWell(
@@ -145,8 +145,13 @@ Widget miniPhonePostAction(
         mainAxisSize: MainAxisSize.min,
         children: [
           MiniIcon(icon, size: 15, color: selected ? miniPink : miniSecondary),
-          const SizedBox(width: 6),
-          Text('$count', style: miniStyle(12, FontWeight.w400, miniSecondary)),
+          if (count != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: miniStyle(12, FontWeight.w400, miniSecondary),
+            ),
+          ],
         ],
       ),
     ),

@@ -151,7 +151,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
                 child: MiniPhoneEntryBubble(
                   avatar: _arriving ? _arrivalAvatar : null,
                   playRequested: _music.playRequested,
-                  onTap: _music.toggle,
+                  onTap: () => _music.userToggle('dock'),
                 ),
               ),
             ),

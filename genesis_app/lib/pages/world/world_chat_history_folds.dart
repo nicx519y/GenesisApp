@@ -1,10 +1,10 @@
 part of '../chat/location_chat_page.dart';
 
 class _WorldHistoryFold {
-  const _WorldHistoryFold(this.id, this.locationId, this.messages);
+  const _WorldHistoryFold(this.id, this.locationId, this.messageIds);
   final String id;
   final String locationId;
-  final List<ChatMessageVm> messages;
+  final List<String> messageIds;
 }
 
 /// A view-only fold plan: canonical messages and reply state stay untouched.
@@ -18,14 +18,14 @@ class _WorldHistoryFolds {
   Map<String, _WorldHistoryFold> _latestByLocation = {};
   Set<String> hidden = {};
   Set<String> get _collapsedMessages => owner._cache.collapsedMessages;
-  List<ChatMessageVm>? _lastMessages;
+  List<HistoryDisplayRow>? _lastRows;
   Map<String, String> _expandedHeaders = {};
   ({int generation, String localId})? reveal;
 
   void reset() {
     expanded.clear();
     _collapsedMessages.clear();
-    _lastMessages = null;
+    _lastRows = null;
     _expandedHeaders = {};
     _byMessage.clear();
     _byId.clear();
@@ -34,51 +34,50 @@ class _WorldHistoryFolds {
     reveal = null;
   }
 
-  void project(List<ChatMessageVm> messages) {
-    if (!owner._worldHistory.ready || identical(messages, _lastMessages)) {
+  void project(List<HistoryDisplayRow> rows) {
+    if (!owner._worldHistory.ready || identical(rows, _lastRows)) {
       return;
     }
-    _lastMessages = messages;
+    _lastRows = rows;
     final nextByMessage = <String, _WorldHistoryFold>{};
     final nextById = <String, _WorldHistoryFold>{};
     final nextHidden = <String>{};
     var start = 0;
-    while (start < messages.length) {
-      final first = messages[start];
-      final room = owner._worldHistory.locationFor(first);
+    while (start < rows.length) {
+      final first = rows[start];
+      final room = first.locationId;
+      final sectionId = first.sectionId;
       var end = start + 1;
-      while (end < messages.length &&
-          !messages[end].isAiContentDisclaimer &&
-          owner._worldHistory.locationFor(messages[end]) == room) {
+      while (end < rows.length && rows[end].sectionId == sectionId) {
         end++;
       }
-      if (!first.isAiContentDisclaimer && room.isNotEmpty) {
-        final rows = messages.sublist(start, end);
+      if (room.isNotEmpty) {
+        final ids = [for (var i = start; i < end; i++) rows[i].id];
         // Earlier pagination can prepend rows to an existing visit. Keep its
         // identity/expansion by overlap instead of re-keying by array index.
-        final retained = rows
-            .map((m) => _byMessage[m.localId])
+        final retained = ids
+            .map((id) => _byMessage[id])
             .whereType<_WorldHistoryFold>()
             .where((s) => s.locationId == room && !nextById.containsKey(s.id))
             .firstOrNull;
         final section = _WorldHistoryFold(
-          retained?.id ?? 'history-section:${rows.last.localId}',
+          retained?.id ?? 'history-section:${ids.last}',
           room,
-          rows,
+          ids,
         );
         // Open newly discovered visits, including older pages. Rebuilds keep
         // the user's explicit collapse choice for an existing visit.
         if (retained == null &&
             !_byId.containsKey(section.id) &&
-            !rows.any((m) => _collapsedMessages.contains(m.localId))) {
+            !ids.any(_collapsedMessages.contains)) {
           expanded.add(section.id);
         }
         nextById[section.id] = section;
-        for (final row in rows) {
-          nextByMessage[row.localId] = section;
+        for (final id in ids) {
+          nextByMessage[id] = section;
         }
         if (!expanded.contains(section.id)) {
-          nextHidden.addAll(rows.skip(1).map((m) => m.localId));
+          nextHidden.addAll(ids.skip(1));
         }
       }
       start = end;
@@ -95,7 +94,7 @@ class _WorldHistoryFolds {
 
   _WorldHistoryFold? headerFor(ChatMessageVm message) {
     final section = _byMessage[message.localId];
-    return section?.messages.first.localId == message.localId ? section : null;
+    return section?.messageIds.first == message.localId ? section : null;
   }
 
   String? continueLocationFor(ChatMessageVm message) {
@@ -106,10 +105,17 @@ class _WorldHistoryFolds {
           section.locationId,
         ) ||
         _latestByLocation[section.locationId]?.id != section.id ||
-        section.messages.last.localId != message.localId) {
+        section.messageIds.last != message.localId) {
       return null;
     }
     return section.locationId;
+  }
+
+  String visibleAnchorFor(String id) {
+    final section = _byMessage[id];
+    return section != null && !expanded.contains(section.id)
+        ? section.messageIds.first
+        : id;
   }
 
   Map<String, String> get expandedHeaders => _expandedHeaders;
@@ -117,8 +123,7 @@ class _WorldHistoryFolds {
     _expandedHeaders = {
       for (final section in _byId.values)
         if (expanded.contains(section.id))
-          for (final message in section.messages)
-            message.localId: section.messages.first.localId,
+          for (final id in section.messageIds) id: section.messageIds.first,
     };
   }
 
@@ -151,7 +156,7 @@ class _WorldHistoryFolds {
     owner._update(() {
       final opening = expanded.add(section.id);
       if (!opening) expanded.remove(section.id);
-      final ids = current.messages.map((m) => m.localId);
+      final ids = current.messageIds;
       if (opening) {
         _collapsedMessages.removeAll(ids);
       } else {
@@ -164,12 +169,9 @@ class _WorldHistoryFolds {
         hidden.addAll(ids.skip(1));
       }
       _updateHeaders();
-      reveal = (
-        generation: generation,
-        localId: current.messages.first.localId,
-      );
+      reveal = (generation: generation, localId: current.messageIds.first);
     });
-    owner._worldHistory.reading(current.messages.first.localId);
+    owner._worldHistory.reading(current.messageIds.first);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!owner.mounted || reveal?.generation != generation) return;
       // Shared coordinator retains the navigation anchor through layout.

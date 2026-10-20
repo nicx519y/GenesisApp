@@ -57,8 +57,8 @@ class WorldHistoryMessage {
     required this.currentTime,
     required this.createdAt,
     required this.locationRefs,
-    this.tickNo,
-    this.subTickNo,
+    required this.tickNo,
+    required this.subTickNo,
   });
   final String id,
       type,
@@ -71,8 +71,8 @@ class WorldHistoryMessage {
   final int minAppVersion;
   final DateTime createdAt;
   final List<String> locationRefs;
-  // Optional server-provided labels. Never derive these from message order.
-  final int? tickNo, subTickNo;
+  // Stored message tick/sub_tick values, including zero. Never infer from order.
+  final int tickNo, subTickNo;
   // Lazy and owned by the raw page. Metadata updates never decode again.
   late final WorldHistoryTick? tick = type == 'tick'
       ? WorldHistoryTick.tryDecode(content)
@@ -81,10 +81,14 @@ class WorldHistoryMessage {
 
   factory WorldHistoryMessage.fromJson(Map<String, dynamic> json) {
     final version = json['min_app_version'];
+    final tickNo = json['tick'];
+    final subTickNo = json['sub_tick'];
     final userId = json['user_id'];
     final created = _string(json, 'created_at');
     final date = DateTime.tryParse(created);
-    if (version is! int ||
+    if (tickNo is! int ||
+        subTickNo is! int ||
+        version is! int ||
         version < 0 ||
         (userId != null && userId is! String) ||
         date == null ||
@@ -103,14 +107,11 @@ class WorldHistoryMessage {
       currentTime: _string(json, 'current_time'),
       createdAt: date,
       locationRefs: _strings(json['location_refs'], nullable: false),
-      tickNo: _optionalTickNumber(json['tick_no']),
-      subTickNo: _optionalTickNumber(json['sub_tick_no'] ?? json['subtick_no']),
+      tickNo: tickNo,
+      subTickNo: subTickNo,
     );
   }
 }
-
-int? _optionalTickNumber(Object? value) =>
-    value is int && value >= 0 ? value : null;
 
 class WorldHistoryTick {
   WorldHistoryTick._(Map<String, dynamic> json)

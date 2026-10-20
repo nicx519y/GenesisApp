@@ -15,6 +15,7 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 
 import '../../support/mini_phone_chat_backend.dart';
 import '../../support/mini_phone_memory_cache.dart';
+import '../../support/mini_phone_collect_probe.dart';
 
 class _FailingPreferences extends InMemorySharedPreferencesStore {
   _FailingPreferences() : super.empty();
@@ -53,6 +54,8 @@ void main() {
     test(
       'journal failure ($returnsFalse) blocks send and preserves retry ID',
       () async {
+        final collect = MiniPhoneCollectProbe();
+        addTearDown(collect.dispose);
         final b = PhoneBackend(), s = b.store();
         addTearDown(s.dispose);
         await s.ready;
@@ -61,6 +64,10 @@ void main() {
           ..fail = true;
         expect(await s.write('dm', 'c', 'Keep my draft'), isFalse);
         expect(b.calls('dm/send'), isEmpty);
+        expect((await collect.take()).map((e) => e.object3), [
+          'submit',
+          'local_failed',
+        ]);
         final request = s.pending['dm:c']!;
         expect(request.content, 'Keep my draft');
         expect(request.uncertain, isTrue);
@@ -71,6 +78,10 @@ void main() {
         prefs.fail = false;
         expect(await s.write('dm', 'c', 'Keep my draft', retry: true), isTrue);
         expect(s.pending['dm:c']!.id, request.id);
+        expect((await collect.take()).map((e) => e.object3), [
+          'submit',
+          'accepted',
+        ]);
         expect(b.calls('dm/send'), hasLength(1));
         expect(s.errors.containsKey('journal'), isFalse);
         await s.writesSaved;

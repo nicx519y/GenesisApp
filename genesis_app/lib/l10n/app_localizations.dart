@@ -5436,6 +5436,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Post'**
   String get miniPhonePublish;
+
+  /// MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count.
+  ///
+  /// In en, this message translates to:
+  /// **'View all comments'**
+  String get miniPhoneViewAllComments;
 }
 
 class _AppLocalizationsDelegate

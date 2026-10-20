@@ -177,7 +177,7 @@ void main() {
         await c.loadNewer();
         c.updateReading(messageId: '$i-a', pinnedIds: ['$i-a']);
         expect(c.residentCount, lessThanOrEqualTo(6));
-        expect(calls.last, i == 0 ? null : 'page-$i');
+        expect(calls.last, i == 0 ? 'page-1' : 'page-$i');
       }
       expect(c.hasNewer, isFalse);
       expect(c.hasOlder, isTrue);
@@ -215,6 +215,97 @@ void main() {
       expect(c.newestFirst.map((m) => m.id), ids);
       expect(c.hasNewer, isTrue);
       expect(c.failed, isTrue);
+    },
+  );
+  test(
+    'return to bottom restores original first page without network',
+    () async {
+      final calls = <String?>[];
+      var offline = false;
+      var latestId = 'entry';
+      final c = WorldHistoryController(
+        worldId: 'w',
+        maxMessages: 2,
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async {
+              calls.add(cursor);
+              if (offline) throw StateError('offline');
+              final page = cursor == null ? 0 : int.parse(cursor);
+              return historyPage([
+                page == 0 ? latestId : '$page',
+              ], cursor: '${page + 1}');
+            },
+      );
+      addTearDown(c.dispose);
+      c.setActive(true);
+      await c.refresh();
+      for (var i = 1; i <= 5; i++) {
+        await c.loadOlder();
+        c.updateReading(messageId: '$i');
+      }
+      expect(c.pages.first.messages, isNull);
+      c.setActive(false);
+      c.setActive(
+        true,
+      ); // Closing/reopening History retains the World snapshot.
+      latestId = 'new-server-message';
+      offline = true;
+      await c.loadOlder(); // Even an unrelated failed read can be left behind.
+      expect(c.failed, isTrue);
+      final before = calls.length;
+      final snapshot = c.snapshot;
+      expect(c.returnToNewest(), isTrue);
+      expect(calls.length, before);
+      expect(c.newestFirst.single.id, 'entry');
+      expect(c.snapshot, snapshot);
+      expect(c.hasNewer, isFalse);
+      expect(c.failed, isFalse);
+      expect(c.hasOlder, isTrue);
+      expect(c.returnToNewest(), isTrue);
+      expect(calls.length, before);
+      c.clear(); // World disposal/account isolation releases the saved page.
+      expect(c.returnToNewest(), isFalse);
+      offline = false;
+      await c.refresh();
+      expect(c.newestFirst.single.id, 'new-server-message');
+    },
+  );
+
+  test(
+    'section participation survives eviction and reload, resets with World',
+    () async {
+      final c = WorldHistoryController(
+        worldId: 'w',
+        maxMessages: 2,
+        appVersion: 999,
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async {
+              final page = cursor == null ? 0 : int.parse(cursor);
+              return WorldHistoryPage(
+                worldId: 'w',
+                hasMore: true,
+                cursor: '${page + 1}',
+                messages: [
+                  historyMessage('$page', type: page == 0 ? 'user' : 'tick'),
+                ],
+              );
+            },
+      );
+      addTearDown(c.dispose);
+      c.setActive(true);
+      await c.refresh();
+      for (var i = 1; i <= 5; i++) {
+        await c.loadOlder();
+        c.updateReading(messageId: '$i');
+      }
+      expect(c.pages.first.messages, isNull);
+      expect(c.sectionParticipation.includesTick('5', 'A'), isTrue);
+      await c.loadNewer();
+      expect(c.sectionParticipation.includesTick('5', 'A'), isTrue);
+      expect(c.returnToNewest(), isTrue);
+      expect(c.sectionParticipation.includesTick('5', 'A'), isTrue);
+      c.clear();
+      expect(c.sectionParticipation.includesTick('5', 'A'), isFalse);
     },
   );
 }

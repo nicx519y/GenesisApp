@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: 客户端 World 主线历史
+  version: 1.1.0
+paths:
+  /aitown-chat/api/v1/world/history:
+    get:
+      summary: 分页读取整个 World 的完整主线历史
+      description: |
+        登录用户为 World 创建者或当前有效成员时可读，每页重新校验。无需角色绑定或会员资格。
+        只读取主线历史，不含小手机私聊、累计摘要，也不受模型记忆窗口限制。
+        消息按服务端从新到旧顺序返回，客户端不可根据展示时间重新推导顺序。
+        一条 Tick 只占一条，其全部实际地点关联一次返回；后新增地点不自动获得旧 Tick。
+        已删除、生成占位和内部续写触发记录不返回。新消息不会推移已有分页边界；跨页不冻结编辑、删除或补写。
+      security:
+        - SessionHeader: []
+        - SessionCookie: []
+      parameters:
+        - in: query
+          name: world_id
+          required: true
+          description: World ID；服务端从登录态取得当前 UID，不接受客户端指定身份。
+          schema: {type: string, minLength: 1, maxLength: 32}
+        - in: query
+          name: cursor
+          description: 首次不传，后续原样传回；游标绑定 World，切换 World 必须重置。
+          schema: {type: string, maxLength: 512}
+        - in: query
+          name: limit
+          description: 每页主消息数，同一消息关联多个地点也只计一条。
+          schema: {type: integer, default: 20, minimum: 1, maximum: 100}
+      responses:
+        '200':
+          description: |
+            err_no=0 表示成功；业务错误沿用统一信封，data 为 {}，不得视为空历史。
+            10001 未登录，1001 参数或游标无效，10011 无权访问，1404 世界不存在，
+            3103 权限查询失败，5002 历史查询失败，5003 权限服务异常或超时。
+          headers:
+            Cache-Control:
+              description: 成功和失败均禁止缓存。
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Success'
+                  - $ref: '#/components/schemas/Failure'
+              examples:
+                empty:
+                  value: {err_no: 0, err_msg: succ, data: {world_id: w_001, messages: [], has_more: false, cursor: ''}}
+                denied:
+                  value: {err_no: 10011, err_msg: You do not have permission to perform this action, data: {}}
+components:
+  securitySchemes:
+    SessionHeader:
+      type: http
+      scheme: bearer
+      description: 现有登录 session_id。
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: AIUSS
+      description: 现有登录 Cookie；Authorization 优先。
+  schemas:
+    Success:
+      type: object
+      required: [err_no, err_msg, data]
+      properties:
+        err_no: {type: integer, enum: [0]}
+        err_msg: {type: string, example: succ}
+        data:
+          type: object
+          required: [world_id, messages, has_more, cursor]
+          properties:
+            world_id: {type: string, description: 本次查询的 World ID}
+            messages:
+              type: array
+              description: 本页主消息，按服务端从新到旧顺序返回。
+              items: {$ref: '#/components/schemas/Message'}
+            has_more: {type: boolean, description: World 是否还有更早消息，不代表单个地点的历史是否结束}
+            cursor: {type: string, description: 下一页不透明游标；没有下一页时为空字符串}
+    Failure:
+      type: object
+      required: [err_no, err_msg, data]
+      properties:
+        err_no: {type: integer, not: {enum: [0]}}
+        err_msg: {type: string, description: 按请求语言展示的错误文案}
+        data: {type: object, additionalProperties: false}
+    Message:
+      type: object
+      additionalProperties: false
+      required: [global_message_id, type, tick, sub_tick, sender_id, sender_name, user_id, message_type, content, min_app_version, current_time, created_at, location_refs]
+      properties:
+        global_message_id: {type: string, description: 主消息唯一 ID，用于去重；保持字符串避免大整数精度丢失}
+        type:
+          type: string
+          enum: [user, character, narrator, tick]
+          description: 消息来源；兼容历史 NPC 为 character、入场消息为 user、旧 Tick 事件及移动记录为 tick。
+        tick: {type: integer, format: int64, description: 消息保存时所属的主 Tick 序号，直接返回存储值；所有消息类型必返，0 不省略，不根据当前世界或相邻消息推算}
+        sub_tick: {type: integer, format: int64, description: 消息保存时所属的子 Tick 序号；主 Tick 为 0，子 Tick 为对应序号；所有消息类型必返，历史存储值为 0 时仍返回 0}
+        sender_id: {type: string, description: 发送方 ID}
+        sender_name: {type: string, description: 发送方展示名}
+        user_id: {type: string, nullable: true, description: 关联用户 UID；无关联时为 null}
+        message_type: {type: string, enum: [text, image, narration], description: 正文类型；Tick 为 text，解析时必须同时判断 type}
+        content:
+          type: string
+          description: |
+            完整正文，直接放在顶层，不使用 payload。聚合 Tick 是 JSON 字符串，HTTP JSON 解码后再解析一次。
+            Tick 包含 current_time、global、可选 global_status、story_events、characters_moved，详见客户端对接文档。
+            地点事件正文为 story_events[].text，世界旁白为 global。历史 Tick 原文可能是纯文本或旧 JSON，非聚合对象按原文兼容。
+            tick、sub_tick 在消息顶层返回，不写入或改写 content；不添加 message_id、conversation_round_id、tick_no、subtick_no 或 sub_tick_no。
+        min_app_version: {type: integer, format: int64, description: 最低展示 App 版本号，0 表示无限制}
+        current_time: {type: string, description: 世界内展示时间，不作为排序或分页依据}
+        created_at: {type: string, format: date-time, description: 带时区的 RFC 3339 创建时间}
+        location_refs:
+          type: array
+          uniqueItems: true
+          description: 所有实际关联的 location_id；无关联为 []，不代表所有地点。不得从事件、角色移动或当前地点列表补齐。
+          items: {type: string}

@@ -52,6 +52,48 @@ void main() {
       expect(asset.image, image);
     },
   );
+  test(
+    'posts parse embedded newest-first comments without a total count',
+    () async {
+      final b = PhoneBackend();
+      const newestId = 9007199254740993;
+      b.respond = (_) => ok(
+        page([
+          {
+            ...phonePost(),
+            'comments': [
+              for (var offset = 0; offset < 4; offset++)
+                {
+                  'comment_id': newestId - offset,
+                  'post_id': 8,
+                  'author_type': 2,
+                  'author_id': 'c',
+                  'author_name': 'Character',
+                  'text': 'Reply $offset',
+                  'comment_type': 2,
+                  'reply_to_comment_id': newestId - 4,
+                  'reply_to_char_id': 'player-char',
+                  'published_at': '2026-10-20T08:00:00Z',
+                },
+            ],
+          },
+        ]),
+      );
+      final post = (await b.api.posts('w')).list.single;
+      expect(post.comments.map((c) => c.id), [
+        newestId,
+        newestId - 1,
+        newestId - 2,
+        newestId - 3,
+      ]);
+      expect(post.comments.first.replyToCommentId, newestId - 4);
+      expect(post.comments.first.replyToCharId, 'player-char');
+      expect(post.comments.first.type, 2);
+      expect(b.requests, hasLength(1));
+      b.respond = (_) => ok(page([phonePost()]));
+      expect((await b.api.posts('w')).list.single.comments, isEmpty);
+    },
+  );
   test('local mock author list is empty and requires authentication', () async {
     final client = ApiClient(
       baseUrl: 'https://phone.example/',

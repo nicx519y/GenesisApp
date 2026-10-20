@@ -634,6 +634,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     required this.topTitle,
     this.restoreInitialCompletedContent = false,
     this.initialContentReady = true,
+    this.initialViewportPlaceholder,
     this.loadingAfterMessageLocalId,
     this.loadingIdentity,
     this.enterWaitingAfterMessageLocalId,
@@ -736,6 +737,10 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   /// populate the list after its first (empty) build.
   final bool restoreInitialCompletedContent;
   final bool initialContentReady;
+
+  /// Archives may keep a placeholder painted while lazy rows and the initial
+  /// bottom/reading anchor settle. The real list still lays out underneath.
+  final Widget? initialViewportPlaceholder;
   final String? loadingAfterMessageLocalId;
   final String? loadingIdentity;
 
@@ -851,6 +856,47 @@ class _LocationChatAnchoredMessageListState
       widget.viewportCache?.geometry ?? LocationChatGeometryCache();
   ({String localId, double viewportOffset})? _restoringViewport;
   int? _restoreViewportGeneration;
+  late bool _initialViewportReady = widget.initialViewportPlaceholder == null;
+  bool _initialViewportCheckScheduled = false;
+  Object? _initialViewportGeometry;
+
+  void _scheduleInitialViewportReveal() {
+    if (_initialViewportReady ||
+        _initialViewportCheckScheduled ||
+        !widget.active) {
+      return;
+    }
+    _initialViewportCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialViewportCheckScheduled = false;
+      if (!mounted || !widget.active) return;
+      final coordinator = widget.coordinator;
+      if (!coordinator.controller.hasClients) return;
+      final position = coordinator.controller.position;
+      if (!position.hasContentDimensions || !widget.initialContentReady) return;
+      final geometry = (
+        position.viewportDimension,
+        _layoutEnvironment,
+        position.pixels,
+        position.maxScrollExtent,
+        // Include row boundaries: equal total height alone does not mean that
+        // the visible messages have finished replacing estimated extents.
+        Object.hashAll(_entryExtents.entries.map((e) => (e.key, e.value))),
+      );
+      final positioned =
+          coordinator.mode != LocationChatViewportMode.initializing &&
+          _restoringViewport == null &&
+          (coordinator.isReadingHistory || coordinator.isAtBottom);
+      if (positioned && geometry == _initialViewportGeometry) {
+        setState(() => _initialViewportReady = true);
+      } else {
+        _initialViewportGeometry = geometry;
+        // Request another actual layout, never a time-based delay. This also
+        // lets newly visible lazy rows refine the initial scroll destination.
+        setState(() {});
+      }
+    });
+  }
 
   void _resumeCachedViewport() {
     final anchor = widget.viewportCache?.anchor;
@@ -1131,7 +1177,7 @@ class _LocationChatAnchoredMessageListState
     _contentVisibilityScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _contentVisibilityScheduled = false;
-      if (!mounted || !widget.active) return;
+      if (!mounted || !widget.active || !_initialViewportReady) return;
       final viewport = _globalBounds(
         _scrollViewportKey.currentContext?.findRenderObject(),
       );
@@ -2743,6 +2789,7 @@ class _LocationChatAnchoredMessageListState
 
   @override
   Widget build(BuildContext context) {
+    _scheduleInitialViewportReveal();
     _scheduleContentVisibility();
     _scheduleDetachedAnchorSnapshot();
     final cardIds =
@@ -2843,7 +2890,7 @@ class _LocationChatAnchoredMessageListState
               _composerTailAnchor = null;
             }
           }
-          return ScrollConfiguration(
+          final messages = ScrollConfiguration(
             key: const ValueKey<String>(
               'location-chat-message-scroll-configuration',
             ),
@@ -2898,6 +2945,24 @@ class _LocationChatAnchoredMessageListState
                       ),
               ),
             ),
+          );
+          if (widget.initialViewportPlaceholder == null) return messages;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              ExcludeSemantics(
+                excluding: !_initialViewportReady,
+                child: IgnorePointer(
+                  ignoring: !_initialViewportReady,
+                  child: Opacity(
+                    opacity: _initialViewportReady ? 1 : 0,
+                    child: messages,
+                  ),
+                ),
+              ),
+              if (!_initialViewportReady)
+                Center(child: widget.initialViewportPlaceholder),
+            ],
           );
         },
       ),
@@ -3021,8 +3086,8 @@ class _LocationChatAnchoredMessageListState
                           _renderedMessages[entry].messageType,
                           _renderedMessages[entry].status,
                           _renderedMessages[entry].isMe,
-                          _renderedMessages[entry].timelinePayload,
-                          _renderedMessages[entry].currentTime,
+                          _renderedMessages[entry].timelinePayloadVersion,
+                          _renderedMessages[entry].currentTimeVersion,
                           widget.messageDecorationVersion?.call(
                             _renderedMessages[entry],
                             entry > 0 ? _renderedMessages[entry - 1] : null,
@@ -3043,6 +3108,9 @@ class _LocationChatAnchoredMessageListState
                         ),
                   pinned:
                       entry < 0 ||
+                      (!_initialViewportReady &&
+                          !widget.coordinator.isReadingHistory &&
+                          entry == entries.last) ||
                       _renderedMessages[entry].localId ==
                           _restoringViewport?.localId ||
                       _renderedMessages[entry].localId ==

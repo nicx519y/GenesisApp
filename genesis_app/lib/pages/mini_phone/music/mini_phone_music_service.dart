@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../network/models/music.dart';
 import '../../../platform/system_image_picker_activity.dart';
 import 'mini_phone_music_likes.dart';
+import '../state/mini_phone_analytics.dart';
 import 'mini_phone_music_progress.dart';
 
 /// A single foreground session with at most two native decoders. The standby
@@ -43,6 +44,7 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
     ),
   );
 
+  MiniPhoneAnalytics? analytics;
   final AudioPlayer Function() _playerFactory;
   final MiniPhoneMusicProgressStore? _progressStore;
   final SystemImagePickerActivity _pickerActivity;
@@ -367,6 +369,41 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  void _trackControl(String operation, String? source) {
+    if (source == null || _disposed || tracks.isEmpty || !_foreground) return;
+    analytics?.event(
+      'music_control',
+      target: track!.file,
+      stage: operation,
+      data: analytics!.context(source),
+    );
+  }
+
+  void trackLike(String file, bool liked) {
+    if (_disposed) return;
+    analytics?.event(
+      'music_like',
+      target: file,
+      stage: liked ? 'like' : 'unlike',
+      data: analytics!.context('music'),
+    );
+  }
+
+  Future<void> userToggle(String source) {
+    _trackControl(playRequested ? 'pause' : 'play', source);
+    return toggle();
+  }
+
+  Future<void> userNext(String source) {
+    _trackControl('next', source);
+    return next();
+  }
+
+  Future<void> userPrevious(String source) {
+    _trackControl('previous', source);
+    return previous();
+  }
+
   Future<void> toggle() {
     if (_disposed || tracks.isEmpty || !_foreground) return Future.value();
     activated = true;
@@ -406,8 +443,10 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(saveProgress());
   });
 
-  Future<void> next() =>
-      _switchTo(tracks.isEmpty ? 0 : (index + 1) % tracks.length);
+  Future<void> next() {
+    return _switchTo(tracks.isEmpty ? 0 : (index + 1) % tracks.length);
+  }
+
   Future<void> previous() {
     if (positionDuration > const Duration(seconds: 3)) {
       return _switchTo(index);

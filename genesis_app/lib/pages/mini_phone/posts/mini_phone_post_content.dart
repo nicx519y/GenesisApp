@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/genesis_localizations.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
 import '../shared/mini_phone_ui.dart';
@@ -19,13 +20,14 @@ class MiniPhonePostContent extends StatelessWidget {
     required this.time,
     required this.likeCount,
     required this.isLiked,
-    required this.commentCount,
+    this.commentCount,
     this.previews = const [],
     this.detail = false,
   });
   final MiniPhoneStore phone;
   final ValueChanged<int> onOpenPost;
-  final int id, likeCount, commentCount;
+  final int id, likeCount;
+  final int? commentCount;
   final PhonePerson author;
   final String text, image, time;
   final bool isLiked, detail;
@@ -106,6 +108,7 @@ class MiniPhonePostContent extends StatelessWidget {
                       () => phone.setLiked(
                         id,
                         !(phone.likeTargets[id] ?? isLiked),
+                        source: detail ? 'comments' : 'posts',
                       ),
                       selected: isLiked,
                     ),
@@ -155,10 +158,10 @@ class MiniPhonePostContent extends StatelessWidget {
                               ),
                             ),
                           ),
-                        if (commentCount > 3) ...[
+                        if (previews.length > 3) ...[
                           const SizedBox(height: 3),
                           Text(
-                            'View all $commentCount comments',
+                            context.l10n.miniPhoneViewAllComments,
                             style: miniStyle(12, FontWeight.w400, miniPink),
                           ),
                         ],

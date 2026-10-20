@@ -10,7 +10,9 @@ import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
+import 'package:genesis_flutter_android/network/models/world_history.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/world/history/world_history_controller.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import '../../../support/mini_phone_music_services.dart';
@@ -104,6 +106,102 @@ Future<void> frames(WidgetTester tester, [int count = 20]) async {
 }
 
 void main() {
+  testWidgets(
+    'fold grouping and offscreen geometry leave Tick bodies deferred',
+    (tester) async {
+      final backend = Backend()
+        ..rows = [
+          historyJson('user', type: 'user'),
+          for (var i = 0; i < 100; i++)
+            historyJson(
+              'tick-$i',
+              type: 'tick',
+              content: 'Long historical Tick $i',
+            ),
+        ];
+      final h = Harness(backend);
+      await tester.pumpWidget(h.build(historyWorld()));
+      await tester.pumpAndSettle();
+      final parsed = h.cache.projection.parsedTickCount;
+      expect(parsed, greaterThan(0));
+      expect(parsed, lessThan(100));
+      final builds = h.cache.controller!.residentIndexBuilds;
+      await tester.drag(
+        find.byType(CustomScrollView).first,
+        const Offset(0, 150),
+      );
+      await tester.pumpAndSettle();
+      expect(h.cache.controller!.residentIndexBuilds, builds);
+      expect(backend.requests.length, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await h.close(tester);
+    },
+  );
+
+  testWidgets(
+    'changed cursor restores a nearby row without walking the new chain',
+    (tester) async {
+      final h = Harness(Backend());
+      h.cache.bind(h.services, 'w', 'me');
+      h.cache.appVersion = 999;
+      var mutated = false;
+      final calls = <String?>[];
+      final c = WorldHistoryController(
+        worldId: 'w',
+        maxMessages: 6,
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async {
+              calls.add(cursor);
+              if (mutated) {
+                return WorldHistoryPage(
+                  worldId: 'w',
+                  messages: [
+                    historyMessage(
+                      'replacement',
+                      content: 'Nearby replacement',
+                    ),
+                  ],
+                  cursor: 'new-chain',
+                  hasMore: true,
+                );
+              }
+              final i = int.parse(cursor ?? '0');
+              return historyPage(['$i-a', '$i-b'], cursor: '${i + 1}');
+            },
+      );
+      c.setActive(true);
+      await c.refresh();
+      for (var i = 1; i <= 8; i++) {
+        await c.loadOlder();
+        c.updateReading(messageId: '$i-a');
+      }
+      h.cache.controller = c;
+      h.cache.started = true;
+      h.cache.snapshot = c.snapshot;
+      await tester.pumpWidget(h.build(historyWorld()));
+      await tester.pumpAndSettle();
+      expect(h.cache.readingId, isNotNull);
+      final before = calls.length;
+      mutated = true;
+      await c.loadNewer();
+      await tester.pumpAndSettle();
+      await frames(tester);
+      expect(c.failed, isFalse);
+      expect(find.text('Nearby replacement'), findsWidgets);
+      expect(h.cache.readingId, contains('replacement'));
+      expect(c.awaitingUserContinuation, isTrue);
+      expect(calls.length, before + 1);
+      expect(tester.takeException(), isNull);
+      await tester.drag(
+        find.byType(CustomScrollView).first,
+        const Offset(0, 120),
+      );
+      expect(c.awaitingUserContinuation, isFalse);
+      await h.close(tester);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -114,6 +212,182 @@ void main() {
               : null,
         );
   });
+  for (final rowCount in [1, 35]) {
+    testWidgets(
+      'History reveals the complete tail at a stable position ($rowCount rows)',
+      (tester) async {
+        tester.view.physicalSize =
+            const Size(390, 700) * tester.view.devicePixelRatio;
+        addTearDown(tester.view.resetPhysicalSize);
+        final b = Backend()
+          ..pending = Completer<void>()
+          ..rows = List.generate(
+            rowCount,
+            (i) => historyJson(
+              '$i',
+              content: i == 0
+                  ? 'Newest archive message. ' * (rowCount == 1 ? 1 : 45)
+                  : 'Older message $i. ' * (i % 5 + 1),
+            ),
+          );
+        final h = Harness(b);
+        await tester.pumpWidget(h.build(historyWorld()));
+        await frames(tester, 3);
+        b.pending!.complete();
+        b.pending = null;
+        final skeleton = find.byKey(
+          const ValueKey('world-history-loading-skeleton'),
+        );
+        final footer = find.byKey(const ValueKey('world-history-continue-A'));
+        bool preparedWithList = false;
+        int visibleFrames = 0;
+        Rect? firstFooter;
+        double? firstPixels;
+        for (var frame = 0; frame < 50 && visibleFrames < 12; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (find.byType(LocationChatAnchoredMessageList).evaluate().isEmpty) {
+            continue;
+          }
+          if (skeleton.evaluate().isNotEmpty) {
+            preparedWithList = true;
+            expect(visibleFrames, 0);
+            continue;
+          }
+          expect(footer, findsOneWidget);
+          final bounds = tester.getRect(footer);
+          expect(bounds.bottom, lessThanOrEqualTo(700));
+          expect(bounds.bottom, greaterThan(0));
+          expect(
+            h.scroll.offset,
+            closeTo(h.scroll.position.maxScrollExtent, 1),
+          );
+          firstFooter ??= bounds;
+          firstPixels ??= h.scroll.offset;
+          expect(bounds.top, closeTo(firstFooter.top, 0.5));
+          expect(h.scroll.offset, closeTo(firstPixels, 0.5));
+          visibleFrames++;
+        }
+        expect(preparedWithList, isTrue);
+        expect(visibleFrames, 12);
+        expect(b.requests, hasLength(1));
+        expect(tester.takeException(), isNull);
+        await h.close(tester);
+      },
+    );
+  }
+  testWidgets('Tick-only separator does not merge independent fold sections', (
+    tester,
+  ) async {
+    final b = Backend()
+      ..rows = [
+        historyJson('later-character'),
+        historyJson('later-tick', type: 'tick'),
+        historyJson('separator', type: 'tick', locations: ['B']),
+        historyJson('earlier-tick', type: 'tick'),
+        historyJson('user', type: 'user'),
+      ];
+    final h = Harness(b);
+    await tester.pumpWidget(h.build(historyWorld()));
+    await frames(tester);
+    final list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(list.messages.where((m) => m.isTick), hasLength(1));
+    expect(list.expandedHistoryHeaders.values.toSet(), hasLength(2));
+    expect(tester.takeException(), isNull);
+    await h.close(tester);
+  });
+
+  for (final hidden in [false, true]) {
+    testWidgets('History renders server main, sub and zero Tick labels', (
+      tester,
+    ) async {
+      final b = Backend()
+        ..rows = [
+          historyJson(
+            'sub',
+            type: 'tick',
+            tick: 7,
+            subTick: 3,
+            content: tickContent(),
+          ),
+          historyJson('main', type: 'tick', tick: 7, content: tickContent()),
+          historyJson('zero', type: 'tick', content: 'Legacy Tick body'),
+          historyJson('user', type: 'user', content: 'User participates'),
+        ];
+      final h = Harness(b);
+      await tester.pumpWidget(h.build(historyWorld()));
+      await frames(tester);
+      expect(find.text('Tick 7-3', findRichText: true), findsWidgets);
+      expect(find.text('Tick 7', findRichText: true), findsWidgets);
+      expect(find.textContaining('Tick 0', findRichText: true), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await h.close(tester);
+    });
+
+    testWidgets(
+      'bottom button restores cached first page with no HTTP (hidden: $hidden)',
+      (tester) async {
+        final h = Harness(Backend());
+        final world = historyWorld();
+        h.cache.bind(h.services, 'w', 'me');
+        var calls = 0;
+        final c = WorldHistoryController(
+          worldId: 'w',
+          maxMessages: 2,
+          appVersion: 999,
+          fetch:
+              ({
+                required worldId,
+                cursor,
+                limit = 20,
+                cancellationToken,
+              }) async {
+                calls++;
+                final page = cursor == null ? 0 : int.parse(cursor);
+                return WorldHistoryPage(
+                  worldId: 'w',
+                  hasMore: true,
+                  cursor: '${page + 1}',
+                  messages: [
+                    historyMessage(
+                      'page-$page',
+                      type: hidden && page > 0 ? 'tick' : 'user',
+                      locations: [page == 0 ? 'A' : 'B'],
+                    ),
+                  ],
+                );
+              },
+        );
+        h.cache.controller = c;
+        h.cache.started = true;
+        c.setActive(true);
+        await c.refresh();
+        for (var page = 1; page <= 5; page++) {
+          await c.loadOlder();
+          c.updateReading(messageId: 'page-$page');
+        }
+        expect(c.pages.first.messages, isNull);
+        await tester.pumpWidget(h.build(world));
+        await frames(tester);
+        if (hidden) expect(h.cache.projection.rows, isEmpty);
+        final before = calls;
+        final button = find.byKey(
+          const ValueKey('world-history-return-to-bottom'),
+        );
+        expect(button, findsOneWidget);
+        await tester.tap(button);
+        await frames(tester);
+        expect(calls, before);
+        expect(c.newestFirst.single.id, 'page-0');
+        expect(c.hasNewer, isFalse);
+        expect(button, findsNothing);
+        expect(tester.takeException(), isNull);
+        await h.close(tester);
+      },
+    );
+  }
+
   testWidgets(
     'first load uses a static skeleton, then cached reading resumes across sheets',
     (tester) async {
@@ -162,9 +436,21 @@ void main() {
       h.scroll.dispose();
       h.scroll = ScrollController();
       await tester.pumpWidget(h.build(world));
-      // The first painted frame already resumes at the cached position.
+      // Restoration happens underneath the placeholder. Every exposed frame
+      // must retain the saved reading coordinate, not just the settled result.
       expect(h.scroll.offset, closeTo(before, 1));
-      await frames(tester);
+      var restoredVisibleFrames = 0;
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (find
+            .byKey(const ValueKey('world-history-loading-skeleton'))
+            .evaluate()
+            .isEmpty) {
+          restoredVisibleFrames++;
+          expect(h.scroll.offset, closeTo(before, 1));
+        }
+      }
+      expect(restoredVisibleFrames, greaterThan(5));
       expect(b.requests.length, 1);
       expect(identical(h.cache.projection, projection), isTrue);
       expect(h.cache.viewport.anchor!.localId, anchor.localId);

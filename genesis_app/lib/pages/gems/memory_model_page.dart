@@ -45,9 +45,11 @@ class MemoryModelPage extends StatefulWidget {
     this.memorySettingsUpdater,
     this.pageCache,
     this.onBack,
+    this.enableCollectAnalytics = true,
   });
 
   final String worldId;
+  final bool enableCollectAnalytics;
   final GemModelCatalogLoader? catalogLoader;
   final GemModelSelectionHandler? selectionHandler;
   final SelectedModelCodeCacheWriter? selectedModelCodeCacheWriter;
@@ -148,6 +150,7 @@ class _MemoryModelPageState extends State<MemoryModelPage>
   }
 
   void _trackSwitchModelPage() {
+    if (!widget.enableCollectAnalytics) return;
     final worldId = widget.worldId.trim();
     if (worldId.isEmpty || worldId == _trackedPageWorldId) return;
     _trackedPageWorldId = worldId;
@@ -564,7 +567,7 @@ class _MemoryModelPageState extends State<MemoryModelPage>
     }
     _modelInFlightRevision = request.revision;
     try {
-      if (request.worldId.isNotEmpty) {
+      if (widget.enableCollectAnalytics && request.worldId.isNotEmpty) {
         GenesisTelemetry.collectLog(
           actionType: 'pay_event',
           action: 'switch_model_save',

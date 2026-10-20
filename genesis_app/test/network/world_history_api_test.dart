@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
+import 'package:genesis_flutter_android/network/models/world_history.dart';
 import '../pages/world/history/history_fixtures.dart';
 
 class Backend implements HttpTransport {
@@ -33,6 +34,46 @@ class Backend implements HttpTransport {
 
 void main() {
   test(
+    'v1.1 requires stored tick/sub_tick on every message type, preserving int64 and zero',
+    () {
+      for (final type in ['user', 'character', 'narrator', 'tick']) {
+        final zero = WorldHistoryMessage.fromJson(
+          historyJson('zero', type: type),
+        );
+        expect((zero.tickNo, zero.subTickNo), (0, 0));
+        final large = WorldHistoryMessage.fromJson({
+          ...historyJson(
+            'large',
+            type: type,
+            tick: 9007199254740993,
+            subTick: 3,
+          ),
+          'tick_no': 99,
+          'sub_tick_no': 88,
+          'subtick_no': 77,
+        });
+        expect((large.tickNo, large.subTickNo), (9007199254740993, 3));
+        for (final key in ['tick', 'sub_tick']) {
+          final missing = historyJson('missing', type: type)..remove(key);
+          expect(
+            () => WorldHistoryMessage.fromJson(missing),
+            throwsFormatException,
+          );
+          for (final invalid in [null, '7', 7.5]) {
+            expect(
+              () => WorldHistoryMessage.fromJson({
+                ...historyJson('bad', type: type),
+                key: invalid,
+              }),
+              throwsFormatException,
+            );
+          }
+        }
+      }
+    },
+  );
+
+  test(
     'facade uses chatroom client auth/interceptor, opaque cursor, string ID',
     () async {
       final b = Backend();
@@ -53,12 +94,18 @@ void main() {
       );
       b.data = {
         'world_id': 'w',
-        'messages': [historyJson('9007199254740993123123')],
+        'messages': [
+          historyJson('9007199254740993123123', tick: 7, subTick: 3),
+        ],
         'has_more': true,
         'cursor': ' opaque+/=中文 ',
       };
       final page = await api.getWorldHistory(worldId: 'w');
       expect(page.messages.single.id, '9007199254740993123123');
+      expect(
+        (page.messages.single.tickNo, page.messages.single.subTickNo),
+        (7, 3),
+      );
       expect(b.requests.single.uri.path, '/aitown-chat/api/v1/world/history');
       expect(b.requests.single.uri.queryParameters, {
         'world_id': 'w',

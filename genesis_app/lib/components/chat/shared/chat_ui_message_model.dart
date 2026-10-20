@@ -19,16 +19,21 @@ class ChatMessageVm {
     this.avatarUrl = '',
     this.avatarSnapshot,
     this.imageUrl = '',
-    this.timelinePayload,
+    ChatTimelinePayloadVm? timelinePayload,
+    ({ChatTickPayloadVm payload, String currentTime}) Function()? deferredTick,
     this.isPlayerControlledRole = false,
     required this.text,
-    this.currentTime = '',
+    String currentTime = '',
     required this.isMe,
     required this.status,
     this.senderType = 'user',
     this.messageType = chatroomTextMessageType,
     DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  }) : _timelinePayload = timelinePayload,
+       _currentTime = currentTime,
+       _deferredTick = deferredTick,
+       _tickVersion = deferredTick == null ? null : Object(),
+       createdAt = createdAt ?? DateTime.now();
 
   factory ChatMessageVm.system(String text) {
     return ChatMessageVm(
@@ -73,10 +78,50 @@ class ChatMessageVm {
   /// Display-only decoded handoff image; the launching route owns this handle.
   final ui.Image? avatarSnapshot;
   String imageUrl;
-  ChatTimelinePayloadVm? timelinePayload;
+  ChatTimelinePayloadVm? _timelinePayload;
+  ({ChatTickPayloadVm payload, String currentTime}) Function()? _deferredTick;
+  final Object? _tickVersion;
+  void _resolveTick() {
+    final resolve = _deferredTick;
+    if (resolve == null) return;
+    final value = resolve();
+    _timelinePayload = value.payload;
+    _currentTime = value.currentTime;
+    _deferredTick = null;
+  }
+
+  ChatTimelinePayloadVm? get timelinePayload {
+    _resolveTick();
+    return _timelinePayload;
+  }
+
+  set timelinePayload(ChatTimelinePayloadVm? value) {
+    _resolveTick();
+    _timelinePayload = value;
+    _contentRevision++;
+  }
+
+  int _contentRevision = 0;
+  // Geometry/version checks must not materialize an offscreen History Tick.
+  Object? get timelinePayloadVersion => _tickVersion == null
+      ? _timelinePayload
+      : (_tickVersion, _contentRevision);
+  Object get currentTimeVersion =>
+      _tickVersion == null ? _currentTime : (_tickVersion, _contentRevision);
   bool isPlayerControlledRole;
   String text;
-  String currentTime;
+  String _currentTime;
+  String get currentTime {
+    _resolveTick();
+    return _currentTime;
+  }
+
+  set currentTime(String value) {
+    _resolveTick();
+    _currentTime = value;
+    _contentRevision++;
+  }
+
   bool isMe;
   String status;
   final String senderType;
@@ -104,11 +149,13 @@ class ChatMessageVm {
       imageUrl.trim().isNotEmpty;
 
   bool get isUserEnterLocation =>
-      timelinePayload is ChatUserEnterLocationPayloadVm;
+      _tickVersion == null && timelinePayload is ChatUserEnterLocationPayloadVm;
 
-  bool get isStoryEvents => timelinePayload is ChatStoryEventsPayloadVm;
+  bool get isStoryEvents =>
+      _tickVersion == null && timelinePayload is ChatStoryEventsPayloadVm;
 
-  bool get isCharactersMoved => timelinePayload is ChatCharactersMovedPayloadVm;
+  bool get isCharactersMoved =>
+      _tickVersion == null && timelinePayload is ChatCharactersMovedPayloadVm;
 
   bool get isTimelineEvent =>
       isUserEnterLocation || isStoryEvents || isCharactersMoved;

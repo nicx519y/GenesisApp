@@ -3285,4 +3285,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get miniPhonePublish => 'Publicar';
+
+  @override
+  String get miniPhoneViewAllComments => 'Ver todos os comentários';
 }

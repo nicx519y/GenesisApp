@@ -3148,4 +3148,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get miniPhonePublish => '게시';
+
+  @override
+  String get miniPhoneViewAllComments => '댓글 모두 보기';
 }

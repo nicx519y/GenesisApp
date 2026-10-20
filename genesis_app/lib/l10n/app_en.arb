@@ -3865,5 +3865,9 @@
   "miniPhonePublish": "Post",
   "@miniPhonePublish": {
     "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
+  },
+  "miniPhoneViewAllComments": "View all comments",
+  "@miniPhoneViewAllComments": {
+    "description": "MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count."
   }
 }

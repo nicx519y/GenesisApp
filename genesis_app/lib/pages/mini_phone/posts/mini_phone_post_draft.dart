@@ -104,6 +104,25 @@ class MiniPhonePostDraft extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    final reusesRequest =
+        pending != null &&
+        (retry ||
+            pending.content == content &&
+                pending.image == uploadedUrl &&
+                pending.replyTo == null &&
+                (photo == null || uploadedUrl != null));
+    final attempt = store.analytics.beginAttempt(
+      'post_publish',
+      target: 'new',
+      source: 'create',
+      data: {
+        'has_image': retry
+            ? pending.image?.isNotEmpty == true
+            : photo != null || uploadedUrl != null,
+        'is_retry': reusesRequest,
+        if (reusesRequest) 'client_request_id': pending.id,
+      },
+    );
     submitting = true;
     error = null;
     store.errors.remove('post:new');
@@ -124,6 +143,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
         content,
         image: retry ? pending.image : uploadedUrl,
         retry: retry,
+        analyticsAttempt: attempt,
       );
       if (!_current(generation) || !ok) return false;
       text = '';
@@ -131,6 +151,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       uploadedUrl = null;
       return true;
     } catch (e) {
+      attempt.fail(e, sent: false, errorStage: 'upload');
       if (_current(generation)) {
         error = e is ApiException
             ? e.message

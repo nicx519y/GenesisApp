@@ -82,6 +82,7 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
     final api = AppServicesScope.read(context).api;
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     try {
+      _music.trackLike(file, !_music.likes.isLiked(file));
       await _music.likes.toggle(
         file,
         (liked) =>
@@ -107,9 +108,9 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
     super.dispose();
   }
 
-  void _next() => _music.next();
-  void _previous() => _music.previous();
-  void _togglePlay() => _music.toggle();
+  void _next() => _music.userNext('music');
+  void _previous() => _music.userPrevious('music');
+  void _togglePlay() => _music.userToggle('music');
 
   @override
   Widget build(BuildContext context) {
@@ -352,13 +353,17 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _control('music-backward', 'Previous track', music.previous),
+              _control(
+                'music-backward',
+                'Previous track',
+                () => music.userPrevious('home'),
+              ),
               const SizedBox(width: 20),
               Semantics(
                 toggled: music.playRequested,
                 child: IconButton(
                   tooltip: music.playRequested ? 'Pause' : 'Play',
-                  onPressed: music.toggle,
+                  onPressed: () => music.userToggle('home'),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     minimumSize: const Size(48, 40),
@@ -377,7 +382,11 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 20),
-              _control('music-forward', 'Next track', music.next),
+              _control(
+                'music-forward',
+                'Next track',
+                () => music.userNext('home'),
+              ),
             ],
           ),
         ],

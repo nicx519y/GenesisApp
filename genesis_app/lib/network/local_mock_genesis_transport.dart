@@ -1909,6 +1909,8 @@ class _MockState {
       45,
       (index) => {
         'global_message_id': '9007199254740993$index',
+        'tick': (44 - index) ~/ 5,
+        'sub_tick': 0,
         'type': index % 5 == 0 ? 'tick' : 'narrator',
         'sender_id': index % 5 == 0 ? 'tick' : 'narrator',
         'sender_name': '',

@@ -2,6 +2,7 @@ import '../messages/mini_phone_messages_controller.dart';
 export '../messages/mini_phone_messages_controller.dart'
     show MiniPhoneConversation;
 import 'mini_phone_write.dart';
+import 'mini_phone_analytics.dart';
 export 'mini_phone_write.dart';
 import '../posts/mini_phone_posts_controller.dart';
 import '../photos/mini_phone_photos_controller.dart';
@@ -37,6 +38,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     ready = _initialize();
   }
+  late final analytics = MiniPhoneAnalytics(
+    worldId: worldId,
+    enabled: () => !_disposed && uid != null,
+    generation: () => accountGeneration,
+  );
   late final requests = MiniPhoneRequests(_notify);
   late final messagesController = MiniPhoneMessagesController(
     api: api,
@@ -636,6 +642,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     String? image,
     int? replyTo,
     bool retry = false,
+    MiniPhoneAnalyticsAttempt? analyticsAttempt,
   }) async {
     await localReady;
     if (_disposed || uid == null || content.trim().isEmpty) return false;
@@ -663,6 +670,37 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           image: image,
           replyTo: replyTo,
         );
+    final attempt =
+        analyticsAttempt ??
+        analytics.beginAttempt(
+          kind == 'dm'
+              ? 'dm_send'
+              : kind == 'post'
+              ? 'post_publish'
+              : 'comment_send',
+          target: target,
+          source: kind == 'dm'
+              ? 'chat'
+              : kind == 'post'
+              ? 'create'
+              : 'comments',
+          data: {
+            'client_request_id': w.id,
+            'is_retry': reuse,
+            if (kind == 'dm') ...{
+              'dm_session_id':
+                  '${messagesController.sessionByChar[target] ?? 0}',
+              'peer_type': messagesController.isPlayerChat(target)
+                  ? 'player'
+                  : 'ai',
+            },
+            if (kind == 'comment' && replyTo != null)
+              'reply_to_comment_id': '$replyTo',
+            if (kind == 'post') 'has_image': image?.isNotEmpty ?? false,
+          },
+        );
+    attempt.data['client_request_id'] = w.id;
+    var sent = false;
     pending[key] = w;
     if (kind == 'dm' &&
         !history(target).any(
@@ -681,9 +719,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     try {
       if (!await _save()) {
         if (_current(g)) w.uncertain = true;
+        attempt.fail(StateError('journal'), sent: false, errorStage: 'journal');
         return false;
       }
       if (!_current(g)) return false;
+      sent = true;
       switch (kind) {
         case 'dm':
           await api.send(worldId, target, w.id, w.content);
@@ -701,6 +741,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           throw StateError('Unsupported write');
       }
       if (!_current(g)) return false;
+      attempt.finish('accepted');
       w.accepted = true;
       if (kind != 'dm') pending.remove(key);
       await _save();
@@ -716,6 +757,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       return true;
     } catch (e) {
       if (!_current(g)) return false;
+      attempt.fail(e, sent: sent, errorStage: sent ? 'request' : 'journal');
       // A delivery can precede an HTTP failure. Committed evidence wins.
       if (!w.accepted) {
         errors[key] = errorText(e);
@@ -749,8 +791,17 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Map<int, bool> get likeTargets => postsController.likeTargets;
-  Future<void> setLiked(int id, bool liked) =>
-      postsController.setLiked(id, liked);
+  Future<void> setLiked(int id, bool liked, {String? source}) {
+    if (source != null && !_disposed) {
+      analytics.event(
+        'post_like',
+        target: '$id',
+        stage: liked ? 'like' : 'unlike',
+        data: analytics.context(source),
+      );
+    }
+    return postsController.setLiked(id, liked);
+  }
 
   void attach(WorldChatroomService service) {
     _events?.cancel();

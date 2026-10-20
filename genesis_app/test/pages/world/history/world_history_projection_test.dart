@@ -4,6 +4,7 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/network/models/world_history.dart';
 import 'package:genesis_flutter_android/pages/world/history/world_history_projection.dart';
+import 'package:genesis_flutter_android/pages/world/history/world_history_section_participation.dart';
 import 'history_fixtures.dart';
 
 class CountingList extends ListBase<Map<String, dynamic>> {
@@ -101,19 +102,23 @@ void main() {
           ],
         ),
       );
-      final vms = project([row]);
+      final vms = project([
+        historyMessage('user-b', type: 'user', locations: ['B']),
+        row,
+        historyMessage('user-a', type: 'user'),
+      ]).where((m) => m.isTick).toList();
       expect(vms.length, 2);
       final a = vms.first.timelinePayload as ChatTickPayloadVm;
       final b = vms.last.timelinePayload as ChatTickPayloadVm;
       expect(vms.last.currentTime, 'Day 5');
-      expect(vms.last.tickNo, -1);
+      expect(vms.last.tickNo, 0);
       expect(b.globalText, 'The rain begins.');
       expect(b.globalStatuses.single.content, 'Rain');
       expect(b.hasStoryEvents, isFalse);
       expect(a.storyEvents!.paragraphs.single.visibilityLabel, 'future_value');
       expect(a.storyEvents!.paragraphs.single.statuses.single.content, 'Wary');
-      expect(a.charactersMoved!.movements.single.toLocationName, 'C');
-      expect(p.rows.map((r) => r.locationId), ['A', 'B']);
+      expect(a.charactersMoved, isNull);
+      expect(p.rows.map((r) => r.locationId), ['A', 'A', 'B', 'B']);
     },
   );
 
@@ -129,7 +134,10 @@ void main() {
       expect(valid.movements, isEmpty);
       for (final text in ['plain text', '{broken', '{}', '[1]', '42']) {
         final row = historyMessage(text, type: 'tick', content: text);
-        final vm = project([row], revision: text.hashCode).single;
+        final vm = project([
+          row,
+          historyMessage('user', type: 'user'),
+        ], revision: text.hashCode).firstWhere((m) => m.isTick);
         expect((vm.timelinePayload as ChatTickPayloadVm).fallbackContent, text);
       }
       final normal = historyMessage('normal', content: tickContent());
@@ -148,12 +156,16 @@ void main() {
         content: tickContent(),
       );
       final decoded = row.tick;
-      project([row], world: historyWorld(locations: 1));
+      final rows = [
+        row,
+        historyMessage('user', type: 'user', locations: ['B']),
+      ];
+      project(rows, world: historyWorld(locations: 1));
       expect(p.metadata.locations['B'], isNull);
-      project([row], world: historyWorld(locations: 2));
+      project(rows, world: historyWorld(locations: 2));
       expect(p.metadata.locations['B']!.name, 'Place B');
       expect(identical(decoded, row.tick), isTrue);
-      expect(p.rows.single.locationId, 'B');
+      expect(p.rows.every((r) => r.locationId == 'B'), isTrue);
       project(
         [
           historyMessage('old', locations: ['A']),
@@ -176,21 +188,182 @@ void main() {
         150,
         (i) => historyMessage('$i', type: 'tick', content: tickContent()),
       );
+      rows.add(historyMessage('user', type: 'user'));
       final first = project(rows, world: world);
-      for (final m in first) {
+      expect(first.length, 151);
+      for (final m in first.where((m) => m.senderType == 'tick')) {
         expect(m.isTick, isTrue);
       }
       final reads = chars.reads, parses = p.parsedMessageCount;
       expect(reads, lessThan(500));
       expect(p.metadata.buildCount, 1);
       final next = project(rows, world: world.copyWith(currentTime: 'Day 99'));
-      for (final m in next) {
+      for (final m in next.where((m) => m.senderType == 'tick')) {
         expect(m.isTick, isTrue);
       }
       expect(identical(first, next), isTrue);
       expect(chars.reads, reads);
       expect(p.parsedMessageCount, parses);
       expect(p.metadata.buildCount, 1);
+    },
+  );
+
+  test(
+    'Tick labels use stored tick/sub_tick values for aggregate and legacy content',
+    () {
+      for (final content in [tickContent(), 'Historical plain Tick']) {
+        final vms = project([
+          historyMessage(
+            'sub',
+            type: 'tick',
+            tick: 7,
+            subTick: 3,
+            content: content,
+          ),
+          historyMessage('main', type: 'tick', tick: 7, content: content),
+          historyMessage('zero', type: 'tick', tick: 0, content: content),
+          historyMessage('user', type: 'user', tick: 42, subTick: 9),
+        ], revision: content.hashCode);
+        expect(vms.where((m) => m.isTick).map((m) => (m.tickNo, m.subTickNo)), [
+          (0, 0),
+          (7, 0),
+          (7, 3),
+        ]);
+      }
+    },
+  );
+
+  test('any user in the continuous location section admits all its Ticks', () {
+    final newestFirst = [
+      historyMessage('tick-3', type: 'tick'),
+      historyMessage('narrator', type: 'narrator'),
+      historyMessage('tick-2', type: 'tick'),
+      historyMessage('user', type: 'user'),
+      historyMessage('tick-1', type: 'tick'),
+    ];
+    project(newestFirst);
+    expect(p.rows.map((r) => r.message.id), [
+      'tick-1',
+      'user',
+      'tick-2',
+      'narrator',
+      'tick-3',
+    ]);
+    expect(p.rows.map((r) => r.sectionId).toSet(), hasLength(1));
+  });
+
+  test('revisiting a location does not inherit an earlier section user', () {
+    project([
+      historyMessage('later-tick', type: 'tick'),
+      historyMessage('later-character'),
+      historyMessage('forest', locations: ['B']),
+      historyMessage('earlier-tick', type: 'tick'),
+      historyMessage('user', type: 'user'),
+    ]);
+    expect(p.rows.map((r) => r.message.id), [
+      'user',
+      'earlier-tick',
+      'forest',
+      'later-character',
+    ]);
+  });
+
+  test('hidden Tick-only sections keep the surrounding visits separate', () {
+    project([
+      historyMessage('later-character'),
+      historyMessage('later-tick', type: 'tick'),
+      historyMessage('hidden-forest', type: 'tick', locations: ['B']),
+      historyMessage('user', type: 'user'),
+    ]);
+    expect(p.rows.map((r) => r.message.id), ['user', 'later-character']);
+    expect(p.rows.first.sectionId, isNot(p.rows.last.sectionId));
+  });
+
+  test('character, narrator and version-hidden users cannot admit Ticks', () {
+    project([
+      historyMessage('tick', type: 'tick'),
+      historyMessage('character'),
+      historyMessage('narrator', type: 'narrator'),
+      historyMessage('hidden-user', type: 'user', version: 1000),
+    ]);
+    expect(p.rows.map((r) => r.message.id), ['narrator', 'character']);
+  });
+
+  test('cross-page section extends incrementally and survives body eviction', () {
+    final tick = historyMessage('tick', type: 'tick');
+    final user = historyMessage('user', type: 'user');
+    final participation = HistorySectionParticipation(appVersion: 999)
+      ..appendOlder([tick]);
+    List<ChatMessageVm> render(int revision) => p.project(
+      newestFirst: [tick],
+      dataRevision: revision,
+      world: historyWorld(),
+      uid: 'me',
+      appVersion: 999,
+      sectionParticipation: participation,
+    );
+    expect(render(1), isEmpty);
+    participation.appendOlder([tick, user]); // Overlap is deduplicated.
+    expect(render(2).single.isTick, isTrue);
+    // The user's page body is absent from projection, but the section survives.
+    participation.appendOlder([
+      historyMessage('boundary', locations: ['B']),
+      historyMessage('other-tick', type: 'tick'),
+    ]);
+    expect(render(3).single.isTick, isTrue);
+    expect(participation.includesTick('other-tick', 'A'), isFalse);
+    participation.clear();
+    expect(render(4), isEmpty);
+  });
+
+  test(
+    'metadata iteration does not resolve Tick bodies; content edits invalidate',
+    () {
+      final world = historyWorld();
+      final messages = [
+        historyMessage('user', type: 'user'),
+        for (var i = 0; i < 100; i++)
+          historyMessage('tick-$i', type: 'tick', content: 'original-$i'),
+      ];
+      final vms = project(messages, world: world).toList();
+      for (final vm in vms) {
+        vm.isSystem;
+        vm.isTimelineEvent;
+        vm.timelinePayloadVersion;
+        vm.currentTimeVersion;
+      }
+      expect(p.parsedTickCount, 0);
+      final tick = vms.firstWhere((m) => m.isTick);
+      final version = tick.timelinePayloadVersion;
+      expect(
+        (tick.timelinePayload as ChatTickPayloadVm).fallbackContent,
+        startsWith('original-'),
+      );
+      tick.currentTime;
+      tick.timelinePayload;
+      expect(p.parsedTickCount, 1);
+      expect(tick.timelinePayloadVersion, version);
+      final changed = project(
+        [
+          historyMessage('user', type: 'user'),
+          historyMessage('tick-99', type: 'tick', content: 'edited'),
+        ],
+        world: world,
+        revision: 2,
+      ).firstWhere((m) => m.isTick);
+      expect(p.parsedTickCount, 1);
+      expect(
+        (changed.timelinePayload as ChatTickPayloadVm).fallbackContent,
+        'edited',
+      );
+      expect(p.parsedTickCount, 2);
+      changed.timelinePayload = ChatTickPayloadVm(fallbackContent: 'assigned');
+      changed.currentTime = 'changed time';
+      expect(
+        (changed.timelinePayload as ChatTickPayloadVm).fallbackContent,
+        'assigned',
+      );
+      expect(changed.currentTime, 'changed time');
     },
   );
 

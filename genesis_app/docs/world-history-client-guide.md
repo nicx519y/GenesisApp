@@ -1,6 +1,6 @@
 # World 主线历史：客户端对接文档
 
-> 更新：2026-10-19。本文是待实现的 Chat history 接口设计稿，供客户端开发准备；联调以服务可用通知为准。配套内部 World 权限接口已合入 API 的 dev，Chat history 本次仍未实现。
+> 更新：2026-10-20。按用户提供的 [OpenAPI v1.1.0](client_world_history.yaml) 对齐消息顶层 `tick` / `sub_tick`；新契约替代此前不返回编号的设计。本文不代表真实服务已经完成部署或联调验收。
 
 按 World 分页读取完整主线历史，包含地点消息和 Tick 消息。不返回小手机私聊、累计摘要，也不受模型记忆窗口限制。
 
@@ -37,6 +37,8 @@ Authorization: Bearer <session_id>
       {
         "global_message_id": "2103",
         "type": "character",
+        "tick": 7,
+        "sub_tick": 3,
         "sender_id": "char_001",
         "sender_name": "林舟",
         "user_id": null,
@@ -52,6 +54,8 @@ Authorization: Bearer <session_id>
       {
         "global_message_id": "2100",
         "type": "tick",
+        "tick": 7,
+        "sub_tick": 0,
         "sender_id": "tick",
         "sender_name": "Tick",
         "user_id": null,
@@ -87,6 +91,8 @@ Authorization: Bearer <session_id>
 | --- | --- | --- |
 | `global_message_id` | string | 消息唯一 ID，用于本接口消息去重；保持字符串，避免大整数精度丢失 |
 | `type` | string | 消息来源：`user`、`character`、`narrator`、`tick` |
+| `tick` | int64 | 所有消息必返的主 Tick 存储序号，保留 0，不按当前世界或消息顺序推算 |
+| `sub_tick` | int64 | 所有消息必返的子 Tick 存储序号；主 Tick 为 0，子 Tick 为对应序号 |
 | `sender_id` | string | 发送方 ID |
 | `sender_name` | string | 发送方展示名 |
 | `user_id` | string / null | 消息关联的用户 ID；无关联用户时为 `null` |
@@ -97,7 +103,7 @@ Authorization: Bearer <session_id>
 | `created_at` | string | 消息创建时间，使用带时区的 RFC 3339 格式 |
 | `location_refs` | string[] | 这条消息实际关联的全部 `location_id`；无关联时为 `[]` |
 
-消息直接提供顶层 `content`，没有 `payload` 包装；不返回 `message_id`、`conversation_round_id`、`tick_no`、`subtick_no` 或 `sub_tick_no`，Tick 正文内也不补回这些字段。
+消息直接提供顶层 `content`、`tick` 和 `sub_tick`，没有 `payload` 包装；不返回 `message_id`、`conversation_round_id`、`tick_no`、`subtick_no` 或 `sub_tick_no`，Tick 正文内也不补回这些字段。`tick` / `sub_tick` 只从消息顶层读取；History 复用现有 Tick 标签格式：主 Tick 为 `Tick 7`，子 Tick 为 `Tick 7-3`，零值为 `Tick 0`。这两个字段缺失或不是整数属于契约错误，不使用分页位置、世界当前 Tick 或旧字段名补造编号。
 
 ## Tick 的 content
 
