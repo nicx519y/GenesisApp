@@ -3,6 +3,7 @@ import 'package:genesis_flutter_android/components/common/rating_prompt_debug_co
 import 'package:genesis_flutter_android/components/common/rating_prompt_host.dart';
 import 'package:genesis_flutter_android/app/review/rating_prompt_store.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/pending_rating_reward_host.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -419,6 +420,17 @@ void main() {
     testWidgets(
       'rating $stars content=$withContent enforces feedback requirement',
       (tester) async {
+        GenesisTelemetry.resetForTesting();
+        addTearDown(GenesisTelemetry.resetForTesting);
+        final collectStore = MemoryCollectEventStore();
+        GenesisTelemetry.setCollectUploaderForTesting(
+          CollectTelemetryUploader(store: collectStore)
+            ..configure(enabled: true),
+        );
+        List<CollectEvent> ratingEvents(String action) => collectStore
+            .eventsForTesting
+            .where((event) => event.action == action)
+            .toList(growable: false);
         final transport = _RecordingFeedbackTransport();
         final services = _feedbackTestServices(transport);
         await services.sessionStore.saveUid('u_rating');
@@ -449,6 +461,9 @@ void main() {
         );
         await tester.tap(find.text('Rate'));
         await tester.pumpAndSettle();
+        expect(ratingEvents('rate_star_show'), hasLength(1));
+        expect(ratingEvents('rate_star_show').single.actionType, 'pageview');
+        expect(ratingEvents('rate_star_show').single.object1, isEmpty);
         final initialWidth = tester
             .getSize(find.byType(GenesisActionBoxSurface))
             .width;
@@ -472,6 +487,15 @@ void main() {
           expect(midwayWidth, closeTo(initialWidth, 0.1));
         }
         await tester.pumpAndSettle();
+        expect(ratingEvents('rate_star_show'), hasLength(1));
+        expect(
+          ratingEvents('rate_star_submit'),
+          stars < 4 ? isEmpty : hasLength(1),
+        );
+        if (stars >= 4) {
+          expect(ratingEvents('rate_star_submit').single.actionType, 'event');
+          expect(ratingEvents('rate_star_submit').single.object1, '$stars');
+        }
         if (stars < 4) {
           expect(
             tester.getSize(find.byType(GenesisActionBoxSurface)).width,
@@ -513,6 +537,7 @@ void main() {
             ),
             {'content': '3 Star Rating feedback', 'rating': 3},
           );
+          expect(ratingEvents('rate_star_submit').single.object1, '3');
           expect(find.byType(WorldoRatingContent), findsNothing);
           await tester.pump(const Duration(seconds: 3));
           await tester.pumpAndSettle();
@@ -538,6 +563,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(WorldoRatingContent), findsOneWidget);
           expect(transport.requestsFor('/api/v1/feedback/create'), isEmpty);
+          expect(ratingEvents('rate_star_submit'), isEmpty);
 
           final input = find.byKey(
             const ValueKey('genesis-feedback-content-input'),
@@ -569,6 +595,9 @@ void main() {
             ),
             {'content': '$stars Star Rating feedback', 'rating': stars},
           );
+          expect(ratingEvents('rate_star_submit'), hasLength(1));
+          expect(ratingEvents('rate_star_submit').single.actionType, 'event');
+          expect(ratingEvents('rate_star_submit').single.object1, '$stars');
         }
         if (stars >= 1) {
           expect(find.byType(RatingRewardDialog), findsOneWidget);

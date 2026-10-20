@@ -1,5 +1,6 @@
 import '../../platform/session/user_session_store.dart';
 import '../../app/review/app_review_service.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import 'pending_rating_reward_host.dart';
 
 import 'dart:math' as math;
@@ -95,6 +96,18 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
   bool _focusRequested = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'rate_star_show',
+      );
+    });
+  }
+
+  @override
   void dispose() {
     _feedbackFocus.dispose();
     _controller.dispose();
@@ -120,6 +133,11 @@ class _WorldoRatingContentState extends State<WorldoRatingContent> {
         if (mounted) setState(() => _submitting = false);
         return;
       }
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'rate_star_submit',
+        object1: _rating,
+      );
       await api.v1.feedback.create(
         rating: _rating,
         content: content.isEmpty ? null : '$_rating Star $content',
