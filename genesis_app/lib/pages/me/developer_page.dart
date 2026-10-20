@@ -597,7 +597,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           builder: (context, snapshot) => _buildAccountIdentityRows(snapshot),
         ),
         const SizedBox(height: _itemGap),
-        _buildGemBalanceInfoRow(),
+        FutureBuilder<_DeveloperAccountIdentity>(
+          future: _accountIdentityFuture,
+          builder: (context, snapshot) => _buildGemBalanceInfoRow(snapshot),
+        ),
         const SizedBox(height: _itemGap),
         _buildPersonalizationInfoRows(),
         const SizedBox(height: _itemGap),

@@ -29553,6 +29553,44 @@ void main() {
     );
   });
 
+  testWidgets(
+    'developer page shows signed-out Gems balance without a wallet request',
+    (WidgetTester tester) async {
+      var walletRequests = 0;
+      final gemWallet = GemWalletStore(
+        loadWallet: () async {
+          walletRequests++;
+          return const GemWallet(balanceCent: 100);
+        },
+        readUid: () async => null,
+      );
+      addTearDown(gemWallet.dispose);
+      final services = await _testServices(
+        gemWallet: gemWallet,
+        initialUid: null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const Scaffold(
+              body: SingleChildScrollView(child: DeveloperPageContent()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('My Balance:'), findsOneWidget);
+      expect(
+        tester.widgetList<Text>(find.byType(Text)).map((text) => text.data),
+        contains('Not logged in'),
+      );
+      expect(walletRequests, 0);
+    },
+  );
+
   testWidgets('developer page saves and resets runtime version overrides', (
     WidgetTester tester,
   ) async {

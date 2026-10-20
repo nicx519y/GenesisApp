@@ -120,9 +120,10 @@ void main() {
   }
 
   testWidgets(
-    'developer rating section is hidden for guests and follows login changes',
+    'developer Rate Dialog button is always visible without a display request',
     (tester) async {
-      final services = _feedbackTestServices(_RecordingFeedbackTransport());
+      final transport = _RecordingFeedbackTransport();
+      final services = _feedbackTestServices(transport);
       await tester.pumpWidget(
         AppServicesScope(
           services: services,
@@ -131,108 +132,80 @@ void main() {
           ),
         ),
       );
-      expect(find.byKey(const ValueKey('developer-rate-button')), findsNothing);
+      final rateButton = find.byKey(const ValueKey('developer-rate-button'));
+      expect(rateButton, findsOneWidget);
+      expect(transport.requests, isEmpty);
+      await tester.tap(rateButton);
       await tester.pumpAndSettle();
-      expect(find.byType(RatingPromptDebugControl), findsNothing);
+      expect(rateButton, findsOneWidget);
+      expect(find.byType(WorldoRatingContent), findsNothing);
+      expect(find.text('Available after signing in'), findsOneWidget);
+      expect(transport.requests, isEmpty);
+
       await services.sessionStore.saveUid('guest_debug');
       services.sessionRevision.value++;
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('developer-rate-button')), findsNothing);
+      expect(rateButton, findsOneWidget);
+      await tester.tap(rateButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Available after signing in'), findsOneWidget);
+      expect(transport.requests, isEmpty);
       await services.sessionStore.saveUid('u_debug');
       services.sessionRevision.value++;
       await tester.pumpAndSettle();
+      expect(rateButton, findsOneWidget);
+      expect(transport.requests, isEmpty);
+      expect(find.text('Rating message threshold'), findsNothing);
       expect(
-        find.byKey(const ValueKey('developer-rate-button')),
-        findsOneWidget,
+        find.byKey(const ValueKey('developer-rating-threshold-input')),
+        findsNothing,
       );
-      expect(find.byType(RatingPromptDebugControl), findsOneWidget);
-      expect(find.text('Reset rating prompt'), findsOneWidget);
+      expect(find.text('Apply'), findsNothing);
+      expect(find.text('Use server'), findsNothing);
+      expect(find.text('Reset rating prompt'), findsNothing);
       await services.sessionStore.clearUid();
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('developer-rate-button')), findsNothing);
-      expect(find.byType(RatingPromptDebugControl), findsNothing);
+      expect(rateButton, findsOneWidget);
       expect(find.text('Reset rating prompt'), findsNothing);
+      expect(transport.requests, isEmpty);
       expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 2));
     },
   );
 
-  testWidgets(
-    'rating threshold debug control applies and clears local override',
-    (tester) async {
-      final services = _feedbackTestServices(_RecordingFeedbackTransport());
-      services.appGlobalConfig.value = const AppGlobalConfig(
-        ratingPromptMessageCount: 20,
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: const MaterialApp(
-            home: Scaffold(body: RatingPromptDebugControl()),
+  testWidgets('guest Rate Dialog tap keeps the developer sheet open', (
+    tester,
+  ) async {
+    final transport = _RecordingFeedbackTransport();
+    final services = _feedbackTestServices(transport);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showGenesisModalBottomSheet<void>(
+                  context: context,
+                  builder: (_) => const RatingPromptDebugSection(),
+                ),
+                child: const Text('Open developer'),
+              ),
+            ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      for (final button in tester.widgetList<FilledButton>(
-        find.byType(FilledButton),
-      )) {
-        expect(
-          button.style!.backgroundColor!.resolve({WidgetState.disabled}),
-          GenesisColors.darkFaintFill,
-        );
-        expect(
-          button.style!.backgroundColor!.resolve({}),
-          GenesisColors.darkFaintFill,
-        );
-        expect(
-          button.style!.foregroundColor!.resolve({WidgetState.disabled}),
-          GenesisColors.darkTextTertiary,
-        );
-      }
-      expect(find.textContaining('Effective: 20'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const ValueKey('developer-rating-threshold-input')),
-        '3',
-      );
-      await tester.tap(find.text('Apply'));
-      await tester.pumpAndSettle();
-      expect(await RatingPromptDebugSettings.read(), 3);
-      expect(find.textContaining('Effective: 3'), findsOneWidget);
-      await services.sessionStore.saveUid('u_debug_reset');
-      await RatingPromptStore.instance.recordMessage(
-        owner: Future.value('u_debug_reset'),
-        threshold: 1,
-        messageId: 'old',
-      );
-      expect(
-        await RatingPromptStore.instance.takePending('u_debug_reset', 1),
-        true,
-      );
-      final resetPrefs = await SharedPreferences.getInstance();
-      await resetPrefs.setBool('rating_reward_claimed_v1:u_debug_reset', true);
-      await tester.tap(
-        find.byKey(const ValueKey('developer-reset-rating-prompt')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        (await SharedPreferences.getInstance()).containsKey(
-          RatingPromptStore.key('u_debug_reset'),
-        ),
-        false,
-      );
-      expect(await RatingPromptDebugSettings.read(), 3);
-      expect(find.textContaining('Reset. Send messages'), findsOneWidget);
-      expect(
-        resetPrefs.containsKey('rating_reward_claimed_v1:u_debug_reset'),
-        false,
-      );
-
-      await tester.tap(find.text('Use server'));
-      await tester.pumpAndSettle();
-      expect(await RatingPromptDebugSettings.read(), isNull);
-      expect(find.textContaining('Effective: 20'), findsOneWidget);
-      expect(services.appGlobalConfig.value.ratingPromptMessageCount, 20);
-    },
-  );
+      ),
+    );
+    await tester.tap(find.text('Open developer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('developer-rate-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('developer-rate-button')), findsOneWidget);
+    expect(find.byType(WorldoRatingContent), findsNothing);
+    expect(find.text('Available after signing in'), findsOneWidget);
+    expect(transport.requests, isEmpty);
+    await tester.pump(const Duration(seconds: 2));
+  });
 
   testWidgets(
     'automatic rating waits until chat and world routes have exited',

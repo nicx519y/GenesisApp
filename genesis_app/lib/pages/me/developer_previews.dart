@@ -449,15 +449,27 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     return parts.join(' / ');
   }
 
-  Widget _buildGemBalanceInfoRow() {
+  Widget _buildGemBalanceInfoRow(
+    AsyncSnapshot<_DeveloperAccountIdentity> identitySnapshot,
+  ) {
     final walletState = AppServicesScope.of(context).gemWallet.state;
     return ValueListenableBuilder<GemWalletState>(
       valueListenable: walletState,
       builder: (context, state, _) {
-        final balanceCent = state.balanceCent;
-        final content = balanceCent == null
-            ? (state.isRefreshing ? 'Loading...' : '0.0')
-            : formatGemCent(balanceCent);
+        final uid = identitySnapshot.data?.uid ?? '';
+        final String content;
+        if (identitySnapshot.connectionState != ConnectionState.done) {
+          content = 'Loading...';
+        } else if (uid.isEmpty || uid.startsWith('guest_')) {
+          content = 'Not logged in';
+        } else if (state.ownerUid != uid ||
+            (state.isRefreshing && state.balanceCent == null)) {
+          content = 'Loading...';
+        } else if (state.balanceCent == null) {
+          content = '0.0';
+        } else {
+          content = formatGemCent(state.balanceCent!);
+        }
         return _DeveloperInfoSingleLineRow(
           title: GenesisL10n.current.meMyBalance,
           content: content,
