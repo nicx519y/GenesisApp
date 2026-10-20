@@ -1,16 +1,21 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+typedef _GeometryEntry = ({
+  Object version,
+  double height,
+  bool measured,
+  double? bubbleBottom,
+});
+
 /// Layout data, not widgets or RenderObjects. Estimates are only used to find
 /// an unmounted row; positioning always measures the mounted bubble surface.
 class LocationChatGeometryCache {
   LocationChatGeometryCache({this.capacity = 512});
   final int capacity;
-  final _entries =
-      <
-        Object,
-        ({Object version, double height, bool measured, double? bubbleBottom})
-      >{};
+  final _entries = <Object, _GeometryEntry>{};
+  double _measuredHeight = 0;
+  int _measuredCount = 0;
   final Set<Object> protectedKeys = {};
   int measurements = 0;
   int hits = 0;
@@ -26,16 +31,20 @@ class LocationChatGeometryCache {
     return value.height;
   }
 
-  double estimate(double fallback) {
-    final heights = _entries.values.where((e) => e.measured && e.height > 0);
-    if (heights.isEmpty) return fallback;
-    return heights.fold<double>(0, (sum, e) => sum + e.height) / heights.length;
+  double estimate(double fallback) =>
+      _measuredCount == 0 ? fallback : _measuredHeight / _measuredCount;
+
+  void _removeMeasurement(_GeometryEntry? entry) {
+    if (entry == null || !entry.measured || entry.height <= 0) return;
+    _measuredCount--;
+    _measuredHeight = _measuredCount == 0 ? 0 : _measuredHeight - entry.height;
   }
 
   double extent(Object key, Object version, double fallback) {
     final known = read(key, version);
     if (known != null) return known;
     final height = estimate(fallback);
+    _removeMeasurement(_entries[key]);
     _entries[key] = (
       version: version,
       height: height,
@@ -50,6 +59,13 @@ class LocationChatGeometryCache {
     if (!height.isFinite || height < 0) return;
     measurements++;
     final previous = _entries.remove(key);
+    if (previous?.measured != true || previous?.height != height) {
+      _removeMeasurement(previous);
+      if (height > 0) {
+        _measuredCount++;
+        _measuredHeight += height;
+      }
+    }
     _entries[key] = (
       version: version,
       height: height,
@@ -85,13 +101,26 @@ class LocationChatGeometryCache {
   }
 
   void _trim() {
-    for (final candidate in _entries.keys.toList()) {
-      if (_entries.length <= capacity) break;
-      if (!protectedKeys.contains(candidate)) _entries.remove(candidate);
+    final excess = _entries.length - capacity;
+    if (excess <= 0) return;
+    // Collect only victims before mutating the ordered map. Touching or
+    // reporting an in-budget row never copies the full key collection.
+    final victims = <Object>[];
+    for (final candidate in _entries.keys) {
+      if (protectedKeys.contains(candidate)) continue;
+      victims.add(candidate);
+      if (victims.length >= excess) break;
+    }
+    for (final victim in victims) {
+      _removeMeasurement(_entries.remove(victim));
     }
   }
 
-  void clear() => _entries.clear();
+  void clear() {
+    _entries.clear();
+    _measuredCount = 0;
+    _measuredHeight = 0;
+  }
 }
 
 /// Each row owns its extent even while unmounted. Unlike extending the list's

@@ -30,6 +30,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
   void _attachWorldChatroom(WorldChatroomService service) {
     _deferredBottomSheetMapChatroomState = null;
     _worldChatroom = service;
+    _historyViewCache.attach(service);
     _miniPhoneSession.data?.attach(service);
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
     _worldChatroomFailureSub = bindChatroomFailureToast(
@@ -167,6 +168,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
   Future<void> _detachWorldChatroomForAuthentication(
     WorldChatroomService? service,
   ) async {
+    _historyViewCache.detachSource();
     await _worldChatroomSub?.cancel();
     await _worldChatroomFailureSub?.cancel();
     await _worldChatroomBalanceSub?.cancel();
@@ -468,6 +470,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
 
   void _stopWorldChatroom() {
     final chatroom = _worldChatroom;
+    _historyViewCache.detachSource();
     if (chatroom == null) return;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());

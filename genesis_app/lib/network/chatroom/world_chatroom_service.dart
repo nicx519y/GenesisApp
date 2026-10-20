@@ -406,6 +406,12 @@ class WorldChatroomService {
   final Duration _conversationRoundTimeout;
   final bool _refreshInitialSnapshotOnConnect;
   final _states = StreamController<WorldChatroomState>.broadcast();
+  // Invalidation only: the archive has its own HTTP IDs and Tick aggregation.
+  final _historyChanges = StreamController<String>.broadcast();
+
+  /// World IDs whose archive may have changed; never canonical History rows.
+  Stream<String> get historyChanges => _historyChanges.stream;
+  bool _historyConnectedOnce = false;
   final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
   Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -833,6 +839,7 @@ class WorldChatroomService {
     final nextWorldId = worldId.trim();
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
+      _historyConnectedOnce = false;
       _replyActionsController?.dispose();
       _replyActionsController = null;
       _clearEntrySnapshots();
@@ -1571,6 +1578,7 @@ class WorldChatroomService {
     await disconnect();
     await _phoneEvents.close();
     await _states.close();
+    await _historyChanges.close();
     await _failures.close();
     await _balanceAlerts.close();
     await _summaryUpdates.close();

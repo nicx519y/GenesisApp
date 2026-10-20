@@ -34,6 +34,8 @@ extension _WorldChatroomConnection on WorldChatroomService {
       }
       _session = session;
       _attachSession(session);
+      if (_historyConnectedOnce) _historyChanges.add(_worldId);
+      _historyConnectedOnce = true;
       _setState(_state.copyWith(connected: true));
       if (_refreshInitialSnapshotOnConnect) {
         await _refreshInitialSnapshot();
@@ -197,6 +199,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
   }
 
   void _enqueueEvent(ChatroomEvent event) {
+    _notifyHistoryChange(event);
     _logChatroomSocketEvent(
       'event received type=${chatroomEventType(event)} '
       'world=$_worldId joined=${_state.joinedLocationId}',

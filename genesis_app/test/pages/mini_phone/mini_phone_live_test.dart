@@ -557,6 +557,7 @@ void main() {
       expect(b.calls('post/detail').length, 1);
       expect(b.calls('comments').length, 1);
       expect(b.calls('comments').single.uri.queryParameters['rn'], '100');
+      expect(b.calls('post/notifications/read'), hasLength(1));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       session.dispose();

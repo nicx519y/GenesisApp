@@ -1,6 +1,27 @@
 part of 'world_chatroom_service.dart';
 
 extension _WorldChatroomEventProjection on WorldChatroomService {
+  void _notifyHistoryChange(ChatroomEvent event) {
+    if (_disposed || _historyChanges.isClosed) return;
+    final changed = switch (event) {
+      ChatroomMessageEvent e =>
+        e.ok &&
+            e.worldId == _worldId &&
+            (e.globalMessageId > 0 || e.messageId > 0),
+      ChatroomAiStreamEnd e =>
+        (e.worldId.isEmpty || e.worldId == _worldId) &&
+            (e.globalMessageId > 0 || e.messageId > 0),
+      ChatroomLlmMessageUpdated e => e.errNo == 0 && e.worldId == _worldId,
+      ChatroomConversationRangeUpdated e =>
+        e.errNo == 0 && e.worldId == _worldId,
+      ChatroomWorldNotification e =>
+        e.worldId == _worldId &&
+            const {'world_new_message', 'tick_done'}.contains(e.eventType),
+      _ => false,
+    };
+    if (changed) _historyChanges.add(_worldId);
+  }
+
   Future<void> _handleEvent(ChatroomEvent event) async {
     switch (event) {
       case ChatroomPhoneEvent e:

@@ -51,6 +51,7 @@ class MiniPhonePostsController {
   );
   void reset() {
     _postReadOnLoad = false;
+    _postReadTask = null;
     _authorFilter = null;
     posts = [];
     postAuthorIds = [];
@@ -65,6 +66,36 @@ class MiniPhonePostsController {
   }
 
   bool _postReadOnLoad = false;
+  Future<bool>? _postReadTask;
+
+  /// Both explicit Posts entry and a successfully opened Home notification use
+  /// the world's all-notifications receipt. Never replay it on background events:
+  /// there is no server cursor, so replay could consume newly arrived notices.
+  Future<bool> markPostsRead() {
+    final existing = _postReadTask;
+    if (existing != null) return existing;
+    final generation = requests.generation;
+    late final Future<bool> task;
+    task =
+        (() async {
+          final read = await load(
+            'readPosts',
+            () => api.readPosts(worldId),
+            (_) {},
+          );
+          if (!read || !requests.isCurrent(generation)) return false;
+          await refreshPostSummary(afterWrite: true);
+          if (requests.isCurrent(generation) && notificationsVisible) {
+            await refreshNotifications();
+          }
+          return true;
+        })().whenComplete(() {
+          if (identical(_postReadTask, task)) _postReadTask = null;
+        });
+    _postReadTask = task;
+    return task;
+  }
+
   String? _authorFilter;
   String? get authorFilter => _authorFilter;
   set authorFilter(String? charId) {
@@ -114,15 +145,7 @@ class MiniPhonePostsController {
     );
     if (ok && _postReadOnLoad && postsVisible && phoneVisible && foreground) {
       _postReadOnLoad = false;
-      final read = await load(
-        'readPosts',
-        () => api.readPosts(worldId),
-        (_) {},
-      );
-      if (read) {
-        await refreshPostSummary(afterWrite: true);
-        if (notificationsVisible) await refreshNotifications();
-      }
+      await markPostsRead();
     }
     await authorsRefresh;
     return ok;

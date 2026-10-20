@@ -23,6 +23,64 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 
 void main() {
   test(
+    'History hints cover unjoined locations and completed streams only',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      final hints = <String>[];
+      final subscription = service.historyChanges.listen(hints.add);
+      addTearDown(subscription.cancel);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      expect(hints, isEmpty);
+      for (final type in ['llm_stream_start', 'llm_chunk']) {
+        socket.serverV2StreamFrame(
+          streamType: type,
+          senderId: 'char-1',
+          messageId: 10,
+          locationMessageId: 10,
+          roundId: 10,
+          seq: type == 'llm_chunk' ? 1 : null,
+          content: 'partial',
+        );
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(hints, isEmpty);
+      socket.serverV2Message(
+        type: 'user',
+        senderId: 'user-1',
+        senderName: 'User',
+        messageId: 1,
+        locationMessageId: 1,
+        roundId: 1,
+        content: 'Elsewhere',
+        locationId: 'loc-2',
+      );
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        senderId: 'char-1',
+        messageId: 10,
+        locationMessageId: 10,
+        roundId: 10,
+        content: 'completed',
+      );
+      socket.serverV2Tick(
+        messageId: 11,
+        locationMessageId: 11,
+        locationId: 'loc-2',
+        globalText: 'Tick',
+      );
+      await _waitFor(() => hints.length == 3);
+      expect(hints, everyElement('world-1'));
+      expect(service.state.joinedLocationId, isEmpty);
+    },
+  );
+
+  test(
     'user narration remains in history, pagination and cache with its version',
     () async {
       final storage = MemoryChatroomMessageStorage();
@@ -3036,11 +3094,17 @@ void main() {
       reconnectInterval: const Duration(milliseconds: 5),
     );
 
+    final hints = <String>[];
+    final subscription = service.historyChanges.listen(hints.add);
     await service.connect(worldId: 'world-1', identity: _identity());
+    expect(hints, isEmpty);
     await firstSocket.serverClose();
 
     await _waitFor(() => transport.connectCount == 2);
     expect(service.state.reconnecting, false);
+    await _waitFor(() => hints.isNotEmpty);
+    expect(hints, ['world-1']);
+    await subscription.cancel();
     await service.dispose();
   });
 
@@ -6861,6 +6925,9 @@ void _messageMutationTests() {
       final http = _MutationHttpTransport()
         ..messagesByLocation['loc-1'] = [_mutationRow(1, 1, 10)];
       final service = await setup(socket, http);
+      final hints = <String>[];
+      final subscription = service.historyChanges.listen(hints.add);
+      addTearDown(subscription.cancel);
       final state = service.state;
       final reads = http.historyRequests.length;
       for (final stream in ['start', 'chunk', 'end']) {
@@ -6904,6 +6971,7 @@ void _messageMutationTests() {
       });
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(service.state, same(state));
+      expect(hints, isEmpty);
       expect(http.historyRequests.length, reads);
       expect(
         service.state.messagesByLocation['loc-1']!.single.content,

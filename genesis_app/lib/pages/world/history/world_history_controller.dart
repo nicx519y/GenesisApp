@@ -5,6 +5,8 @@ import '../../../network/http_transport.dart';
 import '../../../network/models/world_history.dart';
 import 'world_history_section_participation.dart';
 
+part 'world_history_latest_sync.dart';
+
 typedef WorldHistoryFetch =
     Future<WorldHistoryPage> Function({
       required String worldId,
@@ -28,9 +30,9 @@ class HistoryPageSlot {
   List<WorldHistoryMessage>? messages;
 }
 
-/// One entry snapshot and a mutable archive chain, one operation at a time. Cancellation invalidates callbacks
-/// even with a transport that completes after cancel. Failures never retry on
-/// a timer and never modify the directory or the displayed window.
+/// A reading snapshot/archive chain and an independent latest HTTP head.
+/// Each request lane is serialized. Cancellation invalidates callbacks even
+/// with a transport that completes after cancel. Failures preserve both caches.
 class WorldHistoryController extends ChangeNotifier {
   WorldHistoryController({
     required this.worldId,
@@ -73,6 +75,17 @@ class WorldHistoryController extends ChangeNotifier {
   int _readingPage = 0;
   final Set<int> _pinnedPages = {};
   int? _arrivingPage;
+  WorldHistoryPage? _latestPage;
+  bool syncEnabled = false;
+  bool hasPendingLatest = false;
+  Object? syncError;
+  int _dirtyRevision = 0, _checkedRevision = 0, _syncGeneration = 0;
+  Timer? _syncDebounce, _syncDeadline, _calibration;
+  NetworkCancellationToken? _syncToken;
+  Completer<void>? _syncCompletion;
+  bool get latestDirty => _dirtyRevision > _checkedRevision;
+  bool get syncing => _syncCompletion != null;
+  void _notifyLatestChanged() => notifyListeners();
 
   bool get loading => _completion != null;
   bool get failed => _failed != null;
@@ -121,7 +134,11 @@ class WorldHistoryController extends ChangeNotifier {
     if (_disposed || active == value) return;
     active = value;
     if (!value) {
-      _cancel(remember: true);
+      // The first user-requested page belongs to World once synchronization
+      // is enabled, even if the sheet closes before it arrives.
+      if (!(!ready && _operation == -1 && syncEnabled)) {
+        _cancel(remember: true);
+      }
     } else if (_resume != null) {
       final operation = _resume!;
       _resume = null;
@@ -149,14 +166,18 @@ class WorldHistoryController extends ChangeNotifier {
     return hasNewer ? _run(firstResident - 1) : Future.value();
   }
 
-  /// Restore the World-owned entry snapshot synchronously, without HTTP.
+  /// Adopt the cached latest head, or restore the reading head, without HTTP.
   bool returnToNewest() {
     if (_disposed ||
         !active ||
         !ready ||
-        loading ||
+        (loading && !hasPendingLatest) ||
         _firstPageSnapshot == null) {
       return false;
+    }
+    if (hasPendingLatest) {
+      _adoptLatest();
+      return true;
     }
     updatedPage = null;
     allowContinuation();
@@ -178,7 +199,7 @@ class WorldHistoryController extends ChangeNotifier {
 
   Future<void> _run(int operation) {
     if (_disposed) return Future.value();
-    if (!active) {
+    if (!active && !(operation == -1 && syncEnabled)) {
       // Only explicitly requested operations are resumed on visibility return.
       _resume = operation;
       return Future.value();
@@ -217,6 +238,7 @@ class WorldHistoryController extends ChangeNotifier {
         ? _pages[operation].requestCursor
         : _pages.last.responseCursor;
     final generation = _generation;
+    final dirtyRevision = _dirtyRevision;
     final completion = Completer<void>();
     final token = NetworkCancellationToken();
     _operation = operation;
@@ -273,6 +295,9 @@ class WorldHistoryController extends ChangeNotifier {
           allowContinuation();
           _chainRevision++;
           _firstPageSnapshot = List.unmodifiable(page.messages);
+          _latestPage = page;
+          hasPendingLatest = false;
+          _checkedRevision = dirtyRevision;
           sectionParticipation.clear();
           sectionParticipation.appendOlder(page.messages.reversed);
           snapshot++;
@@ -301,6 +326,7 @@ class WorldHistoryController extends ChangeNotifier {
           _token = null;
           _operation = null;
           notifyListeners();
+          if (operation == -1 && ready && latestDirty) _scheduleLatestSync();
         }
         if (!completion.isCompleted) completion.complete();
       }
@@ -376,6 +402,11 @@ class WorldHistoryController extends ChangeNotifier {
   }
 
   void clear() {
+    _cancelLatestSync();
+    _latestPage = null;
+    hasPendingLatest = false;
+    syncError = null;
+    _dirtyRevision = _checkedRevision = 0;
     _cancel(remember: false);
     _resume = null;
     _failed = null;
@@ -399,6 +430,8 @@ class WorldHistoryController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _cancelLatestSync();
+    _latestPage = null;
     _cancel(remember: false);
     _pages.clear();
     _resident.clear();

@@ -16,11 +16,16 @@ class _WorldHistoryLoader {
   String get readingLocationId => cache.readingLocationId;
   set readingLocationId(String value) => cache.readingLocationId = value;
   bool _scheduled = false;
+  bool _viewActive = false;
+  bool _userScrolling = false;
+  bool _followingScheduled = false;
+  int _interaction = 0;
   bool _protectScheduled = false;
   int _recoveredRevision = -1;
   int _scheduleGeneration = 0;
 
   Object? _reportedError;
+  Object? _reportedViewState;
   Timer? _idleTimer;
 
   bool get enabled => owner._requestsEnabled && owner._metadataReady;
@@ -39,15 +44,18 @@ class _WorldHistoryLoader {
       appVersion: owner._messageAppVersion,
       fetch: AppServicesScope.read(owner.context).api.getWorldHistory,
     );
+    controller!.setSyncEnabled(cache._foreground);
     if (identical(_listenedController, controller)) return;
     _listenedController?.removeListener(_changed);
     _listenedController = controller!..addListener(_changed);
+    _reportedViewState = null;
   }
 
   void _changed() {
     final state = controller!;
     if (state.awaitingUserContinuation) _idleTimer?.cancel();
-    if (state.snapshot != cache.snapshot) {
+    final reset = state.snapshot != cache.snapshot;
+    if (reset) {
       cache.snapshot = state.snapshot;
       projection.clear();
       owner._historySections.reset();
@@ -70,10 +78,34 @@ class _WorldHistoryLoader {
       });
     }
     if (state.error == null) _reportedError = null;
-    owner._changed();
+    // Latest-head hints and request status do not change the reading chain.
+    // The floating notice listens separately; only rebuild archive content
+    // when its data, paging or error presentation actually changes.
+    final viewState = (
+      state.revision,
+      state.snapshot,
+      state.ready,
+      state.loading,
+      state.failed,
+      state.error,
+    );
+    if (viewState != _reportedViewState) {
+      _reportedViewState = viewState;
+      if (enabled || reset && !cache.available) owner._changed();
+    }
+    if (enabled) _scheduleFollowLatest();
   }
 
   void pause() {
+    if (_viewActive &&
+        owner._scrollCoordinator.controller.hasClients &&
+        ready) {
+      cache.followLatest = !hasNewer && owner._scrollCoordinator.isAtBottom;
+    }
+    _viewActive = false;
+    _userScrolling = false;
+    _followingScheduled = false;
+    _interaction++;
     _scheduleGeneration++;
     _scheduled = false;
     _idleTimer?.cancel();
@@ -103,14 +135,91 @@ class _WorldHistoryLoader {
       _scheduled = false;
       if (!enabled) return;
       bind();
-      // Reopening resumes the same World-owned snapshot and reading position.
+      final reopening = !_viewActive;
+      _viewActive = true;
+      // Reopening retains the reading chain unless the reader followed latest.
       if (!cache.started) {
         cache.started = true;
         controller!.requestEntryRefresh();
       } else {
         controller!.setActive(true);
+        if (reopening && controller!.latestDirty) {
+          unawaited(controller!.syncLatest());
+        }
       }
+      if (reopening) _scheduleFollowLatest(restoring: true);
     });
+  }
+
+  Future<void> syncLatestManually() async {
+    final state = controller;
+    if (state == null) return;
+    await state.syncLatest();
+    if (!owner.mounted || !enabled || !identical(state, controller)) return;
+    final error = state.syncError;
+    if (error != null) {
+      showGenesisToast(
+        owner.context,
+        error is ApiException
+            ? error.serverErrMsg ?? error.message
+            : error is FormatException
+            ? error.message
+            : error.toString(),
+      );
+    }
+  }
+
+  bool scrollActivity(ScrollNotification notification) {
+    if (notification.depth != 0 || !enabled) return false;
+    if (notification is ScrollStartNotification) {
+      _userScrolling = true;
+      _interaction++;
+    } else if (notification is ScrollEndNotification) {
+      _userScrolling = false;
+      cache.followLatest = !hasNewer && owner._scrollCoordinator.isAtBottom;
+      _scheduleFollowLatest();
+      onScroll();
+    }
+    return false;
+  }
+
+  void _scheduleFollowLatest({bool restoring = false}) {
+    if (_followingScheduled ||
+        !enabled ||
+        loading ||
+        !(controller?.hasPendingLatest ?? false) ||
+        _userScrolling) {
+      return;
+    }
+    final scroll = owner._scrollCoordinator.controller;
+    final following = restoring
+        ? cache.followLatest
+        : !hasNewer && scroll.hasClients && owner._scrollCoordinator.isAtBottom;
+    if (!following) return;
+    _followingScheduled = true;
+    final interaction = _interaction;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followingScheduled = false;
+      if (!owner.mounted || !enabled) return;
+      // ScrollStart/End can both arrive after the position callback that
+      // scheduled us (notably jumpTo). Re-evaluate the settled position.
+      if (interaction != _interaction) {
+        _scheduleFollowLatest();
+        return;
+      }
+      if (_userScrolling ||
+          loading ||
+          !(controller?.hasPendingLatest ?? false) ||
+          !scroll.hasClients ||
+          scroll.position.isScrollingNotifier.value ||
+          !(restoring
+              ? cache.followLatest
+              : !hasNewer && owner._scrollCoordinator.isAtBottom)) {
+        return;
+      }
+      owner._showLatest();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   Future<void> loadOlder({bool refreshNewest = false}) async {
@@ -266,6 +375,7 @@ class _WorldHistoryLoader {
   void ensureVisibleWindow() {}
   void onScroll() {
     _idleTimer?.cancel();
+    _scheduleFollowLatest();
     final scroll = owner._scrollCoordinator.controller;
     if (!enabled ||
         (controller?.awaitingUserContinuation ?? false) ||

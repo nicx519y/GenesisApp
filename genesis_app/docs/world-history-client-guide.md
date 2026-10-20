@@ -224,6 +224,8 @@ Authorization: Bearer <session_id>
 
 分页是整个 World 的分页。某一页没有 B 的消息，不代表 B 没有更早历史；是否继续请求由 World 级的 `has_more` 判断。
 
+客户端首次打开 History 后，利用 World WebSocket 的正式消息／变化通知合并触发首页校准；关闭 History 后仍更新最新页缓存。旧阅读分页与最新页分开保存，采用新首页时使用新游标，不拼接新旧分页。消息正文、Tick 编号和地点关联仍全部来自本接口，详见[同步与阅读生命周期](world-history-client-implementation.md)。
+
 ## 错误处理
 
 `err_no != 0` 时按现有客户端统一错误处理流程处理，并读取 `err_msg`。未登录、无权访问、World 不存在、参数或游标无效均属于失败，不应当作空历史。请求失败时保留已有消息及游标，修复问题后重试。

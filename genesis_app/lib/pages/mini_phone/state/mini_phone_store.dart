@@ -99,7 +99,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get foreground => requests.foreground;
   set foreground(bool value) => requests.foreground = value;
   bool get phoneVisible => requests.phoneVisible;
-  set phoneVisible(bool value) => requests.phoneVisible = value;
+  set phoneVisible(bool value) {
+    final opening = value && !requests.phoneVisible;
+    requests.phoneVisible = value;
+    if (opening && _postSummaryNeedsRetry) _schedulePostRefresh();
+  }
+
   int get _generation => requests.generation;
   set _generation(int value) => requests.generation = value;
   int get accountGeneration => _generation;
@@ -195,6 +200,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   bool _summaryAgain = false;
   int? _summaryRevision;
   int _postSummaryRevision = 0;
+  bool _postSummaryNeedsRetry = false;
   bool _wasConnected = false;
   static final _journalWrites = <String, Future<void>>{};
   Future<void> get writesSaved =>
@@ -342,6 +348,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     _summaryAgain = false;
     _summaryRevision = null;
     _postSummaryRevision = 0;
+    _postSummaryNeedsRetry = false;
     _replyPollingGeneration = null;
     uid = null;
     postsController.reset();
@@ -509,6 +516,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     final postRevision = ++_postSummaryRevision;
     final results = await Future.wait([
       load('home', () => api.home(worldId), (value) {
+        if (postRevision == _postSummaryRevision) {
+          _postSummaryNeedsRetry = false;
+        }
         home = PhoneHome(
           dmUnread: value.dmUnread,
           messages: value.messages,
@@ -545,20 +555,21 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> refreshPostSummary({bool afterWrite = false}) {
-    if (_disposed) return Future.value(false);
+  Future<bool> refreshPostSummary({bool afterWrite = false}) async {
+    if (_disposed) return false;
     if (!foreground) {
       scheduleRefresh(
         refreshHome: false,
         recoverChats: false,
         postSummary: true,
       );
-      return Future.value(false);
+      return false;
     }
     // This endpoint contains only Posts. Never rebase the DM inbox, query chat
     // history, retry read receipts or recover a DM because of a Posts event.
-    late final int postRevision;
-    return load(
+    final generation = _generation;
+    int? postRevision;
+    final ok = await load(
       'postSummary',
       () {
         postRevision = ++_postSummaryRevision;
@@ -576,6 +587,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       },
       deduplicate: !afterWrite,
     );
+    if (_current(generation) && postRevision == _postSummaryRevision) {
+      _postSummaryNeedsRetry = !ok;
+    }
+    return ok;
   }
 
   PhonePerson person(String id, {int type = 2}) =>
@@ -628,6 +643,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> refreshPostAuthors() => postsController.refreshPostAuthors();
   Future<bool> refreshPosts({bool next = false, bool markRead = false}) =>
       postsController.refreshPosts(next: next, markRead: markRead);
+  Future<bool> markPostsRead() => postsController.markPostsRead();
   Future<bool> refreshDetail(
     int id, {
     bool afterWrite = false,
@@ -978,7 +994,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     bool postSummary = false,
   }) {
     if (_disposed) return;
-    if (postSummary) _schedulePostRefresh();
+    if (postSummary || (refreshHome && _postSummaryNeedsRetry)) {
+      _schedulePostRefresh();
+    }
     if (!refreshHome && !recoverChats) return;
     _dirty = true;
     _refreshHome = _refreshHome || refreshHome;

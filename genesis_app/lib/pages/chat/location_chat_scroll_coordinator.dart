@@ -50,6 +50,9 @@ const _locationChatLayoutCorrectionExtentSignal = 0.01;
 @visibleForTesting
 int debugLocationChatMessageRowBuildCount = 0;
 
+@visibleForTesting
+int debugLocationChatMessageBoundsQueryCount = 0;
+
 /// All dimensions are measured from one completed layout. No row spacing or
 /// toolbar dimensions participate in the anchor equation.
 ({double offset, double minExtent, double preparationExtent})
@@ -829,18 +832,88 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
       _LocationChatAnchoredMessageListState();
 }
 
+// Keep visibility bookkeeping independent of lazy message-body access. These
+// values are refreshed with the rendered widget tree and retain no message VM.
+typedef _MessageVisibilityRow = ({
+  String localId,
+  String layoutId,
+  Key entryKey,
+  bool isSystem,
+  bool isImage,
+  bool isAiContentDisclaimer,
+});
+
+/// Tracks active row bodies, including pinned offscreen rows and reply cards.
+/// Cached widget instances do not count as mounted. The token guard preserves
+/// a replacement row if an older instance with the same identity deactivates.
+class _TrackedMessageRow extends StatefulWidget {
+  const _TrackedMessageRow({
+    super.key,
+    required this.mountedRows,
+    required this.layoutId,
+    required this.child,
+  });
+
+  final Map<String, Object>? mountedRows;
+  final String layoutId;
+  final Widget child;
+
+  @override
+  State<_TrackedMessageRow> createState() => _TrackedMessageRowState();
+}
+
+class _TrackedMessageRowState extends State<_TrackedMessageRow> {
+  void _register() => widget.mountedRows?[widget.layoutId] = this;
+
+  void _unregister(_TrackedMessageRow row) {
+    if (identical(row.mountedRows?[row.layoutId], this)) {
+      row.mountedRows?.remove(row.layoutId);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _register();
+  }
+
+  @override
+  void didUpdateWidget(_TrackedMessageRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _unregister(oldWidget);
+    _register();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _register();
+  }
+
+  @override
+  void deactivate() {
+    _unregister(widget);
+    super.deactivate();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 class _LocationChatAnchoredMessageListState
     extends State<LocationChatAnchoredMessageList>
     with SingleTickerProviderStateMixin {
   final GlobalKey _messageContentKey = GlobalKey();
   final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
   final Map<String, GlobalKey> _messageVisibilityKeys = <String, GlobalKey>{};
+  final _mountedMessageRows = <String, Object>{};
   final GlobalKey _scrollViewportKey = GlobalKey();
   final GlobalKey _replyControlLayoutKey = GlobalKey();
   final GlobalKey _waitingBubbleLayoutKey = GlobalKey();
   double _waitingMinContentExtent = 0;
   bool _consumingTemporaryTail = false;
   bool _contentVisibilityScheduled = false;
+  List<_MessageVisibilityRow> _visibilityRows = const [];
   String? _positioningIdentity;
   String? _lastWaitingOperation;
   String? _waitingAnchorLayoutId;
@@ -912,10 +985,7 @@ class _LocationChatAnchoredMessageListState
         !widget.coordinator.controller.hasClients) {
       return;
     }
-    final anchor = _visibleRetainedAnchor(
-      _messageLocalIds,
-      _messageLocalIds.toSet(),
-    );
+    final anchor = _visibleRetainedAnchor(_messageLocalIds);
     if (anchor == null) return;
     final offset = _messageContentOffset(anchor.localId);
     if (offset == null) return;
@@ -1183,7 +1253,7 @@ class _LocationChatAnchoredMessageListState
       );
       if (viewport == null) return;
       _saveCachedViewport();
-      final last = _renderedMessages.lastOrNull;
+      final last = _visibilityRows.lastOrNull;
       if (last == null) {
         widget.coordinator.reportMessageContentBelowViewport(false);
         return;
@@ -1199,7 +1269,7 @@ class _LocationChatAnchoredMessageListState
           : last.isSystem && !last.isImage
           ? style.systemMessageMargin.bottom
           : style.rowBottomPadding;
-      final bounds = _messageBounds(_messageLayoutId(last));
+      final bounds = _messageBounds(last.layoutId);
       // Past the real tail the lazy list may keep only its footer laid out.
       // When neither is laid out the last message is beyond the history cache
       // below the viewport, not part of the artificial waiting-space sliver.
@@ -1219,52 +1289,50 @@ class _LocationChatAnchoredMessageListState
         viewport.top,
         viewport.bottom,
       );
-      final rows = <Rect?>[];
       final retained = <String>{};
+      final replyIds = _currentReplyCard?.messages
+          .map((message) => message.localId)
+          .toSet();
       final neighborhood = Rect.fromLTRB(
         viewport.left,
         viewport.top - viewport.height,
         viewport.right,
         viewport.bottom + viewport.height,
       );
-      for (var index = 0; index < _renderedMessages.length; index++) {
-        final message = _renderedMessages[index];
+      for (final message in _visibilityRows) {
         if (widget.hiddenMessageIds.contains(message.localId)) {
-          rows.add(null);
           continue;
         }
-        final layoutId = _messageLayoutId(message);
-        final extent = _entryExtents[_entryKey(index)];
-        final row =
-            _messageBounds(layoutId) ??
+        final layoutId = message.layoutId;
+        final extent = _entryExtents[message.entryKey];
+        final mountedRow = _mountedMessageRows.containsKey(layoutId);
+        final row = mountedRow ? _messageBounds(layoutId) : null;
+        final rowTop =
+            row?.top ??
             (extent == null
                 ? null
-                : Rect.fromLTWH(
-                    viewport.left,
-                    viewport.top +
-                        extent.offset -
-                        widget.coordinator.controller.position.pixels,
-                    viewport.width,
-                    extent.height,
-                  ));
-        rows.add(row);
-        if (row != null && row.height > 0 && !message.isAiContentDisclaimer) {
+                : viewport.top +
+                      extent.offset -
+                      widget.coordinator.controller.position.pixels);
+        final rowHeight = row?.height ?? extent?.height ?? 0;
+        final rowBottom = rowTop == null ? null : rowTop + rowHeight;
+        if (rowTop != null && rowHeight > 0 && !message.isAiContentDisclaimer) {
           final markerKey = widget.messageReadingMarkerKey?.call(
             message.localId,
           );
           if (markerKey == null) _readingMarkerOffsets.remove(message.localId);
-          final marker = _globalBounds(
-            markerKey?.currentContext?.findRenderObject(),
-          );
+          final marker = mountedRow
+              ? _globalBounds(markerKey?.currentContext?.findRenderObject())
+              : null;
           if (marker != null) {
-            _readingMarkerOffsets[message.localId] = marker.center.dy - row.top;
+            _readingMarkerOffsets[message.localId] = marker.center.dy - rowTop;
           }
           final markerY =
-              row.top + (_readingMarkerOffsets[message.localId] ?? 0);
+              rowTop + (_readingMarkerOffsets[message.localId] ?? 0);
           if (markerY <= readingLine) {
             readingMessageId = message.localId;
           }
-          if (row.top <= viewport.top) {
+          if (rowTop <= viewport.top) {
             final headerId = widget.expandedHistoryHeaders[message.localId];
             // Wait until the original header reaches the viewport edge.
             pinnedHeaderId =
@@ -1275,22 +1343,29 @@ class _LocationChatAnchoredMessageListState
                 : headerId;
           }
         }
-        if ((row != null && row.overlaps(neighborhood)) ||
+        final inNeighborhood = row != null
+            ? row.overlaps(neighborhood)
+            : rowTop != null &&
+                  rowBottom! > neighborhood.top &&
+                  rowTop < neighborhood.bottom;
+        if (inNeighborhood ||
             layoutId == _waitingAnchorLayoutId ||
             layoutId == _detachedLayoutAnchor?.localId ||
-            (_currentReplyCard?.messages.any(
-                  (m) => m.localId == message.localId,
-                ) ??
-                false)) {
+            (replyIds?.contains(message.localId) ?? false)) {
           retained.add(message.localId);
         }
-        final messageBounds = _messageVisibilityBounds(layoutId);
-        final surface = ChatBubbleGeometry.globalBoundsOf(
-          _messageLayoutKeys[layoutId]?.currentContext?.findRenderObject(),
-        );
+        final messageBounds = mountedRow
+            ? _messageVisibilityBounds(layoutId)
+            : null;
+        final surface = mountedRow
+            ? ChatBubbleGeometry.globalBoundsOf(
+                _messageLayoutKeys[layoutId]?.currentContext
+                    ?.findRenderObject(),
+              )
+            : null;
         if (surface != null && extent != null) {
           _geometryCache.reportBubbleBottom(
-            _entryKey(index),
+            message.entryKey,
             surface.bottom -
                 viewport.top +
                 widget.coordinator.controller.position.pixels -
@@ -1300,11 +1375,7 @@ class _LocationChatAnchoredMessageListState
         if (messageBounds != null && messageBounds.overlaps(viewport)) {
           visible.add(message.localId);
         }
-      }
-      if (hasContentBelow) {
-        for (var index = 0; index < _renderedMessages.length; index++) {
-          final message = _renderedMessages[index];
-          final row = rows[index];
+        if (hasContentBelow) {
           final gap = message.localId == last.localId
               ? bottomGap
               : message.isSystem && !message.isImage
@@ -1313,9 +1384,9 @@ class _LocationChatAnchoredMessageListState
           // Sparse pinned rows do not define a contiguous mounted range.
           // Use each entry's current extent; queued zero-height tasks are not
           // visible message content yet.
-          if (row != null &&
-              row.height > 0 &&
-              row.bottom - gap > viewport.bottom + 0.5) {
+          if (rowBottom != null &&
+              rowHeight > 0 &&
+              rowBottom - gap > viewport.bottom + 0.5) {
             below.add(message.localId);
           }
         }
@@ -1575,6 +1646,7 @@ class _LocationChatAnchoredMessageListState
   int _timelineMessageCount = 0;
   List<int> _cachedTimelineEntries = const [];
   Map<String, int> _messageIndexByLocalId = const {};
+  Map<String, int> _messageIndexByLayoutId = const {};
   late final _LiveMessageList _imageViewerMessages = _LiveMessageList(
     () => _renderedMessages,
   );
@@ -1957,7 +2029,9 @@ class _LocationChatAnchoredMessageListState
         locationChatReplyMessagesEqual(cached.snapshot, message)) {
       return cached.child;
     }
-    final child = KeyedSubtree(
+    final child = _TrackedMessageRow(
+      mountedRows: currentRole ? _mountedMessageRows : null,
+      layoutId: _messageLayoutId(message),
       key: currentRole
           ? _messageLayoutKeys.putIfAbsent(
               _messageLayoutId(message),
@@ -2614,10 +2688,7 @@ class _LocationChatAnchoredMessageListState
 
   void _captureUserScrollAnchor() {
     if (!widget.active || !widget.coordinator.controller.hasClients) return;
-    final anchor = _visibleRetainedAnchor(
-      _messageLocalIds,
-      _messageLocalIds.toSet(),
-    );
+    final anchor = _visibleRetainedAnchor(_messageLocalIds);
     if (anchor == null) return;
     final offset = _messageContentOffset(anchor.localId);
     if (offset == null) return;
@@ -2640,7 +2711,7 @@ class _LocationChatAnchoredMessageListState
           : null;
       final anchor = waitingId != null
           ? (localId: waitingId, top: 0.0)
-          : _visibleRetainedAnchor(_messageLocalIds, _messageLocalIds.toSet());
+          : _visibleRetainedAnchor(_messageLocalIds);
       if (anchor == null) return;
       final contentOffset = _messageContentOffset(anchor.localId);
       if (contentOffset == null) return;
@@ -2662,6 +2733,9 @@ class _LocationChatAnchoredMessageListState
     _messageIndexByLocalId = {
       for (var i = 0; i < _renderedMessages.length; i++)
         _renderedMessages[i].localId: i,
+    };
+    _messageIndexByLayoutId = {
+      for (var i = 0; i < _messageLocalIds.length; i++) _messageLocalIds[i]: i,
     };
   }
 
@@ -2688,15 +2762,31 @@ class _LocationChatAnchoredMessageListState
   }
 
   ({String localId, double top})? _visibleRetainedAnchor(
-    List<String> previousLocalIds,
-    Set<String> retainedLocalIds,
-  ) {
+    List<String> previousLocalIds, [
+    Set<String>? retainedLocalIds,
+  ]) {
+    // During ordinary scrolling only mounted rows can supply a real anchor.
+    // Sort the small mounted set by timeline order to preserve tie-breaking.
+    // Replacements may pass an older list; keep its original order then.
+    final candidates = identical(previousLocalIds, _messageLocalIds)
+        ? (_mountedMessageRows.keys
+              .where(_messageIndexByLayoutId.containsKey)
+              .toList()
+            ..sort(
+              (a, b) => _messageIndexByLayoutId[a]!.compareTo(
+                _messageIndexByLayoutId[b]!,
+              ),
+            ))
+        : previousLocalIds;
     final viewportBounds = _globalBounds(context.findRenderObject());
     ({String localId, double top})? closestAnchor;
     var closestDistance = double.infinity;
     var closestAnchorIsVisible = false;
-    for (final localId in previousLocalIds) {
-      if (!retainedLocalIds.contains(localId)) continue;
+    for (final localId in candidates) {
+      if (retainedLocalIds != null && !retainedLocalIds.contains(localId)) {
+        continue;
+      }
+      if (!_mountedMessageRows.containsKey(localId)) continue;
       final messageBounds = _messageBounds(localId);
       if (messageBounds == null) continue;
       if (viewportBounds == null) {
@@ -2743,6 +2833,7 @@ class _LocationChatAnchoredMessageListState
       ..dispose();
     _messageLayoutKeys.clear();
     _messageVisibilityKeys.clear();
+    _mountedMessageRows.clear();
     _pinnedHistoryHeader.dispose();
     super.dispose();
   }
@@ -2943,6 +3034,19 @@ class _LocationChatAnchoredMessageListState
     required ChatUiStyleConfig style,
     required bool hasOldestEdgeContent,
   }) {
+    _visibilityRows = [
+      for (final message in _renderedMessages)
+        (
+          localId: message.localId,
+          layoutId: _messageLayoutId(message),
+          entryKey: ValueKey<String>(
+            'location-chat-message-row:${_messageLayoutId(message)}',
+          ),
+          isSystem: message.isSystem,
+          isImage: message.isImage,
+          isAiContentDisclaimer: message.isAiContentDisclaimer,
+        ),
+    ];
     final entries = _timelineEntries(_renderedMessages.length);
     final entryKeys = entries.map(_entryKey).toSet();
     _entryExtents.removeWhere((key, _) => !entryKeys.contains(key));
@@ -3032,18 +3136,19 @@ class _LocationChatAnchoredMessageListState
                   ),
                 ),
               ),
-            for (final entry in entries)
+            for (final (entry, entryKey) in entries.map(
+              (entry) => (entry, _entryKey(entry)),
+            ))
               SliverPadding(
-                key: ValueKey(('sliver', _entryKey(entry))),
+                key: ValueKey(('sliver', entryKey)),
                 padding: horizontalPadding,
                 sliver: LocationChatCachedSliver(
                   cache: _geometryCache,
-                  identity: _entryKey(entry),
-                  onExtent: (offset, height) =>
-                      _entryExtents[_entryKey(entry)] = (
-                        offset: offset,
-                        height: height,
-                      ),
+                  identity: entryKey,
+                  onExtent: (offset, height) => _entryExtents[entryKey] = (
+                    offset: offset,
+                    height: height,
+                  ),
                   version: entry < 0
                       ? (_geometryEnvironment, widget.replyPresentationRevision)
                       : (
@@ -3438,6 +3543,10 @@ class _LocationChatAnchoredMessageListState
   }
 
   Rect? _messageBounds(String localId) {
+    assert(() {
+      debugLocationChatMessageBoundsQueryCount++;
+      return true;
+    }());
     if (localId.isEmpty) return null;
     final messageContext = _messageLayoutKeys[localId]?.currentContext;
     if (!_isActive(messageContext)) return null;
@@ -3449,6 +3558,10 @@ class _LocationChatAnchoredMessageListState
   }
 
   Rect? _messageVisibilityBounds(String localId) {
+    assert(() {
+      debugLocationChatMessageBoundsQueryCount++;
+      return true;
+    }());
     if (localId.isEmpty) return null;
     final messageContext = _messageVisibilityKeys[localId]?.currentContext;
     if (!_isActive(messageContext)) return null;
@@ -3573,7 +3686,9 @@ class _LocationChatAnchoredMessageListState
     );
     // Include the boundary in the measured row, so anchoring/pagination use
     // the same height as the actual sliver child.
-    final decoratedRow = KeyedSubtree(
+    final decoratedRow = _TrackedMessageRow(
+      mountedRows: _mountedMessageRows,
+      layoutId: layoutId,
       key: layoutKey,
       child: widget.messageDecorator?.call(current, previous, row) ?? row,
     );

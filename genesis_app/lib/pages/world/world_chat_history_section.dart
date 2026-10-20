@@ -1,7 +1,7 @@
 part of '../chat/location_chat_page.dart';
 
 /// Owned by WorldPage, never by a modal sheet or a global singleton.
-class WorldHistoryViewCache {
+class WorldHistoryViewCache with WidgetsBindingObserver {
   final projection = WorldHistoryProjection();
   final viewport = LocationChatViewportCache();
   final collapsedMessages = <String>{};
@@ -15,20 +15,78 @@ class WorldHistoryViewCache {
   String get backgroundImageUrl =>
       projection.metadata.locations[readingLocationId]?.imageUrl ?? '';
   int snapshot = -1;
+  bool followLatest = true;
+  bool available = true;
+  bool _sourceManaged = false;
+  bool _observing = false;
+  bool _foreground = true;
+  WorldChatroomService? _source;
+  StreamSubscription<String>? _sourceSubscription;
+
+  void _observeLifecycle() {
+    if (_observing) return;
+    _observing = true;
+    _foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void attach(WorldChatroomService service) {
+    if (identical(service, _source)) return;
+    if (_source != null) detachSource();
+    _sourceManaged = true;
+    available = true;
+    _observeLifecycle();
+    _source = service;
+    _sourceSubscription = service.historyChanges.listen((worldId) {
+      if (identical(_source, service) &&
+          (_worldId == null || worldId == _worldId)) {
+        controller?.markLatestDirty();
+      }
+    });
+  }
+
+  void detachSource() {
+    unawaited(_sourceSubscription?.cancel());
+    _sourceSubscription = null;
+    _source = null;
+    available = !_sourceManaged;
+    clear();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final foreground = state == AppLifecycleState.resumed;
+    if (_foreground == foreground) return;
+    _foreground = foreground;
+    controller?.setSyncEnabled(foreground);
+    if (foreground) {
+      controller?.markLatestDirty();
+    } else {
+      controller?.setActive(false);
+    }
+  }
 
   void bind(AppServices services, String worldId, String uid) {
     if (identical(services, _services) && worldId == _worldId && uid == _uid) {
       return;
     }
-    dispose();
+    if (_services != null && !identical(services, _services)) detachSource();
+    _services?.sessionRevision.removeListener(detachSource);
+    controller?.dispose();
+    controller = null;
+    clear();
+    _observeLifecycle();
     _services = services;
     _worldId = worldId;
     _uid = uid;
-    services.sessionRevision.addListener(clear);
+    services.sessionRevision.addListener(detachSource);
   }
 
   void clear() {
     started = false;
+    followLatest = true;
     readingId = null;
     readingLocationId = '';
     projection.clear();
@@ -39,8 +97,13 @@ class WorldHistoryViewCache {
   }
 
   void dispose() {
-    _services?.sessionRevision.removeListener(clear);
+    _services?.sessionRevision.removeListener(detachSource);
     _services = null;
+    unawaited(_sourceSubscription?.cancel());
+    _sourceSubscription = null;
+    _source = null;
+    if (_observing) WidgetsBinding.instance.removeObserver(this);
+    _observing = false;
     controller?.dispose();
     controller = null;
     clear();
@@ -95,6 +158,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   bool _routeCurrent = true;
   bool _tickerEnabled = true;
   bool get _requestsEnabled =>
+      _cache.available &&
       widget.active &&
       _foreground &&
       _routeCurrent &&
@@ -218,12 +282,23 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
 
   void _returnToBottom() {
     final controller = _worldHistory.controller;
-    if (!_requestsEnabled || controller == null || controller.loading) return;
+    if (!_requestsEnabled || controller == null) return;
+    if (controller.latestDirty || controller.syncError != null) {
+      unawaited(_worldHistory.syncLatestManually());
+    }
+    _showLatest();
+  }
+
+  void _showLatest() {
+    final controller = _worldHistory.controller;
+    if (!_requestsEnabled || controller == null) return;
     _scrollCoordinator.beginHistoryNavigation();
     _worldHistory.cancelScheduledLoad();
     if (!controller.returnToNewest()) return;
     _historySections.reveal = null;
     _cache.readingId = null;
+    _cache.viewport.anchor = null;
+    _cache.followLatest = true;
     _scrollCoordinator.requestBottom(
       reason: LocationChatBottomReason.unseenMessageNotice,
       behavior: LocationChatBottomBehavior.jump,
@@ -364,25 +439,40 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
     return Stack(
       fit: StackFit.expand,
       children: [
-        body,
-        if (_worldHistory.ready &&
-            (messages.isNotEmpty || _worldHistory.hasNewer))
+        NotificationListener<ScrollNotification>(
+          onNotification: _worldHistory.scrollActivity,
+          child: body,
+        ),
+        if (_worldHistory.ready)
           Positioned(
             left: 0,
             right: 0,
             bottom: 12,
             child: Center(
               child: AnimatedBuilder(
-                animation: _scrollCoordinator,
+                animation: Listenable.merge([
+                  _scrollCoordinator,
+                  _worldHistory.controller,
+                ]),
                 builder: (context, _) => AnimatedBuilder(
                   animation: widget.scrollController,
                   builder: (context, _) {
                     final visible =
                         widget.active &&
+                        (messages.isNotEmpty ||
+                            _worldHistory.hasNewer ||
+                            (_worldHistory.controller?.hasPendingLatest ??
+                                false) ||
+                            (_worldHistory.controller?.latestDirty ?? false)) &&
                         (_worldHistory.hasNewer ||
+                            (_worldHistory.controller?.hasPendingLatest ??
+                                false) ||
+                            (_worldHistory.controller?.latestDirty ?? false) ||
                             !_scrollCoordinator.isAtBottom);
                     if (!visible) return const SizedBox.shrink();
-                    final disabled = _worldHistory.loading;
+                    final disabled =
+                        _worldHistory.loading &&
+                        !(_worldHistory.controller?.hasPendingLatest ?? false);
                     return Tooltip(
                       message: MaterialLocalizations.of(
                         context,

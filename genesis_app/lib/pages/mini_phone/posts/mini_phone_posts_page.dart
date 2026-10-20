@@ -13,6 +13,7 @@ class MiniPhonePostsPage extends StatelessWidget {
     required this.active,
     required this.header,
     this.postId,
+    this.readNotificationsOnEntry = false,
     required this.onBack,
     required this.onCreate,
     required this.onPublished,
@@ -23,6 +24,7 @@ class MiniPhonePostsPage extends StatelessWidget {
   final bool active;
   final Widget header;
   final int? postId;
+  final bool readNotificationsOnEntry;
   final VoidCallback onBack, onCreate, onPublished;
   final ValueChanged<int> onOpenPost;
   @override
@@ -37,6 +39,7 @@ class MiniPhonePostsPage extends StatelessWidget {
     MiniPhoneScreen.comments => MiniPhoneCommentsPage(
       store: session.data!,
       postId: postId,
+      readNotificationsOnEntry: readNotificationsOnEntry,
       active: active,
       header: header,
       onOpenPost: onOpenPost,

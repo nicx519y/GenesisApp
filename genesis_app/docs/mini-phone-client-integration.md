@@ -199,8 +199,16 @@ Validation for this scheduling change:
   retry on reopen, reconnect or foreground recovery. Successful receipts rebase
   Home without erasing messages received after the submitted read revision.
 - Entering Posts and successfully loading it marks all current world Post
-  notifications read once. Later events while remaining in Posts do not clear
-  newly arrived notifications.
+  notifications read once. Opening a Home Post notification also does so after
+  its detail request succeeds while that detail is still visible in the foreground.
+  Ordinary detail entry does not trigger an additional receipt; leaving before
+  detail success or failing to load does not mark notifications read. Both entry
+  paths share a World-owned receipt/summary operation, which survives closing
+  MiniPhone. Receipt failures preserve the notification and use the existing Toast;
+  they are not automatically replayed because the API has no notification cursor.
+  Failed summary queries retry on phone reopen, foreground recovery or reconnect,
+  without replaying the receipt. Later events while remaining in Posts/details
+  do not clear newly arrived notifications.
 - Posts author shortcuts include all loaded world characters (including player
   characters), supplemented by IDs from the unpaginated `/post/authors` list.
   They remain visible for an empty feed and use fixed-width, left-aligned slots.
@@ -485,7 +493,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `GET /comments` | 详情进入、下拉刷新和评论成功后按 `rn=100` 自动取齐所有页；完整列表提供展示及真实 `comment_id` 回复目标，不再滚动分页 |
 | `POST /comment/create` | 发布评论／回复；回复携带 `reply_to_comment_id`，成功后刷新详情与评论列表；Feed 由后续页面入口刷新 |
 | `GET /post/notifications` | 帖子通知／发帖／Post 已读后以 unread_only=true、rn=20 独立更新 Home 帖子聚合；保留分页方法，无独立通知页入口 |
-| `POST /post/notifications/read` | 进入 Posts 并成功加载后清除当前世界全部 Post 未读；只提交 `world_id`；停留期间不持续清除新通知 |
+| `POST /post/notifications/read` | 进入 Posts 列表成功加载，或 Home 通知直达详情成功加载且仍可见后，清除当前世界全部 Post 未读；只提交 `world_id`；会话负责关闭后的上报及聚合刷新，停留期间不持续清除新通知 |
 | `GET /album` | Photos 三列只读世界相册、刷新和分页；发帖独立使用本机图片上传 |
 
 ### Reused HTTP routes
@@ -542,7 +550,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
 - Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，先取最新三条，再按时间正序展示；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
-- 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
+- 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行；Home 通知直达详情在详情成功加载且仍可见后复用同一已读流程。普通详情浏览不额外触发，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
 - 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情精简评论不用于列表展示；全部真实评论从 `/comments` 获取并一次替换，不伪造回复目标。昵称、时间等缺失字段不使用演示占位值填充。

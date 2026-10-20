@@ -176,6 +176,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   late final AppLaunchTransitionController _launchTransition;
   MiniPhoneScreen? _launchApp;
   bool _closing = false;
+  bool _readPostNotificationsOnEntry = false;
   String? _analyticsOpenId;
   bool _openTracked = false;
   Object? _trackedPage;
@@ -409,6 +410,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _phoneOwner = phone!.uid;
       liveContact = null;
       livePostId = null;
+      _readPostNotificationsOnEntry = false;
     }
     if (mounted) {
       _notifyPhoneErrors();
@@ -708,7 +710,10 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   );
   void _openComments(MiniDemoPost post) {
     if (phone != null) {
-      _openLivePost(int.parse(post.id.split(':').first));
+      _openLivePost(
+        int.parse(post.id.split(':').first),
+        fromNotification: true,
+      );
       return;
     }
     _miniResume.post = post;
@@ -721,6 +726,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     screen: destination,
     active: screen == destination,
     postId: livePostId,
+    readNotificationsOnEntry: _readPostNotificationsOnEntry,
     header: _navigation(switch (destination) {
       MiniPhoneScreen.comments => context.l10n.miniPhoneComments,
       MiniPhoneScreen.create => context.l10n.miniPhoneCreatePost,
@@ -822,8 +828,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _go(MiniPhoneScreen.chat, source: 'messages_list');
   }
 
-  void _openLivePost(int id) {
+  void _openLivePost(int id, {bool fromNotification = false}) {
     livePostId = id;
+    _readPostNotificationsOnEntry = fromNotification;
     _go(MiniPhoneScreen.comments, source: 'posts_feed');
   }
 
@@ -849,6 +856,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           for (final p in data?.posts ?? <PhonePost>[]) 'like:${p.id}',
         ],
         MiniPhoneScreen.comments => [
+          'readPosts',
+          'postSummary',
           'detail:$livePostId',
           'comments:$livePostId',
           'comment:$livePostId',

@@ -610,7 +610,7 @@ void main() {
     },
   );
   testWidgets(
-    'foreground, coverage and tab reentry retain the completed snapshot',
+    'foreground rechecks latest while failed background sync retains the snapshot',
     (tester) async {
       final b = Backend();
       final h = Harness(b);
@@ -626,25 +626,25 @@ void main() {
       await frames(tester);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await frames(tester);
-      expect(b.requests.length, 1);
+      expect(b.requests.length, 2);
       await tester.pumpWidget(h.build(world, active: false));
       await frames(tester);
       b.fail = true;
       await tester.pumpWidget(h.build(world));
       await frames(tester);
-      expect(b.requests.length, 1);
+      expect(b.requests.length, 3);
       expect(find.text('History permission denied'), findsNothing);
       final list = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
       expect(list.messages.length, 1);
       await tester.pump(const Duration(seconds: 60));
-      expect(b.requests.length, 1);
+      expect(b.requests.length, 3);
       await h.close(tester);
     },
   );
   testWidgets(
-    'covered in-flight request canceled, necessary read resumes once',
+    'covered first request completes in World cache without a second request',
     (tester) async {
       final b = Backend()..pending = Completer<void>();
       final h = Harness(b);
@@ -653,14 +653,14 @@ void main() {
       expect(b.requests.length, 1);
       final uncover = h.presentation.cover();
       await frames(tester, 3);
-      expect(b.requests.first.cancellationToken!.isCancelled, isTrue);
+      expect(b.requests.first.cancellationToken!.isCancelled, isFalse);
       b.pending!.complete();
       b.pending = null;
       await frames(tester, 3);
       expect(find.byType(LocationChatAnchoredMessageList), findsNothing);
       uncover();
       await frames(tester);
-      expect(b.requests.length, 2);
+      expect(b.requests.length, 1);
       expect(find.byType(LocationChatAnchoredMessageList), findsOneWidget);
       await h.close(tester);
     },

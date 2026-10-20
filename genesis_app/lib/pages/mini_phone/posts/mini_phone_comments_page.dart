@@ -19,12 +19,14 @@ class MiniPhoneCommentsPage extends StatefulWidget {
     required this.active,
     required this.header,
     required this.onOpenPost,
+    this.readNotificationsOnEntry = false,
   });
   final MiniPhoneStore store;
   final int? postId;
   final bool active;
   final Widget header;
   final ValueChanged<int> onOpenPost;
+  final bool readNotificationsOnEntry;
   @override
   State<MiniPhoneCommentsPage> createState() => _MiniPhoneCommentsPageState();
 }
@@ -46,6 +48,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
   bool _freshDetail = false, _loading = true, _started = false;
   bool _keyboardOpen = false, _followBottom = false, _alignScheduled = false;
   bool _sending = false, _sendFollow = false;
+  bool _notificationReadAttempted = false;
   int _entry = 0;
   late int _generation;
   Object? _snapshot;
@@ -86,6 +89,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     _freshDetail = false;
     _loading = true;
     _started = false;
+    _notificationReadAttempted = false;
     _followBottom = _sendFollow = _sending = false;
     commentInput.clear();
     replyToComment = null;
@@ -98,12 +102,31 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
       if (!mounted || entry != _entry || !widget.active) return;
       _started = true;
       await Future.wait([
-        phone.refreshDetail(id, onEntry: true),
+        _refreshDetail(id, onEntry: true),
         phone.refreshComments(id, onEntry: true),
       ]);
       if (!mounted || entry != _entry) return;
       _changed();
     });
+  }
+
+  Future<bool> _refreshDetail(int id, {bool onEntry = false}) async {
+    final entry = _entry, generation = _generation;
+    final ok = await phone.refreshDetail(id, onEntry: onEntry);
+    if (ok &&
+        mounted &&
+        entry == _entry &&
+        generation == phone.accountGeneration &&
+        widget.readNotificationsOnEntry &&
+        !_notificationReadAttempted &&
+        widget.active &&
+        phone.foreground &&
+        phone.phoneVisible) {
+      _notificationReadAttempted = true;
+      // The World-owned controller finishes the receipt even if this page closes.
+      unawaited(phone.markPostsRead());
+    }
+    return ok;
   }
 
   void _changed() {
@@ -320,7 +343,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     final post = _seed;
     final count = _comments?.length ?? (_freshDetail ? d?.commentCount : null);
     Future<void> refresh() async {
-      await Future.wait([phone.refreshDetail(id), phone.refreshComments(id)]);
+      await Future.wait([_refreshDetail(id), phone.refreshComments(id)]);
     }
 
     return _panel(
