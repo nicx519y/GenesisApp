@@ -169,9 +169,9 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(11),
                                 border: Border.all(
-                                  width: 2,
+                                  width: 1.5,
                                   color: wallpaper.draftPhoto != null
-                                      ? miniPink
+                                      ? GenesisColors.redPrimary
                                       : Colors.transparent,
                                 ),
                               ),
@@ -228,11 +228,11 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(11),
                                     border: Border.all(
-                                      width: 2,
+                                      width: 1.5,
                                       color:
                                           wallpaper.draftPhoto == null &&
                                               wallpaper.draftImage == w.imageUrl
-                                          ? miniPink
+                                          ? GenesisColors.redPrimary
                                           : Colors.transparent,
                                     ),
                                   ),
