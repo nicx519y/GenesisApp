@@ -5,7 +5,6 @@ import '../state/mini_phone_store.dart';
 import '../shared/mini_phone_ui.dart';
 import '../shared/mini_phone_controls.dart';
 import '../../../components/common/genesis_image_viewer_overlay.dart';
-import '../../../ui/components/genesis_list_image.dart';
 import 'mini_phone_post_thumbnail.dart';
 
 class MiniPhonePostContent extends StatelessWidget {
@@ -75,21 +74,18 @@ class MiniPhonePostContent extends StatelessWidget {
               const SizedBox(height: 4),
               if (text.isNotEmpty) Text(text, style: miniStyle(14)),
               if (image.isNotEmpty)
-                if (detail)
-                  _liveImage(context, image, maxWidth: 170, maxHeight: 180)
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: MiniPhonePostThumbnail(
-                      imageUrl: image,
-                      onTap: (preview, source) => showGenesisImageViewer(
-                        context,
-                        imageUrls: [image],
-                        previewImageProviders: [preview],
-                        source: source,
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: MiniPhonePostThumbnail(
+                    imageUrl: image,
+                    onTap: (preview, source) => showGenesisImageViewer(
+                      context,
+                      imageUrls: [image],
+                      previewImageProviders: [preview],
+                      source: source,
                     ),
                   ),
+                ),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
@@ -173,29 +169,6 @@ class MiniPhonePostContent extends StatelessWidget {
           ),
         ),
       ],
-    ),
-  );
-  Widget _liveImage(
-    BuildContext context,
-    String url, {
-    double maxHeight = 300,
-    double maxWidth = 290,
-  }) => GestureDetector(
-    onTap: () => showGenesisImageViewer(context, imageUrls: [url]),
-    child: Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxHeight, maxWidth: maxWidth),
-          child: GenesisListImage(
-            imageUrl: url,
-            fit: BoxFit.contain,
-            borderRadius: BorderRadius.zero,
-            placeholder: const SizedBox.expand(),
-          ),
-        ),
-      ),
     ),
   );
 }

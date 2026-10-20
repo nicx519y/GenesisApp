@@ -17,8 +17,9 @@ ChatMessageVm _message(int id) => ChatMessageVm(
 
 Widget _tree(
   LocationChatScrollCoordinator coordinator,
-  List<ChatMessageVm> messages,
-) => MaterialApp(
+  List<ChatMessageVm> messages, {
+  bool readOnlyArchive = false,
+}) => MaterialApp(
   home: Scaffold(
     body: Align(
       alignment: Alignment.topLeft,
@@ -32,6 +33,7 @@ Widget _tree(
             builder: (_, _) => LocationChatAnchoredMessageList(
               coordinator: coordinator,
               messages: messages,
+              readOnlyArchive: readOnlyArchive,
               topTitle: '',
               showDateDividers: false,
               style: kLocationChatStyle,
@@ -60,6 +62,16 @@ Future<void> _dragOlder(WidgetTester tester) async {
 }
 
 void main() {
+  for (final archive in [false, true]) {
+    group('readOnlyArchive=$archive', () => _navigationTests(archive));
+  }
+}
+
+void _navigationTests(bool archive) {
+  Widget tree(
+    LocationChatScrollCoordinator coordinator,
+    List<ChatMessageVm> messages,
+  ) => _tree(coordinator, messages, readOnlyArchive: archive);
   for (final fling in [false, true]) {
     testWidgets(
       '30 upward gestures progress through variable-height cached history (fling=$fling)',
@@ -67,7 +79,7 @@ void main() {
         final coordinator = LocationChatScrollCoordinator();
         addTearDown(coordinator.dispose);
         await tester.pumpWidget(
-          _tree(coordinator, List.generate(240, _message)),
+          tree(coordinator, List.generate(240, _message)),
         );
         await tester.pumpAndSettle();
         var previous = _firstVisible(coordinator);
@@ -105,7 +117,7 @@ void main() {
     (tester) async {
       final coordinator = LocationChatScrollCoordinator();
       addTearDown(coordinator.dispose);
-      await tester.pumpWidget(_tree(coordinator, List.generate(240, _message)));
+      await tester.pumpWidget(tree(coordinator, List.generate(240, _message)));
       await tester.pumpAndSettle();
       await _dragOlder(tester);
       for (var drag = 0; drag < 8; drag++) {
@@ -139,7 +151,7 @@ void main() {
     final coordinator = LocationChatScrollCoordinator();
     addTearDown(coordinator.dispose);
     var messages = List.generate(240, (i) => _message(200 + i));
-    await tester.pumpWidget(_tree(coordinator, messages));
+    await tester.pumpWidget(tree(coordinator, messages));
     await tester.pumpAndSettle();
     var trimmed = 0;
     for (var page = 0; page < 7; page++) {
@@ -163,7 +175,7 @@ void main() {
         focus: anchorId,
       );
       if (messages.length < merged.length) trimmed++;
-      await tester.pumpWidget(_tree(coordinator, messages));
+      await tester.pumpWidget(tree(coordinator, messages));
       // Check the first paint, not only the final settled position.
       expect(tester.getTopLeft(_row(anchorId)).dy, closeTo(before, .5));
       await tester.pumpAndSettle();

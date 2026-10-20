@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_geometry_cache.dart';
 
 class _CountedMessages extends ListBase<ChatMessageVm> {
   _CountedMessages(int count)
@@ -37,6 +38,67 @@ class _CountedMessages extends ListBase<ChatMessageVm> {
 }
 
 void main() {
+  testWidgets('archive rebuilds reuse metadata and refresh decorations', (
+    tester,
+  ) async {
+    final messages = _CountedMessages(1200);
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    var revision = 0;
+    var loading = false;
+    var hidden = <String>{};
+    String layoutId(ChatMessageVm message) => 'layout:${message.localId}';
+    Widget tree() => MaterialApp(
+      home: Scaffold(
+        body: LocationChatAnchoredMessageList(
+          coordinator: coordinator,
+          messages: messages,
+          readOnlyArchive: true,
+          messageLayoutId: layoutId,
+          topTitle: '',
+          replyActionsVisible: false,
+          replyWaitingPositioningEnabled: false,
+          showDateDividers: false,
+          oldestEdgeLoading: loading,
+          hiddenMessageIds: hidden,
+          messageDecorationVersionById: (id, previous) => revision,
+          messageDecorator: (message, previous, child) => Column(
+            children: [Text('decoration-${message.localId}-$revision'), child],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    messages.reads = 0;
+    revision++;
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    expect(find.text('decoration-message-1199-1'), findsOneWidget);
+    expect(messages.reads, lessThan(200));
+    messages.reads = 0;
+    hidden = {'message-1199'};
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    expect(find.text('Archive message 1199'), findsNothing);
+    expect(messages.reads, lessThan(200));
+    messages.reads = 0;
+    hidden = {};
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    expect(find.text('decoration-message-1199-1'), findsOneWidget);
+    expect(messages.reads, lessThan(200));
+    loading = true;
+    await tester.pumpWidget(tree());
+    await tester.pump(const Duration(milliseconds: 250));
+    loading = false;
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    expect(find.text('decoration-message-1199-1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('cached anchors follow mounted rows across distant jumps', (
     tester,
   ) async {
@@ -51,6 +113,7 @@ void main() {
             coordinator: coordinator,
             viewportCache: viewport,
             messages: messages,
+            readOnlyArchive: true,
             messageLayoutId: (message) => 'layout:${message.localId}',
             topTitle: '',
             replyActionsVisible: false,
@@ -105,6 +168,7 @@ void main() {
               body: LocationChatAnchoredMessageList(
                 coordinator: coordinator,
                 messages: messages,
+                readOnlyArchive: true,
                 topTitle: '',
                 replyActionsVisible: false,
                 replyWaitingPositioningEnabled: false,
@@ -115,6 +179,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(
+          find.byType(LocationChatCachedSliver).evaluate().length,
+          lessThan(160),
+          reason:
+              'Offscreen history must not retain one sliver element per row.',
+        );
         coordinator.beginHistoryNavigation();
         final before = coordinator.messageLocalIdsIntersectingViewport.toSet();
         expect(before, isNotEmpty);

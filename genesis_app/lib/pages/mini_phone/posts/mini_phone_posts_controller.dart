@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../network/mini_phone/mini_phone_api.dart';
 import '../state/mini_phone_requests.dart';
+import 'mini_phone_post_feed_cache.dart';
 
 /// Posts state is independent of DM recovery and never refreshes app lists on push.
 class MiniPhonePostsController {
@@ -27,7 +30,11 @@ class MiniPhonePostsController {
   Map<String, String> get errors => requests.errors;
   Set<String> get busy => requests.busy;
   List<String> postAuthorIds = [];
-  List<PhonePost> posts = [];
+  final _feeds = <String?, MiniPhonePostFeedCache>{};
+  MiniPhonePostFeedCache get _feed =>
+      _feeds.putIfAbsent(authorFilter, MiniPhonePostFeedCache.new);
+  List<PhonePost> get posts => _feed.posts;
+  set posts(List<PhonePost> value) => _feed.posts = value;
   PhonePage<PhoneNotification>? notifications;
   final details = <int, PhonePostDetail>{};
   int _interactionRevision = 0;
@@ -53,7 +60,7 @@ class MiniPhonePostsController {
     _postReadOnLoad = false;
     _postReadTask = null;
     _authorFilter = null;
-    posts = [];
+    _feeds.clear();
     postAuthorIds = [];
     notifications = null;
     details.clear();
@@ -102,20 +109,32 @@ class MiniPhonePostsController {
     final value = charId == '' ? null : charId;
     if (_authorFilter == value) return;
     _authorFilter = value;
-    // Invalidate in-flight pages before another author's first page starts.
+    // Discard superseded requests, but immediately restore this filter's cache.
     requests.versions['posts'] = (requests.versions['posts'] ?? 0) + 1;
-    posts = [];
-    pages.remove('posts');
-    hasMore.remove('posts');
+    _restoreFeedPagination();
     errors.remove('posts');
     busy.remove('posts');
+    requests.notify();
   }
 
-  Future<bool> refreshPostAuthors() => load(
-    'postAuthors',
-    () => api.postAuthors(worldId),
-    (ids) => postAuthorIds = ids,
-  );
+  void _restoreFeedPagination() {
+    final feed = _feed;
+    if (feed.page case final page?) {
+      pages['posts'] = page;
+    } else {
+      pages.remove('posts');
+    }
+    if (feed.hasMore case final more?) {
+      hasMore['posts'] = more;
+    } else {
+      hasMore.remove('posts');
+    }
+  }
+
+  Future<bool> refreshPostAuthors() =>
+      load('postAuthors', () => api.postAuthors(worldId), (ids) {
+        if (!listEquals(postAuthorIds, ids)) postAuthorIds = ids;
+      });
 
   Future<bool> refreshPosts({bool next = false, bool markRead = false}) async {
     if (next && (busy.contains('posts') || hasMore['posts'] != true)) {
@@ -123,25 +142,56 @@ class MiniPhonePostsController {
     }
     if (markRead) _postReadOnLoad = true;
     final authorsRefresh = next ? null : refreshPostAuthors();
+    final filter = authorFilter;
+    final feed = _feed;
     final pn = next ? (pages['posts'] ?? 1) + 1 : 1;
+    final lastPage = next ? pn : (feed.page ?? 1);
+    final generation = requests.generation;
+    final version = (requests.versions['posts'] ?? 0) + 1;
+    void checkCurrent() {
+      if (!requests.isCurrent(generation) ||
+          requests.versions['posts'] != version) {
+        throw const MiniPhoneRequestCancelled();
+      }
+    }
+
     final ok = await load(
       'posts',
-      () => api.posts(worldId, pn: pn, charId: authorFilter),
-      (page) {
-        posts = <int, PhonePost>{
-          if (next)
-            for (final p in posts) p.id: p,
-          for (final p in page.list) p.id: p,
-        }.values.toList();
-        for (final p in page.list) {
+      () async {
+        final incoming = <PhonePost>[];
+        // Revalidate the already loaded window without dropping its tail or
+        // publishing half a refresh when a later page fails.
+        for (var pageNumber = pn; ; pageNumber++) {
+          checkCurrent();
+          if (!foreground) throw const MiniPhoneRequestCancelled();
+          final page = await api.posts(worldId, pn: pageNumber, charId: filter);
+          checkCurrent();
+          if (page.pn != pageNumber ||
+              page.rn <= 0 ||
+              (page.list.isEmpty && page.hasMore)) {
+            throw const FormatException('Invalid posts pagination');
+          }
+          incoming.addAll(page.list);
+          if (!page.hasMore || pageNumber >= lastPage) {
+            return (posts: incoming, page: pageNumber, hasMore: page.hasMore);
+          }
+        }
+      },
+      (result) {
+        feed.reconcile(
+          result.posts,
+          append: next,
+          page: result.page,
+          hasMore: result.hasMore,
+        );
+        for (final p in result.posts) {
           // A fresh feed supersedes interaction details cached before entry.
-          details.remove(p.id);
+          if (details.remove(p.id) != null) _interactionRevision++;
           if (p.author.type == 1) users[p.author.id] = p.author;
         }
-        pages['posts'] = pn;
-        hasMore['posts'] = page.hasMore;
+        _restoreFeedPagination();
       },
-      requestKey: '$pn:$authorFilter',
+      requestKey: '$next:$pn:$lastPage:$filter',
     );
     if (ok && _postReadOnLoad && postsVisible && phoneVisible && foreground) {
       _postReadOnLoad = false;

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/posts/mini_phone_post_feed.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/posts/mini_phone_post_content.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -99,7 +101,7 @@ void main() {
         displayed.image,
         miniPhonePostThumbnailProvider(
           'https://cdn.example/failed.png',
-          width: 290,
+          width: tester.getSize(thumbnail).width,
           devicePixelRatio: MediaQuery.devicePixelRatioOf(
             tester.element(thumbnail),
           ),
@@ -168,10 +170,97 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  for (final failFullImage in [false, true]) {
+  for (final width in [240.0, 420.0]) {
     testWidgets(
-      'Posts immediately reuses its thumbnail and full image failure=$failFullImage',
+      'wide photo crops centrally at fixed height within width $width',
       (tester) async {
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawRect(
+          const Rect.fromLTWH(0, 0, 800, 200),
+          Paint()..color = Colors.red,
+        );
+        canvas.drawRect(
+          const Rect.fromLTWH(100, 0, 600, 200),
+          Paint()..color = Colors.green,
+        );
+        final picture = recorder.endRecording();
+        final decoded = (await tester.runAsync(
+          () => picture.toImage(800, 200),
+        ))!;
+        picture.dispose();
+        addTearDown(decoded.dispose);
+        debugGenesisStaticNetworkImageCompleter = (_) =>
+            OneFrameImageStreamCompleter(
+              Future.value(ImageInfo(image: decoded.clone())),
+            );
+        final boundaryKey = GlobalKey();
+        GenesisImageViewerSource? source;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: RepaintBoundary(
+                  key: boundaryKey,
+                  child: SizedBox(
+                    width: width,
+                    child: MiniPhonePostThumbnail(
+                      imageUrl: 'https://cdn.example/wide-$width.png',
+                      onTap: (_, captured) => source = captured,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final thumbnail = find.byType(MiniPhonePostThumbnail);
+        expect(tester.getSize(thumbnail), Size(width, 200));
+        final boundary =
+            boundaryKey.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        final rendered = (await tester.runAsync(
+          () => boundary.toImage(pixelRatio: 1),
+        ))!;
+        final pixels = (await tester.runAsync(
+          () => rendered.toByteData(format: ui.ImageByteFormat.rawRgba),
+        ))!;
+        // The center band fills the full height; the red outer edges are cropped.
+        for (final point in [const Offset(1, 1), Offset(width - 2, 198)]) {
+          final offset =
+              (point.dy.toInt() * rendered.width + point.dx.toInt()) * 4;
+          expect(
+            pixels.getUint32(offset),
+            Colors.green.toARGB32() << 8 & 0xffffffff | 0xff,
+          );
+        }
+        rendered.dispose();
+        await tester.tap(thumbnail);
+        expect(source, isNotNull);
+        expect(source!.rect.size, Size(width, 200));
+        expect(source!.aspectRatio, 4);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final scenario in [
+    (detail: false, failFullImage: false),
+    (detail: false, failFullImage: true),
+    (detail: true, failFullImage: false),
+    (detail: true, failFullImage: true),
+  ]) {
+    final failFullImage = scenario.failFullImage;
+    testWidgets(
+      'Posts detail=${scenario.detail} reuses its thumbnail and full image failure=$failFullImage',
+      (tester) async {
+        tester.view.physicalSize = const Size(1170, 2532);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
         SharedPreferences.setMockInitialValues({});
         final bytes = await rootBundle.load(
           'assets/images/default_list_image.png',
@@ -209,6 +298,8 @@ void main() {
                   {...phonePost(), 'image': original},
                 ]),
               )
+            : request.uri.path.endsWith('/post/detail')
+            ? ok({...phoneDetail(), 'image': original})
             : null;
         final store = (await tester.runAsync(() async {
           final store = backend.store();
@@ -228,12 +319,37 @@ void main() {
           () async => Future<void>.delayed(const Duration(milliseconds: 30)),
         );
         await tester.pumpAndSettle();
+        if (scenario.detail) {
+          final post = tester.widget<MiniPhonePostContent>(
+            find.byType(MiniPhonePostContent),
+          );
+          post.onOpenPost(post.id);
+          await tester.pumpAndSettle();
+          await tester.runAsync(
+            () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<MiniPhonePostContent>(find.byType(MiniPhonePostContent))
+                .detail,
+            isTrue,
+          );
+        }
         final thumbnail = find.byType(MiniPhonePostThumbnail);
+        expect(thumbnail, findsOneWidget);
+        expect(tester.getSize(thumbnail), const Size(308, 200));
         final thumbnailProvider = tester
             .widget<Image>(
               find.descendant(of: thumbnail, matching: find.byType(Image)),
             )
             .image;
+        expect(
+          Uri.parse(
+            (thumbnailProvider as GenesisStaticNetworkImageProvider).imageUrl,
+          ).queryParameters['x-oss-process'],
+          'image/resize,h_400/format,webp',
+        );
         expect(thumbnailLoads, 1);
         await tester.tap(thumbnail);
         await tester.pumpAndSettle();

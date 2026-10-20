@@ -56,7 +56,7 @@ extension WorldHistoryLatestSync on WorldHistoryController {
       var unchanged = false;
       var succeeded = false;
       try {
-        final page = await fetch(
+        final response = await fetch(
           worldId: worldId,
           cursor: null,
           limit: 20,
@@ -65,7 +65,8 @@ extension WorldHistoryLatestSync on WorldHistoryController {
         if (_disposed || generation != _syncGeneration || token.isCancelled) {
           return;
         }
-        page.validate(worldId, null);
+        response.validate(worldId, null);
+        final page = _reuseUnchangedRows(response);
         unchanged =
             previous != null &&
             _sameHistoryRows(previous.messages, page.messages) &&
@@ -153,22 +154,23 @@ bool _sameHistoryRows(
 ) {
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
-    final x = a[i], y = b[i];
-    if (x.id != y.id ||
-        x.type != y.type ||
-        x.senderId != y.senderId ||
-        x.senderName != y.senderName ||
-        x.userId != y.userId ||
-        x.messageType != y.messageType ||
-        x.content != y.content ||
-        x.minAppVersion != y.minAppVersion ||
-        x.currentTime != y.currentTime ||
-        x.createdAt != y.createdAt ||
-        x.tickNo != y.tickNo ||
-        x.subTickNo != y.subTickNo ||
-        !listEquals(x.locationRefs, y.locationRefs)) {
-      return false;
-    }
+    if (!_sameHistoryMessage(a[i], b[i])) return false;
   }
   return true;
 }
+
+bool _sameHistoryMessage(WorldHistoryMessage x, WorldHistoryMessage y) =>
+    identical(x, y) ||
+    (x.id == y.id &&
+        x.type == y.type &&
+        x.senderId == y.senderId &&
+        x.senderName == y.senderName &&
+        x.userId == y.userId &&
+        x.messageType == y.messageType &&
+        x.content == y.content &&
+        x.minAppVersion == y.minAppVersion &&
+        x.currentTime == y.currentTime &&
+        x.createdAt == y.createdAt &&
+        x.tickNo == y.tickNo &&
+        x.subTickNo == y.subTickNo &&
+        listEquals(x.locationRefs, y.locationRefs));

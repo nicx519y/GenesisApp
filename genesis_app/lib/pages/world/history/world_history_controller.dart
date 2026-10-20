@@ -100,6 +100,33 @@ class WorldHistoryController extends ChangeNotifier {
   int get residentCount => _residentMessages.length;
   int get residentBytes => _residentBytes;
 
+  // Reconcile only the incoming page against bounded, already-owned data.
+  // Do not join cursor chains or retain another archive-wide body cache.
+  WorldHistoryPage _reuseUnchangedRows(WorldHistoryPage page) {
+    final heads = <String, List<WorldHistoryMessage>>{};
+    for (final row in [...?_latestPage?.messages, ...?_firstPageSnapshot]) {
+      (heads[row.id] ??= []).add(row);
+    }
+    final messages = <WorldHistoryMessage>[];
+    for (final row in page.messages) {
+      final residentPage = _messagePages[row.id];
+      final candidates = [
+        ...?heads[row.id],
+        if (residentPage != null) ...?_resident[residentPage],
+      ];
+      messages.add(
+        candidates.where((old) => _sameHistoryMessage(old, row)).firstOrNull ??
+            row,
+      );
+    }
+    return WorldHistoryPage(
+      worldId: page.worldId,
+      messages: List.unmodifiable(messages),
+      hasMore: page.hasMore,
+      cursor: page.cursor,
+    );
+  }
+
   void _setResident(int index, List<WorldHistoryMessage>? messages) {
     _pages[index].messages = messages;
     if (messages == null) {
@@ -249,14 +276,15 @@ class WorldHistoryController extends ChangeNotifier {
     notifyListeners();
     unawaited(() async {
       try {
-        final page = await fetch(
+        final response = await fetch(
           worldId: worldId,
           cursor: cursor,
           limit: 20,
           cancellationToken: token,
         );
         if (_disposed || generation != _generation || token.isCancelled) return;
-        page.validate(worldId, cursor);
+        response.validate(worldId, cursor);
+        final page = _reuseUnchangedRows(response);
         if (page.hasMore &&
             _pages
                 .take(operation < 0 ? 0 : operation)

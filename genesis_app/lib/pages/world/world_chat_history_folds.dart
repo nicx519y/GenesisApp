@@ -92,20 +92,26 @@ class _WorldHistoryFolds {
     _updateHeaders();
   }
 
-  _WorldHistoryFold? headerFor(ChatMessageVm message) {
-    final section = _byMessage[message.localId];
-    return section?.messageIds.first == message.localId ? section : null;
+  _WorldHistoryFold? headerFor(ChatMessageVm message) =>
+      headerForId(message.localId);
+
+  _WorldHistoryFold? headerForId(String id) {
+    final section = _byMessage[id];
+    return section?.messageIds.first == id ? section : null;
   }
 
-  String? continueLocationFor(ChatMessageVm message) {
-    final section = _byMessage[message.localId];
+  String? continueLocationFor(ChatMessageVm message) =>
+      continueLocationForId(message.localId);
+
+  String? continueLocationForId(String id) {
+    final section = _byMessage[id];
     if (section == null ||
         !expanded.contains(section.id) ||
         !owner._worldHistory.projection.metadata.locations.containsKey(
           section.locationId,
         ) ||
         _latestByLocation[section.locationId]?.id != section.id ||
-        section.messageIds.last != message.localId) {
+        section.messageIds.last != id) {
       return null;
     }
     return section.locationId;

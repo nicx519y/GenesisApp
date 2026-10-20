@@ -394,7 +394,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                     commentCount: count,
                     detail: true,
                   ),
-                if (count != null)
+                if (count != null || _loading)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       miniPageInset,
@@ -402,10 +402,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                       miniPageInset,
                       8,
                     ),
-                    child: Text(
-                      context.l10n.miniPhoneCommentCount(count: count),
-                      style: miniStyle(14, FontWeight.w600),
-                    ),
+                    child: _CommentCountHeader(count: count),
                   ),
                 if (_comments == null && _loading)
                   const _CommentSkeleton()
@@ -502,6 +499,39 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
       ),
     );
   }
+}
+
+class _CommentCountHeader extends StatelessWidget {
+  const _CommentCountHeader({required this.count});
+
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    alignment: AlignmentDirectional.centerStart,
+    children: [
+      // Keep the real text metrics, including accessibility text scaling.
+      Visibility(
+        visible: count != null,
+        maintainSize: true,
+        maintainAnimation: true,
+        maintainState: true,
+        child: Text(
+          context.l10n.miniPhoneCommentCount(count: count ?? 0),
+          style: miniStyle(14, FontWeight.w600),
+        ),
+      ),
+      if (count == null)
+        Container(
+          width: 80,
+          height: 14,
+          decoration: BoxDecoration(
+            color: miniLine,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+    ],
+  );
 }
 
 /// Static placeholders mirror comment rows without implying a comment count.

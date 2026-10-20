@@ -149,6 +149,82 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+  for (final scale in [1.0, 2.0]) {
+    for (final detailFirst in [true, false]) {
+      testWidgets(
+        'comment header reserves space at scale $scale, detail first: $detailFirst',
+        (tester) async {
+          final b = PhoneBackend();
+          final s = (await tester.runAsync(() async {
+            final s = b.store(namespace: 'comments-full-${_nextStore++}');
+            await s.ready;
+            await s.refreshPosts();
+            return s;
+          }))!;
+          addTearDown(s.dispose);
+          s.phoneVisible = true;
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(320, 900);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          addTearDown(tester.view.resetPhysicalSize);
+          final detail = Completer<Object?>();
+          final replies = Completer<Object?>();
+          b.respond = (r) => r.uri.path.endsWith('/post/detail')
+              ? detail.future
+              : r.uri.path.endsWith('/comments')
+              ? replies.future
+              : null;
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: MiniPhoneCommentsPage(
+                  store: s,
+                  postId: 8,
+                  active: true,
+                  header: const SizedBox(),
+                  onOpenPost: (_) {},
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final skeleton = find.byKey(
+            const ValueKey('mini-phone-comments-skeleton'),
+          );
+          final initialTop = tester.getTopLeft(skeleton).dy;
+          if (detailFirst) {
+            detail.complete(ok(phoneDetail()));
+            await tester.pumpAndSettle();
+            expect(tester.getTopLeft(skeleton).dy, closeTo(initialTop, .01));
+          }
+          replies.complete(ok(page([comment(1)], rn: 100)));
+          await tester.pumpAndSettle();
+          final firstRow = find
+              .ancestor(
+                of: find.textContaining('Reply 1', findRichText: true),
+                matching: find.byType(InkWell),
+              )
+              .first;
+          expect(tester.getTopLeft(firstRow).dy, closeTo(initialTop, .01));
+          if (!detailFirst) {
+            detail.complete(ok(phoneDetail()));
+            await tester.pumpAndSettle();
+            expect(tester.getTopLeft(firstRow).dy, closeTo(initialTop, .01));
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        },
+      );
+    }
+  }
   for (final count in [0, 1, 100, 205]) {
     test('fully loads $count replies and replaces an older cache', () async {
       final b = PhoneBackend();
@@ -769,7 +845,7 @@ void main() {
     },
   );
   testWidgets(
-    'late detail image layout keeps the latest reply above the keyboard',
+    'late detail image keeps fixed height and the latest reply above the keyboard',
     (tester) async {
       final recorder = ui.PictureRecorder();
       Canvas(recorder).drawRect(
@@ -836,7 +912,7 @@ void main() {
       expect(controller.offset, closeTo(before, .5));
       image.complete(ImageInfo(image: decoded.clone()));
       await tester.pumpAndSettle();
-      expect(controller.position.maxScrollExtent, lessThan(before));
+      expect(controller.position.maxScrollExtent, before);
       expect(
         controller.offset,
         closeTo(controller.position.maxScrollExtent, .5),

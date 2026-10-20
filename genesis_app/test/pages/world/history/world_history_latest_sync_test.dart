@@ -3,10 +3,191 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/world_history.dart';
 import 'package:genesis_flutter_android/pages/world/history/world_history_controller.dart';
+import 'package:genesis_flutter_android/pages/world/history/world_history_projection.dart';
 
 import 'history_fixtures.dart';
 
 void main() {
+  test(
+    'every message field and location order invalidates row reuse',
+    () async {
+      for (final change in <String, dynamic>{
+        'global_message_id': 'different',
+        'type': 'narrator',
+        'sender_id': 'other',
+        'sender_name': 'Other name',
+        'user_id': 'other-user',
+        'message_type': 'image',
+        'content': 'changed',
+        'min_app_version': 1,
+        'current_time': 'Day 2',
+        'created_at': '2026-10-20T12:00:00+08:00',
+        'tick': 1,
+        'sub_tick': 1,
+        'location_refs': ['B', 'A'],
+      }.entries) {
+        final original = historyJson('same', locations: ['A', 'B']);
+        var row = WorldHistoryMessage.fromJson(original);
+        final c = WorldHistoryController(
+          worldId: 'w',
+          fetch:
+              ({
+                required worldId,
+                cursor,
+                limit = 20,
+                cancellationToken,
+              }) async => WorldHistoryPage(
+                worldId: 'w',
+                messages: [row],
+                hasMore: false,
+                cursor: '',
+              ),
+        );
+        addTearDown(c.dispose);
+        c.setSyncEnabled(true);
+        c.setActive(true);
+        await c.refresh();
+        row = WorldHistoryMessage.fromJson({
+          ...original,
+          change.key: change.value,
+        });
+        await c.syncLatest();
+        expect(c.hasPendingLatest, isTrue, reason: change.key);
+        c.returnToNewest();
+        expect(c.newestFirst.single, same(row), reason: change.key);
+      }
+    },
+  );
+
+  test(
+    'latest adoption preserves unchanged Tick parsing and display VMs',
+    () async {
+      WorldHistoryMessage tick() =>
+          historyMessage('tick', type: 'tick', content: tickContent());
+      var head = WorldHistoryPage(
+        worldId: 'w',
+        messages: [
+          tick(),
+          historyMessage('user', type: 'user'),
+        ],
+        hasMore: false,
+        cursor: '',
+      );
+      final c = WorldHistoryController(
+        worldId: 'w',
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async =>
+                head,
+      );
+      addTearDown(c.dispose);
+      c.setSyncEnabled(true);
+      c.setActive(true);
+      await c.refresh();
+      final projection = WorldHistoryProjection();
+      final world = historyWorld();
+      project() => projection.project(
+        newestFirst: c.newestFirst,
+        dataRevision: c.revision,
+        world: world,
+        uid: 'me',
+        appVersion: 999,
+      );
+      final original = project().firstWhere((message) => message.isTick);
+      final payload = original.timelinePayload;
+      final raw = c.newestFirst.firstWhere((message) => message.id == 'tick');
+      final decoded = raw.tick;
+      expect(decoded, isNotNull);
+      head = WorldHistoryPage(
+        worldId: 'w',
+        messages: [
+          historyMessage('new'),
+          tick(),
+          historyMessage('user', type: 'user'),
+        ],
+        hasMore: false,
+        cursor: '',
+      );
+      await c.syncLatest();
+      c.returnToNewest();
+      final adopted = project().firstWhere((message) => message.isTick);
+      expect(adopted, same(original));
+      expect(adopted.timelinePayload, same(payload));
+      expect(
+        c.newestFirst.firstWhere((message) => message.id == 'tick'),
+        same(raw),
+      );
+      expect(raw.tick, same(decoded));
+    },
+  );
+
+  test(
+    'overlapping older page reuses only identical resident messages',
+    () async {
+      final c = WorldHistoryController(
+        worldId: 'w',
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async =>
+                cursor == null
+                ? historyPage(['stable', 'edited'], cursor: 'older')
+                : WorldHistoryPage(
+                    worldId: 'w',
+                    messages: [
+                      historyMessage('stable'),
+                      historyMessage('edited', content: 'changed'),
+                      historyMessage('older'),
+                    ],
+                    hasMore: false,
+                    cursor: '',
+                  ),
+      );
+      addTearDown(c.dispose);
+      c.setActive(true);
+      await c.refresh();
+      final original = {for (final row in c.newestFirst) row.id: row};
+      await c.loadOlder();
+      final page = c.pages.last.messages!;
+      expect(page.first, same(original['stable']));
+      expect(page[1], isNot(same(original['edited'])));
+      expect(page[1].content, 'changed');
+    },
+  );
+
+  test(
+    'latest adoption reuses unchanged rows but replaces edited rows',
+    () async {
+      var head = historyPage(['stable', 'edited']);
+      final c = WorldHistoryController(
+        worldId: 'w',
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async =>
+                head,
+      );
+      addTearDown(c.dispose);
+      c.setSyncEnabled(true);
+      c.setActive(true);
+      await c.refresh();
+      final original = {for (final row in c.newestFirst) row.id: row};
+      head = WorldHistoryPage(
+        worldId: 'w',
+        messages: [
+          historyMessage('stable'),
+          historyMessage('edited', content: 'Edited content'),
+          historyMessage('new'),
+        ],
+        hasMore: false,
+        cursor: '',
+      );
+      await c.syncLatest();
+      expect(c.returnToNewest(), isTrue);
+      final adopted = {for (final row in c.newestFirst) row.id: row};
+      expect(identical(adopted['stable'], original['stable']), isTrue);
+      expect(identical(adopted['edited'], original['edited']), isFalse);
+      expect(original['edited']!.content, 'Hello');
+      expect(adopted['edited']!.content, 'Edited content');
+      expect(adopted.keys, contains('new'));
+    },
+  );
+
   testWidgets('continuous events flush within two seconds', (tester) async {
     var calls = 0;
     final c = WorldHistoryController(

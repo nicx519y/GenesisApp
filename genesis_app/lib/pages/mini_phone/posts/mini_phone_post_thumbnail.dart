@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import '../../../components/common/genesis_image_viewer_overlay.dart';
 
@@ -7,7 +5,6 @@ import '../../../ui/components/genesis_static_network_image.dart';
 import '../../../utils/genesis_image_resource.dart';
 
 const double miniPhonePostThumbnailHeight = 200;
-const double miniPhonePostThumbnailMaxWidth = 290;
 
 GenesisStaticNetworkImageProvider miniPhonePostThumbnailProvider(
   String url, {
@@ -23,7 +20,7 @@ GenesisStaticNetworkImageProvider miniPhonePostThumbnailProvider(
     ),
     cacheWidth: (width * ratio).ceil(),
     cacheHeight: (miniPhonePostThumbnailHeight * ratio).ceil(),
-    fit: BoxFit.contain,
+    fit: BoxFit.fitHeight,
   );
 }
 
@@ -44,10 +41,7 @@ class MiniPhonePostThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final width = math.min(
-        constraints.maxWidth,
-        miniPhonePostThumbnailMaxWidth,
-      );
+      final width = constraints.maxWidth;
       final preview = miniPhonePostThumbnailProvider(
         imageUrl,
         width: width,
@@ -56,7 +50,8 @@ class MiniPhonePostThumbnail extends StatelessWidget {
       final url = preview.imageUrl;
       return GenesisImageViewerSourceAnchor(
         previewImageProvider: preview,
-        alignment: Alignment.centerLeft,
+        fit: BoxFit.fitHeight,
+        alignment: Alignment.center,
         onTap: (source) => onTap(preview, source),
         child: SizedBox(
           width: width,
@@ -66,8 +61,8 @@ class MiniPhonePostThumbnail extends StatelessWidget {
             imageUrl: url,
             width: width,
             height: miniPhonePostThumbnailHeight,
-            fit: BoxFit.contain,
-            alignment: Alignment.centerLeft,
+            fit: BoxFit.fitHeight,
+            alignment: Alignment.center,
             placeholder: (_) => const SizedBox.expand(),
             errorWidget: (_, _) => const SizedBox.expand(),
           ),

@@ -36,6 +36,8 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
     isActive: () => widget.active && phone.phoneVisible,
   );
   late Object _snapshot;
+  final _cards =
+      <int, ({PhonePost post, int likes, bool liked, Widget child})>{};
   Object _readSnapshot() {
     final me = phone.person(phone.uid ?? '', type: 1);
     return (
@@ -44,9 +46,6 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
       phone.authors,
       phone.authorFilter,
       phone.foreground,
-      phone.busy.contains('posts'),
-      phone.errors['posts'],
-      phone.hasMore['posts'],
       me.id,
       me.name,
       me.avatar,
@@ -76,60 +75,77 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
 
   @override
   Widget build(BuildContext context) => _livePosts();
-  Widget _livePosts() => miniPhonePanel(
-    widget.header,
-    _lists.build(
-      'posts',
-      () => phone.refreshPosts(next: true),
-      GenesisRefreshIndicator(
-        onRefresh: () => _lists.refresh('posts', phone.refreshPosts),
-        child: MiniPhonePostFeed(
-          posts: phone.posts,
-          footer: const SizedBox.shrink(),
-          resetKey: (phone.accountGeneration, phone.authorFilter),
-          active: widget.active && phone.foreground,
-          itemBuilder: _livePostCard,
-          header: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              miniPageInset,
-              4,
-              miniPageInset,
-              16,
-            ),
-            child: MiniPhonePostAuthors(
-              authors: phone.authors,
-              me: phone.person(phone.uid ?? '', type: 1),
-              selectedId: phone.authorFilter,
-              onCreate: widget.onCreate,
-              onSelect: (id) {
-                if (phone.authorFilter != id) {
-                  phone.analytics.event(
-                    'post_filter',
-                    target: id ?? 'all',
-                    stage: 'select',
-                    data: phone.analytics.context('posts'),
-                  );
-                }
-                phone.authorFilter = id;
-                unawaited(phone.refreshPosts());
-              },
+  Widget _livePosts() {
+    final ids = phone.posts.map((post) => post.id).toSet();
+    _cards.removeWhere((id, _) => !ids.contains(id));
+    return miniPhonePanel(
+      widget.header,
+      _lists.build(
+        'posts',
+        () => phone.refreshPosts(next: true),
+        GenesisRefreshIndicator(
+          onRefresh: () => _lists.refresh('posts', phone.refreshPosts),
+          child: MiniPhonePostFeed(
+            posts: phone.posts,
+            footer: const SizedBox.shrink(),
+            resetKey: (phone.accountGeneration, phone.authorFilter),
+            active: widget.active && phone.foreground,
+            itemBuilder: _livePostCard,
+            header: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                miniPageInset,
+                4,
+                miniPageInset,
+                16,
+              ),
+              child: MiniPhonePostAuthors(
+                authors: phone.authors,
+                me: phone.person(phone.uid ?? '', type: 1),
+                selectedId: phone.authorFilter,
+                onCreate: widget.onCreate,
+                onSelect: (id) {
+                  if (phone.authorFilter != id) {
+                    phone.analytics.event(
+                      'post_filter',
+                      target: id ?? 'all',
+                      stage: 'select',
+                      data: phone.analytics.context('posts'),
+                    );
+                  }
+                  phone.authorFilter = id;
+                  unawaited(phone.refreshPosts());
+                },
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _livePostCard(PhonePost p) => MiniPhonePostContent(
-    phone: phone,
-    onOpenPost: widget.onOpenPost,
-    id: p.id,
-    author: p.author,
-    text: p.text,
-    image: p.image,
-    time: p.currentTime,
-    likeCount: phone.details[p.id]?.likeCount ?? p.likeCount,
-    isLiked: phone.details[p.id]?.isLiked ?? p.isLiked,
-    previews: p.comments,
-  );
+  Widget _livePostCard(PhonePost p) {
+    final likes = phone.details[p.id]?.likeCount ?? p.likeCount;
+    final liked = phone.details[p.id]?.isLiked ?? p.isLiked;
+    final cached = _cards[p.id];
+    if (cached != null &&
+        identical(cached.post, p) &&
+        cached.likes == likes &&
+        cached.liked == liked) {
+      return cached.child;
+    }
+    final child = MiniPhonePostContent(
+      phone: phone,
+      onOpenPost: (id) => widget.onOpenPost(id),
+      id: p.id,
+      author: p.author,
+      text: p.text,
+      image: p.image,
+      time: p.currentTime,
+      likeCount: likes,
+      isLiked: liked,
+      previews: p.comments,
+    );
+    _cards[p.id] = (post: p, likes: likes, liked: liked, child: child);
+    return child;
+  }
 }

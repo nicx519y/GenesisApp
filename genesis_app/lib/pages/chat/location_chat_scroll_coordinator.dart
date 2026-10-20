@@ -27,6 +27,7 @@ import 'location_chat_reply_card_switcher.dart';
 import 'location_chat_reply_layout_bridge.dart';
 import 'location_chat_reply_render_snapshot.dart';
 import 'location_chat_geometry_cache.dart';
+import 'location_chat_virtual_slivers.dart';
 
 enum LocationChatViewportMode { initializing, followingLatest, detached }
 
@@ -620,10 +621,12 @@ class _LocationChatScrollPosition extends ScrollPositionWithSingleContext {
 /// widgets or render objects; ordinary chat keeps its existing entry behavior.
 class LocationChatViewportCache {
   final geometry = LocationChatGeometryCache();
+  final archiveExtents = LocationChatVirtualExtentCache();
   ({String localId, double viewportOffset})? anchor;
 
   void clear() {
     geometry.clear();
+    archiveExtents.clear();
     anchor = null;
   }
 }
@@ -634,6 +637,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     required this.coordinator,
     this.viewportCache,
     required this.messages,
+    this.readOnlyArchive = false,
     required this.topTitle,
     this.restoreInitialCompletedContent = false,
     this.initialContentReady = true,
@@ -700,6 +704,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.messageReadingMarkerKey,
     this.messageDecorator,
     this.messageDecorationVersion,
+    this.messageDecorationVersionById,
     this.entrySectionMessageId,
     this.hiddenMessageIds = const {},
     this.historyReveal,
@@ -710,6 +715,10 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final LocationChatScrollCoordinator coordinator;
   final LocationChatViewportCache? viewportCache;
   final List<ChatMessageVm> messages;
+
+  /// Immutable completed archive snapshots. Live/mutable conversations keep
+  /// their streaming bookkeeping and individual sliver lifecycle.
+  final bool readOnlyArchive;
   final Map<String, VoidCallback> historyGapLoaders;
 
   /// Archives opt in to capturing before a drag releases the current hold.
@@ -723,6 +732,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   // Value-based layout identity, independent of render callback allocation.
   final Object? Function(ChatMessageVm, ChatMessageVm?)?
   messageDecorationVersion;
+  final Object? Function(String localId, String? previousLocalId)?
+  messageDecorationVersionById;
 
   /// A fresh location begins at the top of a viewport-sized tail section.
   /// Earlier messages remain in the same scrollable history above it.
@@ -841,6 +852,9 @@ typedef _MessageVisibilityRow = ({
   bool isSystem,
   bool isImage,
   bool isAiContentDisclaimer,
+  Object contentVersion,
+  Object receiptIdentity,
+  DateTime createdAt,
 });
 
 /// Tracks active row bodies, including pinned offscreen rows and reply cards.
@@ -914,6 +928,9 @@ class _LocationChatAnchoredMessageListState
   bool _consumingTemporaryTail = false;
   bool _contentVisibilityScheduled = false;
   List<_MessageVisibilityRow> _visibilityRows = const [];
+  List<ChatMessageVm>? _layoutSnapshotSource;
+  Object? _layoutSnapshotIdMapper;
+  bool _layoutSnapshotIsArchive = false;
   String? _positioningIdentity;
   String? _lastWaitingOperation;
   String? _waitingAnchorLayoutId;
@@ -1185,7 +1202,8 @@ class _LocationChatAnchoredMessageListState
   }
 
   void _captureRestoredEntryContent({bool reentering = false}) {
-    if (!widget.restoreInitialCompletedContent ||
+    if (widget.readOnlyArchive ||
+        !widget.restoreInitialCompletedContent ||
         (!reentering && widget.waitingPositionIdentity != null)) {
       return;
     }
@@ -1794,33 +1812,41 @@ class _LocationChatAnchoredMessageListState
         if (i == start && groupControls) -1,
         if (i == controlsIndex && !groupControls) -1,
         if (i < count &&
-            !widget.hiddenMessageIds.contains(_renderedMessages[i].localId) &&
-            !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
+            !widget.hiddenMessageIds.contains(_visibilityRows[i].localId) &&
+            !(cardMessageIds?.contains(_visibilityRows[i].localId) ?? false))
           i,
         if (i < count &&
-            _renderedMessages[i].localId == _waitingAfterMessageLocalId &&
+            _visibilityRows[i].localId == _waitingAfterMessageLocalId &&
             !_waitingInReplyActionSlot &&
-            !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
+            !(cardMessageIds?.contains(_visibilityRows[i].localId) ?? false))
           -3,
         if (i < count &&
             widget.enterWaitingIdentity != null &&
-            _renderedMessages[i].localId ==
+            _visibilityRows[i].localId ==
                 widget.enterWaitingAfterMessageLocalId &&
-            !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
+            !(cardMessageIds?.contains(_visibilityRows[i].localId) ?? false))
           -4,
       ],
     ];
     return _cachedTimelineEntries;
   }
 
-  Key _entryKey(int entry) => ValueKey<String>(switch (entry) {
-    -4 => 'location-chat-enter-loading:${widget.enterWaitingIdentity}',
-    -3 => 'location-chat-ack-loading:$_waitingIndicatorIdentity',
-    -2 => 'location-chat-reply-deck:$_replyIdentity',
-    -1 => 'location-chat-reply-action-slot',
-    _ =>
-      'location-chat-message-row:${_messageLayoutId(_renderedMessages[entry])}',
-  });
+  Key _entryKey(int entry) {
+    if (entry >= 0 &&
+        widget.readOnlyArchive &&
+        identical(_layoutSnapshotSource, _renderedMessages) &&
+        _layoutSnapshotIdMapper == widget.messageLayoutId) {
+      return _visibilityRows[entry].entryKey;
+    }
+    return ValueKey<String>(switch (entry) {
+      -4 => 'location-chat-enter-loading:${widget.enterWaitingIdentity}',
+      -3 => 'location-chat-ack-loading:$_waitingIndicatorIdentity',
+      -2 => 'location-chat-reply-deck:$_replyIdentity',
+      -1 => 'location-chat-reply-action-slot',
+      _ =>
+        'location-chat-message-row:${_messageLayoutId(_renderedMessages[entry])}',
+    });
+  }
 
   Widget _buildEntry(int entry, ChatUiStyleConfig style, {bool lazy = true}) =>
       switch (entry) {
@@ -2120,7 +2146,9 @@ class _LocationChatAnchoredMessageListState
     super.initState();
     _renderedMessages = widget.messages;
     _messageLocalIds = _currentMessageLocalIds(_renderedMessages);
-    _previousReceiptIds = widget.messages.map(_receiptIdentity).toSet();
+    _previousReceiptIds = widget.readOnlyArchive
+        ? const {}
+        : widget.messages.map(_receiptIdentity).toSet();
     _captureRestoredEntryContent();
     _rebuildMessageIndex();
     _resumeCachedViewport();
@@ -2181,12 +2209,14 @@ class _LocationChatAnchoredMessageListState
           ? _locationChatLayoutCorrectionExtentSignal
           : 0;
     }
-    final previousLayoutIds = oldWidget.messages
-        .map(
-          (message) =>
-              oldWidget.messageLayoutId?.call(message) ?? message.localId,
-        )
-        .toSet();
+    final previousLayoutIds = widget.readOnlyArchive
+        ? const <String>{}
+        : oldWidget.messages
+              .map(
+                (message) =>
+                    oldWidget.messageLayoutId?.call(message) ?? message.localId,
+              )
+              .toSet();
     if (!oldWidget.initialContentReady ||
         (!oldWidget.active && widget.active) ||
         (oldWidget.replyCurrentCardId != widget.replyCurrentCardId &&
@@ -2195,8 +2225,10 @@ class _LocationChatAnchoredMessageListState
         reentering: !oldWidget.active && widget.active,
       );
     }
-    final receipts = widget.messages.map(_streamIdentity).toSet();
-    _restoredEntryContent.removeWhere((id, _) => !receipts.contains(id));
+    if (!widget.readOnlyArchive) {
+      final receipts = widget.messages.map(_streamIdentity).toSet();
+      _restoredEntryContent.removeWhere((id, _) => !receipts.contains(id));
+    }
     if (_waitingIdentity(oldWidget) != _waitingIdentity(widget) &&
         _waitingIdentity(widget) != null) {
       _liveRevealMessageIds.clear();
@@ -2310,7 +2342,9 @@ class _LocationChatAnchoredMessageListState
         }
       }
     }
-    _previousReceiptIds = widget.messages.map(_receiptIdentity).toSet();
+    _previousReceiptIds = widget.readOnlyArchive
+        ? const {}
+        : widget.messages.map(_receiptIdentity).toSet();
     final oldReplyIdentity =
         oldWidget.replyActionsIdentity ?? oldWidget.replyActionsMessageId;
     final presentationChanged =
@@ -2457,7 +2491,9 @@ class _LocationChatAnchoredMessageListState
           ? 0
           : firstIndex;
       _replaceRenderedMessages(
-        widget.messages.sublist(_deferredHistoryPrefixCount),
+        widget.readOnlyArchive && _deferredHistoryPrefixCount == 0
+            ? widget.messages
+            : widget.messages.sublist(_deferredHistoryPrefixCount),
         rebuild: false,
       );
     } else {
@@ -2518,7 +2554,12 @@ class _LocationChatAnchoredMessageListState
     List<ChatMessageVm> nextMessages, {
     required bool rebuild,
   }) {
-    if (identical(_renderedMessages, nextMessages)) return;
+    if (identical(_renderedMessages, nextMessages)) {
+      // The loader-collapse commit also changes layout state. Archive reuse
+      // can keep the message list identical, but must still paint that commit.
+      if (rebuild) setState(() {});
+      return;
+    }
     final previousLocalIds = _messageLocalIds;
     final nextLocalIds = _currentMessageLocalIds(nextMessages);
     if (listEquals(previousLocalIds, nextLocalIds)) {
@@ -2845,45 +2886,48 @@ class _LocationChatAnchoredMessageListState
     _scheduleDetachedAnchorSnapshot();
     final cardIds =
         _currentReplyCard?.messages.map((m) => m.localId).toSet() ?? <String>{};
-    ChatStreamingEffects.declareTasks(context, [
-      for (final message in _renderedMessages)
-        if (!message.isImage && !message.isAiContentDisclaimer)
-          ChatStreamingTask(
-            identity: cardIds.contains(message.localId)
-                ? (
-                    widget.replyCardBindingIdentity,
-                    widget.replyCurrentCardId,
-                    _receiptIdentity(message),
-                  )
-                : ('timeline', _receiptIdentity(message)),
-            continuityIdentity: _streamContinuityIdentity(
-              message,
-              cardId: cardIds.contains(message.localId)
-                  ? widget.replyCurrentCardId
-                  : null,
-            ),
-            continuation: message.roundId.isEmpty
-                ? null
-                : (
-                    _streamContinuationNamespace(
-                      message,
-                      cardId: cardIds.contains(message.localId)
-                          ? widget.replyCurrentCardId
-                          : null,
+    if (!widget.readOnlyArchive) {
+      ChatStreamingEffects.declareTasks(context, [
+        for (final message in _renderedMessages)
+          if (!message.isImage && !message.isAiContentDisclaimer)
+            ChatStreamingTask(
+              identity: cardIds.contains(message.localId)
+                  ? (
+                      widget.replyCardBindingIdentity,
+                      widget.replyCurrentCardId,
+                      _receiptIdentity(message),
+                    )
+                  : ('timeline', _receiptIdentity(message)),
+              continuityIdentity: _streamContinuityIdentity(
+                message,
+                cardId: cardIds.contains(message.localId)
+                    ? widget.replyCurrentCardId
+                    : null,
+              ),
+              continuation: message.roundId.isEmpty
+                  ? null
+                  : (
+                      _streamContinuationNamespace(
+                        message,
+                        cardId: cardIds.contains(message.localId)
+                            ? widget.replyCurrentCardId
+                            : null,
+                      ),
+                      message.roundId,
+                      message.senderId,
+                      message.senderType,
                     ),
-                    message.roundId,
-                    message.senderId,
-                    message.senderType,
-                  ),
-            streaming: message.status == 'streaming',
-            restoredContent:
-                message.localId == widget.entrySectionMessageId ||
-                _restoredEntryContent[_streamIdentity(message)] == message.text,
-            animateArrival: _liveRevealMessageIds.contains(
-              _receiptIdentity(message),
+              streaming: message.status == 'streaming',
+              restoredContent:
+                  message.localId == widget.entrySectionMessageId ||
+                  _restoredEntryContent[_streamIdentity(message)] ==
+                      message.text,
+              animateArrival: _liveRevealMessageIds.contains(
+                _receiptIdentity(message),
+              ),
             ),
-          ),
-    ]);
+      ]);
+    }
     final style = widget.style ?? ChatUiStyleConfig.standard;
     final hasOldestEdgeContent =
         widget.topTitle.trim().isNotEmpty ||
@@ -3034,6 +3078,59 @@ class _LocationChatAnchoredMessageListState
     required ChatUiStyleConfig style,
     required bool hasOldestEdgeContent,
   }) {
+    _prepareMessageLayoutSnapshot();
+    final entries = _timelineEntries(_renderedMessages.length);
+    final entryKeys = entries.map(_entryKey).toSet();
+    _entryExtents.removeWhere((key, _) => !entryKeys.contains(key));
+    _geometryCache.protectedKeys
+      ..clear()
+      ..addAll(
+        entries
+            .where((entry) {
+              if (entry < 0) return true;
+              final data = _visibilityRows[entry];
+              return data.localId == _restoringViewport?.localId ||
+                  widget.coordinator.retainedMessageLocalIds.contains(
+                    data.localId,
+                  ) ||
+                  data.layoutId == _waitingAnchorLayoutId ||
+                  data.layoutId == _detachedLayoutAnchor?.localId ||
+                  (_revealingHistory &&
+                      data.localId == _historyRevealTarget!.localId) ||
+                  (!widget.readOnlyArchive &&
+                      ChatStreamingEffects.needsLayoutOf(context, (
+                        'timeline',
+                        data.receiptIdentity,
+                      )));
+            })
+            .map(_entryKey),
+      );
+
+    final padding = style.messageListPadding;
+    final horizontalPadding = EdgeInsets.only(
+      left: padding.left,
+      right: padding.right,
+    );
+
+    return _buildMessageScrollView(
+      style,
+      hasOldestEdgeContent,
+      entries,
+      padding,
+      horizontalPadding,
+    );
+  }
+
+  void _prepareMessageLayoutSnapshot() {
+    if (widget.readOnlyArchive &&
+        _layoutSnapshotIsArchive &&
+        identical(_layoutSnapshotSource, _renderedMessages) &&
+        _layoutSnapshotIdMapper == widget.messageLayoutId) {
+      return;
+    }
+    _layoutSnapshotSource = _renderedMessages;
+    _layoutSnapshotIdMapper = widget.messageLayoutId;
+    _layoutSnapshotIsArchive = widget.readOnlyArchive;
     _visibilityRows = [
       for (final message in _renderedMessages)
         (
@@ -3045,44 +3142,31 @@ class _LocationChatAnchoredMessageListState
           isSystem: message.isSystem,
           isImage: message.isImage,
           isAiContentDisclaimer: message.isAiContentDisclaimer,
+          contentVersion: (
+            message.text,
+            message.imageUrl,
+            message.senderName,
+            message.avatarUrl,
+            message.senderType,
+            message.messageType,
+            message.status,
+            message.isMe,
+            message.timelinePayloadVersion,
+            message.currentTimeVersion,
+          ),
+          receiptIdentity: _receiptIdentity(message),
+          createdAt: message.createdAt,
         ),
     ];
-    final entries = _timelineEntries(_renderedMessages.length);
-    final entryKeys = entries.map(_entryKey).toSet();
-    _entryExtents.removeWhere((key, _) => !entryKeys.contains(key));
-    _geometryCache.protectedKeys
-      ..clear()
-      ..addAll(
-        entries
-            .where(
-              (entry) =>
-                  entry < 0 ||
-                  _renderedMessages[entry].localId ==
-                      _restoringViewport?.localId ||
-                  widget.coordinator.retainedMessageLocalIds.contains(
-                    _renderedMessages[entry].localId,
-                  ) ||
-                  _messageLayoutId(_renderedMessages[entry]) ==
-                      _waitingAnchorLayoutId ||
-                  _messageLayoutId(_renderedMessages[entry]) ==
-                      _detachedLayoutAnchor?.localId ||
-                  (_revealingHistory &&
-                      _renderedMessages[entry].localId ==
-                          _historyRevealTarget!.localId) ||
-                  ChatStreamingEffects.needsLayoutOf(context, (
-                    'timeline',
-                    _receiptIdentity(_renderedMessages[entry]),
-                  )),
-            )
-            .map(_entryKey),
-      );
+  }
 
-    final padding = style.messageListPadding;
-    final horizontalPadding = EdgeInsets.only(
-      left: padding.left,
-      right: padding.right,
-    );
-
+  Widget _buildMessageScrollView(
+    ChatUiStyleConfig style,
+    bool hasOldestEdgeContent,
+    List<int> entries,
+    EdgeInsets padding,
+    EdgeInsets horizontalPadding,
+  ) {
     return CustomScrollView(
       key: _scrollViewportKey,
       controller: widget.coordinator.controller,
@@ -3136,101 +3220,21 @@ class _LocationChatAnchoredMessageListState
                   ),
                 ),
               ),
-            for (final (entry, entryKey) in entries.map(
-              (entry) => (entry, _entryKey(entry)),
-            ))
+            if (widget.readOnlyArchive)
               SliverPadding(
-                key: ValueKey(('sliver', entryKey)),
                 padding: horizontalPadding,
-                sliver: LocationChatCachedSliver(
-                  cache: _geometryCache,
-                  identity: entryKey,
-                  onExtent: (offset, height) => _entryExtents[entryKey] = (
-                    offset: offset,
-                    height: height,
-                  ),
-                  version: entry < 0
-                      ? (_geometryEnvironment, widget.replyPresentationRevision)
-                      : (
-                          _geometryEnvironment,
-                          _renderedMessages[entry].text,
-                          _renderedMessages[entry].imageUrl,
-                          _renderedMessages[entry].senderName,
-                          _renderedMessages[entry].avatarUrl,
-                          _renderedMessages[entry].senderType,
-                          _renderedMessages[entry].messageType,
-                          _renderedMessages[entry].status,
-                          _renderedMessages[entry].isMe,
-                          _renderedMessages[entry].timelinePayloadVersion,
-                          _renderedMessages[entry].currentTimeVersion,
-                          widget.messageDecorationVersion?.call(
-                            _renderedMessages[entry],
-                            entry > 0 ? _renderedMessages[entry - 1] : null,
-                          ),
-                          widget.historyGapLoaders.containsKey(
-                            _renderedMessages[entry].localId,
-                          ),
-                          widget.replyActionsVisible &&
-                              widget.replyActionsMessageId ==
-                                  _renderedMessages[entry].localId,
-                          widget.showDateDividers &&
-                              shouldShowChatDateDivider(
-                                entry > 0
-                                    ? _renderedMessages[entry - 1].createdAt
-                                    : null,
-                                _renderedMessages[entry].createdAt,
-                              ),
-                        ),
-                  pinned:
-                      entry < 0 ||
-                      (!_initialViewportReady &&
-                          !widget.coordinator.isReadingHistory &&
-                          entry == entries.last) ||
-                      _renderedMessages[entry].localId ==
-                          _restoringViewport?.localId ||
-                      _renderedMessages[entry].localId ==
-                          widget.entrySectionMessageId ||
-                      (_revealingHistory &&
-                          _renderedMessages[entry].localId ==
-                              _historyRevealTarget!.localId) ||
-                      _messageLayoutId(_renderedMessages[entry]) ==
-                          _waitingAnchorLayoutId ||
-                      _messageLayoutId(_renderedMessages[entry]) ==
-                          _detachedLayoutAnchor?.localId ||
-                      ChatStreamingEffects.needsLayoutOf(context, (
-                        'timeline',
-                        _receiptIdentity(_renderedMessages[entry]),
-                      )),
-                  empty:
-                      entry >= 0 &&
-                      _renderedMessages[entry].localId !=
-                          widget.entrySectionMessageId &&
-                      ChatStreamingEffects.isQueuedOf(context, (
-                        'timeline',
-                        _receiptIdentity(_renderedMessages[entry]),
-                      )),
-                  builder: (_) {
-                    final gapLoader = entry < 0
-                        ? null
-                        : widget.historyGapLoaders[_renderedMessages[entry]
-                              .localId];
-                    final row = _buildEntry(entry, style);
-                    return gapLoader == null
-                        ? row
-                        : Column(
-                            children: [
-                              TextButton(
-                                onPressed: gapLoader,
-                                child: Text(
-                                  GenesisL10n.current.chatLoadEarlierMessages,
-                                ),
-                              ),
-                              row,
-                            ],
-                          );
-                  },
+                sliver: LocationChatVirtualSlivers(
+                  rows: _buildTimelineSlivers(entries, style),
+                  extentCache: widget.viewportCache?.archiveExtents,
                 ),
-              ),
+              )
+            else
+              for (final row in _buildTimelineSlivers(entries, style))
+                SliverPadding(
+                  key: ValueKey(('sliver', row.identity)),
+                  padding: horizontalPadding,
+                  sliver: row,
+                ),
           ],
         ),
         SliverPadding(
@@ -3295,6 +3299,94 @@ class _LocationChatAnchoredMessageListState
           },
         ),
       ],
+    );
+  }
+
+  List<LocationChatCachedSliver> _buildTimelineSlivers(
+    List<int> entries,
+    ChatUiStyleConfig style,
+  ) => [
+    for (final entry in entries)
+      _buildTimelineSliver(entry, entries.last, style),
+  ];
+
+  LocationChatCachedSliver _buildTimelineSliver(
+    int entry,
+    int lastEntry,
+    ChatUiStyleConfig style,
+  ) {
+    final key = _entryKey(entry);
+    final data = entry < 0 ? null : _visibilityRows[entry];
+    final previous = entry <= 0 ? null : _visibilityRows[entry - 1];
+    final decoration = data == null
+        ? null
+        : widget.messageDecorationVersionById != null
+        ? widget.messageDecorationVersionById!(data.localId, previous?.localId)
+        : widget.messageDecorationVersion?.call(
+            _renderedMessages[entry],
+            entry > 0 ? _renderedMessages[entry - 1] : null,
+          );
+    return LocationChatCachedSliver(
+      cache: _geometryCache,
+      identity: key,
+      onExtent: (offset, height) =>
+          _entryExtents[key] = (offset: offset, height: height),
+      version: data == null
+          ? (_geometryEnvironment, widget.replyPresentationRevision)
+          : (
+              _geometryEnvironment,
+              data.contentVersion,
+              decoration,
+              widget.historyGapLoaders.containsKey(data.localId),
+              widget.replyActionsVisible &&
+                  widget.replyActionsMessageId == data.localId,
+              widget.showDateDividers &&
+                  shouldShowChatDateDivider(
+                    previous?.createdAt,
+                    data.createdAt,
+                  ),
+            ),
+      pinned:
+          data == null ||
+          (!_initialViewportReady &&
+              !widget.coordinator.isReadingHistory &&
+              entry == lastEntry) ||
+          data.localId == _restoringViewport?.localId ||
+          data.localId == widget.entrySectionMessageId ||
+          (_revealingHistory &&
+              data.localId == _historyRevealTarget!.localId) ||
+          data.layoutId == _waitingAnchorLayoutId ||
+          data.layoutId == _detachedLayoutAnchor?.localId ||
+          (!widget.readOnlyArchive &&
+              ChatStreamingEffects.needsLayoutOf(context, (
+                'timeline',
+                data.receiptIdentity,
+              ))),
+      empty:
+          data != null &&
+          !widget.readOnlyArchive &&
+          data.localId != widget.entrySectionMessageId &&
+          ChatStreamingEffects.isQueuedOf(context, (
+            'timeline',
+            data.receiptIdentity,
+          )),
+      builder: (_) {
+        final gapLoader = data == null
+            ? null
+            : widget.historyGapLoaders[data.localId];
+        final row = _buildEntry(entry, style);
+        return gapLoader == null
+            ? row
+            : Column(
+                children: [
+                  TextButton(
+                    onPressed: gapLoader,
+                    child: Text(GenesisL10n.current.chatLoadEarlierMessages),
+                  ),
+                  row,
+                ],
+              );
+      },
     );
   }
 
@@ -3375,13 +3467,15 @@ class _LocationChatAnchoredMessageListState
   }
 
   void _pruneMessageLayoutKeys() {
-    final retainedLocalIds = _renderedMessages.map(_messageLayoutId).toSet();
+    final retainedLocalIds = _messageLocalIds.toSet();
     if (_waitingPositionPending && _waitingAnchorLayoutId != null) {
       retainedLocalIds.add(_waitingAnchorLayoutId!);
     }
     _rowCompactSpacing.removeWhere((id, _) => !retainedLocalIds.contains(id));
-    final retainedReceipts = _renderedMessages.map(_receiptIdentity).toSet();
-    _liveRevealMessageIds.retainAll(retainedReceipts);
+    if (!widget.readOnlyArchive) {
+      final retainedReceipts = _renderedMessages.map(_receiptIdentity).toSet();
+      _liveRevealMessageIds.retainAll(retainedReceipts);
+    }
     _messageLayoutKeys.removeWhere(
       (localId, _) => !retainedLocalIds.contains(localId),
     );
@@ -3638,8 +3732,9 @@ class _LocationChatAnchoredMessageListState
         shouldShowChatDateDivider(previous?.createdAt, current.createdAt);
     final identity = (
       current,
-      _restoredEntryContent[('timeline', _receiptIdentity(current))] ==
-          current.text,
+      widget.readOnlyArchive ||
+          _restoredEntryContent[('timeline', _receiptIdentity(current))] ==
+              current.text,
       divider,
       showReplyActions,
       style,
@@ -3650,7 +3745,12 @@ class _LocationChatAnchoredMessageListState
       widget.onAvatarTap,
       widget.onFailedMessageTap,
       widget.onCharactersMovedLocationTap,
-      widget.messageDecorationVersion?.call(current, previous),
+      widget.messageDecorationVersionById != null
+          ? widget.messageDecorationVersionById!(
+              current.localId,
+              previous?.localId,
+            )
+          : widget.messageDecorationVersion?.call(current, previous),
     );
     final cached = _rowChildren[layoutId];
     if (cached != null &&
@@ -3737,7 +3837,9 @@ class _LocationChatAnchoredMessageListState
             message.senderType,
           ),
     streaming: message.status == 'streaming',
-    restoredContent: _restoredEntryContent[streamIdentity] == message.text,
+    restoredContent:
+        widget.readOnlyArchive ||
+        _restoredEntryContent[streamIdentity] == message.text,
     animateArrival: _liveRevealMessageIds.contains(_receiptIdentity(message)),
     child: ChatMessageRow(
       key: key,

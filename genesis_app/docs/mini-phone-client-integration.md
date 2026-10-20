@@ -159,7 +159,7 @@ Validation for this scheduling change:
   settings first returns to that chat. Chats opened inside MiniPhone retain their
   existing Messages return path.
 
-- Opening MiniPhone warms the first pages of Messages, Posts (including authors), and Photos concurrently in the world-owned session cache. Opening directly to an app shares that app entry request with warm-up. Each later app entry refreshes its own first page once, keeping cached content visible until success and retaining it on failure. Closing/reopening keeps the cache and warms it again; account/world/environment isolation is unchanged. Posts/Photos pull-to-refresh, author changes and scroll pagination remain explicit requests. Messages lists and DM conversations do not offer pull-to-refresh; entry synchronization, automatic message synchronization and history pagination remain available. Timers, pushes, reconnects, foreground recovery, read receipts and writes do not refresh these app lists. Home/unread summaries remain independent; per-request DM status recovery and foreground chat history are separate from app-list refresh. Liking uses the queried post detail for the visible interaction state instead of reloading Feed.
+- Opening MiniPhone warms the first pages of Messages, Posts (including authors), and Photos concurrently in the world-owned session cache. Opening directly to an app shares that app entry request with warm-up. Each later app entry refreshes its own first page once (Posts revalidates the selected filter's already loaded window as described below), keeping cached content visible until success and retaining it on failure. Closing/reopening keeps the cache and warms it again; account/world/environment isolation is unchanged. Posts/Photos pull-to-refresh, author changes and scroll pagination remain explicit requests. Messages lists and DM conversations do not offer pull-to-refresh; entry synchronization, automatic message synchronization and history pagination remain available. Timers, pushes, reconnects, foreground recovery, read receipts and writes do not refresh these app lists. Home/unread summaries remain independent; per-request DM status recovery and foreground chat history are separate from app-list refresh. Liking uses the queried post detail for the visible interaction state instead of reloading Feed.
 
 - Page/list reads show no standalone loading icons in Messages, Posts, comments,
   Photos, Music or private chat (including initial history and older-message
@@ -213,16 +213,29 @@ Validation for this scheduling change:
   characters), supplemented by IDs from the unpaginated `/post/authors` list.
   They remain visible for an empty feed and use fixed-width, left-aligned slots.
   Unknown profiles display their character ID until profile data is available.
-  All omits `char_id`; selecting an author sends their character ID, resets to
-  page 1 and discards old in-flight pages. Feed refreshes also refresh authors
+  All omits `char_id`; selecting an author sends their character ID and discards
+  old in-flight responses. All and each character retain separate in-memory
+  caches of posts, loaded page number and hasMore in the World session. Switching
+  filters immediately restores that cache; only an unvisited filter starts empty.
+  Entry, filter selection and pull-to-refresh revalidate pages 1 through the cached
+  last page (stopping earlier if the server has no more). Keep the cached window
+  visible until all pages succeed; later-page failure never publishes a partial
+  refresh or truncates cached rows. Reconcile by post_id and complete field values,
+  applying inserts, removals, reordering and changed content while reusing equal
+  post objects, list references and row widgets. Busy-state changes do not rebuild
+  Feed, and responses do not reset its scroll offset. Cache lifetime is the current
+  World/account/environment session; no disk persistence is added. Feed refreshes
+  also refresh authors, retaining the ID list when unchanged,
   without clearing the selected filter; tapping the active shortcut restores all.
   Errors use the shared Toast and existing pull-to-refresh.
 - Posts Feed uses a lazy variable-height list and builds only rows around the
   viewport (200 logical pixels of render cache). Rows keep their identity by
-  post ID, and account/author changes reset the scroll position. Feed photos
-  reserve exactly 200 logical pixels before loading and after failure, retain
-  the existing width bound/aspect fit with left-aligned image content and square
-  corners, and show only background when loading or
+  post ID, and account/author changes reset the scroll position. Feed and Post
+  detail photos share the same thumbnail component. They reserve exactly 200
+  logical pixels before loading and after failure, use the full available body
+  width without an extra width cap, and scale proportionally to the fixed height
+  (`BoxFit.fitHeight`). Images are centered; excess width is cropped equally on
+  both sides. They retain square corners and show only background when loading or
   failed: no placeholder asset, error icon, text, spinner or Toast. Thumbnail
   requests replace the existing OSS transform with fixed-height resize plus
   WebP (`image/resize,h_{ceil(200 * cappedDpr)}/format,webp`), retaining unrelated
@@ -230,7 +243,7 @@ Validation for this scheduling change:
   URL/decode/cache keys; tapping opens the original image URL and passes the
   displayed thumbnail provider to the shared viewer, so its cached frame is
   shown immediately until the full image loads (and retained if that fails). The
-  shared source anchor also captures the left-aligned painted thumbnail bounds
+  shared source anchor also captures the centered, cropped thumbnail bounds
   for the viewer's 320 ms easeOutCubic opening expansion. The original tile is
   hidden only during flight; full-image loading continues underneath. Missing
   cached frames fall back to fade, and reduced motion opens directly.
@@ -549,7 +562,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - HTTP 200 下非零 `err_no` 仍为业务错误；展示原始 `ApiException.message`／`err_msg`，失败保留草稿。区分 Feed 的 `text` 和详情／提交的 `content`。
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
-- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，先取最新三条，再按时间正序展示；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
+- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。All／各 char_id 分别缓存帖子及分页，切换立即恢复缓存并丢弃旧响应；从首至已缓存末页重新校验，成功后按 post_id／字段差异局部更新，失败保留缓存，未变帖子和控件复用；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，先取最新三条，再按时间正序展示；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行；Home 通知直达详情在详情成功加载且仍可见后复用同一已读流程。普通详情浏览不额外触发，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
@@ -654,7 +667,9 @@ Reply rendering is independent of detail success or completion order.
 Each entry hides previous comments and uses three static, dark comment-shaped
 skeleton rows. Only a successful complete `/comments` result (including empty)
 replaces them. Before that, the count is absent unless fresh detail supplies it;
-afterwards it uses the complete list length. Failed initial loading ends the
+its header keeps the same text-scaled height and padding with a static bone
+until the count is known, so inserting the count does not move the comment rows.
+Afterwards it uses the complete list length. Failed initial loading ends the
 skeleton, uses the shared Toast and can retry via pull-to-refresh. Refreshing an
 already displayed complete list retains it until atomic success. Partial page
 failure never replaces it. Invalid empty/non-advancing pagination fails; stale,

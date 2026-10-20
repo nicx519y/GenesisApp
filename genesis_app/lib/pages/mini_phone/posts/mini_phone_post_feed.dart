@@ -43,7 +43,7 @@ class _MiniPhonePostFeedState extends State<MiniPhonePostFeed> {
   var _scheduled = false;
   var _resetScroll = false;
   var _active = false;
-  double _thumbnailWidth = miniPhonePostThumbnailMaxWidth;
+  double _thumbnailWidth = 1;
 
   @override
   void initState() {
@@ -142,10 +142,7 @@ class _MiniPhonePostFeedState extends State<MiniPhonePostFeed> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
-      _thumbnailWidth = (bounds.maxWidth - miniPageInset * 2 - 50).clamp(
-        1.0,
-        miniPhonePostThumbnailMaxWidth,
-      );
+      _thumbnailWidth = math.max(1.0, bounds.maxWidth - miniPageInset * 2 - 50);
       _scheduleMeasurement();
       return ListView.builder(
         key: _viewport,

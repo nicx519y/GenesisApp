@@ -40,9 +40,20 @@ class LocationChatGeometryCache {
     _measuredHeight = _measuredCount == 0 ? 0 : _measuredHeight - entry.height;
   }
 
-  double extent(Object key, Object version, double fallback) {
+  double extent(
+    Object key,
+    Object version,
+    double fallback, {
+    bool storeEstimate = true,
+  }) {
     final known = read(key, version);
     if (known != null) return known;
+    if (!storeEstimate) {
+      // Grouped archives already own their estimates. Do not let distant
+      // placeholders evict measured heights used on reopen and for estimates.
+      _removeMeasurement(_entries.remove(key));
+      return estimate(fallback);
+    }
     final height = estimate(fallback);
     _removeMeasurement(_entries[key]);
     _entries[key] = (
@@ -125,6 +136,30 @@ class LocationChatGeometryCache {
 
 /// Each row owns its extent even while unmounted. Unlike extending the list's
 /// cache to reach a distant target, pinning this sliver lays out only that row.
+class LocationChatRetainedExtent {
+  Object? version;
+  double? height;
+
+  double resolve(
+    LocationChatGeometryCache cache,
+    Object identity,
+    Object nextVersion,
+    double fallback, {
+    bool storeEstimate = true,
+  }) {
+    if (version != nextVersion || height == null) {
+      version = nextVersion;
+      height = cache.extent(
+        identity,
+        nextVersion,
+        fallback,
+        storeEstimate: storeEstimate,
+      );
+    }
+    return height!;
+  }
+}
+
 class LocationChatCachedSliver extends StatefulWidget {
   const LocationChatCachedSliver({
     super.key,
@@ -135,6 +170,7 @@ class LocationChatCachedSliver extends StatefulWidget {
     required this.builder,
     this.onExtent,
     this.empty = false,
+    this.retainedExtent,
   });
 
   final LocationChatGeometryCache cache;
@@ -142,6 +178,7 @@ class LocationChatCachedSliver extends StatefulWidget {
   final Object version;
   final bool pinned;
   final bool empty;
+  final LocationChatRetainedExtent? retainedExtent;
   final WidgetBuilder builder;
   final void Function(double offset, double extent)? onExtent;
 
@@ -150,8 +187,8 @@ class LocationChatCachedSliver extends StatefulWidget {
 }
 
 class _CachedSliverState extends State<LocationChatCachedSliver> {
-  double? _extent;
-  Object? _version;
+  final _ownExtent = LocationChatRetainedExtent();
+  LocationChatRetainedExtent get _extent => widget.retainedExtent ?? _ownExtent;
 
   @override
   Widget build(BuildContext context) => SliverLayoutBuilder(
@@ -160,15 +197,12 @@ class _CachedSliverState extends State<LocationChatCachedSliver> {
         widget.onExtent?.call(constraints.precedingScrollExtent, 0);
         return const SliverToBoxAdapter(child: SizedBox.shrink());
       }
-      if (_version != widget.version) {
-        _version = widget.version;
-        _extent = widget.cache.extent(
-          widget.identity,
-          widget.version,
-          constraints.viewportMainAxisExtent,
-        );
-      }
-      final extent = _extent!;
+      final extent = _extent.resolve(
+        widget.cache,
+        widget.identity,
+        widget.version,
+        constraints.viewportMainAxisExtent,
+      );
       widget.onExtent?.call(constraints.precedingScrollExtent, extent);
       final visible =
           constraints.remainingCacheExtent > 0 &&
@@ -179,7 +213,7 @@ class _CachedSliverState extends State<LocationChatCachedSliver> {
       return SliverToBoxAdapter(
         child: _Measure(
           onLayout: (size) {
-            _extent = size.height;
+            _extent.height = size.height;
             widget.cache.report(widget.identity, widget.version, size.height);
             widget.onExtent?.call(
               constraints.precedingScrollExtent,

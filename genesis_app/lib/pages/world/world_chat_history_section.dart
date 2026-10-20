@@ -407,6 +407,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 viewportCache: _cache.viewport,
                 captureReadingAnchorOnDragStart: true,
                 messages: messages,
+                readOnlyArchive: true,
                 topTitle: '',
                 active: _requestsEnabled,
                 initialContentReady: _worldHistory.ready,
@@ -424,7 +425,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 expandedHistoryHeaders: _historySections.expandedHeaders,
                 pinnedHistoryHeaderBuilder: _historySections.pinnedHeader,
                 messageDecorator: _decorateLocationBoundary,
-                messageDecorationVersion: _locationBoundaryVersion,
+                messageDecorationVersionById: _locationBoundaryVersion,
                 messageReadingMarkerKey: _worldHistory.existingBoundaryKey,
                 onReadingMessageChanged: _historySections.reading,
                 onVisibleMessagesChanged: _worldHistory.visible,
@@ -533,11 +534,8 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   List<String> _locationPathParts(String id) =>
       _worldHistory.projection.metadata.paths[id] ?? [id];
 
-  Object? _locationBoundaryVersion(
-    ChatMessageVm message,
-    ChatMessageVm? previous,
-  ) {
-    final continueLocation = _historySections.continueLocationFor(message);
+  Object? _locationBoundaryVersion(String id, String? previousId) {
+    final continueLocation = _historySections.continueLocationForId(id);
     final footerVersion = continueLocation == null
         ? null
         : (
@@ -547,7 +545,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
             widget.world.locations,
             Localizations.localeOf(context),
           );
-    final section = _historySections.headerFor(message);
+    final section = _historySections.headerForId(id);
     if (section != null) {
       return (
         section.id,
@@ -558,11 +556,19 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
         _worldHistory.loading,
       );
     }
-    final parts = _locationBoundaryParts(message, previous);
+    final row = _worldHistory.projection.byId[id];
+    final previous = _worldHistory.projection.byId[previousId];
+    final parts =
+        row == null ||
+            row.locationId.isEmpty ||
+            previous?.sectionId == row.sectionId
+        ? null
+        : _locationPathParts(row.locationId);
     return (
       parts?.join(' > '),
       footerVersion,
-      _newerBoundary(message),
+      _worldHistory.hasNewer &&
+          _worldHistory.projection.rows.lastOrNull?.id == id,
       _worldHistory.loading,
     );
   }
