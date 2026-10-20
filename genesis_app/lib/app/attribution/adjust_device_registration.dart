@@ -358,7 +358,7 @@ class AdjustDeviceRegistration {
           : _AdjustDeviceIdentifiers(
               adid: adid,
               environment: environment,
-              idfa: await _readOptional(readIdfa, 'IDFA'),
+              idfa: await _readIdfa(),
               idfv: await _readOptional(readIdfv, 'IDFV'),
               appInstanceId: await _readOptional(
                 readAppInstanceId,
@@ -486,22 +486,27 @@ class AdjustDeviceRegistration {
     }
   }
 
+  Future<String> _readIdfa() async {
+    final idfa = await _readOptional(readIdfa, 'IDFA');
+    return _isUsableAdvertisingId(idfa) ? idfa : '';
+  }
+
   Future<({String id, String? source})> _readGoogleAdId() async {
     final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
-    if (_isUsableGoogleAdId(adjustId)) {
+    if (_isUsableAdvertisingId(adjustId)) {
       return (id: adjustId, source: 'adjust');
     }
     final nativeReader = readNativeGoogleAdId;
     if (nativeReader != null) {
       final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
-      if (_isUsableGoogleAdId(nativeId)) {
+      if (_isUsableAdvertisingId(nativeId)) {
         return (id: nativeId, source: 'native');
       }
     }
     return (id: '', source: null);
   }
 
-  bool _isUsableGoogleAdId(String value) =>
+  bool _isUsableAdvertisingId(String value) =>
       value.isNotEmpty &&
       value.toLowerCase() != '00000000-0000-0000-0000-000000000000';
 }
