@@ -779,7 +779,7 @@ void main() {
     );
   }
 
-  testWidgets('stream end compact gap does not pull bottom bubbles down', (
+  testWidgets('stream end compact gap keeps the natural content bottom', (
     tester,
   ) async {
     final coordinator = LocationChatScrollCoordinator();
@@ -823,16 +823,23 @@ void main() {
     );
     await tester.pumpWidget(tree(complete: false));
     await tester.pump();
-    final before = tester.getTopLeft(find.text('Stream body')).dy;
     final pixels = coordinator.controller.position.pixels;
     await tester.pumpWidget(tree(complete: true));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(
-      tester.getTopLeft(find.text('Stream body')).dy,
-      closeTo(before, 0.01),
+    final contentEnd = find.descendant(
+      of: find.byKey(
+        const ValueKey('location-chat-layout-correction'),
+        skipOffstage: false,
+      ),
+      matching: find.byType(SizedBox, skipOffstage: false),
+      skipOffstage: false,
     );
-    expect(coordinator.controller.position.pixels, closeTo(pixels, 0.01));
+    for (var frame = 0; frame < 25; frame++) {
+      // Compact spacing may shrink; following latest must follow that real
+      // bottom instead of replacing the lost spacing with a permanent tail.
+      expect(tester.getBottomLeft(contentEnd).dy, closeTo(360, .01));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(coordinator.controller.position.pixels, lessThan(pixels));
     expect(coordinator.shouldFollowLatest, isTrue);
     await tester.pumpWidget(
       tree(complete: false, extra: '\nNext streamed line' * 8),

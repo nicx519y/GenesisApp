@@ -1332,45 +1332,6 @@ class _LocationChatAnchoredMessageListState
     });
   }
 
-  void _retainExtentOnStreamCompletion() {
-    final coordinator = widget.coordinator;
-    if (!widget.replyWaitingPositioningEnabled ||
-        !widget.active ||
-        widget.replyRegenerationInProgress ||
-        !coordinator.controller.hasClients ||
-        !coordinator.shouldFollowLatest ||
-        !coordinator.isAtBottom) {
-      return;
-    }
-    final viewport = _globalBounds(
-      _scrollViewportKey.currentContext?.findRenderObject(),
-    );
-    if (viewport == null) return;
-    for (final message in widget.messages) {
-      if (message.status != 'sent') continue;
-      final layoutId = _messageLayoutId(message);
-      final previous =
-          _rowChildren[layoutId]?.snapshot ??
-          _cardRowChildren[widget.replyCurrentCardId]?[message.localId]
-              ?.snapshot;
-      if (previous?.status != 'streaming') continue;
-      final bounds = _messageBounds(layoutId);
-      if (bounds == null || !bounds.overlaps(viewport)) continue;
-      final position = coordinator.controller.position;
-      // Final text or the compact action-row gap can be shorter than the last
-      // stream frame. Keep that lost height in the tail instead of following
-      // a smaller maxScrollExtent and moving every visible bubble downward.
-      // The next reply consumes the space; growing content still follows normally.
-      _waitingMinContentExtent = _waitingMinContentExtent.clamp(
-        position.maxScrollExtent +
-            position.viewportDimension -
-            _layoutCorrectionExtentSignal,
-        double.infinity,
-      );
-      break;
-    }
-  }
-
   static String? _waitingIdentity(LocationChatAnchoredMessageList list) =>
       !list.replyWaitingPositioningEnabled
       ? null
@@ -2219,7 +2180,6 @@ class _LocationChatAnchoredMessageListState
     if (disabledWaitingPositioning && !_holdingEnterPosition) {
       oldWidget.coordinator.releaseWaitingReplyPosition();
     }
-    _retainExtentOnStreamCompletion();
     final waitingIdentityChanged =
         _waitingIdentity(oldWidget) != _waitingIdentity(widget);
     if (waitingIdentityChanged || (!oldWidget.active && widget.active)) {
@@ -2889,6 +2849,16 @@ class _LocationChatAnchoredMessageListState
             } else {
               _composerTailAnchor = null;
             }
+          }
+          // Following latest belongs to the natural content bottom. Waiting
+          // space must not survive a return to this mode or preserve an old
+          // absolute extent after streaming completion/history eviction.
+          // Keyboard consumption and an in-flight waiting preparation still
+          // own their intentional reserve until that operation releases it.
+          if (widget.coordinator.shouldFollowLatest &&
+              _composerTailAnchor == null &&
+              !_waitingPositionPending) {
+            _waitingMinContentExtent = 0;
           }
           final messages = ScrollConfiguration(
             key: const ValueKey<String>(
