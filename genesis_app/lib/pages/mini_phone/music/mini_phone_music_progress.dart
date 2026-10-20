@@ -17,28 +17,46 @@ abstract interface class MiniPhoneMusicProgressStore {
   Future<void> write(MiniPhoneMusicProgress progress);
 }
 
-/// A single current track per account/environment/World. Writes are ordered
-/// across session instances, so immediately reopening a World sees its exit save.
+/// A single current track per account/environment, shared by all Worlds.
+/// Writes and legacy migration are ordered across session instances.
 class LocalMiniPhoneMusicProgressStore implements MiniPhoneMusicProgressStore {
   LocalMiniPhoneMusicProgressStore({
     required String namespace,
-    required String worldId,
+    String? legacyWorldId,
     required Future<String?> owner,
     Future<SharedPreferences> Function()? preferences,
   }) : _key = owner.then(
          (uid) =>
-             'miniphone_music_v1:${Uri.encodeComponent(namespace)}:${Uri.encodeComponent(uid ?? "__guest__")}:${Uri.encodeComponent(worldId)}',
+             'miniphone_music_v2:${Uri.encodeComponent(namespace)}:${Uri.encodeComponent(uid ?? "__guest__")}',
+       ),
+       _legacyKey = owner.then(
+         (uid) => legacyWorldId == null
+             ? null
+             : 'miniphone_music_v1:${Uri.encodeComponent(namespace)}:${Uri.encodeComponent(uid ?? "__guest__")}:${Uri.encodeComponent(legacyWorldId)}',
        ),
        _preferences = preferences ?? SharedPreferences.getInstance;
   final Future<String> _key;
+  final Future<String?> _legacyKey;
   final Future<SharedPreferences> Function() _preferences;
   static final _writes = <String, Future<void>>{};
 
   @override
   Future<MiniPhoneMusicProgress?> read() async {
     final key = await _key;
+    final legacyKey = await _legacyKey;
+    if (legacyKey != null) {
+      await _update((prefs, key) async {
+        if (prefs.containsKey(key)) return;
+        final legacy = prefs.getString(legacyKey);
+        if (_decode(legacy) != null) await prefs.setString(key, legacy!);
+      });
+    }
     await _writes[key];
     final raw = (await _preferences()).getString(key);
+    return _decode(raw);
+  }
+
+  static MiniPhoneMusicProgress? _decode(String? raw) {
     if (raw == null) return null;
     try {
       final data = jsonDecode(raw);
@@ -67,20 +85,27 @@ class LocalMiniPhoneMusicProgressStore implements MiniPhoneMusicProgressStore {
   }
 
   @override
-  Future<void> write(MiniPhoneMusicProgress progress) async {
+  Future<void> write(MiniPhoneMusicProgress progress) =>
+      _update((prefs, key) async {
+        await prefs.setString(
+          key,
+          jsonEncode({
+            'file': progress.file,
+            'position_ms': progress.position.inMilliseconds,
+            'duration_ms': progress.duration?.inMilliseconds,
+          }),
+        );
+      });
+
+  Future<void> _update(
+    Future<void> Function(SharedPreferences prefs, String key) update,
+  ) async {
     final key = await _key;
     final write = (_writes[key] ?? Future.value())
         .catchError((Object _) {})
         .then((_) async {
           final prefs = await _preferences();
-          await prefs.setString(
-            key,
-            jsonEncode({
-              'file': progress.file,
-              'position_ms': progress.position.inMilliseconds,
-              'duration_ms': progress.duration?.inMilliseconds,
-            }),
-          );
+          await update(prefs, key);
         });
     _writes[key] = write;
     try {

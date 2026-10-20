@@ -35,7 +35,7 @@ LocalMiniPhoneMusicProgressStore _store({
   Future<SharedPreferences> Function()? preferences,
 }) => LocalMiniPhoneMusicProgressStore(
   namespace: env,
-  worldId: world,
+  legacyWorldId: world,
   owner: Future.value(owner),
   preferences: preferences,
 );
@@ -55,11 +55,11 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
-    'local progress is isolated by world, account and environment',
+    'local progress is shared across worlds but isolates account and environment',
     () async {
       await _store().write(_saved);
       expect((await _store().read())!.position, _saved.position);
-      expect(await _store(world: 'b').read(), isNull);
+      expect((await _store(world: 'b').read())!.position, _saved.position);
       expect(await _store(owner: 'v').read(), isNull);
       expect(await _store(env: 'debug').read(), isNull);
     },
@@ -68,7 +68,7 @@ void main() {
     final gate = Completer<SharedPreferences>();
     final first = _store(preferences: () => gate.future).write(_saved);
     await _flush();
-    final second = _store().write(
+    final second = _store(world: 'b').write(
       const MiniPhoneMusicProgress(
         file: '0.mp3',
         position: Duration(seconds: 3),
@@ -79,10 +79,49 @@ void main() {
     await Future.wait([first, second]);
     expect((await read)!.file, '0.mp3');
   });
+  test('first valid legacy world seeds shared progress only once', () async {
+    SharedPreferences.setMockInitialValues({
+      'miniphone_music_v1:prod:u:a': '{"file":"1.mp3","position_ms":12000}',
+      'miniphone_music_v1:prod:u:b': '{"file":"0.mp3","position_ms":3000}',
+    });
+    final results = await Future.wait([
+      _store().read(),
+      _store(world: 'b').read(),
+    ]);
+    expect(results.map((result) => result!.file), everyElement('1.mp3'));
+    await _store(world: 'b').write(_saved);
+    expect((await _store().read())!.position, _saved.position);
+    expect(await _store(owner: 'v').read(), isNull);
+    expect(await _store(env: 'debug').read(), isNull);
+  });
+  test(
+    'invalid legacy progress does not prevent another world migration',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'miniphone_music_v1:prod:u:a': 'invalid',
+        'miniphone_music_v1:prod:u:b': '{"file":"1.mp3","position_ms":12000}',
+      });
+      expect(await _store().read(), isNull);
+      expect((await _store(world: 'b').read())!.file, '1.mp3');
+      expect((await _store().read())!.file, '1.mp3');
+    },
+  );
+  test('legacy migration cannot overwrite a pending shared save', () async {
+    SharedPreferences.setMockInitialValues({
+      'miniphone_music_v1:prod:u:b': '{"file":"0.mp3","position_ms":3000}',
+    });
+    final gate = Completer<SharedPreferences>();
+    final write = _store(preferences: () => gate.future).write(_saved);
+    await _flush();
+    final read = _store(world: 'b').read();
+    gate.complete(await SharedPreferences.getInstance());
+    await write;
+    expect((await read)!.position, _saved.position);
+  });
   test(
     'invalid local records are ignored and positions clamp to duration',
     () async {
-      const key = 'miniphone_music_v1:prod:u:a';
+      const key = 'miniphone_music_v2:prod:u';
       final prefs = await SharedPreferences.getInstance();
       for (final raw in [
         'oops',
@@ -129,7 +168,7 @@ void main() {
       await Future.wait([music.released, music.progressSaved]);
       expect(players.every((p) => p.disposed && !p.playing), isTrue);
       final reopened = MiniPhoneMusicService(
-        progressStore: _store(),
+        progressStore: _store(world: 'b'),
         playerFactory: TestMusicPlayer.new,
       );
       addTearDown(reopened.dispose);

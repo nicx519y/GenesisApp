@@ -49,7 +49,7 @@ class MiniPhoneSession {
             ? null
             : LocalMiniPhoneMusicProgressStore(
                 namespace: services.platformConfig.apiBaseUrl,
-                worldId: worldId,
+                legacyWorldId: worldId,
                 owner: services.sessionStore.readLoginUid().catchError(
                   (Object _) => null,
                 ),
