@@ -145,7 +145,7 @@ class GooglePlayBillingService implements BillingService {
       _emitFailure(
         product.productId,
         attemptId,
-        'This product is unavailable.',
+        GenesisL10n.current.gemsProductUnavailable,
         debugInfo: purchaseDebugInfo(
           'gems.precheck',
           reason: !product.canPurchase
@@ -161,7 +161,7 @@ class GooglePlayBillingService implements BillingService {
       _emitFailure(
         product.productId,
         attemptId,
-        'This product type is not supported.',
+        GenesisL10n.current.gemsTypeUnsupported,
         debugInfo: purchaseDebugInfo(
           'gems.precheck',
           reason: 'unsupported_product_type',
@@ -213,7 +213,7 @@ class GooglePlayBillingService implements BillingService {
             kind: BillingUiEventKind.deferred,
             productId: activeProduct.productId,
             attemptId: attemptId,
-            message: 'Purchase timed out. Please try again.',
+            message: GenesisL10n.current.gemsPurchaseTimeout,
             debugInfo: purchaseDebugInfo(
               'gems.prepare',
               reason: 'prepare_timeout',
@@ -284,7 +284,7 @@ class GooglePlayBillingService implements BillingService {
           _emitFailure(
             product.productId,
             attemptId,
-            'Purchase failed.',
+            GenesisL10n.current.mePurchaseFailed,
             debugInfo: purchaseDebugInfo(
               'gems.load_account_uuid',
               error: error,
@@ -298,7 +298,7 @@ class GooglePlayBillingService implements BillingService {
           _emitFailure(
             product.productId,
             attemptId,
-            'Purchase failed.',
+            GenesisL10n.current.mePurchaseFailed,
             debugInfo: purchaseDebugInfo(
               'gems.load_account_uuid',
               reason: 'uuid_unavailable',
@@ -449,7 +449,7 @@ class GooglePlayBillingService implements BillingService {
             _emitFailure(
               activeProduct.productId,
               attemptId,
-              'Purchase failed.',
+              GenesisL10n.current.mePurchaseFailed,
               debugInfo: purchaseDebugInfo(
                 'gems.launch_store',
                 reason: 'launch_rejected',

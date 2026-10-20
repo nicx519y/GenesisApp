@@ -245,6 +245,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get purchaseCanceled => 'Purchase canceled.';
 
   @override
+  String get gemsProductUnavailable => 'This product is unavailable.';
+
+  @override
+  String get gemsTypeUnsupported => 'This product type is not supported.';
+
+  @override
+  String get gemsPurchaseTimeout => 'Purchase timed out. Please try again.';
+
+  @override
+  String get gemsPaymentUnavailable => 'Payment service is unavailable.';
+
+  @override
+  String get gemsPaymentPending => 'Payment is pending.';
+
+  @override
+  String get gemsPaymentConfirming => 'Payment is being confirmed.';
+
+  @override
+  String get gemsPurchaseRefunded => 'Purchase was refunded.';
+
+  @override
   String get purchasePending => 'Your purchase is pending.';
 
   @override
@@ -2597,6 +2618,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get premiumPurchaseCanceled => 'Purchase canceled.';
 
   @override
+  String get premiumReportFailed => 'Report failed.';
+
+  @override
+  String get premiumVerifyFailed =>
+      'We couldn’t verify your subscription. Please contact support.';
+
+  @override
   String get premiumGooglePlayTemporarily =>
       'Google Play is temporarily unavailable. Please try again later.';
 
@@ -3468,6 +3496,27 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get purchaseCanceled => '已取消購買。';
+
+  @override
+  String get gemsProductUnavailable => '此商品目前無法購買。';
+
+  @override
+  String get gemsTypeUnsupported => '不支援此商品類型。';
+
+  @override
+  String get gemsPurchaseTimeout => '購買逾時，請再試一次。';
+
+  @override
+  String get gemsPaymentUnavailable => '付款服務目前無法使用。';
+
+  @override
+  String get gemsPaymentPending => '付款尚待處理。';
+
+  @override
+  String get gemsPaymentConfirming => '正在確認付款。';
+
+  @override
+  String get gemsPurchaseRefunded => '這筆購買交易已退款。';
 
   @override
   String get purchasePending => '你的購買交易正在處理中。';
@@ -5735,6 +5784,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get premiumPurchaseCanceled => '已取消購買。';
+
+  @override
+  String get premiumReportFailed => '購買結果回報失敗。';
+
+  @override
+  String get premiumVerifyFailed => '我們無法驗證你的訂閱，請聯絡客服。';
 
   @override
   String get premiumGooglePlayTemporarily => 'Google Play 暫時無法使用，請稍後再試。';

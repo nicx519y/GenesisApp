@@ -503,11 +503,53 @@ abstract class AppLocalizations {
   /// **'User blocked'**
   String get userBlocked;
 
-  /// Canceled subscription purchase result.
+  /// Gems purchase cancellation toast and canceled subscription purchase result.
   ///
   /// In en, this message translates to:
   /// **'Purchase canceled.'**
   String get purchaseCanceled;
+
+  /// Gems purchase toast when the selected pack cannot be purchased or has no store product ID.
+  ///
+  /// In en, this message translates to:
+  /// **'This product is unavailable.'**
+  String get gemsProductUnavailable;
+
+  /// Gems purchase toast when the selected pack is not a consumable store product.
+  ///
+  /// In en, this message translates to:
+  /// **'This product type is not supported.'**
+  String get gemsTypeUnsupported;
+
+  /// Gems purchase toast when checkout preparation times out before the store opens.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase timed out. Please try again.'**
+  String get gemsPurchaseTimeout;
+
+  /// Gems purchase toast when the App Store payment service or purchase stream is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment service is unavailable.'**
+  String get gemsPaymentUnavailable;
+
+  /// Gems purchase toast after the store reports a pending transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment is pending.'**
+  String get gemsPaymentPending;
+
+  /// Gems purchase toast when store payment was started but confirmation is delayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment is being confirmed.'**
+  String get gemsPaymentConfirming;
+
+  /// Gems purchase toast when the server reports that the purchase was refunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase was refunded.'**
+  String get gemsPurchaseRefunded;
 
   /// Pending subscription purchase result.
   ///
@@ -4416,6 +4458,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchase canceled.'**
   String get premiumPurchaseCanceled;
+
+  /// Premium purchase toast when reporting a confirmed store transaction to the server fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Report failed.'**
+  String get premiumReportFailed;
+
+  /// Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn’t verify your subscription. Please contact support.'**
+  String get premiumVerifyFailed;
 
   /// 首页 - Me → Premium 订阅，App Store 或 Google Play 返回购买错误
   ///

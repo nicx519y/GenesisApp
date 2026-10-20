@@ -314,7 +314,7 @@
   },
   "purchaseCanceled": "購入はキャンセルされました。",
   "@purchaseCanceled": {
-    "description": "Canceled subscription purchase result."
+    "description": "Gems purchase cancellation toast and canceled subscription purchase result."
   },
   "purchasePending": "購入は保留中です。",
   "@purchasePending": {
@@ -4347,5 +4347,41 @@
         "type": "String"
       }
     }
+  },
+  "gemsProductUnavailable": "この商品はご利用いただけません。",
+  "@gemsProductUnavailable": {
+    "description": "Gems purchase toast when the selected pack cannot be purchased or has no store product ID."
+  },
+  "gemsTypeUnsupported": "この商品タイプには対応していません。",
+  "@gemsTypeUnsupported": {
+    "description": "Gems purchase toast when the selected pack is not a consumable store product."
+  },
+  "gemsPurchaseTimeout": "購入がタイムアウトしました。もう一度お試しください。",
+  "@gemsPurchaseTimeout": {
+    "description": "Gems purchase toast when checkout preparation times out before the store opens."
+  },
+  "gemsPaymentUnavailable": "決済サービスをご利用いただけません。",
+  "@gemsPaymentUnavailable": {
+    "description": "Gems purchase toast when the App Store payment service or purchase stream is unavailable."
+  },
+  "gemsPaymentPending": "お支払いは保留中です。",
+  "@gemsPaymentPending": {
+    "description": "Gems purchase toast after the store reports a pending transaction."
+  },
+  "gemsPaymentConfirming": "お支払いを確認しています。",
+  "@gemsPaymentConfirming": {
+    "description": "Gems purchase toast when store payment was started but confirmation is delayed."
+  },
+  "gemsPurchaseRefunded": "この購入は返金されました。",
+  "@gemsPurchaseRefunded": {
+    "description": "Gems purchase toast when the server reports that the purchase was refunded."
+  },
+  "premiumReportFailed": "購入情報の送信に失敗しました。",
+  "@premiumReportFailed": {
+    "description": "Premium purchase toast when reporting a confirmed store transaction to the server fails."
+  },
+  "premiumVerifyFailed": "サブスクリプションを確認できませんでした。サポートにお問い合わせください。",
+  "@premiumVerifyFailed": {
+    "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
   }
 }

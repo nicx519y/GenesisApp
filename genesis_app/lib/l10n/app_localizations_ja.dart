@@ -239,6 +239,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get purchaseCanceled => '購入はキャンセルされました。';
 
   @override
+  String get gemsProductUnavailable => 'この商品はご利用いただけません。';
+
+  @override
+  String get gemsTypeUnsupported => 'この商品タイプには対応していません。';
+
+  @override
+  String get gemsPurchaseTimeout => '購入がタイムアウトしました。もう一度お試しください。';
+
+  @override
+  String get gemsPaymentUnavailable => '決済サービスをご利用いただけません。';
+
+  @override
+  String get gemsPaymentPending => 'お支払いは保留中です。';
+
+  @override
+  String get gemsPaymentConfirming => 'お支払いを確認しています。';
+
+  @override
+  String get gemsPurchaseRefunded => 'この購入は返金されました。';
+
+  @override
   String get purchasePending => '購入は保留中です。';
 
   @override
@@ -2524,6 +2545,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get premiumPurchaseCanceled => '購入はキャンセルされました。';
+
+  @override
+  String get premiumReportFailed => '購入情報の送信に失敗しました。';
+
+  @override
+  String get premiumVerifyFailed => 'サブスクリプションを確認できませんでした。サポートにお問い合わせください。';
 
   @override
   String get premiumGooglePlayTemporarily =>

@@ -198,7 +198,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             kind: BillingUiEventKind.pending,
             productId: productId,
             attemptId: attemptId,
-            message: 'Payment is pending.',
+            message: GenesisL10n.current.gemsPaymentPending,
             debugInfo: purchaseDebugInfo(
               'gems.store_callback',
               status: purchase.status.name,
@@ -213,7 +213,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             kind: BillingUiEventKind.failure,
             productId: productId,
             attemptId: attemptId,
-            message: 'Purchase canceled.',
+            message: GenesisL10n.current.purchaseCanceled,
             debugInfo: purchaseDebugInfo(
               'gems.store_callback',
               status: purchase.status.name,
@@ -290,7 +290,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       _emitFailure(
         productId,
         attemptId,
-        'Purchase failed.',
+        GenesisL10n.current.mePurchaseFailed,
         debugInfo: purchaseDebugInfo(
           'gems.store_callback',
           reason: 'receipt_missing',

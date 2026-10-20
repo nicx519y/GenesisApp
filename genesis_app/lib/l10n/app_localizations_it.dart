@@ -244,6 +244,28 @@ class AppLocalizationsIt extends AppLocalizations {
   String get purchaseCanceled => 'Acquisto annullato.';
 
   @override
+  String get gemsProductUnavailable => 'Questo prodotto non è disponibile.';
+
+  @override
+  String get gemsTypeUnsupported => 'Questo tipo di prodotto non è supportato.';
+
+  @override
+  String get gemsPurchaseTimeout => 'Tempo scaduto per l’acquisto. Riprova.';
+
+  @override
+  String get gemsPaymentUnavailable =>
+      'Il servizio di pagamento non è disponibile.';
+
+  @override
+  String get gemsPaymentPending => 'Il pagamento è in sospeso.';
+
+  @override
+  String get gemsPaymentConfirming => 'Il pagamento è in fase di conferma.';
+
+  @override
+  String get gemsPurchaseRefunded => 'L’acquisto è stato rimborsato.';
+
+  @override
   String get purchasePending => 'Il tuo acquisto è in sospeso.';
 
   @override
@@ -2643,6 +2665,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get premiumPurchaseCanceled => 'Acquisto annullato.';
+
+  @override
+  String get premiumReportFailed => 'Impossibile comunicare l’acquisto.';
+
+  @override
+  String get premiumVerifyFailed =>
+      'Non siamo riusciti a verificare il tuo abbonamento. Contatta l’assistenza.';
 
   @override
   String get premiumGooglePlayTemporarily =>

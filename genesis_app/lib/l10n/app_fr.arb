@@ -314,7 +314,7 @@
   },
   "purchaseCanceled": "Achat annulé.",
   "@purchaseCanceled": {
-    "description": "Canceled subscription purchase result."
+    "description": "Gems purchase cancellation toast and canceled subscription purchase result."
   },
   "purchasePending": "Votre achat est en attente.",
   "@purchasePending": {
@@ -4347,5 +4347,41 @@
         "type": "String"
       }
     }
+  },
+  "gemsProductUnavailable": "Ce produit n’est pas disponible.",
+  "@gemsProductUnavailable": {
+    "description": "Gems purchase toast when the selected pack cannot be purchased or has no store product ID."
+  },
+  "gemsTypeUnsupported": "Ce type de produit n’est pas pris en charge.",
+  "@gemsTypeUnsupported": {
+    "description": "Gems purchase toast when the selected pack is not a consumable store product."
+  },
+  "gemsPurchaseTimeout": "Le délai de l’achat a expiré. Veuillez réessayer.",
+  "@gemsPurchaseTimeout": {
+    "description": "Gems purchase toast when checkout preparation times out before the store opens."
+  },
+  "gemsPaymentUnavailable": "Le service de paiement est indisponible.",
+  "@gemsPaymentUnavailable": {
+    "description": "Gems purchase toast when the App Store payment service or purchase stream is unavailable."
+  },
+  "gemsPaymentPending": "Le paiement est en attente.",
+  "@gemsPaymentPending": {
+    "description": "Gems purchase toast after the store reports a pending transaction."
+  },
+  "gemsPaymentConfirming": "La confirmation du paiement est en cours.",
+  "@gemsPaymentConfirming": {
+    "description": "Gems purchase toast when store payment was started but confirmation is delayed."
+  },
+  "gemsPurchaseRefunded": "L’achat a été remboursé.",
+  "@gemsPurchaseRefunded": {
+    "description": "Gems purchase toast when the server reports that the purchase was refunded."
+  },
+  "premiumReportFailed": "Échec de la transmission de l’achat.",
+  "@premiumReportFailed": {
+    "description": "Premium purchase toast when reporting a confirmed store transaction to the server fails."
+  },
+  "premiumVerifyFailed": "Nous n’avons pas pu vérifier votre abonnement. Veuillez contacter l’assistance.",
+  "@premiumVerifyFailed": {
+    "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
   }
 }

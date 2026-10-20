@@ -239,6 +239,27 @@ class AppLocalizationsKo extends AppLocalizations {
   String get purchaseCanceled => '구매가 취소되었습니다.';
 
   @override
+  String get gemsProductUnavailable => '이 상품은 이용할 수 없습니다.';
+
+  @override
+  String get gemsTypeUnsupported => '이 상품 유형은 지원되지 않습니다.';
+
+  @override
+  String get gemsPurchaseTimeout => '구매 처리 시간이 초과되었습니다. 다시 시도해 주세요.';
+
+  @override
+  String get gemsPaymentUnavailable => '결제 서비스를 이용할 수 없습니다.';
+
+  @override
+  String get gemsPaymentPending => '결제가 보류 중입니다.';
+
+  @override
+  String get gemsPaymentConfirming => '결제를 확인하고 있습니다.';
+
+  @override
+  String get gemsPurchaseRefunded => '구매가 환불되었습니다.';
+
+  @override
   String get purchasePending => '구매가 대기 중입니다.';
 
   @override
@@ -2529,6 +2550,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get premiumPurchaseCanceled => '구매가 취소되었습니다.';
+
+  @override
+  String get premiumReportFailed => '구매 내역을 전송하지 못했습니다.';
+
+  @override
+  String get premiumVerifyFailed => '구독을 확인할 수 없습니다. 고객 지원팀에 문의해 주세요.';
 
   @override
   String get premiumGooglePlayTemporarily =>

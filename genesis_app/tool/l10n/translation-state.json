@@ -396,9 +396,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "2f67ee3f5b20ce962679a080a96ecbd5f8b2a64269a144461007bf1aa23348e7",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -5194,6 +5194,60 @@
           "text_hash": "9f2cb6303d29c91c010a9cfa10d825efca1ce26734cb16cf7d941162f02564cb",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "d83fcba250f7045f2a69bab00ddda660218537f6f1dfce61edf70cfcaacba48e",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "b734a402b53133a6f3f55de2f98f472c6e85e9fe0dc73071b25ea314b602a289",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "686a59e8055cf862da8af5dce4a0814cbddf6b2291d3c31327c39162cfd5bf53",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "ce6d6bdf6c78d20d80c604c48d57187482b69dae894b4e0292f3d6cc61a08f32",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "d84afe2621c527147fabd424023c40b7f1bf46183737a60501543cce617a7e91",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "66a241b9c5343cd914f0de296fb397ed068ebc102167891ada246dd3efbde0e3",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "b7c4d5230c146cf52bc2532d29897750165246d06069d7c9b1cd133891f18d70",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "c977c700caf469e20f8557abb218aa9d3042cf8ad48f30e134a7a99ef107590e",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "04a6ad2ec5ae684bb9ec9be364030bb6458bb753157db0d6e4d610d34fa7f136",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -5591,9 +5645,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "35dec629bed2ca9079e05c3db87ee5842d859b8189e9d174fca843d1dfd81120",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -10389,6 +10443,60 @@
           "text_hash": "b89cd22ccba3cc1291a6c9d27d4094cbac27436134ee193978e286fd61c46b4c",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "2b6a64fe8564515f74c80a2e13a4531553cee40e2186f80e888b9b01e094dfed",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "27b3bcff3ec7ace1929b4b0aee0ec71c6e311928c4eb58e4a4d5c4def07e0f2a",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "2122f8e5a7c54bf1386feba46c7a96addd4dd2cce54b3ab7589385e7416db17c",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "7d018bf2efd7f25e38453ccf41793c06e81996e9f4450360987cdf783fbced71",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "6d556ed5c12d7552ca0e9e64f1ab1a97aa3e69ae2942d88349a79fcb27146c10",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "b39284b62b4e0bba41625c9e91eab3503589eda228714a19aafeaaf18c557e68",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "ed8e4b1d70a3644350231b08d51aa9485c2f34d9bc1722156c1ef18600c57f24",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "eb9f8f6c2ae54514497636ca0b35e95c95caf27c8b6b2bb9ee2b0e20b5c4c41b",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "8dfa8201544870b1b6403b4c3e2d4e0cf5d9ea09950e68d420820f7cabe7ac7f",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -10786,9 +10894,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "35dec629bed2ca9079e05c3db87ee5842d859b8189e9d174fca843d1dfd81120",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -15584,6 +15692,60 @@
           "text_hash": "e2e8c854f0604b96296cbbf7039e74bfe3d236137296a212625137e78ed94c78",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "01f456cff36a1ce44f357d275c034687a19a6c71b6017024a9d2ed4e9847d0bb",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "eeed43049dd93d3947ca911d4ec12398f805dfc92c4d58bd4bf8ca21c1b73cc7",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "5868bdd861fc4cfea5aa406e5733e296d4a55da9e8e2542427508eb6d7169b74",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "5d32fc621714981d562019ea6d35cb8d3e54bd4400a4ef0945c5b8a1e785b61b",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "a305e518baa7d7353c26ac6d339a3435dcef27e2cc88cd06fa130dc7f7164e3f",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "1ecc4d4254a2a6eb49e211aed03c196df7f5afb180bf0ede5394f8f37752ab4d",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "f54fd2f31b1897966c43de179aa7f36020b7a46d07872f065f8ca633a4244d07",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "c852d3f91c9aee43f116939897138ad12a39bd46382f859e980b3377a7c6df08",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "ba1c3b9e679ca68ebe90a16de89ba803384e86779c057cfe4ee3cbc96aeae59b",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -15981,9 +16143,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "69df614ae1f17c93110a74e9a3aa46373f20bb91697fca0175f08b7faa4a5573",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -20779,6 +20941,60 @@
           "text_hash": "3dd23308f617c8f9bbc82bf6007e20f0bc49cb14a57aa991118748a8aa1a433d",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "684298095972787860b4fdf581ed515314360aa7681da916c114d03643caf7b9",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "aef34df953f03e90dfa26f27a8f40faf7f64edb436f33f278444aaa3f04177c0",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "a26bc96963f8d409c7fe97fd3519e956c6fd791c0033f765ac8ce195c2057520",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "b2abbdfeef22b9c5bab814a75936ab0bef06c1469c878c69ff1b317dcad73529",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "f11ed94bb608db9da99aab110c079ed693a262d7c98e74df9412a892fcb29b5f",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "0449bc33fee3ec1453135407cb3ecd9176159240cf69578734a6ace8024a3ccf",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "3e2e3050eabb710a08b645d6777b655ed190112b617686ab0b87885c7c23811f",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "23556b3d7447eb72ecd576465edd3f553ec78ede889334d360198b6f9b65618e",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "0c6dec7e27c5dafa4430e0fec58448f2238fc1b6f9bcd02a0de0dd47497c6b53",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -21176,9 +21392,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "ddf0aab53b144b18dda73ec9d9d9f467363baddc78075b361e0def7cf54a2365",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -25974,6 +26190,60 @@
           "text_hash": "d3fa37a030f6e3a1d342d6e41620deb5ab824a914e3c935ff33d40dabe90f488",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "f9f2f7627f87ddb2992920e7026697b7db4ca51be3511efc93242e56a5db219f",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "49be8c43abd55440c91c3b284e63dfb3c9866d5ef53102b6bf98bc57573a2c16",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "ded484d2f2f9d31cc46a942d792e2688bf91e6c26b8550b30a1efe3955f0481b",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "6bc03e83a5d5028da093d32eb491841b89a487876f12ff6f6b030a27d9fedd3d",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "789b2006834ee134b0fcfe0572109699b5ea8b8d6b306c0cfa4f37b5a10ca354",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "af707a98def0ec862ca84176632a67c964c4682bc681d6a2e134f73756dd6c20",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "0a266204eb11c430b699eff79c472d85440c321511ba30978f96711a1ba5b905",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "c9fec26ef1645f3c9e517a22a852c38a1d1a64927fb8b9123aa39796dd6b216f",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "4d533bcfc783000fcd44d1b868f03a8a38897e263844f69fca0509dfed99d8ea",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -26371,9 +26641,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "53c185f19798217954a36a61c0eeab16b13281ca7d16ff76ed3164dd3881ceb7",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -31169,6 +31439,60 @@
           "text_hash": "d7bf7d8432618df6014214a8103e75e8eeaec43e369145e6f6955e406f0b8c9f",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "327ee9a00c589a77ffe3e7a1c1448840283546af706f0c4a2708f82cfc942a2d",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "19efb0a91e26446903968951e78496d415f5a66fad2fc210095f03012840c906",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "85c826fff8e7f15f957d2f0b0fc96f2db6311fd3e84b3bf5fdd14fbaa02fe6f8",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "68e9f5f14a4ca4096bad84cf4b5bda829384c696dd0807e2093e03e88512681e",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "0c62fa0b582ed1e11153d5e05da667c629d3357a9b465cc86650d293e5cffcec",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "3cdd0986db66f7354a223832332ffec67336eefcf6592ae50704462cc9fdfdbc",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "fb01bfd3183dc559b0c2c5324b8ad544cf0c69c3dba2a22e3ab78c8836a68203",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "e8320dc0807a94c0605fe6193009ab5d260d640bd99a9bea2515be1ee04ccabf",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "84cca02741da6b506745a75d101bf91b28c4403c7d0de2636d7058c9ff907db3",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -31566,9 +31890,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "8544ea6385526499ef16338c3c78ea81514d7d6731fd7cf6f21871e8e5941821",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -36364,6 +36688,60 @@
           "text_hash": "e202dbd9cb1c1ec41baf745b9c63ba4aa90db35296a62df941d26f10cd934bce",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "ec7b04902fe0b423eb047e08d5cef7fa1f5a77c3f21cd79f71463c1a6c7425aa",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "65de9d33fe9b752bdb8cb38515a28f30d105ee75b4618c3ed691a5fae05cbbe2",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "cd4f88c57a3dffb6820a248dca45693aab5b9fc014369e7d69f588dcfe4f34a6",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "608244f07d27d4dda3bedb9ff9235581724d36d8efe045e7615ab41b702ca39f",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "8e09603d14cdd2237012cdd164cd24ac06573679bc57ada9f58e5062157e1d89",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "986e1d50b9bd82a7c36cff46e3735e58e3dece17b8537d7ef0efaa4e414fd564",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "bae75d3e304b8ee079c883f5ad31933b08e2878da2828e7ad885cc437215d9db",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "3e7fd7bddee8d2d7635ea11aae029b458a5645cb1f09df2cc188373dfb901b95",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "73c0089d37fb47b18d6c20fd91061426e40ff3fb303de6a3dbcdb8c7a889ce2d",
+          "status": "ai",
+          "note": ""
         }
       }
     },
@@ -36761,9 +37139,9 @@
           "note": ""
         },
         "purchaseCanceled": {
-          "source_hash": "b5ee60a5e5efb5eed148868337d9d8a3074c2e980a5ee163e4cb862a4a7b6de4",
+          "source_hash": "954b64047b68f3995df7aec52d87416463247e8b1ea381e9951e72deaac5e138",
           "text_hash": "7f7c441534443c9339266321bab190dd126af05fe893ff11b90178da5eae993d",
-          "status": "baseline",
+          "status": "ai",
           "note": ""
         },
         "purchasePending": {
@@ -41559,6 +41937,60 @@
           "text_hash": "53867cbc7a1e15eee8555bff5f08135a1f59b32935fa2d696782dd13a37d50d5",
           "status": "ai",
           "note": "Daily task reset countdown; preserves time placeholder."
+        },
+        "gemsProductUnavailable": {
+          "source_hash": "db8eeb0725fb903907b2ab4a237911935074e12b72d07104a63f7682da247db8",
+          "text_hash": "f241e84fb7db47bf290732cfd11e885a9bc29dd0cbf477c1b0fa6a95f0fd8146",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsTypeUnsupported": {
+          "source_hash": "86fa0f60bcffc90ea0fb5dc8456944d9edbfd379c509efb9cea7f2d7d2c88c85",
+          "text_hash": "96d2b572322d2f502365bd25aa499a560226cbc5bd1380883b9bc9683e5827fd",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseTimeout": {
+          "source_hash": "4e6d7163f8f11d296a958796321c2a4d58fccd69f0347858c2a05634999359fb",
+          "text_hash": "3351c2b30a8c0d6ec91782a99c33043c58b49408ee2bea5a436d4384e01407dd",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentUnavailable": {
+          "source_hash": "98fb5759b26d6f92798da976aa03895ea8f6ec14bd4b0df59e49244e72f3864f",
+          "text_hash": "6c43706d39c7a09719a9f17f36efb2a4b9e6e1310277b491c37b0ff3e149af5e",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentPending": {
+          "source_hash": "1dd039ed150b8aa805337fa7d065987e872fd2b8826cdf23db5b97930e9d59f9",
+          "text_hash": "baae5e2f627a4c6e6256a32f9b86a990e99f8b0eb0dcf8e9644a85834a74b548",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPaymentConfirming": {
+          "source_hash": "61e1580bcde85894e27f5de28953fb72064d2932df1a88ef13df633ffd85c449",
+          "text_hash": "a24cd6b60e1313df34222b65c4a75626797aefccc3ea501c2f5f2edd3b5dc8e0",
+          "status": "ai",
+          "note": ""
+        },
+        "gemsPurchaseRefunded": {
+          "source_hash": "5c0ff1b9a5106421a367573a64fde46302a79ce1dfc679dd2d4c8fc15dc59faf",
+          "text_hash": "cfa0581fe8e1fd563c08cbc6cd054b5a0be54706cf00bb20cf55326ecd04e34e",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumReportFailed": {
+          "source_hash": "f945208b1de0384a1f836c95bf568ba6d9497a20a9b71af34491ac4d71571d5f",
+          "text_hash": "71fe63a62be50ce5a060427e3a4ca02ea02ae03c29c4c2c02dbdb4c51d1e6c92",
+          "status": "ai",
+          "note": ""
+        },
+        "premiumVerifyFailed": {
+          "source_hash": "75cbb2c212cfaf174bd2584211dd4306dce6b9df7d970980e92427690e18f1c8",
+          "text_hash": "545e6b5b4c8aeaf40493c9601644e01d53b3a717f655c52640ac112b0218f66a",
+          "status": "ai",
+          "note": ""
         }
       }
     }

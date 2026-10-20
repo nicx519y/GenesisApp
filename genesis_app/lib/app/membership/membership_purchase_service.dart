@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../l10n/genesis_l10n.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_purchase.dart';
 import '../../network/models/membership_claim.dart';
@@ -1293,7 +1294,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _setState(
         MembershipCheckoutState.failed,
         attemptId: record.requestId,
-        reportMessage: 'Report failed.',
+        reportMessage: GenesisL10n.current.premiumReportFailed,
         debugInfo: purchaseDebugInfo('vip.report', error: error),
       );
       _log('report ended', error);
@@ -1313,11 +1314,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       if (reason?.trim() == 'account_mismatch') {
         return membershipAccountIdentifiersMismatchMessage;
       }
-      return 'We couldn’t verify your subscription. Please contact support.';
+      return GenesisL10n.current.premiumVerifyFailed;
     }
     if (record.reportStatus == null &&
         _reportedRequestIds.contains(record.requestId)) {
-      return 'Report failed.';
+      return GenesisL10n.current.premiumReportFailed;
     }
     return null;
   }

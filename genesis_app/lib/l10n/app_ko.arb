@@ -314,7 +314,7 @@
   },
   "purchaseCanceled": "구매가 취소되었습니다.",
   "@purchaseCanceled": {
-    "description": "Canceled subscription purchase result."
+    "description": "Gems purchase cancellation toast and canceled subscription purchase result."
   },
   "purchasePending": "구매가 대기 중입니다.",
   "@purchasePending": {
@@ -4347,5 +4347,41 @@
         "type": "String"
       }
     }
+  },
+  "gemsProductUnavailable": "이 상품은 이용할 수 없습니다.",
+  "@gemsProductUnavailable": {
+    "description": "Gems purchase toast when the selected pack cannot be purchased or has no store product ID."
+  },
+  "gemsTypeUnsupported": "이 상품 유형은 지원되지 않습니다.",
+  "@gemsTypeUnsupported": {
+    "description": "Gems purchase toast when the selected pack is not a consumable store product."
+  },
+  "gemsPurchaseTimeout": "구매 처리 시간이 초과되었습니다. 다시 시도해 주세요.",
+  "@gemsPurchaseTimeout": {
+    "description": "Gems purchase toast when checkout preparation times out before the store opens."
+  },
+  "gemsPaymentUnavailable": "결제 서비스를 이용할 수 없습니다.",
+  "@gemsPaymentUnavailable": {
+    "description": "Gems purchase toast when the App Store payment service or purchase stream is unavailable."
+  },
+  "gemsPaymentPending": "결제가 보류 중입니다.",
+  "@gemsPaymentPending": {
+    "description": "Gems purchase toast after the store reports a pending transaction."
+  },
+  "gemsPaymentConfirming": "결제를 확인하고 있습니다.",
+  "@gemsPaymentConfirming": {
+    "description": "Gems purchase toast when store payment was started but confirmation is delayed."
+  },
+  "gemsPurchaseRefunded": "구매가 환불되었습니다.",
+  "@gemsPurchaseRefunded": {
+    "description": "Gems purchase toast when the server reports that the purchase was refunded."
+  },
+  "premiumReportFailed": "구매 내역을 전송하지 못했습니다.",
+  "@premiumReportFailed": {
+    "description": "Premium purchase toast when reporting a confirmed store transaction to the server fails."
+  },
+  "premiumVerifyFailed": "구독을 확인할 수 없습니다. 고객 지원팀에 문의해 주세요.",
+  "@premiumVerifyFailed": {
+    "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
   }
 }

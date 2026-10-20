@@ -29,7 +29,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         kind: BillingUiEventKind.deferred,
         productId: productId,
         attemptId: attemptId,
-        message: 'Payment is being confirmed.',
+        message: GenesisL10n.current.gemsPaymentConfirming,
         debugInfo: debugInfo,
       ),
     );
