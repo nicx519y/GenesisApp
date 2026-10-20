@@ -1,11 +1,12 @@
+import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
 import '../shared/mini_phone_ui.dart';
 import '../shared/mini_phone_controls.dart';
 import '../shared/mini_phone_panel.dart';
-import '../shared/mini_phone_list_requests.dart';
 import '../../../ui/components/genesis_refresh_indicator.dart';
 
 import 'mini_phone_post_content.dart';
@@ -28,17 +29,24 @@ class MiniPhoneCommentsPage extends StatefulWidget {
   State<MiniPhoneCommentsPage> createState() => _MiniPhoneCommentsPageState();
 }
 
-class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
+class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
+    with WidgetsBindingObserver {
   MiniPhoneStore get phone => widget.store;
   int? get livePostId => widget.postId;
   PhonePerson get _liveMe => phone.person(phone.uid ?? '', type: 1);
   PhoneComment? replyToComment;
   final commentInput = TextEditingController();
+  final commentFocus = FocusNode();
   final commentsScroll = ScrollController();
-  late final _lists = MiniPhoneListRequests(
-    phone.requests,
-    isActive: () => widget.active && phone.phoneVisible,
-  );
+  PhonePost? _seed;
+  PhonePostDetail? _detail, _observedDetail;
+  List<PhoneComment>? _comments, _observedComments;
+  int? _seedLikes;
+  bool? _seedLiked;
+  bool _freshDetail = false, _loading = true, _started = false;
+  bool _keyboardOpen = false, _followBottom = false, _alignScheduled = false;
+  bool _sending = false, _sendFollow = false;
+  int _entry = 0;
   late int _generation;
   Object? _snapshot;
   Object _readSnapshot() => (
@@ -51,62 +59,171 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
     phone.busy.contains('comment:$livePostId'),
     phone.busy.contains('comments:$livePostId'),
     phone.errors['comments:$livePostId'],
+    phone.foreground,
+    phone.phoneVisible,
     (_liveMe.id, _liveMe.name, _liveMe.avatar),
   );
+
   @override
   void initState() {
     super.initState();
-    _generation = phone.accountGeneration;
-    _snapshot = _readSnapshot();
+    WidgetsBinding.instance.addObserver(this);
     phone.addListener(_changed);
+    _beginEntry();
+  }
+
+  void _beginEntry() {
+    final entry = ++_entry;
+    _generation = phone.accountGeneration;
+    _seed = phone.posts.where((p) => p.id == livePostId).firstOrNull;
+    _observedDetail = phone.details[livePostId];
+    _detail = _seed == null ? _observedDetail : null;
+    _seedLikes = _observedDetail?.likeCount ?? _seed?.likeCount;
+    _seedLiked = _observedDetail?.isLiked ?? _seed?.isLiked;
+    _observedComments = phone.comments[livePostId];
+    _snapshot = _readSnapshot();
+    _comments = null;
+    _freshDetail = false;
+    _loading = true;
+    _started = false;
+    _followBottom = _sendFollow = _sending = false;
+    commentInput.clear();
+    replyToComment = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || entry != _entry || !widget.active) return;
+      if (commentsScroll.hasClients) commentsScroll.jumpTo(0);
+      final id = livePostId;
+      if (id == null) return;
+      if (!phone.isLocallyReady) await phone.localReady;
+      if (!mounted || entry != _entry || !widget.active) return;
+      _started = true;
+      await Future.wait([
+        phone.refreshDetail(id, onEntry: true),
+        phone.refreshComments(id, onEntry: true),
+      ]);
+      if (!mounted || entry != _entry) return;
+      _changed();
+    });
   }
 
   void _changed() {
     if (!mounted) return;
     final next = _readSnapshot();
-    if (next == _snapshot) return;
+    if (next == _snapshot &&
+        (!_started ||
+            _loading == phone.busy.contains('comments:$livePostId'))) {
+      return;
+    }
     _snapshot = next;
     if (_generation != phone.accountGeneration) {
-      _generation = phone.accountGeneration;
-      commentInput.clear();
-      replyToComment = null;
+      commentFocus.unfocus();
+      _beginEntry();
+    } else {
+      final detail = phone.details[livePostId];
+      if (detail != null && !identical(detail, _observedDetail)) {
+        _detail = detail;
+        _freshDetail = true;
+      }
+      _observedDetail = detail;
+      final comments = phone.comments[livePostId];
+      if (comments != null && !identical(comments, _observedComments)) {
+        _comments = comments;
+      }
+      _observedComments = comments;
+      if (_started) _loading = phone.busy.contains('comments:$livePostId');
     }
     setState(() {});
+    _queueAlign();
   }
 
   @override
   void didUpdateWidget(covariant MiniPhoneCommentsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.postId != widget.postId) {
-      commentInput.clear();
-      replyToComment = null;
+    if (oldWidget.store != widget.store) {
+      oldWidget.store.removeListener(_changed);
+      phone.addListener(_changed);
     }
+    if (oldWidget.postId != widget.postId ||
+        oldWidget.store != widget.store ||
+        (!oldWidget.active && widget.active)) {
+      commentFocus.unfocus();
+      _beginEntry();
+    }
+    if (!widget.active) _followBottom = _sendFollow = false;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncKeyboard();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted) _syncKeyboard();
+  }
+
+  void _syncKeyboard() {
+    final open = View.of(context).viewInsets.bottom > 0;
+    if (open && !_keyboardOpen && commentFocus.hasFocus && widget.active) {
+      _followBottom = true;
+    }
+    if (!open && _keyboardOpen && !_sending) _followBottom = false;
+    _keyboardOpen = open;
+    _queueAlign();
+  }
+
+  void _queueAlign() {
+    if (_alignScheduled || !_followBottom) return;
+    _alignScheduled = true;
+    final entry = _entry;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _alignScheduled = false;
+      if (!mounted ||
+          entry != _entry ||
+          !widget.active ||
+          !phone.phoneVisible ||
+          !phone.foreground ||
+          !_followBottom ||
+          _comments == null ||
+          _loading ||
+          _sending ||
+          (!_sendFollow && (!_keyboardOpen || !commentFocus.hasFocus)) ||
+          !commentsScroll.hasClients) {
+        return;
+      }
+      final position = commentsScroll.position;
+      if ((position.maxScrollExtent - position.pixels).abs() > 0.5) {
+        commentsScroll.jumpTo(position.maxScrollExtent);
+        // Sliver extents can change as the last rows are laid out.
+        _queueAlign();
+        WidgetsBinding.instance.scheduleFrame();
+        return;
+      }
+      _sendFollow = false;
+      if (!_keyboardOpen) _followBottom = false;
+    });
   }
 
   @override
   void dispose() {
+    _entry++;
+    WidgetsBinding.instance.removeObserver(this);
     phone.removeListener(_changed);
+    commentFocus.dispose();
     commentInput.dispose();
     commentsScroll.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => _liveComments();
-  void _update(VoidCallback action) {
-    if (mounted) setState(action);
+  Widget build(BuildContext context) {
+    _queueAlign();
+    return _liveComments();
   }
 
-  void _scrollToEnd(ScrollController controller) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && controller.hasClients) {
-        controller.animateTo(
-          controller.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+  void _update(VoidCallback action) {
+    if (mounted) setState(action);
   }
 
   Widget _panel(String title, Widget body, {Widget? footer}) =>
@@ -119,6 +236,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
     controller,
     hint,
     limit: limit,
+    focusNode: commentFocus,
     onChanged: () => _update(() {}),
   );
   Widget _liveCommentRow(
@@ -195,84 +313,99 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
 
   Widget _liveComments() {
     final id = livePostId;
-    if (id == null) return _panel('Comments', const SizedBox.shrink());
-    final d = phone.details[id];
-    final comments = phone.comments[id] ?? <PhoneComment>[];
-    final post = phone.posts.where((p) => p.id == id).firstOrNull;
+    if (id == null) {
+      return _panel(context.l10n.miniPhoneComments, const SizedBox.shrink());
+    }
+    final d = _detail;
+    final post = _seed;
+    final count = _comments?.length ?? (_freshDetail ? d?.commentCount : null);
     Future<void> refresh() async {
       await Future.wait([phone.refreshDetail(id), phone.refreshComments(id)]);
     }
 
     return _panel(
-      'Comments',
-      _lists.build(
-        'comments:$id',
-        () => phone.refreshComments(id, next: true),
-        GenesisRefreshIndicator(
-          onRefresh: () => _lists.refresh('detail:$id', refresh),
-          child: ListView(
-            controller: commentsScroll,
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              if (d != null) ...[
-                MiniPhonePostContent(
-                  phone: phone,
-                  onOpenPost: widget.onOpenPost,
-                  id: id,
-                  author: PhonePerson(
-                    d.charId,
-                    d.name,
-                    phone.person(d.charId).avatar,
+      context.l10n.miniPhoneComments,
+      NotificationListener<ScrollMetricsNotification>(
+        onNotification: (_) {
+          _queueAlign();
+          return false;
+        },
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if ((notification is ScrollStartNotification &&
+                    notification.dragDetails != null) ||
+                (notification is ScrollUpdateNotification &&
+                    notification.dragDetails != null) ||
+                notification is UserScrollNotification &&
+                    notification.direction != ScrollDirection.idle) {
+              _followBottom = _sendFollow = false;
+            }
+            return false;
+          },
+          child: GenesisRefreshIndicator(
+            onRefresh: refresh,
+            child: ListView(
+              controller: commentsScroll,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                if (d != null || post != null)
+                  MiniPhonePostContent(
+                    phone: phone,
+                    onOpenPost: widget.onOpenPost,
+                    id: id,
+                    author: d == null
+                        ? post!.author
+                        : PhonePerson(
+                            d.charId,
+                            d.name,
+                            post?.author.id == d.charId &&
+                                    post!.author.avatar.isNotEmpty
+                                ? post.author.avatar
+                                : phone.person(d.charId).avatar,
+                          ),
+                    text: d?.content ?? post!.text,
+                    image: d?.image ?? post!.image,
+                    time: post?.currentTime ?? '',
+                    likeCount: d?.likeCount ?? _seedLikes ?? 0,
+                    isLiked: d?.isLiked ?? _seedLiked ?? false,
+                    commentCount: count,
+                    detail: true,
                   ),
-                  text: d.content,
-                  image: d.image,
-                  time: post?.currentTime ?? '',
-                  likeCount: d.likeCount,
-                  isLiked: d.isLiked,
-                  commentCount: d.commentCount,
-                  detail: true,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    miniPageInset,
-                    18,
-                    miniPageInset,
-                    8,
-                  ),
-                  child: Text(
-                    '${d.commentCount} comments',
-                    style: miniStyle(14, FontWeight.w600),
-                  ),
-                ),
-                if (d.commentCount == 0)
+                if (count != null)
                   Padding(
-                    padding: const EdgeInsets.all(miniPageInset),
+                    padding: const EdgeInsets.fromLTRB(
+                      miniPageInset,
+                      18,
+                      miniPageInset,
+                      8,
+                    ),
                     child: Text(
-                      'Be the first to share your thoughts.',
-                      style: miniStyle(12, FontWeight.w400, miniSecondary),
+                      context.l10n.miniPhoneCommentCount(count: count),
+                      style: miniStyle(14, FontWeight.w600),
                     ),
                   ),
-                if (comments.isNotEmpty)
-                  for (final c in comments)
+                if (_comments == null && _loading)
+                  const _CommentSkeleton()
+                else if (_comments != null) ...[
+                  if (_comments!.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(miniPageInset),
+                      child: Text(
+                        context.l10n.miniPhoneFirstComment,
+                        style: miniStyle(12, FontWeight.w400, miniSecondary),
+                      ),
+                    ),
+                  for (final c in _comments!)
                     _liveCommentRow(
                       c.author,
                       c.text,
                       time: c.currentTime,
                       replyTarget: c,
                       replyToCharId: c.replyToCharId,
-                    )
-                else
-                  for (final c in d.comments)
-                    _liveCommentRow(
-                      PhonePerson(
-                        c.charId,
-                        c.name,
-                        phone.person(c.charId).avatar,
-                      ),
-                      c.content,
                     ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -293,8 +426,10 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
                   child: _input(
                     commentInput,
                     replyToComment == null
-                        ? 'Write a comment…'
-                        : 'Reply to ${replyToComment!.author.name}…',
+                        ? context.l10n.miniPhoneCommentHint
+                        : context.l10n.miniPhoneReplyHint(
+                            name: replyToComment!.author.name,
+                          ),
                     limit: null,
                   ),
                 ),
@@ -309,6 +444,8 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
                           final text = retry
                               ? pending.content
                               : commentInput.text;
+                          final entry = _entry;
+                          _followBottom = _sendFollow = _sending = true;
                           final ok = await phone.write(
                             'comment',
                             '$id',
@@ -316,14 +453,22 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
                             replyTo: replyToComment?.id,
                             retry: retry,
                           );
-                          if (mounted && ok) {
+                          if (!mounted || entry != _entry) return;
+                          _sending = false;
+                          if (ok) {
                             _update(() {
                               if (commentInput.text == text) {
                                 commentInput.clear();
                               }
                               replyToComment = null;
                             });
-                            _scrollToEnd(commentsScroll);
+                            if (phone.errors.containsKey('comments:$id')) {
+                              _followBottom = _sendFollow = false;
+                            } else {
+                              _queueAlign();
+                            }
+                          } else {
+                            _followBottom = _sendFollow = false;
                           }
                         },
                 ),
@@ -334,4 +479,61 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage> {
       ),
     );
   }
+}
+
+/// Static placeholders mirror comment rows without implying a comment count.
+class _CommentSkeleton extends StatelessWidget {
+  const _CommentSkeleton();
+  Widget _bone({double? width, required double height, double radius = 4}) =>
+      Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: miniLine,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Column(
+      key: const ValueKey('mini-phone-comments-skeleton'),
+      children: [
+        for (var i = 0; i < 3; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: miniPageInset,
+              vertical: 16,
+            ),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: miniDivider, width: .5)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _bone(width: 36, height: 36, radius: 18),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FractionallySizedBox(
+                        widthFactor: .35,
+                        child: _bone(height: 14),
+                      ),
+                      const SizedBox(height: 9),
+                      _bone(height: 14),
+                      const SizedBox(height: 6),
+                      FractionallySizedBox(
+                        widthFactor: .7,
+                        child: _bone(height: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }

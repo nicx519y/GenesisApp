@@ -5437,11 +5437,449 @@ abstract class AppLocalizations {
   /// **'Post'**
   String get miniPhonePublish;
 
+  /// MiniPhone home screen: toast shown when tapping a locked Camera, Maps, or Calendar app that is not yet available.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon.'**
+  String get miniPhoneComingSoon;
+
   /// MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count.
   ///
   /// In en, this message translates to:
   /// **'View all comments'**
   String get miniPhoneViewAllComments;
+
+  /// MiniPhone navigation header, home app accessibility label and unread message group title.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get miniPhoneMessages;
+
+  /// MiniPhone navigation header, home app accessibility label and unread post group title.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts'**
+  String get miniPhonePosts;
+
+  /// MiniPhone album navigation header and home app accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos'**
+  String get miniPhonePhotos;
+
+  /// MiniPhone wallpaper settings navigation header and home app accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get miniPhoneSettings;
+
+  /// MiniPhone music navigation header and home app label.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get miniPhoneMusic;
+
+  /// MiniPhone comment page header and post comment action accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get miniPhoneComments;
+
+  /// MiniPhone home: locked camera app label.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get miniPhoneCamera;
+
+  /// MiniPhone home: locked maps app label.
+  ///
+  /// In en, this message translates to:
+  /// **'Maps'**
+  String get miniPhoneMaps;
+
+  /// MiniPhone home: locked calendar app label.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get miniPhoneCalendar;
+
+  /// MiniPhone home notification: actor published a post; actor name appears separately.
+  ///
+  /// In en, this message translates to:
+  /// **'Published a post'**
+  String get miniPhonePublishedPost;
+
+  /// MiniPhone home notification: actor liked a post; actor name appears separately.
+  ///
+  /// In en, this message translates to:
+  /// **'Liked a post'**
+  String get miniPhoneLikedPost;
+
+  /// MiniPhone home notification: actor commented on a post; actor name appears separately.
+  ///
+  /// In en, this message translates to:
+  /// **'Commented on a post'**
+  String get miniPhoneCommentedPost;
+
+  /// MiniPhone home notification: actor replied to a comment; actor name appears separately.
+  ///
+  /// In en, this message translates to:
+  /// **'Replied to a comment'**
+  String get miniPhoneRepliedComment;
+
+  /// MiniPhone home: fallback activity label for an unknown post notification type.
+  ///
+  /// In en, this message translates to:
+  /// **'Post activity'**
+  String get miniPhonePostActivity;
+
+  /// MiniPhone home: collapse expanded notification groups.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get miniPhoneShowLess;
+
+  /// MiniPhone home: expand notification groups to show all available cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all'**
+  String get miniPhoneShowAll;
+
+  /// MiniPhone shell: close button tooltip; exits the entire phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Close mini phone'**
+  String get miniPhoneClose;
+
+  /// MiniPhone private chat: current user's sender name and fallback user identity.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get miniPhoneYou;
+
+  /// MiniPhone: fallback actor name when identity cannot be resolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get miniPhoneUnknown;
+
+  /// MiniPhone Messages list: last message preview sent by the current user; preserve the message verbatim.
+  ///
+  /// In en, this message translates to:
+  /// **'You: {message}'**
+  String miniPhoneOwnMessage({required String message});
+
+  /// MiniPhone private chat: subtitle below contact header.
+  ///
+  /// In en, this message translates to:
+  /// **'Private conversation'**
+  String get miniPhonePrivateConversation;
+
+  /// MiniPhone private chat: return to latest messages while reading history; retain arrow.
+  ///
+  /// In en, this message translates to:
+  /// **'New messages ↓'**
+  String get miniPhoneNewMessages;
+
+  /// MiniPhone private chat: uncertain send request is being checked; does not imply failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting… Waiting for confirmation'**
+  String get miniPhoneReconnecting;
+
+  /// MiniPhone AI private chat: local waiting indicator; unknown dynamic name must not imply gender or pronunciation.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is typing…'**
+  String miniPhoneTyping({required String name});
+
+  /// MiniPhone private chat send button and comment send tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get miniPhoneSend;
+
+  /// MiniPhone private chat input placeholder addressed to a dynamic contact name.
+  ///
+  /// In en, this message translates to:
+  /// **'Message {name}…'**
+  String miniPhoneMessageHint({required String name});
+
+  /// MiniPhone private chat: outgoing message status after an uncertain request.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting confirmation'**
+  String get miniPhoneAwaitingConfirmation;
+
+  /// MiniPhone comment detail: total number of comments supplied by the detail response.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{0 comments} one{1 comment} other{{count} comments}}'**
+  String miniPhoneCommentCount({required int count});
+
+  /// MiniPhone comment page: empty state when no comments exist.
+  ///
+  /// In en, this message translates to:
+  /// **'Be the first to share your thoughts.'**
+  String get miniPhoneFirstComment;
+
+  /// MiniPhone comment input placeholder without a selected reply target.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a comment…'**
+  String get miniPhoneCommentHint;
+
+  /// MiniPhone comment input placeholder when replying to a specific author; name is dynamic.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply to {name}…'**
+  String miniPhoneReplyHint({required String name});
+
+  /// MiniPhone post: like action accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Like'**
+  String get miniPhoneLike;
+
+  /// MiniPhone Posts: accessibility label for the circular all-author filter; visible lowercase all remains a fixed design label.
+  ///
+  /// In en, this message translates to:
+  /// **'All authors'**
+  String get miniPhoneAllAuthors;
+
+  /// MiniPhone settings: wallpaper selection section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpaper'**
+  String get miniPhoneWallpaper;
+
+  /// MiniPhone wallpaper settings: choose a local image for wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload'**
+  String get miniPhoneUpload;
+
+  /// MiniPhone settings: save the selected wallpaper and prepare it for the home screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply wallpaper'**
+  String get miniPhoneApplyWallpaper;
+
+  /// MiniPhone wallpaper settings: introductory subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this phone feel like yours.'**
+  String get miniPhoneSettingsSubtitle;
+
+  /// MiniPhone wallpaper settings: toast after local image selection or crop fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open this photo. Please try another.'**
+  String get miniPhonePhotoOpenFailed;
+
+  /// MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpaper applied. See it on Home.'**
+  String get miniPhoneWallpaperApplied;
+
+  /// MiniPhone music player: source Worldo name, already formatted with its leading hash.
+  ///
+  /// In en, this message translates to:
+  /// **'From {name}'**
+  String miniPhoneFromWorldo({required String name});
+
+  /// MiniPhone player and home music card: previous-track control tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous track'**
+  String get miniPhonePreviousTrack;
+
+  /// MiniPhone player and home music card: next-track control tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Next track'**
+  String get miniPhoneNextTrack;
+
+  /// MiniPhone player and home music card: start or resume audio control.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get miniPhonePlay;
+
+  /// MiniPhone player and home music card: pause audio control.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get miniPhonePause;
+
+  /// MiniPhone music: like a track tooltip; title is dynamic song content.
+  ///
+  /// In en, this message translates to:
+  /// **'Like {title}'**
+  String miniPhoneLikeTrack({required String title});
+
+  /// MiniPhone music: remove a track like tooltip; title is dynamic song content.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlike {title}'**
+  String miniPhoneUnlikeTrack({required String title});
+
+  /// MiniPhone home music card: accessibility label to open the current track's player.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Music: {title}'**
+  String miniPhoneOpenMusic({required String title});
+
+  /// MiniPhone floating entry: play music bubble accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Play music'**
+  String get miniPhonePlayMusic;
+
+  /// MiniPhone floating entry: pause music bubble accessibility label.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause music'**
+  String get miniPhonePauseMusic;
+
+  /// MiniPhone floating entry: accessibility label describing the open action and unread message count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Open Mini phone, 0 unread messages} one{Open Mini phone, 1 unread message} other{Open Mini phone, {count} unread messages}}'**
+  String miniPhoneOpenUnread({required int count});
+
+  /// MiniPhone home: accessibility label for the numbered home-page indicator; position is one-based.
+  ///
+  /// In en, this message translates to:
+  /// **'Home position {position}'**
+  String miniPhoneHomePosition({required int position});
+
+  /// MiniPhone home: accessibility label for an unavailable app; name is the localized app label.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, locked'**
+  String miniPhoneLockedApp({required String name});
+
+  /// MiniPhone home and wallpaper preview: day number extracted from the protocol's English world-time field; world name is displayed separately.
+  ///
+  /// In en, this message translates to:
+  /// **'Day {day}'**
+  String miniPhoneWorldDay({required int day});
+
+  /// MiniPhone private chat header: model selector fallback before the model catalog is available.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get miniPhoneModel;
+
+  /// MiniPhone requests: generic toast for a local or transport exception without a server business message.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load. Please try again.'**
+  String get miniPhoneLoadFailed;
+
+  /// MiniPhone initialization and wallpaper: toast when local account identity cannot be read.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to read your account. Please try again.'**
+  String get miniPhoneAccountFailed;
+
+  /// MiniPhone initialization: toast when no signed-in account is available for world phone data.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in and open Mini phone from a World.'**
+  String get miniPhoneOpenFromWorld;
+
+  /// MiniPhone messages: toast when persisting the local message cache fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save messages on this device. Please try again.'**
+  String get miniPhoneSaveMessagesFailed;
+
+  /// MiniPhone messages: toast when restoring cached conversation history fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load saved messages. Please try again.'**
+  String get miniPhoneLoadSavedMessagesFailed;
+
+  /// MiniPhone initialization: toast when loading the device message cache fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load messages saved on this device. Please try again.'**
+  String get miniPhoneLoadDeviceMessagesFailed;
+
+  /// MiniPhone write requests: toast when the local request journal cannot be persisted; write is not sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save phone requests on this device. Please try again.'**
+  String get miniPhoneSaveRequestsFailed;
+
+  /// MiniPhone write requests: toast when retry would conflict with an earlier unresolved operation.
+  ///
+  /// In en, this message translates to:
+  /// **'The previous request is still awaiting confirmation.'**
+  String get miniPhonePreviousRequestPending;
+
+  /// MiniPhone AI private chat: fallback error when server reports final generation failure without a message.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply generation failed.'**
+  String get miniPhoneReplyFailed;
+
+  /// MiniPhone post draft and wallpaper: local image processing failure toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to prepare this photo. Please try again.'**
+  String get miniPhonePreparePhotoFailed;
+
+  /// MiniPhone post draft and wallpaper: image upload failure toast without a server error message.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to upload this photo. Please try again.'**
+  String get miniPhoneUploadPhotoFailed;
+
+  /// MiniPhone post draft: validation toast for the backend UTF-8 byte limit, distinct from the 500-character new-draft limit.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone text must not exceed 65535 UTF-8 bytes'**
+  String get miniPhoneTextTooLong;
+
+  /// MiniPhone settings: wallpaper catalog failure toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load wallpapers. Please retry.'**
+  String get miniPhoneLoadWallpapersFailed;
+
+  /// MiniPhone settings: wallpaper save failure toast without a server error message.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save wallpaper. Please retry.'**
+  String get miniPhoneSaveWallpaperFailed;
+
+  /// MiniPhone music: failure toast for reading or changing a track's like state.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to update music like status. Please retry.'**
+  String get miniPhoneMusicLikeFailed;
+
+  /// MiniPhone music: catalog load failure toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load music. Please retry.'**
+  String get miniPhoneLoadMusicFailed;
+
+  /// MiniPhone music: playback failure toast with explicit retry action.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to play this track. Tap play to retry.'**
+  String get miniPhonePlayMusicFailed;
+
+  /// MiniPhone HTTP: local malformed-response error surfaced by the public toast; not a server business message.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid MiniPhone response'**
+  String get miniPhoneInvalidResponse;
 }
 
 class _AppLocalizationsDelegate

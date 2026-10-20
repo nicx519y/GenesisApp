@@ -307,7 +307,7 @@ void main() {
         await tester.tap(find.text('New wallpaper'));
         await tester.pump();
         final preview = find.ancestor(
-          of: find.text('01:04'),
+          of: find.byType(MiniPhoneWallpaperImage),
           matching: find.byType(AspectRatio),
         );
         final previewProvider = tester
@@ -458,7 +458,7 @@ void main() {
       expect(find.text('Choose from device'), findsNothing);
       expect(find.text('Reset phone'), findsNothing);
       final preview = find.ancestor(
-        of: find.text('01:04'),
+        of: find.byType(MiniPhoneWallpaperImage),
         matching: find.byType(AspectRatio),
       );
       expect(preview, findsOneWidget);
@@ -533,7 +533,7 @@ void main() {
   );
 
   testWidgets(
-    'saving a catalogue wallpaper keeps its preview mounted after cache completes',
+    'Apply stays loading until the desktop original is ready and retains its preview',
     (tester) async {
       final asset = await rootBundle.load(
         'assets/images/default_list_image.png',
@@ -543,7 +543,7 @@ void main() {
       await tester.tap(find.text('New wallpaper'));
       await tester.pump();
       final preview = find.ancestor(
-        of: find.text('01:04'),
+        of: find.byType(MiniPhoneWallpaperImage),
         matching: find.byType(AspectRatio),
       );
       final image = find.descendant(
@@ -556,12 +556,26 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(controller.backgroundImage, newUrl);
+      final applyButton = find.widgetWithText(
+        GenesisPrimaryButton,
+        'Apply wallpaper',
+      );
+      expect(
+        tester.widget<GenesisPrimaryButton>(applyButton).isLoading,
+        isTrue,
+      );
+      expect(controller.saveProgress, lessThan(1));
       expect(tester.element(image), same(originalElement));
       cache.savedImage.complete(cache.bytes);
       await tester.pump();
       await tester.pump();
       expect(controller.displayBackgroundImage, newUrl);
       expect(controller.displayBytes, same(cache.bytes));
+      expect(
+        tester.widget<GenesisPrimaryButton>(applyButton).isLoading,
+        isFalse,
+      );
+      expect(controller.saveProgress, 1);
       expect(tester.element(image), same(originalElement));
       expect(tester.widget<MiniPhoneWallpaperPreview>(image).url, newUrl);
       // The retained source must still follow an actual new selection.

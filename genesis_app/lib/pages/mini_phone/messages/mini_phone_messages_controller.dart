@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:convert';
 import '../../../network/mini_phone/mini_phone_api.dart';
@@ -90,8 +91,7 @@ class MiniPhoneMessagesController {
             return true;
           } catch (_) {
             if (requests.isCurrent(g)) {
-              errors['cache'] =
-                  'Unable to save messages on this device. Please try again.';
+              errors['cache'] = GenesisL10n.current.miniPhoneSaveMessagesFailed;
               requests.notify();
             }
             return false;
@@ -269,7 +269,8 @@ class MiniPhoneMessagesController {
       if (write?.id == requestId) pending.remove(key);
       if (state.status == 'failed' &&
           (write == null || write.id == requestId)) {
-        replyFailures[charId] = state.failure ?? 'Reply generation failed.';
+        replyFailures[charId] =
+            state.failure ?? GenesisL10n.current.miniPhoneReplyFailed;
       }
     } else {
       final source = messages[sessionId]
@@ -394,7 +395,8 @@ class MiniPhoneMessagesController {
           cached = byId.values.toList();
         } catch (_) {
           if (!requests.isCurrent(generation)) return false;
-          errors['cache'] = 'Unable to load saved messages. Please try again.';
+          errors['cache'] =
+              GenesisL10n.current.miniPhoneLoadSavedMessagesFailed;
         }
       }
       if (cached.isNotEmpty) {

@@ -11,6 +11,8 @@ import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dar
 import '../../support/mini_phone_music_services.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_widgets.dart';
 
 class _UnavailableMusicTransport implements HttpTransport {
   int requests = 0;
@@ -54,9 +56,17 @@ void main() {
           defaultHeaders: {'Authorization': 'Bearer test-music-session'},
         ),
       );
-      Widget host(Widget page) => AppServicesScope(
+      Widget host(Widget page, {double textScale = 1}) => AppServicesScope(
         services: musicTestServices(api),
-        child: MaterialApp(home: page),
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: page,
+        ),
       );
       final phone = MiniPhoneSession();
       addTearDown(phone.dispose);
@@ -91,6 +101,63 @@ void main() {
       expect(find.text('A Midnight Waltz'), findsNothing);
       expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
       expect(tester.takeException(), isNull);
+      for (final size in [
+        const Size(390, 844),
+        const Size(320, 568),
+        const Size(844, 390),
+      ]) {
+        for (final textScale in [1.0, 2.0]) {
+          tester.view.physicalSize = size;
+          await tester.pumpWidget(
+            host(
+              MiniPhonePage(
+                session: phone,
+                initialScreen: MiniPhoneScreen.music,
+              ),
+              textScale: textScale,
+            ),
+          );
+          await tester.pump();
+          final player = find.byType(MiniPhoneMusicPlayer);
+          expect(
+            find.descendant(of: player, matching: find.byType(Scrollable)),
+            findsNothing,
+          );
+          final viewport = tester.getRect(player);
+          final cover = find.descendant(
+            of: player,
+            matching: find.byType(MiniMusicCover),
+          );
+          final coverRect = tester.getRect(cover);
+          expect(coverRect.left, closeTo(viewport.left + 26, .01));
+          expect(coverRect.right, closeTo(viewport.right - 26, .01));
+          expect(coverRect.top, closeTo(viewport.top + 4, .01));
+          expect(coverRect.height, greaterThan(0));
+          final coverImage = tester.widget<Image>(
+            find.descendant(of: cover, matching: find.byType(Image)).first,
+          );
+          expect(coverImage.fit, BoxFit.cover);
+          final controls = find.descendant(
+            of: player,
+            matching: find.byType(IconButton),
+          );
+          expect(controls, findsNWidgets(4));
+          for (final control in controls.evaluate()) {
+            final rect = tester.getRect(find.byWidget(control.widget));
+            expect(viewport.contains(rect.topLeft), isTrue);
+            expect(viewport.contains(rect.bottomRight), isTrue);
+          }
+          final before = tester.getTopLeft(find.byType(Slider));
+          await tester.dragFrom(
+            tester.getCenter(player),
+            const Offset(0, -150),
+          );
+          await tester.pump();
+          expect(tester.getTopLeft(find.byType(Slider)), before);
+          expect(tester.takeException(), isNull);
+        }
+      }
+      tester.view.physicalSize = const Size(390, 844);
       await tester.pumpWidget(const SizedBox.shrink());
       phone.music.activated = true;
       addTearDown(() => phone.music.activated = false);
@@ -126,55 +193,67 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
-  testWidgets(
-    'music catalog failure uses Toast and pull refresh without an error panel',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final transport = _UnavailableMusicTransport();
-      final api = GenesisApi(
-        useMock: false,
-        apiClient: ApiClient(
-          baseUrl: 'https://api.example/api/',
-          transport: transport,
-          defaultHeaders: {'Authorization': 'Bearer test-music-session'},
+  testWidgets('music catalog failure stays fixed and retries on reopening', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final transport = _UnavailableMusicTransport();
+    final api = GenesisApi(
+      useMock: false,
+      apiClient: ApiClient(
+        baseUrl: 'https://api.example/api/',
+        transport: transport,
+        defaultHeaders: {'Authorization': 'Bearer test-music-session'},
+      ),
+    );
+    final phone = MiniPhoneSession();
+    addTearDown(phone.dispose);
+    Widget host() => AppServicesScope(
+      services: musicTestServices(api),
+      child: MaterialApp(
+        home: MiniPhonePage(
+          session: phone,
+          initialScreen: MiniPhoneScreen.music,
         ),
-      );
-      final phone = MiniPhoneSession();
-      addTearDown(phone.dispose);
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: musicTestServices(api),
-          child: MaterialApp(
-            home: MiniPhonePage(
-              session: phone,
-              initialScreen: MiniPhoneScreen.music,
-            ),
-          ),
-        ),
-      );
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 30)),
-      );
-      await tester.pumpAndSettle();
-      const error = 'Unable to load music. Please retry.';
-      expect(find.text(error), findsOneWidget);
-      expect(find.text('Retry'), findsNothing);
-      expect(
-        find.descendant(of: find.byType(ListView), matching: find.text(error)),
-        findsNothing,
-      );
-      await tester.pump(const Duration(seconds: 3));
-      expect(find.text(error), findsNothing);
-      final before = transport.requests;
-      await tester.drag(find.byType(ListView), const Offset(0, 350));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 30)),
-      );
-      await tester.pumpAndSettle();
-      expect(transport.requests, greaterThan(before));
-      expect(find.text(error), findsOneWidget);
-      await tester.pump(const Duration(seconds: 3));
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+      ),
+    );
+    await tester.pumpWidget(host());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pumpAndSettle();
+    const error = 'Unable to load music. Please retry.';
+    expect(find.text(error), findsOneWidget);
+    expect(find.text('Retry'), findsNothing);
+    expect(
+      find.descendant(of: find.byType(ListView), matching: find.text(error)),
+      findsNothing,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text(error), findsNothing);
+    final before = transport.requests;
+    expect(
+      find.descendant(
+        of: find.byType(MiniPhoneMusicPlayer),
+        matching: find.byType(Scrollable),
+      ),
+      findsNothing,
+    );
+    await tester.dragFrom(
+      tester.getCenter(find.byType(MiniPhoneMusicPlayer)),
+      const Offset(0, 350),
+    );
+    await tester.pumpAndSettle();
+    expect(transport.requests, before);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(host());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pumpAndSettle();
+    expect(transport.requests, greaterThan(before));
+    expect(find.text(error), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

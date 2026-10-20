@@ -9449,7 +9449,7 @@ void main() {
   );
 
   testWidgets(
-    'composer send collapses the previous action height across frames without a jump',
+    'composer send hides buttons immediately while their height collapses',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 300));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -9502,26 +9502,33 @@ void main() {
       final optimisticBubbleTop = tester
           .getTopLeft(find.text('New message from the composer.'))
           .dy;
-      await tester.pump(const Duration(milliseconds: 50));
-      final collapsingBubbleTop = tester
-          .getTopLeft(find.text('New message from the composer.'))
-          .dy;
       expect(
-        collapsingBubbleTop,
-        inExclusiveRange(
-          optimisticBubbleTop,
-          optimisticBubbleTop + LocationChatReplyActions.buttonSize,
-        ),
+        find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('location-chat-reply-actions-transition')),
+        findsOneWidget,
+      );
+      final toolbarTransition = find.byKey(
+        const ValueKey('location-chat-reply-actions-transition'),
+      );
+      expect(
+        tester.getSize(toolbarTransition).height,
+        LocationChatReplyActions.buttonSize,
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        tester.getSize(toolbarTransition).height,
+        inExclusiveRange(0, LocationChatReplyActions.buttonSize),
         reason:
-            'The optimistic bubble must follow the action row as it closes.',
+            'The empty toolbar height keeps its existing collapse animation.',
+      );
+      expect(
+        find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+        findsNothing,
       );
       await tester.pump(const Duration(milliseconds: 220));
-      expect(
-        tester.getTopLeft(find.text('New message from the composer.')).dy,
-        greaterThan(collapsingBubbleTop),
-        reason:
-            'The action row must finish closing without an instant height jump.',
-      );
       expect(find.byKey(previousActionKey), findsOneWidget);
       expect(
         find.byKey(const ValueKey('location-chat-reply-actions-transition')),
@@ -9576,7 +9583,7 @@ void main() {
       expect(find.ancestor(of: dots, matching: actionSlot), findsOneWidget);
       expect(
         find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('location-chat-regenerate')),

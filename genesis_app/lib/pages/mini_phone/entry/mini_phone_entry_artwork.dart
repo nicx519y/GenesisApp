@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_localizations.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -197,7 +198,9 @@ class MiniPhoneEntryBubble extends StatelessWidget {
       ),
     );
     if (onTap == null) return child;
-    final label = playRequested == true ? 'Pause music' : 'Play music';
+    final label = playRequested == true
+        ? context.l10n.miniPhonePauseMusic
+        : context.l10n.miniPhonePlayMusic;
     return Tooltip(
       message: label,
       child: Semantics(

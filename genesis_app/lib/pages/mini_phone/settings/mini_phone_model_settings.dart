@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import '../../../network/models/gem_model.dart';
 import '../../../network/models/user_memory_settings.dart';
 
@@ -67,7 +68,8 @@ class MiniPhoneModelSettings {
   }
 
   String get label =>
-      sourceCatalog?.titlesByCode()[selectedModelCode] ?? 'Model';
+      sourceCatalog?.titlesByCode()[selectedModelCode] ??
+      GenesisL10n.current.miniPhoneModel;
   int get _phoneTokenMax {
     final limits = sourceCatalog!.groups
         .expand((group) => group.models)

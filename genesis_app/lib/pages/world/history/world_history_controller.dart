@@ -104,7 +104,9 @@ class WorldHistoryController extends ChangeNotifier {
     final rows = <WorldHistoryMessage>[];
     var bytes = 0;
     for (final entry in _resident.entries) {
-      for (final message in entry.value) {
+      // Pages arrive newest-page first, but each response is oldest-first.
+      // Normalize only the derived index; cached pages retain server order.
+      for (final message in entry.value.reversed) {
         if (_messagePages.containsKey(message.id)) continue;
         _messagePages[message.id] = entry.key;
         rows.add(message);
@@ -260,7 +262,7 @@ class WorldHistoryController extends ChangeNotifier {
           }
           _pages[operation] = HistoryPageSlot(old.requestCursor, page);
           _setResident(operation, page.messages);
-          sectionParticipation.replacePage(operation, page.messages);
+          sectionParticipation.replacePage(operation, page.messages.reversed);
           updatedPage = operation;
         } else if (operation == -1) {
           _pages.clear();
@@ -272,7 +274,7 @@ class WorldHistoryController extends ChangeNotifier {
           _chainRevision++;
           _firstPageSnapshot = List.unmodifiable(page.messages);
           sectionParticipation.clear();
-          sectionParticipation.appendOlder(page.messages);
+          sectionParticipation.appendOlder(page.messages.reversed);
           snapshot++;
           _readingPage = 0;
           _pinnedPages.clear();
@@ -281,7 +283,7 @@ class WorldHistoryController extends ChangeNotifier {
           _pages.add(HistoryPageSlot(cursor, page));
           _setResident(_pages.length - 1, page.messages);
           updatedPage = null;
-          sectionParticipation.appendOlder(page.messages);
+          sectionParticipation.appendOlder(page.messages.reversed);
         }
         _indexResidents();
         ready = true;

@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -107,7 +108,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
   void _musicChanged() {
     if (!mounted) return;
     _syncMusicAnimation();
-    if (_music.activated) {
+    if (_music.entryActivated) {
       if (_music.track == null) _session.ensureMusicCatalog();
       _musicOverlay.show();
     } else {
@@ -159,7 +160,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
     child: CompositedTransformTarget(
       link: _entryLink,
       child: Semantics(
-        label: 'Open Mini phone, $_unread unread messages',
+        label: context.l10n.miniPhoneOpenUnread(count: _unread),
         button: true,
         child: GestureDetector(
           onTap: widget.onPressed,
@@ -174,7 +175,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
                   MiniPhoneEntryArtwork(
                     skin: _resolvedStyle(context).skin,
                     unread: _unread > 0,
-                    showMusic: _music.activated && _unread == 0,
+                    showMusic: _music.entryActivated && _unread == 0,
                     playing: _music.playing,
                     arriving: _arriving,
                     arrivalProgress: _arrival.value,
@@ -188,7 +189,7 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
                       top: -6,
                       child: MiniPhoneEntryBadge(count: _unread),
                     ),
-                  if (_arriving && !_music.activated)
+                  if (_arriving && !_music.entryActivated)
                     Positioned(
                       left: -1,
                       top: -44,

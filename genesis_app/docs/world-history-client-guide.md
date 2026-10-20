@@ -81,7 +81,7 @@ Authorization: Bearer <session_id>
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `data.world_id` | string | 本次查询的 World ID |
-| `data.messages` | array | 本页消息，按服务端给定的从新到旧顺序返回 |
+| `data.messages` | array | 本页消息，按服务端给定的从旧到新顺序返回 |
 | `data.has_more` | boolean | 当前 World 是否还有更早的历史可继续加载 |
 | `data.cursor` | string | 下一页游标；无下一页时为空字符串 |
 
@@ -214,7 +214,7 @@ Authorization: Bearer <session_id>
 
 1. 首次传入 `world_id`，不传 `cursor`。保存返回的消息与游标。
 2. 加载更早历史时，将上一页 `cursor` 原样传回，继续使用同一个 `world_id`。切换 World 时重置分页状态。
-3. 按服务端顺序追加消息，用 `global_message_id` 去重；不要按 ID 或时间重新推导顺序。正序聊天列表由客户端统一转换展示方向。
+3. 每页消息保持服务端从旧到新的顺序，加载到的更早页放在现有消息之前，用 `global_message_id` 去重（重叠消息以较新页为准）；不要按 ID 或时间重新推导顺序。
 4. 遍历每条消息的 `location_refs`，将消息归入对应地点。同一地点内保留消息相对顺序；一条 Tick 在响应中只出现一次，但可以归入多个地点。
 5. `has_more = false` 时停止加载；`messages = []`、`has_more = false`、`cursor = ""` 是正常的空结果。
 

@@ -1,3 +1,4 @@
+import '../../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
@@ -84,8 +85,8 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
 
   void _sessionChanged() => unawaited(refresh());
 
-  static const _identityError =
-      'Unable to read your account. Please try again.';
+  static String get _identityError =>
+      GenesisL10n.current.miniPhoneAccountFailed;
 
   Future<bool> _syncIdentity() async {
     final epoch = _epoch;
@@ -190,7 +191,7 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
     } catch (_) {
       await restore;
       if (await _current(epoch) && version == _readVersion) {
-        loadError = 'Unable to load wallpapers. Please retry.';
+        loadError = GenesisL10n.current.miniPhoneLoadWallpapersFailed;
       }
     } finally {
       if (!_disposed && epoch == _epoch && version == _readVersion) {
@@ -401,8 +402,6 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
       await _save(url);
       attempt?.finish('saved');
       if (!await _current(epoch)) return false;
-      _stopSubmissionProgress();
-      saveProgress = 1;
       backgroundImage = draftImage = url;
       // Keep rendering the exact selected bytes after Apply. Do not switch to
       // the upload URL and download the same picture again.
@@ -434,9 +433,14 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
         }
         if (!await _current(epoch)) return false;
       } else {
-        unawaited(_storeDisplay(epoch, _readVersion, info));
+        // Home needs the original bytes, not Settings' CDN thumbnail. Keep
+        // Apply busy until the replacement is ready (or loading has failed).
+        await _storeDisplay(epoch, operation, info);
+        if (!await _current(epoch)) return false;
       }
-      feedback = 'Wallpaper applied. See it on Home.';
+      _stopSubmissionProgress();
+      saveProgress = 1;
+      feedback = GenesisL10n.current.miniPhoneWallpaperApplied;
       return true;
     } catch (error) {
       attempt?.fail(
@@ -452,10 +456,10 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
       );
       if (await _current(epoch)) {
         feedback = preparing
-            ? 'Unable to prepare this photo. Please retry.'
+            ? GenesisL10n.current.miniPhonePreparePhotoFailed
             : uploading
-            ? 'Unable to upload this photo. Please retry.'
-            : 'Unable to save wallpaper. Please retry.';
+            ? GenesisL10n.current.miniPhoneUploadPhotoFailed
+            : GenesisL10n.current.miniPhoneSaveWallpaperFailed;
       }
       return false;
     } finally {
@@ -479,8 +483,8 @@ class MiniPhoneWallpaperController extends ChangeNotifier {
           timer.cancel();
           return;
         }
-        // The setter has no progress events. Ease toward 99% while waiting;
-        // only the actual successful response may complete the progress.
+        // Submission and original-image loading have no progress events.
+        // Ease toward 99% until the entire Apply operation settles.
         final next = saveProgress + (.99 - saveProgress) * .03;
         if (next > saveProgress && next < 1) {
           saveProgress = next.clamp(.91, .99);

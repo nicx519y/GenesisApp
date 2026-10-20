@@ -9,7 +9,7 @@ paths:
       description: |
         登录用户为 World 创建者或当前有效成员时可读，每页重新校验。无需角色绑定或会员资格。
         只读取主线历史，不含小手机私聊、累计摘要，也不受模型记忆窗口限制。
-        消息按服务端从新到旧顺序返回，客户端不可根据展示时间重新推导顺序。
+        每页消息按服务端从旧到新顺序返回，客户端不可根据展示时间重新推导顺序；游标继续加载更早消息。
         一条 Tick 只占一条，其全部实际地点关联一次返回；后新增地点不自动获得旧 Tick。
         已删除、生成占位和内部续写触发记录不返回。新消息不会推移已有分页边界；跨页不冻结编辑、删除或补写。
       security:
@@ -75,7 +75,7 @@ components:
             world_id: {type: string, description: 本次查询的 World ID}
             messages:
               type: array
-              description: 本页主消息，按服务端从新到旧顺序返回。
+              description: 本页主消息，按服务端从旧到新顺序返回。
               items: {$ref: '#/components/schemas/Message'}
             has_more: {type: boolean, description: World 是否还有更早消息，不代表单个地点的历史是否结束}
             cursor: {type: string, description: 下一页不透明游标；没有下一页时为空字符串}

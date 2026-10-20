@@ -589,7 +589,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('action toolbar animates its height open and closed', (
+  testWidgets('action toolbar hides buttons during height transitions', (
     tester,
   ) async {
     Widget host({
@@ -634,10 +634,14 @@ void main() {
     );
     expect(find.byKey(transitionKey), findsOneWidget);
     expect(tester.getSize(find.byKey(transitionKey)).height, 0);
+    expect(find.byKey(toolbarKey), findsNothing);
     await tester.pump(const Duration(milliseconds: 110));
     final expandingHeight = tester.getSize(find.byKey(transitionKey)).height;
     expect(expandingHeight, inExclusiveRange(0, 32));
-    await tester.pump(const Duration(milliseconds: 110));
+    expect(find.byKey(toolbarKey), findsNothing);
+    expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.pump(const Duration(milliseconds: 111));
     expect(tester.getSize(find.byKey(transitionKey)).height, 32);
     expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -668,47 +672,33 @@ void main() {
     );
 
     await tester.pumpWidget(host());
-    expect(find.byKey(toolbarKey), findsOneWidget);
-    expect(
-      tester
-          .widget<IgnorePointer>(
-            find
-                .ancestor(
-                  of: find.byKey(toolbarKey),
-                  matching: find.byType(IgnorePointer),
-                )
-                .first,
-          )
-          .ignoring,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<ExcludeSemantics>(
-            find
-                .ancestor(
-                  of: find.byKey(toolbarKey),
-                  matching: find.byType(ExcludeSemantics),
-                )
-                .first,
-          )
-          .excluding,
-      isTrue,
-    );
+    expect(find.byKey(toolbarKey), findsNothing);
+    expect(tester.getSize(find.byKey(transitionKey)).height, 32);
+    for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+      expect(find.bySemanticsLabel(action), findsNothing);
+    }
     await tester.pump(const Duration(milliseconds: 110));
+    expect(find.byKey(toolbarKey), findsNothing);
     expect(
       tester.getSize(find.byKey(transitionKey)).height,
       inExclusiveRange(0, 32),
     );
-    expect(
-      tester.getBottomLeft(find.byKey(toolbarKey)).dy,
-      closeTo(tester.getBottomLeft(find.byKey(transitionKey)).dy, 0.1),
-      reason: 'The buttons must stay on their previous bottom baseline.',
-    );
-    await tester.pump(const Duration(milliseconds: 220));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 111));
     expect(find.byKey(toolbarKey), findsNothing);
     expect(find.byKey(transitionKey), findsNothing);
+
+    // Reversing an unfinished transition must not reveal buttons early.
+    await tester.pumpWidget(host(editEnabled: true));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(toolbarKey), findsNothing);
+    await tester.pumpWidget(host());
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(find.byKey(toolbarKey), findsNothing);
+    await tester.pumpWidget(host(editEnabled: true));
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(find.byKey(toolbarKey), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Edit'), findsOneWidget);
   });
 
   testWidgets('disabled stays gray and slotful; busy spins; idle can invoke', (
@@ -1703,6 +1693,10 @@ void main() {
       inExclusiveRange(GenesisSpacing.xl, slotHeight),
     );
     expect(find.byKey(transitionKey), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+      findsNothing,
+    );
     await tester.pump(const Duration(milliseconds: 220));
     await tester.pump();
     expect(tester.getSize(slot).height, GenesisSpacing.xl);

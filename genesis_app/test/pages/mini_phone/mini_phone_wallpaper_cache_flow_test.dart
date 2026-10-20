@@ -76,6 +76,117 @@ void main() {
   }
 
   test(
+    'Apply waits for the original image after the setter succeeds',
+    () async {
+      final saved = Completer<void>();
+      final image = Completer<Uint8List>();
+      cache.download = (_) => image.future;
+      final controller = MiniPhoneWallpaperController(
+        worldId: 'w_1',
+        sessionStore: session,
+        cache: cache,
+        load: () async => info(oldUrl),
+        save: (_) => saved.future,
+        upload: (_, _) async => newUrl,
+      );
+      addTearDown(controller.dispose);
+      await controller.refresh();
+      controller.select(newUrl);
+      var finished = false;
+      final pending = controller.apply().then((result) {
+        finished = true;
+        return result;
+      });
+      await flush();
+      expect(cache.downloads, isEmpty);
+      saved.complete();
+      await flush();
+      expect(cache.downloads, [newUrl]);
+      expect(controller.backgroundImage, newUrl);
+      expect(controller.displayBytes, same(oldBytes));
+      expect(controller.saving, isTrue);
+      expect(controller.saveProgress, lessThan(1));
+      expect(finished, isFalse);
+      expect(await controller.apply(), isFalse);
+      controller.select(oldUrl);
+      expect(controller.draftImage, newUrl);
+      image.complete(newBytes);
+      expect(await pending, isTrue);
+      expect(controller.saving, isFalse);
+      expect(controller.saveProgress, 1);
+      expect(controller.displayBackgroundImage, newUrl);
+      expect(controller.displayBytes, same(newBytes));
+      expect(cache.snapshots['u_a']!.info.backgroundImage, newUrl);
+    },
+  );
+
+  test('Apply releases loading after a failed original download', () async {
+    final image = Completer<Uint8List>();
+    cache.download = (_) => image.future;
+    final controller = make(() async => info(oldUrl));
+    await controller.refresh();
+    controller.select(newUrl);
+    final pending = controller.apply();
+    await flush();
+    expect(controller.saving, isTrue);
+    image.completeError(StateError('offline'));
+    // The server save remains successful; retain the last usable desktop.
+    expect(await pending, isTrue);
+    expect(controller.saving, isFalse);
+    expect(controller.backgroundImage, newUrl);
+    expect(controller.displayBackgroundImage, oldUrl);
+    expect(controller.displayBytes, same(oldBytes));
+  });
+
+  test('Apply discards an original download after an account switch', () async {
+    final image = Completer<Uint8List>();
+    cache.download = (_) => image.future;
+    var server = info(oldUrl);
+    final controller = make(() async => server);
+    await controller.refresh();
+    controller.select(newUrl);
+    final pending = controller.apply();
+    await flush();
+    expect(controller.saving, isTrue);
+    await session.saveUid('u_b');
+    server = info('');
+    await controller.refresh();
+    image.complete(newBytes);
+    expect(await pending, isFalse);
+    expect(controller.displayBytes, isNull);
+    expect(controller.saving, isFalse);
+    expect(controller.feedback, isNull);
+    expect(cache.snapshots['u_a']!.info.backgroundImage, oldUrl);
+    expect(cache.snapshots['u_b']!.info.backgroundImage, isEmpty);
+  });
+
+  test(
+    'closing during Apply prevents a late original from being stored',
+    () async {
+      final image = Completer<Uint8List>();
+      cache.download = (_) => image.future;
+      final controller = MiniPhoneWallpaperController(
+        worldId: 'w_1',
+        sessionStore: session,
+        cache: cache,
+        load: () async => info(oldUrl),
+        save: (_) async {},
+        upload: (_, _) async => newUrl,
+      );
+      await controller.refresh();
+      controller.select(newUrl);
+      final pending = controller.apply();
+      await flush();
+      expect(controller.saving, isTrue);
+      controller.dispose();
+      image.complete(newBytes);
+      expect(await pending, isFalse);
+      expect(controller.feedback, isNull);
+      expect(cache.snapshots['u_a']!.info.backgroundImage, oldUrl);
+    },
+  );
+
+  test(
     'local photo renders from memory and commits bytes only after upload and save',
     () async {
       final uploadDone = Completer<String>();

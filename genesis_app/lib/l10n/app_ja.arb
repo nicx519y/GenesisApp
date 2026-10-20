@@ -4352,5 +4352,362 @@
   "miniPhoneViewAllComments": "すべてのコメントを見る",
   "@miniPhoneViewAllComments": {
     "description": "MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count."
+  },
+  "miniPhoneComingSoon": "近日公開予定です。",
+  "@miniPhoneComingSoon": {
+    "description": "MiniPhone home screen: toast shown when tapping a locked Camera, Maps, or Calendar app that is not yet available."
+  },
+  "miniPhoneMessages": "メッセージ",
+  "@miniPhoneMessages": {
+    "description": "MiniPhone navigation header, home app accessibility label and unread message group title."
+  },
+  "miniPhonePosts": "投稿",
+  "@miniPhonePosts": {
+    "description": "MiniPhone navigation header, home app accessibility label and unread post group title."
+  },
+  "miniPhonePhotos": "写真",
+  "@miniPhonePhotos": {
+    "description": "MiniPhone album navigation header and home app accessibility label."
+  },
+  "miniPhoneSettings": "設定",
+  "@miniPhoneSettings": {
+    "description": "MiniPhone wallpaper settings navigation header and home app accessibility label."
+  },
+  "miniPhoneMusic": "音楽",
+  "@miniPhoneMusic": {
+    "description": "MiniPhone music navigation header and home app label."
+  },
+  "miniPhoneComments": "コメント",
+  "@miniPhoneComments": {
+    "description": "MiniPhone comment page header and post comment action accessibility label."
+  },
+  "miniPhoneCamera": "カメラ",
+  "@miniPhoneCamera": {
+    "description": "MiniPhone home: locked camera app label."
+  },
+  "miniPhoneMaps": "マップ",
+  "@miniPhoneMaps": {
+    "description": "MiniPhone home: locked maps app label."
+  },
+  "miniPhoneCalendar": "カレンダー",
+  "@miniPhoneCalendar": {
+    "description": "MiniPhone home: locked calendar app label."
+  },
+  "miniPhonePublishedPost": "投稿しました",
+  "@miniPhonePublishedPost": {
+    "description": "MiniPhone home notification: actor published a post; actor name appears separately."
+  },
+  "miniPhoneLikedPost": "投稿に「いいね」しました",
+  "@miniPhoneLikedPost": {
+    "description": "MiniPhone home notification: actor liked a post; actor name appears separately."
+  },
+  "miniPhoneCommentedPost": "投稿にコメントしました",
+  "@miniPhoneCommentedPost": {
+    "description": "MiniPhone home notification: actor commented on a post; actor name appears separately."
+  },
+  "miniPhoneRepliedComment": "コメントに返信しました",
+  "@miniPhoneRepliedComment": {
+    "description": "MiniPhone home notification: actor replied to a comment; actor name appears separately."
+  },
+  "miniPhonePostActivity": "投稿のアクティビティ",
+  "@miniPhonePostActivity": {
+    "description": "MiniPhone home: fallback activity label for an unknown post notification type."
+  },
+  "miniPhoneShowLess": "表示を減らす",
+  "@miniPhoneShowLess": {
+    "description": "MiniPhone home: collapse expanded notification groups."
+  },
+  "miniPhoneShowAll": "すべて表示",
+  "@miniPhoneShowAll": {
+    "description": "MiniPhone home: expand notification groups to show all available cards."
+  },
+  "miniPhoneClose": "ミニフォンを閉じる",
+  "@miniPhoneClose": {
+    "description": "MiniPhone shell: close button tooltip; exits the entire phone."
+  },
+  "miniPhoneYou": "あなた",
+  "@miniPhoneYou": {
+    "description": "MiniPhone private chat: current user's sender name and fallback user identity."
+  },
+  "miniPhoneUnknown": "不明",
+  "@miniPhoneUnknown": {
+    "description": "MiniPhone: fallback actor name when identity cannot be resolved."
+  },
+  "miniPhoneOwnMessage": "あなた：{message}",
+  "@miniPhoneOwnMessage": {
+    "description": "MiniPhone Messages list: last message preview sent by the current user; preserve the message verbatim.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePrivateConversation": "プライベートチャット",
+  "@miniPhonePrivateConversation": {
+    "description": "MiniPhone private chat: subtitle below contact header."
+  },
+  "miniPhoneNewMessages": "新しいメッセージ ↓",
+  "@miniPhoneNewMessages": {
+    "description": "MiniPhone private chat: return to latest messages while reading history; retain arrow."
+  },
+  "miniPhoneReconnecting": "再接続中…確認を待っています",
+  "@miniPhoneReconnecting": {
+    "description": "MiniPhone private chat: uncertain send request is being checked; does not imply failure."
+  },
+  "miniPhoneTyping": "{name}：入力中…",
+  "@miniPhoneTyping": {
+    "description": "MiniPhone AI private chat: local waiting indicator; unknown dynamic name must not imply gender or pronunciation.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneSend": "送信",
+  "@miniPhoneSend": {
+    "description": "MiniPhone private chat send button and comment send tooltip."
+  },
+  "miniPhoneMessageHint": "{name}にメッセージ…",
+  "@miniPhoneMessageHint": {
+    "description": "MiniPhone private chat input placeholder addressed to a dynamic contact name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneAwaitingConfirmation": "確認待ち",
+  "@miniPhoneAwaitingConfirmation": {
+    "description": "MiniPhone private chat: outgoing message status after an uncertain request."
+  },
+  "miniPhoneCommentCount": "コメント{count}件",
+  "@miniPhoneCommentCount": {
+    "description": "MiniPhone comment detail: total number of comments supplied by the detail response.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneFirstComment": "最初のコメントを投稿してみましょう。",
+  "@miniPhoneFirstComment": {
+    "description": "MiniPhone comment page: empty state when no comments exist."
+  },
+  "miniPhoneCommentHint": "コメントを入力…",
+  "@miniPhoneCommentHint": {
+    "description": "MiniPhone comment input placeholder without a selected reply target."
+  },
+  "miniPhoneReplyHint": "{name}に返信…",
+  "@miniPhoneReplyHint": {
+    "description": "MiniPhone comment input placeholder when replying to a specific author; name is dynamic.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneLike": "いいね",
+  "@miniPhoneLike": {
+    "description": "MiniPhone post: like action accessibility label."
+  },
+  "miniPhoneAllAuthors": "すべての投稿者",
+  "@miniPhoneAllAuthors": {
+    "description": "MiniPhone Posts: accessibility label for the circular all-author filter; visible lowercase all remains a fixed design label."
+  },
+  "miniPhoneWallpaper": "壁紙",
+  "@miniPhoneWallpaper": {
+    "description": "MiniPhone settings: wallpaper selection section heading."
+  },
+  "miniPhoneUpload": "アップロード",
+  "@miniPhoneUpload": {
+    "description": "MiniPhone wallpaper settings: choose a local image for wallpaper."
+  },
+  "miniPhoneApplyWallpaper": "壁紙を適用",
+  "@miniPhoneApplyWallpaper": {
+    "description": "MiniPhone settings: save the selected wallpaper and prepare it for the home screen."
+  },
+  "miniPhoneSettingsSubtitle": "このフォンを自分らしくカスタマイズしましょう。",
+  "@miniPhoneSettingsSubtitle": {
+    "description": "MiniPhone wallpaper settings: introductory subtitle."
+  },
+  "miniPhonePhotoOpenFailed": "この写真を開けませんでした。別の写真をお試しください。",
+  "@miniPhonePhotoOpenFailed": {
+    "description": "MiniPhone wallpaper settings: toast after local image selection or crop fails."
+  },
+  "miniPhoneWallpaperApplied": "壁紙を適用しました。ホーム画面で確認できます。",
+  "@miniPhoneWallpaperApplied": {
+    "description": "MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen."
+  },
+  "miniPhoneFromWorldo": "{name}より",
+  "@miniPhoneFromWorldo": {
+    "description": "MiniPhone music player: source Worldo name, already formatted with its leading hash.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePreviousTrack": "前の曲",
+  "@miniPhonePreviousTrack": {
+    "description": "MiniPhone player and home music card: previous-track control tooltip."
+  },
+  "miniPhoneNextTrack": "次の曲",
+  "@miniPhoneNextTrack": {
+    "description": "MiniPhone player and home music card: next-track control tooltip."
+  },
+  "miniPhonePlay": "再生",
+  "@miniPhonePlay": {
+    "description": "MiniPhone player and home music card: start or resume audio control."
+  },
+  "miniPhonePause": "一時停止",
+  "@miniPhonePause": {
+    "description": "MiniPhone player and home music card: pause audio control."
+  },
+  "miniPhoneLikeTrack": "{title}に「いいね」",
+  "@miniPhoneLikeTrack": {
+    "description": "MiniPhone music: like a track tooltip; title is dynamic song content.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneUnlikeTrack": "{title}の「いいね」を取り消す",
+  "@miniPhoneUnlikeTrack": {
+    "description": "MiniPhone music: remove a track like tooltip; title is dynamic song content.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneOpenMusic": "音楽を開く：{title}",
+  "@miniPhoneOpenMusic": {
+    "description": "MiniPhone home music card: accessibility label to open the current track's player.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePlayMusic": "音楽を再生",
+  "@miniPhonePlayMusic": {
+    "description": "MiniPhone floating entry: play music bubble accessibility label."
+  },
+  "miniPhonePauseMusic": "音楽を一時停止",
+  "@miniPhonePauseMusic": {
+    "description": "MiniPhone floating entry: pause music bubble accessibility label."
+  },
+  "miniPhoneOpenUnread": "ミニフォンを開く、未読メッセージ{count}件",
+  "@miniPhoneOpenUnread": {
+    "description": "MiniPhone floating entry: accessibility label describing the open action and unread message count.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneHomePosition": "ホーム画面{position}ページ目",
+  "@miniPhoneHomePosition": {
+    "description": "MiniPhone home: accessibility label for the numbered home-page indicator; position is one-based.",
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneLockedApp": "{name}、ロック中",
+  "@miniPhoneLockedApp": {
+    "description": "MiniPhone home: accessibility label for an unavailable app; name is the localized app label.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneWorldDay": "{day}日目",
+  "@miniPhoneWorldDay": {
+    "description": "MiniPhone home and wallpaper preview: day number extracted from the protocol's English world-time field; world name is displayed separately.",
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneModel": "モデル",
+  "@miniPhoneModel": {
+    "description": "MiniPhone private chat header: model selector fallback before the model catalog is available."
+  },
+  "miniPhoneLoadFailed": "読み込めませんでした。もう一度お試しください。",
+  "@miniPhoneLoadFailed": {
+    "description": "MiniPhone requests: generic toast for a local or transport exception without a server business message."
+  },
+  "miniPhoneAccountFailed": "アカウント情報を読み取れませんでした。もう一度お試しください。",
+  "@miniPhoneAccountFailed": {
+    "description": "MiniPhone initialization and wallpaper: toast when local account identity cannot be read."
+  },
+  "miniPhoneOpenFromWorld": "ログインしてワールドからミニフォンを開いてください。",
+  "@miniPhoneOpenFromWorld": {
+    "description": "MiniPhone initialization: toast when no signed-in account is available for world phone data."
+  },
+  "miniPhoneSaveMessagesFailed": "この端末にメッセージを保存できませんでした。もう一度お試しください。",
+  "@miniPhoneSaveMessagesFailed": {
+    "description": "MiniPhone messages: toast when persisting the local message cache fails."
+  },
+  "miniPhoneLoadSavedMessagesFailed": "保存済みのメッセージを読み込めませんでした。もう一度お試しください。",
+  "@miniPhoneLoadSavedMessagesFailed": {
+    "description": "MiniPhone messages: toast when restoring cached conversation history fails."
+  },
+  "miniPhoneLoadDeviceMessagesFailed": "この端末に保存されたメッセージを読み込めませんでした。もう一度お試しください。",
+  "@miniPhoneLoadDeviceMessagesFailed": {
+    "description": "MiniPhone initialization: toast when loading the device message cache fails."
+  },
+  "miniPhoneSaveRequestsFailed": "この端末にフォンのリクエストを保存できませんでした。もう一度お試しください。",
+  "@miniPhoneSaveRequestsFailed": {
+    "description": "MiniPhone write requests: toast when the local request journal cannot be persisted; write is not sent."
+  },
+  "miniPhonePreviousRequestPending": "前のリクエストはまだ確認待ちです。",
+  "@miniPhonePreviousRequestPending": {
+    "description": "MiniPhone write requests: toast when retry would conflict with an earlier unresolved operation."
+  },
+  "miniPhoneReplyFailed": "返信を生成できませんでした。",
+  "@miniPhoneReplyFailed": {
+    "description": "MiniPhone AI private chat: fallback error when server reports final generation failure without a message."
+  },
+  "miniPhonePreparePhotoFailed": "この写真を処理できませんでした。もう一度お試しください。",
+  "@miniPhonePreparePhotoFailed": {
+    "description": "MiniPhone post draft and wallpaper: local image processing failure toast."
+  },
+  "miniPhoneUploadPhotoFailed": "この写真をアップロードできませんでした。もう一度お試しください。",
+  "@miniPhoneUploadPhotoFailed": {
+    "description": "MiniPhone post draft and wallpaper: image upload failure toast without a server error message."
+  },
+  "miniPhoneTextTooLong": "フォンのテキストはUTF-8で65535バイト以内にしてください",
+  "@miniPhoneTextTooLong": {
+    "description": "MiniPhone post draft: validation toast for the backend UTF-8 byte limit, distinct from the 500-character new-draft limit."
+  },
+  "miniPhoneLoadWallpapersFailed": "壁紙を読み込めませんでした。もう一度お試しください。",
+  "@miniPhoneLoadWallpapersFailed": {
+    "description": "MiniPhone settings: wallpaper catalog failure toast."
+  },
+  "miniPhoneSaveWallpaperFailed": "壁紙を保存できませんでした。もう一度お試しください。",
+  "@miniPhoneSaveWallpaperFailed": {
+    "description": "MiniPhone settings: wallpaper save failure toast without a server error message."
+  },
+  "miniPhoneMusicLikeFailed": "曲の「いいね」の状態を更新できませんでした。もう一度お試しください。",
+  "@miniPhoneMusicLikeFailed": {
+    "description": "MiniPhone music: failure toast for reading or changing a track's like state."
+  },
+  "miniPhoneLoadMusicFailed": "音楽を読み込めませんでした。もう一度お試しください。",
+  "@miniPhoneLoadMusicFailed": {
+    "description": "MiniPhone music: catalog load failure toast."
+  },
+  "miniPhonePlayMusicFailed": "この曲を再生できませんでした。再生をタップしてもう一度お試しください。",
+  "@miniPhonePlayMusicFailed": {
+    "description": "MiniPhone music: playback failure toast with explicit retry action."
+  },
+  "miniPhoneInvalidResponse": "ミニフォンの応答が無効です",
+  "@miniPhoneInvalidResponse": {
+    "description": "MiniPhone HTTP: local malformed-response error surfaced by the public toast; not a server business message."
   }
 }

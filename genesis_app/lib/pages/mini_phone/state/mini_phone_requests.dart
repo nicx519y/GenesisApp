@@ -1,9 +1,16 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../network/api_exception.dart';
 
-String miniPhoneErrorText(Object error) =>
-    error is ApiException ? error.message : 'Unable to load. Please try again.';
+String miniPhoneErrorText(Object error) => error is ApiException
+    ? error.message
+    : GenesisL10n.current.miniPhoneLoadFailed;
+
+/// Internal cancellation: no partial data or user-facing error is published.
+class MiniPhoneRequestCancelled implements Exception {
+  const MiniPhoneRequestCancelled();
+}
 
 /// Shared account identity, request versions and in-flight coalescing.
 /// Feature controllers use the same gate; no feature creates its own transport.
@@ -59,6 +66,8 @@ class MiniPhoneRequests {
         if (!isCurrent(g) || versions[key] != v) return false;
         apply(result);
         return true;
+      } on MiniPhoneRequestCancelled {
+        return false;
       } catch (e) {
         if (isCurrent(g) && versions[key] == v) {
           errors[key] = miniPhoneErrorText(e);

@@ -605,7 +605,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                 right: miniPageInset,
                 child: MiniIconButton(
                   'close',
-                  'Close mini phone',
+                  context.l10n.miniPhoneClose,
                   _closing ? null : _close,
                 ),
               ),
@@ -648,7 +648,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ? _preview(destination)
           : MiniPhoneMessagesPage(
               store: phone!,
-              header: _navigation('Messages'),
+              header: _navigation(context.l10n.miniPhoneMessages),
               onOpenChat: _openLiveChat,
             ),
     MiniPhoneScreen.chat =>
@@ -657,7 +657,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           : liveContact == null
           ? MiniPhoneMessagesPage(
               store: phone!,
-              header: _navigation('Messages'),
+              header: _navigation(context.l10n.miniPhoneMessages),
               onOpenChat: _openLiveChat,
             )
           : MiniPhoneLiveChat(
@@ -675,15 +675,18 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     MiniPhoneScreen.photos =>
       phone == null
           ? _preview(destination)
-          : MiniPhonePhotosPage(store: phone!, header: _navigation('Photos')),
+          : MiniPhonePhotosPage(
+              store: phone!,
+              header: _navigation(context.l10n.miniPhonePhotos),
+            ),
     MiniPhoneScreen.settings => MiniPhoneSettingsPage(
       session: _session,
       wallpaper: wallpaper,
-      header: _navigation('Settings'),
+      header: _navigation(context.l10n.miniPhoneSettings),
       active: screen == MiniPhoneScreen.settings,
     ),
     MiniPhoneScreen.music => _panel(
-      'Music',
+      context.l10n.miniPhoneMusic,
       MiniPhoneMusicPlayer(music: _music),
     ),
     MiniPhoneScreen.models => MiniPhoneModelSettingsPage(
@@ -719,9 +722,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     active: screen == destination,
     postId: livePostId,
     header: _navigation(switch (destination) {
-      MiniPhoneScreen.comments => 'Comments',
+      MiniPhoneScreen.comments => context.l10n.miniPhoneComments,
       MiniPhoneScreen.create => context.l10n.miniPhoneCreatePost,
-      _ => 'Posts',
+      _ => context.l10n.miniPhonePosts,
     }),
     onBack: _back,
     onCreate: () => _go(MiniPhoneScreen.create),
@@ -805,10 +808,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       case MiniPhoneScreen.posts:
         unawaited(data.refreshPosts(markRead: true));
       case MiniPhoneScreen.comments:
-        if (livePostId != null) {
-          unawaited(data.refreshDetail(livePostId!));
-          unawaited(data.refreshComments(livePostId!));
-        }
+        // The detail page owns entry reads after capturing the feed snapshot.
+        break;
       case MiniPhoneScreen.photos:
         unawaited(data.refreshAlbum());
       default:

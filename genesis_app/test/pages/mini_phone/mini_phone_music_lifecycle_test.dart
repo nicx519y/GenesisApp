@@ -237,7 +237,7 @@ void main() {
     },
   );
   test(
-    'disposing a world session interrupts in-flight play and both decoders',
+    'disposing an owned preview player interrupts in-flight play and both decoders',
     () async {
       final player = TestMusicPlayer()..loadGate = Completer<void>();
       final music = MiniPhoneMusicService(playerFactory: () => player);
@@ -282,7 +282,7 @@ void main() {
     expect(find.text('Open'), findsOneWidget);
   });
   testWidgets(
-    'removing the real World page stops a playing session and stores progress',
+    'removing the real World page pauses and retains its borrowed player',
     (tester) async {
       final players = <TestMusicPlayer>[];
       final music = MiniPhoneMusicService(
@@ -293,7 +293,19 @@ void main() {
           return p;
         },
       );
-      final phone = MiniPhoneSession(worldId: 'a', music: music);
+      final revision = ValueNotifier(0);
+      final owner = MiniPhoneMusicOwner(
+        namespace: 'prod',
+        readUid: () async => 'u',
+        accountRevision: revision,
+        createMusic: (_) => music,
+      );
+      addTearDown(owner.dispose);
+      addTearDown(revision.dispose);
+      final phone = MiniPhoneSession(
+        worldId: 'a',
+        musicLease: owner.acquire('a'),
+      );
       final services = musicTestServices(GenesisApi(useMock: true));
       await music.loadCatalog(() async => _catalog());
       await music.toggle();
@@ -312,12 +324,21 @@ void main() {
         await Future.wait([music.released, music.progressSaved]);
       });
       expect(phone.isDisposed, isTrue);
-      expect(players.every((p) => p.disposed && !p.playing), isTrue);
+      expect(music.isDisposed, isFalse);
+      expect(players.every((p) => !p.disposed && !p.playing), isTrue);
       expect(
         (await _store().read())!.position,
         const Duration(milliseconds: 4567),
       );
       expect(tester.takeException(), isNull);
+      final nextPhone = MiniPhoneSession(
+        worldId: 'b',
+        musicLease: owner.acquire('b'),
+      );
+      expect(nextPhone.music, same(music));
+      expect(music.positionDuration, const Duration(milliseconds: 4567));
+      expect(music.playRequested, isFalse);
+      nextPhone.dispose();
     },
   );
 }

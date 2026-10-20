@@ -206,7 +206,13 @@ void main() {
         replay.messages.map((m) => m.id),
         second.messages.map((m) => m.id),
       );
-      expect(first.messages.first.tick, isNotNull);
+      expect(first.messages.map((m) => m.id), [
+        for (var i = 19; i >= 0; i--) '9007199254740993$i',
+      ]);
+      expect(second.messages.map((m) => m.id), [
+        for (var i = 39; i >= 20; i--) '9007199254740993$i',
+      ]);
+      expect(first.messages.last.tick, isNotNull);
     },
   );
 }

@@ -9,6 +9,8 @@ class WorldHistoryPage {
     required this.cursor,
   });
   final String worldId;
+
+  /// Server order within this page: oldest to newest.
   final List<WorldHistoryMessage> messages;
   final bool hasMore;
   final String cursor;

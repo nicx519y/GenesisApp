@@ -93,6 +93,9 @@ class LocationChatReplyActions extends StatefulWidget {
   static const inspirationAnimationDuration = Duration(milliseconds: 220);
   static const inspirationAnimationCurve = Curves.easeOut;
 
+  /// Animate the toolbar's height while keeping its buttons hidden until open.
+  static const actionCollapseAnimationEnabled = true;
+
   static const double buttonSize = 32;
   static const double iconSize = 17;
   static const double centerSpacing = 50;
@@ -657,7 +660,12 @@ class _LocationChatReplyActionToolbarState
 
   void _syncExpansion() {
     if (!_wantsOpen) {
-      if (!_expansionController.isDismissed) _expansionController.reverse();
+      if (LocationChatReplyActions.actionCollapseAnimationEnabled) {
+        if (!_expansionController.isDismissed) _expansionController.reverse();
+      } else {
+        _displayedActions = const [];
+        _expansionController.value = 0;
+      }
       return;
     }
     _displayedActions = List<Widget>.unmodifiable(widget.actions);
@@ -727,7 +735,11 @@ class _LocationChatReplyActionToolbarState
                     ),
                     sizeFactor: _expansion,
                     alignment: Alignment.bottomLeft,
-                    child: child,
+                    child: _wantsOpen && _expansionController.isCompleted
+                        ? child
+                        : const SizedBox(
+                            height: LocationChatReplyActions.buttonSize,
+                          ),
                   ),
           );
     final indicator = widget.reservedIndicator;

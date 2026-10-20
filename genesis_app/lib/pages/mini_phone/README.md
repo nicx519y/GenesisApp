@@ -1,6 +1,6 @@
 # MiniPhone
 
-MiniPhone 是 World 持有的手机会话。正式页面使用 `GenesisApi.miniPhone` 和既有 World Socket；关闭手机保留世界会话，退出世界释放订阅、路由和播放器。无世界的 Developer 预览单独放在 `preview/`，正式请求失败不会回退为演示数据。
+MiniPhone 是 World 持有的手机会话。正式页面使用 `GenesisApi.miniPhone` 和既有 World Socket；关闭手机保留世界会话，退出世界释放订阅与路由，暂停并保存音乐进度；正式播放器由 AppServices 常驻持有，供下一个 World 复用，账号或环境切换时释放。无世界的 Developer 预览单独放在 `preview/`，正式请求失败不会回退为演示数据。
 
 ## 调用入口
 

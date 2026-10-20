@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../components/common/genesis_center_toast.dart';
@@ -260,7 +261,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                 ? 'phone:request:${m.requestId}'
                 : 'phone:${m.id}',
             senderId: m.senderId,
-            senderName: m.senderId == store.uid ? 'You' : person.name,
+            senderName: m.senderId == store.uid
+                ? context.l10n.miniPhoneYou
+                : person.name,
             avatarUrl: m.senderId == store.uid
                 ? store.person(m.senderId, type: 1).avatar
                 : person.avatar,
@@ -276,14 +279,14 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
         localId: 'phone:request:${outgoing.id}',
         clientMsgId: outgoing.id,
         senderId: store.uid ?? '',
-        senderName: 'You',
+        senderName: context.l10n.miniPhoneYou,
         avatarUrl: store.person(store.uid ?? '', type: 1).avatar,
         text: outgoing.content,
         isMe: true,
         status: outgoing.accepted
             ? 'sent'
             : outgoing.uncertain
-            ? 'Awaiting confirmation'
+            ? context.l10n.miniPhoneAwaitingConfirmation
             : 'sending',
       );
       final reply = visibleMessages
@@ -321,7 +324,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                     messages: rows,
                     topTitle: [
                       store.worldDay,
-                      'Private conversation',
+                      context.l10n.miniPhonePrivateConversation,
                     ].where((s) => s.isNotEmpty).join(' · '),
                     initialContentReady: ready,
                     restoreInitialCompletedContent: true,
@@ -352,7 +355,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                       reason: LocationChatBottomReason.unseenMessageNotice,
                       behavior: LocationChatBottomBehavior.animate,
                     ),
-                    child: const Text('New messages ↓'),
+                    child: Text(context.l10n.miniPhoneNewMessages),
                   ),
                 ),
             ],
@@ -375,8 +378,10 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                         Expanded(
                           child: Text(
                             waiting?.uncertain == true
-                                ? 'Reconnecting… Waiting for confirmation'
-                                : '${person.name} is typing…',
+                                ? context.l10n.miniPhoneReconnecting
+                                : context.l10n.miniPhoneTyping(
+                                    name: person.name,
+                                  ),
                             style: miniStyle(
                               12,
                               FontWeight.w400,
@@ -401,9 +406,11 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                       !store.busy.contains('dm:${person.id}') &&
                       input.text.trim().isNotEmpty,
                   sending: false,
-                  sendLabel: 'Send',
+                  sendLabel: context.l10n.miniPhoneSend,
                   onSend: _send,
-                  hintText: 'Message ${person.name}…',
+                  hintText: context.l10n.miniPhoneMessageHint(
+                    name: person.name,
+                  ),
                   style: kPrivateChatStyle,
                   bottomSafeAreaInset: 0,
                 ),

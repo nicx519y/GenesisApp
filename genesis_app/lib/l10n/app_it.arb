@@ -4352,5 +4352,362 @@
   "miniPhoneViewAllComments": "Visualizza tutti i commenti",
   "@miniPhoneViewAllComments": {
     "description": "MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count."
+  },
+  "miniPhoneComingSoon": "In arrivo.",
+  "@miniPhoneComingSoon": {
+    "description": "MiniPhone home screen: toast shown when tapping a locked Camera, Maps, or Calendar app that is not yet available."
+  },
+  "miniPhoneMessages": "Messaggi",
+  "@miniPhoneMessages": {
+    "description": "MiniPhone navigation header, home app accessibility label and unread message group title."
+  },
+  "miniPhonePosts": "Post",
+  "@miniPhonePosts": {
+    "description": "MiniPhone navigation header, home app accessibility label and unread post group title."
+  },
+  "miniPhonePhotos": "Foto",
+  "@miniPhonePhotos": {
+    "description": "MiniPhone album navigation header and home app accessibility label."
+  },
+  "miniPhoneSettings": "Impostazioni",
+  "@miniPhoneSettings": {
+    "description": "MiniPhone wallpaper settings navigation header and home app accessibility label."
+  },
+  "miniPhoneMusic": "Musica",
+  "@miniPhoneMusic": {
+    "description": "MiniPhone music navigation header and home app label."
+  },
+  "miniPhoneComments": "Commenti",
+  "@miniPhoneComments": {
+    "description": "MiniPhone comment page header and post comment action accessibility label."
+  },
+  "miniPhoneCamera": "Fotocamera",
+  "@miniPhoneCamera": {
+    "description": "MiniPhone home: locked camera app label."
+  },
+  "miniPhoneMaps": "Mappe",
+  "@miniPhoneMaps": {
+    "description": "MiniPhone home: locked maps app label."
+  },
+  "miniPhoneCalendar": "Calendario",
+  "@miniPhoneCalendar": {
+    "description": "MiniPhone home: locked calendar app label."
+  },
+  "miniPhonePublishedPost": "Ha pubblicato un post",
+  "@miniPhonePublishedPost": {
+    "description": "MiniPhone home notification: actor published a post; actor name appears separately."
+  },
+  "miniPhoneLikedPost": "Ha messo Mi piace a un post",
+  "@miniPhoneLikedPost": {
+    "description": "MiniPhone home notification: actor liked a post; actor name appears separately."
+  },
+  "miniPhoneCommentedPost": "Ha commentato un post",
+  "@miniPhoneCommentedPost": {
+    "description": "MiniPhone home notification: actor commented on a post; actor name appears separately."
+  },
+  "miniPhoneRepliedComment": "Ha risposto a un commento",
+  "@miniPhoneRepliedComment": {
+    "description": "MiniPhone home notification: actor replied to a comment; actor name appears separately."
+  },
+  "miniPhonePostActivity": "Attività dei post",
+  "@miniPhonePostActivity": {
+    "description": "MiniPhone home: fallback activity label for an unknown post notification type."
+  },
+  "miniPhoneShowLess": "Mostra meno",
+  "@miniPhoneShowLess": {
+    "description": "MiniPhone home: collapse expanded notification groups."
+  },
+  "miniPhoneShowAll": "Mostra tutto",
+  "@miniPhoneShowAll": {
+    "description": "MiniPhone home: expand notification groups to show all available cards."
+  },
+  "miniPhoneClose": "Chiudi mini telefono",
+  "@miniPhoneClose": {
+    "description": "MiniPhone shell: close button tooltip; exits the entire phone."
+  },
+  "miniPhoneYou": "Tu",
+  "@miniPhoneYou": {
+    "description": "MiniPhone private chat: current user's sender name and fallback user identity."
+  },
+  "miniPhoneUnknown": "Sconosciuto",
+  "@miniPhoneUnknown": {
+    "description": "MiniPhone: fallback actor name when identity cannot be resolved."
+  },
+  "miniPhoneOwnMessage": "Tu: {message}",
+  "@miniPhoneOwnMessage": {
+    "description": "MiniPhone Messages list: last message preview sent by the current user; preserve the message verbatim.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePrivateConversation": "Conversazione privata",
+  "@miniPhonePrivateConversation": {
+    "description": "MiniPhone private chat: subtitle below contact header."
+  },
+  "miniPhoneNewMessages": "Nuovi messaggi ↓",
+  "@miniPhoneNewMessages": {
+    "description": "MiniPhone private chat: return to latest messages while reading history; retain arrow."
+  },
+  "miniPhoneReconnecting": "Riconnessione… In attesa di conferma",
+  "@miniPhoneReconnecting": {
+    "description": "MiniPhone private chat: uncertain send request is being checked; does not imply failure."
+  },
+  "miniPhoneTyping": "{name} sta scrivendo…",
+  "@miniPhoneTyping": {
+    "description": "MiniPhone AI private chat: local waiting indicator; unknown dynamic name must not imply gender or pronunciation.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneSend": "Invia",
+  "@miniPhoneSend": {
+    "description": "MiniPhone private chat send button and comment send tooltip."
+  },
+  "miniPhoneMessageHint": "Scrivi a {name}…",
+  "@miniPhoneMessageHint": {
+    "description": "MiniPhone private chat input placeholder addressed to a dynamic contact name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneAwaitingConfirmation": "In attesa di conferma",
+  "@miniPhoneAwaitingConfirmation": {
+    "description": "MiniPhone private chat: outgoing message status after an uncertain request."
+  },
+  "miniPhoneCommentCount": "{count, plural, =0{0 commenti} one{1 commento} other{{count} commenti}}",
+  "@miniPhoneCommentCount": {
+    "description": "MiniPhone comment detail: total number of comments supplied by the detail response.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneFirstComment": "Condividi per primo le tue idee.",
+  "@miniPhoneFirstComment": {
+    "description": "MiniPhone comment page: empty state when no comments exist."
+  },
+  "miniPhoneCommentHint": "Scrivi un commento…",
+  "@miniPhoneCommentHint": {
+    "description": "MiniPhone comment input placeholder without a selected reply target."
+  },
+  "miniPhoneReplyHint": "Rispondi a {name}…",
+  "@miniPhoneReplyHint": {
+    "description": "MiniPhone comment input placeholder when replying to a specific author; name is dynamic.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneLike": "Mi piace",
+  "@miniPhoneLike": {
+    "description": "MiniPhone post: like action accessibility label."
+  },
+  "miniPhoneAllAuthors": "Tutti gli autori",
+  "@miniPhoneAllAuthors": {
+    "description": "MiniPhone Posts: accessibility label for the circular all-author filter; visible lowercase all remains a fixed design label."
+  },
+  "miniPhoneWallpaper": "Sfondo",
+  "@miniPhoneWallpaper": {
+    "description": "MiniPhone settings: wallpaper selection section heading."
+  },
+  "miniPhoneUpload": "Carica",
+  "@miniPhoneUpload": {
+    "description": "MiniPhone wallpaper settings: choose a local image for wallpaper."
+  },
+  "miniPhoneApplyWallpaper": "Applica sfondo",
+  "@miniPhoneApplyWallpaper": {
+    "description": "MiniPhone settings: save the selected wallpaper and prepare it for the home screen."
+  },
+  "miniPhoneSettingsSubtitle": "Personalizza questo telefono a modo tuo.",
+  "@miniPhoneSettingsSubtitle": {
+    "description": "MiniPhone wallpaper settings: introductory subtitle."
+  },
+  "miniPhonePhotoOpenFailed": "Impossibile aprire questa foto. Prova con un’altra.",
+  "@miniPhonePhotoOpenFailed": {
+    "description": "MiniPhone wallpaper settings: toast after local image selection or crop fails."
+  },
+  "miniPhoneWallpaperApplied": "Sfondo applicato. Guardalo nella schermata iniziale.",
+  "@miniPhoneWallpaperApplied": {
+    "description": "MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen."
+  },
+  "miniPhoneFromWorldo": "Da {name}",
+  "@miniPhoneFromWorldo": {
+    "description": "MiniPhone music player: source Worldo name, already formatted with its leading hash.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePreviousTrack": "Brano precedente",
+  "@miniPhonePreviousTrack": {
+    "description": "MiniPhone player and home music card: previous-track control tooltip."
+  },
+  "miniPhoneNextTrack": "Brano successivo",
+  "@miniPhoneNextTrack": {
+    "description": "MiniPhone player and home music card: next-track control tooltip."
+  },
+  "miniPhonePlay": "Riproduci",
+  "@miniPhonePlay": {
+    "description": "MiniPhone player and home music card: start or resume audio control."
+  },
+  "miniPhonePause": "Pausa",
+  "@miniPhonePause": {
+    "description": "MiniPhone player and home music card: pause audio control."
+  },
+  "miniPhoneLikeTrack": "Mi piace {title}",
+  "@miniPhoneLikeTrack": {
+    "description": "MiniPhone music: like a track tooltip; title is dynamic song content.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneUnlikeTrack": "Rimuovi Mi piace da {title}",
+  "@miniPhoneUnlikeTrack": {
+    "description": "MiniPhone music: remove a track like tooltip; title is dynamic song content.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneOpenMusic": "Apri musica: {title}",
+  "@miniPhoneOpenMusic": {
+    "description": "MiniPhone home music card: accessibility label to open the current track's player.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePlayMusic": "Riproduci musica",
+  "@miniPhonePlayMusic": {
+    "description": "MiniPhone floating entry: play music bubble accessibility label."
+  },
+  "miniPhonePauseMusic": "Metti in pausa la musica",
+  "@miniPhonePauseMusic": {
+    "description": "MiniPhone floating entry: pause music bubble accessibility label."
+  },
+  "miniPhoneOpenUnread": "{count, plural, =0{Apri mini telefono, 0 messaggi non letti} one{Apri mini telefono, 1 messaggio non letto} other{Apri mini telefono, {count} messaggi non letti}}",
+  "@miniPhoneOpenUnread": {
+    "description": "MiniPhone floating entry: accessibility label describing the open action and unread message count.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneHomePosition": "Pagina iniziale {position}",
+  "@miniPhoneHomePosition": {
+    "description": "MiniPhone home: accessibility label for the numbered home-page indicator; position is one-based.",
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneLockedApp": "{name}, bloccata",
+  "@miniPhoneLockedApp": {
+    "description": "MiniPhone home: accessibility label for an unavailable app; name is the localized app label.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneWorldDay": "Giorno {day}",
+  "@miniPhoneWorldDay": {
+    "description": "MiniPhone home and wallpaper preview: day number extracted from the protocol's English world-time field; world name is displayed separately.",
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneModel": "Modello",
+  "@miniPhoneModel": {
+    "description": "MiniPhone private chat header: model selector fallback before the model catalog is available."
+  },
+  "miniPhoneLoadFailed": "Impossibile caricare. Riprova.",
+  "@miniPhoneLoadFailed": {
+    "description": "MiniPhone requests: generic toast for a local or transport exception without a server business message."
+  },
+  "miniPhoneAccountFailed": "Impossibile leggere il tuo account. Riprova.",
+  "@miniPhoneAccountFailed": {
+    "description": "MiniPhone initialization and wallpaper: toast when local account identity cannot be read."
+  },
+  "miniPhoneOpenFromWorld": "Accedi e apri il mini telefono da un Mondo.",
+  "@miniPhoneOpenFromWorld": {
+    "description": "MiniPhone initialization: toast when no signed-in account is available for world phone data."
+  },
+  "miniPhoneSaveMessagesFailed": "Impossibile salvare i messaggi su questo dispositivo. Riprova.",
+  "@miniPhoneSaveMessagesFailed": {
+    "description": "MiniPhone messages: toast when persisting the local message cache fails."
+  },
+  "miniPhoneLoadSavedMessagesFailed": "Impossibile caricare i messaggi salvati. Riprova.",
+  "@miniPhoneLoadSavedMessagesFailed": {
+    "description": "MiniPhone messages: toast when restoring cached conversation history fails."
+  },
+  "miniPhoneLoadDeviceMessagesFailed": "Impossibile caricare i messaggi salvati su questo dispositivo. Riprova.",
+  "@miniPhoneLoadDeviceMessagesFailed": {
+    "description": "MiniPhone initialization: toast when loading the device message cache fails."
+  },
+  "miniPhoneSaveRequestsFailed": "Impossibile salvare le richieste del telefono su questo dispositivo. Riprova.",
+  "@miniPhoneSaveRequestsFailed": {
+    "description": "MiniPhone write requests: toast when the local request journal cannot be persisted; write is not sent."
+  },
+  "miniPhonePreviousRequestPending": "La richiesta precedente è ancora in attesa di conferma.",
+  "@miniPhonePreviousRequestPending": {
+    "description": "MiniPhone write requests: toast when retry would conflict with an earlier unresolved operation."
+  },
+  "miniPhoneReplyFailed": "Impossibile generare la risposta.",
+  "@miniPhoneReplyFailed": {
+    "description": "MiniPhone AI private chat: fallback error when server reports final generation failure without a message."
+  },
+  "miniPhonePreparePhotoFailed": "Impossibile preparare questa foto. Riprova.",
+  "@miniPhonePreparePhotoFailed": {
+    "description": "MiniPhone post draft and wallpaper: local image processing failure toast."
+  },
+  "miniPhoneUploadPhotoFailed": "Impossibile caricare questa foto. Riprova.",
+  "@miniPhoneUploadPhotoFailed": {
+    "description": "MiniPhone post draft and wallpaper: image upload failure toast without a server error message."
+  },
+  "miniPhoneTextTooLong": "Il testo del telefono non deve superare 65535 byte UTF-8",
+  "@miniPhoneTextTooLong": {
+    "description": "MiniPhone post draft: validation toast for the backend UTF-8 byte limit, distinct from the 500-character new-draft limit."
+  },
+  "miniPhoneLoadWallpapersFailed": "Impossibile caricare gli sfondi. Riprova.",
+  "@miniPhoneLoadWallpapersFailed": {
+    "description": "MiniPhone settings: wallpaper catalog failure toast."
+  },
+  "miniPhoneSaveWallpaperFailed": "Impossibile salvare lo sfondo. Riprova.",
+  "@miniPhoneSaveWallpaperFailed": {
+    "description": "MiniPhone settings: wallpaper save failure toast without a server error message."
+  },
+  "miniPhoneMusicLikeFailed": "Impossibile aggiornare lo stato Mi piace della musica. Riprova.",
+  "@miniPhoneMusicLikeFailed": {
+    "description": "MiniPhone music: failure toast for reading or changing a track's like state."
+  },
+  "miniPhoneLoadMusicFailed": "Impossibile caricare la musica. Riprova.",
+  "@miniPhoneLoadMusicFailed": {
+    "description": "MiniPhone music: catalog load failure toast."
+  },
+  "miniPhonePlayMusicFailed": "Impossibile riprodurre questo brano. Tocca Riproduci per riprovare.",
+  "@miniPhonePlayMusicFailed": {
+    "description": "MiniPhone music: playback failure toast with explicit retry action."
+  },
+  "miniPhoneInvalidResponse": "Risposta del mini telefono non valida",
+  "@miniPhoneInvalidResponse": {
+    "description": "MiniPhone HTTP: local malformed-response error surfaced by the public toast; not a server business message."
   }
 }

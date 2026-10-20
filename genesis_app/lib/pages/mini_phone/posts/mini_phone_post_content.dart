@@ -96,14 +96,14 @@ class MiniPhonePostContent extends StatelessWidget {
                   children: [
                     miniPhonePostAction(
                       'messages',
-                      'Comments',
+                      context.l10n.miniPhoneComments,
                       commentCount,
                       () => onOpenPost(id),
                     ),
                     const SizedBox(width: 20),
                     miniPhonePostAction(
                       'heart',
-                      'Like',
+                      context.l10n.miniPhoneLike,
                       likeCount,
                       () => phone.setLiked(
                         id,
@@ -126,7 +126,7 @@ class MiniPhonePostContent extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final c in previews.take(3))
+                        for (final c in previews.take(3).toList().reversed)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text.rich(
@@ -192,6 +192,7 @@ class MiniPhonePostContent extends StatelessWidget {
             imageUrl: url,
             fit: BoxFit.contain,
             borderRadius: BorderRadius.zero,
+            placeholder: const SizedBox.expand(),
           ),
         ),
       ),

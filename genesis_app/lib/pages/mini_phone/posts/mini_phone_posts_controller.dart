@@ -147,37 +147,74 @@ class MiniPhonePostsController {
     await Future.wait(reads.map((read) => read()));
   }
 
-  Future<bool> refreshDetail(int id, {bool afterWrite = false}) {
+  Future<bool> refreshDetail(
+    int id, {
+    bool afterWrite = false,
+    bool onEntry = false,
+  }) {
     Future<bool> read() =>
         load('detail:$id', () => api.detail(worldId, id), (d) {
           details[id] = d;
           _interactionRevision++;
-        }, deduplicate: !afterWrite);
+        }, deduplicate: !afterWrite && !onEntry);
     return afterWrite ? _confirmPostRead('detail:$id', read) : read();
   }
 
   Future<bool> refreshComments(
     int id, {
-    bool next = false,
     bool afterWrite = false,
+    bool onEntry = false,
   }) {
-    final key = 'comments:$id',
-        pn = next ? (pages['comments:$id'] ?? 1) + 1 : 1;
-    Future<bool> read() => load(
-      key,
-      () => api.comments(worldId, id, pn: pn),
-      (page) {
-        comments[id] = <int, PhoneComment>{
-          if (next)
-            for (final c in comments[id] ?? <PhoneComment>[]) c.id: c,
-          for (final c in page.list) c.id: c,
-        }.values.toList();
-        pages[key] = pn;
-        hasMore[key] = page.hasMore;
-      },
-      requestKey: '$pn',
-      deduplicate: !afterWrite,
-    );
+    final key = 'comments:$id';
+    Future<bool> read() {
+      final generation = requests.generation;
+      final version = (requests.versions[key] ?? 0) + 1;
+      void checkCurrent() {
+        if (!requests.isCurrent(generation) ||
+            requests.versions[key] != version ||
+            !foreground) {
+          throw const MiniPhoneRequestCancelled();
+        }
+      }
+
+      return load<List<PhoneComment>>(
+        key,
+        () async {
+          final all = <int, PhoneComment>{};
+          var pn = 1;
+          while (true) {
+            checkCurrent();
+            final page = await api.comments(worldId, id, pn: pn, rn: 100);
+            checkCurrent();
+            if (page.pn != pn ||
+                page.rn <= 0 ||
+                (page.list.isEmpty && page.hasMore)) {
+              throw const FormatException('Invalid comment pagination');
+            }
+            for (final comment in page.list) {
+              all[comment.id] = comment;
+            }
+            if (!page.hasMore) break;
+            pn++;
+          }
+          return all.values.toList()..sort((a, b) {
+            final at = DateTime.tryParse(a.publishedAt);
+            final bt = DateTime.tryParse(b.publishedAt);
+            final byTime = at != null && bt != null
+                ? at.compareTo(bt)
+                : a.publishedAt.compareTo(b.publishedAt);
+            return byTime != 0 ? byTime : a.id.compareTo(b.id);
+          });
+        },
+        (all) {
+          comments[id] = all;
+          pages.remove(key);
+          hasMore.remove(key);
+        },
+        deduplicate: !afterWrite && !onEntry,
+      );
+    }
+
     return afterWrite ? _confirmPostRead(key, read) : read();
   }
 

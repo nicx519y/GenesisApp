@@ -1,6 +1,8 @@
 import '../settings/wallpaper/mini_phone_wallpaper_image.dart';
 import 'package:flutter/material.dart';
 import '../../../app/config/genesis_image_config.dart';
+import '../../../components/common/genesis_center_toast.dart';
+import '../../../l10n/genesis_localizations.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../../../ui/animations/app_launch_transition/app_launch_transition.dart';
 import '../session/mini_phone_session.dart';
@@ -127,11 +129,11 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
   MiniDemoPerson _livePersonPresentation(PhonePerson p) =>
       MiniDemoPerson(p.id, p.name, p.name, p.avatar, 'live', '', '', 0);
   String _notificationText(PhoneNotification n) => switch (n.eventType) {
-    'post' => 'Published a post',
-    'like' => 'Liked a post',
-    'comment' => 'Commented on a post',
-    'reply' => 'Replied to a comment',
-    _ => 'Post activity',
+    'post' => context.l10n.miniPhonePublishedPost,
+    'like' => context.l10n.miniPhoneLikedPost,
+    'comment' => context.l10n.miniPhoneCommentedPost,
+    'reply' => context.l10n.miniPhoneRepliedComment,
+    _ => context.l10n.miniPhonePostActivity,
   };
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -506,7 +508,9 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                                 children: [
                                   for (var i = 0; i < 2; i++)
                                     Semantics(
-                                      label: 'Home position ${i + 1}',
+                                      label: context.l10n.miniPhoneHomePosition(
+                                        position: i + 1,
+                                      ),
                                       selected: homePagerPosition == i,
                                       button: true,
                                       child: GestureDetector(
@@ -559,7 +563,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                             children: [
                               _homeApp(
                                 'messages',
-                                'Messages',
+                                context.l10n.miniPhoneMessages,
                                 MiniPhoneScreen.messages,
                                 size: narrow ? 56 : 62,
                                 badge:
@@ -567,20 +571,20 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                               ),
                               _homeApp(
                                 'posts',
-                                'Posts',
+                                context.l10n.miniPhonePosts,
                                 MiniPhoneScreen.posts,
                                 size: narrow ? 56 : 62,
                                 badge: phone?.home.postUnread ?? posts.length,
                               ),
                               _homeApp(
                                 'photos',
-                                'Photos',
+                                context.l10n.miniPhonePhotos,
                                 MiniPhoneScreen.photos,
                                 size: narrow ? 56 : 62,
                               ),
                               _homeApp(
                                 'settings',
-                                'Settings',
+                                context.l10n.miniPhoneSettings,
                                 MiniPhoneScreen.settings,
                                 size: narrow ? 56 : 62,
                               ),
@@ -666,13 +670,15 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                 children: [
                   Expanded(
                     child: Text(
-                      '$kind · $count',
+                      '${kind == 'Messages' ? context.l10n.miniPhoneMessages : context.l10n.miniPhonePosts} · $count',
                       style: miniStyle(16, FontWeight.w500),
                     ),
                   ),
                   if (toggleAll != null)
                     _noticeAction(
-                      allExpanded ? 'Show less' : 'Show all',
+                      allExpanded
+                          ? context.l10n.miniPhoneShowLess
+                          : context.l10n.miniPhoneShowAll,
                       toggleAll,
                     ),
                 ],
@@ -821,66 +827,92 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _lockedApp('Camera', Icons.camera_alt_rounded, size),
+        _lockedApp(
+          context.l10n.miniPhoneCamera,
+          Icons.camera_alt_rounded,
+          size,
+        ),
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _homeApp(
               'music-musical-note',
-              'Music',
+              context.l10n.miniPhoneMusic,
               MiniPhoneScreen.music,
               size: size,
             ),
             const SizedBox(height: 7),
-            Text('Music', style: miniStyle(12)),
+            _homeAppLabel(context.l10n.miniPhoneMusic, size),
           ],
         ),
-        _lockedApp('Maps', Icons.map_rounded, size),
-        _lockedApp('Calendar', Icons.calendar_month_rounded, size),
+        _lockedApp(context.l10n.miniPhoneMaps, Icons.map_rounded, size),
+        _lockedApp(
+          context.l10n.miniPhoneCalendar,
+          Icons.calendar_month_rounded,
+          size,
+        ),
       ],
     ),
   );
   Widget _lockedApp(String label, IconData icon, double size) => Semantics(
-    label: '$label, locked',
+    label: context.l10n.miniPhoneLockedApp(name: label),
     button: true,
-    enabled: false,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: const Color(0xFF232228),
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: Center(child: Icon(icon, size: 33, color: miniWhite)),
-            ),
-            Positioned(
-              right: -3,
-              top: -3,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF36343B),
-                  shape: BoxShape.circle,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showGenesisToast(
+        context,
+        context.l10n.miniPhoneComingSoon,
+        brightness: Brightness.dark,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF232228),
+                  borderRadius: BorderRadius.circular(17),
                 ),
-                child: const Icon(
-                  Icons.lock_rounded,
-                  size: 12,
-                  color: miniWhite,
+                child: Center(child: Icon(icon, size: 33, color: miniWhite)),
+              ),
+              Positioned(
+                right: -3,
+                top: -3,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF36343B),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    size: 12,
+                    color: miniWhite,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 7),
-        Text(label, style: miniStyle(12)),
-      ],
+            ],
+          ),
+          const SizedBox(height: 7),
+          _homeAppLabel(label, size),
+        ],
+      ),
+    ),
+  );
+
+  Widget _homeAppLabel(String label, double iconSize) => SizedBox(
+    width: iconSize + 8,
+    child: Text(
+      label,
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: miniStyle(12),
     ),
   );
 }

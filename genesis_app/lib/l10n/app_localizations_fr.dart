@@ -3295,5 +3295,284 @@ class AppLocalizationsFr extends AppLocalizations {
   String get miniPhonePublish => 'Publier';
 
   @override
+  String get miniPhoneComingSoon => 'Bientôt disponible.';
+
+  @override
   String get miniPhoneViewAllComments => 'Voir tous les commentaires';
+
+  @override
+  String get miniPhoneMessages => 'Messages';
+
+  @override
+  String get miniPhonePosts => 'Publications';
+
+  @override
+  String get miniPhonePhotos => 'Photos';
+
+  @override
+  String get miniPhoneSettings => 'Paramètres';
+
+  @override
+  String get miniPhoneMusic => 'Musique';
+
+  @override
+  String get miniPhoneComments => 'Commentaires';
+
+  @override
+  String get miniPhoneCamera => 'Appareil photo';
+
+  @override
+  String get miniPhoneMaps => 'Cartes';
+
+  @override
+  String get miniPhoneCalendar => 'Calendrier';
+
+  @override
+  String get miniPhonePublishedPost => 'A publié une publication';
+
+  @override
+  String get miniPhoneLikedPost => 'A aimé une publication';
+
+  @override
+  String get miniPhoneCommentedPost => 'A commenté une publication';
+
+  @override
+  String get miniPhoneRepliedComment => 'A répondu à un commentaire';
+
+  @override
+  String get miniPhonePostActivity => 'Activité des publications';
+
+  @override
+  String get miniPhoneShowLess => 'Réduire';
+
+  @override
+  String get miniPhoneShowAll => 'Tout afficher';
+
+  @override
+  String get miniPhoneClose => 'Fermer le mini-téléphone';
+
+  @override
+  String get miniPhoneYou => 'Vous';
+
+  @override
+  String get miniPhoneUnknown => 'Inconnu';
+
+  @override
+  String miniPhoneOwnMessage({required String message}) {
+    return 'Vous : $message';
+  }
+
+  @override
+  String get miniPhonePrivateConversation => 'Conversation privée';
+
+  @override
+  String get miniPhoneNewMessages => 'Nouveaux messages ↓';
+
+  @override
+  String get miniPhoneReconnecting => 'Reconnexion… En attente de confirmation';
+
+  @override
+  String miniPhoneTyping({required String name}) {
+    return '$name est en train d’écrire…';
+  }
+
+  @override
+  String get miniPhoneSend => 'Envoyer';
+
+  @override
+  String miniPhoneMessageHint({required String name}) {
+    return 'Écrivez à $name…';
+  }
+
+  @override
+  String get miniPhoneAwaitingConfirmation => 'En attente de confirmation';
+
+  @override
+  String miniPhoneCommentCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count commentaires',
+      one: '1 commentaire',
+      zero: '0 commentaire',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneFirstComment =>
+      'Soyez la première personne à donner votre avis.';
+
+  @override
+  String get miniPhoneCommentHint => 'Écrivez un commentaire…';
+
+  @override
+  String miniPhoneReplyHint({required String name}) {
+    return 'Répondez à $name…';
+  }
+
+  @override
+  String get miniPhoneLike => 'J’aime';
+
+  @override
+  String get miniPhoneAllAuthors => 'Tous les auteurs';
+
+  @override
+  String get miniPhoneWallpaper => 'Fond d’écran';
+
+  @override
+  String get miniPhoneUpload => 'Importer';
+
+  @override
+  String get miniPhoneApplyWallpaper => 'Appliquer le fond d’écran';
+
+  @override
+  String get miniPhoneSettingsSubtitle =>
+      'Personnalisez ce téléphone à votre image.';
+
+  @override
+  String get miniPhonePhotoOpenFailed =>
+      'Impossible d’ouvrir cette photo. Essayez-en une autre.';
+
+  @override
+  String get miniPhoneWallpaperApplied =>
+      'Fond d’écran appliqué. Retrouvez-le sur l’écran d’accueil.';
+
+  @override
+  String miniPhoneFromWorldo({required String name}) {
+    return 'De $name';
+  }
+
+  @override
+  String get miniPhonePreviousTrack => 'Piste précédente';
+
+  @override
+  String get miniPhoneNextTrack => 'Piste suivante';
+
+  @override
+  String get miniPhonePlay => 'Lire';
+
+  @override
+  String get miniPhonePause => 'Mettre en pause';
+
+  @override
+  String miniPhoneLikeTrack({required String title}) {
+    return 'Aimer $title';
+  }
+
+  @override
+  String miniPhoneUnlikeTrack({required String title}) {
+    return 'Ne plus aimer $title';
+  }
+
+  @override
+  String miniPhoneOpenMusic({required String title}) {
+    return 'Ouvrir la musique : $title';
+  }
+
+  @override
+  String get miniPhonePlayMusic => 'Lire la musique';
+
+  @override
+  String get miniPhonePauseMusic => 'Mettre la musique en pause';
+
+  @override
+  String miniPhoneOpenUnread({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ouvrir le mini-téléphone, $count messages non lus',
+      one: 'Ouvrir le mini-téléphone, 1 message non lu',
+      zero: 'Ouvrir le mini-téléphone, 0 message non lu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String miniPhoneHomePosition({required int position}) {
+    return 'Page d’accueil $position';
+  }
+
+  @override
+  String miniPhoneLockedApp({required String name}) {
+    return '$name, verrouillé';
+  }
+
+  @override
+  String miniPhoneWorldDay({required int day}) {
+    return 'Jour $day';
+  }
+
+  @override
+  String get miniPhoneModel => 'Modèle';
+
+  @override
+  String get miniPhoneLoadFailed =>
+      'Impossible de charger. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneAccountFailed =>
+      'Impossible de lire les informations de votre compte. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneOpenFromWorld =>
+      'Connectez-vous et ouvrez le mini-téléphone depuis un Monde.';
+
+  @override
+  String get miniPhoneSaveMessagesFailed =>
+      'Impossible d’enregistrer les messages sur cet appareil. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneLoadSavedMessagesFailed =>
+      'Impossible de charger les messages enregistrés. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneLoadDeviceMessagesFailed =>
+      'Impossible de charger les messages enregistrés sur cet appareil. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneSaveRequestsFailed =>
+      'Impossible d’enregistrer les requêtes du téléphone sur cet appareil. Veuillez réessayer.';
+
+  @override
+  String get miniPhonePreviousRequestPending =>
+      'La requête précédente est toujours en attente de confirmation.';
+
+  @override
+  String get miniPhoneReplyFailed => 'La génération de la réponse a échoué.';
+
+  @override
+  String get miniPhonePreparePhotoFailed =>
+      'Impossible de préparer cette photo. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneUploadPhotoFailed =>
+      'Impossible d’importer cette photo. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneTextTooLong =>
+      'Le texte du téléphone ne doit pas dépasser 65535 octets en UTF-8';
+
+  @override
+  String get miniPhoneLoadWallpapersFailed =>
+      'Impossible de charger les fonds d’écran. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneSaveWallpaperFailed =>
+      'Impossible d’enregistrer le fond d’écran. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneMusicLikeFailed =>
+      'Impossible de mettre à jour le statut J’aime du morceau. Veuillez réessayer.';
+
+  @override
+  String get miniPhoneLoadMusicFailed =>
+      'Impossible de charger la musique. Veuillez réessayer.';
+
+  @override
+  String get miniPhonePlayMusicFailed =>
+      'Impossible de lire cette piste. Appuyez sur Lire pour réessayer.';
+
+  @override
+  String get miniPhoneInvalidResponse => 'Réponse du mini-téléphone invalide';
 }

@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import '../messages/mini_phone_messages_controller.dart';
 export '../messages/mini_phone_messages_controller.dart'
     show MiniPhoneConversation;
@@ -74,6 +75,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   final MiniPhoneCacheStorage cacheStorage;
   Completer<void> _localReady = Completer<void>();
   Future<void> get localReady => _localReady.future;
+  bool get isLocallyReady => _localReady.isCompleted;
   bool _hydrated = false;
   final _earlyEvents = <ChatroomPhoneEvent>[];
   List<PhoneMessage> get unreadMessages => messagesController.unreadMessages;
@@ -130,12 +132,15 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         r'\b(?:[01]?\d|2[0-3]):[0-5]\d\b',
       ).firstMatch(currentTime)?.group(0) ??
       '';
-  String get worldDay =>
-      RegExp(
-        r'Day\s+\d+',
-        caseSensitive: false,
-      ).firstMatch(currentTime)?.group(0) ??
-      '';
+  String get worldDay {
+    final match = RegExp(
+      r'Day\s+(\d+)',
+      caseSensitive: false,
+    ).firstMatch(currentTime);
+    final day = int.tryParse(match?.group(1) ?? '');
+    return day == null ? '' : GenesisL10n.current.miniPhoneWorldDay(day: day);
+  }
+
   final people = <String, PhonePerson>{};
   final users = <String, PhonePerson>{};
   final playerCharIds = <String>{};
@@ -202,7 +207,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   bool _current(int generation) => !_disposed && generation == _generation;
   static String errorText(Object e) =>
-      e is ApiException ? e.message : 'Unable to load. Please try again.';
+      e is ApiException ? e.message : GenesisL10n.current.miniPhoneLoadFailed;
 
   Future<void> _initialize() async {
     final g = _generation;
@@ -211,7 +216,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       owner = await readUid();
     } catch (_) {
       if (_current(g)) {
-        errors['identity'] = 'Unable to read your account. Please try again.';
+        errors['identity'] = GenesisL10n.current.miniPhoneAccountFailed;
         if (!_localReady.isCompleted) _localReady.complete();
         _notify();
       }
@@ -222,7 +227,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     uid = owner;
     if (owner == null || owner.isEmpty || worldId.isEmpty) {
       if (!_localReady.isCompleted) _localReady.complete();
-      errors['home'] = 'Sign in and open Mini phone from a World.';
+      errors['home'] = GenesisL10n.current.miniPhoneOpenFromWorld;
       _notify();
       return;
     }
@@ -241,8 +246,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       messagesController.restoreCacheProjection();
     } catch (_) {
       if (!_current(g)) return;
-      errors['cache'] =
-          'Unable to load messages saved on this device. Please try again.';
+      errors['cache'] = GenesisL10n.current.miniPhoneLoadDeviceMessagesFailed;
     }
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -401,7 +405,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           } catch (_) {
             if (_current(g)) {
               errors['journal'] =
-                  'Unable to save phone requests on this device. Please try again.';
+                  GenesisL10n.current.miniPhoneSaveRequestsFailed;
               _notify();
             }
             return false;
@@ -578,7 +582,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       (type == 1 ? users[id] : people[id]) ??
       PhonePerson(
         id,
-        type == 1 && id == uid ? 'You' : 'Unknown',
+        type == 1 && id == uid
+            ? GenesisL10n.current.miniPhoneYou
+            : GenesisL10n.current.miniPhoneUnknown,
         '',
         type: type,
       );
@@ -622,13 +628,24 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> refreshPostAuthors() => postsController.refreshPostAuthors();
   Future<bool> refreshPosts({bool next = false, bool markRead = false}) =>
       postsController.refreshPosts(next: next, markRead: markRead);
-  Future<bool> refreshDetail(int id, {bool afterWrite = false}) =>
-      postsController.refreshDetail(id, afterWrite: afterWrite);
+  Future<bool> refreshDetail(
+    int id, {
+    bool afterWrite = false,
+    bool onEntry = false,
+  }) => postsController.refreshDetail(
+    id,
+    afterWrite: afterWrite,
+    onEntry: onEntry,
+  );
   Future<bool> refreshComments(
     int id, {
-    bool next = false,
     bool afterWrite = false,
-  }) => postsController.refreshComments(id, next: next, afterWrite: afterWrite);
+    bool onEntry = false,
+  }) => postsController.refreshComments(
+    id,
+    afterWrite: afterWrite,
+    onEntry: onEntry,
+  );
   Future<bool> refreshNotifications({int pn = 1}) =>
       postsController.refreshNotifications(pn: pn);
 
@@ -650,7 +667,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     if (busy.contains(key)) return false;
     final existing = pending[key];
     if (existing != null && !existing.rejected && !retry) {
-      errors[key] = 'The previous request is still awaiting confirmation.';
+      errors[key] = GenesisL10n.current.miniPhonePreviousRequestPending;
       _notify();
       return false;
     }

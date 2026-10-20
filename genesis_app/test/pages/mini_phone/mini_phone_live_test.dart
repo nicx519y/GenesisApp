@@ -550,11 +550,13 @@ void main() {
       expect(b.calls('post/notifications/read').length, 1);
       expect(find.text('Vivienne'), findsNothing);
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Be the first to comment'));
-      await tester.tap(find.text('Be the first to comment'));
+      await tester.ensureVisible(find.bySemanticsLabel('Comments'));
+      await tester.tap(find.bySemanticsLabel('Comments'));
       await settle(tester);
       expect(find.text('Post body'), findsOneWidget);
-      expect(b.calls('post/detail'), isNotEmpty);
+      expect(b.calls('post/detail').length, 1);
+      expect(b.calls('comments').length, 1);
+      expect(b.calls('comments').single.uri.queryParameters['rn'], '100');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       session.dispose();

@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_localizations.dart';
 import 'package:flutter/material.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
@@ -92,7 +93,11 @@ class MiniPhoneMessagesPage extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(right: 60),
                             child: Text(
-                              '${s.lastMessage?.senderId == store.uid ? 'You: ' : ''}${s.lastMessage?.content ?? ''}',
+                              s.lastMessage?.senderId == store.uid
+                                  ? context.l10n.miniPhoneOwnMessage(
+                                      message: s.lastMessage?.content ?? '',
+                                    )
+                                  : s.lastMessage?.content ?? '',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: miniStyle(

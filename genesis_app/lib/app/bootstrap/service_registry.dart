@@ -1,4 +1,5 @@
 import '../gems/gem_store_catalog.dart';
+import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
 import '../../platform/billing/membership_product_store.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_language_controller.dart';
@@ -160,6 +161,13 @@ class AppServices {
   );
 
   final AppConfig config;
+  MiniPhoneMusicOwner? _miniPhoneMusic;
+  MiniPhoneMusicOwner get miniPhoneMusic =>
+      _miniPhoneMusic ??= MiniPhoneMusicOwner(
+        namespace: platformConfig.apiBaseUrl,
+        readUid: sessionStore.readLoginUid,
+        accountRevision: sessionRevision,
+      );
   final PlatformConfig platformConfig;
   final DeviceIdService deviceId;
   final UserSessionStore sessionStore;
@@ -278,6 +286,7 @@ class AppServices {
   }
 
   void dispose() {
+    _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(
       membershipCatalog.invalidate,
     );

@@ -7,7 +7,7 @@ import '../../../network/models/music.dart';
 import '../../../network/models/world.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../music/mini_phone_music_service.dart';
-import '../music/mini_phone_music_progress.dart';
+import '../music/mini_phone_music_owner.dart';
 import '../posts/mini_phone_post_draft.dart';
 import '../preview/mini_phone_demo_store.dart';
 import '../preview/mini_phone_preview_photo.dart';
@@ -21,9 +21,12 @@ class MiniPhoneSession {
     this.worldId = '',
     this.data,
     MiniPhoneMusicService? music,
+    MiniPhoneMusicLease? musicLease,
     MiniPhoneDemoStore? store,
     Future<MusicCatalog> Function()? musicLoader,
-  }) : music = music ?? MiniPhoneMusicService(),
+  }) : assert(music == null || musicLease == null),
+       music = musicLease?.music ?? music ?? MiniPhoneMusicService(),
+       _musicLease = musicLease,
        store = store ?? MiniPhoneDemoStore(),
        _musicLoader = musicLoader {
     this.music.analytics = data?.analytics;
@@ -44,22 +47,15 @@ class MiniPhoneSession {
               loadUser: services.api.getUser,
               accountRevision: services.sessionRevision,
             ),
-      music: MiniPhoneMusicService(
-        progressStore: worldId.isEmpty
-            ? null
-            : LocalMiniPhoneMusicProgressStore(
-                namespace: services.platformConfig.apiBaseUrl,
-                legacyWorldId: worldId,
-                owner: services.sessionStore.readLoginUid().catchError(
-                  (Object _) => null,
-                ),
-              ),
-      ),
+      musicLease: worldId.isEmpty
+          ? null
+          : services.miniPhoneMusic.acquire(worldId),
       musicLoader: services.api.fetchMusicCatalog,
     );
   }
   final String worldId;
   final MiniPhoneMusicService music;
+  final MiniPhoneMusicLease? _musicLease;
   final MiniPhoneStore? data;
   String get clockTime => data?.clockTime ?? '';
   String get entryClockTime => clockTime.isEmpty ? '18:05' : clockTime;
@@ -96,7 +92,11 @@ class MiniPhoneSession {
     if (_disposed) return;
     _disposed = true;
     modelSettings.dispose();
-    music.dispose();
+    if (_musicLease != null) {
+      _musicLease.release();
+    } else {
+      music.dispose();
+    }
     postDraft?.dispose();
     data?.dispose();
     store.dispose();

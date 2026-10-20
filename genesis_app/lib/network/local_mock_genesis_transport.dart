@@ -402,7 +402,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       final next = offset + rows.length;
       return _v1Ok({
         'world_id': worldId,
-        'messages': rows,
+        'messages': rows.reversed.toList(),
         'has_more': next < messages.length,
         'cursor': next < messages.length ? '$snapshot:$next' : '',
       });

@@ -3150,5 +3150,253 @@ class AppLocalizationsKo extends AppLocalizations {
   String get miniPhonePublish => '게시';
 
   @override
+  String get miniPhoneComingSoon => '곧 출시됩니다.';
+
+  @override
   String get miniPhoneViewAllComments => '댓글 모두 보기';
+
+  @override
+  String get miniPhoneMessages => '메시지';
+
+  @override
+  String get miniPhonePosts => '게시물';
+
+  @override
+  String get miniPhonePhotos => '사진';
+
+  @override
+  String get miniPhoneSettings => '설정';
+
+  @override
+  String get miniPhoneMusic => '음악';
+
+  @override
+  String get miniPhoneComments => '댓글';
+
+  @override
+  String get miniPhoneCamera => '카메라';
+
+  @override
+  String get miniPhoneMaps => '지도';
+
+  @override
+  String get miniPhoneCalendar => '캘린더';
+
+  @override
+  String get miniPhonePublishedPost => '게시물을 올렸어요';
+
+  @override
+  String get miniPhoneLikedPost => '게시물에 좋아요를 눌렀어요';
+
+  @override
+  String get miniPhoneCommentedPost => '게시물에 댓글을 남겼어요';
+
+  @override
+  String get miniPhoneRepliedComment => '댓글에 답글을 남겼어요';
+
+  @override
+  String get miniPhonePostActivity => '게시물 활동';
+
+  @override
+  String get miniPhoneShowLess => '간략히 보기';
+
+  @override
+  String get miniPhoneShowAll => '모두 보기';
+
+  @override
+  String get miniPhoneClose => '미니폰 닫기';
+
+  @override
+  String get miniPhoneYou => '나';
+
+  @override
+  String get miniPhoneUnknown => '알 수 없음';
+
+  @override
+  String miniPhoneOwnMessage({required String message}) {
+    return '나: $message';
+  }
+
+  @override
+  String get miniPhonePrivateConversation => '비공개 대화';
+
+  @override
+  String get miniPhoneNewMessages => '새 메시지 ↓';
+
+  @override
+  String get miniPhoneReconnecting => '다시 연결 중… 확인을 기다리고 있어요';
+
+  @override
+  String miniPhoneTyping({required String name}) {
+    return '$name: 입력 중…';
+  }
+
+  @override
+  String get miniPhoneSend => '보내기';
+
+  @override
+  String miniPhoneMessageHint({required String name}) {
+    return '$name에게 메시지 보내기…';
+  }
+
+  @override
+  String get miniPhoneAwaitingConfirmation => '확인 대기 중';
+
+  @override
+  String miniPhoneCommentCount({required int count}) {
+    return '댓글 $count개';
+  }
+
+  @override
+  String get miniPhoneFirstComment => '가장 먼저 생각을 나눠 보세요.';
+
+  @override
+  String get miniPhoneCommentHint => '댓글 작성…';
+
+  @override
+  String miniPhoneReplyHint({required String name}) {
+    return '$name에게 답글 작성…';
+  }
+
+  @override
+  String get miniPhoneLike => '좋아요';
+
+  @override
+  String get miniPhoneAllAuthors => '모든 작성자';
+
+  @override
+  String get miniPhoneWallpaper => '배경화면';
+
+  @override
+  String get miniPhoneUpload => '업로드';
+
+  @override
+  String get miniPhoneApplyWallpaper => '배경화면 적용';
+
+  @override
+  String get miniPhoneSettingsSubtitle => '내 취향에 맞게 폰을 꾸며 보세요.';
+
+  @override
+  String get miniPhonePhotoOpenFailed => '이 사진을 열 수 없어요. 다른 사진을 선택해 주세요.';
+
+  @override
+  String get miniPhoneWallpaperApplied => '배경화면을 적용했어요. 홈 화면에서 확인해 보세요.';
+
+  @override
+  String miniPhoneFromWorldo({required String name}) {
+    return '출처: $name';
+  }
+
+  @override
+  String get miniPhonePreviousTrack => '이전 곡';
+
+  @override
+  String get miniPhoneNextTrack => '다음 곡';
+
+  @override
+  String get miniPhonePlay => '재생';
+
+  @override
+  String get miniPhonePause => '일시 정지';
+
+  @override
+  String miniPhoneLikeTrack({required String title}) {
+    return '$title 좋아요';
+  }
+
+  @override
+  String miniPhoneUnlikeTrack({required String title}) {
+    return '$title 좋아요 취소';
+  }
+
+  @override
+  String miniPhoneOpenMusic({required String title}) {
+    return '음악 열기: $title';
+  }
+
+  @override
+  String get miniPhonePlayMusic => '음악 재생';
+
+  @override
+  String get miniPhonePauseMusic => '음악 일시 정지';
+
+  @override
+  String miniPhoneOpenUnread({required int count}) {
+    return '미니폰 열기, 읽지 않은 메시지 $count개';
+  }
+
+  @override
+  String miniPhoneHomePosition({required int position}) {
+    return '홈 화면 $position페이지';
+  }
+
+  @override
+  String miniPhoneLockedApp({required String name}) {
+    return '$name, 잠김';
+  }
+
+  @override
+  String miniPhoneWorldDay({required int day}) {
+    return '$day일째';
+  }
+
+  @override
+  String get miniPhoneModel => '모델';
+
+  @override
+  String get miniPhoneLoadFailed => '불러올 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneAccountFailed => '계정 정보를 읽을 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneOpenFromWorld => '로그인한 후 월드에서 미니폰을 열어 주세요.';
+
+  @override
+  String get miniPhoneSaveMessagesFailed => '이 기기에 메시지를 저장할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneLoadSavedMessagesFailed =>
+      '저장된 메시지를 불러올 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneLoadDeviceMessagesFailed =>
+      '이 기기에 저장된 메시지를 불러올 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneSaveRequestsFailed =>
+      '이 기기에 폰 요청을 저장할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhonePreviousRequestPending => '이전 요청이 아직 확인을 기다리고 있어요.';
+
+  @override
+  String get miniPhoneReplyFailed => '답변을 생성하지 못했어요.';
+
+  @override
+  String get miniPhonePreparePhotoFailed => '이 사진을 처리할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneUploadPhotoFailed => '이 사진을 업로드할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneTextTooLong => '폰 텍스트는 UTF-8 기준 65535바이트를 넘을 수 없어요';
+
+  @override
+  String get miniPhoneLoadWallpapersFailed => '배경화면을 불러올 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneSaveWallpaperFailed => '배경화면을 저장할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneMusicLikeFailed => '음악의 좋아요 상태를 업데이트할 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneLoadMusicFailed => '음악을 불러올 수 없어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhonePlayMusicFailed => '이 곡을 재생할 수 없어요. 재생을 눌러 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneInvalidResponse => '미니폰 응답이 올바르지 않아요';
 }

@@ -3242,7 +3242,281 @@ class AppLocalizationsZh extends AppLocalizations {
   String get miniPhonePublish => 'Post';
 
   @override
+  String get miniPhoneComingSoon => 'Coming soon.';
+
+  @override
   String get miniPhoneViewAllComments => 'View all comments';
+
+  @override
+  String get miniPhoneMessages => 'Messages';
+
+  @override
+  String get miniPhonePosts => 'Posts';
+
+  @override
+  String get miniPhonePhotos => 'Photos';
+
+  @override
+  String get miniPhoneSettings => 'Settings';
+
+  @override
+  String get miniPhoneMusic => 'Music';
+
+  @override
+  String get miniPhoneComments => 'Comments';
+
+  @override
+  String get miniPhoneCamera => 'Camera';
+
+  @override
+  String get miniPhoneMaps => 'Maps';
+
+  @override
+  String get miniPhoneCalendar => 'Calendar';
+
+  @override
+  String get miniPhonePublishedPost => 'Published a post';
+
+  @override
+  String get miniPhoneLikedPost => 'Liked a post';
+
+  @override
+  String get miniPhoneCommentedPost => 'Commented on a post';
+
+  @override
+  String get miniPhoneRepliedComment => 'Replied to a comment';
+
+  @override
+  String get miniPhonePostActivity => 'Post activity';
+
+  @override
+  String get miniPhoneShowLess => 'Show less';
+
+  @override
+  String get miniPhoneShowAll => 'Show all';
+
+  @override
+  String get miniPhoneClose => 'Close mini phone';
+
+  @override
+  String get miniPhoneYou => 'You';
+
+  @override
+  String get miniPhoneUnknown => 'Unknown';
+
+  @override
+  String miniPhoneOwnMessage({required String message}) {
+    return 'You: $message';
+  }
+
+  @override
+  String get miniPhonePrivateConversation => 'Private conversation';
+
+  @override
+  String get miniPhoneNewMessages => 'New messages ↓';
+
+  @override
+  String get miniPhoneReconnecting => 'Reconnecting… Waiting for confirmation';
+
+  @override
+  String miniPhoneTyping({required String name}) {
+    return '$name is typing…';
+  }
+
+  @override
+  String get miniPhoneSend => 'Send';
+
+  @override
+  String miniPhoneMessageHint({required String name}) {
+    return 'Message $name…';
+  }
+
+  @override
+  String get miniPhoneAwaitingConfirmation => 'Awaiting confirmation';
+
+  @override
+  String miniPhoneCommentCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count comments',
+      one: '1 comment',
+      zero: '0 comments',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneFirstComment => 'Be the first to share your thoughts.';
+
+  @override
+  String get miniPhoneCommentHint => 'Write a comment…';
+
+  @override
+  String miniPhoneReplyHint({required String name}) {
+    return 'Reply to $name…';
+  }
+
+  @override
+  String get miniPhoneLike => 'Like';
+
+  @override
+  String get miniPhoneAllAuthors => 'All authors';
+
+  @override
+  String get miniPhoneWallpaper => 'Wallpaper';
+
+  @override
+  String get miniPhoneUpload => 'Upload';
+
+  @override
+  String get miniPhoneApplyWallpaper => 'Apply wallpaper';
+
+  @override
+  String get miniPhoneSettingsSubtitle => 'Make this phone feel like yours.';
+
+  @override
+  String get miniPhonePhotoOpenFailed =>
+      'Could not open this photo. Please try another.';
+
+  @override
+  String get miniPhoneWallpaperApplied => 'Wallpaper applied. See it on Home.';
+
+  @override
+  String miniPhoneFromWorldo({required String name}) {
+    return 'From $name';
+  }
+
+  @override
+  String get miniPhonePreviousTrack => 'Previous track';
+
+  @override
+  String get miniPhoneNextTrack => 'Next track';
+
+  @override
+  String get miniPhonePlay => 'Play';
+
+  @override
+  String get miniPhonePause => 'Pause';
+
+  @override
+  String miniPhoneLikeTrack({required String title}) {
+    return 'Like $title';
+  }
+
+  @override
+  String miniPhoneUnlikeTrack({required String title}) {
+    return 'Unlike $title';
+  }
+
+  @override
+  String miniPhoneOpenMusic({required String title}) {
+    return 'Open Music: $title';
+  }
+
+  @override
+  String get miniPhonePlayMusic => 'Play music';
+
+  @override
+  String get miniPhonePauseMusic => 'Pause music';
+
+  @override
+  String miniPhoneOpenUnread({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Open Mini phone, $count unread messages',
+      one: 'Open Mini phone, 1 unread message',
+      zero: 'Open Mini phone, 0 unread messages',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String miniPhoneHomePosition({required int position}) {
+    return 'Home position $position';
+  }
+
+  @override
+  String miniPhoneLockedApp({required String name}) {
+    return '$name, locked';
+  }
+
+  @override
+  String miniPhoneWorldDay({required int day}) {
+    return 'Day $day';
+  }
+
+  @override
+  String get miniPhoneModel => 'Model';
+
+  @override
+  String get miniPhoneLoadFailed => 'Unable to load. Please try again.';
+
+  @override
+  String get miniPhoneAccountFailed =>
+      'Unable to read your account. Please try again.';
+
+  @override
+  String get miniPhoneOpenFromWorld =>
+      'Sign in and open Mini phone from a World.';
+
+  @override
+  String get miniPhoneSaveMessagesFailed =>
+      'Unable to save messages on this device. Please try again.';
+
+  @override
+  String get miniPhoneLoadSavedMessagesFailed =>
+      'Unable to load saved messages. Please try again.';
+
+  @override
+  String get miniPhoneLoadDeviceMessagesFailed =>
+      'Unable to load messages saved on this device. Please try again.';
+
+  @override
+  String get miniPhoneSaveRequestsFailed =>
+      'Unable to save phone requests on this device. Please try again.';
+
+  @override
+  String get miniPhonePreviousRequestPending =>
+      'The previous request is still awaiting confirmation.';
+
+  @override
+  String get miniPhoneReplyFailed => 'Reply generation failed.';
+
+  @override
+  String get miniPhonePreparePhotoFailed =>
+      'Unable to prepare this photo. Please try again.';
+
+  @override
+  String get miniPhoneUploadPhotoFailed =>
+      'Unable to upload this photo. Please try again.';
+
+  @override
+  String get miniPhoneTextTooLong =>
+      'Phone text must not exceed 65535 UTF-8 bytes';
+
+  @override
+  String get miniPhoneLoadWallpapersFailed =>
+      'Unable to load wallpapers. Please retry.';
+
+  @override
+  String get miniPhoneSaveWallpaperFailed =>
+      'Unable to save wallpaper. Please retry.';
+
+  @override
+  String get miniPhoneMusicLikeFailed =>
+      'Unable to update music like status. Please retry.';
+
+  @override
+  String get miniPhoneLoadMusicFailed => 'Unable to load music. Please retry.';
+
+  @override
+  String get miniPhonePlayMusicFailed =>
+      'Unable to play this track. Tap play to retry.';
+
+  @override
+  String get miniPhoneInvalidResponse => 'Invalid MiniPhone response';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6332,5 +6606,250 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get miniPhonePublish => '發布';
 
   @override
+  String get miniPhoneComingSoon => '即將推出。';
+
+  @override
   String get miniPhoneViewAllComments => '查看所有留言';
+
+  @override
+  String get miniPhoneMessages => '訊息';
+
+  @override
+  String get miniPhonePosts => '貼文';
+
+  @override
+  String get miniPhonePhotos => '照片';
+
+  @override
+  String get miniPhoneSettings => '設定';
+
+  @override
+  String get miniPhoneMusic => '音樂';
+
+  @override
+  String get miniPhoneComments => '留言';
+
+  @override
+  String get miniPhoneCamera => '相機';
+
+  @override
+  String get miniPhoneMaps => '地圖';
+
+  @override
+  String get miniPhoneCalendar => '行事曆';
+
+  @override
+  String get miniPhonePublishedPost => '發布了貼文';
+
+  @override
+  String get miniPhoneLikedPost => '對貼文按讚';
+
+  @override
+  String get miniPhoneCommentedPost => '在貼文中留言';
+
+  @override
+  String get miniPhoneRepliedComment => '回覆了留言';
+
+  @override
+  String get miniPhonePostActivity => '貼文動態';
+
+  @override
+  String get miniPhoneShowLess => '收合';
+
+  @override
+  String get miniPhoneShowAll => '顯示全部';
+
+  @override
+  String get miniPhoneClose => '關閉迷你手機';
+
+  @override
+  String get miniPhoneYou => '你';
+
+  @override
+  String get miniPhoneUnknown => '未知';
+
+  @override
+  String miniPhoneOwnMessage({required String message}) {
+    return '你：$message';
+  }
+
+  @override
+  String get miniPhonePrivateConversation => '私人對話';
+
+  @override
+  String get miniPhoneNewMessages => '新訊息 ↓';
+
+  @override
+  String get miniPhoneReconnecting => '正在重新連線…等待確認';
+
+  @override
+  String miniPhoneTyping({required String name}) {
+    return '$name 正在輸入…';
+  }
+
+  @override
+  String get miniPhoneSend => '傳送';
+
+  @override
+  String miniPhoneMessageHint({required String name}) {
+    return '傳訊息給 $name…';
+  }
+
+  @override
+  String get miniPhoneAwaitingConfirmation => '等待確認';
+
+  @override
+  String miniPhoneCommentCount({required int count}) {
+    return '$count 則留言';
+  }
+
+  @override
+  String get miniPhoneFirstComment => '成為第一個分享想法的人。';
+
+  @override
+  String get miniPhoneCommentHint => '撰寫留言…';
+
+  @override
+  String miniPhoneReplyHint({required String name}) {
+    return '回覆 $name…';
+  }
+
+  @override
+  String get miniPhoneLike => '按讚';
+
+  @override
+  String get miniPhoneAllAuthors => '所有作者';
+
+  @override
+  String get miniPhoneWallpaper => '桌布';
+
+  @override
+  String get miniPhoneUpload => '上傳';
+
+  @override
+  String get miniPhoneApplyWallpaper => '套用桌布';
+
+  @override
+  String get miniPhoneSettingsSubtitle => '讓這支手機展現你的風格。';
+
+  @override
+  String get miniPhonePhotoOpenFailed => '無法開啟這張照片，請選擇其他照片。';
+
+  @override
+  String get miniPhoneWallpaperApplied => '已套用桌布，可前往手機主畫面查看。';
+
+  @override
+  String miniPhoneFromWorldo({required String name}) {
+    return '來自 $name';
+  }
+
+  @override
+  String get miniPhonePreviousTrack => '上一首';
+
+  @override
+  String get miniPhoneNextTrack => '下一首';
+
+  @override
+  String get miniPhonePlay => '播放';
+
+  @override
+  String get miniPhonePause => '暫停';
+
+  @override
+  String miniPhoneLikeTrack({required String title}) {
+    return '對 $title 按讚';
+  }
+
+  @override
+  String miniPhoneUnlikeTrack({required String title}) {
+    return '取消對 $title 按讚';
+  }
+
+  @override
+  String miniPhoneOpenMusic({required String title}) {
+    return '開啟音樂：$title';
+  }
+
+  @override
+  String get miniPhonePlayMusic => '播放音樂';
+
+  @override
+  String get miniPhonePauseMusic => '暫停音樂';
+
+  @override
+  String miniPhoneOpenUnread({required int count}) {
+    return '開啟迷你手機，$count 則未讀訊息';
+  }
+
+  @override
+  String miniPhoneHomePosition({required int position}) {
+    return '主畫面第 $position 頁';
+  }
+
+  @override
+  String miniPhoneLockedApp({required String name}) {
+    return '$name，尚未開放';
+  }
+
+  @override
+  String miniPhoneWorldDay({required int day}) {
+    return '第 $day 天';
+  }
+
+  @override
+  String get miniPhoneModel => '模型';
+
+  @override
+  String get miniPhoneLoadFailed => '無法載入，請再試一次。';
+
+  @override
+  String get miniPhoneAccountFailed => '無法讀取你的帳號，請再試一次。';
+
+  @override
+  String get miniPhoneOpenFromWorld => '請先登入，再從世界開啟迷你手機。';
+
+  @override
+  String get miniPhoneSaveMessagesFailed => '無法將訊息儲存到這部裝置，請再試一次。';
+
+  @override
+  String get miniPhoneLoadSavedMessagesFailed => '無法載入已儲存的訊息，請再試一次。';
+
+  @override
+  String get miniPhoneLoadDeviceMessagesFailed => '無法載入儲存在這部裝置上的訊息，請再試一次。';
+
+  @override
+  String get miniPhoneSaveRequestsFailed => '無法將手機請求儲存到這部裝置，請再試一次。';
+
+  @override
+  String get miniPhonePreviousRequestPending => '上一個請求仍在等待確認。';
+
+  @override
+  String get miniPhoneReplyFailed => '回覆產生失敗。';
+
+  @override
+  String get miniPhonePreparePhotoFailed => '無法處理這張照片，請再試一次。';
+
+  @override
+  String get miniPhoneUploadPhotoFailed => '無法上傳這張照片，請再試一次。';
+
+  @override
+  String get miniPhoneTextTooLong => '手機文字不得超過 65535 個 UTF-8 位元組';
+
+  @override
+  String get miniPhoneLoadWallpapersFailed => '無法載入桌布，請再試一次。';
+
+  @override
+  String get miniPhoneSaveWallpaperFailed => '無法儲存桌布，請再試一次。';
+
+  @override
+  String get miniPhoneMusicLikeFailed => '無法更新音樂的按讚狀態，請再試一次。';
+
+  @override
+  String get miniPhoneLoadMusicFailed => '無法載入音樂，請再試一次。';
+
+  @override
+  String get miniPhonePlayMusicFailed => '無法播放這首歌曲，請點選播放再試一次。';
+
+  @override
+  String get miniPhoneInvalidResponse => '迷你手機回應無效';
 }

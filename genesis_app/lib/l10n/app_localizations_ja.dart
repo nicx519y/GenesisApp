@@ -3144,5 +3144,254 @@ class AppLocalizationsJa extends AppLocalizations {
   String get miniPhonePublish => '投稿';
 
   @override
+  String get miniPhoneComingSoon => '近日公開予定です。';
+
+  @override
   String get miniPhoneViewAllComments => 'すべてのコメントを見る';
+
+  @override
+  String get miniPhoneMessages => 'メッセージ';
+
+  @override
+  String get miniPhonePosts => '投稿';
+
+  @override
+  String get miniPhonePhotos => '写真';
+
+  @override
+  String get miniPhoneSettings => '設定';
+
+  @override
+  String get miniPhoneMusic => '音楽';
+
+  @override
+  String get miniPhoneComments => 'コメント';
+
+  @override
+  String get miniPhoneCamera => 'カメラ';
+
+  @override
+  String get miniPhoneMaps => 'マップ';
+
+  @override
+  String get miniPhoneCalendar => 'カレンダー';
+
+  @override
+  String get miniPhonePublishedPost => '投稿しました';
+
+  @override
+  String get miniPhoneLikedPost => '投稿に「いいね」しました';
+
+  @override
+  String get miniPhoneCommentedPost => '投稿にコメントしました';
+
+  @override
+  String get miniPhoneRepliedComment => 'コメントに返信しました';
+
+  @override
+  String get miniPhonePostActivity => '投稿のアクティビティ';
+
+  @override
+  String get miniPhoneShowLess => '表示を減らす';
+
+  @override
+  String get miniPhoneShowAll => 'すべて表示';
+
+  @override
+  String get miniPhoneClose => 'ミニフォンを閉じる';
+
+  @override
+  String get miniPhoneYou => 'あなた';
+
+  @override
+  String get miniPhoneUnknown => '不明';
+
+  @override
+  String miniPhoneOwnMessage({required String message}) {
+    return 'あなた：$message';
+  }
+
+  @override
+  String get miniPhonePrivateConversation => 'プライベートチャット';
+
+  @override
+  String get miniPhoneNewMessages => '新しいメッセージ ↓';
+
+  @override
+  String get miniPhoneReconnecting => '再接続中…確認を待っています';
+
+  @override
+  String miniPhoneTyping({required String name}) {
+    return '$name：入力中…';
+  }
+
+  @override
+  String get miniPhoneSend => '送信';
+
+  @override
+  String miniPhoneMessageHint({required String name}) {
+    return '$nameにメッセージ…';
+  }
+
+  @override
+  String get miniPhoneAwaitingConfirmation => '確認待ち';
+
+  @override
+  String miniPhoneCommentCount({required int count}) {
+    return 'コメント$count件';
+  }
+
+  @override
+  String get miniPhoneFirstComment => '最初のコメントを投稿してみましょう。';
+
+  @override
+  String get miniPhoneCommentHint => 'コメントを入力…';
+
+  @override
+  String miniPhoneReplyHint({required String name}) {
+    return '$nameに返信…';
+  }
+
+  @override
+  String get miniPhoneLike => 'いいね';
+
+  @override
+  String get miniPhoneAllAuthors => 'すべての投稿者';
+
+  @override
+  String get miniPhoneWallpaper => '壁紙';
+
+  @override
+  String get miniPhoneUpload => 'アップロード';
+
+  @override
+  String get miniPhoneApplyWallpaper => '壁紙を適用';
+
+  @override
+  String get miniPhoneSettingsSubtitle => 'このフォンを自分らしくカスタマイズしましょう。';
+
+  @override
+  String get miniPhonePhotoOpenFailed => 'この写真を開けませんでした。別の写真をお試しください。';
+
+  @override
+  String get miniPhoneWallpaperApplied => '壁紙を適用しました。ホーム画面で確認できます。';
+
+  @override
+  String miniPhoneFromWorldo({required String name}) {
+    return '$nameより';
+  }
+
+  @override
+  String get miniPhonePreviousTrack => '前の曲';
+
+  @override
+  String get miniPhoneNextTrack => '次の曲';
+
+  @override
+  String get miniPhonePlay => '再生';
+
+  @override
+  String get miniPhonePause => '一時停止';
+
+  @override
+  String miniPhoneLikeTrack({required String title}) {
+    return '$titleに「いいね」';
+  }
+
+  @override
+  String miniPhoneUnlikeTrack({required String title}) {
+    return '$titleの「いいね」を取り消す';
+  }
+
+  @override
+  String miniPhoneOpenMusic({required String title}) {
+    return '音楽を開く：$title';
+  }
+
+  @override
+  String get miniPhonePlayMusic => '音楽を再生';
+
+  @override
+  String get miniPhonePauseMusic => '音楽を一時停止';
+
+  @override
+  String miniPhoneOpenUnread({required int count}) {
+    return 'ミニフォンを開く、未読メッセージ$count件';
+  }
+
+  @override
+  String miniPhoneHomePosition({required int position}) {
+    return 'ホーム画面$positionページ目';
+  }
+
+  @override
+  String miniPhoneLockedApp({required String name}) {
+    return '$name、ロック中';
+  }
+
+  @override
+  String miniPhoneWorldDay({required int day}) {
+    return '$day日目';
+  }
+
+  @override
+  String get miniPhoneModel => 'モデル';
+
+  @override
+  String get miniPhoneLoadFailed => '読み込めませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneAccountFailed => 'アカウント情報を読み取れませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneOpenFromWorld => 'ログインしてワールドからミニフォンを開いてください。';
+
+  @override
+  String get miniPhoneSaveMessagesFailed =>
+      'この端末にメッセージを保存できませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneLoadSavedMessagesFailed =>
+      '保存済みのメッセージを読み込めませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneLoadDeviceMessagesFailed =>
+      'この端末に保存されたメッセージを読み込めませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneSaveRequestsFailed =>
+      'この端末にフォンのリクエストを保存できませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhonePreviousRequestPending => '前のリクエストはまだ確認待ちです。';
+
+  @override
+  String get miniPhoneReplyFailed => '返信を生成できませんでした。';
+
+  @override
+  String get miniPhonePreparePhotoFailed => 'この写真を処理できませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneUploadPhotoFailed => 'この写真をアップロードできませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneTextTooLong => 'フォンのテキストはUTF-8で65535バイト以内にしてください';
+
+  @override
+  String get miniPhoneLoadWallpapersFailed => '壁紙を読み込めませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneSaveWallpaperFailed => '壁紙を保存できませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneMusicLikeFailed => '曲の「いいね」の状態を更新できませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneLoadMusicFailed => '音楽を読み込めませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhonePlayMusicFailed => 'この曲を再生できませんでした。再生をタップしてもう一度お試しください。';
+
+  @override
+  String get miniPhoneInvalidResponse => 'ミニフォンの応答が無効です';
 }

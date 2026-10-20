@@ -158,7 +158,7 @@ A 的玩家源消息和全部 AI 回复气泡拥有相同的 `client_request_id`
 | `is_liked` | boolean | 当前用户是否已点赞 |
 | `comments` | PhoneComment[] | 最新至多 4 条评论及回复，按 published_at DESC、comment_id DESC；无评论为 `[]` |
 
-Feed 不返回 `comment_count`，不能由截断的 `comments` 数组推断总数。客户端按返回顺序最多展示最新 3 条，第 4 条仅用于判断存在更多评论，点击预览或评论入口打开完整评论页；不为 Feed 逐帖请求 `/comments` 或详情。`phone_posts.yaml` 引用的 `phone-query-types.yaml` 未随本次附件提供，评论对象沿用第 3.4 节 PhoneComment 解析。
+Feed 不返回 `comment_count`，不能由截断的 `comments` 数组推断总数。客户端取返回的最新 3 条后按时间正序展示，第 4 条仅用于判断存在更多评论，点击预览或评论入口打开完整评论页；不为 Feed 逐帖请求 `/comments` 或详情。`phone_posts.yaml` 引用的 `phone-query-types.yaml` 未随本次附件提供，评论对象沿用第 3.4 节 PhoneComment 解析。
 
 Feed 不直接返回 `author_char_id`。作者筛选用 `/post/authors` 的 char_id；详情返回作者 char_id，玩家 Feed 作者 UID 不能直接用作 char_id 筛选。
 
@@ -392,6 +392,8 @@ post/authors 只返回已发帖作者的去重 char_id，包含玩家和 AI；ch
 ```
 
 详情为第 3.5 节 PostDetail，包含全部精简评论；独立 comments 为分页 PhoneComment。两者评论均按 published_at ASC、comment_id ASC，包含普通评论及回复。跨世界或不存在帖子返回业务错误。读取不会清除 Post 通知未读。
+
+客户端展示策略（2026-10-21）：进入详情先使用 Feed 当条数据渲染原帖，评论区显示 3 行静态骨架；并行刷新详情与 `/comments?pn=1&rn=100`，有后续页自动取齐，按真实 ID 去重并正序一次性替换。详情精简评论不再作为列表兜底。进入保持顶部；回复键盘弹起后等完整评论与视口布局就绪再定位到底部，用户主动滚动取消跟随。此策略不改变上述服务端协议。
 
 ### 6.3 POST /post/create
 

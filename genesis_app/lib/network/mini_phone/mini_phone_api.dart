@@ -1,3 +1,4 @@
+import '../../l10n/genesis_l10n.dart';
 import 'dart:convert';
 import '../api_client.dart';
 import '../api_exception.dart';
@@ -66,7 +67,7 @@ class MiniPhoneApi {
         : await client.get<Object?>('$prefix/$path', query: v1Query(values));
     if (raw is! Map || raw['err_no'] is! int) {
       throw ApiException(
-        message: 'Invalid MiniPhone response',
+        message: GenesisL10n.current.miniPhoneInvalidResponse,
         kind: ApiExceptionKind.response,
       );
     }

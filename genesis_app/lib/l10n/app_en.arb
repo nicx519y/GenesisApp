@@ -1,60 +1,168 @@
 {
   "imageGifUnsupported": "GIF animations are not supported.",
-  "@imageGifUnsupported": {"description": "Client UI message or accessibility label."},
+  "@imageGifUnsupported": {
+    "description": "Client UI message or accessibility label."
+  },
   "worldProgressComplete": "Progress complete",
-  "@worldProgressComplete": {"description": "Client UI message or accessibility label."},
+  "@worldProgressComplete": {
+    "description": "Client UI message or accessibility label."
+  },
   "a11ySwitchMode": "Switch to {label} mode",
-  "@a11ySwitchMode": {"description": "Client UI message or accessibility label.", "placeholders": {"label": {"type": "String"}}},
+  "@a11ySwitchMode": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "a11yEditItem": "Edit {title}",
-  "@a11yEditItem": {"description": "Client UI message or accessibility label.", "placeholders": {"title": {"type": "String"}}},
+  "@a11yEditItem": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "a11yRoleCards": "{index} of {count} role cards",
-  "@a11yRoleCards": {"description": "Client UI message or accessibility label.", "placeholders": {"index": {"type": "int"}, "count": {"type": "int"}}},
+  "@a11yRoleCards": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "a11yEditInspiration": "Edit inspiration {index}",
-  "@a11yEditInspiration": {"description": "Client UI message or accessibility label.", "placeholders": {"index": {"type": "int"}}},
+  "@a11yEditInspiration": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "a11yInsert": "Insert {label}",
-  "@a11yInsert": {"description": "Client UI message or accessibility label.", "placeholders": {"label": {"type": "String"}}},
+  "@a11yInsert": {
+    "description": "Client UI message or accessibility label.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "a11yMembership": "Membership",
-  "@a11yMembership": {"description": "Accessibility label."},
+  "@a11yMembership": {
+    "description": "Accessibility label."
+  },
   "a11yOpenWorldo": "Open Worldo",
-  "@a11yOpenWorldo": {"description": "Accessibility label."},
+  "@a11yOpenWorldo": {
+    "description": "Accessibility label."
+  },
   "a11yFilterGender": "Filter by gender",
-  "@a11yFilterGender": {"description": "Accessibility label."},
+  "@a11yFilterGender": {
+    "description": "Accessibility label."
+  },
   "a11ySelectRole": "Select Your Role",
-  "@a11ySelectRole": {"description": "Accessibility label."},
+  "@a11ySelectRole": {
+    "description": "Accessibility label."
+  },
   "a11yLoadingMap": "Loading map",
-  "@a11yLoadingMap": {"description": "Accessibility label."},
+  "@a11yLoadingMap": {
+    "description": "Accessibility label."
+  },
   "a11yBuildingWorld": "Building the world",
-  "@a11yBuildingWorld": {"description": "Accessibility label."},
+  "@a11yBuildingWorld": {
+    "description": "Accessibility label."
+  },
   "a11yPremiumMembership": "Premium membership",
-  "@a11yPremiumMembership": {"description": "Accessibility label."},
+  "@a11yPremiumMembership": {
+    "description": "Accessibility label."
+  },
   "a11yProMembership": "Pro membership",
-  "@a11yProMembership": {"description": "Accessibility label."},
+  "@a11yProMembership": {
+    "description": "Accessibility label."
+  },
   "a11yRecommendedRole": "Recommended role",
-  "@a11yRecommendedRole": {"description": "Accessibility label."},
+  "@a11yRecommendedRole": {
+    "description": "Accessibility label."
+  },
   "a11yLastMessage": "Last Message",
-  "@a11yLastMessage": {"description": "Accessibility label."},
+  "@a11yLastMessage": {
+    "description": "Accessibility label."
+  },
   "a11yRecentChat": "Recent chat",
-  "@a11yRecentChat": {"description": "Accessibility label."},
+  "@a11yRecentChat": {
+    "description": "Accessibility label."
+  },
   "a11yAiReplyLoading": "AI reply loading",
-  "@a11yAiReplyLoading": {"description": "Accessibility label."},
+  "@a11yAiReplyLoading": {
+    "description": "Accessibility label."
+  },
   "statMessages": "{amount} {count, plural, =0{Message} =1{Message} other{Messages}}",
-  "@statMessages": {"description": "Localized UI label for statistics or Worldo editor.", "placeholders": {"count": {"type": "num"}, "amount": {"type": "String"}}},
+  "@statMessages": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "statPlayers": "{amount} {count, plural, =0{Player} =1{Player} other{Players}}",
-  "@statPlayers": {"description": "Localized UI label for statistics or Worldo editor.", "placeholders": {"count": {"type": "num"}, "amount": {"type": "String"}}},
+  "@statPlayers": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "createAddedMax": "{added}/{max} (Added / Max)",
-  "@createAddedMax": {"description": "Localized UI label for statistics or Worldo editor.", "placeholders": {"added": {"type": "int"}, "max": {"type": "int"}}},
+  "@createAddedMax": {
+    "description": "Localized UI label for statistics or Worldo editor.",
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
   "createSixHours": "6 hours",
-  "@createSixHours": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createSixHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "createTwelveHours": "12 hours",
-  "@createTwelveHours": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createTwelveHours": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "createOneDay": "1 day",
-  "@createOneDay": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createOneDay": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "createOneWeek": "1 week",
-  "@createOneWeek": {"description": "Localized UI label for statistics or Worldo editor."},
+  "@createOneWeek": {
+    "description": "Localized UI label for statistics or Worldo editor."
+  },
   "settingsLanguage": "Language",
-  "@settingsLanguage": {"description": "Settings language entry and language page title."},
+  "@settingsLanguage": {
+    "description": "Settings language entry and language page title."
+  },
   "languageChangeFailed": "Could not change language. Please try again.",
-  "@languageChangeFailed": {"description": "Language preference save failure."},
+  "@languageChangeFailed": {
+    "description": "Language preference save failure."
+  },
   "@@locale": "en",
   "purchasingGems": "Purchasing Gems",
   "@purchasingGems": {
@@ -157,208 +265,386 @@
     "description": "Terms of Service document title."
   },
   "worldoLabel": "Worldo",
-  "@worldoLabel": {"description": "Worldo content-type label."},
+  "@worldoLabel": {
+    "description": "Worldo content-type label."
+  },
   "worldoHashtagLabel": "#Worldo",
-  "@worldoHashtagLabel": {"description": "Worldo profile collection tab label."},
+  "@worldoHashtagLabel": {
+    "description": "Worldo profile collection tab label."
+  },
   "worldLabel": "World",
-  "@worldLabel": {"description": "World content-type label."},
+  "@worldLabel": {
+    "description": "World content-type label."
+  },
   "userLabel": "User",
-  "@userLabel": {"description": "Generic user label and missing-name fallback."},
+  "@userLabel": {
+    "description": "Generic user label and missing-name fallback."
+  },
   "meLabel": "Me",
-  "@meLabel": {"description": "Current-user sender name fallback."},
+  "@meLabel": {
+    "description": "Current-user sender name fallback."
+  },
   "locationLabel": "Location",
-  "@locationLabel": {"description": "Missing location-name fallback."},
+  "@locationLabel": {
+    "description": "Missing location-name fallback."
+  },
   "allLabel": "All",
-  "@allLabel": {"description": "All option in the Worldo audience filter."},
+  "@allLabel": {
+    "description": "All option in the Worldo audience filter."
+  },
   "maleLabel": "Male",
-  "@maleLabel": {"description": "Male option in the Worldo audience filter."},
+  "@maleLabel": {
+    "description": "Male option in the Worldo audience filter."
+  },
   "femaleLabel": "Female",
-  "@femaleLabel": {"description": "Female option in the Worldo audience filter."},
+  "@femaleLabel": {
+    "description": "Female option in the Worldo audience filter."
+  },
   "nonBinaryLabel": "Non binary",
-  "@nonBinaryLabel": {"description": "Non-binary option in the Worldo audience filter."},
+  "@nonBinaryLabel": {
+    "description": "Non-binary option in the Worldo audience filter."
+  },
   "forYouLabel": "For you",
-  "@forYouLabel": {"description": "For You tab on the Worldo feed."},
+  "@forYouLabel": {
+    "description": "For You tab on the Worldo feed."
+  },
   "userBlocked": "User blocked",
-  "@userBlocked": {"description": "Profile collection message after a user is blocked."},
+  "@userBlocked": {
+    "description": "Profile collection message after a user is blocked."
+  },
   "purchaseCanceled": "Purchase canceled.",
-  "@purchaseCanceled": {"description": "Canceled subscription purchase result."},
+  "@purchaseCanceled": {
+    "description": "Canceled subscription purchase result."
+  },
   "purchasePending": "Your purchase is pending.",
-  "@purchasePending": {"description": "Pending subscription purchase result."},
+  "@purchasePending": {
+    "description": "Pending subscription purchase result."
+  },
   "purchaseConfirmationDelayed": "Purchase confirmation is delayed. Please check again later.",
-  "@purchaseConfirmationDelayed": {"description": "Deferred subscription purchase result."},
+  "@purchaseConfirmationDelayed": {
+    "description": "Deferred subscription purchase result."
+  },
   "purchaseFailed": "Purchase failed.",
-  "@purchaseFailed": {"description": "Generic subscription purchase failure result."},
+  "@purchaseFailed": {
+    "description": "Generic subscription purchase failure result."
+  },
   "yearlyPlan": "Yearly",
-  "@yearlyPlan": {"description": "Yearly Premium plan label."},
+  "@yearlyPlan": {
+    "description": "Yearly Premium plan label."
+  },
   "monthlyPlan": "Monthly",
-  "@monthlyPlan": {"description": "Monthly Premium plan label."},
+  "@monthlyPlan": {
+    "description": "Monthly Premium plan label."
+  },
   "proSubscriptionTagline": "Go deeper into every Worldo you play.",
-  "@proSubscriptionTagline": {"description": "Premium subscription page tagline."},
+  "@proSubscriptionTagline": {
+    "description": "Premium subscription page tagline."
+  },
   "eulaShort": "EULA",
-  "@eulaShort": {"description": "Short End User License Agreement link label."},
+  "@eulaShort": {
+    "description": "Short End User License Agreement link label."
+  },
   "billedAnnually": "{price}, Billed annually",
   "@billedAnnually": {
     "description": "Yearly Premium plan billing note.",
-    "placeholders": {"price": {"type": "String"}}
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
   },
   "expiresOn": "Expires {date}",
   "@expiresOn": {
     "description": "Premium membership expiry line.",
-    "placeholders": {"date": {"type": "String"}}
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "activeStatus": "ACTIVE",
-  "@activeStatus": {"description": "Active Premium membership status."},
+  "@activeStatus": {
+    "description": "Active Premium membership status."
+  },
   "expiredStatus": "Expired",
-  "@expiredStatus": {"description": "Expired Premium membership status."},
+  "@expiredStatus": {
+    "description": "Expired Premium membership status."
+  },
   "updatedAt": "Updated {timestamp}",
   "@updatedAt": {
     "description": "World or Worldo card last-updated line.",
-    "placeholders": {"timestamp": {"type": "String"}}
+    "placeholders": {
+      "timestamp": {
+        "type": "String"
+      }
+    }
   },
   "tickLabel": "Tick",
-  "@tickLabel": {"description": "Tick label without a number."},
+  "@tickLabel": {
+    "description": "Tick label without a number."
+  },
   "tickNumber": "Tick {tick}{suffix}",
   "@tickNumber": {
     "description": "Tick label with optional sub-tick suffix.",
     "placeholders": {
-      "tick": {"type": "String"},
-      "suffix": {"type": "String"}
+      "tick": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
     }
   },
   "loadFailedRetry": "Load failed. Retry",
-  "@loadFailedRetry": {"description": "Retry action after loading more profile items fails."},
+  "@loadFailedRetry": {
+    "description": "Retry action after loading more profile items fails."
+  },
   "loadMoreAction": "Load more",
-  "@loadMoreAction": {"description": "Action to load more list items."},
+  "@loadMoreAction": {
+    "description": "Action to load more list items."
+  },
   "gemPurchaseRecord": "Gem purchase",
-  "@gemPurchaseRecord": {"description": "Fallback title for a Gems purchase record."},
+  "@gemPurchaseRecord": {
+    "description": "Fallback title for a Gems purchase record."
+  },
   "taskRewardRecord": "Task reward",
-  "@taskRewardRecord": {"description": "Fallback title for a Gems task reward record."},
+  "@taskRewardRecord": {
+    "description": "Fallback title for a Gems task reward record."
+  },
   "worldProgressRecord": "World progress",
-  "@worldProgressRecord": {"description": "Fallback title for a World progress Gems record."},
+  "@worldProgressRecord": {
+    "description": "Fallback title for a World progress Gems record."
+  },
   "directMessageRecord": "Direct message",
-  "@directMessageRecord": {"description": "Fallback title for a direct-message Gems record."},
+  "@directMessageRecord": {
+    "description": "Fallback title for a direct-message Gems record."
+  },
   "gemRecord": "Gem record",
-  "@gemRecord": {"description": "Generic fallback title for a Gems record."},
+  "@gemRecord": {
+    "description": "Generic fallback title for a Gems record."
+  },
   "runATickTask": "Run a Tick",
-  "@runATickTask": {"description": "Gems task title for progressing a World."},
+  "@runATickTask": {
+    "description": "Gems task title for progressing a World."
+  },
   "runATickTaskDescription": "Open one of your playing Worlds and tap Tick Now.",
-  "@runATickTaskDescription": {"description": "Gems task instructions for progressing a World."},
+  "@runATickTaskDescription": {
+    "description": "Gems task instructions for progressing a World."
+  },
   "someoneFallback": "Someone",
-  "@someoneFallback": {"description": "Missing player-name fallback."},
+  "@someoneFallback": {
+    "description": "Missing player-name fallback."
+  },
   "aCharacterFallback": "a character",
-  "@aCharacterFallback": {"description": "Missing character-name fallback inside a sentence."},
+  "@aCharacterFallback": {
+    "description": "Missing character-name fallback inside a sentence."
+  },
   "thisWorld": "this World",
-  "@thisWorld": {"description": "Missing World-name fallback inside a sentence."},
+  "@thisWorld": {
+    "description": "Missing World-name fallback inside a sentence."
+  },
   "noWorldEventsYet": "No world events yet.",
-  "@noWorldEventsYet": {"description": "World character events empty state."},
+  "@noWorldEventsYet": {
+    "description": "World character events empty state."
+  },
   "globalLabel": "Global",
-  "@globalLabel": {"description": "Global section label in copied Tick content."},
+  "@globalLabel": {
+    "description": "Global section label in copied Tick content."
+  },
   "eventLabel": "Event",
-  "@eventLabel": {"description": "Event section label in copied Tick content."},
+  "@eventLabel": {
+    "description": "Event section label in copied Tick content."
+  },
   "characterDestinations": "Character destinations",
-  "@characterDestinations": {"description": "Character movement section label in copied Tick content."},
+  "@characterDestinations": {
+    "description": "Character movement section label in copied Tick content."
+  },
   "characterMovementSentence": "{characterName} {direction} {locationName}",
   "@characterMovementSentence": {
     "description": "Character movement sentence with styled or copied parts.",
     "placeholders": {
-      "characterName": {"type": "String"},
-      "direction": {"type": "String"},
-      "locationName": {"type": "String"}
+      "characterName": {
+        "type": "String"
+      },
+      "direction": {
+        "type": "String"
+      },
+      "locationName": {
+        "type": "String"
+      }
     }
   },
   "cameToDirection": "came to",
-  "@cameToDirection": {"description": "Character movement direction in past tense."},
+  "@cameToDirection": {
+    "description": "Character movement direction in past tense."
+  },
   "wentToDirection": "went to",
-  "@wentToDirection": {"description": "Character movement direction away in past tense."},
+  "@wentToDirection": {
+    "description": "Character movement direction away in past tense."
+  },
   "hasComeToDirection": "has come to",
-  "@hasComeToDirection": {"description": "Character movement direction for the current location."},
+  "@hasComeToDirection": {
+    "description": "Character movement direction for the current location."
+  },
   "hasGoneToDirection": "has gone to",
-  "@hasGoneToDirection": {"description": "Character movement direction away from the current location."},
+  "@hasGoneToDirection": {
+    "description": "Character movement direction away from the current location."
+  },
   "waitForReplyToSendMore": "Wait for a reply to send more",
-  "@waitForReplyToSendMore": {"description": "Direct-message composer gate while awaiting a reply."},
+  "@waitForReplyToSendMore": {
+    "description": "Direct-message composer gate while awaiting a reply."
+  },
   "newMessages": "{count, plural, =1{1 new message} other{{count} new messages}}",
   "@newMessages": {
     "description": "Count of new direct messages.",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "selectPresetRoleValidation": "Please select a preset role",
-  "@selectPresetRoleValidation": {"description": "Role launch validation message."},
+  "@selectPresetRoleValidation": {
+    "description": "Role launch validation message."
+  },
   "enterNameValidation": "Please enter a name",
-  "@enterNameValidation": {"description": "Character-name validation message."},
+  "@enterNameValidation": {
+    "description": "Character-name validation message."
+  },
   "enterIdentityValidation": "Please enter an identity",
-  "@enterIdentityValidation": {"description": "Character-identity validation message."},
+  "@enterIdentityValidation": {
+    "description": "Character-identity validation message."
+  },
   "waitForProfileLoading": "Please wait for the profile to finish loading.",
-  "@waitForProfileLoading": {"description": "Role launch message while profile data is loading."},
+  "@waitForProfileLoading": {
+    "description": "Role launch message while profile data is loading."
+  },
   "imageUploadFailed": "Image upload failed.",
-  "@imageUploadFailed": {"description": "Image upload failure shown in the Worldo editor."},
+  "@imageUploadFailed": {
+    "description": "Image upload failure shown in the Worldo editor."
+  },
   "photoAccessDenied": "Photo access denied",
-  "@photoAccessDenied": {"description": "Discussion image picker permission error."},
+  "@photoAccessDenied": {
+    "description": "Discussion image picker permission error."
+  },
   "feedbackSubmitted": "Feedback submitted",
-  "@feedbackSubmitted": {"description": "Settings feedback submission success."},
+  "@feedbackSubmitted": {
+    "description": "Settings feedback submission success."
+  },
   "feedbackFailed": "Feedback failed",
-  "@feedbackFailed": {"description": "Settings feedback submission failure."},
+  "@feedbackFailed": {
+    "description": "Settings feedback submission failure."
+  },
   "worldoDetailUnavailable": "Worldo detail is unavailable.",
-  "@worldoDetailUnavailable": {"description": "Worldo editor load failure fallback."},
+  "@worldoDetailUnavailable": {
+    "description": "Worldo editor load failure fallback."
+  },
   "publishAction": "Publish",
-  "@publishAction": {"description": "Publish Worldo action."},
+  "@publishAction": {
+    "description": "Publish Worldo action."
+  },
   "publishingStatus": "Publishing...",
-  "@publishingStatus": {"description": "Worldo publishing progress label."},
+  "@publishingStatus": {
+    "description": "Worldo publishing progress label."
+  },
   "publishFailed": "Publish failed",
-  "@publishFailed": {"description": "Worldo publishing failure prefix."},
+  "@publishFailed": {
+    "description": "Worldo publishing failure prefix."
+  },
   "publishChangesBeforeLeaving": "Publish changes before leaving?",
-  "@publishChangesBeforeLeaving": {"description": "Worldo editor leave confirmation title."},
+  "@publishChangesBeforeLeaving": {
+    "description": "Worldo editor leave confirmation title."
+  },
   "noChangesToPublish": "No changes to publish.",
-  "@noChangesToPublish": {"description": "Worldo editor submit-disabled message."},
+  "@noChangesToPublish": {
+    "description": "Worldo editor submit-disabled message."
+  },
   "completeOpeningRequiredToPublish": "A complete Opening is required to publish",
-  "@completeOpeningRequiredToPublish": {"description": "Worldo editor validation error before publishing."},
+  "@completeOpeningRequiredToPublish": {
+    "description": "Worldo editor validation error before publishing."
+  },
   "publishResponseMissingOriginId": "Publishing did not return a Worldo ID.",
-  "@publishResponseMissingOriginId": {"description": "Worldo editor publishing response error."},
+  "@publishResponseMissingOriginId": {
+    "description": "Worldo editor publishing response error."
+  },
   "worldoIdRequired": "A Worldo ID is required.",
-  "@worldoIdRequired": {"description": "Worldo editor cannot load without an ID."},
+  "@worldoIdRequired": {
+    "description": "Worldo editor cannot load without an ID."
+  },
   "loadFailedWithReason": "Load failed: {reason}",
   "@loadFailedWithReason": {
     "description": "Load failure with a technical reason.",
-    "placeholders": {"reason": {"type": "String"}}
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   },
   "imageSelectionFailed": "Image selection failed",
-  "@imageSelectionFailed": {"description": "Discussion image picker generic failure."},
+  "@imageSelectionFailed": {
+    "description": "Discussion image picker generic failure."
+  },
   "profileOriginSubtitle": "OID: {oid}\nLatest Version: {version}",
   "@profileOriginSubtitle": {
     "description": "Worldo summary in another user's profile.",
     "placeholders": {
-      "oid": {"type": "String"},
-      "version": {"type": "String"}
+      "oid": {
+        "type": "String"
+      },
+      "version": {
+        "type": "String"
+      }
     }
   },
   "profileWorldSubtitle": "WID: {wid}\nOwner: {owner}",
   "@profileWorldSubtitle": {
     "description": "World summary in another user's profile.",
     "placeholders": {
-      "wid": {"type": "String"},
-      "owner": {"type": "String"}
+      "wid": {
+        "type": "String"
+      },
+      "owner": {
+        "type": "String"
+      }
     }
   },
   "sendFailed": "Send failed",
-  "@sendFailed": {"description": "Direct-message send failure."},
+  "@sendFailed": {
+    "description": "Direct-message send failure."
+  },
   "selectARole": "Select a role",
-  "@selectARole": {"description": "Role picker empty selection label."},
+  "@selectARole": {
+    "description": "Role picker empty selection label."
+  },
   "timeLabel": "Time",
-  "@timeLabel": {"description": "Sender name for a World timeline message."},
+  "@timeLabel": {
+    "description": "Sender name for a World timeline message."
+  },
   "discussOriginSummary": "OID: {oid}",
   "@discussOriginSummary": {
     "description": "Worldo identifier in a discussion page summary.",
-    "placeholders": {"oid": {"type": "String"}}
+    "placeholders": {
+      "oid": {
+        "type": "String"
+      }
+    }
   },
   "discussOriginSummaryWithCreator": "OID: {oid} · Creator: {creator}",
   "@discussOriginSummaryWithCreator": {
     "description": "Worldo identifier and creator in a discussion page summary.",
     "placeholders": {
-      "oid": {"type": "String"},
-      "creator": {"type": "String"}
+      "oid": {
+        "type": "String"
+      },
+      "creator": {
+        "type": "String"
+      }
     }
   },
   "worldoMetricExplanation": "This worldo updates each character''s '{Metric Label}' every progress, shown in '{Unit}'. Each character starts at '{Starting}', and the value can move within '{Delta Min}'–'{Delta Max}'.",
-  "@worldoMetricExplanation": {"description": "Worldo Metric field explanation with literal field-name braces."},
+  "@worldoMetricExplanation": {
+    "description": "Worldo Metric field explanation with literal field-name braces."
+  },
   "homeMyWorldsEmptyTitle": "Launch a {worldo} to generate\nyour own World",
   "@homeMyWorldsEmptyTitle": {
     "description": "Home My Worlds empty-state title.",
@@ -435,9 +721,13 @@
     }
   },
   "createTimeout": "Worldo creation timed out.",
-  "@createTimeout": {"description": "Create Worldo 提交后等待创建结果超时的提示"},
+  "@createTimeout": {
+    "description": "Create Worldo 提交后等待创建结果超时的提示"
+  },
   "publishTimeout": "Worldo publishing timed out",
-  "@publishTimeout": {"description": "Publish Worldo 提交后等待发布结果超时的提示"},
+  "@publishTimeout": {
+    "description": "Publish Worldo 提交后等待发布结果超时的提示"
+  },
   "joinRequestSelfSummary": "You requested to join {worldName}{worldId}",
   "@joinRequestSelfSummary": {
     "description": "Inbox summary for the current user's World join request.",
@@ -939,9 +1229,15 @@
   "@worldInviteText": {
     "description": "首页 - Home → World 详情页，点击 Invite 后系统分享面板中的邀请正文",
     "placeholders": {
-      "worldName": {"type": "String"},
-      "wid": {"type": "String"},
-      "downloadUrl": {"type": "String"}
+      "worldName": {
+        "type": "String"
+      },
+      "wid": {
+        "type": "String"
+      },
+      "downloadUrl": {
+        "type": "String"
+      }
     }
   },
   "worldDetailWorldBrief": "World Brief",
@@ -1621,7 +1917,11 @@
   "createCurrentVersion": "Current Version: {version}",
   "@createCurrentVersion": {
     "description": "首页 - Create → Edit Worldo 页面，摘要顶部显示当前版本",
-    "placeholders": {"version": {"type": "String"}}
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "createChecking": "Checking...",
   "@createChecking": {
@@ -1630,17 +1930,29 @@
   "createSummaryName": "Worldo Name: {name}",
   "@createSummaryName": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 名称",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "createSummaryBrief": "Worldo Brief: {brief}",
   "@createSummaryBrief": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的 Worldo 简介",
-    "placeholders": {"brief": {"type": "String"}}
+    "placeholders": {
+      "brief": {
+        "type": "String"
+      }
+    }
   },
   "createSummaryCover": "Cover Image: {status}",
   "@createSummaryCover": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的封面状态",
-    "placeholders": {"status": {"type": "String"}}
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
   },
   "createNotUploaded": "Not uploaded",
   "@createNotUploaded": {
@@ -1653,22 +1965,38 @@
   "createSummarySettings": "Worldo Settings: {settings}",
   "@createSummarySettings": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的世界设定",
-    "placeholders": {"settings": {"type": "String"}}
+    "placeholders": {
+      "settings": {
+        "type": "String"
+      }
+    }
   },
   "createSummaryTime": "Worldo Time: {time}",
   "@createSummaryTime": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的时间设定",
-    "placeholders": {"time": {"type": "String"}}
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "createSummaryMetric": "Worldo Metric: {metric}",
   "@createSummaryMetric": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中的数值设定",
-    "placeholders": {"metric": {"type": "String"}}
+    "placeholders": {
+      "metric": {
+        "type": "String"
+      }
+    }
   },
   "createDays": "{count, plural, =1{1 day} other{{count} days}}",
   "@createDays": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Basics 摘要中时间间隔的天数",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryNoCharacters": "0 characters",
   "@createSummaryNoCharacters": {
@@ -1677,47 +2005,86 @@
   "createSummaryCharacters": "{count, plural, =1{1 character: {names}} other{{count} characters: {names}}}",
   "@createSummaryCharacters": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的角色数量和名称",
-    "placeholders": {"count": {"type": "int"}, "names": {"type": "String"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
   },
   "createSummarySuggested": "Suggested: {name}",
   "@createSummarySuggested": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Characters 摘要中的推荐角色",
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "createSummaryRegion": "L1 · Region: {count}",
   "@createSummaryRegion": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的一级地点数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryBuilding": "L2 · Building: {count}",
   "@createSummaryBuilding": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的二级地点数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryRoom": "L3 · Room: {count}",
   "@createSummaryRoom": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Locations 摘要中的三级地点数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryEvents": "{count, plural, =1{1 event} other{{count} events}}",
   "@createSummaryEvents": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Story Events 摘要中的事件数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryDialogue": "Character dialogue: {count}",
   "@createSummaryDialogue": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的角色对话数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryNarrator": "Narrator: {count}",
   "@createSummaryNarrator": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的旁白数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createSummaryImage": "Image: {count}",
   "@createSummaryImage": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 页面，Opening 摘要中的图片数量",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createDeleteItemLabel": "Delete {itemLabel}?",
   "@createDeleteItemLabel": {
@@ -1741,9 +2108,13 @@
     "description": "首页 - Create → Create Worldo / Edit Worldo 的 Basics 页标题；提交前校验提示中的 Basics 名称"
   },
   "createSaveInProgress": "Saving is already in progress.",
-  "@createSaveInProgress": {"description": "首页 - Create → Worldo 的 Basics、Characters、Locations、Opening、Story Events 编辑页，保存过程中再次点击禁用的 Save 按钮"},
+  "@createSaveInProgress": {
+    "description": "首页 - Create → Worldo 的 Basics、Characters、Locations、Opening、Story Events 编辑页，保存过程中再次点击禁用的 Save 按钮"
+  },
   "createRequiredBeforeSave": "Complete all required fields before saving.",
-  "@createRequiredBeforeSave": {"description": "首页 - Create → Worldo 的 Basics 或 Opening 编辑页，必填项未完成时点击 Save 按钮"},
+  "@createRequiredBeforeSave": {
+    "description": "首页 - Create → Worldo 的 Basics 或 Opening 编辑页，必填项未完成时点击 Save 按钮"
+  },
   "createOpeningOpening": "Opening",
   "@createOpeningOpening": {
     "description": "首页 - Create → Create Worldo / Edit Worldo 的 Opening 页标题；提交前校验提示中的 Opening 名称"
@@ -1910,13 +2281,21 @@
     "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Name”字段标题"
   },
   "createBasicsNameRequired": "Worldo Name is required.",
-  "@createBasicsNameRequired": {"description": "首页 - Create → Worldo 编辑 - Basics，Worldo Name 为空时点击 Save 的提示"},
+  "@createBasicsNameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Name 为空时点击 Save 的提示"
+  },
   "createBasicsBriefRequired": "Worldo Brief is required.",
-  "@createBasicsBriefRequired": {"description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 为空时点击 Save 的提示"},
+  "@createBasicsBriefRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 为空时点击 Save 的提示"
+  },
   "createBasicsCoverRequired": "Cover Image is required.",
-  "@createBasicsCoverRequired": {"description": "首页 - Create → Worldo 编辑 - Basics，Cover Image 为空时点击 Save 的提示"},
+  "@createBasicsCoverRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Cover Image 为空时点击 Save 的提示"
+  },
   "createBasicsMetricInvalid": "Metric must be valid JSON.",
-  "@createBasicsMetricInvalid": {"description": "首页 - Create → Worldo 编辑 - Basics，Metric JSON 无效时点击 Save 的提示"},
+  "@createBasicsMetricInvalid": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Metric JSON 无效时点击 Save 的提示"
+  },
   "createBasicsEgMainStreet": "eg. Main Street",
   "@createBasicsEgMainStreet": {
     "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Main Street”"
@@ -1926,9 +2305,13 @@
     "description": "首页 - Create → Worldo 编辑 - Basics，“Worldo Brief”字段标题"
   },
   "createBasicsBriefNote": "The public hook players see first — the setting, the core conflict, and what makes it intriguing.",
-  "@createBasicsBriefNote": {"description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 输入框下的说明"},
+  "@createBasicsBriefNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Brief 输入框下的说明"
+  },
   "createBasicsHiddenNote": "The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.",
-  "@createBasicsHiddenNote": {"description": "首页 - Create → Worldo 编辑 - Basics，Worldo Settings - Hidden 输入框下的说明"},
+  "@createBasicsHiddenNote": {
+    "description": "首页 - Create → Worldo 编辑 - Basics，Worldo Settings - Hidden 输入框下的说明"
+  },
   "createBasicsEgHalfShopsMain": "eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.",
   "@createBasicsEgHalfShopsMain": {
     "description": "首页 - Create → Worldo 编辑 - Basics，输入框内的示例提示“eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.”"
@@ -2051,29 +2434,49 @@
     "description": "首页 - Create → Worldo 编辑 - Characters，“Name”字段标题"
   },
   "createCharactersTitle": "Characters",
-  "@createCharactersTitle": {"description": "首页 - Create → Create Worldo / Edit Worldo 的 Characters 编辑页顶部标题"},
+  "@createCharactersTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Characters 编辑页顶部标题"
+  },
   "createCharacterLimit": "You can add up to {count} characters.",
   "@createCharacterLimit": {
     "description": "首页 - Create → Worldo 编辑 - Characters，超过角色数量上限时的提示",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createCharacterNameRequired": "Character {index}: Name is required.",
   "@createCharacterNameRequired": {
     "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Name 时保存的提示",
-    "placeholders": {"index": {"type": "int"}}
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
   },
   "createCharacterIdentityRequired": "Character {index}: Identity is required.",
   "@createCharacterIdentityRequired": {
     "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Identity 时保存的提示",
-    "placeholders": {"index": {"type": "int"}}
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
   },
   "createCharacterPersonalityRequired": "Character {index}: Personality is required.",
   "@createCharacterPersonalityRequired": {
     "description": "首页 - Create → Worldo 编辑 - Characters，第 N 个角色缺少 Personality 时保存的提示",
-    "placeholders": {"index": {"type": "int"}}
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
   },
   "createCharacterMinOne": "Please create at least one character.",
-  "@createCharacterMinOne": {"description": "首页 - Create → Worldo 编辑 - Characters，没有角色时点击 Save 的提示"},
+  "@createCharacterMinOne": {
+    "description": "首页 - Create → Worldo 编辑 - Characters，没有角色时点击 Save 的提示"
+  },
   "createCharacterEnterName": "Enter name...",
   "@createCharacterEnterName": {
     "description": "首页 - Create → Worldo 编辑 - Characters，输入框内的示例提示“Enter name...”"
@@ -2176,73 +2579,135 @@
     "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet的标题"
   },
   "createLocationsTitle": "Locations",
-  "@createLocationsTitle": {"description": "首页 - Create → Create Worldo / Edit Worldo 的 Locations 编辑页顶部标题"},
+  "@createLocationsTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Locations 编辑页顶部标题"
+  },
   "createLocationStatisticsNote": "Your world is built in 3 levels:\nL1 · Region     An area of your world — Downtown\nL2 · Building   A building inside it — Joe''s Diner\nL3 · Room       A room inside that building — The Back Kitchen\nEvery location needs all three levels. Up to 15 rooms in total.",
-  "@createLocationStatisticsNote": {"description": "首页 - Create → Worldo 编辑 - Locations，Preview 页面地点层级说明"},
+  "@createLocationStatisticsNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，Preview 页面地点层级说明"
+  },
   "createLocationL1NameNote": "An area of your world — a district, a town, a forest. Not a single building.",
-  "@createLocationL1NameNote": {"description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称输入框下的说明"},
+  "@createLocationL1NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称输入框下的说明"
+  },
   "createLocationL2NameNote": "A building inside this region — a shop, a school, an apartment block.",
-  "@createLocationL2NameNote": {"description": "首页 - Create → Worldo 编辑 - Locations，L2 地点名称输入框下的说明"},
+  "@createLocationL2NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点名称输入框下的说明"
+  },
   "createLocationL3NameNote": "A room inside the building. Rooftops, courtyards and entrances work too.",
-  "@createLocationL3NameNote": {"description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称输入框下的说明"},
+  "@createLocationL3NameNote": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称输入框下的说明"
+  },
   "createLocationName": "Name *",
-  "@createLocationName": {"description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet 的名称字段标题"},
+  "@createLocationName": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点编辑 Sheet 的名称字段标题"
+  },
   "createLocationL1NameRequired": "L1 location name is required.",
-  "@createLocationL1NameRequired": {"description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称为空时点击 Save 的提示"},
+  "@createLocationL1NameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点名称为空时点击 Save 的提示"
+  },
   "createLocationL3NameRequired": "L3 location name is required.",
-  "@createLocationL3NameRequired": {"description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称为空时点击 Save 的提示"},
+  "@createLocationL3NameRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L3 地点名称为空时点击 Save 的提示"
+  },
   "createLocationThisL1": "This L1 location",
-  "@createLocationThisL1": {"description": "首页 - Create → Worldo 编辑 - Locations，L1 地点尚未命名时校验提示中的地点称呼"},
+  "@createLocationThisL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点尚未命名时校验提示中的地点称呼"
+  },
   "createLocationThisL2": "This L2 location",
-  "@createLocationThisL2": {"description": "首页 - Create → Worldo 编辑 - Locations，L2 地点尚未命名时校验提示中的地点称呼"},
+  "@createLocationThisL2": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点尚未命名时校验提示中的地点称呼"
+  },
   "createLocationL1NeedsL2": "{locationLabel} must contain at least one L2 location.",
   "@createLocationL1NeedsL2": {
     "description": "首页 - Create → Worldo 编辑 - Locations，L1 地点缺少 L2 子地点时的提示",
-    "placeholders": {"locationLabel": {"type": "String"}}
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
   },
   "createLocationL2NeedsL3": "{locationLabel} must contain at least one L3 location.",
   "@createLocationL2NeedsL3": {
     "description": "首页 - Create → Worldo 编辑 - Locations，L2 地点缺少 L3 子地点时的提示",
-    "placeholders": {"locationLabel": {"type": "String"}}
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
   },
   "createLocationL2NameNeeded": "{locationLabel} has an L2 location that needs a name.",
   "@createLocationL2NameNeeded": {
     "description": "首页 - Create → Worldo 编辑 - Locations，L1 下的 L2 地点缺少名称时点击 Save 的提示",
-    "placeholders": {"locationLabel": {"type": "String"}}
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
   },
   "createLocationL3NameNeeded": "{locationLabel} has an L3 location that needs a name.",
   "@createLocationL3NameNeeded": {
     "description": "首页 - Create → Worldo 编辑 - Locations，L2 下的 L3 地点缺少名称时点击 Save 的提示",
-    "placeholders": {"locationLabel": {"type": "String"}}
+    "placeholders": {
+      "locationLabel": {
+        "type": "String"
+      }
+    }
   },
   "createLocationMaxL3": "You can add up to {count} L3 locations.",
   "@createLocationMaxL3": {
     "description": "首页 - Create → Worldo 编辑 - Locations，新增地点达到 L3 总数上限时的提示",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createLocationRoomsFull": "You''ve used all {count} rooms. Delete one to add another.",
   "@createLocationRoomsFull": {
     "description": "首页 - Create → Worldo 编辑 - Locations，新增 L3 地点时房间已满的提示",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createLocationAtLeastOneL1": "At least one L1 location is required.",
-  "@createLocationAtLeastOneL1": {"description": "首页 - Create → Worldo 编辑 - Locations，尝试删除最后一个 L1 地点时的提示"},
+  "@createLocationAtLeastOneL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，尝试删除最后一个 L1 地点时的提示"
+  },
   "createLocationAddL1": "Add at least one L1 location.",
-  "@createLocationAddL1": {"description": "首页 - Create → Worldo 编辑 - Locations，没有 L1 地点时点击 Save 的提示"},
+  "@createLocationAddL1": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，没有 L1 地点时点击 Save 的提示"
+  },
   "createLocationMinOne": "Please create at least one location.",
-  "@createLocationMinOne": {"description": "首页 - Create → Worldo 编辑 - Locations，没有地点时点击 Save 的提示"},
+  "@createLocationMinOne": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，没有地点时点击 Save 的提示"
+  },
   "createLocationIdRequired": "Every location must have an ID.",
-  "@createLocationIdRequired": {"description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 缺失的提示"},
+  "@createLocationIdRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 缺失的提示"
+  },
   "createLocationIdUnique": "Every location must have a unique ID.",
-  "@createLocationIdUnique": {"description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 重复的提示"},
+  "@createLocationIdUnique": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点 ID 重复的提示"
+  },
   "createLocationParentInvalid": "Every location must have a valid parent.",
-  "@createLocationParentInvalid": {"description": "首页 - Create → Worldo 编辑 - Locations，保存时地点上级无效的提示"},
+  "@createLocationParentInvalid": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，保存时地点上级无效的提示"
+  },
   "createLocationFieldsRequired": "Complete all required location fields before saving.",
-  "@createLocationFieldsRequired": {"description": "首页 - Create → Worldo 编辑 - Locations，必填地点字段未完成时点击 Save 的提示"},
+  "@createLocationFieldsRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Locations，必填地点字段未完成时点击 Save 的提示"
+  },
   "createLocationDeleteBubbles": "{count, plural, =1{Saving Locations will also delete 1 Opening dialogue bubble for the removed characters.} other{Saving Locations will also delete {count} Opening dialogue bubbles for the removed characters.}}",
   "@createLocationDeleteBubbles": {
     "description": "首页 - Create → Worldo 编辑 - Locations，保存时移除角色会连带删除 Opening 对话的确认弹窗正文",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createLocationEditL3Location": "Edit L3 Location",
   "@createLocationEditL3Location": {
@@ -2329,11 +2794,17 @@
     "description": "首页 - Create → Worldo 编辑 - Opening，“Select initial location”字段或选项"
   },
   "createOpeningInitialLocationRequired": "Select an initial location before saving.",
-  "@createOpeningInitialLocationRequired": {"description": "首页 - Create → Worldo 编辑 - Opening，未选择初始地点时点击 Save 的提示"},
+  "@createOpeningInitialLocationRequired": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，未选择初始地点时点击 Save 的提示"
+  },
   "createOpeningAddDialogueFirst": "Add at least one dialogue item before saving.",
-  "@createOpeningAddDialogueFirst": {"description": "首页 - Create → Worldo 编辑 - Opening，没有对话条目时点击 Save 的提示"},
+  "@createOpeningAddDialogueFirst": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，没有对话条目时点击 Save 的提示"
+  },
   "createOpeningCompleteDialogue": "Complete every dialogue item before saving.",
-  "@createOpeningCompleteDialogue": {"description": "首页 - Create → Worldo 编辑 - Opening，有未完成对话条目时点击 Save 的提示"},
+  "@createOpeningCompleteDialogue": {
+    "description": "首页 - Create → Worldo 编辑 - Opening，有未完成对话条目时点击 Save 的提示"
+  },
   "createOpeningDialogue": "Opening dialogue",
   "@createOpeningDialogue": {
     "description": "首页 - Create → Worldo 编辑 - Opening，“Opening dialogue”字段或选项"
@@ -2384,11 +2855,17 @@
     "description": "首页 - Create → Worldo 编辑 - Story Events，事件列表/保存操作的按钮或标签"
   },
   "createStoryEventsTitle": "Story Events",
-  "@createStoryEventsTitle": {"description": "首页 - Create → Create Worldo / Edit Worldo 的 Story Events 编辑页顶部标题"},
+  "@createStoryEventsTitle": {
+    "description": "首页 - Create → Create Worldo / Edit Worldo 的 Story Events 编辑页顶部标题"
+  },
   "createEventLimit": "You can add up to {count} events.",
   "@createEventLimit": {
     "description": "首页 - Create → Worldo 编辑 - Story Events，新增事件达到上限时的提示",
-    "placeholders": {"count": {"type": "int"}}
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "createEventEventIndex": "Event {index}",
   "@createEventEventIndex": {
@@ -2575,7 +3052,9 @@
     "description": "首页 - Me，未登录状态下登录引导区中显示的文字"
   },
   "loginSignUpReward": "Sign up and get 250 Gems!",
-  "@loginSignUpReward": {"description": "登录弹窗顶部以及新用户个性化页登录区的注册奖励提示"},
+  "@loginSignUpReward": {
+    "description": "登录弹窗顶部以及新用户个性化页登录区的注册奖励提示"
+  },
   "meUnknown": "Unknown",
   "@meUnknown": {
     "description": "首页 - Me，资料加载失败状态"
@@ -2636,8 +3115,8 @@
   },
   "meBlockFailed": "Block failed. Please try again.",
   "@meBlockFailed": {
-  "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
-},
+    "description": "Profile and blocked-user settings: block action failure toast, including missing user ID and local fallback when no server err_msg exists."
+  },
   "meUserBlockedContentHasReported": "User blocked. This content has been reported to Worldo team.",
   "@meUserBlockedContentHasReported": {
     "description": "首页 - Me → 其他用户资料页，Block 或 Unblock 失败"
@@ -2652,8 +3131,8 @@
   },
   "meUnblockFailed": "Unblock failed. Please try again.",
   "@meUnblockFailed": {
-  "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
-},
+    "description": "Profile and blocked-user settings: unblock action failure toast, including missing user ID and local fallback when no server err_msg exists."
+  },
   "meUnblock": "Unblock",
   "@meUnblock": {
     "description": "首页 - Me → 其他用户资料页，其他用户资料页的按钮或标签"
@@ -3446,7 +3925,9 @@
     "description": "通用 Sheet，底部面板右上角的关闭按钮"
   },
   "commonImageLoadFailed": "Image load failed",
-  "@commonImageLoadFailed": {"description": "图片裁剪页，图片加载失败时的居中错误提示"},
+  "@commonImageLoadFailed": {
+    "description": "图片裁剪页，图片加载失败时的居中错误提示"
+  },
   "commonPageNotFound": "Page not found.",
   "@commonPageNotFound": {
     "description": "页面不存在页，打开不存在的页面中显示的文字"
@@ -3740,7 +4221,9 @@
     "description": "Recap debug selector: simulate subscription but load actual server recap content."
   },
   "chatEditFreeUsesExhausted": "No free edits remaining.",
-  "@chatEditFreeUsesExhausted": {"description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."},
+  "@chatEditFreeUsesExhausted": {
+    "description": "Location chat reply editor: toast when saving edited replies returns server error 2030 because free edit uses are exhausted; a Premium subscription sheet opens and the draft stays intact."
+  },
   "developerMembershipSetting": "Membership: {selection}",
   "@developerMembershipSetting": {
     "description": "Developer settings button: displays the selected temporary membership override.",
@@ -3866,8 +4349,365 @@
   "@miniPhonePublish": {
     "description": "MiniPhone new post: submit the post body and optional image; also retries an unconfirmed submission."
   },
+  "miniPhoneComingSoon": "Coming soon.",
+  "@miniPhoneComingSoon": {
+    "description": "MiniPhone home screen: toast shown when tapping a locked Camera, Maps, or Calendar app that is not yet available."
+  },
   "miniPhoneViewAllComments": "View all comments",
   "@miniPhoneViewAllComments": {
     "description": "MiniPhone Posts feed: opens the full comment page when the feed contains more than three recent comments or replies. The feed does not provide a total count."
+  },
+  "miniPhoneMessages": "Messages",
+  "@miniPhoneMessages": {
+    "description": "MiniPhone navigation header, home app accessibility label and unread message group title."
+  },
+  "miniPhonePosts": "Posts",
+  "@miniPhonePosts": {
+    "description": "MiniPhone navigation header, home app accessibility label and unread post group title."
+  },
+  "miniPhonePhotos": "Photos",
+  "@miniPhonePhotos": {
+    "description": "MiniPhone album navigation header and home app accessibility label."
+  },
+  "miniPhoneSettings": "Settings",
+  "@miniPhoneSettings": {
+    "description": "MiniPhone wallpaper settings navigation header and home app accessibility label."
+  },
+  "miniPhoneMusic": "Music",
+  "@miniPhoneMusic": {
+    "description": "MiniPhone music navigation header and home app label."
+  },
+  "miniPhoneComments": "Comments",
+  "@miniPhoneComments": {
+    "description": "MiniPhone comment page header and post comment action accessibility label."
+  },
+  "miniPhoneCamera": "Camera",
+  "@miniPhoneCamera": {
+    "description": "MiniPhone home: locked camera app label."
+  },
+  "miniPhoneMaps": "Maps",
+  "@miniPhoneMaps": {
+    "description": "MiniPhone home: locked maps app label."
+  },
+  "miniPhoneCalendar": "Calendar",
+  "@miniPhoneCalendar": {
+    "description": "MiniPhone home: locked calendar app label."
+  },
+  "miniPhonePublishedPost": "Published a post",
+  "@miniPhonePublishedPost": {
+    "description": "MiniPhone home notification: actor published a post; actor name appears separately."
+  },
+  "miniPhoneLikedPost": "Liked a post",
+  "@miniPhoneLikedPost": {
+    "description": "MiniPhone home notification: actor liked a post; actor name appears separately."
+  },
+  "miniPhoneCommentedPost": "Commented on a post",
+  "@miniPhoneCommentedPost": {
+    "description": "MiniPhone home notification: actor commented on a post; actor name appears separately."
+  },
+  "miniPhoneRepliedComment": "Replied to a comment",
+  "@miniPhoneRepliedComment": {
+    "description": "MiniPhone home notification: actor replied to a comment; actor name appears separately."
+  },
+  "miniPhonePostActivity": "Post activity",
+  "@miniPhonePostActivity": {
+    "description": "MiniPhone home: fallback activity label for an unknown post notification type."
+  },
+  "miniPhoneShowLess": "Show less",
+  "@miniPhoneShowLess": {
+    "description": "MiniPhone home: collapse expanded notification groups."
+  },
+  "miniPhoneShowAll": "Show all",
+  "@miniPhoneShowAll": {
+    "description": "MiniPhone home: expand notification groups to show all available cards."
+  },
+  "miniPhoneClose": "Close mini phone",
+  "@miniPhoneClose": {
+    "description": "MiniPhone shell: close button tooltip; exits the entire phone."
+  },
+  "miniPhoneYou": "You",
+  "@miniPhoneYou": {
+    "description": "MiniPhone private chat: current user's sender name and fallback user identity."
+  },
+  "miniPhoneUnknown": "Unknown",
+  "@miniPhoneUnknown": {
+    "description": "MiniPhone: fallback actor name when identity cannot be resolved."
+  },
+  "miniPhoneOwnMessage": "You: {message}",
+  "@miniPhoneOwnMessage": {
+    "description": "MiniPhone Messages list: last message preview sent by the current user; preserve the message verbatim.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePrivateConversation": "Private conversation",
+  "@miniPhonePrivateConversation": {
+    "description": "MiniPhone private chat: subtitle below contact header."
+  },
+  "miniPhoneNewMessages": "New messages ↓",
+  "@miniPhoneNewMessages": {
+    "description": "MiniPhone private chat: return to latest messages while reading history; retain arrow."
+  },
+  "miniPhoneReconnecting": "Reconnecting… Waiting for confirmation",
+  "@miniPhoneReconnecting": {
+    "description": "MiniPhone private chat: uncertain send request is being checked; does not imply failure."
+  },
+  "miniPhoneTyping": "{name} is typing…",
+  "@miniPhoneTyping": {
+    "description": "MiniPhone AI private chat: local waiting indicator; unknown dynamic name must not imply gender or pronunciation.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneSend": "Send",
+  "@miniPhoneSend": {
+    "description": "MiniPhone private chat send button and comment send tooltip."
+  },
+  "miniPhoneMessageHint": "Message {name}…",
+  "@miniPhoneMessageHint": {
+    "description": "MiniPhone private chat input placeholder addressed to a dynamic contact name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneAwaitingConfirmation": "Awaiting confirmation",
+  "@miniPhoneAwaitingConfirmation": {
+    "description": "MiniPhone private chat: outgoing message status after an uncertain request."
+  },
+  "miniPhoneCommentCount": "{count, plural, =0{0 comments} one{1 comment} other{{count} comments}}",
+  "@miniPhoneCommentCount": {
+    "description": "MiniPhone comment detail: total number of comments supplied by the detail response.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneFirstComment": "Be the first to share your thoughts.",
+  "@miniPhoneFirstComment": {
+    "description": "MiniPhone comment page: empty state when no comments exist."
+  },
+  "miniPhoneCommentHint": "Write a comment…",
+  "@miniPhoneCommentHint": {
+    "description": "MiniPhone comment input placeholder without a selected reply target."
+  },
+  "miniPhoneReplyHint": "Reply to {name}…",
+  "@miniPhoneReplyHint": {
+    "description": "MiniPhone comment input placeholder when replying to a specific author; name is dynamic.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneLike": "Like",
+  "@miniPhoneLike": {
+    "description": "MiniPhone post: like action accessibility label."
+  },
+  "miniPhoneAllAuthors": "All authors",
+  "@miniPhoneAllAuthors": {
+    "description": "MiniPhone Posts: accessibility label for the circular all-author filter; visible lowercase all remains a fixed design label."
+  },
+  "miniPhoneWallpaper": "Wallpaper",
+  "@miniPhoneWallpaper": {
+    "description": "MiniPhone settings: wallpaper selection section heading."
+  },
+  "miniPhoneUpload": "Upload",
+  "@miniPhoneUpload": {
+    "description": "MiniPhone wallpaper settings: choose a local image for wallpaper."
+  },
+  "miniPhoneApplyWallpaper": "Apply wallpaper",
+  "@miniPhoneApplyWallpaper": {
+    "description": "MiniPhone settings: save the selected wallpaper and prepare it for the home screen."
+  },
+  "miniPhoneSettingsSubtitle": "Make this phone feel like yours.",
+  "@miniPhoneSettingsSubtitle": {
+    "description": "MiniPhone wallpaper settings: introductory subtitle."
+  },
+  "miniPhonePhotoOpenFailed": "Could not open this photo. Please try another.",
+  "@miniPhonePhotoOpenFailed": {
+    "description": "MiniPhone wallpaper settings: toast after local image selection or crop fails."
+  },
+  "miniPhoneWallpaperApplied": "Wallpaper applied. See it on Home.",
+  "@miniPhoneWallpaperApplied": {
+    "description": "MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen."
+  },
+  "miniPhoneFromWorldo": "From {name}",
+  "@miniPhoneFromWorldo": {
+    "description": "MiniPhone music player: source Worldo name, already formatted with its leading hash.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePreviousTrack": "Previous track",
+  "@miniPhonePreviousTrack": {
+    "description": "MiniPhone player and home music card: previous-track control tooltip."
+  },
+  "miniPhoneNextTrack": "Next track",
+  "@miniPhoneNextTrack": {
+    "description": "MiniPhone player and home music card: next-track control tooltip."
+  },
+  "miniPhonePlay": "Play",
+  "@miniPhonePlay": {
+    "description": "MiniPhone player and home music card: start or resume audio control."
+  },
+  "miniPhonePause": "Pause",
+  "@miniPhonePause": {
+    "description": "MiniPhone player and home music card: pause audio control."
+  },
+  "miniPhoneLikeTrack": "Like {title}",
+  "@miniPhoneLikeTrack": {
+    "description": "MiniPhone music: like a track tooltip; title is dynamic song content.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneUnlikeTrack": "Unlike {title}",
+  "@miniPhoneUnlikeTrack": {
+    "description": "MiniPhone music: remove a track like tooltip; title is dynamic song content.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneOpenMusic": "Open Music: {title}",
+  "@miniPhoneOpenMusic": {
+    "description": "MiniPhone home music card: accessibility label to open the current track's player.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePlayMusic": "Play music",
+  "@miniPhonePlayMusic": {
+    "description": "MiniPhone floating entry: play music bubble accessibility label."
+  },
+  "miniPhonePauseMusic": "Pause music",
+  "@miniPhonePauseMusic": {
+    "description": "MiniPhone floating entry: pause music bubble accessibility label."
+  },
+  "miniPhoneOpenUnread": "{count, plural, =0{Open Mini phone, 0 unread messages} one{Open Mini phone, 1 unread message} other{Open Mini phone, {count} unread messages}}",
+  "@miniPhoneOpenUnread": {
+    "description": "MiniPhone floating entry: accessibility label describing the open action and unread message count.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneHomePosition": "Home position {position}",
+  "@miniPhoneHomePosition": {
+    "description": "MiniPhone home: accessibility label for the numbered home-page indicator; position is one-based.",
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneLockedApp": "{name}, locked",
+  "@miniPhoneLockedApp": {
+    "description": "MiniPhone home: accessibility label for an unavailable app; name is the localized app label.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneWorldDay": "Day {day}",
+  "@miniPhoneWorldDay": {
+    "description": "MiniPhone home and wallpaper preview: day number extracted from the protocol's English world-time field; world name is displayed separately.",
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneModel": "Model",
+  "@miniPhoneModel": {
+    "description": "MiniPhone private chat header: model selector fallback before the model catalog is available."
+  },
+  "miniPhoneLoadFailed": "Unable to load. Please try again.",
+  "@miniPhoneLoadFailed": {
+    "description": "MiniPhone requests: generic toast for a local or transport exception without a server business message."
+  },
+  "miniPhoneAccountFailed": "Unable to read your account. Please try again.",
+  "@miniPhoneAccountFailed": {
+    "description": "MiniPhone initialization and wallpaper: toast when local account identity cannot be read."
+  },
+  "miniPhoneOpenFromWorld": "Sign in and open Mini phone from a World.",
+  "@miniPhoneOpenFromWorld": {
+    "description": "MiniPhone initialization: toast when no signed-in account is available for world phone data."
+  },
+  "miniPhoneSaveMessagesFailed": "Unable to save messages on this device. Please try again.",
+  "@miniPhoneSaveMessagesFailed": {
+    "description": "MiniPhone messages: toast when persisting the local message cache fails."
+  },
+  "miniPhoneLoadSavedMessagesFailed": "Unable to load saved messages. Please try again.",
+  "@miniPhoneLoadSavedMessagesFailed": {
+    "description": "MiniPhone messages: toast when restoring cached conversation history fails."
+  },
+  "miniPhoneLoadDeviceMessagesFailed": "Unable to load messages saved on this device. Please try again.",
+  "@miniPhoneLoadDeviceMessagesFailed": {
+    "description": "MiniPhone initialization: toast when loading the device message cache fails."
+  },
+  "miniPhoneSaveRequestsFailed": "Unable to save phone requests on this device. Please try again.",
+  "@miniPhoneSaveRequestsFailed": {
+    "description": "MiniPhone write requests: toast when the local request journal cannot be persisted; write is not sent."
+  },
+  "miniPhonePreviousRequestPending": "The previous request is still awaiting confirmation.",
+  "@miniPhonePreviousRequestPending": {
+    "description": "MiniPhone write requests: toast when retry would conflict with an earlier unresolved operation."
+  },
+  "miniPhoneReplyFailed": "Reply generation failed.",
+  "@miniPhoneReplyFailed": {
+    "description": "MiniPhone AI private chat: fallback error when server reports final generation failure without a message."
+  },
+  "miniPhonePreparePhotoFailed": "Unable to prepare this photo. Please try again.",
+  "@miniPhonePreparePhotoFailed": {
+    "description": "MiniPhone post draft and wallpaper: local image processing failure toast."
+  },
+  "miniPhoneUploadPhotoFailed": "Unable to upload this photo. Please try again.",
+  "@miniPhoneUploadPhotoFailed": {
+    "description": "MiniPhone post draft and wallpaper: image upload failure toast without a server error message."
+  },
+  "miniPhoneTextTooLong": "Phone text must not exceed 65535 UTF-8 bytes",
+  "@miniPhoneTextTooLong": {
+    "description": "MiniPhone post draft: validation toast for the backend UTF-8 byte limit, distinct from the 500-character new-draft limit."
+  },
+  "miniPhoneLoadWallpapersFailed": "Unable to load wallpapers. Please retry.",
+  "@miniPhoneLoadWallpapersFailed": {
+    "description": "MiniPhone settings: wallpaper catalog failure toast."
+  },
+  "miniPhoneSaveWallpaperFailed": "Unable to save wallpaper. Please retry.",
+  "@miniPhoneSaveWallpaperFailed": {
+    "description": "MiniPhone settings: wallpaper save failure toast without a server error message."
+  },
+  "miniPhoneMusicLikeFailed": "Unable to update music like status. Please retry.",
+  "@miniPhoneMusicLikeFailed": {
+    "description": "MiniPhone music: failure toast for reading or changing a track's like state."
+  },
+  "miniPhoneLoadMusicFailed": "Unable to load music. Please retry.",
+  "@miniPhoneLoadMusicFailed": {
+    "description": "MiniPhone music: catalog load failure toast."
+  },
+  "miniPhonePlayMusicFailed": "Unable to play this track. Tap play to retry.",
+  "@miniPhonePlayMusicFailed": {
+    "description": "MiniPhone music: playback failure toast with explicit retry action."
+  },
+  "miniPhoneInvalidResponse": "Invalid MiniPhone response",
+  "@miniPhoneInvalidResponse": {
+    "description": "MiniPhone HTTP: local malformed-response error surfaced by the public toast; not a server business message."
   }
 }

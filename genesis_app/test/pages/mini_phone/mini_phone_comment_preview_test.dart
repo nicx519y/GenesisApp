@@ -24,9 +24,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final count in [0, 1, 3, 4]) {
+  for (final count in [0, 1, 2, 3, 4]) {
     testWidgets(
-      'feed shows latest three of $count embedded comments without reads',
+      'feed shows latest three of $count embedded comments in chronological order without reads',
       (tester) async {
         final backend = PhoneBackend();
         backend.respond = (request) => request.uri.path.endsWith('/posts')
@@ -73,21 +73,25 @@ void main() {
             findsOneWidget,
           );
         }
+        final positions = [
+          for (var id = count - visible + 1; id <= count; id++)
+            tester
+                .getTopLeft(
+                  find.textContaining('Comment $id', findRichText: true),
+                )
+                .dy,
+        ];
+        for (var i = 1; i < positions.length; i++) {
+          expect(positions[i - 1], lessThan(positions[i]));
+        }
+        expect(store.posts.single.comments.map((c) => c.id), [
+          for (var id = count; id > 0; id--) id,
+        ]);
         if (count == 4) {
           expect(
             find.textContaining('Comment 1', findRichText: true),
             findsNothing,
           );
-          final positions = [
-            for (final id in [4, 3, 2])
-              tester
-                  .getTopLeft(
-                    find.textContaining('Comment $id', findRichText: true),
-                  )
-                  .dy,
-          ];
-          expect(positions[0], lessThan(positions[1]));
-          expect(positions[1], lessThan(positions[2]));
           await tester.tap(find.text('View all comments'));
         } else {
           expect(find.text('View all comments'), findsNothing);

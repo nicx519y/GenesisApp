@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import '../../../ui/components/genesis_primary_button.dart';
 import '../../../ui/components/genesis_avatar.dart';
@@ -50,8 +51,10 @@ Widget miniPhoneInput(
   int? limit = 500,
   required VoidCallback onChanged,
   int maxLines = 4,
+  FocusNode? focusNode,
 }) => TextField(
   controller: controller,
+  focusNode: focusNode,
   maxLength: limit,
   minLines: 1,
   maxLines: maxLines,
@@ -80,7 +83,7 @@ Widget miniPhoneInput(
   ),
 );
 Widget miniPhoneSendButton(VoidCallback? action) => IconButton(
-  tooltip: 'Send',
+  tooltip: GenesisL10n.current.miniPhoneSend,
   onPressed: action,
   style: IconButton.styleFrom(
     backgroundColor: miniRed,
@@ -96,7 +99,7 @@ Widget miniPhoneAllAuthorsShortcut({
   required bool selected,
   required VoidCallback onTap,
 }) => Semantics(
-  label: 'All authors',
+  label: GenesisL10n.current.miniPhoneAllAuthors,
   button: true,
   selected: selected,
   child: GestureDetector(

@@ -3,9 +3,69 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/world_history.dart';
 import 'package:genesis_flutter_android/pages/world/history/world_history_controller.dart';
+import 'package:genesis_flutter_android/pages/world/history/world_history_projection.dart';
 import 'history_fixtures.dart';
 
 void main() {
+  test(
+    'ascending response pages render oldest to newest across overlap',
+    () async {
+      final calls = <String?>[];
+      final recent = [
+        historyMessage('z-user', type: 'user', locations: ['A', 'B']),
+        historyMessage('a-latest', locations: ['B']),
+      ];
+      final older = [
+        historyMessage('q-oldest', locations: ['B']),
+        historyMessage('m-tick', type: 'tick', locations: ['A']),
+        recent.first,
+      ];
+      final c = WorldHistoryController(
+        worldId: 'w',
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async {
+              calls.add(cursor);
+              return WorldHistoryPage(
+                worldId: worldId,
+                messages: cursor == null ? recent : older,
+                hasMore: cursor == null,
+                cursor: cursor == null ? 'older+/=' : '',
+              );
+            },
+      );
+      addTearDown(c.dispose);
+      final projection = WorldHistoryProjection();
+      List<String> rendered() {
+        projection.project(
+          newestFirst: c.newestFirst,
+          dataRevision: c.revision,
+          world: historyWorld(),
+          uid: 'me',
+          appVersion: 999,
+          sectionParticipation: c.sectionParticipation,
+        );
+        return projection.rows
+            .map((r) => '${r.message.id}:${r.locationId}')
+            .toList();
+      }
+
+      c.setActive(true);
+      await c.refresh();
+      expect(rendered(), ['z-user:A', 'z-user:B', 'a-latest:B']);
+      expect(c.pages.single.messages, recent);
+      await c.loadOlder();
+      expect(rendered(), [
+        'q-oldest:B',
+        'm-tick:A',
+        'z-user:A',
+        'z-user:B',
+        'a-latest:B',
+      ]);
+      expect(calls, [null, 'older+/=']);
+      expect(c.hasOlder, isFalse);
+    },
+  );
+
   test(
     'same operation coalesces; opaque cursor and world-level order survive',
     () async {
@@ -32,9 +92,9 @@ void main() {
       await first;
       expect(calls, [null]);
       expect(c.newestFirst.map((m) => m.id), [
-        '2',
-        '999999999999999999999999',
         '1',
+        '999999999999999999999999',
+        '2',
       ]);
     },
   );
@@ -181,7 +241,7 @@ void main() {
       }
       expect(c.hasNewer, isFalse);
       expect(c.hasOlder, isTrue);
-      expect(c.newestFirst.first.id, '0-a');
+      expect(c.newestFirst.first.id, '0-b');
     },
   );
 

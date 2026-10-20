@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_l10n.dart';
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
@@ -81,7 +82,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       if (_current(generation)) {
         error = e is ApiException
             ? e.message
-            : 'Unable to prepare this photo. Please try again.';
+            : GenesisL10n.current.miniPhonePreparePhotoFailed;
       }
     } finally {
       if (_current(generation)) {
@@ -100,7 +101,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
     final retry = pending != null && !pending.rejected;
     final content = retry ? pending.content : text;
     if (utf8.encode(content).length > 65535) {
-      error = 'Phone text must not exceed 65535 UTF-8 bytes';
+      error = GenesisL10n.current.miniPhoneTextTooLong;
       notifyListeners();
       return false;
     }
@@ -155,7 +156,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       if (_current(generation)) {
         error = e is ApiException
             ? e.message
-            : 'Unable to upload this photo. Please try again.';
+            : GenesisL10n.current.miniPhoneUploadPhotoFailed;
       }
       return false;
     } finally {

@@ -48,6 +48,62 @@ pages until it reaches a known boundary. Existing history and delivered batches
 merge by ID; display order is numeric ascending. Notification pages replace
 rather than merge: two indistinguishable facts about one post remain two rows.
 
+## Locked home apps
+
+Locked Camera, Maps, and Calendar home icons retain their lock styling. Tapping
+either an icon or its label shows the shared dark Toast (`miniPhoneComingSoon`,
+English: `Coming soon.`) without launching an app.
+
+## Client localization (2026-10-20)
+
+Production MiniPhone headers, home notification summaries, private-chat and
+comment prompts, wallpaper feedback, music controls, and accessibility labels
+use the app language. Widgets read `context.l10n`; presentation helpers without
+a build context read `GenesisL10n.current` when invoked. The 72 additional
+`miniPhone*` messages have English scene descriptions and translations for
+zh-TW, es, pt, fr, de, it, ja, and ko.
+
+The `Day N` protocol field is still parsed in English; only the displayed day
+label is localized. Notification expansion keeps stable internal group IDs.
+Comment totals and entry unread counts use localized plural forms. Home app
+names can wrap within their icon slots; accessibility retains the full label.
+The specified visible lowercase `all` filter label remains unchanged; its
+accessibility label is localized.
+
+Server names, post/message bodies, music metadata, wallpaper titles, and
+business `err_msg` remain verbatim. Local failure/success Toasts are localized,
+including cache/journal errors, image processing/upload, wallpaper save, and
+music playback. Internal diagnostics and the separate Developer demo content
+are outside this production-copy migration. Translation records are AI
+translations, not human-reviewed copy. Local checks do not establish native
+device layout or server-content translation acceptance.
+
+Cloud documentation synchronization was completed on 2026-10-20 after explicit
+user authorization. The [translation sheet](https://my.feishu.cn/wiki/UuK0whQptiTiCRkyNy5cQDQln2N?sheet=cd7861)
+contains all 72 keys in A874:L945, including display locations, translation
+notes, English, and all eight target languages. The
+[Toast annotation sheet](https://my.feishu.cn/wiki/RAoXwNYAGiSsjGkaJmRcHh2unVh?sheet=812a74)
+contains 20 local feedback/fallback entries in A111:K130.
+Both documents showed that they were saved to the cloud. Exported readback
+matched all 864 translation cells and 220 Toast cells; the language values also
+matched the current ARB files. Existing translation rows, existing Toast rows,
+and the separate `toast 最新` sheet were unchanged.
+
+Validation for this migration:
+
+- `./tool/l10n/check`: 943 keys × 8 target languages, 56 tests passed;
+  `translate --dry-run`: no pending keys.
+- Focused analysis of MiniPhone, its HTTP API, and the new localization test:
+  no issues. Localization regression covers dynamic placeholders, plural counts,
+  live chat locale changes, server-error preservation, world-day display, and
+  French home labels at 320 logical pixels.
+- The broader MiniPhone page/network run had 296 passing tests and 5 failures:
+  two tests still search for `Be the first to comment`, the module boundary
+  test rejects a network-model import, the music-like test fails its initial
+  selected-heart assertion, and the compact seek-bar test measures a 20-pixel
+  hit area against a 48-pixel expectation. These failures remain unresolved;
+  this run is not an all-green module acceptance result.
+
 ## Request scheduling (2026-10-17)
 
 - Restore account/local cache first. Phone app-list entry and warm-up wait only
@@ -208,9 +264,13 @@ Validation for this scheduling change:
   including query parameters, reuse an uploaded URL on retry until the image
   changes, and retry uncertain posts with their original request ID/content/URL.
   Photos remains a read-only world album; image upload is independent of it.
-- Post detail displays all detail comments. Reply selection queries the
-  independent comments endpoint for real IDs; it never guesses IDs by text or
-  position. Likes are serialized per post and queried after uncertain results.
+- Post detail immediately renders the feed card snapshot (cached detail only
+  when no feed item exists), then refreshes detail and complete comments in
+  parallel. Each entry shows three static comment skeleton rows until every
+  `/comments` page has completed. Fetch 100 per page, deduplicate by real ID,
+  sort by published_at/comment_id ascending, and publish atomically. Do not
+  render feed previews, previous-entry comments or detail-summary comments.
+  Reply selection uses the loaded real IDs. Likes remain serialized per post.
 - Photos uses the server album and a lazy three-column grid. Album list loading
   does not show a loading icon; existing content stays visible, and pull-to-refresh
   retains its refresh indicator. Grid thumbnails
@@ -317,7 +377,7 @@ AI replies.
 - The 2026-10-20 `/posts` contract ([phone_posts.yaml](phone_posts.yaml))
   returns `comments`: at most four recent comments/replies ordered by
   `published_at DESC, comment_id DESC`, with no `comment_count`. Feed renders
-  the first three (the latest three) in that order. A fourth comment enables
+  the first three (the latest three) in reversed, chronological order. A fourth comment enables
   the count-free view-all link; the Comments action stays available without an
   invented total. Feed never queries `/comments` or detail to fill previews.
   Refresh replaces comments with the successful feed response, including `[]`;
@@ -417,12 +477,12 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `POST /dm/send` | 发送角色私聊及首次私聊；提交 `world_id/char_id/client_request_id/content`；空成功响应不生成气泡 |
 | `POST /dm_session/read` | 前台会话成功加载或收到新消息后标记该会话已读；只提交 `dm_session_id`，成功后清除缓存会话的未读并重查未读聚合，不重拉会话列表 |
 | `GET /post/authors` | 只传 `world_id`，获取全世界已发帖角色 ID，不分页；关联世界角色名称和头像；Feed 刷新时一并更新 |
-| `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；写操作不顺带刷新 Feed（发布／评论返回 Posts 时走正常页面入口刷新）；读取 `comments` 展示最新至多三条评论／回复（服务端倒序最多返回四条）；无总评论数，不额外查询预览 |
+| `GET /posts` | Feed、`char_id` 作者筛选、刷新、分页；全部作者省略 `char_id`，玩家使用世界角色 ID；写操作不顺带刷新 Feed（发布／评论返回 Posts 时走正常页面入口刷新）；读取 `comments` 取最新至多三条评论／回复后按时间正序展示（服务端倒序最多返回四条）；无总评论数，不额外查询预览 |
 | `GET /post/detail` | 打开帖子／通知详情或下拉刷新；评论成功及点赞操作后查询实际状态，不随通知推送刷新 |
 | `POST /post/create` | 发布文字／图文帖子；提交 `content` 和可选图片 `image`，成功后只刷新帖子通知聚合，返回 Posts 时按页面入口刷新 Feed |
 | `POST /post/like` | 点赞；同帖操作串行，随后查询详情确认状态 |
 | `POST /post/unlike` | 取消点赞；与点赞共用串行处理和状态查询 |
-| `GET /comments` | 选择具体评论进行回复及分页，取得真实 `comment_id`；评论提交后刷新；普通详情的完整评论来自 `/post/detail` |
+| `GET /comments` | 详情进入、下拉刷新和评论成功后按 `rn=100` 自动取齐所有页；完整列表提供展示及真实 `comment_id` 回复目标，不再滚动分页 |
 | `POST /comment/create` | 发布评论／回复；回复携带 `reply_to_comment_id`，成功后刷新详情与评论列表；Feed 由后续页面入口刷新 |
 | `GET /post/notifications` | 帖子通知／发帖／Post 已读后以 unread_only=true、rn=20 独立更新 Home 帖子聚合；保留分页方法，无独立通知页入口 |
 | `POST /post/notifications/read` | 进入 Posts 并成功加载后清除当前世界全部 Post 未读；只提交 `world_id`；停留期间不持续清除新通知 |
@@ -432,7 +492,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 
 这些接口使用既有 `GenesisApi`／V1 resource，保持各自的认证与签名流程。
 
-音乐播放进度保存在本机，按 API 环境和账号共享一条当前歌曲、播放位置与时长，所有 World 共用。进入其他 World 时恢复共享记录，保持暂停；不做跨设备同步。旧版按 World 保存的记录没有时间戳，共享记录缺失时仅迁移首次读到的有效旧 World 记录，后续旧记录不能覆盖共享进度；各会话的保存和迁移按共享键串行处理。
+音乐播放进度保存在本机，按 API 环境和账号共享一条当前歌曲、播放位置与时长，所有 World 共用。正式 World 通过 AppServices 持有的 MiniPhoneMusicOwner 借用同一播放器实例。退出 World 暂停并保存进度，保留目录、当前歌曲及就绪解码器；下一个 World 直接复用且保持暂停，冷启动才恢复本地记录。每次进入 World（包括重新进入同一 World），入口 icon 的音乐气泡和音符显示状态重置；当前 World 播放或切歌后才重新显示，随后暂停仍保留播放按钮。该入口显示状态独立于音乐历史与缓存，异步恢复历史不会激活入口；Home 音乐卡片与播放器继续使用保留的歌曲和进度。同一 World 内关闭／重开手机或地图与地点聊天之间切换不重置入口音乐状态。旧 World 的延迟释放不得暂停新 World；加载中退出撤销播放意图并中断未完成解码器加载。埋点随当前 World 绑定、退出解绑。账号变更、环境服务替换和 AppServices 释放时销毁旧实例；独立无世界预览仍由自己的会话销毁。不做跨设备同步。旧版按 World 保存的记录没有时间戳，共享记录缺失时仅迁移首次读到的有效旧 World 记录，后续旧记录不能覆盖共享进度；各会话的保存和迁移按共享键串行处理。
 
 | 方法与完整路径 | 当前使用场景 |
 | --- | --- |
@@ -448,6 +508,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `GET /api/v1/gem/model/list` | 读取世界模型目录；优先复用已有缓存，供 MiniPhone 模型页展示 |
 
 - Home 壁纸在设置页覆盖期间保留旧画面；返回桌面且新图片解码就绪后，以 300ms 淡入淡出切换，加载失败保留旧背景。
+- Apply wallpaper 在保存接口成功后继续等待桌面原图下载、图片校验及缓存处理结束，期间按钮保持 loading、进度不提前到 100%，禁止重复提交和更换选择。自行上传的照片复用已有完整字节，不重复下载；下载失败保留旧桌面并解除 loading，不撤销已成功的服务端保存。账号切换或关闭手机释放控制器后，旧下载不得回写显示状态或成功反馈。
 - Settings 壁纸选项使用接口 `default_background_images[].image_url`，列表与上方预览共用 190 × (190 × 16/9) 逻辑尺寸，经公共 CDN 高度缩放入口按预览高度 × DPR（上限 2）加载（1× 高 338px、2× 高 676px）。两处 URL、解码尺寸和 `BoxFit.cover` 缓存键一致，点击已加载选项直接复用解码帧。列表显示高度仍为 100，加载中／失败显示静态深色块（`miniRaised`），不显示默认壁纸占位图。上方预览保留默认壁纸回退和本地图片预览；选择与保存仍使用接口原始 URL。
 - 音乐实现见 `lib/network/v1/music_api.dart`；壁纸、上传、角色和用户资料分别见 `world_api.dart`、`upload_api.dart`、`user_api.dart`；模型目录见 `gem_api.dart`。
 - 当前模型选择和记忆 Token 修改仅更新本地 `MiniPhoneSession`。不要将页面上的选择或折扣展示解释为后端设置／计费已生效。
@@ -480,12 +541,13 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - HTTP 200 下非零 `err_no` 仍为业务错误；展示原始 `ApiException.message`／`err_msg`，失败保留草稿。区分 Feed 的 `text` 和详情／提交的 `content`。
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
-- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，按倒序最多展示最新三条；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
+- Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。切换作者重置分页并丢弃旧响应；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，先取最新三条，再按时间正序展示；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
 - 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
-- 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情摘要缺少 comment_id 时只展示，不伪造回复目标；真实评论列表从 `/comments` 获取。昵称、时间等缺失字段不使用演示占位值填充。
-- 会话、Feed、评论、相册通过滚动加载下一页，不增加 Load more 按钮。MiniPhone 页面和列表读取均不显示独立 loading 图标，包含首次读取与私聊历史分页；保留已有内容、静态骨架、提交／上传进度和已有下拉刷新指示器，Messages 列表和私聊会话页不提供下拉刷新。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
+- 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情精简评论不用于列表展示；全部真实评论从 `/comments` 获取并一次替换，不伪造回复目标。昵称、时间等缺失字段不使用演示占位值填充。
+- Post 详情配图加载中／失败时与 Posts Feed 一样留空，不显示默认占位图、错误图标或提示；详情保留原有图片尺寸约束和点击查看大图行为。
+- 会话、Feed、相册通过滚动加载下一页；评论自动取齐所有页，不增加 Load more 按钮。MiniPhone 页面和列表读取均不显示独立 loading 图标，包含首次读取与私聊历史分页；保留已有内容、静态骨架、提交／上传进度和已有下拉刷新指示器，Messages 列表和私聊会话页不提供下拉刷新。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
 - 保持现有 MiniPhone 样式、导航、启动动画、音乐和壁纸行为；共享聊天修改须回归 LocationChat。动态请求错误使用公共 Toast；演示数据仅用于明确的无世界预览。
 
 ### MiniPhone 原版布局复核（2026-10-16）
@@ -499,7 +561,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | Comments / Create | 删除写入状态／Retry same request 占位区；原 Send／Post 按钮复用未确认请求 ID、正文、图片和回复 ID。评论回复目标仅改变原输入框提示，再点同一评论取消，不增加一行回复栏。 |
 | Private chat | 删除输入区的错误／Refresh 和等待区 Retry；保留正在输入提示与历史锚点，未确认且未受理的请求由原 Send 按钮重试。恢复动态世界日期的 Private conversation 标题，去掉额外的自制长按复制菜单。 |
 | Settings | 删除新增的错误／重试、不可用／空目录提示段落，读取失败使用 Toast 与下拉刷新；正常宽度恢复原版最多四项一排，窄屏和更多动态选项允许换行。Apply 及现有图片裁剪和保存进度保持。 |
-| Music | 删除目录错误／Retry 与播放错误段落，读取失败使用 Toast 与下拉刷新，播放失败仍可用原播放按钮重试；现有封面、长标题滚动、进度和点赞逻辑保留。 |
+| Music | 播放器固定占满页面可用区域，不提供纵向滚动或下拉刷新，空目录与加载失败同样保持固定布局。封面容器铺满内容区宽度与控制区上方剩余高度，不固定宽高比；图片保持原比例居中覆盖裁切（BoxFit.cover），不因适配留边。短屏或大字体下仅缩小控制区以保留全部操作。读取失败使用 Toast，重新进入页面重试；播放失败仍可用原播放按钮重试。保留长标题横向滚动、进度和点赞逻辑。 |
 | Models / 图片查看器 | 延用原版共享页面及查看器的结构，不改其公共样式。 |
 
 动态头像、作者数量、时间和正文取接口；没有真实音乐点赞数量或用户 handle 时不补演示数字和账号。网络读取不显示独立 loading 图标；聊天等待与阅读历史返回最新入口继续保留，不表示新增常驻操作栏。
@@ -564,10 +626,41 @@ git diff --check
 
 Supersedes the earlier preview-refresh correction: Feed now consumes the embedded
 `comments` array and removes separate preview requests, caches and request
-versions. Up to three of the newest comments/replies are shown, preserving the
-server order. Four returned items expose a count-free view-all action. Feed has
+versions. Up to three of the newest comments/replies are selected from the
+server response, then reversed for chronological display (updated 2026-10-21). Four returned items expose a count-free view-all action. Feed has
 no comment total; the full comment page retains its own reads and totals.
 
 The user-supplied `phone_posts.yaml` is saved alongside this guide. Its external
 `phone-query-types.yaml` reference was not supplied; comment parsing uses the
 existing PhoneComment contract above. No live backend/device acceptance is implied.
+
+
+### 2026-10-21 Post detail entry and keyboard positioning
+
+The detail page owns entry reads after capturing the feed snapshot; the phone
+shell does not issue duplicate reads. Feed author, content, image, story time
+and displayed like state render immediately. Fresh detail updates the original
+post while preserving valid feed avatar/story time fields absent from detail.
+Reply rendering is independent of detail success or completion order.
+
+Each entry hides previous comments and uses three static, dark comment-shaped
+skeleton rows. Only a successful complete `/comments` result (including empty)
+replaces them. Before that, the count is absent unless fresh detail supplies it;
+afterwards it uses the complete list length. Failed initial loading ends the
+skeleton, uses the shared Toast and can retry via pull-to-refresh. Refreshing an
+already displayed complete list retains it until atomic success. Partial page
+failure never replaces it. Invalid empty/non-advancing pagination fails; stale,
+account-reset, disposed and background reads stop before requesting more pages.
+Concurrent ordinary loads coalesce; entry and post-write refreshes supersede old
+reads. Backend fields and notification scheduling are unchanged.
+
+Entry stays at the top. A focused comment input opening the soft keyboard starts
+bottom following only after complete comments and viewport layout are ready.
+Skeleton height is not a final scroll target. Layout changes (keyboard, multiline
+input, images, refreshed post) realign while following; manual scroll cancels it.
+Reopening the keyboard or explicitly sending starts a new positioning intent.
+Successful sending reloads all pages before positioning, rather than scrolling
+to the end of page one. Closing the keyboard does not jump to the top; route,
+post and account changes invalidate pending callbacks. No artificial tail is
+added. Android/iOS native keyboard and live-backend acceptance remain separate
+from controlled Flutter verification.

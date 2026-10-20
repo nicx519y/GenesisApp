@@ -1,3 +1,4 @@
+import '../../../l10n/genesis_localizations.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../components/auth/login_guard.dart';
@@ -142,7 +143,10 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
             ),
           ),
           const SizedBox(height: 22),
-          Text('Wallpaper', style: miniStyle(14, FontWeight.w600)),
+          Text(
+            context.l10n.miniPhoneWallpaper,
+            style: miniStyle(14, FontWeight.w600),
+          ),
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -201,7 +205,10 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
                               ),
                             ),
                             const SizedBox(height: 5),
-                            Text('Upload', style: miniStyle(14)),
+                            Text(
+                              context.l10n.miniPhoneUpload,
+                              style: miniStyle(14),
+                            ),
                           ],
                         ),
                       ),
@@ -270,7 +277,7 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
           ),
           const SizedBox(height: 14),
           miniPhoneButton(
-            'Apply wallpaper',
+            context.l10n.miniPhoneApplyWallpaper,
             !wallpaper.available ||
                     wallpaper.saving ||
                     _authorizingWallpaper ||
@@ -284,7 +291,7 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
         ],
       ),
     ),
-    subtitle: 'Make this phone feel like yours.',
+    subtitle: context.l10n.miniPhoneSettingsSubtitle,
   );
 
   Future<void> _pickWallpaperPhoto() async {
@@ -348,10 +355,7 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
       }
     } catch (_) {
       if (mounted && isCurrent()) {
-        showGenesisToast(
-          context,
-          'Could not open this photo. Please try another.',
-        );
+        showGenesisToast(context, context.l10n.miniPhonePhotoOpenFailed);
       }
     }
   }
