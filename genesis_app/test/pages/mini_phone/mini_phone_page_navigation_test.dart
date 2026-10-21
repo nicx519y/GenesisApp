@@ -1,5 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/api_client.dart';
+import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
+import '../../support/mini_phone_music_services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
@@ -59,19 +65,39 @@ void main() {
           ? const PhonePerson('c0', 'Person 0', '')
           : null,
     );
+    final services = () {
+      final previousPlatform = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        return musicTestServices(
+          GenesisApi(
+            useMock: false,
+            apiClient: ApiClient(
+              baseUrl: 'https://api.example/api/',
+              transport: LocalMockGenesisTransport.isolated(),
+            ),
+          ),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previousPlatform;
+      }
+    }();
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData.dark().copyWith(platform: platform),
-        home: outerRoute
-            ? Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).push(GenesisDarkPageRoute<void>(builder: (_) => phone())),
-                  child: const Text('Open phone'),
-                ),
-              )
-            : phone(),
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          theme: ThemeData.dark().copyWith(platform: platform),
+          home: outerRoute
+              ? Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).push(GenesisDarkPageRoute<void>(builder: (_) => phone())),
+                    child: const Text('Open phone'),
+                  ),
+                )
+              : phone(),
+        ),
       ),
     );
     if (outerRoute) {
@@ -165,40 +191,6 @@ void main() {
     expect(session.data!.posts, isNotEmpty);
     expect(tester.widget<Navigator>(navigator), same(before));
     expect(find.text('Person 0'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('preview reply survives returning from chat to Messages', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final session = MiniPhoneSession();
-    addTearDown(session.dispose);
-    final person = session.resume.contact;
-    final before = session.store.chats[person.id]!.length;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: MiniPhonePage(
-          session: session,
-          initialScreen: MiniPhoneScreen.chat,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Preview navigation');
-    await tester.pump();
-    await tester.tap(find.text('Send'));
-    await tester.pump();
-    expect(session.store.chats[person.id], hasLength(before + 1));
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 1200));
-    expect(session.store.chats[person.id], hasLength(before + 2));
-    expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

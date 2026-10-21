@@ -30,6 +30,41 @@ class LocalMockGenesisTransport implements HttpTransport {
   int _historySnapshotSequence = 0;
 
   @visibleForTesting
+  void seedChatroomPhoneMovementMessage({
+    required String worldId,
+    required String locationId,
+    required String characterId,
+    required String oldLocationId,
+    required String toLocationId,
+  }) {
+    final payload = ChatroomPhoneCharactersMovedPayload.fromJson({
+      'content': [
+        {
+          'char_id': characterId,
+          'old_loc_id': oldLocationId,
+          'to_loc_id': toLocationId,
+        },
+      ],
+    });
+    _state._chatroomMessages.add(
+      _state._newChatroomMessage(
+        worldId: _state._resolveChatroomWorldId(worldId),
+        locationId: locationId,
+        conversationRoundId: ++_state._chatroomRoundSeq,
+        roundOrder: 0,
+        senderType: chatroomPhoneCharactersMovedSenderType,
+        senderId: '',
+        senderName: '',
+        userId: '',
+        conversationType: chatroomPhoneCharactersMovedSenderType,
+        content: encodeChatroomTimelinePayload(payload),
+        businessType: chatroomPhoneCharactersMovedSenderType,
+        v2Payload: payload.toJson(),
+      ),
+    );
+  }
+
+  @visibleForTesting
   void resetFeatureQuotaUsage() {
     _state._featureQuotaUsed.clear();
     _state._savedInspirations.clear();

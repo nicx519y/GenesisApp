@@ -25,12 +25,11 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
   Future<void> _handleEvent(ChatroomEvent event) async {
     switch (event) {
       case ChatroomPhoneCharactersMoved e:
-        if (e.worldId == _worldId &&
-            _seenPhoneMovements.add(e.deduplicationKey)) {
-          if (_seenPhoneMovements.length > 256) {
-            _seenPhoneMovements.remove(_seenPhoneMovements.first);
-          }
-          _phoneMovements.add(e);
+        if (e.worldId == _worldId) {
+          _applyPhoneCharacterLocations(e);
+          await _handleIncomingMessage(
+            WorldChatroomMessage.fromPhoneCharactersMovedMessage(e),
+          );
         }
       case ChatroomPhoneEvent e:
         if (e.worldId == _worldId) _phoneEvents.add(e);
@@ -115,6 +114,74 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         // ACK failures (including a failed regeneration receipt) pass through
         // _recordFailure, which deduplicates both Toast and balance alerts.
         break;
+    }
+  }
+
+  void _applyPhoneCharacterLocations(ChatroomPhoneCharactersMoved event) {
+    if (_disposed || !event.ok || event.timelinePayload.movements.isEmpty) {
+      return;
+    }
+    final world = _state.world;
+    if (world == null || world.worldId != event.worldId) {
+      unawaited(_scheduleWorldRefresh());
+      return;
+    }
+    // Use global IDs across destination queues; history hydration never applies
+    // movement side effects. A replay must not undo a newer live movement.
+    final destinations = <String, String>{};
+    for (final movement in event.timelinePayload.movements) {
+      final id = movement.charId.trim();
+      if (event.globalMessageId <=
+          (_phoneMovementGlobalIdsByCharacter[id] ?? 0)) {
+        continue;
+      }
+      destinations[id] = movement.toLocationId.trim();
+    }
+    if (destinations.isEmpty) return;
+    for (final id in destinations.keys) {
+      _phoneMovementGlobalIdsByCharacter[id] = event.globalMessageId;
+    }
+
+    String characterId(Map<String, dynamic> character) =>
+        _firstString(character, const ['character_id', 'char_id', 'id']);
+    Map<String, dynamic> atLocation(
+      Map<String, dynamic> value,
+      String location,
+    ) => {
+      ...value,
+      'location_id': location,
+      if (value.containsKey('current_location_id'))
+        'current_location_id': location,
+    };
+    final positioned = <String>{};
+    final positions = <Map<String, dynamic>>[];
+    for (final position in world.characterPositions) {
+      final raw = position['character'];
+      final character = raw is Map ? asJsonMap(raw) : position;
+      final id = characterId(character);
+      positioned.add(id);
+      final destination = destinations[id];
+      positions.add(
+        destination == null ? position : atLocation(position, destination),
+      );
+    }
+    final characters = <Map<String, dynamic>>[];
+    for (final character in world.characters) {
+      final id = characterId(character);
+      final destination = destinations[id];
+      characters.add(
+        destination == null ? character : atLocation(character, destination),
+      );
+      if (destination != null && positioned.add(id)) {
+        positions.add({'location_id': destination, 'character': character});
+      }
+    }
+    applyWorldSnapshot(
+      world.copyWith(characters: characters, characterPositions: positions),
+    );
+    // Unknown characters need their authoritative display data from the world.
+    if (destinations.keys.any((id) => !positioned.contains(id))) {
+      unawaited(_scheduleWorldRefresh());
     }
   }
 

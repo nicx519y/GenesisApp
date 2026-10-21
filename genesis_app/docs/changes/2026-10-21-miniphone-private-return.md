@@ -1,5 +1,8 @@
 # MiniPhone 私聊提示与返回地点移动卡片（2026-10-21）
 
+> 本文为当时的位置差异实现记录。当前移动卡片已改为 `phone_characters_moved` 正式地点消息，进入普通消息队列与 SQLite，不再依赖私聊返回观察；现行契约见 [WebSocket 协议](../chatroom-websocket-api.md)。
+
+
 ## 版本
 
 - 团队新分支：`feature/miniphone-private-return-20261021`。

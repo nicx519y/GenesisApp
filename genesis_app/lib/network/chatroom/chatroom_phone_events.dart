@@ -56,60 +56,61 @@ class ChatroomPhoneEvent extends ChatroomEvent {
   final PhoneNotification? notification;
 }
 
-/// Return-to-room presentation event, separate from persisted chat messages.
-class ChatroomPhoneCharactersMoved extends ChatroomEvent {
-  ChatroomPhoneCharactersMoved.fromV2Message(ChatroomV2Message message)
-    : worldId = message.worldId.trim(),
-      triggerUid = message.triggerUid,
-      ts = message.ts ?? 0,
-      movements = _phoneMovements(message.payload['content']) {
-    if (message.streamType.isNotEmpty ||
-        worldId.isEmpty ||
-        ts <= 0 ||
-        message.errNo != 0) {
-      throw const FormatException('Invalid phone movement envelope');
-    }
-  }
-
-  final String worldId, triggerUid;
-  final int ts;
-  final List<ChatroomV2CharacterMovement> movements;
-
-  // No event_id is supplied. Preserve batch order because a character may
-  // appear more than once, in which case the last movement wins.
-  String get deduplicationKey => jsonEncode([
-    worldId,
-    ts,
-    triggerUid,
-    movements.map((m) => m.toJson()).toList(growable: false),
-  ]);
-}
-
-List<ChatroomV2CharacterMovement> _phoneMovements(Object? value) {
-  if (value is! List || value.length > chatroomMaxCollectionItems) {
-    throw const FormatException('Invalid phone movement content');
-  }
-  return List.unmodifiable(
-    value.map((item) {
-      if (item is! Map) {
-        throw const FormatException('Invalid phone movement item');
-      }
-      String id(String key) {
-        final value = item[key];
-        if (value is! String ||
-            value.trim().isEmpty ||
-            value.length > chatroomMaxStringCodeUnits ||
-            value.contains('\u0000')) {
-          throw const FormatException('Invalid phone movement ID');
-        }
-        return value.trim();
-      }
-
-      return ChatroomV2CharacterMovement(
-        characterId: id('char_id'),
-        oldLocationId: id('old_loc_id'),
-        toLocationId: id('to_loc_id'),
+/// A canonical location message, stored and ordered like other formal messages.
+class ChatroomPhoneCharactersMoved extends ChatroomMessageEvent {
+  ChatroomPhoneCharactersMoved._(
+    ChatroomV2Message message,
+    this.timelinePayload,
+  ) : createdAt = asDateTime(message.createdAt) ?? asDateTime(message.ts),
+      currentTime = message.currentTime,
+      super(
+        sessionId: message.sessionId,
+        worldId: message.worldId,
+        locationId: message.locationId,
+        userId: message.userId,
+        code: message.errNo,
+        codeMsg: message.errMsg,
+        ts: asDateTime(message.ts),
+        conversationType: message.conversationType,
+        triggerUid: message.triggerUid,
+        globalMessageId: message.globalMessageId!,
+        messageId: message.messageId!,
+        locationMessageId: message.locationMessageId!,
+        conversationRoundId: '${message.conversationRoundId}',
+        roundOrder: asInt(message.payload['round_order']),
+        senderType: chatroomPhoneCharactersMovedSenderType,
+        senderId: message.senderId,
+        senderName: message.senderName,
+        content: encodeChatroomTimelinePayload(timelinePayload),
+        broadcast: false,
+        businessType: message.type,
+        streamType: message.streamType,
+        minAppVersion: message.minAppVersion,
+        rawPayload: message.payload,
       );
-    }),
-  );
+
+  factory ChatroomPhoneCharactersMoved.fromV2Message(
+    ChatroomV2Message message,
+  ) {
+    if (message.streamType.isNotEmpty ||
+        message.errNo != 0 ||
+        message.worldId.trim().isEmpty ||
+        message.locationId.trim().isEmpty ||
+        (message.globalMessageId ?? 0) <= 0 ||
+        (message.messageId ?? 0) <= 0 ||
+        (message.locationMessageId ?? 0) <= 0 ||
+        (message.conversationRoundId ?? 0) <= 0 ||
+        message.conversationType != chatroomPhoneCharactersMovedSenderType ||
+        message.senderType != chatroomPhoneCharactersMovedSenderType) {
+      throw const FormatException('Invalid canonical phone movement message');
+    }
+    return ChatroomPhoneCharactersMoved._(
+      message,
+      ChatroomPhoneCharactersMovedPayload.fromJson(message.payload),
+    );
+  }
+
+  final ChatroomPhoneCharactersMovedPayload timelinePayload;
+  final DateTime? createdAt;
+  final String currentTime;
 }

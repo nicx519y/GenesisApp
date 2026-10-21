@@ -1370,7 +1370,10 @@ void main() {
     expect(find.byType(Divider), findsNWidgets(2));
     expect(find.byIcon(Icons.place_outlined), findsNWidgets(3));
     expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
-    expect(_assetSvgFinder(userStatIconAsset), findsNothing);
+    expect(
+      _assetSvgFinder('assets/custom-icons/svg/user_icon.svg'),
+      findsNothing,
+    );
     expect(find.byIcon(Icons.schedule), findsNothing);
     expect(find.text('Ada, Bert, Cara, Drew'), findsOneWidget);
     expect(find.text('Gate checkpoint description.'), findsOneWidget);

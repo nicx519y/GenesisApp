@@ -1021,7 +1021,7 @@ void main() {
               ),
               GenesisBottomNavigationItem(
                 label: 'Create',
-                iconAsset: bottomNavCreateIconAsset,
+                iconAsset: bottomNavOriginIconAsset,
                 prominent: true,
               ),
             ],
@@ -1048,7 +1048,7 @@ void main() {
     expect(icons[2].height, 22);
     expect(
       (icons[2].bytesLoader as SvgAssetLoader).assetName,
-      bottomNavCreateIconAsset,
+      bottomNavOriginIconAsset,
     );
 
     final spacingBoxes = tester

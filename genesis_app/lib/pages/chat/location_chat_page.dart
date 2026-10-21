@@ -512,7 +512,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   Future<void> refreshLanguageData() async {
     _modelRequestCache.clearModelCatalog();
-    _selectedModelTitleLookupCode = '';
+    _selectedModelTitleLookupCode = null;
     await _backfillSelectedModelTitle(
       _selectedModelCode,
       propagateFailure: true,
@@ -650,14 +650,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   final BackdropKey _surfaceBackdropKey = BackdropKey();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
-  final _privateChatReturns = <_PrivateChatReturn>[];
   final _localMessageOrder = LocationChatLocalMessageOrder();
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
       <String, _LocationChatTimelineVmCacheEntry>{};
   final Map<String, _LocationChatMessageParseCacheEntry> _messageParseCache =
       <String, _LocationChatMessageParseCacheEntry>{};
   WorldChatroomService? _service;
-  StreamSubscription<ChatroomPhoneCharactersMoved>? _phoneMovementSubscription;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
   ValueListenable<WorldChatroomLocationMessagesChange>? _locationMessageChanges;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
@@ -679,7 +677,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _myAvatarUrl = '';
   String _selectedModelCode = '';
   String _selectedModelTitle = '';
-  String _selectedModelTitleLookupCode = '';
+  String? _selectedModelTitleLookupCode;
   late final MemoryModelPageCache _modelRequestCache;
   late final bool _ownsModelRequestCache;
   double _devicePixelRatio = 1;
@@ -1155,7 +1153,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
-    _privateChatReturns.clear();
     _presentation?.removeListener(_handlePresentationChanged);
     _initialComposerAvatarImage?.dispose();
     _clearAckLoading();
@@ -1200,7 +1197,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         (oldWidget.modelWorldId?.trim() ?? '') != _modelWorldId;
     if (modelWorldIdChanged) {
       _selectedModelLoadGeneration++;
-      _selectedModelTitleLookupCode = '';
+      _selectedModelTitleLookupCode = null;
+      _modelRequestCache.clearModelCatalog();
     }
     if (!_hasModelWorldId) {
       _retainModelEntryInHeader = false;
@@ -1209,6 +1207,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
     if (_hasModelWorldId &&
         (modelWorldIdChanged || (!oldWidget.active && widget.active))) {
+      _selectedModelTitleLookupCode = null;
       unawaited(_loadSelectedModelCodeFromCache());
     }
     final changedChatTarget =
@@ -1216,7 +1215,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
     if (changedChatTarget) {
-      _privateChatReturns.clear();
       _localMessageOrder.clear();
       _detachReplyActions();
     }
@@ -1232,7 +1230,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _exitRetainedOccupants = null;
       _optimisticSelfOccupancy = widget.isLeafLocation;
     } else if (becameInactive) {
-      _finishPrivateChatReturnObservation();
       _exitRetainedOccupants =
           _lastActiveOccupants ??
           _roomOccupantsForCurrentLocation(_chatroomState);

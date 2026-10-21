@@ -6,10 +6,6 @@ import '../../ui/components/genesis_map_top_glass_bar.dart';
 import '../../components/world_details_shell.dart';
 
 const String worldSectionEventsIconAsset = 'assets/custom-icons/svg/events.svg';
-const String worldSectionStatusIconAsset =
-    'assets/custom-icons/svg/world_tab_status.svg';
-const String worldSectionCastIconAsset =
-    'assets/custom-icons/svg/world_tab_cast.svg';
 const String worldDetailIconAsset =
     'assets/custom-icons/svg/worlddetail-icon.svg';
 const double worldMapTabsHeight = genesisMapBackButtonDimension;

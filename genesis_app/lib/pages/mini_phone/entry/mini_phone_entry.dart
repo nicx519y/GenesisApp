@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 
 import '../../../ui/components/genesis_avatar.dart';
 import '../music/mini_phone_music_service.dart';
-import '../preview/mini_phone_demo_store.dart';
-import '../preview/mini_phone_preview_avatar.dart';
 import '../session/mini_phone_session.dart';
 import 'mini_phone_dock_position.dart';
 import 'mini_phone_entry_artwork.dart';
@@ -27,7 +25,7 @@ class MiniPhoneEntry extends StatefulWidget {
   final VoidCallback onPressed;
   final bool visible, interactive;
 
-  /// Explicit preview override; null selects from the current World's map era.
+  /// Explicit style override; null selects from the current World's map era.
   final MiniPhoneEntryStyle? style;
   @override
   State<MiniPhoneEntry> createState() => _MiniPhoneEntryState();
@@ -42,7 +40,6 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
   late final MiniPhoneSession _session;
   late final bool _ownsSession;
   MiniPhoneMusicService get _music => _session.music;
-  MiniPhoneDemoStore get _store => _session.store;
   int _unread = 0;
   bool _reducedMotion = false;
   MiniPhoneEntryStyle _resolvedStyle(BuildContext context) {
@@ -53,12 +50,11 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
         );
   }
 
-  int get _currentUnread =>
-      _session.data?.totalUnreadCount ?? _store.totalUnread;
+  int get _currentUnread => _session.data?.totalUnreadCount ?? 0;
   bool get _arriving => _unread > 0 && _arrival.isAnimating && !_reducedMotion;
   Widget get _arrivalAvatar {
     final data = _session.data;
-    if (data == null) return MiniAvatar(miniDemoPeople.first, size: 32);
+    if (data == null) return const SizedBox.shrink();
     final person = data.person(data.latestUnreadCharId ?? '');
     return GenesisAvatar(
       url: person.avatar,
@@ -83,7 +79,6 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
     );
     _music.addListener(_musicChanged);
     _unread = _currentUnread;
-    _store.addListener(_changed);
     _session.data?.addListener(_changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -129,7 +124,6 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
 
   @override
   void dispose() {
-    _store.removeListener(_changed);
     _session.data?.removeListener(_changed);
     _arrival.dispose();
     _music.removeListener(_musicChanged);
@@ -322,7 +316,7 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   Widget build(BuildContext context) {
     final scope = MiniPhoneSessionScope.watch(context);
     return ListenableBuilder(
-      listenable: _session.data ?? _session.store,
+      listenable: _session.data ?? _session.music,
       builder: (context, _) {
         final ready =
             scope?.worldDetailReady ??

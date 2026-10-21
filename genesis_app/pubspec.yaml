@@ -126,8 +126,8 @@ flutter:
     - assets/images/map_default/
     - assets/custom-icons/png/
     - assets/custom-icons/svg/
-    - assets/mini_phone/
-    - assets/mini_phone/sq/
+    - assets/mini_phone/wallpaper-01.webp
+    - assets/mini_phone/entry-icons-LICENSES.txt
     - assets/mini_phone/icons/
 
   fonts:

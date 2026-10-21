@@ -28,7 +28,7 @@ class MiniPhoneWallpaperPreview extends StatelessWidget {
     );
     final fallback =
         placeholder ??
-        Image.asset('assets/mini_phone/wallpaper-01.png', fit: BoxFit.cover);
+        Image.asset('assets/mini_phone/wallpaper-01.webp', fit: BoxFit.cover);
     return Image(
       image: GenesisStaticNetworkImageProvider(
         imageUrl: resizeGenesisImageUrlToHeight(
@@ -109,7 +109,7 @@ class _MiniPhoneWallpaperImageState extends State<MiniPhoneWallpaperImage> {
     return GenesisListImage(
       imageUrl: widget.url,
       borderRadius: BorderRadius.zero,
-      placeholderAsset: 'assets/mini_phone/wallpaper-01.png',
+      placeholderAsset: 'assets/mini_phone/wallpaper-01.webp',
     );
   }
 }

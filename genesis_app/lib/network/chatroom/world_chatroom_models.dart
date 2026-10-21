@@ -585,6 +585,32 @@ class WorldChatroomMessage {
     );
   }
 
+  factory WorldChatroomMessage.fromPhoneCharactersMovedMessage(
+    ChatroomPhoneCharactersMoved message,
+  ) {
+    return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
+      messageId: message.messageId,
+      locationMessageId: message.locationMessageId,
+      conversationRoundId: message.conversationRoundId,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
+      roundOrder: message.roundOrder,
+      locationId: message.locationId,
+      senderType: message.senderType,
+      businessType: message.businessType,
+      userId: message.userId,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      content: message.content,
+      currentTime: message.currentTime,
+      createdAt: message.createdAt,
+      timelinePayload: message.timelinePayload,
+      minAppVersion: message.minAppVersion ?? 0,
+      rawPayload: message.rawPayload,
+    );
+  }
+
   factory WorldChatroomMessage.fromCharactersMovedMessage(
     ChatroomCharactersMovedMessage message,
   ) {

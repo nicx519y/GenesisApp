@@ -129,6 +129,7 @@ WebSocket 当前协议规则：
 - `OriginWorldPage`：Origin 详情/预览页，不等同于已加入 world。复用 `WorldDetailsPageScaffold`、`WorldDetailsShell`、`WorldMap`、`WorldTickEventItem`；Launch 通过 `showOriginRoleLaunchSheet` 选择角色后创建/进入 world。Origin inline chat 是 launch-only 预览，不应显示真实连接状态。
 - `WorldPage`：已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
 - `LocationChatPage`：地点聊天室页。页面可以从 world drill-down 打开，但只有 leaf location 才允许 `join`/`leave`。非 leaf 只展示页面/地图层级，不产生聊天室副作用。
+- LocationChat 模型入口在页面激活且有真实 `modelWorldId` 时读取用户模型缓存；编码或名称缺失时先复用当前 World 的模型目录，没有目录再查询 `/api/v1/gem/model/list`。编码缺失时使用响应的 `selected_model_code`，同步保存编码及名称；有完整用户模型缓存时不额外请求，未激活或无完整登录会话时不查询，迟到响应不覆盖后续选择或其他账号。
 - `ChatPage`：私信会话页。会话列表和消息缓存由 `DirectMessageConversationStore`、`DirectMessageMessageStore` 以及 `lib/network/direct_message_database.dart` 管理。
 - `MessagesPage`：消息中心。负责未读 summary、通知分组、私信入口和 mark-read 刷新；通知列表页是 `MessageCategoryListPage`。
 - `DiscussPage`：Origin 讨论列表页，先拉 Origin summary，再通过 `OriginDiscussList` 分页加载顶级评论。发帖入口使用共享 `DiscussPostInput`。

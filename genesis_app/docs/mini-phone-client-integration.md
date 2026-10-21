@@ -19,9 +19,10 @@ be claimed there. HTTP 200 does not override a nonzero business error.
 account and world. `WorldPage` binds it to `WorldChatroomService.phoneEvents`.
 The existing V2 connection parses the three phone event types without a
 location join. These three phone events never enter LocationChat's visible timeline.
-The separate `phone_characters_moved` control event feeds only a transient
-return-to-room card through `WorldChatroomService.phoneMovements`; it is not
-a persisted chat message or History record.
+The separate `phone_characters_moved` type is now a canonical location message:
+it uses the ordinary location queue, positive location cursor and SQLite storage.
+It does not depend on opening or returning from MiniPhone. History uses its
+normal HTTP invalidation flow rather than copying WSS rows into the archive.
 Closing the phone keeps the world session alive; leaving the world disposes it.
 Requests from a replaced account are discarded. Messages uses an independent
 SQLite cache keyed by environment/account/world. Home supplies the initial DM
@@ -413,13 +414,14 @@ Validation for this scheduling change:
   Home's world time comes
   from the world snapshot and existing world socket state, not device time.
   Entry icon, Home, and wallpaper preview share the parsed world time. Only
-  the entry icon falls back to `18:05` when time is missing/unparseable (also
-  in worldless previews); Home and wallpaper preview remain blank. Missing
+  the entry icon falls back to `18:05` when time is missing/unparseable; Home and wallpaper preview remain blank. Missing
   dates remain blank. Account reset clears the previous world's time.
 
-World-backed routes use live data even on errors. The developer's explicit
-worldless style preview and existing preview tests retain demo fixtures; this
-is not a fallback for live requests. The local mock transport returns explicit
+World-backed routes use live data even on errors. The Developer MiniPhone
+preview, demo fixtures and bundled demo photographs were removed on 2026-10-22.
+Home notifications and entry avatars consume live phone models directly.
+The default wallpaper is `assets/mini_phone/wallpaper-01.webp`, encoded at WebP
+quality 85 without resizing. The local mock transport returns explicit
 empty reads and refuses unsupported writes instead of simulating successful
 AI replies.
 
@@ -547,9 +549,9 @@ AI replies.
 
 地图页 `MiniPhoneEdgeDock` 在手指拖动期间，左右均预留底部面板高度 + 8，跨越屏幕中线时不改变纵向边界。松手后按入口中心选择左右吸边；右侧落点才额外避让地图缩放按钮（底部面板高度 + 110），需要避让时以既有 180ms 吸边动画移动。左侧仍为 + 8；地点聊天沿用自身底部间距，位置仍按吸附侧和该侧可用高度比例保存。
 
-入口显示等待 World Detail 成功返回并应用：World Scope 用 `worldDetailReady` 区分未加载与已加载的 null 风格；共享 Dock 在就绪前不创建入口 Widget、头像气泡或音乐按钮。预取详情应用前同样隐藏，应用后按其真实风格首次显示。独立 Dock 等 Store 既有 `refreshPeople` 成功取得详情（`worldDetailLoaded`）；首次失败继续隐藏，已取得详情后的刷新不重新隐藏。无世界预览正常显示。
+入口显示等待 World Detail 成功返回并应用：World Scope 用 `worldDetailReady` 区分未加载与已加载的 null 风格；共享 Dock 在就绪前不创建入口 Widget、头像气泡或音乐按钮。预取详情应用前同样隐藏，应用后按其真实风格首次显示。独立 Dock 等 Store 既有 `refreshPeople` 成功取得详情（`worldDetailLoaded`）；首次失败继续隐藏，已取得详情后的刷新不重新隐藏。Developer 手机预览已移除；无真实手机数据的入口不显示演示未读或头像。
 
-World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cyberpunk/space_scifi/post_apocalyptic` → Classic Handset；`mythic_ancient/historical_east/medieval_fantasy/victorian/steampunk` → Arcane Grimoire；缺失/null/空值/未知 → Classic。World 的 `MiniPhoneSessionScope.mapStyle` 让地图与地点聊天共用当前快照；无 World Scope 的独立入口复用 Store 既有 World 详情读取结果。`style` 仅作为显式预览覆盖，不增加风格查询或推断。
+World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cyberpunk/space_scifi/post_apocalyptic` → Classic Handset；`mythic_ancient/historical_east/medieval_fantasy/victorian/steampunk` → Arcane Grimoire；缺失/null/空值/未知 → Classic。World 的 `MiniPhoneSessionScope.mapStyle` 让地图与地点聊天共用当前快照；无 World Scope 的独立入口复用 Store 既有 World 详情读取结果。`style` 仅作为显式样式覆盖，不增加风格查询或推断。
 
 2026-10-19：入口支持 `MiniPhoneEntryStyle.classicHandset`（缺失风格时回退）和 `arcaneGrimoire`，通过 `MiniPhoneEntry` / `MiniPhoneEdgeDock.style` 指定。两种样式统一使用 Worldo-Entry-Icons SVG 图层和一套 `MiniPhoneEntryArtwork` 渲染器；样式配置只包含资源、坐标、时长和关键帧。交付 CSS/JS 的动作由同一个原生 `EntryMotion` 插值器与公共动画控制器执行，不依赖 SVG CSS 或 WebView。共同尺寸为 34×57 主体、26×31 上方气泡、44×49 音乐热区；头像提示 3s、音乐循环 1.4s。手机到达摇晃 760ms、屏内消息展开 900ms；书本到达上浮倾斜 900ms。动态时间、未读数字和真实头像不使用资源样例；未读优先于封面音符，音乐按钮保持可操作。减少动态效果时停止到达与音乐动画。没有新增 API 或设置页。
 
@@ -571,12 +573,11 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `music/` | 音乐目录、播放、点赞和本地进度 |
 | `settings/mini_phone_settings_page.dart`、`settings/wallpaper/` | 壁纸编辑、选图、上传、保存和缓存 |
 | `settings/mini_phone_model_settings.dart`、`settings/mini_phone_model_settings_page.dart` | 手机业务模型目录缓存，复用公共 Memory & Model 的服务端模型／记忆设置 |
-| `preview/` | 独立预览数据、页面和图片查看 |
 | `lib/network/mini_phone/` | 手机 HTTP、DTO、消息投影 reducer 与 SQLite 存储 |
 | `lib/network/chatroom/chatroom_phone_events.dart` | V2 手机事件模型，解析入口在 `chatroom_models.dart` |
 | `lib/pages/world/world_page_chatroom_session.dart` | 将 World 既有 Socket 绑定到手机 Store |
 
-2026-10-17 目录重构保留 HTTP 契约、数据库和缓存键、World 生命周期及请求调度规则。正式页面不再通过 `part` 访问外壳 State；预览的局部 `part` 仅位于 `preview/`。外部业务调用使用公开入口，控制器共用请求协调器。
+2026-10-17 目录重构保留 HTTP 契约、数据库和缓存键、World 生命周期及请求调度规则。正式页面不再通过 `part` 访问外壳 State；当时保留的 `preview/` 已于 2026-10-22 移除。外部业务调用使用公开入口，控制器共用请求协调器。
 
 ### Validation record — 2026-10-17 structure refactor
 
@@ -628,7 +629,7 @@ Music 音频使用独立的本机持久缓存（`music/mini_phone_music_cache.da
 
 Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用。每次拖动结束立即记录最新目标，等待期间的旧位置事件不得覆盖目标；解码器就绪时新目标立即替换旧跳转，不等待旧目标缓冲完成，初次加载期间则合并中间目标，加载结束后先跳转再开始播放。切歌丢弃旧歌曲的目标；退出 World 撤销旧跳转并保存最后目标，下次恢复仍保持暂停。尚未知时长时仍无法按比例定位。
 
-音乐播放进度保存在本机，按 API 环境和账号共享一条当前歌曲、播放位置与时长，所有 World 共用。正式 World 通过 AppServices 持有的 MiniPhoneMusicOwner 借用同一播放器实例。退出 World 暂停并保存进度，保留目录、当前歌曲及就绪解码器；下一个 World 直接复用且保持暂停，冷启动才恢复本地记录。每次进入 World（包括重新进入同一 World），入口 icon 的音乐气泡和音符显示状态重置；当前 World 播放或切歌后才重新显示，随后暂停仍保留播放按钮。该入口显示状态独立于音乐历史与缓存，异步恢复历史不会激活入口；Home 音乐卡片与播放器继续使用保留的歌曲和进度。同一 World 内关闭／重开手机或地图与地点聊天之间切换不重置入口音乐状态。旧 World 的延迟释放不得暂停新 World；加载中退出撤销播放意图并中断未完成解码器加载。埋点随当前 World 绑定、退出解绑。账号变更、环境服务替换和 AppServices 释放时销毁旧实例；独立无世界预览仍由自己的会话销毁。不做跨设备同步。旧版按 World 保存的记录没有时间戳，共享记录缺失时仅迁移首次读到的有效旧 World 记录，后续旧记录不能覆盖共享进度；各会话的保存和迁移按共享键串行处理。
+音乐播放进度保存在本机，按 API 环境和账号共享一条当前歌曲、播放位置与时长，所有 World 共用。正式 World 通过 AppServices 持有的 MiniPhoneMusicOwner 借用同一播放器实例。退出 World 暂停并保存进度，保留目录、当前歌曲及就绪解码器；下一个 World 直接复用且保持暂停，冷启动才恢复本地记录。每次进入 World（包括重新进入同一 World），入口 icon 的音乐气泡和音符显示状态重置；当前 World 播放或切歌后才重新显示，随后暂停仍保留播放按钮。该入口显示状态独立于音乐历史与缓存，异步恢复历史不会激活入口；Home 音乐卡片与播放器继续使用保留的歌曲和进度。同一 World 内关闭／重开手机或地图与地点聊天之间切换不重置入口音乐状态。旧 World 的延迟释放不得暂停新 World；加载中退出撤销播放意图并中断未完成解码器加载。埋点随当前 World 绑定、退出解绑。账号变更、环境服务替换和 AppServices 释放时销毁旧实例；未借用共享播放器的独立会话仍由自己释放播放器。不做跨设备同步。旧版按 World 保存的记录没有时间戳，共享记录缺失时仅迁移首次读到的有效旧 World 记录，后续旧记录不能覆盖共享进度；各会话的保存和迁移按共享键串行处理。
 
 | 方法与完整路径 | 当前使用场景 |
 | --- | --- |
@@ -652,6 +653,7 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 - 音乐实现见 `lib/network/v1/music_api.dart`；壁纸、上传、角色和用户资料分别见 `world_api.dart`、`upload_api.dart`、`user_api.dart`；模型目录见 `gem_api.dart`。
 - 模型选择和记忆 Token 复用 `MemoryModelPage` 默认服务端提交、用户模型缓存更新、500ms 防抖、失败回滚及退出时待提交处理。手机独立缓存目录和 Memory 快照；保存预算后联合刷新世界用量和 `biz=phone_dm` 报价。客户端与受控测试对齐不表示真实后端或计费已经验收。
 - 手机模型费用与范围直接展示 `biz=phone_dm` 返回值，不再额外乘 0.4 或按 Token 数换算。
+- 打开手机保留模型目录预取；每次进入私聊再次检查手机会话内模型目录缓存（包含模型设置页缓存），缺失时主动加载 `world_id` + `biz=phone_dm`，进行中请求合并。已缓存时直接显示选中模型名称；预取失败后进入私聊可重试，读取失败使用公共 Toast，账号切换或页面释放后不回写界面，不复用 LocationChat 目录。
 - 音频、封面、头像和相册图片还请求返回的媒体 URL；它们不计入上面的业务接口数。
 - MiniPhone 的 13 个 Collect 事件及完整字段见 [MiniPhone Collect 埋点表](mini-phone-collect-events.md)。复用公共队列、采集配置和上传策略，`object1` 使用真实 World ID。手机模型页关闭通用 `switch_model_page` / `switch_model_save`；手机模型/Token 变更事件仅在提交成功后记录 `scope=server`，失败不计成功事件。Photos 仅统计大图浏览张次，帖子/评论图片不计入。
 
@@ -663,7 +665,7 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 
 | 下行事件 | 当前使用场景及处理 |
 | --- | --- |
-| `phone_characters_moved` | `payload.content[]` 携带 `char_id/old_loc_id/to_loc_id`；私聊中收集、返回地点聊天后显示本地移动卡片；不再通过位置快照差异推断，不额外刷新世界快照。空 `trigger_uid` 有效；按世界、时间戳、trigger_uid 和移动内容去重，保留最近 256 个键。详见 WebSocket 契约的 MiniPhone 私聊返回移动事件章节 |
+| `phone_characters_moved` | 地点正式消息；带 world/location、global/message/location_message ID、conversation_round_id，conversation_type/sender_type 同名；payload.content[] 为 char_id/old_loc_id/to_loc_id。按顶层地点入普通队列与 SQLite，用地点游标排序/去重，HTTP 回填与本地恢复使用相同格式；无需私聊访问或返回观察期；实时消息同时按每项 char_id/to_loc_id 更新地图角色位置，历史回填不重放移动。详见 WebSocket 契约的私聊角色移动正式消息章节 |
 | `phone.messages.delivered` | 批量合并私聊、绑定会话 ID、关联 AI 终态；当前前台会话按需提交已读；推送本身不重查聚合，已读成功后校准 |
 | `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；不触发聚合或应用列表请求 |
 | `phone.post.notification.created` | 仅查询帖子未读通知并更新帖子聚合；不涉及私聊，也不刷新 Feed、作者或详情 |
@@ -689,7 +691,7 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 - 评论沿用原帖排版、评论分隔线和输入头像；键盘收起时点击有真实 comment_id 的评论设置回复目标并弹起键盘；键盘已打开时点击评论只收起键盘、取消回复目标，不切换到该条评论。不额外增加 Reply to a comment 按钮。详情精简评论不用于列表展示；全部真实评论从 `/comments` 获取并一次替换，不伪造回复目标。昵称、时间等缺失字段不使用演示占位值填充。
 - Post 详情配图加载中／失败时与 Posts Feed 一样留空，不显示默认占位图、错误图标或提示；详情保留原有图片尺寸约束和点击查看大图行为。
 - 会话、Feed、相册通过滚动加载下一页；评论自动取齐所有页，不增加 Load more 按钮。MiniPhone 页面和列表读取均不显示独立 loading 图标，包含首次读取与私聊历史分页；保留已有内容、静态骨架、提交／上传进度和已有下拉刷新指示器，Messages 列表和私聊会话页不提供下拉刷新。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
-- 保持现有 MiniPhone 样式、导航、启动动画、音乐和壁纸行为；共享聊天修改须回归 LocationChat。动态请求错误使用公共 Toast；演示数据仅用于明确的无世界预览。
+- 保持现有 MiniPhone 样式、导航、启动动画、音乐和壁纸行为；共享聊天修改须回归 LocationChat。动态请求错误使用公共 Toast；正式页面不提供演示数据回退。
 
 ### MiniPhone 原版布局复核（2026-10-16）
 

@@ -10,14 +10,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/entry/mini_phone_entry_artwork.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/preview/mini_phone_demo_store.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/preview/mini_phone_preview_avatar.dart';
+import '../../support/mini_phone_unread_store.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/shared/mini_phone_ui.dart';
 
-class _Unread extends MiniPhoneDemoStore {
+class _Unread extends TestMiniPhoneUnreadStore {
   int count = 0;
   @override
-  int get totalUnread => count;
+  int get totalUnreadCount => count;
   void update(int value) {
     count = value;
     notifyListeners();
@@ -56,7 +56,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     unread = _Unread();
     music = _Music();
-    session = MiniPhoneSession(store: unread, music: music);
+    session = MiniPhoneSession(data: unread, music: music);
     opens = 0;
   });
   tearDown(() => session.dispose());
@@ -208,7 +208,7 @@ void main() {
         expect(art(tester).unread, isTrue);
         expect(art(tester).showMusic, isFalse);
         await tester.pump(const Duration(milliseconds: 3001));
-        expect(find.byType(MiniAvatar), findsNothing);
+        expect(find.byType(GenesisAvatar), findsNothing);
         await capture(tester, '${style.name}-unread-music');
         await tester.tap(find.byTooltip('Play music'));
         await tester.pump();

@@ -19,7 +19,7 @@ class CharactersMovedMessageParser implements LocationChatMessageParser {
     return buildLocationChatParsedMessage(
       message: message,
       context: context,
-      senderType: chatroomCharactersMovedSenderType,
+      senderType: message.timelinePayload!.senderType,
       text: locationChatTimelineCopyText(timelinePayload),
       timelinePayload: timelinePayload,
     );
@@ -50,6 +50,7 @@ class CharactersMovedMessageParser implements LocationChatMessageParser {
         .map(
           (movement) => ChatCharacterMovementVm(
             characterId: movement.charId.trim(),
+            oldLocationId: movement.oldLocationId.trim(),
             characterName: context.characterName(movement.charId),
             toLocationId: movement.toLocationId.trim(),
             toLocationName: context.locationName(movement.toLocationId),

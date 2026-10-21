@@ -1,13 +1,12 @@
 # MiniPhone
 
-MiniPhone 是 World 持有的手机会话。正式页面使用 `GenesisApi.miniPhone` 和既有 World Socket；关闭手机保留世界会话，退出世界释放订阅与路由，暂停并保存音乐进度；正式播放器由 AppServices 常驻持有，供下一个 World 复用，账号或环境切换时释放。无世界的 Developer 预览单独放在 `preview/`，正式请求失败不会回退为演示数据。
+MiniPhone 是 World 持有的手机会话。正式页面使用 `GenesisApi.miniPhone` 和既有 World Socket；关闭手机保留世界会话，退出世界释放订阅与路由，暂停并保存音乐进度；正式播放器由 AppServices 常驻持有，供下一个 World 复用，账号或环境切换时释放。2026-10-22 已移除 Developer 预览、演示数据及配套图片；正式页面仅展示真实手机数据。默认壁纸为保持原尺寸、WebP 质量 85 的 `assets/mini_phone/wallpaper-01.webp`。
 
 ## 调用入口
 
 模块外只导入 `mini_phone.dart`：
 
 - `showMiniPhone`：World / LocationChat 打开手机。
-- `showMiniPhonePreview`：Developer 的明确预览入口。
 - `MiniPhoneSession` / `MiniPhoneSessionScope`：World 会话所有权与作用域。
 - `MiniPhoneEntry` / `MiniPhoneEdgeDock`：手机入口与可拖动 Dock。
 - 两个入口组件均接受 `style: MiniPhoneEntryStyle.arcaneGrimoire`；省略时根据 World Detail 的 `map_style.era` 自动选择，缺失或未知时回退 `classicHandset`。两套都使用交付 SVG，由同一 `MiniPhoneEntryArtwork` 渲染、同一 `EntryMotion` 播放关键帧；`mini_phone_entry_style.dart` 仅配置资源、坐标与动效。状态、点击、音乐控制、拖动及会话保持共用。动态时间、未读数字和头像绑定运行数据；资源授权位于 `assets/mini_phone/entry-icons-LICENSES.txt`。
@@ -19,7 +18,7 @@ Dock 位置保留旧的本地存储键，避免整理命名后丢失已有位置
 
 | 目录 / 文件 | 职责 |
 | --- | --- |
-| `mini_phone.dart` | 显式导出对外 API，不导出业务控制器和预览数据 |
+| `mini_phone.dart` | 显式导出正式业务 API，不导出业务控制器 |
 | `mini_phone_page.dart` | 手机外壳、内部 Navigator、页面组合与可见页面错误反馈 |
 | `session/` | World 会话、服务装配、路由释放、恢复状态及页面枚举 |
 | `state/mini_phone_store.dart` | 兼容业务入口、账号初始化、聚合校准、事件分发、写请求日志与恢复调度 |
@@ -34,7 +33,6 @@ Dock 位置保留旧的本地存储键，避免整理命名后丢失已有位置
 | `settings/` | 设置页、AI 模型设置页面与会话内模型设置控制器 |
 | `settings/wallpaper/` | 壁纸加载、编辑、保存、缓存与展示 |
 | `shared/` | 模块内视觉组件、Panel；列表请求辅助只依赖请求状态及调用方回调，不导入 Store |
-| `preview/` | 预览数据、预览页面、图片查看；仅此目录保留局部 `part` |
 
 HTTP、DTO 和 SQLite 继续位于 `lib/network/mini_phone/`；通用聊天组件、图片查看器和 `lib/ui/animations/app_launch_transition/` 保留公共模块归属。
 

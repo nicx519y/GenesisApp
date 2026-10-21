@@ -241,20 +241,34 @@ LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_ty
 
 V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_message` 或 `characters_moved` 带 `location_id` 时只调用 `/aitown-chat/api/v2/messages` 刷新该地点；缺少地点时对当前世界的叶子地点做限并发 V2 刷新。这条 runtime 链路不调用 `/aitown-chat/internal/world/messages` 或 legacy `/aitown-chat/api/messages`。
 
-#### MiniPhone 私聊返回移动事件（2026-10-21）
+#### MiniPhone 私聊角色移动正式消息（2026-10-21）
 
-新增 V2 控制事件 `phone_characters_moved`，使用现有 World WSS 连接：
+`phone_characters_moved` 是地点正式消息，替代此前无消息 ID 的临时控制事件：
 
 ```json
-{"type":"phone_characters_moved","stream_type":"","ts":1792576800000,"world_id":"world_1","trigger_uid":"","payload":{"content":[{"char_id":"char_1","old_loc_id":"loc_a","to_loc_id":"loc_b"}]},"err_no":0,"err_msg":""}
+{
+  "type": "phone_characters_moved",
+  "world_id": "world_1",
+  "location_id": "loc_b",
+  "global_message_id": 1001,
+  "message_id": 1001,
+  "location_message_id": 25,
+  "conversation_round_id": 801,
+  "conversation_type": "phone_characters_moved",
+  "sender_type": "phone_characters_moved",
+  "payload": {
+    "content": [{"char_id": "char_1", "old_loc_id": "loc_a", "to_loc_id": "loc_b"}]
+  }
+}
 ```
 
-- `payload.content` 为移动数组；每项三个 ID 均为非空字符串。`stream_type` 必须为空，`ts` 为正数毫秒时间戳，`err_no` 为 0；空数组不生成卡片。该事件没有 `event_id`、消息 ID 或地点游标，允许 `trigger_uid` 为空；客户端保留该字段，不据此推断额外的收件人过滤规则。
-- `ChatroomPhoneCharactersMoved` 经 `WorldChatroomService.phoneMovements` 按当前世界分发，不进入地点消息队列、SQLite 或 History，也不触发历史/世界快照 HTTP 补查。当前会话保留最近 256 个由 world、ts、trigger_uid 和规范化移动内容组成的去重键。
-- LocationChat 实际打开 MiniPhone 私聊后收集事件，关闭手机返回时展示；返回后观察期内收到的事件也可更新卡片。仅展示出发地或目的地为当前聊天室、且两地不同的记录，同一角色按收到的最新记录更新目的地；角色与地点名称从现有世界数据解析。
-- 卡片不再通过角色位置快照差异生成，也不为此在返回时刷新世界快照。保留已有观察截止条件（公共消息、Tick 变化、输入阻塞、发送或页面停用）与公共 `characters_moved` / Tick 消息的重复提示消除。普通移动消息和 Tick 移动区继续使用原有流程。
-- 此处记录客户端支持的契约和行为，不代表真实后端/设备联调已完成。
-
+- 四个 ID（含 round）必须是正整数，world/location 为非空字符串，`conversation_type` 与 `sender_type` 使用上述值。`stream_type` 可省略或为空；`ts`、`trigger_uid`、发送者名称/ID 可省略，`err_no` 省略时按 0 处理，非零业务错误不入队。旧的无正式 ID 的通知形态不再接受，不再用时间戳和内容生成临时去重键。
+- `payload.content` 为数组，每项 `char_id/old_loc_id/to_loc_id` 为非空字符串。保留原始 payload 和 old_loc_id；一个消息只占用一个地点游标/缓存行。展示时与 Tick 共用聚合规则：单条消息内按去除首尾空白后的 `to_loc_id` 分组，不区分出发地，目的地按首次出现顺序排列，姓名按原顺序拼接且不去重。聚合不改写原始记录，也不跨消息合并。空数组可保留正式消息和游标，但不生成卡片。
+- 收到后按顶层 `location_id` 通过普通消息 upsert 写入地点队列和 SQLite，使用 `location_message_id` 排序、分页和去重。不会按移动数组额外广播或复制到出发/目的地点，不合并不同正式消息中的同一角色。HTTP V2 messages 回填同样解析，和 WSS/SQLite 恢复共用 ID 语义。
+- 实时收到合法消息时，同时按每项 `char_id → to_loc_id` 更新世界角色位置及地点实体索引，地图通过已有世界状态订阅刷新。每个角色记录最近应用的私聊移动 `global_message_id`，重复/较旧的同类事件只入消息队列、不回退位置；切换账号或世界清空此记录。HTTP 历史回填与 SQLite 恢复不重放位置变化。没有世界快照或缺少角色资料时走已有世界详情刷新。
+- 不依赖 MiniPhone 是否打开、是否返回、是否仍处于观察期；不再维护页面临时行、位置差异或公共消息消重观察。覆盖页面时队列照常更新，返回按正常聊天恢复渲染。角色/地点名称和地点图仍从已有世界信息解析，目的地点击行为保持原样。
+- 该正式消息沿用 History 变更提示；History 的实际内容仍从独立 HTTP 档案接口获取，不能将 WSS 行直接作为档案结果。
+- 此处记录客户端支持的新契约；真实后端和设备联调需独立验证。
 
 ### Go On：创建新的续写轮次
 

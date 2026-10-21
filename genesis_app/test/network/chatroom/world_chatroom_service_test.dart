@@ -23,51 +23,236 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 
 void main() {
   test(
-    'phone movements stay out of history and deduplicate within the world',
+    'phone movement updates map positions without replaying older moves',
     () async {
       final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
       final service = await _service(
         socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
         useV2Protocol: true,
         refreshInitialSnapshotOnConnect: false,
       );
-      addTearDown(service.dispose);
-      final movements = <ChatroomPhoneCharactersMoved>[];
-      final hints = <String>[];
-      final subscription = service.phoneMovements.listen(movements.add);
-      final history = service.historyChanges.listen(hints.add);
-      addTearDown(subscription.cancel);
-      addTearDown(history.cancel);
+      final base = _worldSnapshot();
+      final snapshot = base.copyWith(
+        characters: [
+          ...base.characters,
+          {'char_id': 'char-2', 'type': 'ai', 'name': 'Bob'},
+        ],
+      );
+      service.applyWorldSnapshot(snapshot);
       await service.connect(worldId: 'world-1', identity: _identity());
-      void send({String world = 'world-1', int ts = 1792576800000}) {
-        socket.serverFrame('phone_characters_moved', {
-          'stream_type': '',
-          'ts': ts,
-          'world_id': world,
-          'trigger_uid': '',
-          'payload': {
-            'content': [
-              {
-                'char_id': 'char-1',
-                'old_loc_id': 'loc-1',
-                'to_loc_id': 'loc-2',
-              },
-            ],
-          },
-          'err_no': 0,
-          'err_msg': '',
-        });
-      }
+      Map<String, Object?> frame(
+        int id,
+        String to, {
+        String world = 'world-1',
+      }) => {
+        'world_id': world,
+        'location_id': 'loc-2',
+        'global_message_id': id,
+        'message_id': id,
+        'location_message_id': id,
+        'conversation_round_id': 801,
+        'conversation_type': 'phone_characters_moved',
+        'sender_type': 'phone_characters_moved',
+        'payload': {
+          'content': [
+            {'char_id': 'char-1', 'old_loc_id': 'loc-1', 'to_loc_id': to},
+            {'char_id': 'char-2', 'old_loc_id': 'loc-1', 'to_loc_id': 'loc-2'},
+          ],
+        },
+      };
+      String? location() => service.state.entitiesById['char-1']?.locationId;
+      try {
+        socket.serverFrame('phone_characters_moved', frame(1001, 'loc-2'));
+        await _waitFor(
+          () => service.state.messagesByLocation['loc-2']?.length == 1,
+        );
+        expect(location(), 'loc-2');
+        expect(service.state.entitiesById['char-2']?.locationId, 'loc-2');
+        expect(service.state.world!.characterPositions, hasLength(3));
+        expect(
+          service.state.world!.characterPositions.first['location_id'],
+          'loc-2',
+        );
+        expect(service.state.world!.characters.first['location_id'], 'loc-2');
+        expect(service.state.entitiesByLocation['loc-1'] ?? [], isEmpty);
+        expect(
+          service.state.entitiesByLocation['loc-2']!.map((e) => e.id),
+          contains('char-1'),
+        );
+        expect(service.state.world!.userPositions, snapshot.userPositions);
+        expect(snapshot.characterPositions.first['location_id'], 'loc-1');
+        expect(snapshot.characters.first['location_id'], 'loc-1');
 
-      send(world: 'other');
-      send();
-      send();
-      send(ts: 1792576800001);
-      await _waitFor(() => movements.length == 2);
-      expect(movements.map((e) => e.ts), [1792576800000, 1792576800001]);
-      expect(service.state.messagesByLocation.values.expand((e) => e), isEmpty);
-      expect(service.state.lastMessageId, 0);
-      expect(hints, isEmpty);
+        // The payload destination, not the message's location, drives the map.
+        socket.serverFrame('phone_characters_moved', frame(1003, 'loc-1'));
+        await _waitFor(
+          () => service.state.messagesByLocation['loc-2']?.length == 2,
+        );
+        expect(location(), 'loc-1');
+        socket.serverFrame('phone_characters_moved', frame(1001, 'loc-2'));
+        socket.serverFrame('phone_characters_moved', frame(1002, 'loc-2'));
+        socket.serverFrame(
+          'phone_characters_moved',
+          frame(1004, 'loc-2', world: 'other'),
+        );
+        await _waitFor(
+          () => service.state.messagesByLocation['loc-2']?.length == 3,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(location(), 'loc-1');
+        expect(
+          service.state.world!.characterPositions.first['location_id'],
+          'loc-1',
+        );
+        expect(http.detailRequests, 0);
+        expect(http.userLocationRequests, 0);
+
+        http.messagesByLocation['loc-2'] = [
+          {'type': 'phone_characters_moved', ...frame(1001, 'loc-2')},
+        ];
+        await service.refreshLatestMessages(locationId: 'loc-2');
+        expect(location(), 'loc-1');
+      } finally {
+        await service.dispose();
+      }
+    },
+  );
+
+  test(
+    'canonical phone movements queue, order, deduplicate and survive SQLite reopen',
+    () async {
+      sqfliteFfiInit();
+      final directory = await Directory.systemTemp.createTemp(
+        'phone-movement-',
+      );
+      final path = '${directory.path}/messages.db';
+      final storage = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfi,
+      );
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        messageStorage: storage,
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      final hints = <String>[];
+      final history = service.historyChanges.listen(hints.add);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      Map<String, Object?> frame({
+        String world = 'world-1',
+        int cursor = 25,
+        int id = 1001,
+      }) => {
+        'world_id': world,
+        'location_id': 'loc-2',
+        'global_message_id': id,
+        'message_id': id,
+        'location_message_id': cursor,
+        'conversation_round_id': 801,
+        'conversation_type': 'phone_characters_moved',
+        'sender_type': 'phone_characters_moved',
+        'payload': {
+          'content': [
+            {'char_id': 'char-1', 'old_loc_id': 'loc-1', 'to_loc_id': 'loc-2'},
+          ],
+        },
+      };
+      try {
+        // No location join or MiniPhone visit is needed. Replays use cursor dedupe.
+        socket.serverFrame('phone_characters_moved', frame(world: 'other'));
+        socket.serverFrame(
+          'phone_characters_moved',
+          frame(cursor: 26, id: 1002),
+        );
+        socket.serverFrame('phone_characters_moved', frame());
+        socket.serverFrame('phone_characters_moved', frame());
+        await _waitFor(
+          () => service.state.messagesByLocation['loc-2']?.length == 2,
+        );
+        final messages = service.state.messagesByLocation['loc-2']!;
+        expect(messages.map((m) => m.locationMessageId), [25, 26]);
+        expect(messages.map((m) => m.messageId), [1001, 1002]);
+        expect(service.state.messagesByLocation['loc-1'] ?? [], isEmpty);
+        expect(service.state.lastMessageId, 1002);
+        expect(hints, isNotEmpty);
+        expect(hints, everyElement('world-1'));
+        List<Map<String, dynamic>> stored = [];
+        for (var i = 0; i < 100; i++) {
+          stored = await storage.loadLatestMessages(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-2',
+            limit: 20,
+          );
+          if (stored.length == 2) break;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        expect(stored, hasLength(2));
+        http.messagesByLocation['loc-2'] = [
+          {'type': 'phone_characters_moved', ...frame()},
+          {'type': 'phone_characters_moved', ...frame(cursor: 26, id: 1002)},
+        ];
+        await service.refreshLatestMessages(locationId: 'loc-2');
+        expect(service.state.messagesByLocation['loc-2'], hasLength(2));
+        expect(
+          service.state.messagesByLocation['loc-2']!.every(
+            (m) => m.timelinePayload is ChatroomPhoneCharactersMovedPayload,
+          ),
+          isTrue,
+        );
+      } finally {
+        await history.cancel();
+        await service.dispose();
+        await storage.close();
+      }
+      final reopened = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfi,
+      );
+      final restored = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        messageStorage: reopened,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      try {
+        await restored.connect(worldId: 'world-1', identity: _identity());
+        await restored.hydrateLocalMessages(
+          worldId: 'world-1',
+          locationId: 'loc-2',
+        );
+        final messages = restored.state.messagesByLocation['loc-2']!;
+        expect(messages.map((m) => m.locationMessageId), [25, 26]);
+        for (final message in messages) {
+          expect(message.senderType, 'phone_characters_moved');
+          expect(message.businessType, 'phone_characters_moved');
+          expect(message.conversationRoundId, '801');
+          expect(message.rawPayload['content'], isA<List>());
+          final payload =
+              message.timelinePayload as ChatroomPhoneCharactersMovedPayload;
+          expect(payload.movements.single.oldLocationId, 'loc-1');
+          expect(payload.movements.single.toLocationId, 'loc-2');
+        }
+        expect(
+          await reopened.loadLatestMessages(
+            ownerUid: 'other-user',
+            worldId: 'world-1',
+            locationId: 'loc-2',
+            limit: 20,
+          ),
+          isEmpty,
+        );
+      } finally {
+        await restored.dispose();
+        await reopened.close();
+        await directory.delete(recursive: true);
+      }
     },
   );
 

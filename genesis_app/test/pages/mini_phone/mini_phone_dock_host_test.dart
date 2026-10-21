@@ -4,12 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/entry/mini_phone_entry_artwork.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/preview/mini_phone_demo_store.dart';
+import '../../support/mini_phone_unread_store.dart';
 
-class _Unread extends MiniPhoneDemoStore {
+class _Unread extends TestMiniPhoneUnreadStore {
   int count = 0;
   @override
-  int get totalUnread => count;
+  int get totalUnreadCount => count;
   void arrive() {
     count++;
     notifyListeners();
@@ -39,7 +39,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     unread = _Unread();
     music = _Music();
-    session = MiniPhoneSession(store: unread, music: music);
+    session = MiniPhoneSession(data: unread, music: music);
     controller = MiniPhoneDockController();
     position = MiniPhoneDockPosition('persistent-dock-test');
     await position.load();
@@ -124,7 +124,7 @@ void main() {
       final dock = tester.state(find.byType(MiniPhoneEdgeDock));
       final entry = tester.state(find.byType(MiniPhoneEntry));
       final previous = session;
-      session = MiniPhoneSession(store: _Unread(), music: _Music());
+      session = MiniPhoneSession(data: _Unread(), music: _Music());
       previous.dispose();
       await mount(tester);
       expect(tester.state(find.byType(MiniPhoneDockHost)), same(host));

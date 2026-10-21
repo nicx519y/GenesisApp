@@ -100,7 +100,7 @@ void main() {
               sourceWorldoName: 'Worldo',
               artist: 'Artist',
               title: 'Track',
-              coverUrl: 'assets/mini_phone/loc_1_1_1.jpg',
+              coverUrl: 'assets/images/default_list_image.png',
             ),
           ],
         ),

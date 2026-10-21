@@ -134,6 +134,93 @@ void main() {
     expect(await settings.catalog(), same(source));
   });
 
+  test('phone entry reuses a catalogue from the model page cache', () async {
+    var requests = 0;
+    final source = GemModelCatalog.fromJson(_catalogJson());
+    final settings = MiniPhoneModelSettings()
+      ..configure(
+        worldId: 'W_PHONE',
+        loader: () async {
+          requests++;
+          return source;
+        },
+      );
+    addTearDown(settings.dispose);
+    settings.pageCache.storeModelCatalog(source);
+    await settings.ensureLoaded();
+    expect(requests, 0);
+    expect(settings.label, 'Phone DM model');
+  });
+
+  for (final prefetchFails in [false, true]) {
+    testWidgets(
+      'phone chat checks missing model cache after prefetch fails: $prefetchFails',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final transport = _ModelTransport();
+        final api = GenesisApi(
+          useMock: false,
+          apiClient: ApiClient(
+            baseUrl: 'https://api.example/api/',
+            transport: transport,
+          ),
+        );
+        final services = _services(api);
+        final data = PhoneBackend().store();
+        await tester.runAsync(() => data.ready);
+        final phone = MiniPhoneSession(worldId: 'W_PHONE', data: data);
+        addTearDown(phone.dispose);
+        var loads = 0;
+        phone.modelSettings.configure(
+          worldId: 'W_PHONE',
+          loader: () async {
+            loads++;
+            if (prefetchFails && loads == 1) {
+              throw StateError('Prefetch unavailable');
+            }
+            return api.v1.gem.models(worldId: 'W_PHONE', biz: 'phone_dm');
+          },
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              home: MiniPhonePage(
+                session: phone,
+                initialScreen: MiniPhoneScreen.messages,
+              ),
+            ),
+          ),
+        );
+        await _settle(tester);
+        expect(loads, 1);
+        await tester.tap(
+          find.byKey(const ValueKey('mini-phone-conversation-c')),
+        );
+        await _settle(tester);
+        expect(find.text('Phone DM model'), findsOneWidget);
+        expect(loads, prefetchFails ? 2 : 1);
+        expect(transport.matching('gem/model/list'), hasLength(1));
+        expect(
+          transport.matching('gem/model/list').single.uri.queryParameters,
+          {'world_id': 'W_PHONE', 'biz': 'phone_dm'},
+        );
+        await tester.binding.handlePopRoute();
+        await _settle(tester);
+        await tester.tap(
+          find.byKey(const ValueKey('mini-phone-conversation-c')),
+        );
+        await _settle(tester);
+        expect(loads, prefetchFails ? 2 : 1);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets('phone queries its business despite a warm World cache', (
     tester,
   ) async {

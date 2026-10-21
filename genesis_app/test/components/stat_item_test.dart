@@ -37,7 +37,11 @@ void main() {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: StatItem(iconAsset: userStatIconAsset, iconSize: 14, text: '6'),
+        child: StatItem(
+          iconAsset: connectStatIconAsset,
+          iconSize: 14,
+          text: '6',
+        ),
       ),
     );
 

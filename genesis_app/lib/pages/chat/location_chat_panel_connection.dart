@@ -17,8 +17,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _joiningLocationFuture = null;
     _unbindLocationMessageChanges();
 
-    await _phoneMovementSubscription?.cancel();
-    _phoneMovementSubscription = null;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -92,11 +90,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final code = modelCode.trim();
     if (!widget.active ||
         modelWorldId.isEmpty ||
-        code.isEmpty ||
         code == _selectedModelTitleLookupCode) {
       return;
     }
     _selectedModelTitleLookupCode = code;
+    final generation = _selectedModelLoadGeneration;
     final services = AppServicesScope.read(context);
     try {
       final session = await services.sessionStore.readCompleteSession();
@@ -104,35 +102,56 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           !widget.active ||
           modelWorldId != _modelWorldId ||
           code != _selectedModelCode) {
-        _selectedModelTitleLookupCode = '';
+        _selectedModelTitleLookupCode = null;
         return;
       }
       if (session == null) {
-        _selectedModelTitleLookupCode = '';
+        _selectedModelTitleLookupCode = null;
         return;
       }
-      final catalog = await _modelRequestCache.loadModelCatalog(
-        uid: session.uid,
-        worldId: modelWorldId,
-        loader: () => services.api.v1.gem.models(worldId: modelWorldId),
-      );
+      final catalog =
+          _modelRequestCache.modelCatalog ??
+          await _modelRequestCache.loadModelCatalog(
+            uid: session.uid,
+            worldId: modelWorldId,
+            loader: () => services.api.v1.gem.models(worldId: modelWorldId),
+          );
       if (catalog == null) return;
+      final currentSession = await services.sessionStore.readCompleteSession();
+      final current = await services.sessionStore.readUserInfo();
+      if (!mounted ||
+          !widget.active ||
+          generation != _selectedModelLoadGeneration ||
+          modelWorldId != _modelWorldId ||
+          code != _selectedModelCode ||
+          currentSession?.uid != session.uid ||
+          selectedModelCodeFromUserInfo(current ?? const {}) != code) {
+        return;
+      }
       _modelRequestCache.storeModelCatalog(catalog);
       final titlesByCode = catalog.titlesByCode();
-      final title = titlesByCode[code] ?? '';
-      if (title.isEmpty) return;
-      final current = await services.sessionStore.readUserInfo();
-      await services.sessionStore.saveUserInfo(
-        userInfoWithSelectedGemModel(current, titlesByCode: titlesByCode),
+      final resolvedCode = code.isEmpty
+          ? catalog.selectedModelCode.trim()
+          : code;
+      final title = titlesByCode[resolvedCode] ?? '';
+      final updated = userInfoWithSelectedGemModel(
+        current,
+        selectedModelCode: resolvedCode,
+        titlesByCode: titlesByCode,
       );
-      if (!mounted ||
-          modelWorldId != _modelWorldId ||
-          code != _selectedModelCode) {
-        return;
+      _setLocationChatState(() {
+        _selectedModelCode = resolvedCode;
+        _selectedModelTitle = title;
+      });
+      if (selectedModelCodeFromUserInfo(current ?? const {}) != resolvedCode ||
+          !mapEquals(
+            gemModelTitlesFromUserInfo(current ?? const {}),
+            gemModelTitlesFromUserInfo(updated),
+          )) {
+        await services.sessionStore.saveUserInfo(updated);
       }
-      _setLocationChatState(() => _selectedModelTitle = title);
     } catch (error) {
-      _selectedModelTitleLookupCode = '';
+      _selectedModelTitleLookupCode = null;
       debugPrint('[WorldChat][Model] resolve model title failed: $error');
       if (propagateFailure) rethrow;
     }
@@ -141,7 +160,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   void _handleCachedUserInfoChanged() {
     // The session owner may have changed. Let the page-scoped coordinator
     // decide whether this user/World pair is cached as permission denied.
-    _selectedModelTitleLookupCode = '';
+    _selectedModelTitleLookupCode = null;
     unawaited(_loadSelectedModelCodeFromCache());
   }
 
@@ -150,6 +169,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (modelWorldId.isEmpty || _openingModelPage) return;
     _openingModelPage = true;
     _selectedModelLoadGeneration++;
+    _selectedModelTitleLookupCode = null;
     try {
       final selectedModelCode = await Navigator.of(context, rootNavigator: true)
           .pushNamed<String>(
@@ -311,8 +331,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _joiningLocation = false;
     _joiningLocationFuture = null;
     _unbindLocationMessageChanges();
-    await _phoneMovementSubscription?.cancel();
-    _phoneMovementSubscription = null;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -442,11 +460,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   void _attachService(WorldChatroomService service) {
-    _phoneMovementSubscription ??= service.phoneMovements.listen((event) {
-      if (mounted && identical(service, _service)) {
-        _handlePhoneCharactersMoved(event);
-      }
-    });
     if (_ownsService && _balanceAlertSubscription == null) {
       _balanceAlertSubscription = bindGemBalancePrompt(
         context,
@@ -830,7 +843,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     }
     // Keep connection recovery above alive, but reconcile the latest service
     // snapshot only once when the covering page closes.
-    final privateReturnsChanged = _syncPrivateChatReturns(state);
     if (_presentationPaused) return;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
@@ -875,7 +887,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       state,
     );
     final messageViewportChanged =
-        privateReturnsChanged ||
         openingWasResolved != _openingPreviewResolved ||
         historyChanged ||
         changedMessages ||

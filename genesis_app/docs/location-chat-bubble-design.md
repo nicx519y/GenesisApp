@@ -142,3 +142,7 @@ Developer Page 的 `switch → Location Chat → Streaming animations` 提供四
 标题、地点名、角色名、标签使用 `GenesisTypography.bodyStrong`；时间、正文使用 `body`；历史辅助时间使用 `supporting`。斜体使用公共处理；主次文字使用 `darkTextPrimary/darkTextSecondary`，辅助时间使用 `darkTextTertiary`，线索使用 `redSecondary`。状态填充使用 `darkFaintFill`。不得另建字号、字重、行高组合，公共头像内部样式不覆盖。
 
 旧数据也使用统一布局：缺失状态区隐藏，保留原可见角色、不同于章节时间的段落时间及 World Events 数值变化。合法空集合不显示空区或骨架；内容损坏显示静态骨架，历史更新后恢复。界面不从 Tick cast 推导地图角色位置。
+
+## 私聊移动卡片聚合
+
+`phone_characters_moved` 与 Tick 内的移动卡片复用同一目的地分组函数：仅在单条消息内按去除首尾空白后的 `to_loc_id` 分组，不区分出发地。目的地按首次出现顺序展示，组内姓名去除首尾空白、过滤空姓名后按原顺序拼接，不去重；地点信息与跳转沿用组内首条记录。不同消息不合并，普通独立 `characters_moved` 仍逐条展示。聚合只作用于展示层，本地消息队列与持久化保留完整原始移动记录。

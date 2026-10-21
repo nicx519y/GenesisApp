@@ -238,7 +238,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final movements = !payload.isMalformed
-        ? _groupTickCharacterMovements(
+        ? _groupCharacterMovementsByDestination(
             payload.charactersMoved?.movements ?? const [],
           )
         : <ChatCharacterMovementVm>[];
@@ -513,7 +513,9 @@ String _storyEventsCopyText(ChatStoryEventsPayloadVm event) {
 String _charactersMovedCopyText(ChatCharactersMovedPayloadVm event) {
   return [
     GenesisL10n.current.characterDestinations,
-    for (final movement in _groupTickCharacterMovements(event.movements))
+    for (final movement in _groupCharacterMovementsByDestination(
+      event.movements,
+    ))
       GenesisL10n.current.characterMovementSentence(
         characterName: movement.characterName.trim(),
         direction: movement.isDestinationCurrentLocation
@@ -524,7 +526,7 @@ String _charactersMovedCopyText(ChatCharactersMovedPayloadVm event) {
   ].join('\n');
 }
 
-List<ChatCharacterMovementVm> _groupTickCharacterMovements(
+List<ChatCharacterMovementVm> _groupCharacterMovementsByDestination(
   List<ChatCharacterMovementVm> movements,
 ) {
   final movementsByDestination = <String, List<ChatCharacterMovementVm>>{};

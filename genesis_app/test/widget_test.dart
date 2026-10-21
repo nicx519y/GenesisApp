@@ -20622,7 +20622,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('origin-inline-edit-worldo')),
-        matching: _assetSvgFinder(editPencilLineIconAsset),
+        matching: _assetSvgFinder(editSquareIconAsset),
       ),
       findsNothing,
     );
@@ -22886,7 +22886,7 @@ void main() {
     );
     await tester.pump();
 
-    final editIconFinder = _assetSvgFinder(editPencilLineIconAsset);
+    final editIconFinder = _assetSvgFinder(editSquareIconAsset);
     final textRight = tester.getTopRight(find.text('Short')).dx;
     final iconLeft = tester.getTopLeft(editIconFinder).dx;
     expect(iconLeft - textRight, lessThan(16));
@@ -27723,7 +27723,7 @@ void main() {
       tester.widget<Text>(find.text('Edit')).style?.fontWeight,
       FontWeight.w600,
     );
-    expect(_assetSvgFinder(editPencilLineIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(editSquareIconAsset), findsOneWidget);
     expect(find.text('Preview'), findsNothing);
     expect(
       globalTextBaseline(find.text('Edit')),
@@ -32235,9 +32235,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(_assetSvgFinder(editPencilLineIconAsset), findsWidgets);
+      expect(_assetSvgFinder(editSquareIconAsset), findsWidgets);
 
-      await tester.tap(_assetSvgFinder(editPencilLineIconAsset).last);
+      await tester.tap(_assetSvgFinder(editSquareIconAsset).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 

@@ -175,10 +175,12 @@ class ChatroomHttpMessage {
         tickPayload?.currentTime.trim().isNotEmpty == true
         ? tickPayload!.currentTime
         : asString(payload['current_time']);
-    final content = asString(
-      payload['content'],
-      fallback: tickPayload?.globalText ?? '',
-    );
+    final phoneMovement = message.type == chatroomPhoneCharactersMovedSenderType
+        ? ChatroomPhoneCharactersMoved.fromV2Message(message)
+        : null;
+    final content =
+        phoneMovement?.content ??
+        asString(payload['content'], fallback: tickPayload?.globalText ?? '');
     return ChatroomHttpMessage(
       rawJson: resolvedRawJson,
       businessType: message.type,

@@ -3,6 +3,7 @@ import 'dart:convert';
 const String chatroomUserEnterLocationSenderType = 'user_enter_location';
 const String chatroomStoryEventsSenderType = 'story_events';
 const String chatroomCharactersMovedSenderType = 'characters_moved';
+const String chatroomPhoneCharactersMovedSenderType = 'phone_characters_moved';
 
 const int chatroomMaxFrameBytes = 1024 * 1024;
 const int chatroomMaxCollectionItems = 100;
@@ -12,6 +13,7 @@ const Set<String> chatroomTimelinePayloadSenderTypes = <String>{
   chatroomUserEnterLocationSenderType,
   chatroomStoryEventsSenderType,
   chatroomCharactersMovedSenderType,
+  chatroomPhoneCharactersMovedSenderType,
 };
 
 bool isChatroomTimelinePayloadSenderType(Object? value) {
@@ -208,12 +210,53 @@ class ChatroomCharactersMovedPayload extends ChatroomTimelinePayload {
   };
 }
 
+/// Canonical phone movement payload; retains the wire content array.
+class ChatroomPhoneCharactersMovedPayload
+    extends ChatroomCharactersMovedPayload {
+  const ChatroomPhoneCharactersMovedPayload({required super.movements});
+
+  @override
+  String get senderType => chatroomPhoneCharactersMovedSenderType;
+
+  factory ChatroomPhoneCharactersMovedPayload.fromJson(
+    Map<String, Object?> json,
+  ) {
+    return ChatroomPhoneCharactersMovedPayload(
+      movements: List.unmodifiable(
+        _requiredList(json, 'content').map((item) {
+          final entry = _requiredJsonMap(item, field: 'content[]');
+          return ChatroomCharacterMovement(
+            charId: _requiredString(entry, 'char_id', nonEmpty: true).trim(),
+            oldLocationId: _requiredString(
+              entry,
+              'old_loc_id',
+              nonEmpty: true,
+            ).trim(),
+            toLocationId: _requiredString(
+              entry,
+              'to_loc_id',
+              nonEmpty: true,
+            ).trim(),
+          );
+        }),
+      ),
+    );
+  }
+
+  @override
+  Map<String, Object?> toJson() => {
+    'content': movements.map((m) => m.toJson()).toList(),
+  };
+}
+
 class ChatroomCharacterMovement {
   const ChatroomCharacterMovement({
     required this.charId,
     required this.toLocationId,
+    this.oldLocationId = '',
   });
 
+  final String oldLocationId;
   final String charId;
   final String toLocationId;
 
@@ -226,6 +269,7 @@ class ChatroomCharacterMovement {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'char_id': charId,
+    if (oldLocationId.isNotEmpty) 'old_loc_id': oldLocationId,
     'to_loc_id': toLocationId,
   };
 }
@@ -244,6 +288,8 @@ ChatroomTimelinePayload decodeChatroomTimelinePayload({
       ? _decodeCharactersMovedPayloadMap(rawPayload)
       : _decodePayloadMap(rawPayload);
   return switch (normalizedSenderType) {
+    chatroomPhoneCharactersMovedSenderType =>
+      ChatroomPhoneCharactersMovedPayload.fromJson(payload),
     chatroomUserEnterLocationSenderType =>
       ChatroomUserEnterLocationPayload.fromJson(payload),
     chatroomStoryEventsSenderType => ChatroomStoryEventsPayload.fromJson(

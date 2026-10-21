@@ -15,7 +15,7 @@ void main() {
         sourceWorldoName: '',
         artist: 'Artist',
         title: 'Track $i',
-        coverUrl: 'assets/mini_phone/loc_1_1_1.jpg',
+        coverUrl: 'assets/images/default_list_image.png',
         likeCount: 0,
         isLiked: false,
       ),

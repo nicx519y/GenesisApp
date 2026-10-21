@@ -20,6 +20,10 @@ class ChatCharactersMovedMessageBubble extends StatelessWidget {
     if (payload is! ChatCharactersMovedPayloadVm || payload.movements.isEmpty) {
       return const SizedBox.shrink();
     }
+    final movements =
+        message.senderType == chatroomPhoneCharactersMovedSenderType
+        ? _groupCharacterMovementsByDestination(payload.movements)
+        : payload.movements;
     return Padding(
       padding: style.systemMessageMargin,
       child: GestureDetector(
@@ -41,16 +45,12 @@ class ChatCharactersMovedMessageBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (
-                    var index = 0;
-                    index < payload.movements.length;
-                    index += 1
-                  ) ...[
+                  for (var index = 0; index < movements.length; index += 1) ...[
                     if (index > 0) const SizedBox(height: 10),
                     _ChatCharacterMovementRow(
                       messageLocalId: message.localId,
                       index: index,
-                      movement: payload.movements[index],
+                      movement: movements[index],
                       style: style,
                       onLocationTap: onLocationTap,
                     ),

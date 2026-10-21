@@ -521,7 +521,9 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(userStatIconAsset),
+            widget.bytesLoader.toString().contains(
+              'assets/custom-icons/svg/user_icon.svg',
+            ),
       ),
       findsNothing,
     );

@@ -34,6 +34,8 @@ import '../../../ui/text/genesis_text_input_formatters.dart';
 import '../../../utils/genesis_message_image.dart';
 import '../../../utils/genesis_image_resource.dart';
 import '../../../network/chatroom/chatroom_message_type.dart';
+import '../../../network/chatroom/chatroom_timeline_payload.dart'
+    show chatroomPhoneCharactersMovedSenderType;
 import 'chat_scene_plate_tokens.dart';
 import 'chat_streaming_effects.dart';
 import 'chat_bubble_geometry.dart';

@@ -159,7 +159,7 @@ class ChatroomV2Message {
         }
       }
     }
-    if (type == 'llm_message_updated') {
+    if (type == 'llm_message_updated' || type == 'phone_characters_moved') {
       for (final key in [
         'global_message_id',
         'message_id',

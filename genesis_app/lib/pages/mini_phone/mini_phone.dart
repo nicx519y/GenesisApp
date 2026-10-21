@@ -1,6 +1,5 @@
-// Public integration surface for World, LocationChat and developer preview.
-export 'mini_phone_page.dart'
-    show MiniPhonePage, showMiniPhone, showMiniPhonePreview;
+// Public integration surface for World and LocationChat.
+export 'mini_phone_page.dart' show MiniPhonePage, showMiniPhone;
 export 'session/mini_phone_screen.dart' show MiniPhoneScreen;
 export 'session/mini_phone_session.dart'
     show MiniPhoneSession, MiniPhoneSessionScope;

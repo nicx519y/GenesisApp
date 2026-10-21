@@ -8,7 +8,7 @@ void main() {
 
   test('production features do not share the shell private library', () {
     for (final file in root.listSync(recursive: true).whereType<File>()) {
-      if (!file.path.endsWith('.dart') || file.path.contains('/preview/')) {
+      if (!file.path.endsWith('.dart')) {
         continue;
       }
       final source = file.readAsStringSync();
@@ -66,16 +66,24 @@ void main() {
     }
   });
 
+  test('Developer no longer exposes MiniPhone preview', () {
+    final source = File('lib/pages/me/developer_page.dart').readAsStringSync();
+    expect(source, isNot(contains('developer-mini-phone-preview')));
+    expect(source, isNot(contains('/mini_phone/')));
+    expect(Directory('${root.path}/preview').existsSync(), isFalse);
+  });
+
   test('external page integrations use only the public entry', () {
     for (final path in [
       'lib/pages/world/world_page.dart',
       'lib/pages/chat/location_chat_page.dart',
-      'lib/pages/me/developer_page.dart',
     ]) {
       final imports = directives
           .allMatches(File(path).readAsStringSync())
           .map((m) => m.group(1)!)
-          .where((uri) => uri.contains('/mini_phone/'));
+          .where(
+            (uri) => uri.contains('/mini_phone/') && !uri.contains('/network/'),
+          );
       expect(imports, ['../mini_phone/mini_phone.dart'], reason: path);
     }
   });

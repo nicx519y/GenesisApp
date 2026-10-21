@@ -113,7 +113,8 @@ bool locationChatMessageHasSupportedExplicitV2Envelope(
     'tick' ||
     chatroomUserEnterLocationSenderType ||
     chatroomStoryEventsSenderType ||
-    chatroomCharactersMovedSenderType => true,
+    chatroomCharactersMovedSenderType ||
+    chatroomPhoneCharactersMovedSenderType => true,
     _ => false,
   };
 }
@@ -133,7 +134,8 @@ bool locationChatMessageHasRenderableBusinessContent(
   if (businessType == chatroomStoryEventsSenderType) {
     return message.timelinePayload is ChatroomStoryEventsPayload;
   }
-  if (businessType == chatroomCharactersMovedSenderType) {
+  if (businessType == chatroomCharactersMovedSenderType ||
+      businessType == chatroomPhoneCharactersMovedSenderType) {
     return message.timelinePayload is ChatroomCharactersMovedPayload;
   }
   if (businessType == 'narrator') {

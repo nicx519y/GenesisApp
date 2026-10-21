@@ -83,7 +83,7 @@ void main() {
               sourceWorldoName: 'My Hero Academia',
               artist: 'Katsuki Bakugo',
               title: 'Number One Lungs',
-              coverUrl: 'assets/mini_phone/loc_1_1_1.jpg',
+              coverUrl: 'assets/images/default_list_image.png',
             ),
           ],
         ),

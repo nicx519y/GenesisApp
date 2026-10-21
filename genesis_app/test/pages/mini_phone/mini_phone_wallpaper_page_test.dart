@@ -833,7 +833,7 @@ void main() {
       find.byType(GenesisListImage),
     );
     expect(preview.imageUrl, isEmpty);
-    expect(preview.placeholderAsset, 'assets/mini_phone/wallpaper-01.png');
+    expect(preview.placeholderAsset, 'assets/mini_phone/wallpaper-01.webp');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

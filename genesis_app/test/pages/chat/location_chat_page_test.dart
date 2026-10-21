@@ -22,6 +22,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
+import 'package:genesis_flutter_android/network/models/gem_model.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
@@ -124,8 +125,13 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
-  for (final timing in ['snapshot only', 'inside phone', 'after return']) {
-    testWidgets('phone movement return card: $timing', (tester) async {
+  for (final timing in [
+    'snapshot only',
+    'without phone',
+    'inside phone',
+    'after return',
+  ]) {
+    testWidgets('canonical phone movement card: $timing', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       tester.view.physicalSize = const Size(390, 844);
@@ -194,10 +200,15 @@ void main() {
       harness.service.applyWorldSnapshot(world('location-current'));
       await tester.pumpAndSettle();
       final bubbles = find.byType(ChatCharactersMovedMessageBubble);
-      void send({String destination = 'garden', int ts = 1792576800000}) {
+      void send({String destination = 'garden'}) {
         harness.socket._serverFrame('phone_characters_moved', {
-          'stream_type': '',
-          'ts': ts,
+          'location_id': 'location-current',
+          'global_message_id': 1001,
+          'message_id': 1001,
+          'location_message_id': 104,
+          'conversation_round_id': 801,
+          'conversation_type': 'phone_characters_moved',
+          'sender_type': 'phone_characters_moved',
           'world_id': 'world-current',
           'trigger_uid': '',
           'payload': {
@@ -207,11 +218,6 @@ void main() {
                 'old_loc_id': 'location-current',
                 'to_loc_id': destination,
               },
-              {
-                'char_id': 'unrelated',
-                'old_loc_id': 'elsewhere',
-                'to_loc_id': 'garden',
-              },
             ],
           },
           'err_no': 0,
@@ -219,25 +225,26 @@ void main() {
         });
       }
 
-      // Without an actual private-chat visit, even a valid event is not a return card.
-      send(ts: 1792576799999);
-      await tester.pumpAndSettle();
-      expect(bubbles, findsNothing);
-      await tester.tap(
-        find.descendant(
-          of: find.byWidgetPredicate(
-            (w) =>
-                w is ChatOtherMessageBubble &&
-                w.message.text == 'Original reply.',
+      if (timing != 'without phone') {
+        await tester.tap(
+          find.descendant(
+            of: find.byWidgetPredicate(
+              (w) =>
+                  w is ChatOtherMessageBubble &&
+                  w.message.text == 'Original reply.',
+            ),
+            matching: find.byType(ChatAvatar),
           ),
-          matching: find.byType(ChatAvatar),
-        ),
-      );
-      await tester.runAsync(
-        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+        );
+        await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+      } else {
+        send();
+        send();
+      }
       if (timing == 'snapshot only') {
         harness.service.applyWorldSnapshot(world('garden'));
       } else if (timing == 'inside phone') {
@@ -245,12 +252,18 @@ void main() {
         send();
       }
       await tester.pumpAndSettle();
-      expect(
-        find.byType(ChatCharactersMovedMessageBubble, skipOffstage: false),
-        findsNothing,
-      );
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
+      if (timing != 'without phone') {
+        if (timing == 'inside phone') {
+          expect(
+            harness.service.state.messagesByLocation['location-current']!.where(
+              (m) => m.businessType == 'phone_characters_moved',
+            ),
+            hasLength(1),
+          );
+        }
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
       if (timing == 'after return') {
         expect(bubbles, findsNothing);
         send();
@@ -282,8 +295,8 @@ void main() {
         expect(
           harness.service.state.messagesByLocation.values
               .expand((e) => e)
-              .where((m) => m.senderType == 'characters_moved'),
-          isEmpty,
+              .where((m) => m.senderType == 'phone_characters_moved'),
+          hasLength(1),
         );
       }
       expect(tester.takeException(), isNull);
@@ -12222,7 +12235,9 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is SvgPicture &&
-              widget.bytesLoader.toString().contains(routeIconAsset),
+              widget.bytesLoader.toString().contains(
+                createOriginLocationsIconAsset,
+              ),
         ),
         findsNWidgets(2),
       );
@@ -12669,10 +12684,97 @@ void main() {
     expect(find.text('WSS event clue.'), findsOneWidget);
   });
 
-  testWidgets('location chat updates when cached selected model arrives', (
+  for (final cacheKind in [
+    'none',
+    'direct',
+    'pending',
+    'code',
+    'user',
+    'catalog',
+  ]) {
+    testWidgets('location chat model entry loads missing cache: $cacheKind', (
+      tester,
+    ) async {
+      final transport = _LocationChatModelHttpTransport();
+      if (cacheKind == 'pending') transport.modelBarrier = Completer<void>();
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: transport,
+      );
+      final store = harness.services.sessionStore;
+      await store.saveUserInfo({
+        'uid': 'user-1',
+        if (cacheKind == 'code') 'selected_model_code': 'entry_model',
+        if (cacheKind == 'user') ...{
+          'selected_model_code': 'entry_model',
+          'selected_model_titles': {'entry_model': 'Entry model'},
+        },
+      });
+      final cache = MemoryModelPageCache();
+      addTearDown(cache.dispose);
+      if (cacheKind == 'catalog') {
+        cache.storeModelCatalog(GemModelCatalog.fromJson(transport.catalog));
+      }
+      Widget panel(bool active) => AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            modelWorldId: 'world-current',
+            memoryModelPageCache: cache,
+            locationId: 'location-current',
+            active: active,
+            service: harness.service,
+            leaveOnInactive: false,
+          ),
+        ),
+      );
+      final needsRequest = cacheKind != 'user' && cacheKind != 'catalog';
+      if (cacheKind != 'direct') {
+        await tester.pumpWidget(panel(false));
+        await tester.pump();
+        expect(transport.modelRequests, isEmpty);
+      }
+      await tester.pumpWidget(panel(true));
+      if (cacheKind == 'pending') {
+        await tester.pump();
+        expect(transport.modelRequests, hasLength(1));
+        await tester.pumpWidget(panel(false));
+        await tester.pumpWidget(panel(true));
+        await tester.pump();
+        transport.modelBarrier!.complete();
+      }
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Entry model').evaluate().isNotEmpty,
+      );
+      expect(find.text('Entry model'), findsOneWidget);
+      expect(transport.modelRequests, hasLength(needsRequest ? 1 : 0));
+      if (needsRequest) {
+        expect(transport.modelRequests.single.uri.queryParameters, {
+          'world_id': 'world-current',
+        });
+      }
+      expect(
+        (await store.readUserInfo())?['selected_model_code'],
+        'entry_model',
+      );
+      await tester.pumpWidget(panel(false));
+      await tester.pumpWidget(panel(true));
+      await tester.pump();
+      expect(transport.modelRequests, hasLength(needsRequest ? 1 : 0));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+    });
+  }
+
+  testWidgets('location chat model entry preserves a newer cached selection', (
     tester,
   ) async {
-    final harness = await _connectedLocationChatTestService();
+    final barrier = Completer<void>();
+    final transport = _LocationChatModelHttpTransport()..modelBarrier = barrier;
+    final harness = await _connectedLocationChatTestService(
+      replyTransport: transport,
+    );
     final sessionStore = harness.services.sessionStore;
     await sessionStore.saveUserInfo({'uid': 'user-1'});
 
@@ -12696,16 +12798,24 @@ void main() {
 
     await sessionStore.saveUserInfo({
       'uid': 'user-1',
-      'selected_model_code': 'luxury_selection_v4',
+      'selected_model_code': 'new_model',
+      'selected_model_titles': {'new_model': 'New model'},
     });
+    barrier.complete();
     await tester.pump();
 
     await _pumpUntilLocationChatTest(
       tester,
-      () => find.text('Luxury Selection V4.0').evaluate().isNotEmpty,
+      () => find.text('New model').evaluate().isNotEmpty,
     );
-    expect(find.text('Luxury Selection V4.0'), findsOneWidget);
+    expect(find.text('New model'), findsOneWidget);
     expect(find.text('Model'), findsNothing);
+    expect(find.text('Entry model'), findsNothing);
+    expect(
+      (await sessionStore.readUserInfo())?['selected_model_code'],
+      'new_model',
+    );
+    expect(transport.modelRequests, hasLength(1));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -14761,6 +14871,48 @@ class _ThrowingLocationChatService extends WorldChatroomService {
 }
 
 /// Authoritative test backend: batch updates are only visible after history reload.
+class _LocationChatModelHttpTransport extends _LocationChatReplyHttpTransport {
+  final modelRequests = <TransportRequest>[];
+  Completer<void>? modelBarrier;
+  final catalog = <String, Object?>{
+    'selected_model_code': 'entry_model',
+    'list': [
+      {
+        'group_code': 'entry',
+        'group_title': 'Entry',
+        'models': [
+          {
+            'model_code': 'entry_model',
+            'title': 'Entry model',
+            'tag': [],
+            'description': '',
+            'estimated_next_message_gems_cent': 100,
+            'estimated_next_tick_gems_cent': 100,
+            'min_gems_cent': 100,
+            'max_gems_cent': 200,
+            'min_memory_tokens': 8000,
+            'max_memory_tokens': 64000,
+          },
+        ],
+      },
+    ],
+  };
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (!request.uri.path.endsWith('/gem/model/list')) {
+      return super.send(request);
+    }
+    modelRequests.add(request);
+    await modelBarrier?.future;
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': '', 'data': catalog}),
+    );
+  }
+}
+
 class _LocationChatReplyHttpTransport implements HttpTransport {
   bool? localMember = true;
   bool includeQuotas = false;

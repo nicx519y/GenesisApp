@@ -65,15 +65,6 @@ const List<WorldContentUpdateNotice> _multiWorldUpdatePushPreviewNotices = [
 ];
 
 extension _DeveloperPreviews on _DeveloperPageContentState {
-  Future<void> _showMiniPhonePreview() async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    if (widget.dismissBeforePreview) {
-      await widget.onDismissBeforePreview?.call();
-    }
-    if (!navigator.mounted) return;
-    await showMiniPhonePreview(navigator.context);
-  }
-
   Future<void> _showForcedLoginPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {

@@ -783,6 +783,7 @@ LocationChatMessageParser? locationChatMessageParserForTesting(
       return const UserEnterLocationMessageParser();
     case chatroomStoryEventsSenderType:
       return const StoryEventsMessageParser();
+    case chatroomPhoneCharactersMovedSenderType:
     case chatroomCharactersMovedSenderType:
       return const CharactersMovedMessageParser();
     case 'narrator':

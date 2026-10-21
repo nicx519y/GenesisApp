@@ -4,12 +4,11 @@ import '../../../app/config/genesis_image_config.dart';
 import '../../../components/common/genesis_center_toast.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
+import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/animations/app_launch_transition/app_launch_transition.dart';
 import '../session/mini_phone_session.dart';
 import '../session/mini_phone_screen.dart';
 import '../state/mini_phone_store.dart';
-import '../preview/mini_phone_demo_store.dart';
-import '../preview/mini_phone_preview_avatar.dart';
 import '../music/mini_phone_music.dart';
 import '../music/mini_phone_music_service.dart';
 import '../settings/wallpaper/mini_phone_wallpaper_controller.dart';
@@ -24,7 +23,6 @@ class MiniPhoneHome extends StatefulWidget {
     required this.wallpaper,
     required this.onNavigate,
     required this.onLaunch,
-    required this.onOpenChat,
     required this.onOpenLiveChat,
     required this.onOpenComments,
   });
@@ -33,16 +31,14 @@ class MiniPhoneHome extends StatefulWidget {
   final ValueChanged<MiniPhoneScreen> onNavigate;
   final void Function(Object sourceId, MiniPhoneScreen app, VoidCallback open)
   onLaunch;
-  final ValueChanged<MiniDemoPerson> onOpenChat;
   final ValueChanged<PhonePerson> onOpenLiveChat;
-  final ValueChanged<MiniDemoPost> onOpenComments;
+  final ValueChanged<int> onOpenComments;
   @override
   State<MiniPhoneHome> createState() => _MiniPhoneHomeState();
 }
 
 class _MiniPhoneHomeState extends State<MiniPhoneHome> {
   MiniPhoneStore? get phone => widget.session.data;
-  MiniPhoneDemoStore get store => widget.session.store;
   MiniPhoneMusicService get _music => widget.session.music;
   MiniPhoneWallpaperController get wallpaper => widget.wallpaper;
   @override
@@ -51,7 +47,6 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
     homePagerPosition = widget.session.resume.homePage;
     homePages = PageController(initialPage: homePagerPosition);
     phone?.addListener(_changed);
-    store.addListener(_changed);
     wallpaper.addListener(_changed);
   }
 
@@ -67,7 +62,6 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
   void dispose() {
     widget.session.resume.homePage = homePagerPosition;
     phone?.removeListener(_changed);
-    store.removeListener(_changed);
     wallpaper.removeListener(_changed);
     homePages.dispose();
     homeNoticeScroll.dispose();
@@ -108,7 +102,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
     if (!wallpaper.cacheReady) return const ColoredBox(color: miniBackground);
     final bytes = wallpaper.displayBytes;
     final ImageProvider source = bytes == null
-        ? const AssetImage('${miniPhoneAssets}wallpaper-01.png')
+        ? const AssetImage('${miniPhoneAssets}wallpaper-01.webp')
         : MemoryImage(bytes);
     final size = MediaQuery.sizeOf(context);
     final ratio = MediaQuery.devicePixelRatioOf(
@@ -126,8 +120,6 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
     );
   }
 
-  MiniDemoPerson _livePersonPresentation(PhonePerson p) =>
-      MiniDemoPerson(p.id, p.name, p.name, p.avatar, 'live', '', '', 0);
   String _notificationText(PhoneNotification n) => switch (n.eventType) {
     'post' => context.l10n.miniPhonePublishedPost,
     'like' => context.l10n.miniPhoneLikedPost,
@@ -172,68 +164,42 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                   ({
                     Object sourceId,
                     String? liveCharId,
-                    MiniDemoPerson person,
+                    PhonePerson person,
                     String text,
                     String time,
                   })
                 >[];
-            final posts = <MiniDemoPost>[];
+            final posts =
+                <
+                  ({
+                    Object sourceId,
+                    int postId,
+                    PhonePerson person,
+                    String text,
+                    String time,
+                  })
+                >[];
             if (phone != null) {
               for (final m in phone!.unreadMessages) {
                 final p = phone!.personForMessage(m);
                 messages.add((
                   sourceId: ('message', m.id),
                   liveCharId: phone!.charForMessage(m),
-                  person: _livePersonPresentation(p),
+                  person: p,
                   text: m.content,
                   time: m.currentTime,
                 ));
               }
               for (var i = 0; i < phone!.home.notifications.length; i++) {
                 final n = phone!.home.notifications[i];
-                posts.add(
-                  MiniDemoPost(
-                    '${n.postId}:$i',
-                    _livePersonPresentation(
-                      phone!.person(n.actorId, type: n.actorType),
-                    ),
-                    _notificationText(n),
-                    n.currentTime,
-                    0,
-                  ),
-                );
+                posts.add((
+                  sourceId: ('post', '${n.postId}:$i'),
+                  postId: n.postId,
+                  person: phone!.person(n.actorId, type: n.actorType),
+                  text: _notificationText(n),
+                  time: n.currentTime,
+                ));
               }
-            } else {
-              for (final p in miniDemoPeople) {
-                for (var i = 0; i < store.unread(p); i++) {
-                  messages.add((
-                    sourceId: ('message', p.id, i),
-                    liveCharId: null,
-                    person: p,
-                    text: i == 0
-                        ? p.preview
-                        : 'You slipped away before the last song.',
-                    time: i == 0 ? p.time : '4m',
-                  ));
-                }
-              }
-              messages.sort(
-                (a, b) =>
-                    (a.time == 'now'
-                            ? 0
-                            : a.time == '2m'
-                            ? 1
-                            : 2)
-                        .compareTo(
-                          b.time == 'now'
-                              ? 0
-                              : b.time == '2m'
-                              ? 1
-                              : 2,
-                        ),
-              );
-
-              posts.addAll(store.unreadPosts);
             }
             final kinds = <String>[
               if (messages.isNotEmpty) 'Messages',
@@ -248,7 +214,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                   padding: const EdgeInsets.only(top: 9),
                   child: Text(
                     phone == null
-                        ? 'Day 2 · Ashford Estate'
+                        ? ''
                         : [
                             phone!.worldDay,
                             phone!.worldName,
@@ -301,9 +267,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                             n.text,
                             n.time,
                             () {
-                              if (phone == null) {
-                                widget.onOpenChat(n.person);
-                              } else if (n.liveCharId != null) {
+                              if (n.liveCharId != null) {
                                 widget.onOpenLiveChat(
                                   phone!.person(n.liveCharId!),
                                 );
@@ -335,8 +299,8 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                             p.person,
                             p.text,
                             p.time,
-                            () => widget.onOpenComments(p),
-                            sourceId: ('post', p.id),
+                            () => widget.onOpenComments(p.postId),
+                            sourceId: p.sourceId,
                             app: MiniPhoneScreen.posts,
                           ),
                       ],
@@ -566,8 +530,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                                 context.l10n.miniPhoneMessages,
                                 MiniPhoneScreen.messages,
                                 size: narrow ? 56 : 62,
-                                badge:
-                                    phone?.dmUnreadCount ?? store.totalUnread,
+                                badge: phone?.dmUnreadCount ?? 0,
                               ),
                               _homeApp(
                                 'posts',
@@ -710,7 +673,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
   }
 
   Widget _homeNotice(
-    MiniDemoPerson person,
+    PhonePerson person,
     String text,
     String time,
     VoidCallback action, {
@@ -732,10 +695,11 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
           constraints: const BoxConstraints(minHeight: 54),
           child: Row(
             children: [
-              MiniAvatar(
-                person,
+              GenesisAvatar(
+                url: person.avatar,
+                name: person.name,
                 size: 36,
-                borderRadius: squareAvatar ? 8 : null,
+                borderRadius: squareAvatar ? 8 : 18,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -746,7 +710,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                       children: [
                         Expanded(
                           child: Text(
-                            person.short,
+                            person.name,
                             style: miniStyle(12, FontWeight.w600),
                           ),
                         ),

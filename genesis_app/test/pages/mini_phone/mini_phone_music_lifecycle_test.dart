@@ -26,7 +26,7 @@ MusicCatalog _catalog() => MusicCatalog(
         sourceWorldoName: 'O',
         artist: 'A',
         title: 'T$i',
-        coverUrl: 'assets/mini_phone/loc_1_1_1.jpg',
+        coverUrl: 'assets/images/default_list_image.png',
       ),
   ],
 );

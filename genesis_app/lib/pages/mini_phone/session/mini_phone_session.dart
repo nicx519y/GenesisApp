@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import '../../../platform/session/user_session_store.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -9,8 +8,6 @@ import '../../../network/mini_phone/mini_phone_models.dart';
 import '../music/mini_phone_music_service.dart';
 import '../music/mini_phone_music_owner.dart';
 import '../posts/mini_phone_post_draft.dart';
-import '../preview/mini_phone_demo_store.dart';
-import '../preview/mini_phone_preview_photo.dart';
 import '../settings/mini_phone_model_settings.dart';
 import '../state/mini_phone_store.dart';
 import 'mini_phone_screen.dart';
@@ -22,12 +19,10 @@ class MiniPhoneSession {
     this.data,
     MiniPhoneMusicService? music,
     MiniPhoneMusicLease? musicLease,
-    MiniPhoneDemoStore? store,
     Future<MusicCatalog> Function()? musicLoader,
   }) : assert(music == null || musicLease == null),
        music = musicLease?.music ?? music ?? MiniPhoneMusicService(),
        _musicLease = musicLease,
-       store = store ?? MiniPhoneDemoStore(),
        _musicLoader = musicLoader {
     this.music.analytics = data?.analytics;
   }
@@ -62,7 +57,6 @@ class MiniPhoneSession {
   late final MiniPhonePostDraft? postDraft = data == null
       ? null
       : MiniPhonePostDraft(data!);
-  final MiniPhoneDemoStore store;
   final Future<MusicCatalog> Function()? _musicLoader;
   final resume = MiniPhoneResume();
   final _routes = <Route<dynamic>, NavigatorState>{};
@@ -99,7 +93,6 @@ class MiniPhoneSession {
     }
     postDraft?.dispose();
     data?.dispose();
-    store.dispose();
     final routes = _routes.entries.toList().reversed.toList();
     _routes.clear();
     scheduleMicrotask(() {
@@ -137,14 +130,7 @@ class MiniPhoneSessionScope extends InheritedWidget {
 class MiniPhoneResume {
   int? accountGeneration;
   MiniPhoneScreen screen = MiniPhoneScreen.home;
-  MiniDemoPerson contact = miniDemoPeople.first;
-  MiniDemoPost? post;
-  String? filter;
   int homePage = 0;
-  String draft = '';
   PhonePerson? liveContact;
   int? livePostId;
-  Uint8List? photo;
-  List<MiniPhonePreviewPhoto>? viewerPhotos;
-  int viewerIndex = 0;
 }

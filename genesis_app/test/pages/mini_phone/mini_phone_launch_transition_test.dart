@@ -10,7 +10,7 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/preview/mini_phone_demo_store.dart';
+import '../../support/mini_phone_chat_backend.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/ui/animations/app_launch_transition/app_launch_transition.dart';
 import '../../support/mini_phone_music_services.dart';
@@ -40,6 +40,7 @@ class _TransitionTransport implements HttpTransport {
 
 void main() {
   late MiniPhoneSession phone;
+  late PhoneBackend backend;
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     phone = MiniPhoneSession(
@@ -73,7 +74,51 @@ void main() {
     bool nested = false,
   }) async {
     phone.dispose();
+    backend = PhoneBackend();
+    var dmUnread = true;
+    var postsUnread = true;
+    backend.respond = (r) {
+      if (r.uri.path.endsWith('/dm_session/read')) {
+        dmUnread = false;
+        return ok({});
+      }
+      if (r.uri.path.endsWith('/post/notifications/read')) {
+        postsUnread = false;
+        return ok({});
+      }
+      if (r.uri.path.endsWith('/home')) {
+        return ok({
+          'dms': {
+            'unread_count': dmUnread ? 1 : 0,
+            'list': dmUnread ? [phoneMessage(1)] : [],
+          },
+          'posts': {
+            'unread_count': postsUnread ? 1 : 0,
+            'list': postsUnread ? [phoneNotification()] : [],
+          },
+        });
+      }
+      if (r.uri.path.endsWith('/unread')) {
+        return ok({'unread_count': dmUnread ? 1 : 0, 'char_id': 'c'});
+      }
+      if (r.uri.path.endsWith('/dm_sessions')) {
+        return ok(page([phoneSession(unread: dmUnread ? 1 : 0)]));
+      }
+      if (r.uri.path.endsWith('/messages')) {
+        return ok(page([phoneMessage(1)]));
+      }
+      if (r.uri.path.endsWith('/post/notifications')) {
+        return ok(page(postsUnread ? [phoneNotification()] : []));
+      }
+      return null;
+    };
+    final data = (await tester.runAsync(() async {
+      final data = backend.store();
+      await data.ready;
+      return data;
+    }))!;
     phone = MiniPhoneSession(
+      data: data,
       music: MiniPhoneMusicService(playerFactory: TestMusicPlayer.new),
     );
     tester.view.physicalSize = const Size(390, 1000);
@@ -94,7 +139,7 @@ void main() {
               sourceWorldoName: 'Test',
               artist: 'Artist',
               title: 'Launch test',
-              coverUrl: 'assets/mini_phone/loc_1_1_1.jpg',
+              coverUrl: 'assets/images/default_list_image.png',
             ),
           ],
         ),
@@ -168,6 +213,7 @@ void main() {
         expect(tester.takeException(), isNull);
       }
       await tester.pumpWidget(const SizedBox.shrink());
+      phone.dispose();
     },
   );
 
@@ -198,6 +244,7 @@ void main() {
       expect(pager.controller!.page, 1);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+      phone.dispose();
     },
   );
 
@@ -207,20 +254,19 @@ void main() {
       await mount(tester);
       await tester.tap(find.text('Show all').first);
       await settle(tester);
-      final person = miniDemoPeople.first;
-      final notification = source(('message', person.id, 0));
+      final notification = source(('message', 1));
       await tester.ensureVisible(notification);
       await settle(tester);
-      var readNotifications = 0;
-      void changed() => readNotifications++;
-      phone.store.addListener(changed);
-      addTearDown(() => phone.store.removeListener(changed));
       await tester.tap(notification);
       await tester.pump();
       expect(controller(tester).status, AppLaunchTransitionStatus.opening);
-      expect(phone.store.unread(person), 0);
-      expect(readNotifications, 1);
       await settle(tester);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+      expect(phone.data!.dmUnreadCount, 0);
+      expect(backend.calls('dm_session/read'), hasLength(1));
       await back(tester);
       expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
       expect(controller(tester).status, AppLaunchTransitionStatus.open);
@@ -242,6 +288,7 @@ void main() {
       expect(controller(tester).status, AppLaunchTransitionStatus.home);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+      phone.dispose();
     },
   );
 
@@ -254,16 +301,16 @@ void main() {
     expect(controller(tester).status, AppLaunchTransitionStatus.home);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+    phone.dispose();
   });
 
   testWidgets(
     'post notification expands to comments and returns through Posts',
     (tester) async {
       await mount(tester);
-      final post = phone.store.unreadPosts.first;
       await tester.tap(find.text('Show all').first);
       await settle(tester);
-      final notification = source(('post', post.id));
+      final notification = source(('post', '8:0'));
       await tester.ensureVisible(notification);
       await settle(tester);
       final origin = tester.getRect(notification);
@@ -273,16 +320,17 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('app-launch-surface'))),
         origin,
       );
-      expect(phone.store.readPosts, contains(post.id));
       await settle(tester);
       await back(tester);
       expect(find.widgetWithText(TextButton, 'Posts'), findsOneWidget);
       expect(controller(tester).status, AppLaunchTransitionStatus.open);
       await back(tester);
       expect(controller(tester).status, AppLaunchTransitionStatus.home);
-      expect(phone.store.unreadPosts, isEmpty);
+      expect(phone.data!.home.postUnread, 0);
+      expect(backend.calls('post/notifications/read'), isNotEmpty);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+      phone.dispose();
     },
   );
 
@@ -299,5 +347,6 @@ void main() {
     expect(find.text('Open phone'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+    phone.dispose();
   });
 }

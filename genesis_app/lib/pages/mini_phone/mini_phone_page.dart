@@ -1,7 +1,4 @@
 import '../../l10n/genesis_localizations.dart';
-import 'preview/mini_phone_preview.dart';
-import 'preview/mini_phone_preview_activity.dart';
-import 'preview/mini_phone_preview_gallery.dart';
 import 'settings/mini_phone_settings_page.dart';
 import 'home/mini_phone_home.dart';
 import 'messages/mini_phone_messages_page.dart';
@@ -16,7 +13,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../ui/animations/app_launch_transition/app_launch_transition.dart';
 import '../../ui/navigation/genesis_dark_page_route.dart';
-import 'preview/mini_phone_demo_store.dart';
 import 'music/mini_phone_music_service.dart';
 import 'settings/wallpaper/mini_phone_wallpaper_controller.dart';
 import 'settings/wallpaper/mini_phone_wallpaper_cache.dart';
@@ -34,7 +30,7 @@ import 'settings/mini_phone_model_settings_page.dart';
 import 'session/mini_phone_session.dart';
 import 'session/mini_phone_screen.dart';
 
-/// World-backed MiniPhone; worldless calls retain the explicit style preview.
+/// Opens the MiniPhone attached to a live World session.
 Future<void> showMiniPhone(
   BuildContext context, {
   MiniPhoneScreen? initialScreen,
@@ -43,13 +39,16 @@ Future<void> showMiniPhone(
   String entrySource = 'unknown',
   MemoryModelPageCache? modelCache,
   MiniPhoneSession? session,
-  ValueChanged<MiniPhoneSession>? onPrivateChatOpened,
 }) async {
   final inherited = MiniPhoneSessionScope.read(context);
   final phone =
       session ?? inherited ?? MiniPhoneSession.forWorld(context, worldId);
   if (phone.isDisposed) return;
   final ownsSession = session == null && inherited == null;
+  if (phone.data == null) {
+    if (ownsSession) phone.dispose();
+    return;
+  }
   Future<GemModelCatalog> loadCatalog() async {
     // Phone DM has its own business catalogue; the supplied World cache must
     // neither satisfy nor coalesce this request with LocationChat.
@@ -81,7 +80,6 @@ Future<void> showMiniPhone(
           session: phone,
           initialScreen: initialScreen ?? phone.resume.screen,
           initialContact: initialContact,
-          onPrivateChatOpened: onPrivateChatOpened,
           entrySource: entrySource,
           isRestored:
               initialScreen == null &&
@@ -94,12 +92,6 @@ Future<void> showMiniPhone(
     if (ownsSession) phone.dispose();
   }
 }
-
-/// Explicit developer preview; live World callers use showMiniPhone.
-Future<void> showMiniPhonePreview(
-  BuildContext context, {
-  MiniPhoneScreen? initialScreen,
-}) => showMiniPhone(context, initialScreen: initialScreen);
 
 /// Uses the same platform route transitions as the rest of the app.
 class _MiniPhoneRoutePage extends Page<void> {
@@ -129,12 +121,10 @@ class MiniPhonePage extends StatefulWidget {
     this.worldId = '',
     this.wallpaperController,
     this.session,
-    this.onPrivateChatOpened,
   });
   final MiniPhoneSession? session;
 
   /// Route-local observation only; no private messages enter the World stream.
-  final ValueChanged<MiniPhoneSession>? onPrivateChatOpened;
   final MiniPhoneScreen initialScreen;
   final PhonePerson? initialContact;
   final String entrySource;
@@ -148,8 +138,6 @@ class MiniPhonePage extends StatefulWidget {
 class _MiniPhonePageState extends State<MiniPhonePage> {
   late final MiniPhoneSession _session;
   late final bool _ownsSession;
-  final _previewActivity = MiniPhonePreviewActivity();
-  MiniPhoneDemoStore get store => _session.store;
   MiniPhoneStore? get phone => _session.data;
   PhonePerson? liveContact;
   int? livePostId;
@@ -255,10 +243,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (accountChanged) {
       _miniResume.liveContact = null;
       _miniResume.livePostId = null;
-      _miniResume.draft = '';
-      _miniResume.photo = null;
-      _miniResume.viewerPhotos = null;
-      _miniResume.viewerIndex = 0;
     }
     screen = widget.initialContact != null
         ? MiniPhoneScreen.chat
@@ -275,7 +259,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     );
     liveContact = widget.initialContact ?? _miniResume.liveContact;
     livePostId = _miniResume.livePostId;
-    store.addListener(_changed);
     _phoneOwner = phone?.uid;
     phone?.addListener(_changed);
     _session.postDraft?.addListener(_changed);
@@ -331,26 +314,30 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     wallpaper.addListener(_changed);
     _trackPage(source: widget.entrySource, navigation: 'initial');
     unawaited(wallpaper.refresh());
-    unawaited(
-      _session.modelSettings
-          .ensureLoaded()
-          .then((_) {
-            if (mounted) setState(() {});
-          })
-          .catchError((Object _) {}),
-    );
+    unawaited(_ensureModelsLoaded(showFailure: false));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_refreshMusicLikes());
-      if (mounted && _miniResume.viewerPhotos != null) {
-        showMiniPhonePreviewGallery(
-          context,
-          _session,
-          _miniResume.viewerPhotos!,
-          _miniResume.viewerIndex,
-          onClose: _close,
-        );
-      }
     });
+  }
+
+  Future<void> _ensureModelsLoaded({bool showFailure = true}) async {
+    final generation = phone?.accountGeneration;
+    try {
+      await _session.modelSettings.ensureLoaded();
+      if (mounted &&
+          !_session.isDisposed &&
+          generation == phone?.accountGeneration) {
+        setState(() {});
+      }
+    } catch (error) {
+      if (showFailure &&
+          mounted &&
+          !_session.isDisposed &&
+          generation == phone?.accountGeneration &&
+          screen == MiniPhoneScreen.chat) {
+        showGenesisToast(context, MiniPhoneStore.errorText(error));
+      }
+    }
   }
 
   Future<void> _refreshMusicLikes() async {
@@ -372,13 +359,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   @override
   void dispose() {
     phone?.analytics.endOpen(_analyticsOpenId);
-    _previewActivity.dispose();
     _launchTransition.dispose();
     _miniResume.accountGeneration = phone?.accountGeneration;
     _miniResume.screen = screen;
     _miniResume.liveContact = liveContact;
     _miniResume.livePostId = livePostId;
-    store.removeListener(_changed);
     phone?.removeListener(_changed);
     _session.postDraft?.removeListener(_changed);
     if (phone != null) {
@@ -445,8 +430,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (next == MiniPhoneScreen.settings) _prepareSettings();
     if (phone != null) {
       _loadLiveScreen(next);
-    } else {
-      if (next == MiniPhoneScreen.posts) store.markPostsRead();
     }
   }
 
@@ -481,16 +464,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
 
   void _prepareSettings() {
     unawaited(wallpaper.beginEditing());
-  }
-
-  void _openChat(MiniDemoPerson p) {
-    if (phone != null) {
-      _openLiveChat(phone!.person(p.id));
-      return;
-    }
-    _miniResume.contact = p;
-    store.markRead(p);
-    _go(MiniPhoneScreen.chat);
   }
 
   void _close() {
@@ -581,9 +554,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                                   key: ValueKey((
                                     destination,
                                     destination == MiniPhoneScreen.chat
-                                        ? (phone == null
-                                              ? _miniResume.contact.id
-                                              : liveContact?.id)
+                                        ? liveContact?.id
                                         : null,
                                   )),
                                   screen: destination,
@@ -639,16 +610,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     wallpaper: wallpaper,
     onNavigate: _go,
     onLaunch: _launchFrom,
-    onOpenChat: _openChat,
     onOpenLiveChat: _openLiveChat,
-    onOpenComments: _openComments,
+    onOpenComments: (id) => _openLivePost(id, fromNotification: true),
   );
 
   Widget _screen(MiniPhoneScreen destination) => switch (destination) {
     MiniPhoneScreen.home => _home(),
     MiniPhoneScreen.messages =>
       phone == null
-          ? _preview(destination)
+          ? _emptyApp(destination)
           : MiniPhoneMessagesPage(
               store: phone!,
               header: _navigation(context.l10n.miniPhoneMessages),
@@ -656,7 +626,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
             ),
     MiniPhoneScreen.chat =>
       phone == null
-          ? _preview(destination)
+          ? _emptyApp(destination)
           : liveContact == null
           ? MiniPhoneMessagesPage(
               store: phone!,
@@ -670,14 +640,14 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
               header: _navigation(liveContact!.name, showModel: true),
             ),
     MiniPhoneScreen.posts =>
-      phone == null ? _preview(destination) : _postsPage(destination),
+      phone == null ? _emptyApp(destination) : _postsPage(destination),
     MiniPhoneScreen.comments =>
-      phone == null ? _preview(destination) : _postsPage(destination),
+      phone == null ? _emptyApp(destination) : _postsPage(destination),
     MiniPhoneScreen.create =>
-      phone == null ? _preview(destination) : _postsPage(destination),
+      phone == null ? _emptyApp(destination) : _postsPage(destination),
     MiniPhoneScreen.photos =>
       phone == null
-          ? _preview(destination)
+          ? _emptyApp(destination)
           : MiniPhonePhotosPage(
               store: phone!,
               header: _navigation(context.l10n.miniPhonePhotos),
@@ -708,28 +678,14 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     ),
   };
 
-  Widget _preview(MiniPhoneScreen destination) => MiniPhonePreview(
-    session: _session,
-    activity: _previewActivity,
-    screen: destination,
-    active: screen == destination,
-    headerBuilder: _navigation,
-    onNavigate: _go,
-    onBack: _back,
-    onClose: _close,
-  );
-  void _openComments(MiniDemoPost post) {
-    if (phone != null) {
-      _openLivePost(
-        int.parse(post.id.split(':').first),
-        fromNotification: true,
-      );
-      return;
-    }
-    _miniResume.post = post;
-    store.markPostRead(post);
-    _go(MiniPhoneScreen.comments);
-  }
+  Widget _emptyApp(MiniPhoneScreen destination) => _panel(switch (destination) {
+    MiniPhoneScreen.messages ||
+    MiniPhoneScreen.chat => context.l10n.miniPhoneMessages,
+    MiniPhoneScreen.photos => context.l10n.miniPhonePhotos,
+    MiniPhoneScreen.comments => context.l10n.miniPhoneComments,
+    MiniPhoneScreen.create => context.l10n.miniPhoneCreatePost,
+    _ => context.l10n.miniPhonePosts,
+  }, const SizedBox.shrink());
 
   Widget _postsPage(MiniPhoneScreen destination) => MiniPhonePostsPage(
     session: _session,
@@ -806,9 +762,6 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   );
   void _loadLiveScreen(MiniPhoneScreen next) {
     final data = phone!;
-    if (next == MiniPhoneScreen.chat && liveContact != null) {
-      widget.onPrivateChatOpened?.call(_session);
-    }
     data.activeCharId = next == MiniPhoneScreen.chat ? liveContact?.id : null;
     data.activePostId = next == MiniPhoneScreen.comments ? livePostId : null;
     data.postsVisible = next == MiniPhoneScreen.posts;
@@ -823,7 +776,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         unawaited(data.refreshPeople());
       case MiniPhoneScreen.chat:
         // The chat owns its initial history request.
-        break;
+        unawaited(_ensureModelsLoaded());
       case MiniPhoneScreen.posts:
         unawaited(data.refreshPosts(markRead: true));
       case MiniPhoneScreen.comments:

@@ -8,7 +8,7 @@ import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/entry/mini_phone_entry_artwork.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_progress.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/preview/mini_phone_demo_store.dart';
+import '../../support/mini_phone_unread_store.dart';
 
 import '../../support/mini_phone_audio_player.dart';
 
@@ -30,10 +30,10 @@ final _catalog = MusicCatalog(
   ],
 );
 
-class _NoUnread extends MiniPhoneDemoStore {
+class _NoUnread extends TestMiniPhoneUnreadStore {
   int count = 0;
   @override
-  int get totalUnread => count;
+  int get totalUnreadCount => count;
 
   void update(int value) {
     count = value;
@@ -107,7 +107,7 @@ void main() {
       addTearDown(revision.dispose);
       final first = MiniPhoneSession(
         worldId: 'a',
-        store: _NoUnread(),
+        data: _NoUnread(),
         musicLease: owner.acquire('a'),
       );
       await first.music.loadCatalog(() async => _catalog);
@@ -126,7 +126,7 @@ void main() {
         final unread = _NoUnread();
         final phone = MiniPhoneSession(
           worldId: world,
-          store: unread,
+          data: unread,
           musicLease: owner.acquire(world),
         );
         await _mount(tester, phone, style);
@@ -183,7 +183,7 @@ void main() {
       playerFactory: TestMusicPlayer.new,
     );
     music.attachWorld();
-    final phone = MiniPhoneSession(music: music, store: _NoUnread());
+    final phone = MiniPhoneSession(music: music, data: _NoUnread());
     addTearDown(phone.dispose);
     await _mount(tester, phone, MiniPhoneEntryStyle.classicHandset);
     _expectIdle(tester);

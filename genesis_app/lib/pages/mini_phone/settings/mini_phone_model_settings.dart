@@ -45,7 +45,11 @@ class MiniPhoneModelSettings {
   }
 
   Future<void> ensureLoaded() async {
-    if (sourceCatalog == null) await catalog();
+    if (_phoneReferenceLoader != null &&
+        pageCache.modelCatalog == null &&
+        sourceCatalog == null) {
+      await catalog();
+    }
   }
 
   Future<GemModelCatalog> catalog() =>

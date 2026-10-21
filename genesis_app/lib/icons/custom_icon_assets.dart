@@ -5,11 +5,9 @@ const String copyStatIconAsset = launchIconAsset;
 const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
 const String eventsIconAsset = 'assets/custom-icons/svg/events.svg';
 const String clueIconAsset = 'assets/custom-icons/svg/clue.svg';
-const String routeIconAsset = 'assets/custom-icons/svg/route.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/character_icon.svg';
-const String userStatIconAsset = 'assets/custom-icons/svg/user_icon.svg';
 const String createOriginBasicsIconAsset =
     'assets/custom-icons/svg/create_origin_basics.svg';
 const String createOriginCharactersIconAsset =
@@ -26,9 +24,6 @@ const String locationLevelRoomIconAsset =
     'assets/custom-icons/svg/level-room-dark.svg';
 const String createOriginStoryEventsIconAsset =
     'assets/custom-icons/svg/create_origin_story_events.svg';
-const String refreshModifiedIconAsset = 'assets/custom-icons/svg/refresh_2.svg';
-const String editPencilLineIconAsset =
-    'assets/custom-icons/svg/edit_pencil_line.svg';
 const String checkLineIconAsset = 'assets/custom-icons/svg/check_line.svg';
 const String bottomNavHomeIconAsset =
     'assets/custom-icons/svg/bottom_nav_home.svg';
@@ -38,8 +33,6 @@ const String bottomNavOriginIconAsset =
     'assets/custom-icons/svg/bottom_nav_origin.svg';
 const String bottomNavOriginPressIconAsset =
     'assets/custom-icons/svg/bottom_nav_origin_press.svg';
-const String bottomNavCreateIconAsset =
-    'assets/custom-icons/svg/bottom_nav_create.svg';
 const String bottomNavInboxIconAsset =
     'assets/custom-icons/svg/bottom_nav_inbox.svg';
 const String bottomNavInboxPressIconAsset =
