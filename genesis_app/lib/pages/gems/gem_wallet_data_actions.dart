@@ -101,7 +101,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
   Future<List<GemProduct>> _loadProducts() async {
     final loader = widget.productsLoader;
     if (loader != null) return loader(context);
-    return AppServicesScope.read(context).gemStoreCatalog.load();
+    return AppServicesScope.read(context).gemStoreCatalog.loadForEntry();
   }
 
   Future<List<GemTaskGroup>> _loadTasks() async {
@@ -318,8 +318,9 @@ extension _GemWalletDataActions on _GemWalletPageState {
       unawaited(_refreshTasksAndWallet());
       await successDialog;
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         showGenesisToast(context, GenesisL10n.current.gemsClaimFailed);
+      }
     } finally {
       _endTaskAction(taskCode);
     }

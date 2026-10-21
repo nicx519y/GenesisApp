@@ -125,7 +125,6 @@ class MembershipPurchasePresentation {
       if (_disposed || _resolved || event.attemptId != attemptId) return;
       switch (event.state) {
         case MembershipCheckoutState.checking:
-          return;
         case MembershipCheckoutState.preparing:
         case MembershipCheckoutState.store:
         case MembershipCheckoutState.reporting:
@@ -225,8 +224,8 @@ class MembershipPurchasePresentation {
       final confirmed = await result.future;
       if (confirmed) await service.confirmGuestPurchase(attemptId);
       if (loginRequired) {
-        // The order check finishes before any purchase dialog is pushed. Login
-        // ends this click and never automatically starts another purchase.
+        // Close checking feedback before login. Login ends this click and never
+        // automatically starts another purchase.
         if (!_disposed && context.mounted) {
           final login = requestLogin;
           if (login != null) {

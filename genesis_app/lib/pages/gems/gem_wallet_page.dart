@@ -167,6 +167,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       widget.subscriptionTracking?.pageId ?? newBillingPageId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
+  RawDialogRoute<void>? _billingPurchaseDialogRoute;
   bool _billingPurchaseDialogDismissing = false;
   bool _storeRecoveryStarted = false;
   late TabController _purchaseTabs;

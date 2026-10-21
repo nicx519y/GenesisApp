@@ -105,16 +105,4 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
       offerId: shouldUseGoogleOffer ? googleOfferId : null,
     );
   }
-
-  Future<GemProduct?> _reloadProduct(String productId) async {
-    try {
-      final products = await _loadProductCatalog();
-      for (final product in products) {
-        if (product.productId == productId) return product;
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
 }

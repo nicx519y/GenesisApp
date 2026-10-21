@@ -136,6 +136,107 @@ void _testWidgets(String name, Future<void> Function(WidgetTester) body) {
 }
 
 void main() {
+  testWidgets(
+    'selected cached plan purchases without querying another missing plan',
+    (tester) async {
+      var serverCalls = 0;
+      var storeCalls = 0;
+      var purchases = 0;
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async {
+          serverCalls++;
+          return MembershipProductList(
+            products: [membershipProduct(yearly: true), membershipProduct()],
+          );
+        },
+        loadStorePrices: (_) async {
+          storeCalls++;
+          return {
+            'pro_yearly': const MembershipStorePrice(
+              formattedPrice: r'$99.99',
+              amountMicros: 99990000,
+              currencyCode: 'USD',
+              currencySymbol: r'$',
+            ),
+          };
+        },
+      );
+      await tester.pumpWidget(
+        page(
+          null,
+          catalog: catalog,
+          purchase: (_) async {
+            purchases++;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pumpAndSettle();
+      expect(purchases, 1);
+      expect(serverCalls, 1);
+      expect(storeCalls, 1);
+    },
+  );
+  testWidgets(
+    'click shows loading before store-only retry and never reloads server',
+    (tester) async {
+      var serverCalls = 0;
+      var storeCalls = 0;
+      var purchases = 0;
+      final result = Completer<Map<String, MembershipStorePrice>>();
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async {
+          serverCalls++;
+          return MembershipProductList(
+            products: [membershipProduct(yearly: true)],
+          );
+        },
+        loadStorePrices: (_) async {
+          storeCalls++;
+          return storeCalls == 1 ? {} : result.future;
+        },
+      );
+      await tester.pumpWidget(
+        page(
+          null,
+          catalog: catalog,
+          purchase: (_) async {
+            purchases++;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(serverCalls, 1);
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pump();
+      expect(
+        tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).isLoading,
+        isTrue,
+      );
+      expect(serverCalls, 1);
+      expect(storeCalls, 2);
+      expect(purchases, 0);
+      result.complete({
+        'pro_yearly': const MembershipStorePrice(
+          formattedPrice: r'$99.99',
+          amountMicros: 99990000,
+          currencyCode: 'USD',
+          currencySymbol: r'$',
+        ),
+      });
+      await tester.pumpAndSettle();
+      expect(purchases, 1);
+      expect(serverCalls, 1);
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pumpAndSettle();
+      expect(purchases, 2);
+      expect(storeCalls, 2);
+      expect(serverCalls, 1);
+    },
+  );
   for (final provider in MembershipProvider.values) {
     testWidgets(
       '$provider browsing and switching plans never prepares a guest identity',
@@ -594,64 +695,30 @@ void main() {
     }
   }
 
-  for (final outcome in ['success', 'failure', 'empty']) {
-    testWidgets(
-      'immediate reentry shows cache and always refreshes with $outcome',
-      (tester) async {
-        final response = Completer<MembershipProductList>();
-        var calls = 0;
-        final catalog = MembershipCatalog(
-          provider: MembershipProvider.google,
-          loadProducts: (_) async {
-            if (++calls == 1) {
-              return MembershipProductList(
-                products: [
-                  membershipProduct(yearly: true, title: 'Cached VIP'),
-                ],
-              );
-            }
-            return response.future;
-          },
-        );
-        await tester.pumpWidget(page(null, catalog: catalog));
-        await tester.pumpAndSettle();
-        expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpWidget(page(null, catalog: catalog));
-        expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-        await tester.pump();
-        expect(calls, 2);
-        if (outcome == 'failure') {
-          response.completeError(StateError('offline'));
-        } else {
-          response.complete(
-            MembershipProductList(
-              products: outcome == 'empty'
-                  ? []
-                  : [
-                      membershipProduct(
-                        yearly: true,
-                        title: 'Fresh VIP',
-                        priceAmount: 11999,
-                      ),
-                    ],
-            ),
+  testWidgets(
+    'immediate reentry reuses the prepared catalog without requests',
+    (tester) async {
+      var calls = 0;
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async {
+          calls++;
+          return MembershipProductList(
+            products: [membershipProduct(yearly: true)],
           );
-        }
-        await tester.pumpAndSettle();
-        expect(
-          find.text(r'Yearly: $99.99'),
-          outcome == 'failure' ? findsOneWidget : findsNothing,
-        );
-        if (outcome == 'success') {
-          expect(find.text('Worldo Premium'), findsOneWidget);
-          expect(find.text(r'Yearly: $119.99'), findsOneWidget);
-        }
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-      },
-    );
-  }
+        },
+      );
+      await tester.pumpWidget(page(null, catalog: catalog));
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(page(null, catalog: catalog));
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 
   testWidgets('new app catalog displays disk cache before the API completes', (
     tester,

@@ -34,6 +34,12 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
 
   Future<void> _purchaseProduct(GemProduct product) async {
     if (_checkingStorePrice) return;
+    final service =
+        _billingService ??
+        widget.billingService ??
+        AppServicesScope.maybeRead(context)?.billing;
+    if (service?.state.value.hasBusyPurchase == true) return;
+    _showBillingPurchaseProcessing();
     if (product.requiresStorePrice) {
       final catalog = AppServicesScope.read(context).gemStoreCatalog;
       _checkingStorePrice = true;
@@ -43,20 +49,21 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         _updateState(() {
           _products = catalog.cached;
         });
-        if (fresh == null) return;
+        if (fresh == null) {
+          _dismissBillingPurchaseDialog();
+          return;
+        }
         product = fresh;
       } catch (_) {
+        _dismissBillingPurchaseDialog();
         if (mounted) unawaited(_refreshProducts(silent: true));
         return;
       } finally {
         _checkingStorePrice = false;
       }
     }
-    final service =
-        _billingService ??
-        widget.billingService ??
-        AppServicesScope.maybeRead(context)?.billing;
     if (service == null) {
+      _dismissBillingPurchaseDialog();
       const analytics = GenesisBillingAnalytics();
       analytics.track(
         'product_click',
@@ -180,20 +187,25 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     _billingPurchaseDialogShowing = true;
     if (mounted) _updateState(() {});
     final dialogState = _billingPurchaseDialogState!;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = RawDialogRoute<void>(
+      barrierColor: kGenesisModalBarrierColor,
+      barrierDismissible: false,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return Center(
+          child: GemBillingPurchaseDialog(
+            state: dialogState,
+            onConfirm: _dismissBillingPurchaseDialog,
+          ),
+        );
+      },
+    );
+    _billingPurchaseDialogRoute = route;
     unawaited(
-      showGeneralDialog<void>(
-        context: context,
-        barrierColor: kGenesisModalBarrierColor,
-        barrierDismissible: false,
-        pageBuilder: (dialogContext, animation, secondaryAnimation) {
-          return Center(
-            child: GemBillingPurchaseDialog(
-              state: dialogState,
-              onConfirm: _dismissBillingPurchaseDialog,
-            ),
-          );
-        },
-      ).whenComplete(() {
+      navigator.push(route).whenComplete(() {
+        if (identical(_billingPurchaseDialogRoute, route)) {
+          _billingPurchaseDialogRoute = null;
+        }
         if (!mounted) {
           _disposeBillingPurchaseDialogState();
           return;
@@ -213,7 +225,14 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     }
     if (_billingPurchaseDialogDismissing) return;
     _billingPurchaseDialogDismissing = true;
-    Navigator.of(context, rootNavigator: true).pop();
+    final route = _billingPurchaseDialogRoute;
+    final navigator = route?.navigator;
+    if (route == null || navigator == null || !route.isActive) return;
+    if (route.isCurrent) {
+      navigator.pop();
+    } else {
+      navigator.removeRoute(route);
+    }
   }
 
   void _disposeBillingPurchaseDialogState() {

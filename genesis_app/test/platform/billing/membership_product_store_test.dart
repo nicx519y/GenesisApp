@@ -4,6 +4,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_product_store.dart';
+import 'package:genesis_flutter_android/platform/billing/membership_checkout_platform.dart';
 import '../../support/membership_fixtures.dart';
 
 PricingPhaseWrapper phase({
@@ -54,6 +55,27 @@ List<ProductDetails> details(List<SubscriptionOfferDetailsWrapper> offers) =>
     );
 
 void main() {
+  test(
+    'display preload supplies native checkout without another store query',
+    () async {
+      final store = _MembershipStore(details([offer(), offer(yearly: true)]));
+      final catalog = MembershipProductStore(inAppPurchase: store);
+      await catalog.loadPrices([
+        membershipProduct(),
+        membershipProduct(yearly: true),
+      ]);
+      final queries = store.queries;
+      final checkout = StoreMembershipCheckoutPlatform(store: store);
+      final monthly = await checkout.prepare(membershipProduct());
+      expect(monthly.nativeProduct, isA<GooglePlayProductDetails>());
+      await checkout.prepare(membershipProduct(yearly: true));
+      await catalog.loadPrices([
+        membershipProduct(),
+        membershipProduct(yearly: true),
+      ]);
+      expect(store.queries, queries);
+    },
+  );
   test(
     'store lookup matches both configured base plans without purchasing',
     () async {
@@ -159,6 +181,7 @@ class _MembershipStore extends Fake implements InAppPurchase {
   _MembershipStore(this.products);
   final List<ProductDetails> products;
   Set<String>? queriedIds;
+  int queries = 0;
 
   @override
   Future<bool> isAvailable() async => true;
@@ -168,6 +191,7 @@ class _MembershipStore extends Fake implements InAppPurchase {
     Set<String> identifiers,
   ) async {
     queriedIds = identifiers;
+    queries++;
     return ProductDetailsResponse(productDetails: products, notFoundIDs: []);
   }
 }

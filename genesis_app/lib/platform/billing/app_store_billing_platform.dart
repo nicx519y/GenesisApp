@@ -8,6 +8,7 @@ import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import '../../app/telemetry/storekit2_transaction_analytics.dart';
 import 'billing_models.dart';
 import 'google_play_billing_platform.dart';
+import 'store_query_cache.dart';
 
 class AppStoreBillingPlatform implements BillingPlatform {
   AppStoreBillingPlatform({
@@ -91,7 +92,17 @@ class AppStoreBillingPlatform implements BillingPlatform {
     BillingStoreProductType expectedType, {
     String? purchaseOptionId,
     String? offerId,
-  }) async {
+  }) => StoreQueryCache.load(
+    _inAppPurchase,
+    'gems.apple.$storeProductId.${expectedType.name}',
+    () => _queryProduct(storeProductId, expectedType),
+    usable: (result) => result.product != null,
+  );
+
+  Future<BillingProductQueryResult> _queryProduct(
+    String storeProductId,
+    BillingStoreProductType expectedType,
+  ) async {
     if (defaultTargetPlatform != TargetPlatform.iOS) {
       return const BillingProductQueryResult.failure('platform_unavailable');
     }
@@ -141,6 +152,18 @@ class AppStoreBillingPlatform implements BillingPlatform {
 
   @override
   Future<bool> buyConsumable({
+    required BillingStoreProduct product,
+    required String billingAccountId,
+    bool Function()? onStoreHandoff,
+  }) => StoreQueryCache.launch(
+    () => _buyConsumable(
+      product: product,
+      billingAccountId: billingAccountId,
+      onStoreHandoff: onStoreHandoff,
+    ),
+  );
+
+  Future<bool> _buyConsumable({
     required BillingStoreProduct product,
     required String billingAccountId,
     bool Function()? onStoreHandoff,

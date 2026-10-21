@@ -178,32 +178,29 @@ void main() {
       },
     );
 
-    test(
-      '$provider every entry replaces recent checkout credentials',
-      () async {
-        var calls = 0;
-        final catalog = MembershipCatalog(
-          provider: provider,
-          loadProducts: (_) async => MembershipProductList(
-            lastAccountUuid: '00000000-0000-4000-8000-00000000000${++calls}',
-            products: [membershipProduct(provider: provider)],
-          ),
+    test('$provider every entry reuses session checkout credentials', () async {
+      var calls = 0;
+      final catalog = MembershipCatalog(
+        provider: provider,
+        loadProducts: (_) async => MembershipProductList(
+          lastAccountUuid: '00000000-0000-4000-8000-00000000000${++calls}',
+          products: [membershipProduct(provider: provider)],
+        ),
+      );
+      await catalog.preload();
+      for (var entry = 2; entry <= 3; entry++) {
+        await catalog.loadForEntry();
+        expect(calls, 1);
+        expect(
+          (await catalog.readCheckoutProducts()).lastAccountUuid,
+          '00000000-0000-4000-8000-000000000001',
         );
-        await catalog.preload();
-        for (var entry = 2; entry <= 3; entry++) {
-          await catalog.loadForEntry();
-          expect(calls, entry);
-          expect(
-            (await catalog.readCheckoutProducts()).lastAccountUuid,
-            '00000000-0000-4000-8000-00000000000$entry',
-          );
-        }
-      },
-    );
+      }
+    });
   }
 
   test(
-    'entry refreshes expired preload and retries a failed preload',
+    'entry keeps cached preload until invalidated and retries failure',
     () async {
       var now = DateTime.utc(2040);
       var calls = 0;
@@ -220,6 +217,9 @@ void main() {
       await catalog.preload();
       now = now.add(MembershipCatalog.preloadCacheAge);
       offline = true;
+      await catalog.preload();
+      expect(calls, 1);
+      catalog.invalidate();
       await catalog.preload();
       expect(calls, 2);
       expect(catalog.cached, isNotNull);

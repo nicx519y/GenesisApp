@@ -33,7 +33,7 @@ Future<void> showGemPurchaseBottomSheet(
 }) async {
   final services = AppServicesScope.maybeRead(context);
   final resolvedProductsLoader =
-      productsLoader ?? services?.gemStoreCatalog.load;
+      productsLoader ?? services?.gemStoreCatalog.loadForEntry;
   final resolvedWalletStore = walletStore ?? services?.gemWallet;
   final resolvedBillingService = billingService ?? services?.billing;
   if (resolvedProductsLoader == null ||
@@ -113,7 +113,7 @@ Future<void> showSubscriptionPurchaseBottomSheet(
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
-                  productsLoader: services.gemStoreCatalog.load,
+                  productsLoader: services.gemStoreCatalog.loadForEntry,
                   walletStore: services.gemWallet,
                   billingService: billingService,
                 ),
@@ -170,6 +170,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   final Set<String> _startedProductIds = <String>{};
   ValueNotifier<GemBillingPurchaseDialogState>? _purchaseDialogState;
   bool _purchaseDialogShowing = false;
+  RawDialogRoute<void>? _purchaseDialogRoute;
   bool _purchaseDialogDismissing = false;
   bool _closeSheetAfterDialog = false;
 
@@ -233,9 +234,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     if (_checkingPrice || widget.billingService.state.value.hasBusyPurchase) {
       return;
     }
+    _showPurchaseProcessing(attemptId: '');
     if (product.requiresStorePrice) {
       final catalog = AppServicesScope.maybeRead(context)?.gemStoreCatalog;
-      if (catalog == null) return;
+      if (catalog == null) {
+        _dismissPurchaseDialog();
+        return;
+      }
       _checkingPrice = true;
       try {
         final fresh = await catalog.confirm(product);
@@ -243,9 +248,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         setState(() {
           _products = catalog.cached;
         });
-        if (fresh == null) return;
+        if (fresh == null) {
+          _dismissPurchaseDialog();
+          return;
+        }
         product = fresh;
       } catch (_) {
+        _dismissPurchaseDialog();
         if (mounted) unawaited(_loadProducts());
         return;
       } finally {
@@ -349,19 +358,23 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     if (_purchaseDialogShowing) return;
     _purchaseDialogShowing = true;
     final dialogState = _purchaseDialogState!;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = RawDialogRoute<void>(
+      barrierColor: kGenesisModalBarrierColor,
+      barrierDismissible: false,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return Center(
+          child: GemBillingPurchaseDialog(
+            state: dialogState,
+            onConfirm: _confirmPurchaseDialog,
+          ),
+        );
+      },
+    );
+    _purchaseDialogRoute = route;
     unawaited(
-      showGenesisGeneralDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        pageBuilder: (dialogContext, animation, secondaryAnimation) {
-          return Center(
-            child: GemBillingPurchaseDialog(
-              state: dialogState,
-              onConfirm: _confirmPurchaseDialog,
-            ),
-          );
-        },
-      ).whenComplete(() {
+      navigator.push(route).whenComplete(() {
+        if (identical(_purchaseDialogRoute, route)) _purchaseDialogRoute = null;
         if (!mounted) {
           _disposePurchaseDialogState();
           return;
@@ -388,7 +401,14 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     }
     if (_purchaseDialogDismissing) return;
     _purchaseDialogDismissing = true;
-    Navigator.of(context, rootNavigator: true).pop();
+    final route = _purchaseDialogRoute;
+    final navigator = route?.navigator;
+    if (route == null || navigator == null || !route.isActive) return;
+    if (route.isCurrent) {
+      navigator.pop();
+    } else {
+      navigator.removeRoute(route);
+    }
   }
 
   void _disposePurchaseDialogState() {

@@ -3,6 +3,7 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../../network/models/membership_product.dart';
+import 'store_query_cache.dart';
 
 class MembershipStorePrice {
   const MembershipStorePrice({
@@ -37,18 +38,38 @@ class MembershipProductStore {
     if (products.isEmpty) return {};
     final store = _store ?? InAppPurchase.instance;
     if (!await store.isAvailable()) return {};
-    final response = await store.queryProductDetails(
-      products.map((product) => product.storeProductId).toSet(),
-    );
+    final responses = await Future.wait([
+      for (final product in products)
+        queryMembershipStoreProduct(store, product),
+    ]);
+    final details = responses
+        .expand((response) => response.productDetails)
+        .toList();
     // Preserve successfully returned products even when another product failed.
     return {
       for (final product in products)
-        if (matchMembershipStorePrice(product, response.productDetails)
-            case final price?)
+        if (matchMembershipStorePrice(product, details) case final price?)
           product.planCode: price,
     };
   }
 }
+
+/// The display catalog and checkout adapter share the exact native SKU/offer
+/// response, including Google's offer token. Only successful results are kept.
+Future<ProductDetailsResponse> queryMembershipStoreProduct(
+  InAppPurchase store,
+  MembershipProduct product, {
+  Future<ProductDetailsResponse> Function()? loader,
+}) => StoreQueryCache.load(
+  store,
+  'membership.${product.provider.name}.${product.storeProductId}.${product.basePlanId}.${product.offerId}',
+  loader ?? () => store.queryProductDetails({product.storeProductId}),
+  usable: (response) =>
+      response.error == null &&
+      response.productDetails.any(
+        (detail) => matchMembershipStorePrice(product, [detail]) != null,
+      ),
+);
 
 MembershipStorePrice? matchMembershipStorePrice(
   MembershipProduct config,

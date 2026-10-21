@@ -10,6 +10,7 @@ import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import '../../network/models/membership_product.dart';
 import 'billing_models.dart';
 import 'membership_product_store.dart';
+import 'store_query_cache.dart';
 
 class PreparedMembershipCheckout {
   const PreparedMembershipCheckout({
@@ -82,7 +83,14 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     throw const BillingPlatformException('membership_product_not_found');
   }
 
-  Future<ProductDetailsResponse> _queryProducts(
+  Future<ProductDetailsResponse> _queryProducts(MembershipProduct product) =>
+      queryMembershipStoreProduct(
+        _store,
+        product,
+        loader: () => _queryFreshProducts(product),
+      );
+
+  Future<ProductDetailsResponse> _queryFreshProducts(
     MembershipProduct product,
   ) async {
     if (product.provider != MembershipProvider.google) {
@@ -146,7 +154,9 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
       });
       debugPrint('[Membership][google_launch] $diagnostics');
     }
-    final accepted = await _store.buyNonConsumable(purchaseParam: param);
+    final accepted = await StoreQueryCache.launch(
+      () => _store.buyNonConsumable(purchaseParam: param),
+    );
     // Play returns when its purchase UI is launched; StoreKit calls back from
     // native preparation before waiting for the user's purchase result.
     if (accepted && nativeProduct is GooglePlayProductDetails) {

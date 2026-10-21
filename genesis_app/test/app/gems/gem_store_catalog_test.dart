@@ -136,9 +136,11 @@ void main() {
     expect((await source.load()).single.storeCurrencyCode, 'KRW');
   });
   test(
-    'price changes update catalog and require another confirmation',
+    'cached checkout does not query products again; reset requires confirmation',
     () async {
-      final store = Store(BillingProvider.googlePlay);
+      final store = Store(BillingProvider.googlePlay)
+        ..currency = 'EUR'
+        ..formatted = '€12.00';
       final source = GemStoreCatalog(
         loadProducts: () async => [product()],
         platform: store,
@@ -148,11 +150,39 @@ void main() {
       final displayed = (await source.load()).single;
       expect(await source.confirm(displayed), isNotNull);
       store.amount = 13000000000;
-      store.formatted = '₩13,000';
+      store.formatted = '€13.00';
+      expect(await source.confirm(displayed), isNotNull);
+      expect(store.calls, 1);
+      source.reset();
       expect(await source.confirm(displayed), isNull);
-      expect(source.cached!.single.storeFormattedPrice, '₩13,000');
-      store.currency = 'EUR';
+      expect(source.cached!.single.storeFormattedPrice, '€13.00');
+      store.currency = 'GBP';
+      source.reset();
       expect(await source.confirm(displayed), isNull);
+    },
+  );
+  test(
+    'missing store result retries store without reloading server products',
+    () async {
+      var serverCalls = 0;
+      final store = Store(BillingProvider.googlePlay)..available = false;
+      final source = GemStoreCatalog(
+        loadProducts: () async {
+          serverCalls++;
+          return [product()];
+        },
+        platform: store,
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      final displayed = (await source.load()).single;
+      store.available = true;
+      expect(await source.confirm(displayed), isNotNull);
+      expect(serverCalls, 1);
+      expect(store.calls, 1);
+      await source.loadForEntry();
+      expect(serverCalls, 1);
+      expect(store.calls, 1);
     },
   );
 }

@@ -77,4 +77,29 @@ void main() {
       'EUR',
     );
   });
+  test(
+    'missing store prices retry without querying server; entries reuse both caches',
+    () async {
+      var serverCalls = 0;
+      var storeCalls = 0;
+      final source = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async {
+          serverCalls++;
+          return MembershipProductList(
+            products: [membershipProduct(yearly: true)],
+          );
+        },
+        loadStorePrices: (_) async =>
+            ++storeCalls == 1 ? {} : {'pro_yearly': yearlyPrice},
+      );
+      await source.preload();
+      expect(source.cached!.offers.single.storePrice, isNull);
+      await source.loadForEntry();
+      await source.loadForEntry();
+      expect(source.cached!.offers.single.storePrice, yearlyPrice);
+      expect(serverCalls, 1);
+      expect(storeCalls, 2);
+    },
+  );
 }

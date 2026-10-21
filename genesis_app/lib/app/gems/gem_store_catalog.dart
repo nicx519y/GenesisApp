@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../platform/billing/store_query_cache.dart';
 
 /// Display snapshots only; native products and offer tokens are never persisted.
 class GemStoreCatalog {
@@ -19,6 +20,10 @@ class GemStoreCatalog {
   final String namespace;
   final Future<String?> Function() readOwner;
   List<GemProduct>? cached;
+  List<GemProduct>? _serverProducts;
+  bool _storeReady = false;
+  final Set<String> _storeReadyIds = {};
+  int _storeRevision = -1;
   int _generation = 0;
   Future<List<GemProduct>>? _loading;
   DateTime? _loadedAt;
@@ -26,6 +31,9 @@ class GemStoreCatalog {
   void reset() {
     _generation++;
     cached = null;
+    _serverProducts = null;
+    _storeReady = false;
+    _storeReadyIds.clear();
     _loading = null;
     _loadedAt = null;
   }
@@ -37,12 +45,6 @@ class GemStoreCatalog {
       if (await readOwner() == null) return;
       if (_loading != null) {
         await _loading;
-        return;
-      }
-      if (cached != null &&
-          cached!.every((p) => p.storeFormattedPrice != null) &&
-          _loadedAt != null &&
-          DateTime.now().difference(_loadedAt!) < const Duration(minutes: 1)) {
         return;
       }
       await load();
@@ -87,6 +89,7 @@ class GemStoreCatalog {
         );
       }
       if (generation != _generation || await readOwner() != owner) return null;
+      _serverProducts ??= List.unmodifiable(result);
       return cached ??= List.unmodifiable(result);
     } catch (_) {
       return null;
@@ -94,6 +97,13 @@ class GemStoreCatalog {
   }
 
   Future<List<GemProduct>> load() {
+    final pending = _loading;
+    if (pending != null) return pending;
+    if (_storeReady &&
+        cached != null &&
+        _storeRevision == StoreQueryCache.revision) {
+      return Future.value(cached!);
+    }
     final generation = ++_generation;
     final future = _fetch(generation);
     _loading = future;
@@ -102,18 +112,34 @@ class GemStoreCatalog {
     });
   }
 
-  Future<List<GemProduct>> _fetch(int generation) async {
+  Future<List<GemProduct>> loadForEntry() async {
+    await loadCached();
+    return load();
+  }
+
+  Future<List<GemProduct>> _fetch(int generation, {String? productId}) async {
     final owner = await readOwner();
     if (owner == null) {
       throw StateError('Gem products require an authenticated session');
     }
-    final products = await loadProducts();
+    final products = _serverProducts ?? await loadProducts();
+    if (generation != _generation || await readOwner() != owner) {
+      throw StateError('Gem catalog session changed');
+    }
+    _serverProducts = products;
+    final storeRevision = StoreQueryCache.revision;
     var available = false;
     try {
       available = await platform.isAvailable();
     } catch (_) {}
     final result = await Future.wait(
       products.map((product) async {
+        if (productId != null && product.productId != productId) {
+          for (final previous in cached ?? const <GemProduct>[]) {
+            if (previous.productId == product.productId) return previous;
+          }
+          return product.withStorePrice();
+        }
         if (!available) return product.withStorePrice();
         try {
           final google = platform.provider == BillingProvider.googlePlay;
@@ -146,6 +172,17 @@ class GemStoreCatalog {
     );
     if (generation == _generation && await readOwner() == owner) {
       cached = List.unmodifiable(result);
+      if (_storeRevision != storeRevision) _storeReadyIds.clear();
+      for (final p in result) {
+        if (productId != null && p.productId != productId) continue;
+        if (p.storeFormattedPrice != null) {
+          _storeReadyIds.add(p.productId);
+        } else {
+          _storeReadyIds.remove(p.productId);
+        }
+      }
+      _storeReady = result.every((p) => _storeReadyIds.contains(p.productId));
+      _storeRevision = storeRevision;
       _loadedAt = DateTime.now();
       final body = jsonEncode({
         'cached_at': _loadedAt!.toUtc().toIso8601String(),
@@ -176,9 +213,18 @@ class GemStoreCatalog {
 
   Future<GemProduct?> confirm(GemProduct displayed) async {
     final owner = await readOwner();
-    final expectedGeneration = _generation + 1;
-    final products = await load();
-    if (_generation != expectedGeneration || await readOwner() != owner) {
+    await _loading;
+    final ready =
+        _storeRevision == StoreQueryCache.revision &&
+        _storeReadyIds.contains(displayed.productId);
+    final loading = ready && cached != null
+        ? Future.value(cached!)
+        : _serverProducts == null
+        ? load()
+        : _fetch(++_generation, productId: displayed.productId);
+    final generation = _generation;
+    final products = await loading;
+    if (_generation != generation || await readOwner() != owner) {
       return null;
     }
     for (final p in products) {

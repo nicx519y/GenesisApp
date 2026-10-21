@@ -321,42 +321,6 @@ class GooglePlayBillingService implements BillingService {
         try {
           queryResult = await _queryStoreProduct(activeProduct, storeProductId);
           if (!canContinue()) return;
-          if (!queryResult.isSuccess &&
-              queryResult.errorCode?.trim() == 'product_not_found') {
-            final refreshedProduct = await _reloadProduct(product.productId);
-            if (!canContinue()) return;
-            if (refreshedProduct != null &&
-                refreshedProduct.canPurchase &&
-                billingProductKindFrom(refreshedProduct.billingType) ==
-                    BillingProductKind.consumable) {
-              final refreshedStoreProductId = _storeProductIdFor(
-                refreshedProduct,
-                _platform.provider,
-              );
-              if (refreshedStoreProductId.isNotEmpty) {
-                if (refreshedStoreProductId != storeProductId) {
-                  _clearActiveAttempt(storeProductId, attempt);
-                  activeProduct = refreshedProduct;
-                  storeProductId = refreshedStoreProductId;
-                  attempt = BillingPurchaseAttempt(
-                    id: attemptId,
-                    product: activeProduct,
-                    billingAccountId: billingAccountId,
-                    source: BillingRecoverySource.direct,
-                    startedAt: startedAt,
-                  );
-                  _attemptByStoreProductId[storeProductId] = attempt;
-                  _setBusy(activeProduct.productId, true);
-                  scheduleTimeout(storeProductId);
-                }
-                queryResult = await _queryStoreProduct(
-                  activeProduct,
-                  storeProductId,
-                );
-                if (!canContinue()) return;
-              }
-            }
-          }
         } catch (error) {
           if (!canContinue()) return;
           _clearActiveAttempt(storeProductId, attempt);

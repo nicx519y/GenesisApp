@@ -1579,7 +1579,7 @@ void main() {
   });
 
   test(
-    'product not found reloads catalog and retries with the latest id',
+    'product not found never reloads server catalog during checkout',
     () async {
       const refreshedProduct = GemProduct(
         productId: 'gem_pack_500',
@@ -1593,6 +1593,7 @@ void main() {
         activityType: 'none',
       );
       var firstQuery = true;
+      var catalogLoads = 0;
       platform.expectedStoreProductId = refreshedProduct.googleProductId;
       platform.queryHandler = (storeProductId) {
         if (firstQuery) {
@@ -1615,7 +1616,10 @@ void main() {
         pendingPurchaseStore: pendingStore,
         loadBillingAccountId: () async =>
             '4b74ec68-7abc-4cce-a223-e997e31dc811',
-        loadProductCatalog: () async => const [refreshedProduct],
+        loadProductCatalog: () async {
+          catalogLoads++;
+          return const [refreshedProduct];
+        },
         reportPurchase: (request) async {
           reports.add(request);
           return const GemPurchaseReport(
@@ -1631,11 +1635,9 @@ void main() {
 
       await service.purchaseGem(_product);
 
-      expect(platform.queriedStoreProductIds, [
-        _product.googleProductId,
-        refreshedProduct.googleProductId,
-      ]);
-      expect(platform.buyCount, 1);
+      expect(platform.queriedStoreProductIds, [_product.googleProductId]);
+      expect(platform.buyCount, 0);
+      expect(catalogLoads, 0);
     },
   );
 
@@ -1779,7 +1781,7 @@ void main() {
     expect(uiEvents.last.message, 'Purchase failed.');
   });
 
-  for (final stage in ['initialization', 'account', 'query', 'catalog']) {
+  for (final stage in ['initialization', 'account', 'query']) {
     test(
       'click deadline covers a stuck $stage and ignores its late result',
       () async {

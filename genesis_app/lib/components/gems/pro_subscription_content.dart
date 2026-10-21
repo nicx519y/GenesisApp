@@ -127,6 +127,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   List<MembershipOffer> _offers = [];
   MembershipAccessStore? _membership;
   bool _submitting = false;
+  bool _checkingCatalog = false;
   bool _benefitsDragCanMoveSheet = false;
   bool _hasFreshCatalog = false;
   MembershipCheckoutPreparation? _checkoutPreparation;
@@ -339,21 +340,24 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   Future<void> _onSubscribePressed() async {
     if (_submitting) return;
-    _submitting = true;
+    final session = _services?.sessionRevision.value;
+    setState(() {
+      _submitting = true;
+      _checkingCatalog = true;
+    });
     try {
       // A display cache is enough to render the plans, but cannot authorize a
       // checkout. Refresh it first and do not emit a purchase click until the
       // in-memory catalog includes current checkout credentials.
-      if (!_hasFreshCatalog) {
-        await _load(forceRefresh: true);
-        return;
-      }
-      if (_catalog?.loadStorePrices != null) {
+      if (!_hasFreshCatalog ||
+          (_catalog != null &&
+              !_catalog!.hasStoreProduct(_offerFor(_plan)?.product))) {
         final previous = _offerFor(_plan);
-        await _load(silent: true, forceRefresh: true);
+        await _load(silent: true);
         if (!mounted || !_hasFreshCatalog) return;
         final current = _offerFor(_plan);
-        if (current?.storePrice == null ||
+        if ((_catalog?.loadStorePrices != null &&
+                current?.storePrice == null) ||
             current?.price == null ||
             previous?.price?.amount != current?.price?.amount ||
             previous?.price?.currencyCode != current?.price?.currencyCode ||
@@ -365,10 +369,24 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
           return;
         }
       }
+      if (!mounted) return;
+      if (_services?.sessionRevision.value != session ||
+          ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
+      setState(() => _checkingCatalog = false);
       await _subscribe();
     } finally {
-      _submitting = false;
-      if (mounted) _prepareSelectedCheckout();
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _checkingCatalog = false;
+        });
+        _prepareSelectedCheckout();
+      } else {
+        _submitting = false;
+        _checkingCatalog = false;
+      }
     }
   }
 
@@ -810,6 +828,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         fontWeight: FontWeight.w600,
         borderRadius: radius,
         onPressed: _onSubscribePressed,
+        isLoading: _checkingCatalog,
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../../network/models/membership_product.dart';
 import '../../utils/store_price_display_policy.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
 import '../../platform/billing/membership_product_store.dart';
+import '../../platform/billing/store_query_cache.dart';
 
 class MembershipPlatformUnavailable implements Exception {}
 
@@ -121,7 +122,7 @@ class MembershipCatalog {
     this.loadStorePrices,
     this.readOwnerUid,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+  });
 
   static const preloadCacheAge = Duration(minutes: 1);
 
@@ -131,9 +132,8 @@ class MembershipCatalog {
   final MembershipPricesLoader? loadStorePrices;
   final MembershipCatalogCache? cacheStore;
   final Future<String?> Function()? readOwnerUid;
-  final DateTime Function() _now;
   MembershipCatalogData? _cached;
-  DateTime? _loadedAt;
+  int _storeRevision = -1;
   MembershipProductList? _checkoutProducts;
   String? _checkoutOwner;
   Future<MembershipCatalogData>? _loading;
@@ -141,6 +141,25 @@ class MembershipCatalog {
   int _loadGeneration = 0;
 
   MembershipCatalogData? get cached => _cached;
+  bool get hasStoreProducts =>
+      loadStorePrices == null ||
+      (_storeRevision == StoreQueryCache.revision &&
+          _cached != null &&
+          _cached!.offers.every((offer) => offer.storePrice != null));
+
+  bool hasStoreProduct(MembershipProduct? product) =>
+      loadStorePrices == null ||
+      (_storeRevision == StoreQueryCache.revision &&
+          product != null &&
+          (_cached?.offers.any(
+                (offer) =>
+                    offer.product.planCode == product.planCode &&
+                    offer.product.storeProductId == product.storeProductId &&
+                    offer.product.basePlanId == product.basePlanId &&
+                    offer.product.offerId == product.offerId &&
+                    offer.storePrice != null,
+              ) ??
+              false));
 
   void resetForSession() {
     _session++;
@@ -151,7 +170,6 @@ class MembershipCatalog {
   /// Keep display snapshots, but discard credentials after purchase/claim changes.
   void invalidate() {
     _loadGeneration++;
-    _loadedAt = null;
     _checkoutProducts = null;
     _checkoutOwner = null;
     _loading = null;
@@ -188,18 +206,17 @@ class MembershipCatalog {
 
   Future<MembershipCatalogData> load() {
     final generation = ++_loadGeneration;
-    _loadedAt = null;
     _checkoutProducts = null;
     _checkoutOwner = null;
     return _loading = _load(_session, generation);
   }
 
-  /// Every entry refreshes prices and checkout credentials. Cached/preloaded
-  /// products remain available for display while this new request is pending.
-  Future<MembershipCatalogData> loadForEntry() => load();
+  /// Reuse this session's server credentials and native store products. Disk
+  /// snapshots provide display only and never substitute for checkout identity.
+  Future<MembershipCatalogData> loadForEntry() => _loadForPreload();
 
-  /// Only background preloads may reuse an in-flight or recent API response.
-  /// Disk snapshots never satisfy this freshness check or authorize checkout.
+  /// Entries, clicks and startup share current-session server/store results.
+  /// Disk snapshots never authorize checkout without in-memory credentials.
   Future<MembershipCatalogData> _loadForPreload() async {
     final session = _session;
     final owner = await readOwnerUid?.call();
@@ -208,17 +225,41 @@ class MembershipCatalog {
     }
     final loading = _loading;
     if (loading != null) return loading;
-    final loadedAt = _loadedAt;
-    final age = loadedAt == null ? null : _now().difference(loadedAt);
     if (_cached != null &&
         _checkoutProducts != null &&
-        owner == _checkoutOwner &&
-        age != null &&
-        !age.isNegative &&
-        age < preloadCacheAge) {
+        owner == _checkoutOwner) {
+      if (!hasStoreProducts) {
+        return _loading = _completeStorePrices(
+          session,
+          _loadGeneration,
+          _checkoutProducts!,
+        );
+      }
       return _cached!;
     }
     return load();
+  }
+
+  Future<MembershipCatalogData> _completeStorePrices(
+    int session,
+    int generation,
+    MembershipProductList response,
+  ) async {
+    try {
+      final platform = provider!;
+      final storeRevision = StoreQueryCache.revision;
+      final prices = await loadStorePrices!(response.products);
+      final result = _catalog(response, platform, prices);
+      if (session != _session || generation != _loadGeneration) {
+        throw StateError('membership_catalog_session_changed');
+      }
+      _cached = result;
+      _storeRevision = storeRevision;
+      unawaited(_saveCache(platform, _checkoutOwner, response, prices));
+      return result;
+    } finally {
+      if (session == _session && generation == _loadGeneration) _loading = null;
+    }
   }
 
   /// Opportunistic work: a failed preload must not interrupt Home or the form.
@@ -263,6 +304,7 @@ class MembershipCatalog {
     if (platform == null) throw MembershipPlatformUnavailable();
     final owner = await readOwnerUid?.call();
     final response = await loadProducts(platform);
+    final storeRevision = StoreQueryCache.revision;
     Map<String, MembershipStorePrice> prices = {};
     if (loadStorePrices != null) {
       try {
@@ -281,9 +323,9 @@ class MembershipCatalog {
         products: List.unmodifiable(response.products),
       );
       _checkoutOwner = owner;
-      _loadedAt = _now();
       // Cache display fields without the last purchase UUID.
       _cached = result;
+      _storeRevision = storeRevision;
       unawaited(_saveCache(platform, owner, response, prices));
     }
     return result;

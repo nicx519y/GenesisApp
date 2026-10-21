@@ -114,11 +114,11 @@ void main() {
           try {
             expect(find.byType(LoginSheet), findsNothing);
             await tester.tap(find.text('Buy'));
-            expect(observer.pushes, 0);
+            expect(observer.pushes, 1);
             for (var frame = 0; frame < 25; frame++) {
               await tester.pump(const Duration(milliseconds: 16));
               expect(find.text('Purchasing Premium'), findsNothing);
-              expect(observer.pushes, 0);
+              expect(observer.pushes, 1);
             }
             await tester.pumpAndSettle();
             expect(find.byType(LoginSheet), findsOneWidget);
@@ -150,7 +150,7 @@ void main() {
   }
 
   for (final outcome in ['login', 'purchase', 'leave', 'timeout']) {
-    testWidgets('pending order check has no purchase dialog: $outcome', (
+    testWidgets('pending order check shows immediate loading: $outcome', (
       tester,
     ) async {
       final products = Completer<MembershipProductList>();
@@ -187,8 +187,8 @@ void main() {
       try {
         await tester.tap(find.text('Buy'));
         await tester.pump(const Duration(seconds: 1));
-        expect(observer.pushes, 0);
-        expect(find.text('Purchasing Premium'), findsNothing);
+        expect(observer.pushes, 1);
+        expect(find.text('Purchasing Premium'), findsOneWidget);
         expect(h.guestPrepares, 0);
         expect(h.platform.launches, 0);
         if (outcome == 'leave') {
@@ -213,7 +213,7 @@ void main() {
             h.purchase(status: BillingPurchaseStatus.canceled),
           );
         } else {
-          expect(observer.pushes, 0);
+          expect(observer.pushes, 1);
           expect(h.platform.launches, 0);
           expect(h.guestPrepares, 0);
         }

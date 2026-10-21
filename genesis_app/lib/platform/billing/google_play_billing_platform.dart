@@ -5,6 +5,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 
 import 'billing_models.dart';
+import 'store_query_cache.dart';
 
 abstract interface class BillingPlatform {
   BillingProvider get provider;
@@ -89,6 +90,23 @@ class GooglePlayBillingPlatform implements BillingPlatform {
 
   @override
   Future<BillingProductQueryResult> queryProduct(
+    String storeProductId,
+    BillingStoreProductType expectedType, {
+    String? purchaseOptionId,
+    String? offerId,
+  }) => StoreQueryCache.load(
+    _inAppPurchase,
+    'gems.google.$storeProductId.${expectedType.name}.$purchaseOptionId.$offerId',
+    () => _queryProduct(
+      storeProductId,
+      expectedType,
+      purchaseOptionId: purchaseOptionId,
+      offerId: offerId,
+    ),
+    usable: (result) => result.product != null,
+  );
+
+  Future<BillingProductQueryResult> _queryProduct(
     String storeProductId,
     BillingStoreProductType expectedType, {
     String? purchaseOptionId,
@@ -204,6 +222,18 @@ class GooglePlayBillingPlatform implements BillingPlatform {
 
   @override
   Future<bool> buyConsumable({
+    required BillingStoreProduct product,
+    required String billingAccountId,
+    bool Function()? onStoreHandoff,
+  }) => StoreQueryCache.launch(
+    () => _buyConsumable(
+      product: product,
+      billingAccountId: billingAccountId,
+      onStoreHandoff: onStoreHandoff,
+    ),
+  );
+
+  Future<bool> _buyConsumable({
     required BillingStoreProduct product,
     required String billingAccountId,
     bool Function()? onStoreHandoff,

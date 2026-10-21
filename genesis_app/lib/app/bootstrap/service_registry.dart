@@ -1,6 +1,7 @@
 import '../gems/gem_store_catalog.dart';
 import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
 import '../../platform/billing/membership_product_store.dart';
+import '../../platform/billing/store_query_cache.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_language_controller.dart';
 import 'dart:async';
@@ -270,6 +271,7 @@ class AppServices {
   }
 
   void _membershipSessionChanged() {
+    StoreQueryCache.reset();
     personalization.resetForSession();
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
@@ -278,6 +280,8 @@ class AppServices {
     membership.resetForSession();
     unawaited(membership.start());
     membershipPurchases?.resetForSession();
+    unawaited(membershipCatalog.preload());
+    unawaited(gemStoreCatalog.preload());
   }
 
   void notifySessionChanged() {
@@ -289,11 +293,14 @@ class AppServices {
 
   /// Both initial bootstrap and config replacement must subscribe before checkout.
   void startPurchaseServices() {
+    unawaited(membershipCatalog.preload());
+    unawaited(gemStoreCatalog.preload());
     unawaited(billing?.start());
     unawaited(membershipPurchases?.start());
   }
 
   void dispose() {
+    StoreQueryCache.reset();
     _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(
       membershipCatalog.invalidate,
