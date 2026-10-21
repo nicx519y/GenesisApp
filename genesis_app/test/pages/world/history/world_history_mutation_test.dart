@@ -236,28 +236,41 @@ void main() {
         }
         final seen = <String>{};
         final expected = <(String, String)>{};
-        var location = '';
-        var hasUser = false;
-        final ticks = <(String, String)>[];
-        void finish() {
-          if (hasUser && location.isNotEmpty) expected.addAll(ticks);
-          ticks.clear();
-          hasUser = false;
-        }
-
+        final steps = <({WorldHistoryMessage row, Set<String> locations})>[];
         for (final row in pages.expand((page) => page)) {
           if (!seen.add(row.id) || row.minAppVersion > 1) continue;
-          for (final place
-              in row.locationRefs.isEmpty ? [''] : row.locationRefs.reversed) {
-            if (place != location) {
-              finish();
-              location = place;
+          final locations = row.locationRefs.isEmpty
+              ? ['']
+              : row.locationRefs.toSet().toList().reversed;
+          if (row.type == 'tick') {
+            steps.add((row: row, locations: locations.toSet()));
+          } else {
+            for (final location in locations) {
+              steps.add((row: row, locations: {location}));
             }
-            if (row.type == 'user') hasUser = true;
-            if (row.type == 'tick') ticks.add((row.id, place));
           }
         }
-        finish();
+        // Independent brute-force oracle: scan one location at a time. Shared
+        // Tick refs are one membership step, ordinary refs are separate steps.
+        for (final location in ['A', 'B']) {
+          var hasUser = false;
+          final ticks = <(String, String)>[];
+          void finish() {
+            if (hasUser) expected.addAll(ticks);
+            ticks.clear();
+            hasUser = false;
+          }
+
+          for (final step in steps) {
+            if (!step.locations.contains(location)) {
+              finish();
+            } else {
+              if (step.row.type == 'user') hasUser = true;
+              if (step.row.type == 'tick') ticks.add((step.row.id, location));
+            }
+          }
+          finish();
+        }
         for (var id = 0; id < 30; id++) {
           for (final place in ['', 'A', 'B']) {
             expect(
@@ -268,6 +281,49 @@ void main() {
           }
         }
       }
+    },
+  );
+
+  test(
+    'shared Tick participation crosses pages and tracks edits and truncation',
+    () {
+      final index = HistorySectionParticipation(appVersion: 1);
+      final newer = historyMessage(
+        'newer-tick',
+        type: 'tick',
+        locations: ['A', 'B', 'C'],
+      );
+      final older = historyMessage(
+        'older-tick',
+        type: 'tick',
+        locations: ['A', 'B', 'C'],
+      );
+      index.appendOlder([newer]);
+      index.appendOlder([older]);
+      index.appendOlder([
+        historyMessage('user', type: 'user', locations: ['B']),
+      ]);
+      for (final tick in [newer, older]) {
+        expect(index.includesTick(tick.id, 'B'), isTrue);
+        expect(index.includesTick(tick.id, 'A'), isFalse);
+        expect(index.includesTick(tick.id, 'C'), isFalse);
+      }
+      index.replacePage(1, [
+        historyMessage('older-tick', type: 'tick', locations: ['A', 'C']),
+      ]);
+      expect(index.includesTick('newer-tick', 'B'), isFalse);
+      index.replacePage(1, [older]);
+      expect(index.includesTick('newer-tick', 'B'), isTrue);
+      index.replacePage(2, [
+        historyMessage('user', locations: ['B']),
+      ]);
+      expect(index.includesTick('newer-tick', 'B'), isFalse);
+      index.replacePage(2, [
+        historyMessage('user', type: 'user', locations: ['B']),
+      ]);
+      expect(index.includesTick('newer-tick', 'B'), isTrue);
+      index.truncate(2);
+      expect(index.includesTick('newer-tick', 'B'), isFalse);
     },
   );
 

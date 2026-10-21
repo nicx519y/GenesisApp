@@ -38,11 +38,13 @@ class ChatStreamingEffects extends StatefulWidget {
     required this.settings,
     this.presentationRevision,
     this.operationIdentity,
+    this.deferIncomingMessages = false,
     required this.child,
   });
   final LocationChatBubbleLayoutSettings settings;
   final Object? presentationRevision;
   final Object? operationIdentity;
+  final bool deferIncomingMessages;
   final Widget child;
 
   static Object? activeTaskOf(BuildContext context) => context
@@ -95,6 +97,7 @@ class ChatStreamingEffects extends StatefulWidget {
         .dependOnInheritedWidgetOfExactType<_EffectsScope>()
         ?.owner;
     final record = owner?._records[identity];
+    if (owner?._deferredTasks.contains(identity) ?? false) return true;
     return (owner?.widget.settings.streamingTextReveal ?? false) &&
         record != null &&
         !record.cancelled &&
@@ -136,9 +139,19 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
   Object? _firstTask;
   int _queueRevision = 0;
   bool _queueUpdateScheduled = false;
+  final Set<Object> _deferredTasks = {};
 
   void declareTasks(List<ChatStreamingTask> tasks) {
+    final previousIds = _tasks?.map((task) => task.identity).toSet() ?? {};
+    var predecessor = _firstTask == null ? null : _records[_firstTask];
+    if (predecessor != null &&
+        (predecessor.cancelled ||
+            predecessor.restored ||
+            (!predecessor.finishing && !recordIsStreaming(predecessor)))) {
+      predecessor = null;
+    }
     _tasks = tasks;
+    _deferredTasks.retainAll(tasks.map((task) => task.identity));
     for (final task in tasks) {
       if (task.streaming ||
           task.animateArrival ||
@@ -152,6 +165,21 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
           animateArrival: task.animateArrival,
           restoredContent: task.restoredContent,
         );
+      }
+      final current = _records[task.identity];
+      if (widget.deferIncomingMessages &&
+          !previousIds.contains(task.identity) &&
+          !task.restoredContent &&
+          predecessor != null &&
+          !identical(current, predecessor)) {
+        _deferredTasks.add(task.identity);
+      }
+      if (!_deferredTasks.contains(task.identity) &&
+          current != null &&
+          !current.cancelled &&
+          !current.restored &&
+          (task.streaming || current.finishing)) {
+        predecessor ??= current;
       }
     }
     refreshQueue();
@@ -174,6 +202,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
         record.finishing = false;
       }
       _pending.clear();
+      _deferredTasks.clear();
       _continuityRecords.clear();
       for (final body in _bodies) {
         body.markNeedsLayout();
@@ -206,6 +235,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
           false;
       final settled =
           !pendingTask &&
+          _deferredTasks.isEmpty &&
           !_bodies.any(
             (body) =>
                 body.attached &&
@@ -224,6 +254,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     _scheduleSettlement();
     Object? firstTask;
     for (final task in _tasks ?? const <ChatStreamingTask>[]) {
+      if (_deferredTasks.contains(task.identity)) continue;
       final record = _records[task.identity];
       if (record != null &&
           !record.cancelled &&
@@ -233,7 +264,25 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
         break;
       }
     }
-    if (_firstTask != firstTask) {
+    // Admit the next batch only after the preceding body drains its text,
+    // trailing fade and height animation. Non-text rows need no reveal task,
+    // but still wait here with all of their chrome and geometry unmounted.
+    var released = false;
+    if (firstTask == null && _deferredTasks.isNotEmpty) {
+      for (final task in _tasks ?? const <ChatStreamingTask>[]) {
+        if (!_deferredTasks.remove(task.identity)) continue;
+        released = true;
+        final record = _records[task.identity];
+        if (record != null &&
+            !record.cancelled &&
+            !record.restored &&
+            (task.streaming || record.finishing)) {
+          firstTask = task.identity;
+          break;
+        }
+      }
+    }
+    if (_firstTask != firstTask || released) {
       _firstTask = firstTask;
       if (!_queueUpdateScheduled) {
         _queueUpdateScheduled = true;

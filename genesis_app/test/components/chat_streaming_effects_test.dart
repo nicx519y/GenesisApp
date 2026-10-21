@@ -81,6 +81,86 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 void main() {
+  for (final revealEnabled in [true, false]) {
+    testWidgets(
+      'incoming messages wait for terminal rendering, reveal=$revealEnabled',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        Widget view({bool incoming = false, bool complete = false}) =>
+            MaterialApp(
+              home: Scaffold(
+                body: ChatStreamingEffects(
+                  deferIncomingMessages: true,
+                  settings: defaults.copyWith(
+                    streamingTextReveal: revealEnabled,
+                  ),
+                  child: LocationChatAnchoredMessageList(
+                    coordinator: coordinator,
+                    topTitle: '',
+                    showDateDividers: false,
+                    messages: [
+                      ChatMessageVm(
+                        localId: 'active',
+                        senderId: 'peer',
+                        senderName: 'Peer',
+                        text: 'Current streaming message ' * 8,
+                        isMe: false,
+                        status: complete ? 'sent' : 'streaming',
+                      ),
+                      if (incoming)
+                        for (final kind in ['user', 'image', 'system'])
+                          ChatMessageVm(
+                            localId: kind,
+                            senderId: 'other',
+                            senderName: 'Other',
+                            text: kind == 'image' ? '' : 'Incoming $kind',
+                            senderType: kind,
+                            messageType: kind == 'image' ? 'image' : 'text',
+                            isMe: kind == 'user',
+                            status: 'sent',
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+        await tester.pumpWidget(view());
+        await tester.pump(const Duration(milliseconds: 60));
+        await tester.pumpWidget(view(incoming: true));
+        for (var frame = 0; frame < 5; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(find.text('Incoming user'), findsNothing);
+          expect(find.text('Incoming system'), findsNothing);
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is ChatMessageRow && widget.message.localId == 'image',
+            ),
+            findsNothing,
+          );
+        }
+        await tester.pumpWidget(view(incoming: true, complete: true));
+        if (revealEnabled) {
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(find.text('Incoming user'), findsNothing);
+          expect(find.text('Incoming system'), findsNothing);
+        }
+        await settle(tester);
+        expect(find.text('Incoming user'), findsOneWidget);
+        expect(find.text('Incoming system'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is ChatMessageRow && widget.message.localId == 'image',
+          ),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   double progress(WidgetTester tester) => ChatStreamingBody.revealedGraphemesOf(
     tester.element(find.byType(ChatStreamingBody).first),
   );

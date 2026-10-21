@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import '../../../components/chat/shared/chat_ui.dart';
+import '../../../network/chatroom/chatroom_timeline_payload.dart';
 import '../../../network/models/world.dart';
 import '../../../network/models/world_history.dart';
 import '../../../network/json_utils.dart';
@@ -161,7 +162,7 @@ class WorldHistoryProjection {
     _metadataRevision = metadata.revision;
     _appVersion = appVersion;
     _uid = uid;
-    // Reverse messages only. Each message's location_refs keep server order.
+    // Preserve newest-page duplicate ownership before grouping location folds.
     final unique = <String, WorldHistoryMessage>{};
     for (final row in newestFirst) {
       unique.putIfAbsent(row.id, () => row);
@@ -170,19 +171,18 @@ class WorldHistoryProjection {
         sectionParticipation ??
         (HistorySectionParticipation(appVersion: appVersion)
           ..appendOlder(unique.values));
+    final plan = HistoryLocationSections(
+      unique.values.where((row) => row.minAppVersion <= appVersion),
+    );
     rows = [];
-    String? previousLocation;
-    var sectionId = '';
-    for (final row in unique.values.toList().reversed) {
-      if (row.minAppVersion > appVersion) continue;
-      for (final location
-          in row.locationRefs.isEmpty ? [''] : row.locationRefs.toSet()) {
-        // Determine sections before hiding Ticks. An omitted all-Tick section
-        // must not merge separate visits to the same location on either side.
-        if (previousLocation != location) {
-          sectionId = 'section:${row.id.length}:${row.id}:$location';
-          previousLocation = location;
-        }
+    // Aggregate each fold before filtering its Ticks. Copies of a shared Tick
+    // keep server order inside each fold without splitting it by other refs.
+    for (final section in plan.sections.reversed) {
+      final location = section.location;
+      final firstId = section.messageIds.last;
+      final sectionId = 'section:${firstId.length}:$firstId:$location';
+      for (final id in section.messageIds.reversed) {
+        final row = unique[id]!;
         if (row.type != 'tick' ||
             participation.includesTick(row.id, location)) {
           rows.add(HistoryDisplayRow(row, location, sectionId));
@@ -245,6 +245,7 @@ class WorldHistoryProjection {
     parsedMessageCount++;
     final character = metadata.characters[row.senderId];
     final mine = row.type == 'user' && _uid.isNotEmpty && row.userId == _uid;
+    final enter = _enterPayload(row, display.locationId);
     final vm = ChatMessageVm(
       localId: display.id,
       // History v1.1 supplies stored tick/sub_tick values, including Tick 0.
@@ -255,12 +256,15 @@ class WorldHistoryProjection {
           character?.name ?? normalizeGenesisUgcTextForDisplay(row.senderName),
       avatarUrl: character?.imageUrl ?? '',
       isPlayerControlledRole: mine || (character?.isPlayerControlled ?? false),
-      text: row.content,
+      text: enter?.text ?? row.content,
       currentTime: row.currentTime,
       isMe: mine,
       status: 'sent',
-      senderType: row.type,
+      senderType: enter == null
+          ? row.type
+          : chatroomUserEnterLocationSenderType,
       messageType: row.messageType,
+      timelinePayload: enter,
       createdAt: row.createdAt,
       imageUrl: row.messageType == 'image' ? row.content.trim() : '',
       deferredTick: row.type != 'tick'
@@ -282,6 +286,30 @@ class WorldHistoryProjection {
       _trim();
     }
     return vm;
+  }
+
+  ChatUserEnterLocationPayloadVm? _enterPayload(
+    WorldHistoryMessage row,
+    String locationId,
+  ) {
+    // World History normalizes entry records to user/text and has no separate
+    // entry marker. Match only the legacy sender-prefixed, single-location copy.
+    if (row.type != 'user' ||
+        row.messageType != 'text' ||
+        row.senderId.trim().isEmpty ||
+        locationId.isEmpty ||
+        row.locationRefs.toSet().length != 1) {
+      return null;
+    }
+    final text = normalizeGenesisUgcTextForDisplay(row.content);
+    final parts = chatEnterLocationDisplayParts(text);
+    final sender = normalizeGenesisUgcTextForDisplay(row.senderName).trim();
+    if (sender.isEmpty || parts?.characterName != sender) return null;
+    return ChatUserEnterLocationPayloadVm(
+      characterId: row.senderId,
+      toLocationId: locationId,
+      text: text,
+    );
   }
 
   ChatTickStatusVm _status(

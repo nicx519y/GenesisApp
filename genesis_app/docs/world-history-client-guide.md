@@ -224,6 +224,10 @@ Authorization: Bearer <session_id>
 
 分页是整个 World 的分页。某一页没有 B 的消息，不代表 B 没有更早历史；是否继续请求由 World 级的 `has_more` 判断。
 
+History 按地点折叠单位展示：单位内包含 `type=user` 消息时，才显示其中关联的 Tick，用户发言在 Tick 前后均可。Tick 的多个 `location_refs` 表示并列归属，不代表依次访问这些地点，不得因此拆开同一地点的连续单位。多个共享 Tick 的展示副本归入各自单位，单位内保持服务端顺序；遇到不关联该地点的消息形成边界后，后续同地点单位独立判断，不借用之前的用户发言。
+
+历史入场消息归一为 `type=user`。对 `message_type=text`、单地点关联且正文为本人 `sender_name entered 地点名`／`sender_name came to 地点名` 的记录，History 在展示层兼容为共享 Enter 气泡，复用 LocationChat 的入场组件和本地化文案；不改变原始用户消息归属，也不触发实时入场逻辑。当前响应没有独立入场标记，兼容识别只依据该完整格式。
+
 客户端首次打开 History 后，利用 World WebSocket 的正式消息／变化通知合并触发首页校准；关闭 History 后仍更新最新页缓存。旧阅读分页与最新页分开保存，采用新首页时使用新游标，不拼接新旧分页。消息正文、Tick 编号和地点关联仍全部来自本接口，详见[同步与阅读生命周期](world-history-client-implementation.md)。
 
 ## 错误处理

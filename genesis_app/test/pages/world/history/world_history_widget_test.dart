@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/components/common/page_presentation_scope.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
@@ -106,6 +107,38 @@ Future<void> frames(WidgetTester tester, [int count = 20]) async {
 }
 
 void main() {
+  testWidgets('History uses the LocationChat Enter bubble inside its fold', (
+    tester,
+  ) async {
+    final backend = Backend()
+      ..rows = [
+        historyJson('enter', type: 'user', content: 'Role entered Place A'),
+        historyJson('speech', type: 'user', content: 'An ordinary message'),
+      ];
+    final h = Harness(backend);
+    await tester.pumpWidget(h.build(historyWorld()));
+    await frames(tester);
+    expect(find.byType(ChatUserEnterLocationMessageBubble), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-user-enter-location-icon')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Role came to Place A', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
+    await tester.tap(find.text('Collapse').first);
+    await frames(tester);
+    expect(find.byType(ChatUserEnterLocationMessageBubble), findsNothing);
+    await tester.tap(find.text('Expand').first);
+    await frames(tester);
+    expect(find.byType(ChatUserEnterLocationMessageBubble), findsOneWidget);
+    expect(backend.requests, hasLength(1));
+    expect(tester.takeException(), isNull);
+    await h.close(tester);
+  });
+
   testWidgets(
     'fold grouping and offscreen geometry leave Tick bodies deferred',
     (tester) async {
@@ -275,6 +308,52 @@ void main() {
       },
     );
   }
+  testWidgets(
+    'shared Ticks render and collapse with their participating location',
+    (tester) async {
+      final b = Backend()
+        ..rows = [
+          historyJson('user', type: 'user'),
+          historyJson(
+            'tick-1',
+            type: 'tick',
+            tick: 2,
+            locations: ['B', 'A'],
+            content: tickContent(),
+          ),
+          historyJson(
+            'tick-2',
+            type: 'tick',
+            tick: 3,
+            locations: ['B', 'A'],
+            content: tickContent(),
+          ),
+          historyJson('reply'),
+        ];
+      final h = Harness(b);
+      await tester.pumpWidget(h.build(historyWorld()));
+      await frames(tester);
+      LocationChatAnchoredMessageList list() =>
+          tester.widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          );
+      expect(list().messages.where((m) => m.isTick), hasLength(2));
+      expect(list().expandedHistoryHeaders.values.toSet(), hasLength(1));
+      expect(find.text('Tick 3', findRichText: true), findsWidgets);
+      await tester.tap(find.text('Collapse').first);
+      await frames(tester);
+      expect(list().hiddenMessageIds, hasLength(3));
+      expect(find.text('Tick 3', findRichText: true), findsNothing);
+      await tester.tap(find.text('Expand').first);
+      await frames(tester);
+      expect(list().hiddenMessageIds, isEmpty);
+      expect(find.text('Tick 3', findRichText: true), findsWidgets);
+      expect(b.requests, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await h.close(tester);
+    },
+  );
+
   testWidgets('Tick-only separator does not merge independent fold sections', (
     tester,
   ) async {
