@@ -292,12 +292,18 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
         widget.topInset + 48,
         math.max(0.0, bounds.maxHeight - 57),
       );
-      final dragSideRight =
-          (_drag?.dx ?? (_right ? right : left)) + 17 >= bounds.maxWidth / 2;
-      final bottomInset = dragSideRight
-          ? widget.bottomInset
-          : (widget.leftBottomInset ?? widget.bottomInset);
-      final bottom = math.max(top, bounds.maxHeight - bottomInset - 57);
+      final dragBottomInset = widget.leftBottomInset ?? widget.bottomInset;
+      double bottomForSide(bool rightSide) => math.max(
+        top,
+        bounds.maxHeight -
+            (rightSide ? widget.bottomInset : dragBottomInset) -
+            57,
+      );
+      // Follow the finger across both halves; avoid right-side controls only
+      // after release, using the existing snap animation.
+      final bottom = _drag != null
+          ? math.max(top, bounds.maxHeight - dragBottomInset - 57)
+          : bottomForSide(_right);
       final settled = Offset(
         _right ? right : left,
         top + (bottom - top) * _vertical,
@@ -311,8 +317,9 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
         setState(() {
           final released = _drag ?? clamped;
           _right = released.dx + 17 >= bounds.maxWidth / 2;
-          _vertical = bottom > top
-              ? ((released.dy - top) / (bottom - top)).clamp(0.0, 1.0)
+          final settledBottom = bottomForSide(_right);
+          _vertical = settledBottom > top
+              ? ((released.dy - top) / (settledBottom - top)).clamp(0.0, 1.0)
               : 0;
           _drag = null;
         });

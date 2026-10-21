@@ -68,6 +68,8 @@ void main() {
     bool worldDetailReady = true,
     bool reducedMotion = false,
     bool dock = false,
+    double bottomInset = 20,
+    double? leftBottomInset,
   }) async {
     tester.view.physicalSize = const Size(320, 240);
     tester.view.devicePixelRatio = 1;
@@ -95,7 +97,8 @@ void main() {
                     style: style,
                     positionStore: MiniPhoneDockPosition('entry-style-test'),
                     topInset: 0,
-                    bottomInset: 20,
+                    bottomInset: bottomInset,
+                    leftBottomInset: leftBottomInset,
                     onPressed: (phone) {
                       expect(identical(phone, session), isTrue);
                       opens++;
@@ -237,6 +240,44 @@ void main() {
       },
     );
   }
+  testWidgets(
+    'dock crosses both halves without jumping and avoids zoom controls on release',
+    (tester) async {
+      await mount(tester, dock: true, bottomInset: 110, leftBottomInset: 8);
+      await tester.pump(const Duration(milliseconds: 200));
+      final entry = find.byType(MiniPhoneEntry);
+      final initialTop = tester.getTopLeft(entry).dy;
+      final gesture = await tester.startGesture(tester.getCenter(entry));
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 102));
+      await tester.pump();
+      final draggingTop = tester.getTopLeft(entry).dy;
+      expect(draggingTop, closeTo(initialTop + 102, .01));
+
+      await gesture.moveBy(const Offset(-160, 0));
+      await tester.pump();
+      expect(tester.getCenter(entry).dx, lessThan(160));
+      expect(tester.getTopLeft(entry).dy, closeTo(draggingTop, .01));
+      await gesture.moveBy(const Offset(160, 0));
+      await tester.pump();
+      expect(tester.getCenter(entry).dx, greaterThan(160));
+      expect(tester.getTopLeft(entry).dy, closeTo(draggingTop, .01));
+
+      await gesture.up();
+      await tester.pump();
+      expect(tester.getTopLeft(entry).dy, closeTo(draggingTop, .01));
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(tester.getTopLeft(entry).dy, greaterThan(initialTop));
+      expect(tester.getTopLeft(entry).dy, lessThan(draggingTop));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getTopLeft(entry).dx, closeTo(320 - 12 - 34, .01));
+      expect(tester.getTopLeft(entry).dy, closeTo(initialTop, .01));
+      expect(opens, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'dock waits for World detail before mounting icon and music controls',
     (tester) async {
