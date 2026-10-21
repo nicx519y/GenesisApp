@@ -85,6 +85,8 @@ dependency_overrides:
   sign_in_with_apple:
     path: third_party/sign_in_with_apple
   path_provider_foundation: 2.4.2
+  # Keep the pre-JNI implementation until release obfuscation is validated.
+  shared_preferences_android: 2.4.28
 
 dev_dependencies:
   flutter_test:
