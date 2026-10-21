@@ -9,6 +9,7 @@ class LocationChatOverlayTransition extends StatefulWidget {
     this.maintainChildOnDismiss = false,
     this.onDismissed,
     this.animate = true,
+    this.onTransitionChanged,
   });
 
   final bool active;
@@ -16,6 +17,7 @@ class LocationChatOverlayTransition extends StatefulWidget {
   final bool maintainChildOnDismiss;
   final VoidCallback? onDismissed;
   final bool animate;
+  final ValueChanged<bool>? onTransitionChanged;
 
   @override
   State<LocationChatOverlayTransition> createState() =>
@@ -46,7 +48,16 @@ class _LocationChatOverlayTransitionState
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+    _controller.addStatusListener(_handleStatus);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onTransitionChanged?.call(_controller.isAnimating);
+    });
   }
+
+  void _handleStatus(AnimationStatus status) =>
+      widget.onTransitionChanged?.call(
+        status == AnimationStatus.forward || status == AnimationStatus.reverse,
+      );
 
   @override
   void didChangeDependencies() {

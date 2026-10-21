@@ -136,6 +136,8 @@ class _WorldPageState extends State<WorldPage>
   static const double _worldMainSwipeDirectionRatio = 1.25;
   late final TabController _mainTabController;
   late MiniPhoneSession _miniPhoneSession;
+  final MiniPhoneDockController _miniPhoneDockController =
+      MiniPhoneDockController();
   WorldDetail? _world;
   Object? _initialLoadError;
   _WorldPageRenderStage _renderStage = _WorldPageRenderStage.framework;
@@ -276,6 +278,7 @@ class _WorldPageState extends State<WorldPage>
           ? () => Navigator.of(context).pop()
           : _closeCachedLocationChat,
       onOverlayDismissed: _completePendingLocationChatLeave,
+      onTransitionChanged: _miniPhoneDockController.setTransitioning,
       onCharactersMovedLocationTap: (movement) =>
           unawaited(_openCharactersMovedTargetLocation(movement)),
       animateTransitions: _locationChatTransitionsEnabled,
@@ -551,6 +554,7 @@ class _WorldPageState extends State<WorldPage>
   @override
   void dispose() {
     _presentation.dispose();
+    _miniPhoneDockController.dispose();
     _miniPhoneSession.dispose();
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
@@ -604,7 +608,21 @@ class _WorldPageState extends State<WorldPage>
       controller: _presentation,
       child: TickerMode(
         enabled: !_presentationPaused,
-        child: _buildWorldContent(context),
+        child: MiniPhoneDockHost(
+          controller: _miniPhoneDockController,
+          selectedScene: _activeChatLocationId.isNotEmpty
+              ? 'location:$_activeChatLocationId'
+              : _worldMainTabIndex == 0
+              ? 'world-map'
+              : null,
+          visible:
+              !_presentationPaused &&
+              !_worldBottomSheetOpen &&
+              !(_worldTickInProgress &&
+                  _worldTickWaitOverlayRequested &&
+                  _activeChatLocationId.isEmpty),
+          child: _buildWorldContent(context),
+        ),
       ),
     ),
   );

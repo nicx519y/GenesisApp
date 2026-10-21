@@ -18,7 +18,12 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     _preAckWaitingClientMsgId = null;
     _preAckWaitingMessageLocalId = null;
     _preAckWaitingAccepted = false;
-    if (resetPosition) _waitingPositionResetRevision += 1;
+    if (resetPosition) {
+      _waitingPositionResetRevision += 1;
+      if (_openingWaitingClientMsgId == _waitingPositionClientMsgId) {
+        _openingWaitingCanceled = true;
+      }
+    }
   }
 
   void _startAckLoading({

@@ -23,6 +23,55 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 
 void main() {
   test(
+    'phone movements stay out of history and deduplicate within the world',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      final movements = <ChatroomPhoneCharactersMoved>[];
+      final hints = <String>[];
+      final subscription = service.phoneMovements.listen(movements.add);
+      final history = service.historyChanges.listen(hints.add);
+      addTearDown(subscription.cancel);
+      addTearDown(history.cancel);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      void send({String world = 'world-1', int ts = 1792576800000}) {
+        socket.serverFrame('phone_characters_moved', {
+          'stream_type': '',
+          'ts': ts,
+          'world_id': world,
+          'trigger_uid': '',
+          'payload': {
+            'content': [
+              {
+                'char_id': 'char-1',
+                'old_loc_id': 'loc-1',
+                'to_loc_id': 'loc-2',
+              },
+            ],
+          },
+          'err_no': 0,
+          'err_msg': '',
+        });
+      }
+
+      send(world: 'other');
+      send();
+      send();
+      send(ts: 1792576800001);
+      await _waitFor(() => movements.length == 2);
+      expect(movements.map((e) => e.ts), [1792576800000, 1792576800001]);
+      expect(service.state.messagesByLocation.values.expand((e) => e), isEmpty);
+      expect(service.state.lastMessageId, 0);
+      expect(hints, isEmpty);
+    },
+  );
+
+  test(
     'History hints cover unjoined locations and completed streams only',
     () async {
       final socket = _FakeChatroomSocket();

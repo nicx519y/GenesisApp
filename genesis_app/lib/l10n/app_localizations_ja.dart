@@ -3274,7 +3274,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get miniPhonePhotoOpenFailed => 'この写真を開けませんでした。別の写真をお試しください。';
 
   @override
-  String get miniPhoneWallpaperApplied => '壁紙を適用しました。ホーム画面で確認できます。';
+  String get miniPhoneWallpaperApplied => '壁紙を適用しました。';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

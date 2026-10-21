@@ -412,6 +412,11 @@ class WorldChatroomService {
   /// World IDs whose archive may have changed; never canonical History rows.
   Stream<String> get historyChanges => _historyChanges.stream;
   bool _historyConnectedOnce = false;
+  final _phoneMovements =
+      StreamController<ChatroomPhoneCharactersMoved>.broadcast();
+  Stream<ChatroomPhoneCharactersMoved> get phoneMovements =>
+      _phoneMovements.stream;
+  final _seenPhoneMovements = <String>{};
   final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
   Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -854,6 +859,7 @@ class WorldChatroomService {
       _cacheEvictedRanges.clear();
       _publishedContentUpdateOccurrences.clear();
       _seenSummaryUpdates.clear();
+      _seenPhoneMovements.clear();
       _reportedFailureOccurrences.clear();
     }
     _worldId = nextWorldId;
@@ -1577,6 +1583,7 @@ class WorldChatroomService {
     _latestWorldMessagesRefreshPending = false;
     await disconnect();
     await _phoneEvents.close();
+    await _phoneMovements.close();
     await _states.close();
     await _historyChanges.close();
     await _failures.close();

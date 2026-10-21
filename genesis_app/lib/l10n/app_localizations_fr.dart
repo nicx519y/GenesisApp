@@ -3435,8 +3435,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible d’ouvrir cette photo. Essayez-en une autre.';
 
   @override
-  String get miniPhoneWallpaperApplied =>
-      'Fond d’écran appliqué. Retrouvez-le sur l’écran d’accueil.';
+  String get miniPhoneWallpaperApplied => 'Fond d’écran appliqué.';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

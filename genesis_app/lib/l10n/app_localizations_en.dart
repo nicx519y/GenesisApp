@@ -3380,7 +3380,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not open this photo. Please try another.';
 
   @override
-  String get miniPhoneWallpaperApplied => 'Wallpaper applied. See it on Home.';
+  String get miniPhoneWallpaperApplied => 'Wallpaper applied.';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

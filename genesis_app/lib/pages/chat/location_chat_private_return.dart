@@ -4,7 +4,6 @@ part of 'location_chat_page.dart';
 class _PrivateChatReturn {
   _PrivateChatReturn({
     required this.locationId,
-    required this.before,
     required this.anchor,
     required this.publicMessageId,
     required this.baselineMessageKeys,
@@ -13,7 +12,7 @@ class _PrivateChatReturn {
   });
 
   final String locationId;
-  final Map<String, WorldChatroomEntity> before;
+  final movements = <String, ChatroomV2CharacterMovement>{};
   final String? anchor;
   final int publicMessageId;
   final Set<(int, String)> baselineMessageKeys;
@@ -76,7 +75,7 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
               .where((m) => !m.isAiContentDisclaimer)
               .lastOrNull
               ?.localId;
-          // Consecutive phone visits without a public message share one diff.
+          // Consecutive phone visits without a public message share one return card.
           final previous = _privateChatReturns.lastOrNull;
           if (previous != null &&
               previous.observing &&
@@ -87,7 +86,6 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
           } else {
             visit = _PrivateChatReturn(
               locationId: location,
-              before: Map.of(state.entitiesById),
               anchor: anchor,
               // Service cursor deliberately excludes transient WS event IDs.
               publicMessageId: state.lastMessageId,
@@ -116,24 +114,19 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
     final returned = visit;
     if (returned == null || !returned.identityIsCurrent()) return;
     _notifyMessageViewport();
-    unawaited(_refreshPrivateChatReturn(service!, returned));
   }
 
-  Future<void> _refreshPrivateChatReturn(
-    WorldChatroomService service,
-    _PrivateChatReturn returned,
-  ) async {
-    // Reuse the service's coalesced refresh. Later world_change snapshots also
-    // update this view until public chat/Tick activity closes the observation.
-    try {
-      await service.refreshWorldSnapshot();
-    } catch (_) {
-      // Never invent a departure on failure; the existing socket can recover.
+  void _handlePhoneCharactersMoved(ChatroomPhoneCharactersMoved event) {
+    if (event.worldId != widget.worldId) return;
+    final visit = _privateChatReturns.lastOrNull;
+    if (visit == null || !visit.observing || !visit.identityIsCurrent()) return;
+    for (final movement in event.movements) {
+      if (movement.oldLocationId == movement.toLocationId) continue;
+      // Keep the latest destination even when it leaves this room's scope,
+      // so consecutive notifications cannot leave a stale return card.
+      visit.movements[movement.characterId] = movement;
     }
-    if (returned.identityIsCurrent()) {
-      _syncPrivateChatReturns(service.state);
-      _notifyMessageViewport();
-    }
+    if (_syncPrivateChatReturns(_service!.state)) _notifyMessageViewport();
   }
 
   bool _syncPrivateChatReturns(WorldChatroomState state) {
@@ -150,6 +143,10 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
       final newPublic = source.where(
         (m) =>
             m.messageId > visit.publicMessageId &&
+            !visit.baselineMessageKeys.contains((
+              m.messageId,
+              m.conversationRoundId,
+            )) &&
             m.timelinePayload is! ChatroomCharactersMovedPayload,
       );
       if (visit.observing &&
@@ -168,7 +165,7 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
                 ) ??
             DateTime.now();
       }
-      // Reconcile authoritative events even after position sampling is closed.
+      // Reconcile public messages even after return-event collection is closed.
       // Transient movement event IDs and persisted message IDs are independent.
       final reported = visit.authoritativeDestinations;
       for (final message in source) {
@@ -203,9 +200,9 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
         for (final movement
             in message.v2TickPayload?.charactersMoved ??
                 const <ChatroomV2CharacterMovement>[]) {
-          final before = visit.before[movement.characterId.trim()];
+          final before = visit.movements[movement.characterId.trim()];
           if (before == null ||
-              movement.oldLocationId.trim() != before.locationId) {
+              movement.oldLocationId.trim() != before.oldLocationId) {
             continue;
           }
           reported.add((
@@ -237,27 +234,21 @@ extension _LocationChatPrivateReturn on _LocationChatPanelState {
         currentSenderIds: const [],
       );
       final movements = <ChatCharacterMovementVm>[];
-      for (final before in visit.before.values) {
-        final after = state.entitiesById[before.id];
-        if (!before.isAi ||
-            after == null ||
-            !after.isAi ||
-            before.locationId.isEmpty ||
-            after.locationId.isEmpty ||
-            before.locationId == after.locationId ||
-            reported.contains((before.id, after.locationId)) ||
-            (before.locationId != visit.locationId &&
-                after.locationId != visit.locationId)) {
+      for (final movement in visit.movements.values) {
+        if (reported.contains((movement.characterId, movement.toLocationId)) ||
+            (movement.oldLocationId != visit.locationId &&
+                movement.toLocationId != visit.locationId)) {
           continue;
         }
         movements.add(
           ChatCharacterMovementVm(
-            characterId: before.id,
-            characterName: identity.characterName(before.id),
-            oldLocationId: before.locationId,
-            toLocationId: after.locationId,
-            toLocationName: identity.locationName(after.locationId),
-            isDestinationCurrentLocation: after.locationId == visit.locationId,
+            characterId: movement.characterId,
+            characterName: identity.characterName(movement.characterId),
+            oldLocationId: movement.oldLocationId,
+            toLocationId: movement.toLocationId,
+            toLocationName: identity.locationName(movement.toLocationId),
+            isDestinationCurrentLocation:
+                movement.toLocationId == visit.locationId,
           ),
         );
       }

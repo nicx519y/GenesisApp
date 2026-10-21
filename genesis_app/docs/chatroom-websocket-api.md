@@ -241,6 +241,21 @@ LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_ty
 
 V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_message` 或 `characters_moved` 带 `location_id` 时只调用 `/aitown-chat/api/v2/messages` 刷新该地点；缺少地点时对当前世界的叶子地点做限并发 V2 刷新。这条 runtime 链路不调用 `/aitown-chat/internal/world/messages` 或 legacy `/aitown-chat/api/messages`。
 
+#### MiniPhone 私聊返回移动事件（2026-10-21）
+
+新增 V2 控制事件 `phone_characters_moved`，使用现有 World WSS 连接：
+
+```json
+{"type":"phone_characters_moved","stream_type":"","ts":1792576800000,"world_id":"world_1","trigger_uid":"","payload":{"content":[{"char_id":"char_1","old_loc_id":"loc_a","to_loc_id":"loc_b"}]},"err_no":0,"err_msg":""}
+```
+
+- `payload.content` 为移动数组；每项三个 ID 均为非空字符串。`stream_type` 必须为空，`ts` 为正数毫秒时间戳，`err_no` 为 0；空数组不生成卡片。该事件没有 `event_id`、消息 ID 或地点游标，允许 `trigger_uid` 为空；客户端保留该字段，不据此推断额外的收件人过滤规则。
+- `ChatroomPhoneCharactersMoved` 经 `WorldChatroomService.phoneMovements` 按当前世界分发，不进入地点消息队列、SQLite 或 History，也不触发历史/世界快照 HTTP 补查。当前会话保留最近 256 个由 world、ts、trigger_uid 和规范化移动内容组成的去重键。
+- LocationChat 实际打开 MiniPhone 私聊后收集事件，关闭手机返回时展示；返回后观察期内收到的事件也可更新卡片。仅展示出发地或目的地为当前聊天室、且两地不同的记录，同一角色按收到的最新记录更新目的地；角色与地点名称从现有世界数据解析。
+- 卡片不再通过角色位置快照差异生成，也不为此在返回时刷新世界快照。保留已有观察截止条件（公共消息、Tick 变化、输入阻塞、发送或页面停用）与公共 `characters_moved` / Tick 消息的重复提示消除。普通移动消息和 Tick 移动区继续使用原有流程。
+- 此处记录客户端支持的契约和行为，不代表真实后端/设备联调已完成。
+
+
 ### Go On：创建新的续写轮次
 
 2026-09-08：依据 `go-on-client-guide.md`。`ChatroomSession.goOn(locationId, sourceConversationRoundId, clientMsgId)` 只在已认证 V2、成功 join 目标地点后发送一次：

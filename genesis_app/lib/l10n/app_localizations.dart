@@ -5677,10 +5677,10 @@ abstract class AppLocalizations {
   /// **'Could not open this photo. Please try another.'**
   String get miniPhonePhotoOpenFailed;
 
-  /// MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen.
+  /// MiniPhone settings: success toast after wallpaper save and local image preparation finish; Settings then automatically returns to the phone home screen.
   ///
   /// In en, this message translates to:
-  /// **'Wallpaper applied. See it on Home.'**
+  /// **'Wallpaper applied.'**
   String get miniPhoneWallpaperApplied;
 
   /// MiniPhone music player: source Worldo name, already formatted with its leading hash.

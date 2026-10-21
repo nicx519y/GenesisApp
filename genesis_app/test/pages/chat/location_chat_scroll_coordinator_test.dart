@@ -155,6 +155,11 @@ void main() {
     const dots = ValueKey<String>('location-chat-ack-loading-dots');
     const actionSlot = ValueKey('location-chat-reply-action-slot');
     expect(find.text('new send'), findsOneWidget);
+    expect(find.byKey(dots), findsNothing);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    await tester.pump(const Duration(milliseconds: 20));
     expect(find.byKey(dots), findsOneWidget);
     expect(
       find.ancestor(of: find.byKey(dots), matching: find.byKey(actionSlot)),
@@ -216,7 +221,14 @@ void main() {
       tester.getTopLeft(find.text('Waiting for reply')).dy,
       closeTo(messageTop, 0.1),
     );
+    expect(find.byKey(dotsKey), findsNothing);
+    final reservedHeight = tester.getSize(slot).height;
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    await tester.pump(const Duration(milliseconds: 20));
     expect(find.byKey(dotsKey), findsOneWidget);
+    expect(tester.getSize(slot).height, reservedHeight);
     expect(
       find.ancestor(of: find.byKey(dotsKey), matching: slot),
       findsOneWidget,
@@ -240,6 +252,47 @@ void main() {
     expect(find.byType(StretchingOverscrollIndicator), findsNothing);
     expect(find.byType(GlowingOverscrollIndicator), findsNothing);
   });
+
+  for (final interruption in ['nextOperation', 'deactivate', 'dispose']) {
+    testWidgets('waiting animation completes promptly on $interruption', (
+      tester,
+    ) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(viewport(coordinator));
+      await tester.pumpAndSettle();
+      bool? result;
+      coordinator
+          .positionWaitingReply(
+            coordinator.controller.position.maxScrollExtent - 220,
+          )
+          .then((value) => result = value);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(result, isNull);
+      final pixels = coordinator.controller.position.pixels;
+      switch (interruption) {
+        case 'nextOperation':
+          coordinator.prepareWaitingReplyPosition();
+        case 'deactivate':
+          await tester.pumpWidget(viewport(coordinator, active: false));
+        case 'dispose':
+          await tester.pumpWidget(const SizedBox.shrink());
+      }
+      await tester.pump();
+      expect(
+        result,
+        isFalse,
+        reason: 'Cancellation must complete before 220ms.',
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      if (coordinator.controller.hasClients) {
+        expect(coordinator.controller.position.pixels, closeTo(pixels, 1));
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   testWidgets('composer focus overrides a waiting reply position hold', (
     tester,

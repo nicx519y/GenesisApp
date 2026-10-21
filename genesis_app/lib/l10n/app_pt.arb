@@ -4534,9 +4534,9 @@
   "@miniPhonePhotoOpenFailed": {
     "description": "MiniPhone wallpaper settings: toast after local image selection or crop fails."
   },
-  "miniPhoneWallpaperApplied": "Papel de parede aplicado. Veja na tela inicial.",
+  "miniPhoneWallpaperApplied": "Papel de parede aplicado.",
   "@miniPhoneWallpaperApplied": {
-    "description": "MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen."
+    "description": "MiniPhone settings: success toast after wallpaper save and local image preparation finish; Settings then automatically returns to the phone home screen."
   },
   "miniPhoneFromWorldo": "De {name}",
   "@miniPhoneFromWorldo": {

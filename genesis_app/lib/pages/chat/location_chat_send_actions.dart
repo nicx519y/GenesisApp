@@ -68,7 +68,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         return;
       }
       _initialMessageSendPending = false;
-      await _send(outgoingMessage: _initialOutgoingMessage);
+      await _send(
+        outgoingMessage: _initialOutgoingMessage,
+        positionWaitingImmediately: true,
+        waitForOpeningHistory: widget.retainOpeningPreviewUntilHistory,
+      );
     });
   }
 
@@ -78,6 +82,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     ChatroomInspirationSource? inspirationSource,
     int? inspirationEpoch,
     bool positionWaitingImmediately = false,
+    bool waitForOpeningHistory = false,
     void Function(WorldChatroomMessage message)? onCanonicalMessage,
     void Function(Object error, bool receiptReceived)? onFailure,
   }) async {
@@ -161,7 +166,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       final previousPresentation = _replyProjection.presentation(
         _renderedReplyState,
       );
-      if (positionWaiting) {
+      // Initial sends may wait for the preview handoff. Keep normal following
+      // meanwhile, and never reclaim a viewport the user has already dragged.
+      if (positionWaiting && !waitForOpeningHistory) {
         _scrollCoordinator.prepareWaitingReplyPosition();
       }
       clientMsgId = _nextClientMsgId();
@@ -196,6 +203,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         if (positionWaitingImmediately) {
           _waitingPositionOperation++;
           _waitingPositionClientMsgId = clientMsgId;
+          if (waitForOpeningHistory) {
+            _openingWaitingClientMsgId = clientMsgId;
+            _openingWaitingCanceled = false;
+          }
         }
         if (replyActionsSuppressionIdentity != null) {
           _suppressedReplyActionsIdentity = replyActionsSuppressionIdentity;

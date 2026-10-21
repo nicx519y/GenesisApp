@@ -148,8 +148,8 @@ extension _WorldPageLayout on _WorldPageState {
                   _worldMainTabIndex == 0 &&
                   _activeChatLocationId.isEmpty)
                 Positioned.fill(
-                  child: MiniPhoneEdgeDock(
-                    positionStore: miniPhoneMapDockPosition,
+                  child: MiniPhoneDockScene(
+                    sceneId: 'world-map',
                     topInset:
                         top + worldMapBackButtonTop + worldMapTabsHeight + 8,
                     leftBottomInset:

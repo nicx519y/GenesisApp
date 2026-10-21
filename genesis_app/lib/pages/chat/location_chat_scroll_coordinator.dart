@@ -16,6 +16,7 @@ import 'package:flutter/rendering.dart'
 
 import '../../components/chat/shared/chat_ui.dart';
 import '../../app/debug/location_chat_bubble_layout_settings.dart';
+import '../../app/debug/location_chat_debug_slice.dart';
 import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
@@ -130,6 +131,8 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   LocationChatViewportMode _mode = LocationChatViewportMode.initializing;
   int _commandGeneration = 0;
   int? _animatedBottomScrollGeneration;
+  _WaitingReplyScrollActivity? _waitingScrollActivity;
+  double _waitingCoordinateCorrection = 0;
   bool _entryRevealScheduled = false;
   double? _oldestMessageStopOffset;
   bool _userDragActive = false;
@@ -254,7 +257,8 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
         (_prepareComposerTailConsumption?.call() ?? false);
     _holdingReplyPosition = false;
     _holdingEnterPosition = false;
-    final generation = ++_commandGeneration;
+    _cancelPendingCommands();
+    final generation = _commandGeneration;
     _animatedBottomScrollGeneration =
         !consumeTail && behavior == LocationChatBottomBehavior.animate
         ? generation
@@ -328,15 +332,31 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
         completion.complete(false);
         return;
       }
-      await _animateTo(
-        target.clamp(
-          controller.position.minScrollExtent,
-          controller.position.maxScrollExtent,
-        ),
-        bottomAnimationDuration,
-        generation,
-        settleAtLatest: false,
+      final position = controller.position;
+      final correctedTarget = (target + _waitingCoordinateCorrection).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
       );
+      if (position is ScrollPositionWithSingleContext) {
+        final activity = _WaitingReplyScrollActivity(
+          position,
+          from: position.pixels,
+          to: correctedTarget,
+        );
+        _waitingScrollActivity = activity;
+        position.beginActivity(activity);
+        await activity.done;
+        if (identical(_waitingScrollActivity, activity)) {
+          _waitingScrollActivity = null;
+        }
+      } else {
+        await _animateTo(
+          correctedTarget,
+          bottomAnimationDuration,
+          generation,
+          settleAtLatest: false,
+        );
+      }
       completion.complete(_commandIsCurrent(generation));
     });
     WidgetsBinding.instance.scheduleFrame();
@@ -478,6 +498,18 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     _commandGeneration += 1;
     _animatedBottomScrollGeneration = null;
     _holdingEnterPosition = false;
+    _waitingCoordinateCorrection = 0;
+    final activity = _waitingScrollActivity;
+    _waitingScrollActivity = null;
+    // A drag may already have replaced this activity. Never stop its successor.
+    if (activity != null && !activity.isDisposed) {
+      activity.position.goIdle();
+    }
+  }
+
+  void _translateWaitingCoordinates(double delta) {
+    _waitingCoordinateCorrection += delta;
+    _waitingScrollActivity?.coordinateCorrection += delta;
   }
 
   bool _commandIsCurrent(int generation) {
@@ -566,10 +598,46 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _commandGeneration += 1;
+    _cancelPendingCommands();
     if (_ownsController) controller.dispose();
     super.dispose();
   }
+}
+
+/// Layout translates content coordinates without restarting the original
+/// 220ms curve. The layout transaction corrects pixels before paint; subsequent
+/// animation ticks must use the same translation instead of the old target.
+class _WaitingReplyScrollActivity extends DrivenScrollActivity {
+  _WaitingReplyScrollActivity(
+    this.position, {
+    required double from,
+    required double to,
+  }) : super(
+         position,
+         from: from,
+         to: to,
+         duration: LocationChatScrollCoordinator.bottomAnimationDuration,
+         curve: Curves.easeOut,
+         vsync: position.context.vsync,
+       );
+
+  final ScrollPositionWithSingleContext position;
+  double coordinateCorrection = 0;
+  bool isDisposed = false;
+
+  @override
+  void dispose() {
+    isDisposed = true;
+    super.dispose();
+  }
+
+  @override
+  bool applyMoveTo(double value) => super.applyMoveTo(
+    (value + coordinateCorrection).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    ),
+  );
 }
 
 class _LocationChatScrollController extends ScrollController {
@@ -649,6 +717,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.enterConversation,
     this.preAckWaitingAfterMessageLocalId,
     this.preAckWaitingIdentity,
+    this.waitingPositionReady = true,
+    this.deferWaitingIndicator = false,
     this.waitingPositionResetRevision = 0,
     this.waitingPositionIdentity,
     this.waitingPositionClientMsgId,
@@ -768,6 +838,16 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final ({String messageLocalId, String identity})? enterConversation;
   final String? preAckWaitingAfterMessageLocalId;
   final String? preAckWaitingIdentity;
+
+  /// Defer measuring the target until the caller has replaced opening content.
+  /// Sending/loading visuals remain independent of this positioning gate.
+  final bool waitingPositionReady;
+
+  /// Defer the indicator and its space while the caller prepares an upcoming
+  /// position (for example, the Launch opening handoff). Canceled preparation
+  /// releases it; an actual positioning animation keeps its hidden space.
+  final bool deferWaitingIndicator;
+
   final int waitingPositionResetRevision;
 
   /// Stable for the whole local operation, including ACK and terminal frames.
@@ -941,6 +1021,8 @@ class _LocationChatAnchoredMessageListState
       _enterHoldGeneration == widget.coordinator.commandGeneration &&
       widget.coordinator._holdingReplyPosition;
   double? _waitingPositionTargetOffset;
+  int _waitingCorrectionCount = 0;
+  double _waitingCorrectionTotal = 0;
   final _naturalContentEndKey = GlobalKey();
   late final _geometryCache =
       widget.viewportCache?.geometry ?? LocationChatGeometryCache();
@@ -1201,10 +1283,16 @@ class _LocationChatAnchoredMessageListState
     return ('location-chat-message', _receiptIdentity(message));
   }
 
-  void _captureRestoredEntryContent({bool reentering = false}) {
+  void _captureRestoredEntryContent({
+    bool reentering = false,
+    bool openingHandoff = false,
+  }) {
     if (widget.readOnlyArchive ||
         !widget.restoreInitialCompletedContent ||
-        (!reentering && widget.waitingPositionIdentity != null)) {
+        (!reentering &&
+            !openingHandoff &&
+            widget.waitingPositionReady &&
+            widget.waitingPositionIdentity != null)) {
       return;
     }
     if (reentering) _restoredEntryContent.clear();
@@ -1422,7 +1510,7 @@ class _LocationChatAnchoredMessageListState
   }
 
   static String? _waitingIdentity(LocationChatAnchoredMessageList list) =>
-      !list.replyWaitingPositioningEnabled
+      (!list.replyWaitingPositioningEnabled || !list.waitingPositionReady)
       ? null
       : list.waitingPositionIdentity ??
             (list.replyRegenerationInProgress
@@ -1494,6 +1582,8 @@ class _LocationChatAnchoredMessageListState
     if (!coordinator.canPositionWaitingReply) return;
     _positioningIdentity = identity;
     _waitingPositionTargetOffset = null;
+    _waitingCorrectionCount = 0;
+    _waitingCorrectionTotal = 0;
     final regenerating =
         widget.replyRegenerationInProgress ||
         (previous != null &&
@@ -1619,16 +1709,45 @@ class _LocationChatAnchoredMessageListState
         _waitingPositionTargetOffset = geometry.offset;
         _waitingMinContentExtent = geometry.preparationExtent;
       });
+      if (LocationChatDebugSlice.enabled) {
+        LocationChatDebugSlice.recordEvent(
+          source: 'scroll',
+          action: 'waitingPositionStart',
+          details: {
+            'operation': identity,
+            'clientMsgId': widget.waitingPositionClientMsgId,
+            'messageCount': widget.messages.length,
+            'anchor': _waitingAnchorLayoutId,
+            'pixels': coordinator.controller.position.pixels,
+            'target': _waitingPositionTargetOffset,
+          },
+        );
+      }
       final positioned = await coordinator.positionWaitingReply(
         geometry.offset,
       );
+      if (LocationChatDebugSlice.enabled) {
+        LocationChatDebugSlice.recordEvent(
+          source: 'scroll',
+          action: 'waitingPositionEnd',
+          details: {
+            'operation': identity,
+            'completed': positioned,
+            if (_positioningIdentity == identity) ...{
+              'target': _waitingPositionTargetOffset,
+              'correctionCount': _waitingCorrectionCount,
+              'correctionTotal': _waitingCorrectionTotal,
+            },
+          },
+        );
+      }
       if (!mounted || _positioningIdentity != identity) return;
       if (positioned) {
         // Keyboard dismissal may have enlarged the viewport during animateTo.
         // Finish with the current height, not the pre-animation one.
         setState(
           () => _waitingMinContentExtent =
-              geometry.offset +
+              (_waitingPositionTargetOffset ?? geometry.offset) +
               coordinator.controller.position.viewportDimension,
         );
       }
@@ -1726,6 +1845,22 @@ class _LocationChatAnchoredMessageListState
       widget.replyWaitingPositioningEnabled &&
       widget.preAckWaitingAfterMessageLocalId != null &&
       widget.preAckWaitingIdentity != null;
+
+  bool get _waitingSpaceDeferred {
+    if (!widget.replyWaitingPositioningEnabled ||
+        !widget.coordinator.canPositionWaitingReply) {
+      return false;
+    }
+    if (widget.deferWaitingIndicator) return true;
+    final identity = _waitingIdentity(widget);
+    // During the opening handoff the list still follows its natural bottom.
+    // Even an invisible 32px slot would move it before positioning starts.
+    return identity != null && identity != _lastWaitingOperation;
+  }
+
+  bool get _waitingIndicatorVisible =>
+      !widget.replyWaitingPositioningEnabled ||
+      (!_waitingPositionPending && !_waitingSpaceDeferred);
 
   String? get _waitingAfterMessageLocalId => _immediateSendWaitingActive
       ? widget.preAckWaitingAfterMessageLocalId
@@ -1856,13 +1991,17 @@ class _LocationChatAnchoredMessageListState
         ),
         -3 => KeyedSubtree(
           key: _entryKey(entry),
-          child: KeyedSubtree(
-            key: _waitingBubbleLayoutKey,
-            child: ChatReplyWaitingBubble(
-              style: style,
-              visible: widget.loadingAfterMessageLocalId != null,
-            ),
-          ),
+          child: _waitingSpaceDeferred
+              ? const SizedBox.shrink()
+              : KeyedSubtree(
+                  key: _waitingBubbleLayoutKey,
+                  child: ChatReplyWaitingBubble(
+                    style: style,
+                    visible:
+                        widget.loadingAfterMessageLocalId != null &&
+                        _waitingIndicatorVisible,
+                  ),
+                ),
         ),
         -2 => KeyedSubtree(
           key: _entryKey(entry),
@@ -2217,12 +2356,27 @@ class _LocationChatAnchoredMessageListState
                     oldWidget.messageLayoutId?.call(message) ?? message.localId,
               )
               .toSet();
-    if (!oldWidget.initialContentReady ||
+    final openingHandoff =
+        !oldWidget.waitingPositionReady && widget.waitingPositionReady;
+    if (openingHandoff && widget.coordinator.canPositionWaitingReply) {
+      final outgoing = widget.messages
+          .where(
+            (message) =>
+                message.clientMsgId == widget.waitingPositionClientMsgId,
+          )
+          .firstOrNull;
+      // Keep the outgoing row measurable during the replacement layout without
+      // entering the positioning hold until that layout has completed.
+      if (outgoing != null) _waitingAnchorLayoutId = _messageLayoutId(outgoing);
+    }
+    if (openingHandoff ||
+        !oldWidget.initialContentReady ||
         (!oldWidget.active && widget.active) ||
         (oldWidget.replyCurrentCardId != widget.replyCurrentCardId &&
             widget.waitingPositionIdentity == null)) {
       _captureRestoredEntryContent(
         reentering: !oldWidget.active && widget.active,
+        openingHandoff: openingHandoff,
       );
     }
     if (!widget.readOnlyArchive) {
@@ -2271,6 +2425,12 @@ class _LocationChatAnchoredMessageListState
     final disabledWaitingPositioning =
         oldWidget.replyWaitingPositioningEnabled &&
         !widget.replyWaitingPositioningEnabled;
+    if (((oldWidget.active && !widget.active) ||
+            oldWidget.coordinator != widget.coordinator) &&
+        (_waitingPositionPending ||
+            oldWidget.coordinator._waitingScrollActivity != null)) {
+      oldWidget.coordinator._cancelPendingCommands();
+    }
     if ((!widget.replyWaitingPositioningEnabled && !_holdingEnterPosition) ||
         !widget.active ||
         oldWidget.coordinator != widget.coordinator ||
@@ -2296,7 +2456,31 @@ class _LocationChatAnchoredMessageListState
           waitingIdentityChanged) {
         _regenerateRowSpacing.clear();
       }
-      _scheduleWaitingPosition(previous: oldWidget);
+      if (openingHandoff) {
+        // First lay out the canonical opening with normal following/reading
+        // ownership. Preparing the hold in this build would disable its prefix
+        // correction and measure against the old scroll coordinate.
+        final coordinator = widget.coordinator;
+        final generation = coordinator.commandGeneration;
+        final identity = _waitingIdentity(widget);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted ||
+              widget.coordinator != coordinator ||
+              coordinator.commandGeneration != generation ||
+              _waitingIdentity(widget) != identity) {
+            return;
+          }
+          // The canonical opening has now completed its normal layout. Take
+          // scroll ownership BEFORE adding the hidden waiting slot, so its
+          // height cannot cause a separate bottom-follow movement.
+          if (identity != null && coordinator.canPositionWaitingReply) {
+            coordinator.prepareWaitingReplyPosition();
+          }
+          setState(() => _scheduleWaitingPosition(previous: oldWidget));
+        });
+      } else {
+        _scheduleWaitingPosition(previous: oldWidget);
+      }
     }
     if (widget.waitingPositionIdentity != null && !widget.oldestEdgeLoading) {
       // Use our prior layout snapshot: incoming frames may mutate the VM list
@@ -2635,7 +2819,6 @@ class _LocationChatAnchoredMessageListState
         !widget.active ||
         !widget.replyWaitingPositioningEnabled ||
         _waitingMinContentExtent <= 0 ||
-        _waitingPositionPending ||
         _replyLayoutBridge.isActive ||
         !coordinator.controller.hasClients ||
         anchorId == null) {
@@ -2646,14 +2829,32 @@ class _LocationChatAnchoredMessageListState
     final retainedIds = next.toSet();
     // Go On can promote the anchored card bubble into formal history in the
     // same update. Follow that business message across its presentation ID.
-    final receipt = _receiptIdentity(_renderedMessages[anchorIndex]);
+    final original = _renderedMessages[anchorIndex];
+    final receipt = _receiptIdentity(original);
     final nextAnchorId = retainedIds.contains(anchorId)
         ? anchorId
         : nextMessages
-              .where((message) => _receiptIdentity(message) == receipt)
+              .where(
+                (message) =>
+                    _receiptIdentity(message) == receipt ||
+                    (original.clientMsgId.isNotEmpty &&
+                        message.clientMsgId == original.clientMsgId),
+              )
               .map(_messageLayoutId)
               .firstOrNull;
-    if (nextAnchorId == null) return;
+    if (nextAnchorId == null) {
+      // The operation's source really disappeared. Stop at the current
+      // coordinate rather than choosing another message to chase.
+      coordinator._cancelPendingCommands();
+      _waitingAnchorLayoutId = null;
+      _heldReplyPrefixAnchor = null;
+      _detachedLayoutAnchor = null;
+      _waitingPositionPending = false;
+      _waitingPositionTargetOffset = null;
+      final position = coordinator.controller.position;
+      _waitingMinContentExtent = position.pixels + position.viewportDimension;
+      return;
+    }
     _waitingAnchorLayoutId = nextAnchorId;
     // A retry can promote a local row across this anchor without removing any
     // IDs. Compare the whole prefix, not just missing IDs. Changes BELOW the
@@ -2662,9 +2863,22 @@ class _LocationChatAnchoredMessageListState
       previous.take(anchorIndex).toList(),
       next.take(next.indexOf(nextAnchorId)).toList(),
     )) {
+      final anchor = _detachedLayoutAnchor;
+      if (anchor?.localId == anchorId) {
+        _detachedLayoutAnchor = (
+          localId: nextAnchorId,
+          contentOffset: anchor!.contentOffset,
+        );
+      }
       return;
     }
-    final offset = _messageContentOffset(anchorId);
+    // A ticker can advance pixels before didUpdateWidget runs, while the
+    // render tree still has last frame's paint offsets. Use the completed
+    // layout snapshot so that animation progress is not counted as a resize.
+    final savedAnchor = _detachedLayoutAnchor;
+    final offset = savedAnchor?.localId == anchorId
+        ? savedAnchor!.contentOffset
+        : _messageContentOffset(anchorId);
     if (offset == null) return;
     _heldReplyPrefixAnchor = (
       localId: nextAnchorId,
@@ -2696,14 +2910,44 @@ class _LocationChatAnchoredMessageListState
     // Translate both the held scroll coordinate and its reserved extent.
     // Keep the original extent through this layout so shrinking cannot clamp
     // pixels before physics applies the correction; release it next frame.
+    _translateHeldReplyCoordinates(delta);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+    // While moving, this frame's animation tick may have advanced since the
+    // old layout was captured. Preserve that progress as well as the anchor.
+    return _waitingPositionPending
+        ? delta
+        : anchor.pixels + delta - coordinator.controller.position.pixels;
+  }
+
+  void _translateHeldReplyCoordinates(double delta) {
+    if (delta.abs() < precisionErrorTolerance) return;
     _waitingMinContentExtent = (_waitingMinContentExtent + delta).clamp(
       0.0,
       double.infinity,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
-    return anchor.pixels + delta - coordinator.controller.position.pixels;
+    if (!_waitingPositionPending || _waitingPositionTargetOffset == null) {
+      return;
+    }
+    _waitingPositionTargetOffset = _waitingPositionTargetOffset! + delta;
+    widget.coordinator._translateWaitingCoordinates(delta);
+    _waitingCorrectionCount += 1;
+    _waitingCorrectionTotal += delta;
+    // Report the first correction and aggregate the rest at completion; a
+    // streaming height animation must not turn diagnostics into per-frame IO.
+    if (_waitingCorrectionCount == 1 && LocationChatDebugSlice.enabled) {
+      LocationChatDebugSlice.recordEvent(
+        source: 'scroll',
+        action: 'waitingPositionCorrection',
+        details: {
+          'operation': _positioningIdentity,
+          'anchor': _waitingAnchorLayoutId,
+          'delta': delta,
+          'target': _waitingPositionTargetOffset,
+        },
+      );
+    }
   }
 
   void _handleCoordinatorChanged() {
@@ -2719,7 +2963,8 @@ class _LocationChatAnchoredMessageListState
       _detachedLayoutAnchor = null;
       _replyLayoutCommandGeneration = null;
     }
-    if (!widget.coordinator.isReadingHistory) {
+    if (!widget.coordinator.isReadingHistory &&
+        !widget.coordinator._holdingReplyPosition) {
       _detachedLayoutAnchor = null;
       _anchorRestorePending = false;
       return;
@@ -2741,15 +2986,13 @@ class _LocationChatAnchoredMessageListState
     _detachedAnchorSnapshotScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _detachedAnchorSnapshotScheduled = false;
-      if (!mounted ||
-          _revealingHistory ||
-          !widget.coordinator.isDetached ||
-          _waitingPositionPending) {
+      if (!mounted || _revealingHistory || !widget.coordinator.isDetached) {
         return;
       }
       final waitingId = widget.coordinator._holdingReplyPosition
           ? _waitingAnchorLayoutId
           : null;
+      if (widget.coordinator._holdingReplyPosition && waitingId == null) return;
       final anchor = waitingId != null
           ? (localId: waitingId, top: 0.0)
           : _visibleRetainedAnchor(_messageLocalIds);
@@ -2859,6 +3102,7 @@ class _LocationChatAnchoredMessageListState
   void dispose() {
     widget.coordinator.removeListener(_handleCoordinatorChanged);
     if (identical(widget.coordinator._messageListOwner, this)) {
+      widget.coordinator._cancelPendingCommands();
       widget.coordinator._messageListOwner = null;
       widget.coordinator._prepareComposerTailConsumption = null;
       widget.coordinator.setOldestMessageStopOffset(null);
@@ -3550,8 +3794,7 @@ class _LocationChatAnchoredMessageListState
     final heldCorrection = _takeHeldReplyPrefixCorrection();
     if (heldCorrection != null) return heldCorrection;
     if (!widget.coordinator.isReadingHistory &&
-        !(widget.coordinator._holdingReplyPosition &&
-            !_waitingPositionPending)) {
+        !widget.coordinator._holdingReplyPosition) {
       _detachedLayoutAnchor = null;
       _anchorRestorePending = false;
       return null;
@@ -3568,10 +3811,7 @@ class _LocationChatAnchoredMessageListState
     final correction = nextContentOffset - anchor.contentOffset;
     if (widget.coordinator._holdingReplyPosition &&
         correction.abs() > precisionErrorTolerance) {
-      _waitingMinContentExtent = (_waitingMinContentExtent + correction).clamp(
-        0.0,
-        double.infinity,
-      );
+      _translateHeldReplyCoordinates(correction);
     }
     _finishAnchorRestoreAfterLayout();
     return correction.abs() > precisionErrorTolerance ? correction : null;
@@ -3895,106 +4135,118 @@ class _LocationChatAnchoredMessageListState
               'reply-actions-input-blocker-$_replyControlWaitingIdentity',
             ),
             ignoring: _cardTransitionBusy,
-            child: LocationChatReplyActions(
-              key: ValueKey('reply-actions-$_replyControlWaitingIdentity'),
-              loadingIndicator:
-                  _showLoadingInReplyActionSlot &&
-                      !_usesImmediateSendWaitingSlot
-                  ? KeyedSubtree(
-                      key: _waitingBubbleLayoutKey,
-                      child: ChatReplyWaitingBubble(
-                        key: ValueKey<String>(
-                          'location-chat-ack-loading:$_replyActionSlotLoadingIdentity',
-                        ),
-                        style: style,
-                        inActionSlot: true,
-                      ),
-                    )
-                  : null,
-              reservedLoadingIndicator: _usesImmediateSendWaitingSlot
-                  ? KeyedSubtree(
-                      key: _waitingBubbleLayoutKey,
-                      child: ChatReplyWaitingBubble(
-                        key: ValueKey<String>(
-                          'location-chat-ack-loading:${widget.preAckWaitingIdentity}',
-                        ),
-                        style: style,
-                        inActionSlot: true,
-                        visible: !_reservingPreAckLoadingInReplyActionSlot,
-                      ),
-                    )
-                  : null,
-              actionsExpanded:
-                  _usesImmediateSendWaitingSlot ||
-                  _showLoadingInReplyActionSlot ||
-                  (widget.replyActionsVisible && _replyIdentity != null),
-              paginationExpanded: _replyControlsGroupedBeforeFollowingMessage
-                  ? true
-                  : null,
-              actionToolbarKey: _replyActionToolbarKey,
-              paginationKey: _replyPaginationKey,
-              inspirationFeature: widget.inspirationFeature,
-              editFeature: widget.editFeature,
-              regenerateFeature: widget.regenerateFeature,
-              goOnFeature: widget.goOnFeature,
-              cardIndex: widget.replyCardIndex,
-              cardCount: widget.replyCardCount,
-              cardsConfirmed:
-                  widget.replyCardsConfirmed &&
-                  !widget.showConfirmedCardPagination,
-              cardSwitchEnabled:
-                  widget.active &&
-                  widget.replyCardSwitchEnabled &&
-                  !widget.replyCardsConfirmed,
-              onPreviousCard: () => _switchReplyCard(-1),
-              onNextCard: () => _switchReplyCard(1),
-              editPromptExpanded: _editPromptExpanded,
-              onEditPromptExpandedChanged: (expanded) {
-                setState(() => _editPromptExpanded = expanded);
-                if (expanded) {
-                  final wasFollowingLatest =
-                      widget.coordinator.shouldFollowLatest ||
-                      widget.coordinator.isAtBottom;
-                  widget.coordinator.requestBottom(
-                    reason: LocationChatBottomReason.editPromptExpanded,
-                    // With no ScrollActivity in flight, scroll physics follows
-                    // every frame of the prompt's height animation.
-                    behavior: wasFollowingLatest
-                        ? LocationChatBottomBehavior.jump
-                        : LocationChatBottomBehavior.animate,
-                  );
-                }
-              },
-              inspirationListKey: _inspirationListKey,
-              inspirationIdentity: widget.inspirationIdentity ?? _replyIdentity,
-              inspirationExpanded: _inspirationExpanded,
-              inspirationPromptExpanded: _inspirationPromptExpanded,
-              onInspirationPromptExpandedChanged: (expanded) {
-                setState(() => _inspirationPromptExpanded = expanded);
-              },
-              inspirationPage: _inspirationPage,
-              onInspirationPageChanged: (page) => _inspirationPage = page,
-              onInspirationExpandedChanged: (expanded) {
-                setState(() => _inspirationExpanded = expanded);
-                widget.inspirationFeature.onExpandedChanged?.call(expanded);
-                if (expanded) {
-                  final wasFollowingLatest =
-                      widget.coordinator.shouldFollowLatest ||
-                      widget.coordinator.isAtBottom;
-                  widget.coordinator.requestBottom(
-                    reason: LocationChatBottomReason.inspirationExpanded,
-                    // The replies and quota prompt can both grow after this
-                    // tap. Keep a bottom-following viewport tied to their
-                    // measured extent instead of a stale early target.
-                    behavior: wasFollowingLatest
-                        ? LocationChatBottomBehavior.jump
-                        : LocationChatBottomBehavior.animate,
-                  );
-                }
-              },
-              style: style,
-              selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
-            ),
+            child: _waitingSpaceDeferred
+                ? const SizedBox.shrink()
+                : LocationChatReplyActions(
+                    key: ValueKey(
+                      'reply-actions-$_replyControlWaitingIdentity',
+                    ),
+                    loadingIndicator:
+                        _showLoadingInReplyActionSlot &&
+                            !_usesImmediateSendWaitingSlot
+                        ? KeyedSubtree(
+                            key: _waitingBubbleLayoutKey,
+                            child: ChatReplyWaitingBubble(
+                              key: ValueKey<String>(
+                                'location-chat-ack-loading:$_replyActionSlotLoadingIdentity',
+                              ),
+                              style: style,
+                              inActionSlot: true,
+                              visible: _waitingIndicatorVisible,
+                            ),
+                          )
+                        : null,
+                    reservedLoadingIndicator: _usesImmediateSendWaitingSlot
+                        ? KeyedSubtree(
+                            key: _waitingBubbleLayoutKey,
+                            child: ChatReplyWaitingBubble(
+                              key: ValueKey<String>(
+                                'location-chat-ack-loading:${widget.preAckWaitingIdentity}',
+                              ),
+                              style: style,
+                              inActionSlot: true,
+                              visible:
+                                  !_reservingPreAckLoadingInReplyActionSlot &&
+                                  _waitingIndicatorVisible,
+                            ),
+                          )
+                        : null,
+                    actionsExpanded:
+                        _usesImmediateSendWaitingSlot ||
+                        _showLoadingInReplyActionSlot ||
+                        (widget.replyActionsVisible && _replyIdentity != null),
+                    paginationExpanded:
+                        _replyControlsGroupedBeforeFollowingMessage
+                        ? true
+                        : null,
+                    actionToolbarKey: _replyActionToolbarKey,
+                    paginationKey: _replyPaginationKey,
+                    inspirationFeature: widget.inspirationFeature,
+                    editFeature: widget.editFeature,
+                    regenerateFeature: widget.regenerateFeature,
+                    goOnFeature: widget.goOnFeature,
+                    cardIndex: widget.replyCardIndex,
+                    cardCount: widget.replyCardCount,
+                    cardsConfirmed:
+                        widget.replyCardsConfirmed &&
+                        !widget.showConfirmedCardPagination,
+                    cardSwitchEnabled:
+                        widget.active &&
+                        widget.replyCardSwitchEnabled &&
+                        !widget.replyCardsConfirmed,
+                    onPreviousCard: () => _switchReplyCard(-1),
+                    onNextCard: () => _switchReplyCard(1),
+                    editPromptExpanded: _editPromptExpanded,
+                    onEditPromptExpandedChanged: (expanded) {
+                      setState(() => _editPromptExpanded = expanded);
+                      if (expanded) {
+                        final wasFollowingLatest =
+                            widget.coordinator.shouldFollowLatest ||
+                            widget.coordinator.isAtBottom;
+                        widget.coordinator.requestBottom(
+                          reason: LocationChatBottomReason.editPromptExpanded,
+                          // With no ScrollActivity in flight, scroll physics follows
+                          // every frame of the prompt's height animation.
+                          behavior: wasFollowingLatest
+                              ? LocationChatBottomBehavior.jump
+                              : LocationChatBottomBehavior.animate,
+                        );
+                      }
+                    },
+                    inspirationListKey: _inspirationListKey,
+                    inspirationIdentity:
+                        widget.inspirationIdentity ?? _replyIdentity,
+                    inspirationExpanded: _inspirationExpanded,
+                    inspirationPromptExpanded: _inspirationPromptExpanded,
+                    onInspirationPromptExpandedChanged: (expanded) {
+                      setState(() => _inspirationPromptExpanded = expanded);
+                    },
+                    inspirationPage: _inspirationPage,
+                    onInspirationPageChanged: (page) => _inspirationPage = page,
+                    onInspirationExpandedChanged: (expanded) {
+                      setState(() => _inspirationExpanded = expanded);
+                      widget.inspirationFeature.onExpandedChanged?.call(
+                        expanded,
+                      );
+                      if (expanded) {
+                        final wasFollowingLatest =
+                            widget.coordinator.shouldFollowLatest ||
+                            widget.coordinator.isAtBottom;
+                        widget.coordinator.requestBottom(
+                          reason: LocationChatBottomReason.inspirationExpanded,
+                          // The replies and quota prompt can both grow after this
+                          // tap. Keep a bottom-following viewport tied to their
+                          // measured extent instead of a stale early target.
+                          behavior: wasFollowingLatest
+                              ? LocationChatBottomBehavior.jump
+                              : LocationChatBottomBehavior.animate,
+                        );
+                      }
+                    },
+                    style: style,
+                    selfMessageBubbleMaxWidthCap:
+                        widget.selfMessageBubbleMaxWidthCap,
+                  ),
           ),
         ),
       ],

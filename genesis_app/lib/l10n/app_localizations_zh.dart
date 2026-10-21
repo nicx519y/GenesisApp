@@ -3380,7 +3380,7 @@ class AppLocalizationsZh extends AppLocalizations {
       'Could not open this photo. Please try another.';
 
   @override
-  String get miniPhoneWallpaperApplied => 'Wallpaper applied. See it on Home.';
+  String get miniPhoneWallpaperApplied => 'Wallpaper applied.';
 
   @override
   String miniPhoneFromWorldo({required String name}) {
@@ -6814,7 +6814,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get miniPhonePhotoOpenFailed => '無法開啟這張照片，請選擇其他照片。';
 
   @override
-  String get miniPhoneWallpaperApplied => '已套用桌布，可前往手機主畫面查看。';
+  String get miniPhoneWallpaperApplied => '已套用桌布。';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

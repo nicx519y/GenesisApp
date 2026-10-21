@@ -198,6 +198,11 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             enterConversation: _enterConversationFor(displayMessages),
             preAckWaitingAfterMessageLocalId: _preAckWaitingMessageLocalId,
             preAckWaitingIdentity: _preAckWaitingClientMsgId,
+            waitingPositionReady: _waitingPositionReady,
+            deferWaitingIndicator:
+                !_waitingPositionReady &&
+                !_openingHistoryFailed &&
+                !_openingWaitingCanceled,
             waitingPositionResetRevision: _waitingPositionResetRevision,
             waitingPositionClientMsgId: _waitingPositionClientMsgId,
             waitingPositionIdentity: _waitingPositionOperation == 0

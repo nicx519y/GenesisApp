@@ -308,6 +308,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     required this.cache,
     required this.onBack,
     this.onOverlayDismissed,
+    this.onTransitionChanged,
     required this.onPanelReady,
     required this.isMessageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
@@ -325,6 +326,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final WorldLocationChatPageCache cache;
   final VoidCallback onBack;
   final VoidCallback? onOverlayDismissed;
+  final ValueChanged<bool>? onTransitionChanged;
   final ValueChanged<String> onPanelReady;
   final bool Function(String locationId) isMessageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
@@ -412,6 +414,7 @@ class WorldLocationChatRouterHostState
           active: active,
           maintainChildOnDismiss: true,
           onDismissed: _handleDismissed,
+          onTransitionChanged: widget.onTransitionChanged,
           animate: widget.animateTransitions,
           child: content,
         ),
@@ -643,9 +646,7 @@ class WorldLocationChatLoadingPage extends StatelessWidget {
           children: [
             ChatHeader(
               title: '$title (1)',
-              subtitle: GenesisL10n
-                  .current
-                  .chatLoading,
+              subtitle: GenesisL10n.current.chatLoading,
               connected: false,
               connecting: true,
               onBack: onBack,

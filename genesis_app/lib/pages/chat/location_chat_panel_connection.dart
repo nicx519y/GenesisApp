@@ -17,6 +17,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _joiningLocationFuture = null;
     _unbindLocationMessageChanges();
 
+    await _phoneMovementSubscription?.cancel();
+    _phoneMovementSubscription = null;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -309,6 +311,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _joiningLocation = false;
     _joiningLocationFuture = null;
     _unbindLocationMessageChanges();
+    await _phoneMovementSubscription?.cancel();
+    _phoneMovementSubscription = null;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -438,6 +442,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   void _attachService(WorldChatroomService service) {
+    _phoneMovementSubscription ??= service.phoneMovements.listen((event) {
+      if (mounted && identical(service, _service)) {
+        _handlePhoneCharactersMoved(event);
+      }
+    });
     if (_ownsService && _balanceAlertSubscription == null) {
       _balanceAlertSubscription = bindGemBalancePrompt(
         context,
@@ -678,7 +687,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       refresh
           .then((_) {
             if (!_isCurrentService(service, generation)) return;
-            _syncFromServiceState(service);
+            _syncFromServiceState(
+              service,
+              forceMessageReconcile: refreshReason == 'openingPreview',
+            );
             _logPanelMetric(
               'initial history refresh done beforeReady '
               'reason=$refreshReason '
@@ -694,6 +706,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
               return;
             }
             if (!_isCurrentService(service, generation)) return;
+            if (refreshReason == 'openingPreview') {
+              // Do not revive this initial positioning operation on a later
+              // retry. The preview remains usable with normal bottom following.
+              _openingHistoryFailed = true;
+              _notifyMessageViewport();
+            }
             _logPanelMetric(
               'initial history refresh failed but panel remains usable '
               'reason=$refreshReason error=$error',
@@ -836,8 +854,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final identityProjectionChanged =
         !identical(_chatroomState.entitiesById, state.entitiesById) ||
         !identical(_chatroomState.world, state.world);
+    final openingWasResolved = _openingPreviewResolved;
     final shouldReconcileMessages =
         forceMessageReconcile ||
+        (!openingWasResolved &&
+            _chatroomState.latestHistoryLoads[widget.locationId] !=
+                state.latestHistoryLoads[widget.locationId]) ||
         !identical(previousSource, nextSource) ||
         identityProjectionChanged;
     final changedMessages =
@@ -854,6 +876,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     );
     final messageViewportChanged =
         privateReturnsChanged ||
+        openingWasResolved != _openingPreviewResolved ||
         historyChanged ||
         changedMessages ||
         changedHasMoreOlder ||

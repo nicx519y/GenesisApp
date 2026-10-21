@@ -3438,8 +3438,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dieses Foto konnte nicht geöffnet werden. Versuche ein anderes.';
 
   @override
-  String get miniPhoneWallpaperApplied =>
-      'Hintergrundbild angewendet. Sieh es dir auf dem Startbildschirm an.';
+  String get miniPhoneWallpaperApplied => 'Hintergrundbild angewendet.';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

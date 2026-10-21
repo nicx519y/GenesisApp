@@ -3426,8 +3426,7 @@ class AppLocalizationsPt extends AppLocalizations {
       'Não foi possível abrir esta foto. Tente outra.';
 
   @override
-  String get miniPhoneWallpaperApplied =>
-      'Papel de parede aplicado. Veja na tela inicial.';
+  String get miniPhoneWallpaperApplied => 'Papel de parede aplicado.';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

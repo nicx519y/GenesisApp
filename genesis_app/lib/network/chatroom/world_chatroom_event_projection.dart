@@ -24,6 +24,14 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
 
   Future<void> _handleEvent(ChatroomEvent event) async {
     switch (event) {
+      case ChatroomPhoneCharactersMoved e:
+        if (e.worldId == _worldId &&
+            _seenPhoneMovements.add(e.deduplicationKey)) {
+          if (_seenPhoneMovements.length > 256) {
+            _seenPhoneMovements.remove(_seenPhoneMovements.first);
+          }
+          _phoneMovements.add(e);
+        }
       case ChatroomPhoneEvent e:
         if (e.worldId == _worldId) _phoneEvents.add(e);
       case ChatroomLlmCardStream():

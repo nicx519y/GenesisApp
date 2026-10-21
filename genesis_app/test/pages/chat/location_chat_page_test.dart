@@ -124,6 +124,177 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  for (final timing in ['snapshot only', 'inside phone', 'after return']) {
+    testWidgets('phone movement return card: $timing', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final backend = _LocationChatReplyHttpTransport()
+        ..seedReplyRound(conversationType: '', triggerUid: '');
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: backend,
+      );
+      WorldDetail world(String location) => WorldDetail.fromJson({
+        'world_id': 'world-current',
+        'characters': [
+          {'char_id': 'char-1', 'name': 'World Alice'},
+        ],
+        'locations': [
+          {'location_id': 'location-current', 'name': 'Room'},
+          {'location_id': 'garden', 'name': 'Garden'},
+        ],
+        'character_positions': [
+          {'char_id': 'char-1', 'name': 'World Alice', 'location_id': location},
+        ],
+      });
+      final phoneBackend = PhoneBackend();
+      final data = MiniPhoneStore(
+        api: phoneBackend.api,
+        worldId: 'world-current',
+        namespace: 'movement-$timing',
+        readUid: () async => 'user-1',
+        loadWorld: () async => world('location-current'),
+        accountRevision: ValueNotifier(0),
+        cacheStorage: MemoryMiniPhoneCacheStorage(),
+      );
+      await tester.runAsync(() async => data.ready);
+      final session = MiniPhoneSession(worldId: 'world-current', data: data);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        session.dispose();
+        unawaited(harness.service.dispose());
+      });
+      ChatCharacterMovementVm? opened;
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: MiniPhoneSessionScope(
+              session: session,
+              worldDetailReady: true,
+              child: LocationChatPanel(
+                worldId: 'world-current',
+                locationId: 'location-current',
+                service: harness.service,
+                leaveOnInactive: false,
+                messageQueueInitializationCovered: true,
+                onCharactersMovedLocationTap: (m) => opened = m,
+              ),
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Original reply.').evaluate().isNotEmpty,
+      );
+      harness.service.applyWorldSnapshot(world('location-current'));
+      await tester.pumpAndSettle();
+      final bubbles = find.byType(ChatCharactersMovedMessageBubble);
+      void send({String destination = 'garden', int ts = 1792576800000}) {
+        harness.socket._serverFrame('phone_characters_moved', {
+          'stream_type': '',
+          'ts': ts,
+          'world_id': 'world-current',
+          'trigger_uid': '',
+          'payload': {
+            'content': [
+              {
+                'char_id': 'char-1',
+                'old_loc_id': 'location-current',
+                'to_loc_id': destination,
+              },
+              {
+                'char_id': 'unrelated',
+                'old_loc_id': 'elsewhere',
+                'to_loc_id': 'garden',
+              },
+            ],
+          },
+          'err_no': 0,
+          'err_msg': '',
+        });
+      }
+
+      // Without an actual private-chat visit, even a valid event is not a return card.
+      send(ts: 1792576799999);
+      await tester.pumpAndSettle();
+      expect(bubbles, findsNothing);
+      await tester.tap(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (w) =>
+                w is ChatOtherMessageBubble &&
+                w.message.text == 'Original reply.',
+          ),
+          matching: find.byType(ChatAvatar),
+        ),
+      );
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+      if (timing == 'snapshot only') {
+        harness.service.applyWorldSnapshot(world('garden'));
+      } else if (timing == 'inside phone') {
+        send();
+        send();
+      }
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(ChatCharactersMovedMessageBubble, skipOffstage: false),
+        findsNothing,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      if (timing == 'after return') {
+        expect(bubbles, findsNothing);
+        send();
+        send();
+        await tester.pumpAndSettle();
+      }
+      if (timing == 'snapshot only') {
+        expect(bubbles, findsNothing);
+      } else {
+        expect(bubbles, findsOneWidget);
+        final payload =
+            tester
+                    .widget<ChatCharactersMovedMessageBubble>(bubbles)
+                    .message
+                    .timelinePayload
+                as ChatCharactersMovedPayloadVm;
+        expect(payload.movements, hasLength(1));
+        expect(payload.movements.single.toLocationId, 'garden');
+        expect(payload.movements.single.characterName, 'World Alice');
+        final card = find.byKey(
+          ValueKey(
+            'chat-character-movement-location-${tester.widget<ChatCharactersMovedMessageBubble>(bubbles).message.localId}-0',
+          ),
+        );
+        await tester.ensureVisible(card);
+        await tester.tap(card);
+        await tester.pumpAndSettle();
+        expect(opened?.toLocationId, 'garden');
+        expect(
+          harness.service.state.messagesByLocation.values
+              .expand((e) => e)
+              .where((m) => m.senderType == 'characters_moved'),
+          isEmpty,
+        );
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      session.dispose();
+      unawaited(harness.service.dispose());
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
+
   for (final replyCard in [false, true]) {
     testWidgets(
       'character avatar opens World MiniPhone chat (card: $replyCard)',

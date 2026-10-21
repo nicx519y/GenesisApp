@@ -20,9 +20,12 @@ class MiniPhoneEntry extends StatefulWidget {
     required this.onPressed,
     this.session,
     this.style,
+    this.visible = true,
+    this.interactive = true,
   });
   final MiniPhoneSession? session;
   final VoidCallback onPressed;
+  final bool visible, interactive;
 
   /// Explicit preview override; null selects from the current World's map era.
   final MiniPhoneEntryStyle? style;
@@ -138,7 +141,8 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
   @override
   Widget build(BuildContext context) => OverlayPortal(
     controller: _musicOverlay,
-    overlayChildBuilder: (_) => ModalRoute.of(context)?.isCurrent == false
+    overlayChildBuilder: (_) =>
+        !widget.visible || ModalRoute.of(context)?.isCurrent == false
         ? const SizedBox.shrink()
         : AnimatedBuilder(
             animation: _arrival,
@@ -149,10 +153,13 @@ class _MiniPhoneEntryState extends State<MiniPhoneEntry>
                 link: _entryLink,
                 showWhenUnlinked: false,
                 offset: const Offset(-5, -48),
-                child: MiniPhoneEntryBubble(
-                  avatar: _arriving ? _arrivalAvatar : null,
-                  playRequested: _music.playRequested,
-                  onTap: () => _music.userToggle('dock'),
+                child: IgnorePointer(
+                  ignoring: !widget.interactive,
+                  child: MiniPhoneEntryBubble(
+                    avatar: _arriving ? _arrivalAvatar : null,
+                    playRequested: _music.playRequested,
+                    onTap: () => _music.userToggle('dock'),
+                  ),
                 ),
               ),
             ),
@@ -222,12 +229,22 @@ class MiniPhoneEdgeDock extends StatefulWidget {
     this.worldId = '',
     this.leftBottomInset,
     this.style,
+    this.viewport,
+    this.visible = true,
+    this.interactive = true,
+    this.layoutIdentity,
+    this.followViewportChanges = false,
   });
   final MiniPhoneEntryStyle? style;
   final String worldId;
   final double topInset, bottomInset;
   final double? leftBottomInset;
   final MiniPhoneDockPosition? positionStore;
+
+  /// Resting scene bounds in this dock's stable coordinate system.
+  final Rect? viewport;
+  final bool visible, interactive, followViewportChanges;
+  final Object? layoutIdentity;
   final void Function(MiniPhoneSession session) onPressed;
   @override
   State<MiniPhoneEdgeDock> createState() => _MiniPhoneEdgeDockState();
@@ -241,6 +258,7 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   double? _viewportOriginY;
   bool _measurementScheduled = false;
   Offset? _drag;
+  bool _followingViewport = false;
   @override
   void initState() {
     super.initState();
@@ -280,6 +298,11 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   @override
   void didUpdateWidget(covariant MiniPhoneEdgeDock oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _followingViewport =
+        widget.followViewportChanges &&
+        oldWidget.layoutIdentity == widget.layoutIdentity &&
+        oldWidget.viewport != widget.viewport;
+    if (!widget.interactive) _drag = null;
     final next = widget.positionStore ?? miniPhoneDockPosition;
     if (!identical(_positionStore, next)) {
       _positionStore.removeListener(_positionChanged);
@@ -306,7 +329,18 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
             (_session.data?.worldDetailLoaded ?? _session.worldId.isEmpty);
         // Do not mount the icon or its music/avatar overlays until the World
         // snapshot has resolved. A loaded null map_style can then use Classic.
-        return ready ? _buildDock(context) : const SizedBox.shrink();
+        return ready
+            ? Offstage(
+                offstage: !widget.visible,
+                child: TickerMode(
+                  enabled: widget.visible,
+                  child: IgnorePointer(
+                    ignoring: !widget.interactive,
+                    child: _buildDock(context),
+                  ),
+                ),
+              )
+            : const SizedBox.shrink();
       },
     );
   }
@@ -315,23 +349,24 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
     key: _viewportKey,
     builder: (context, bounds) {
       const inset = 12.0;
-      final left = inset;
-      final right = math.max(left, bounds.maxWidth - inset - 34);
+      final viewport = widget.viewport ?? Offset.zero & bounds.biggest;
+      final left = viewport.left + inset;
+      final right = math.max(left, viewport.right - inset - 34);
       final top = math.min(
-        widget.topInset + 48,
-        math.max(0.0, bounds.maxHeight - 57),
+        viewport.top + widget.topInset + 48,
+        math.max(viewport.top, viewport.bottom - 57),
       );
       final dragBottomInset = widget.leftBottomInset ?? widget.bottomInset;
       double bottomForSide(bool rightSide) => math.max(
         top,
-        bounds.maxHeight -
+        viewport.bottom -
             (rightSide ? widget.bottomInset : dragBottomInset) -
             57,
       );
       // Follow the finger across both halves; avoid right-side controls only
       // after release, using the existing snap animation.
       final bottom = _drag != null
-          ? math.max(top, bounds.maxHeight - dragBottomInset - 57)
+          ? math.max(top, viewport.bottom - dragBottomInset - 57)
           : bottomForSide(_positionStore.right);
       final screenHeight = MediaQuery.sizeOf(context).height;
       final fallbackTop = top + (bottom - top) * _positionStore.vertical;
@@ -349,7 +384,7 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
       );
       void snap() {
         final released = _drag ?? clamped;
-        final rightSide = released.dx + 17 >= bounds.maxWidth / 2;
+        final rightSide = released.dx + 17 >= viewport.center.dx;
         setState(() {
           _drag = null;
         });
@@ -367,7 +402,10 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
       return Stack(
         children: [
           AnimatedPositioned(
-            duration: _drag != null || MediaQuery.disableAnimationsOf(context)
+            duration:
+                _drag != null ||
+                    _followingViewport ||
+                    MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero
                 : const Duration(milliseconds: 180),
             curve: Curves.easeOut,
@@ -388,6 +426,8 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
               onPanEnd: (_) => snap(),
               onPanCancel: snap,
               child: MiniPhoneEntry(
+                visible: widget.visible,
+                interactive: widget.interactive,
                 style: widget.style,
                 session: _session,
                 onPressed: () => widget.onPressed(_session),

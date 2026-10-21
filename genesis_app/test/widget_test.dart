@@ -17707,7 +17707,7 @@ void main() {
   ]) {
     final detached = scenario.detached;
     testWidgets(
-      'Origin opening handoff preserves ${detached ? 'a scrolled message' : 'the latest message'} on every frame${scenario.preset ? ' using the selected preset role' : ''}${scenario.closingKeyboard ? ' while the previous keyboard closes on ${scenario.platform.name}' : ''}',
+      'Origin opening handoff without waiting positioning preserves ${detached ? 'a scrolled message' : 'the latest message'} on every frame${scenario.preset ? ' using the selected preset role' : ''}${scenario.closingKeyboard ? ' while the previous keyboard closes on ${scenario.platform.name}' : ''}',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -17928,12 +17928,24 @@ void main() {
           await tester.pump(const Duration(milliseconds: 20));
           expectStableFrame();
         }
+        final previousSettings = locationChatBubbleLayoutSettings.value;
+        locationChatBubbleLayoutSettings.value = previousSettings.copyWith(
+          replyWaitingPositioningEnabled: false,
+        );
+        addTearDown(
+          () => locationChatBubbleLayoutSettings.value = previousSettings,
+        );
         chatroom.session.holdSendAcks = true;
         connect.complete();
         for (var frame = 0; frame < 12; frame++) {
           await tester.pump(const Duration(milliseconds: 20));
           expectStableFrame();
         }
+        // The OS network probe needs real asynchronous I/O, outside fake time.
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
         expect(chatroom.session.sentMessages, ['Start the match']);
         history.complete(
           transport._jsonResponse({
@@ -18015,6 +18027,415 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       },
     );
+  }
+
+  for (final scenario in [
+    'ackFirst',
+    'historyFirst',
+    'historyFailure',
+    'manual',
+    'disabled',
+    'short',
+    'echo',
+    'sendFailure',
+    'lastRemoved',
+    'variedHeights',
+  ]) {
+    testWidgets('Launch positions after opening history layout: $scenario', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final launch = Completer<TransportResponse>();
+      final history = Completer<TransportResponse>();
+      final connect = Completer<void>();
+      const avatar = 'assets/images/default_list_image.png';
+      final lines = List.generate(
+        scenario == 'short' ? 1 : 28,
+        (index) =>
+            'Opening line $index. The team gathers in the locker room and waits for the match to begin.' *
+            (scenario == 'variedHeights' ? 1 + index % 5 : 1),
+      );
+      final origin = OriginDetail.fromJson({
+        'origin_id': 'o_test_1',
+        'characters': [
+          {'char_id': 'c_origin', 'name': 'Guide', 'avatar': avatar},
+        ],
+        'init_location_group': {
+          'location_id': 'l_o_test_1',
+          'initial_dialogue': [
+            for (final line in lines) {'char_id': 'c_origin', 'content': line},
+          ],
+        },
+      });
+      final preview = originOpeningPreviewMessagesForTesting(origin, [
+        'l_o_test_1',
+      ]);
+      final chatroom = _FakeChatroomClient(connectCompleter: connect);
+      final transport = _RecordingV1ListTransport(
+        originLaunchCompleter: launch,
+        chatroomMessagesCompleter: history,
+        worldRelationStatus: 'joined',
+        worldLocations: const [
+          {
+            'location_id': 'l_o_test_1',
+            'location_name': 'Detail Location',
+            'image': '',
+          },
+        ],
+        worldCharacters: [
+          {
+            'char_id': 'c_world',
+            'name': 'Guide',
+            'avatar': avatar,
+            'location_id': 'l_o_test_1',
+            'type': 'ai',
+            'player_uid': '',
+          },
+        ],
+        worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+        worldDetailTickCountsByRequest: const [0],
+      );
+      final outgoing = ChatMessageVm(
+        localId: 'pending-opening',
+        senderId: 'me',
+        senderName: 'Me',
+        text: 'Start the match',
+        isMe: true,
+        status: 'sending',
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            chatroom: chatroom,
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: OriginLaunchWorldPage(
+              entry: OriginLaunchEntry(
+                origin: origin,
+                roleSelection: OriginRoleLaunchSelection.custom(
+                  const OriginCustomRoleDraft(name: 'Me'),
+                ),
+                telemetryRoleId: 'current_user',
+                location: const WorldLocationChatPanelDescriptor(
+                  locationId: 'l_o_test_1',
+                  locationName: 'Detail Location',
+                  backgroundImageUrl: '',
+                  backgroundPreviewImageUrl: '',
+                  isLeafLocation: true,
+                ),
+                message: outgoing,
+                mentionCatalog: ChatMentionCatalog(),
+                openingPreviewMessages: preview,
+                openingPreviewEntities:
+                    originLocationOpeningPreviewEntitiesForTesting(
+                      origin.characters,
+                      preview,
+                      'l_o_test_1',
+                    ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final listFinder = find.byType(LocationChatAnchoredMessageList);
+      LocationChatAnchoredMessageList list() => tester.widget(listFinder);
+      double bubbleBottom() => ChatBubbleGeometry.globalBoundsOf(
+        tester.renderObject(
+          find.byWidgetPredicate(
+            (w) => w is ChatMessageRow && identical(w.message, outgoing),
+            skipOffstage: false,
+          ),
+        ),
+      )!.bottom;
+      double? stationaryBottom;
+      Future<void> frames(int count) async {
+        for (var i = 0; i < count; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          if (stationaryBottom != null) {
+            expect(
+              bubbleBottom(),
+              closeTo(stationaryBottom, 1),
+              reason:
+                  'The launch bubble must stay still before its one positioning animation.',
+            );
+          }
+        }
+      }
+
+      if (scenario == 'disabled' || scenario == 'short') {
+        final previous = locationChatBubbleLayoutSettings.value;
+        locationChatBubbleLayoutSettings.value = previous.copyWith(
+          replyWaitingPositioningEnabled: scenario != 'disabled',
+          replyViewportReserveFraction: scenario == 'short' ? 0.25 : null,
+        );
+        addTearDown(() => locationChatBubbleLayoutSettings.value = previous);
+      }
+      await frames(12);
+      final launchPanelState = tester.state(find.byType(LocationChatPanel));
+      launch.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'data': {'world_id': 'w_opening'},
+        }),
+      );
+      await frames(12);
+      expect(
+        tester.state(find.byType(LocationChatPanel)),
+        same(launchPanelState),
+        reason:
+            'Receiving the World ID must preserve the panel owning the pending first send.',
+      );
+      chatroom.session.holdSendAcks = true;
+      final beforeSendBottom = bubbleBottom();
+      if (scenario != 'disabled') stationaryBottom = beforeSendBottom;
+      connect.complete();
+      await frames(12);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await frames(12);
+      expect(
+        chatroom.session.sentMessages,
+        ['Start the match'],
+        reason: 'Sending must not wait for opening history.',
+      );
+      expect(list().coordinator.shouldFollowLatest, isTrue);
+      if (scenario != 'disabled') {
+        expect(
+          bubbleBottom(),
+          closeTo(beforeSendBottom, 1),
+          reason:
+              'Preparing a hidden wait must not move the launch bubble before positioning.',
+        );
+      }
+      final operation = list().waitingPositionIdentity;
+      expect(operation, isNotNull);
+      final beforeHandoff = bubbleBottom();
+      final clientId = chatroom.session.sentClientMsgIds.single;
+      void ack() {
+        final pending = chatroom.session.pendingSendAcks.remove(clientId)!;
+        if (scenario == 'sendFailure') {
+          pending.completeError(const ChatroomProtocolException('send failed'));
+          return;
+        }
+        pending.complete(
+          ChatroomAck(
+            sessionId: 'sess-1',
+            worldId: 'w_opening',
+            locationId: 'l_o_test_1',
+            userId: 'u_mock',
+            code: 0,
+            codeMsg: 'ok',
+            ts: null,
+            messageId: 42,
+            conversationRoundId: 'round-1',
+            clientMsgId: clientId,
+          ),
+        );
+      }
+
+      if (scenario != 'historyFirst') {
+        if (scenario == 'sendFailure') stationaryBottom = null;
+        ack();
+        await frames(4); // The old ACK-driven animation would now be running.
+        if (scenario != 'disabled') {
+          expect(
+            find.byKey(
+              const ValueKey<String>('location-chat-ack-loading-dots'),
+            ),
+            findsNothing,
+            reason: 'Launch must not show waiting dots before positioning.',
+          );
+        }
+        expect(
+          list().coordinator.shouldFollowLatest,
+          isTrue,
+          reason: 'No reserved-position animation before the preview handoff.',
+        );
+      }
+      if (scenario == 'manual') {
+        stationaryBottom = null;
+        await tester.drag(listFinder, const Offset(0, 300));
+        await frames(15);
+        expect(list().coordinator.isReadingHistory, isTrue);
+      }
+      final skipPosition = [
+        'manual',
+        'historyFailure',
+        'disabled',
+        'sendFailure',
+      ].contains(scenario);
+      stationaryBottom = null;
+      history.complete(
+        transport._jsonResponse(
+          scenario == 'historyFailure'
+              ? {'err_no': 5000, 'err_msg': 'history unavailable', 'data': {}}
+              : {
+                  'err_no': 0,
+                  'data': {
+                    'messages': [
+                      for (
+                        var index = scenario == 'short' ? 0 : 3;
+                        index <
+                            lines.length - (scenario == 'lastRemoved' ? 1 : 0);
+                        index++
+                      )
+                        {
+                          'type': 'character',
+                          'message_type': 'text',
+                          'message_id': index + 1,
+                          'location_message_id': index + 1,
+                          'location_id': 'l_o_test_1',
+                          'conversation_round_id': 1,
+                          'sender_type': 'character',
+                          'sender_id': 'c_world',
+                          'sender_name': 'Guide',
+                          'payload': {'content': lines[index]},
+                          'err_no': 0,
+                        },
+                    ],
+                    'has_more': false,
+                    'newest_message_id': lines.length,
+                  },
+                },
+        ),
+      );
+      final viewport = tester.getRect(
+        find.descendant(
+          of: listFinder,
+          matching: find.byType(CustomScrollView),
+        ),
+      );
+      final target =
+          viewport.top +
+          viewport.height * (1 - list().replyViewportReserveFraction);
+      var previousBottom = bubbleBottom();
+      var handoffObserved = false;
+      var animationStartFrame = -1;
+      for (var frame = 0; frame < 25; frame++) {
+        if (scenario == 'echo' && frame == 6) {
+          chatroom.session.emit(
+            ChatroomUserMessage(
+              sessionId: 'sess-1',
+              worldId: 'w_opening',
+              locationId: 'l_o_test_1',
+              userId: 'u_mock',
+              code: 0,
+              codeMsg: 'ok',
+              ts: null,
+              messageId: 42,
+              locationMessageId: 42,
+              conversationRoundId: 'round-1',
+              roundOrder: 0,
+              senderType: 'user',
+              senderId: 'u_mock',
+              senderName: 'Me',
+              content: 'Start the match',
+              broadcast: true,
+              currentTime: '2026-09-01T00:00:00Z',
+              clientMsgId: clientId,
+              createdAt: null,
+            ),
+          );
+        }
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(
+          list().waitingPositionIdentity,
+          operation,
+          reason: 'History and ACK must retain one send operation.',
+        );
+        if (skipPosition || scenario == 'short') continue;
+        final bottom = bubbleBottom();
+        if (bottom > target + 1) {
+          expect(
+            find.byKey(
+              const ValueKey<String>('location-chat-ack-loading-dots'),
+            ),
+            findsNothing,
+            reason: 'Waiting dots must stay hidden until the upward move ends.',
+          );
+        }
+        if (!handoffObserved &&
+            list().messages
+                    .where((m) => m.text.startsWith('Opening line'))
+                    .length ==
+                (scenario == 'lastRemoved' ? 24 : 25)) {
+          handoffObserved = true;
+          expect(
+            bottom,
+            closeTo(beforeHandoff, 1),
+            reason: 'Replacing the prefix must not move the bubble that frame.',
+          );
+        }
+        if (animationStartFrame < 0 && bottom < previousBottom - 1) {
+          animationStartFrame = frame - 1;
+        }
+        if (animationStartFrame >= 0) {
+          final progress = ((frame - animationStartFrame) * 20 / 220).clamp(
+            0.0,
+            1.0,
+          );
+          final expected =
+              beforeHandoff +
+              (target - beforeHandoff) * Curves.easeOut.transform(progress);
+          expect(
+            bottom,
+            closeTo(expected, 1),
+            reason: 'Frame $frame must follow one continuous 220ms animation.',
+          );
+        }
+        expect(bottom, greaterThanOrEqualTo(target - 1));
+        expect(bottom, lessThanOrEqualTo(previousBottom + 1));
+        previousBottom = bottom;
+      }
+      if (!skipPosition && scenario != 'short') {
+        expect(handoffObserved, isTrue);
+        expect(animationStartFrame, greaterThanOrEqualTo(0));
+      }
+      if (!skipPosition) {
+        expect(
+          list().messages.where((m) => m.text.startsWith('Opening line')),
+          hasLength(
+            scenario == 'short'
+                ? 1
+                : scenario == 'lastRemoved'
+                ? 24
+                : 25,
+          ),
+        );
+        expect(list().coordinator.shouldFollowLatest, isFalse);
+        expect(list().coordinator.isReadingHistory, isFalse);
+        if (scenario == 'short') {
+          expect(list().coordinator.controller.position.pixels, 0);
+        } else {
+          expect(bubbleBottom(), closeTo(target, 1));
+        }
+      } else {
+        expect(list().coordinator.isReadingHistory, scenario == 'manual');
+        expect(list().coordinator.shouldFollowLatest, scenario != 'manual');
+      }
+      if (scenario == 'sendFailure') expect(outgoing.status, 'failed');
+      final held = list().coordinator.controller.position.pixels;
+      if (scenario == 'historyFirst') ack();
+      await frames(15);
+      expect(
+        find.byKey(const ValueKey<String>('location-chat-ack-loading-dots')),
+        scenario == 'sendFailure' ? findsNothing : findsOneWidget,
+        reason: 'Show the live wait after positioning or a skipped position.',
+      );
+      expect(list().coordinator.controller.position.pixels, closeTo(held, 1));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 10));
+    });
   }
 
   testWidgets('Origin launch enters world without async confirmation polling', (
@@ -36592,6 +37013,111 @@ void main() {
       expect(chatroom.session.joinCount, 2);
       expect(find.textContaining('Child Location ('), findsOneWidget);
       expect(find.text('cached draft'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'World keeps one MiniPhone entry through map and cached location navigation',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+      );
+      final chatroom = _FakeChatroomClient();
+      final observer = _RecordingNavigatorObserver();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            navigatorObservers: [observer],
+            home: const WorldPage(wid: 'w_test_1'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final initialPushCount = observer.pushCount;
+      Future<void> openChildLocationChat() async {
+        final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+        final childPoint =
+            worldMap.common.locationNodes.single.children.single.point;
+        await worldMap.common.onPointTap!(childPoint);
+      }
+
+      final persistentPhoneEntry = tester.state(find.byType(MiniPhoneEntry));
+      final persistentPhoneDock = tester.state(find.byType(MiniPhoneEdgeDock));
+      void expectPersistentPhoneEntry() {
+        expect(
+          find.byType(MiniPhoneEntry, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(
+          tester.state(find.byType(MiniPhoneEntry)),
+          same(persistentPhoneEntry),
+        );
+        expect(
+          tester.state(find.byType(MiniPhoneEdgeDock)),
+          same(persistentPhoneDock),
+        );
+      }
+
+      await openChildLocationChat();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expectPersistentPhoneEntry();
+
+      expect(observer.pushCount, initialPushCount);
+      expect(find.byType(LocationChatPage), findsNothing);
+      expect(
+        find.byWidgetPredicate((w) => w is LocationChatPanel && w.active),
+        findsOneWidget,
+      );
+      expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
+      expect(chatroom.session.joinCount, 1);
+
+      final activeInput = find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.enabled == true,
+      );
+      await tester.tap(activeInput);
+      await tester.enterText(activeInput, 'cached draft');
+      await tester.pump();
+      expect(find.text('cached draft'), findsOneWidget);
+
+      final chatBack = find.descendant(
+        of: find.byType(ChatHeader).last,
+        matching: find.byType(IconButton),
+      );
+      tester.widget<IconButton>(chatBack.first).onPressed!();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.leaveCount, 1);
+      expect(
+        find.byWidgetPredicate((w) => w is LocationChatPanel && w.active),
+        findsNothing,
+      );
+      expectPersistentPhoneEntry();
+      expect(
+        find.byType(LocationChatPanel, skipOffstage: false),
+        findsOneWidget,
+      );
+
+      await openChildLocationChat();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
+      expect(chatroom.session.joinCount, 2);
+      expect(
+        find.byWidgetPredicate((w) => w is LocationChatPanel && w.active),
+        findsOneWidget,
+      );
+      expect(find.text('cached draft'), findsOneWidget);
+      expectPersistentPhoneEntry();
     },
   );
 

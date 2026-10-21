@@ -71,6 +71,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
             },
           )
         : realIdentityState;
+    final openingWasResolved = _openingPreviewResolved;
     source = _openingRenderMessages(source, realIdentityState);
     final renderWindow = _visibleLocationChatMessages(
       source,
@@ -294,6 +295,24 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       reconciled: next,
       usedLocalIds: usedLocalIds,
     );
+    if (!openingWasResolved &&
+        _openingPreviewResolved &&
+        queuedMessage != null &&
+        _localMessageOrder.contains(queuedMessage)) {
+      // The initial outbox slot was captured after preview-only IDs. Rebase it
+      // on canonical history before applying local ordering; its old predecessor
+      // may have been replaced or removed altogether during this handoff.
+      final sentId = queuedMessage.locationMessageId;
+      final preceding = next
+          .takeWhile(
+            (message) =>
+                !identical(message, queuedMessage) &&
+                (sentId <= 0 || message.locationMessageId < sentId),
+          )
+          .toList();
+      _localMessageOrder.remove(queuedMessage.localId);
+      _localMessageOrder.capture(queuedMessage, before: preceding);
+    }
     _localMessageOrder.retain(next);
     final ordered = _localMessageOrder.apply(next, rememberFollowing: false);
     if (!identical(ordered, next)) {
@@ -394,6 +413,16 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       }
     }
     _openingPreviewResolved = true;
+    _recordPanelDebug(
+      action: 'openingPreviewHandoff',
+      details: {
+        'previewCount': preview.length,
+        'sourceCount': source.length,
+        'waitingOperation': _waitingPositionOperation,
+        'clientMsgId': _waitingPositionClientMsgId,
+        'positionCanceled': _openingWaitingCanceled || _openingHistoryFailed,
+      },
+    );
     _olderMessagesExhaustedByRemote = !history.hasMore;
     return source;
   }
@@ -665,6 +694,15 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
   }
 
   void _handleFailure(ChatroomFailureEvent failure) {
+    // History fetches report failures here and complete their Future normally.
+    // Conservatively abandon the pending launch position after a history error;
+    // a later successful refresh must not unexpectedly reclaim the viewport.
+    if (failure.code == 'message_history_load_failed' &&
+        widget.retainOpeningPreviewUntilHistory &&
+        !_openingPreviewResolved) {
+      _openingHistoryFailed = true;
+      _notifyMessageViewport();
+    }
     if (!isChatroomUnauthorizedFailure(failure)) return;
     unawaited(_handleUnauthorizedFailure());
   }

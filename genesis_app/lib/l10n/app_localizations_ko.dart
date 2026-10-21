@@ -3280,7 +3280,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get miniPhonePhotoOpenFailed => '이 사진을 열 수 없어요. 다른 사진을 선택해 주세요.';
 
   @override
-  String get miniPhoneWallpaperApplied => '배경화면을 적용했어요. 홈 화면에서 확인해 보세요.';
+  String get miniPhoneWallpaperApplied => '배경화면을 적용했어요.';
 
   @override
   String miniPhoneFromWorldo({required String name}) {

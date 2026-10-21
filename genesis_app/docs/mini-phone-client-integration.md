@@ -18,7 +18,10 @@ be claimed there. HTTP 200 does not override a nonzero business error.
 `MiniPhoneSession.data` owns a `MiniPhoneStore` scoped to API environment,
 account and world. `WorldPage` binds it to `WorldChatroomService.phoneEvents`.
 The existing V2 connection parses the three phone event types without a
-location join. Phone events never enter LocationChat's visible timeline.
+location join. These three phone events never enter LocationChat's visible timeline.
+The separate `phone_characters_moved` control event feeds only a transient
+return-to-room card through `WorldChatroomService.phoneMovements`; it is not
+a persisted chat message or History record.
 Closing the phone keeps the world session alive; leaving the world disposes it.
 Requests from a replaced account are discarded. Messages uses an independent
 SQLite cache keyed by environment/account/world. Home supplies the initial DM
@@ -47,6 +50,53 @@ Message recovery crosses
 pages until it reaches a known boundary. Existing history and delivered batches
 merge by ID; display order is numeric ascending. Notification pages replace
 rather than merge: two indistinguishable facts about one post remain two rows.
+
+## World-persistent entry (2026-10-21)
+
+- `MiniPhoneDockHost` lives inside the World MiniPhone session scope and outside
+  the loading/map/location-chat content branches. It owns one edge dock and entry
+  state for that World session. Navigation rebuilds configuration, not the entry's
+  animation controllers, arrival state or music overlay portal.
+- Map and active location panels provide `MiniPhoneDockScene` layout bounds and
+  their original open callback. The World selects the scene; cached/inactive
+  panels and late unregister callbacks cannot take ownership. Standalone panels
+  without a host retain their local dock. The location callback still executes
+  the existing private-chat return observation and navigation path.
+- Bounds are measured after layout by accumulating layout offsets to the host,
+  excluding route paint transforms. Chat bounds follow the actual message viewport
+  between header and composer, including keyboard/composer resizing. No new
+  viewport sizing or chat scrolling policy is introduced.
+- During opening/closing transitions the same icon stays at its previous position
+  with input disabled. When the selected scene has laid out and the transition
+  finishes, its bounds and callback become active. Missing target geometry retains
+  the previous display while disabling interaction. Scene changes use the existing
+  180ms avoidance/snap animation; live changes within the same viewport follow its
+  layout without repeatedly restarting that animation. Reduced motion is immediate.
+- Screen-relative position, legacy migration, drag/side snapping and per-side map
+  clearance remain unchanged. Temporary clamping never writes the saved preference.
+  World-detail readiness gates first mount. Full-screen covers, modal sheets,
+  unsupported World surfaces and the map Tick wait overlay hide the entry and its
+  music controls without destroying them. Session replacement resets only the
+  session-bound edge dock; the host and its World/chat child remain mounted. In
+  particular, Launch receiving its World ID must preserve the pending first send
+  already held by LocationChatPanel. The dock controller lives with WorldPage,
+  not with each MiniPhone session. Leaving World ends the host lifetime; there is
+  no application-global overlay or new request.
+- Regression coverage: persistent entry identity through map/chat navigation,
+  keyboard avoidance and resize, stale scene removal, rapid transition reversal,
+  unread/music animation continuity, visibility, standalone fallback and World
+  integration. Physical-device transition and keyboard appearance require separate
+  Android/iOS acceptance; widget tests do not establish device-level smoothness.
+
+Validation for this change: 60 distinct focused tests passed across the dock host,
+World integration/cache, platform overlay transitions and chat waiting/scroll
+coordination; analysis of the 11 changed Dart/test files and `git diff --check`
+passed. The broader entry-style/navigation suites retain the same 19 failures
+reproduced in a temporary pre-change copy (including native billing-channel setup
+and existing dock expectations), with no additional failing cases. The pre-existing
+World cached-chat test also fails its exact title/count assertion in that copy;
+the new World integration test checks active panels and persistent entry identity
+without that unrelated title assumption. No physical-device run was performed.
 
 ## Locked home apps
 
@@ -613,11 +663,12 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 
 | 下行事件 | 当前使用场景及处理 |
 | --- | --- |
+| `phone_characters_moved` | `payload.content[]` 携带 `char_id/old_loc_id/to_loc_id`；私聊中收集、返回地点聊天后显示本地移动卡片；不再通过位置快照差异推断，不额外刷新世界快照。空 `trigger_uid` 有效；按世界、时间戳、trigger_uid 和移动内容去重，保留最近 256 个键。详见 WebSocket 契约的 MiniPhone 私聊返回移动事件章节 |
 | `phone.messages.delivered` | 批量合并私聊、绑定会话 ID、关联 AI 终态；当前前台会话按需提交已读；推送本身不重查聚合，已读成功后校准 |
 | `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；不触发聚合或应用列表请求 |
 | `phone.post.notification.created` | 仅查询帖子未读通知并更新帖子聚合；不涉及私聊，也不刷新 Feed、作者或详情 |
 
-- 三类事件均按 `event_id` 去重；Posts 与 DM 请求范围独立。初始化、重连及前台恢复执行聚合校准和必要 DM 恢复；Home 入口只校准聚合。推送不刷新应用列表。
+- 原有三类点号命名的手机事件均按 `event_id` 去重；Posts 与 DM 请求范围独立。初始化、重连及前台恢复执行聚合校准和必要 DM 恢复；Home 入口只校准聚合。推送不刷新应用列表。
 - DM 未读采用 Home 基准加本地唯一消息／阅读变化，保留未返回明细的数量差额；不按事件次数累加。Home 请求期间的消息与阅读不可被响应覆盖；Posts 聚合继续由 HTTP 校准。
 - 手机关闭后继续处理当前世界事件；退出世界释放订阅。首次初始化、Socket 重连和返回前台恢复查询。
 - Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。入口图标、Home 和设置预览共用会话世界时间；仅入口 icon 在时间为空或无法解析时显示 `18:05`，Home 和设置预览留空，日期缺失仍留空。

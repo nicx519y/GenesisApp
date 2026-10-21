@@ -2591,6 +2591,7 @@ class ChatroomMessageHandlers {
   void handle(ChatroomEvent event) {
     onEvent?.call(event);
     switch (event) {
+      case ChatroomPhoneCharactersMoved():
       case ChatroomPhoneEvent():
         break;
       case ChatroomLlmCardStream e:
@@ -2702,7 +2703,8 @@ ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
   }
   if ((message.type == 'llm_message_updated' ||
           message.type == 'conversation_range_updated' ||
-          message.type == 'world_summary_updated') &&
+          message.type == 'world_summary_updated' ||
+          message.type == 'phone_characters_moved') &&
       message.streamType.isNotEmpty) {
     throw const ChatroomProtocolException('Control events cannot be streamed');
   }
@@ -2724,6 +2726,8 @@ ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
   }
 
   switch (message.type) {
+    case 'phone_characters_moved':
+      return ChatroomPhoneCharactersMoved.fromV2Message(message);
     case 'phone.messages.delivered':
     case 'phone.reply.updated':
     case 'phone.post.notification.created':
@@ -2784,6 +2788,8 @@ ChatroomEvent chatroomEventFromEnvelope(
 
 String chatroomEventType(ChatroomEvent event) {
   switch (event) {
+    case ChatroomPhoneCharactersMoved():
+      return 'phone_characters_moved';
     case ChatroomPhoneEvent e:
       return e.type;
     case ChatroomLlmCardStream():

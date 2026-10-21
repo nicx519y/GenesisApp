@@ -657,6 +657,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   final Map<String, _LocationChatMessageParseCacheEntry> _messageParseCache =
       <String, _LocationChatMessageParseCacheEntry>{};
   WorldChatroomService? _service;
+  StreamSubscription<ChatroomPhoneCharactersMoved>? _phoneMovementSubscription;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
   ValueListenable<WorldChatroomLocationMessagesChange>? _locationMessageChanges;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
@@ -745,6 +746,22 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _initialOutgoingMessageReconciled = false;
   bool _ignoreInheritedKeyboardInset = false;
   bool _openingPreviewResolved = false;
+  bool _openingHistoryFailed = false;
+  String? _openingWaitingClientMsgId;
+  bool _openingWaitingCanceled = false;
+
+  bool get _waitingPositionReady {
+    if (widget.retainOpeningPreviewUntilHistory &&
+        _waitingPositionOperation == 0) {
+      return _openingPreviewResolved && !_openingHistoryFailed;
+    }
+    return _openingWaitingClientMsgId == null ||
+        _openingWaitingClientMsgId != _waitingPositionClientMsgId ||
+        (_openingPreviewResolved &&
+            !_openingHistoryFailed &&
+            !_openingWaitingCanceled);
+  }
+
   final Map<String, String> _openingLayoutIds = {};
   final Set<String> _openingPlayerCharacterIds = {};
   int get _openingPreviewHistoryLimit =>
@@ -1592,7 +1609,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                         Positioned.fill(child: messageViewport),
                         if (widget.active)
                           Positioned.fill(
-                            child: MiniPhoneEdgeDock(
+                            child: MiniPhoneDockScene(
+                              sceneId: 'location:${widget.locationId}',
                               worldId: _modelWorldId,
                               topInset: 4,
                               bottomInset: 8,

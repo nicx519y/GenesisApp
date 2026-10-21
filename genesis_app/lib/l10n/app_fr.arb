@@ -4534,9 +4534,9 @@
   "@miniPhonePhotoOpenFailed": {
     "description": "MiniPhone wallpaper settings: toast after local image selection or crop fails."
   },
-  "miniPhoneWallpaperApplied": "Fond d’écran appliqué. Retrouvez-le sur l’écran d’accueil.",
+  "miniPhoneWallpaperApplied": "Fond d’écran appliqué.",
   "@miniPhoneWallpaperApplied": {
-    "description": "MiniPhone settings: success toast after wallpaper save and local download finish; Home means the phone home screen."
+    "description": "MiniPhone settings: success toast after wallpaper save and local image preparation finish; Settings then automatically returns to the phone home screen."
   },
   "miniPhoneFromWorldo": "De {name}",
   "@miniPhoneFromWorldo": {
