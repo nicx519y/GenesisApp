@@ -4709,5 +4709,27 @@
   "miniPhoneInvalidResponse": "미니폰 응답이 올바르지 않아요",
   "@miniPhoneInvalidResponse": {
     "description": "MiniPhone HTTP: local malformed-response error surfaced by the public toast; not a server business message."
+  },
+  "miniPhoneContactAdded": "{name} 님을 추가했어요.",
+  "@miniPhoneContactAdded": {
+    "description": "MiniPhone empty private conversation: display-only contact-added notice, also used as the Messages list subtitle when that conversation has no last message. Never sent, stored, counted as a message, or used for conversation ordering. The conversation notice is hidden when real or outgoing messages exist; a real last message replaces the list subtitle.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneCharacterIntroduction": "저는 {name}입니다.",
+  "@miniPhoneCharacterIntroduction": {
+    "description": "MiniPhone empty private conversation: local display-only character introduction bubble with the contact's dynamic name. Not a generated reply, not stored or sent; hidden when real or outgoing messages exist. Do not assume gender from the name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhonePostsEmpty": "아직 게시물이 없어요. 이야기 속 한순간을 공유해 보세요.",
+  "@miniPhonePostsEmpty": {
+    "description": "MiniPhone Posts: secondary-text footer beneath the authors only when the successfully loaded All feed contains no posts. Hidden for every selected-author filter, including empty results, and during initial loading or a failed request. Invites sharing a story moment."
   }
 }

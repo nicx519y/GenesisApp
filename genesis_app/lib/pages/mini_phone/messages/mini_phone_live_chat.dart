@@ -297,6 +297,30 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
           : rows.indexWhere((m) => m.localId == 'phone:${reply.id}');
       rows.insert(replyIndex < 0 ? rows.length : replyIndex, row);
     }
+    // Display-only greetings never enter the store, inbox, unread or history.
+    if (ready && rows.isEmpty && waiting == null && _error == null) {
+      rows.addAll([
+        ChatMessageVm(
+          localId: 'phone:empty-contact:${person.id}',
+          isMe: false,
+          senderId: '',
+          senderName: '',
+          senderType: 'system',
+          text: context.l10n.miniPhoneContactAdded(name: person.name),
+          status: 'sent',
+        ),
+        ChatMessageVm(
+          localId: 'phone:empty-introduction:${person.id}',
+          isMe: false,
+          senderId: person.id,
+          senderName: person.name,
+          avatarUrl: person.avatar,
+          senderType: 'char',
+          text: context.l10n.miniPhoneCharacterIntroduction(name: person.name),
+          status: 'sent',
+        ),
+      ]);
+    }
     final managed =
         Theme.of(context).platform == TargetPlatform.iOS ||
         Theme.of(context).platform == TargetPlatform.android &&

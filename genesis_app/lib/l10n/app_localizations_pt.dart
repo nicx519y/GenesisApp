@@ -3566,4 +3566,18 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => 'Resposta inválida do minitelefone';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return 'Você adicionou $name.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return 'Sou $name.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty =>
+      'Ainda não há publicações. Compartilhe um momento da sua história.';
 }

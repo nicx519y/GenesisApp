@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/network/api_client.dart';
+import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 import 'package:genesis_flutter_android/l10n/genesis_l10n.dart';
@@ -10,6 +15,7 @@ import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_liv
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_requests.dart';
 import '../support/mini_phone_chat_backend.dart';
+import '../support/mini_phone_music_services.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -133,12 +139,34 @@ void main() {
     final session = MiniPhoneSession(data: store);
     session.resume.homePage = 1;
     GenesisL10n.bind(lookupAppLocalizations(const Locale('fr')));
+    // This layout-only fixture needs no native billing registration.
+    final services = (() {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        return musicTestServices(
+          GenesisApi(
+            useMock: false,
+            apiClient: ApiClient(
+              baseUrl: 'https://api.example/api/',
+              transport: LocalMockGenesisTransport.instance,
+              defaultHeaders: {'Authorization': 'Bearer test-music-session'},
+            ),
+          ),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    })();
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('fr'),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        home: MiniPhonePage(session: session),
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          locale: const Locale('fr'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          home: MiniPhonePage(session: session),
+        ),
       ),
     );
     await tester.runAsync(

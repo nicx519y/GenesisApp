@@ -5662,6 +5662,24 @@
           "text_hash": "69c0c5706a906434f04449bc78625a9b93390d4d9aa05ab9dcd6f0992ca0a85a",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "33a5b4b28711a0042a9c237e34af279cfb0cd69a5f0293244d17d25d3b2d0349",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "afa3b9419c98620e2a177e3aed4ce78b1ff6e1571c9641203c53b3ac0d79eb58",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "29b678e820c501d81cd33481660f89938a28d13d05098758fcf5820f9e63ae98",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -11325,6 +11343,24 @@
           "text_hash": "813d756ab040114e7a5ff5e6c4af36c9c1cefec396b6e6f986b4373b255bb8f3",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "f95d5fc1304fe71cba03fe0d657b3e25c206cdf337e5802031cd3f7d36d6753a",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "7496792fecbaa842c26881dedc20de35970896befa92e40139dd2acef84498e8",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "84c0b41b773528424f6dfb4390f470e6eebd67207c8ac42e156da484ed352041",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -16988,6 +17024,24 @@
           "text_hash": "965c2563aa64c724ac4d2e92a09454057ed115d104c2b0d2664073b92325cf9e",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "b685f722bee77895f96e5abb937e6407e5fd3bfeec8c95f10c2434bb37568959",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "77f1df219112648a1002a8d9b04fff9d04afe555db7c46b0461190d36b768827",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "c1772fd9bef22a5169efc9ba505523769ce61dd069f3f0a2791dcfcfc12dd047",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -22651,6 +22705,24 @@
           "text_hash": "3fd7c65e2aa9c32edee0b624f1fab987853b27efafcb354184cbeeccb419523c",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "03f7054aba16c69d9ea55673ec568dbc52750467b7dcdcdefc1b76317fc75af8",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "e15fac99459731df4e2b887d6aa88eb8529874800ebd19d4f69d7156ba986b87",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "9c0b27fb817878aaf924729aaac305cf0ebc8bc65680e571eac9bc7bd41afcf1",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -28314,6 +28386,24 @@
           "text_hash": "1cccc11ec1a8608f77ade982b2dcbb9738548d776b0fd3cfceccd4260b882c68",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "e253b90b027553091ae4f13e4aba4aedd331084a510e15186581e89981956c32",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "fd04970429691b97286285008631bbb084612282e99c217de85806dce325697c",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "8e668c72c78196a1b19add41c620479c86367165ca0dacc1b65b02ce78cc9c0a",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -33977,6 +34067,24 @@
           "text_hash": "ecd2271d24fd4e85e67fc286745f6da7484152b259c7b5e34dfa3fdac9fc768f",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "f2f1e0bd264e7e322feead39c40be8d45d7d6be1b2f0b6184bb897d4e20ec682",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "6196e19f613d5f79d2b8662acdce004f09d708d864eb7e908b52b5c4af1489f0",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "30dddde03b8ba1c9e4e95a9b545023b4aca4aad340237d0cfdb629550315f3d4",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -39640,6 +39748,24 @@
           "text_hash": "cba91ca0be046317128c4f98f1527f85c7c353a5be723d2e584ed991df0ed9d0",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "7114ada2c4bb524825b7d81fef70e9a5383424f90fd35e833dec407daba27fcd",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "dfdc4fd133c3281736641b8532ee0e9f833e5c41b047eb3e5ae79996bc00b47e",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "32d2ff7f5d14cb985db87a289ca9ff242f24a57d829fce548c2291189725dd1a",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     },
@@ -45303,6 +45429,24 @@
           "text_hash": "42ad5172d2295ef352bd1792dfb6b1d3d6daac4c02a278bff49ad7a289de14f5",
           "status": "ai",
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+        },
+        "miniPhoneContactAdded": {
+          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "text_hash": "f5f31fd41f14e5f25b627de60882bcaff8fb02452744307d1766e2db9ebc0546",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+        },
+        "miniPhoneCharacterIntroduction": {
+          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "text_hash": "9f8f05aacf9db196ad99df259c8da416b3d289e5d1142f09f3ae1f3d0e66f911",
+          "status": "ai",
+          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+        },
+        "miniPhonePostsEmpty": {
+          "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
+          "text_hash": "de3cf3bb401f0a8fcbd1c8cdc2a5e96e9ef1911a04d1029ca55acad5844314ce",
+          "status": "ai",
+          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
         }
       }
     }

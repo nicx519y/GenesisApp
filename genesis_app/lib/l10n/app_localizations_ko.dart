@@ -3399,4 +3399,17 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => '미니폰 응답이 올바르지 않아요';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return '$name 님을 추가했어요.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return '저는 $name입니다.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty => '아직 게시물이 없어요. 이야기 속 한순간을 공유해 보세요.';
 }

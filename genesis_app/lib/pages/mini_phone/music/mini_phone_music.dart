@@ -8,6 +8,7 @@ import '../shared/mini_phone_ui.dart';
 import 'mini_phone_music_service.dart';
 import 'mini_phone_music_widgets.dart';
 import 'mini_phone_music_like_button.dart';
+import 'mini_phone_music_cover_swipe.dart';
 
 class MiniPhoneMusicPlayer extends StatefulWidget {
   const MiniPhoneMusicPlayer({super.key, required this.music});
@@ -66,14 +67,24 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
             children: [
               Expanded(
                 child: LayoutBuilder(
-                  builder: (context, coverBounds) => MiniMusicCover(
+                  builder: (context, coverBounds) => MiniMusicCoverSwipe(
+                    key: const ValueKey('mini-phone-music-cover-swipe'),
                     track: track,
+                    previousTrack: _music.tracks.length < 2
+                        ? null
+                        : _music.tracks[(_music.index +
+                                  _music.tracks.length -
+                                  1) %
+                              _music.tracks.length],
                     nextTrack: _music.nextTrack,
-                    preloadNext:
-                        _music.playing && _music.foreground && !_music.loading,
                     width: coverBounds.maxWidth,
                     height: coverBounds.maxHeight,
-                    radius: 16,
+                    enabled: !_music.loading,
+                    preloadNext: _music.playing && _music.foreground,
+                    onNext: _next,
+                    onPrevious: () => unawaited(
+                      _music.userPrevious('music', restartCurrent: false),
+                    ),
                   ),
                 ),
               ),

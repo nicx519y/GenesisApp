@@ -43,6 +43,7 @@ class MiniPhonePostsController {
   MiniPhonePostFeedCache get _feed =>
       _feeds.putIfAbsent(authorFilter, MiniPhonePostFeedCache.new);
   List<PhonePost> get posts => _feed.posts;
+  bool get hasLoadedFeed => _feed.page != null;
   set posts(List<PhonePost> value) => _feed.posts = value;
   PhonePage<PhoneNotification>? notifications;
   final details = <int, PhonePostDetail>{};

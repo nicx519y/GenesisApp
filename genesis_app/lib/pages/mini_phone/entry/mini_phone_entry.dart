@@ -236,11 +236,10 @@ class MiniPhoneEdgeDock extends StatefulWidget {
 class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   late final MiniPhoneSession _session;
   late final bool _ownsSession;
-  late bool _right;
-  late double _vertical;
-  MiniPhoneDockPosition get _positionStore =>
-      widget.positionStore ?? miniPhoneDockPosition;
-  bool _userMoved = false;
+  late MiniPhoneDockPosition _positionStore;
+  final _viewportKey = GlobalKey();
+  double? _viewportOriginY;
+  bool _measurementScheduled = false;
   Offset? _drag;
   @override
   void initState() {
@@ -248,21 +247,50 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
     final inherited = MiniPhoneSessionScope.read(context);
     _ownsSession = inherited == null;
     _session = inherited ?? MiniPhoneSession.forWorld(context, widget.worldId);
-    _right = _positionStore.right;
-    _vertical = _positionStore.vertical;
-    unawaited(
-      _positionStore.load().then((_) {
-        if (!mounted || _userMoved) return;
-        setState(() {
-          _right = _positionStore.right;
-          _vertical = _positionStore.vertical;
-        });
-      }),
-    );
+    _positionStore = widget.positionStore ?? miniPhoneDockPosition;
+    _positionStore.addListener(_positionChanged);
+    unawaited(_positionStore.load());
+  }
+
+  void _positionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _measureViewport(double fallbackTop, double screenHeight) {
+    if (_measurementScheduled) return;
+    _measurementScheduled = true;
+    final store = _positionStore;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measurementScheduled = false;
+      if (!mounted || !identical(store, _positionStore)) return;
+      final element = _viewportKey.currentContext;
+      if (element is! RenderObjectElement) return;
+      final box = element.renderObject;
+      if (box is! RenderBox || !box.attached || !box.hasSize) return;
+      final origin = box.localToGlobal(Offset.zero).dy;
+      if (_viewportOriginY == null || (_viewportOriginY! - origin).abs() > .1) {
+        setState(() => _viewportOriginY = origin);
+      }
+      if (screenHeight > 0) {
+        store.initializeScreenY((origin + fallbackTop) / screenHeight);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant MiniPhoneEdgeDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.positionStore ?? miniPhoneDockPosition;
+    if (!identical(_positionStore, next)) {
+      _positionStore.removeListener(_positionChanged);
+      _positionStore = next..addListener(_positionChanged);
+      unawaited(_positionStore.load());
+    }
   }
 
   @override
   void dispose() {
+    _positionStore.removeListener(_positionChanged);
     if (_ownsSession) _session.dispose();
     super.dispose();
   }
@@ -284,6 +312,7 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
   }
 
   Widget _buildDock(BuildContext context) => LayoutBuilder(
+    key: _viewportKey,
     builder: (context, bounds) {
       const inset = 12.0;
       final left = inset;
@@ -303,10 +332,15 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
       // after release, using the existing snap animation.
       final bottom = _drag != null
           ? math.max(top, bounds.maxHeight - dragBottomInset - 57)
-          : bottomForSide(_right);
+          : bottomForSide(_positionStore.right);
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final fallbackTop = top + (bottom - top) * _positionStore.vertical;
+      _measureViewport(fallbackTop, screenHeight);
       final settled = Offset(
-        _right ? right : left,
-        top + (bottom - top) * _vertical,
+        _positionStore.right ? right : left,
+        _positionStore.screenY == null
+            ? fallbackTop
+            : _positionStore.screenY! * screenHeight - (_viewportOriginY ?? 0),
       );
       final position = _drag ?? settled;
       final clamped = Offset(
@@ -314,18 +348,22 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
         position.dy.clamp(top, bottom),
       );
       void snap() {
+        final released = _drag ?? clamped;
+        final rightSide = released.dx + 17 >= bounds.maxWidth / 2;
         setState(() {
-          final released = _drag ?? clamped;
-          _right = released.dx + 17 >= bounds.maxWidth / 2;
-          final settledBottom = bottomForSide(_right);
-          _vertical = settledBottom > top
-              ? ((released.dy - top) / (settledBottom - top)).clamp(0.0, 1.0)
-              : 0;
           _drag = null;
         });
-        unawaited(_positionStore.save(_right, _vertical));
+        unawaited(
+          _positionStore.save(
+            rightSide,
+            (released.dy + (_viewportOriginY ?? 0)) / screenHeight,
+          ),
+        );
       }
 
+      if (_viewportOriginY == null || !_positionStore.loaded) {
+        return const SizedBox.expand();
+      }
       return Stack(
         children: [
           AnimatedPositioned(
@@ -338,7 +376,6 @@ class _MiniPhoneEdgeDockState extends State<MiniPhoneEdgeDock> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onPanStart: (_) => setState(() {
-                _userMoved = true;
                 _drag = clamped;
               }),
               onPanUpdate: (details) => setState(() {

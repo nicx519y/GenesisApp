@@ -3517,4 +3517,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => 'Invalid MiniPhone response';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return 'You\'ve added $name.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return 'I\'m $name.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty =>
+      'No posts yet. Share a moment from your story.';
 }

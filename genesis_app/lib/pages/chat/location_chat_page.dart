@@ -5,6 +5,7 @@ import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import 'location_chat_movement_projection.dart';
 import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 
 import '../../components/common/page_presentation_scope.dart';

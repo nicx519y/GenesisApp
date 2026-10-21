@@ -74,6 +74,16 @@ void main() {
     await flush();
   });
 
+  test('cover previous skips to preceding track after three seconds', () async {
+    await music.loadCatalog(() async => catalog());
+    await music.userNext('music');
+    players.first.position = const Duration(seconds: 10);
+    expect(music.index, 1);
+    expect(music.positionDuration.inSeconds, 10);
+    await music.userPrevious('music', restartCurrent: false);
+    expect(music.index, 0);
+  });
+
   test(
     'engagement refresh merges requests and preserves tracks and decoders',
     () async {

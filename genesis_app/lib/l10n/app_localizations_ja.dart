@@ -3394,4 +3394,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => 'ミニフォンの応答が無効です';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return '$nameを追加しました。';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return '$nameです。';
+  }
+
+  @override
+  String get miniPhonePostsEmpty => 'まだ投稿はありません。物語のひとときを共有しましょう。';
 }

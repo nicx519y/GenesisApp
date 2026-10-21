@@ -3517,6 +3517,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => 'Invalid MiniPhone response';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return 'You\'ve added $name.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return 'I\'m $name.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty =>
+      'No posts yet. Share a moment from your story.';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6852,4 +6866,17 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get miniPhoneInvalidResponse => '迷你手機回應無效';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return '你已將 $name 加為聯絡人。';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return '我是 $name。';
+  }
+
+  @override
+  String get miniPhonePostsEmpty => '目前還沒有貼文。分享你故事中的片刻吧。';
 }

@@ -193,6 +193,27 @@ Validation for this scheduling change:
   history/pagination appears immediately; refreshes and duplicate pushes cannot
   bypass a pending reveal. Initial reads and history pagination show no loading
   icon; request guards and scroll anchoring remain unchanged.
+- Empty initialized conversations show view-only contact-added and character
+  introduction rows. They never enter storage, sending, unread counts or
+  History; real or outgoing messages hide them. Messages list rows without a
+  real last message reuse the contact-added copy as a display-only subtitle,
+  without changing cached summaries or ordering. Errors and waiting replies do
+  not synthesize greetings. LocationChat separately collapses adjacent real
+  `characters_moved` notices per character to the final destination; ordinary
+  messages and Ticks end a group. Phone payloads and canonical cursors are unchanged.
+- Music covers follow horizontal drags, revealing the adjacent cover. A 48-pixel
+  drag or fast flick settles to that cover over 220 ms before committing playback;
+  canceled gestures return to the current cover. Right swipes always select the
+  previous track, even after three seconds, while the previous button retains
+  its restart-current behavior. Audio cache, likes and analytics are reused.
+  Posts retains its author strip and displays `miniPhonePostsEmpty` only for a
+  successfully loaded empty All feed; every author filter hides this invitation.
+- Map and LocationChat docks share a notifier and v2 device preference (side
+  plus full-screen Y fraction). Old chat v1 placement is migrated first, then
+  old map v1 if absent; no record defaults to the bottom left. Each dock
+  subtracts its viewport's global origin to preserve screen position across
+  pages. Top, bottom, zoom and keyboard constraints temporarily clamp the view
+  without rewriting the preference. No server settings are involved.
 - Read DM locally as soon as a foreground conversation loads its cache, and on
   new deliveries while it is visible. Persist the read boundary and queued
   receipt before sending `/dm_session/read`. Failures retain the local read and

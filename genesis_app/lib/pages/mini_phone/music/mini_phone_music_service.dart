@@ -478,9 +478,13 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
     return next();
   }
 
-  Future<void> userPrevious(String source) {
+  Future<void> userPrevious(String source, {bool restartCurrent = true}) {
     _trackControl('previous', source);
-    return previous();
+    return restartCurrent
+        ? previous()
+        : _switchTo(
+            tracks.isEmpty ? 0 : (index + tracks.length - 1) % tracks.length,
+          );
   }
 
   Future<void> toggle() {

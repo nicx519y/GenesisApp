@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../l10n/genesis_localizations.dart';
 import 'package:flutter/material.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
@@ -38,11 +39,17 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
   late Object _snapshot;
   final _cards =
       <int, ({PhonePost post, int likes, bool liked, Widget child})>{};
+  bool get _showEmpty =>
+      phone.authorFilter == null &&
+      phone.posts.isEmpty &&
+      phone.postsController.hasLoadedFeed &&
+      !phone.errors.containsKey('posts');
   Object _readSnapshot() {
     final me = phone.person(phone.uid ?? '', type: 1);
     return (
       phone.accountGeneration,
       phone.posts,
+      _showEmpty,
       phone.authors,
       phone.authorFilter,
       phone.foreground,
@@ -87,7 +94,22 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
           onRefresh: () => _lists.refresh('posts', phone.refreshPosts),
           child: MiniPhonePostFeed(
             posts: phone.posts,
-            footer: const SizedBox.shrink(),
+            footer: _showEmpty
+                ? Padding(
+                    key: const ValueKey('mini-phone-posts-empty'),
+                    padding: const EdgeInsets.fromLTRB(
+                      miniPageInset,
+                      40,
+                      miniPageInset,
+                      32,
+                    ),
+                    child: Text(
+                      context.l10n.miniPhonePostsEmpty,
+                      textAlign: TextAlign.center,
+                      style: miniStyle(14, FontWeight.w400, miniSecondary),
+                    ),
+                  )
+                : const SizedBox.shrink(),
             resetKey: (phone.accountGeneration, phone.authorFilter),
             active: widget.active && phone.foreground,
             itemBuilder: _livePostCard,

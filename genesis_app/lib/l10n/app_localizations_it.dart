@@ -3577,4 +3577,18 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get miniPhoneInvalidResponse =>
       'Risposta del mini telefono non valida';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return 'Hai aggiunto $name.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return 'Sono $name.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty =>
+      'Non ci sono ancora post. Condividi un momento della tua storia.';
 }

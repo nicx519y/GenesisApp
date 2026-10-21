@@ -3579,4 +3579,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => 'Ungültige Mini-Handy-Antwort';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return 'Du hast $name hinzugefügt.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return 'Ich bin $name.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty =>
+      'Noch keine Beiträge. Teile einen Moment aus deiner Geschichte.';
 }

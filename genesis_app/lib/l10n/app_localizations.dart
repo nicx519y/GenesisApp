@@ -5880,6 +5880,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid MiniPhone response'**
   String get miniPhoneInvalidResponse;
+
+  /// MiniPhone empty private conversation: display-only contact-added notice, also used as the Messages list subtitle when that conversation has no last message. Never sent, stored, counted as a message, or used for conversation ordering. The conversation notice is hidden when real or outgoing messages exist; a real last message replaces the list subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'\'ve added {name}.'**
+  String miniPhoneContactAdded({required String name});
+
+  /// MiniPhone empty private conversation: local display-only character introduction bubble with the contact's dynamic name. Not a generated reply, not stored or sent; hidden when real or outgoing messages exist. Do not assume gender from the name.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'\'m {name}.'**
+  String miniPhoneCharacterIntroduction({required String name});
+
+  /// MiniPhone Posts: secondary-text footer beneath the authors only when the successfully loaded All feed contains no posts. Hidden for every selected-author filter, including empty results, and during initial loading or a failed request. Invites sharing a story moment.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts yet. Share a moment from your story.'**
+  String get miniPhonePostsEmpty;
 }
 
 class _AppLocalizationsDelegate

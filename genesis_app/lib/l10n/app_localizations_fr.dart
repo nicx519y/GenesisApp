@@ -3575,4 +3575,18 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get miniPhoneInvalidResponse => 'Réponse du mini-téléphone invalide';
+
+  @override
+  String miniPhoneContactAdded({required String name}) {
+    return 'Vous avez ajouté $name.';
+  }
+
+  @override
+  String miniPhoneCharacterIntroduction({required String name}) {
+    return 'Je m’appelle $name.';
+  }
+
+  @override
+  String get miniPhonePostsEmpty =>
+      'Aucune publication pour le moment. Partagez un moment de votre histoire.';
 }
