@@ -9,6 +9,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
   // One backend/presentation barrier for the toolbar, composer and send entry.
   ({bool backendPending, bool presentationSettled, bool discardPending})
   _replyRenderStatus(BuildContext context, {bool listen = true}) {
+    _scheduleDeferredTickReleaseIfReady();
     final presentation = _renderedReplyState;
     final replyState =
         _initialOutgoingMessage != null && !_initialOutgoingMessageReconciled
@@ -51,6 +52,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
     final messages = _replyProjection.presentation(presentation).messages;
     return ChatStreamingEffects(
       key: ValueKey((widget.worldId, widget.locationId)),
+      deferIncomingMessages: true,
       settings: locationChatBubbleLayoutSettings.value,
       operationIdentity: (_replyBindingGeneration, _waitingPositionOperation),
       presentationRevision: (

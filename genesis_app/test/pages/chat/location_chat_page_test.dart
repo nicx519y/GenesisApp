@@ -2253,6 +2253,98 @@ void main() {
     );
   }
 
+  testWidgets('incoming user and later stream wait for the active reveal', (
+    tester,
+  ) async {
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+    final first = 'First streaming answer ' * 20;
+    final second = 'Second streaming answer ' * 12;
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      roundId: 401,
+      messageId: 402,
+      seq: 1,
+      content: first,
+      conversationType: 'user_message',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text(first).evaluate().isNotEmpty,
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+    harness.socket.serverV2UserMessage(messageId: 501);
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      roundId: 601,
+      messageId: 602,
+      seq: 1,
+      content: second,
+      conversationType: 'user_message',
+    );
+    harness.socket.serverV2UserMessage(messageId: 701);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.messagesByLocation['location-current']!.any(
+        (message) => message.messageId == 701,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('message 501'), findsNothing);
+    expect(find.text(second), findsNothing);
+    expect(find.text('message 701'), findsNothing);
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: 401,
+      messageId: 402,
+      content: first,
+      conversationType: 'user_message',
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('message 501'), findsNothing);
+    expect(find.text(second), findsNothing);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text(second).evaluate().isNotEmpty,
+      step: const Duration(milliseconds: 100),
+    );
+    expect(find.text('message 501'), findsOneWidget);
+    expect(find.text('message 701'), findsNothing);
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: 601,
+      messageId: 602,
+      content: second,
+      conversationType: 'user_message',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('message 701').evaluate().isNotEmpty,
+      step: const Duration(milliseconds: 100),
+    );
+    final list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(
+      list.messages
+          .where(
+            (message) => [
+              first,
+              second,
+              'message 501',
+              'message 701',
+            ].contains(message.text),
+          )
+          .map((message) => message.text),
+      [first, 'message 501', second, 'message 701'],
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets(
     'a Tick keeps location order without restarting the active reveal',
     (tester) async {
@@ -2315,18 +2407,23 @@ void main() {
         content: answer,
         conversationType: 'user_message',
       );
+      await tester.pump(const Duration(milliseconds: 50));
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.messages.any((message) => message.isTick), isFalse);
       await _pumpUntilLocationChatTest(tester, () {
         list = tester.widget<LocationChatAnchoredMessageList>(
           find.byType(LocationChatAnchoredMessageList),
         );
         return list.messages.any((message) => message.isTick);
-      });
+      }, step: const Duration(milliseconds: 100));
       await tester.pump();
       final revealAfterTick = ChatStreamingBody.revealedGraphemesOf(
         tester.element(answerBody().last),
       );
       expect(revealAfterTick, greaterThanOrEqualTo(revealBeforeTick));
-      expect(revealAfterTick, lessThan(answer.length));
+      expect(revealAfterTick, greaterThanOrEqualTo(answer.length));
       final finalAnswerIndex = list.messages.indexWhere(
         (message) => message.text == answer,
       );
@@ -2345,6 +2442,14 @@ void main() {
       final harness = await _mountCompletedReplyActionPanel(
         tester,
         backend: _LocationChatReplyHttpTransport(),
+      );
+      harness.service.setInputBlocked(true);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find
+            .byKey(const ValueKey<String>('chat-tick-progress-content'))
+            .evaluate()
+            .isNotEmpty,
       );
       final answer = 'Streaming answer ' * 40;
       harness.socket.serverV2StreamFrame(
@@ -2372,7 +2477,6 @@ void main() {
       expect(revealedBeforeTick, greaterThan(0));
       expect(revealedBeforeTick, lessThan(answer.length));
 
-      harness.service.setInputBlocked(true);
       final progressContent = find.byKey(
         const ValueKey<String>('chat-tick-progress-content'),
       );

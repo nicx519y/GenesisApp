@@ -77,6 +77,11 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
 
   bool _deferredTickReadyToDisplay() {
     if (_deferredTickLocalId == null) return false;
+    final presentationContext = _replyPresentationContextKey.currentContext;
+    if (presentationContext != null &&
+        !ChatStreamingEffects.isSettledOf(presentationContext, listen: false)) {
+      return false;
+    }
     final deferredConversationGeneration = _deferredTickConversationGeneration;
     if (deferredConversationGeneration != null &&
         _chatroomState

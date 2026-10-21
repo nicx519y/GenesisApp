@@ -2889,7 +2889,7 @@ class _LocationChatAnchoredMessageListState
     if (!widget.readOnlyArchive) {
       ChatStreamingEffects.declareTasks(context, [
         for (final message in _renderedMessages)
-          if (!message.isImage && !message.isAiContentDisclaimer)
+          if (!message.isAiContentDisclaimer)
             ChatStreamingTask(
               identity: cardIds.contains(message.localId)
                   ? (

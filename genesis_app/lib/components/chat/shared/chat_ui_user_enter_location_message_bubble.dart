@@ -31,7 +31,7 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
         onLongPressStart: onLongPressStart,
       );
     }
-    final displayParts = _chatEnterLocationDisplayParts(payload.text);
+    final displayParts = chatEnterLocationDisplayParts(payload.text);
     final mainTextStyle = GenesisTypography.withFallback(
       const TextStyle(
         color: Colors.white,
@@ -118,7 +118,9 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
   }
 }
 
-({String characterName, String locationName})? _chatEnterLocationDisplayParts(
+/// Shared legacy entry-copy parsing. Archive callers additionally verify the
+/// sender identity and a single associated location before selecting this UI.
+({String characterName, String locationName})? chatEnterLocationDisplayParts(
   String text,
 ) {
   final displayText = genesisDisplaySafeText(text).trim();

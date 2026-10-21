@@ -15,40 +15,98 @@ class _Entry {
   final List<String> locations;
 }
 
-class _Run {
-  _Run(this.location);
+class HistoryLocationSection {
+  HistoryLocationSection._(this.location);
   final String location;
+  final messageIds = <String>[];
   bool hasUser = false;
+}
+
+/// Tick refs are parallel memberships, not successive location visits. Keep
+/// each matching section open across a shared Tick; ordinary refs still mark
+/// successive visits. Both admission and display use this same fold plan.
+class HistoryLocationSections {
+  HistoryLocationSections(Iterable<WorldHistoryMessage> newestFirst)
+    : this._(newestFirst.map(_Entry.new));
+
+  HistoryLocationSections._(Iterable<_Entry> entries) {
+    var active = <String, int>{};
+    void append(_Entry entry, Iterable<String> locations) {
+      final next = <String, int>{};
+      for (final location in locations) {
+        final run = active[location] ?? sections.length;
+        if (run == sections.length) {
+          sections.add(HistoryLocationSection._(location));
+        }
+        next[location] = run;
+        sections[run].messageIds.add(entry.id);
+        if (entry.type == 'user') sections[run].hasUser = true;
+        if (entry.type == 'tick') _ticks[(entry.id, location)] = run;
+      }
+      if (_first.isEmpty) _first = Map.of(next);
+      active = next;
+    }
+
+    for (final entry in entries) {
+      if (entry.type == 'tick') {
+        append(entry, entry.locations);
+      } else {
+        for (final location in entry.locations) {
+          append(entry, [location]);
+        }
+      }
+    }
+    _last = active;
+  }
+
+  final sections = <HistoryLocationSection>[];
+  final _ticks = <(String, String), int>{};
+  Map<String, int> _first = {}, _last = {};
 }
 
 class _Page {
   _Page(this.entries);
   final List<_Entry> entries;
-  final runs = <_Run>[];
-  final ticks = <(String, String), int>{};
+  late HistoryLocationSections plan;
 }
 
-/// First/last continuous runs are sufficient to compose adjacent ranges.
+/// Only sections touching the range edges can continue across another page.
+/// Shared Ticks can leave several locations open at either edge.
 class _Summary {
-  const _Summary(
-    this.first,
-    this.last,
-    this.firstUser,
-    this.lastUser,
-    this.single,
-  );
-  final String first, last;
-  final bool firstUser, lastUser, single;
+  const _Summary(this.first, this.last, this.through);
+  final Map<String, bool> first, last;
+  final Set<String> through;
+
+  static _Summary? from(HistoryLocationSections plan) => plan.sections.isEmpty
+      ? null
+      : _Summary(
+          {
+            for (final e in plan._first.entries)
+              e.key: plan.sections[e.value].hasUser,
+          },
+          {
+            for (final e in plan._last.entries)
+              e.key: plan.sections[e.value].hasUser,
+          },
+          {
+            for (final e in plan._first.entries)
+              if (plan._last[e.key] == e.value) e.key,
+          },
+        );
+
   static _Summary? join(_Summary? a, _Summary? b) {
     if (a == null) return b;
     if (b == null) return a;
-    final linked = a.last == b.first;
     return _Summary(
-      a.first,
-      b.last,
-      a.firstUser || (a.single && linked && b.firstUser),
-      b.lastUser || (b.single && linked && a.lastUser),
-      a.single && b.single && linked,
+      {
+        for (final e in a.first.entries)
+          e.key: e.value || a.through.contains(e.key) && b.first[e.key] == true,
+      },
+      {
+        for (final e in b.last.entries)
+          e.key: e.value || b.through.contains(e.key) && a.last[e.key] == true,
+      },
+      a.through.intersection(b.through),
     );
   }
 }
@@ -125,42 +183,16 @@ class HistorySectionParticipation {
 
   void _rebuild(int index) {
     final page = _pages[index];
-    page.runs.clear();
-    page.ticks.clear();
     final seen = <String>{};
-    for (final entry in page.entries) {
-      examinedMessages++;
-      if (_owners[entry.id]!.first != index ||
-          !seen.add(entry.id) ||
-          entry.version > appVersion) {
-        continue;
-      }
-      for (final location in entry.locations) {
-        if (page.runs.isEmpty || page.runs.last.location != location) {
-          page.runs.add(_Run(location));
-        }
-        if (entry.type == 'user') page.runs.last.hasUser = true;
-        if (entry.type == 'tick') {
-          page.ticks[(entry.id, location)] = page.runs.length - 1;
-        }
-      }
-    }
-    final runs = page.runs;
-    _root = _put(
-      _root,
-      0,
-      _capacity,
-      index,
-      runs.isEmpty
-          ? null
-          : _Summary(
-              runs.first.location,
-              runs.last.location,
-              runs.first.hasUser,
-              runs.last.hasUser,
-              runs.length == 1,
-            ),
+    page.plan = HistoryLocationSections._(
+      page.entries.where((entry) {
+        examinedMessages++;
+        return _owners[entry.id]!.first == index &&
+            seen.add(entry.id) &&
+            entry.version <= appVersion;
+      }),
     );
+    _root = _put(_root, 0, _capacity, index, _Summary.from(page.plan));
   }
 
   _Node? _put(_Node? node, int lo, int hi, int index, _Summary? value) {
@@ -194,17 +226,17 @@ class HistorySectionParticipation {
     if (location.isEmpty) return false;
     final index = _owners[id]?.firstOrNull;
     if (index == null) return false;
-    final page = _pages[index];
-    final run = page.ticks[(id, location)];
+    final plan = _pages[index].plan;
+    final run = plan._ticks[(id, location)];
     if (run == null) return false;
-    if (page.runs[run].hasUser) return true;
-    if (run == 0) {
+    if (plan.sections[run].hasUser) return true;
+    if (plan._first[location] == run) {
       final newer = _range(_root, 0, _capacity, 0, index);
-      if (newer?.last == location && newer!.lastUser) return true;
+      if (newer?.last[location] == true) return true;
     }
-    if (run == page.runs.length - 1) {
+    if (plan._last[location] == run) {
       final older = _range(_root, 0, _capacity, index + 1, _pages.length);
-      if (older?.first == location && older!.firstUser) return true;
+      if (older?.first[location] == true) return true;
     }
     return false;
   }

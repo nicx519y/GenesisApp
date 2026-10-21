@@ -67,6 +67,78 @@ void main() {
     );
   });
 
+  test('History Enter copy maps to the shared location entry payload', () {
+    for (final verb in ['entered', 'came to']) {
+      final enter = historyMessage(
+        'enter',
+        type: 'user',
+        content: 'Role $verb Place A',
+      );
+      final vms = project([
+        historyMessage('tick', type: 'tick'),
+        enter,
+      ], revision: verb.hashCode);
+      final vm = vms.first;
+      expect(vm.isUserEnterLocation, isTrue);
+      expect(
+        vm.timelinePayload,
+        ChatUserEnterLocationPayloadVm(
+          characterId: 'c1',
+          toLocationId: 'A',
+          text: enter.content,
+        ),
+      );
+      expect(p.rows.first.message.type, 'user');
+      expect(vms.last.isTick, isTrue);
+      expect(p.rows.map((r) => r.sectionId).toSet(), hasLength(1));
+    }
+  });
+
+  test(
+    'ordinary speech, narration and ambiguous locations keep normal bubbles',
+    () {
+      final rows = [
+        historyMessage(
+          'speech',
+          type: 'user',
+          content: 'I entered Place A yesterday',
+        ),
+        historyMessage(
+          'other-name',
+          type: 'user',
+          content: 'Someone else entered Place A',
+        ),
+        historyMessage(
+          'multiline',
+          type: 'user',
+          content: 'Role entered Place A\nThen said hello',
+        ),
+        historyMessage(
+          'multiple-locations',
+          type: 'user',
+          content: 'Role entered Place A',
+          locations: ['A', 'B'],
+        ),
+        historyMessage(
+          'no-location',
+          type: 'user',
+          content: 'Role entered Place A',
+          locations: [],
+        ),
+        historyMessage('character', content: 'Role entered Place A'),
+        WorldHistoryMessage.fromJson({
+          ...historyJson(
+            'narration',
+            type: 'user',
+            content: 'Role entered Place A',
+          ),
+          'message_type': 'narration',
+        }),
+      ];
+      expect(project(rows).every((m) => !m.isUserEnterLocation), isTrue);
+    },
+  );
+
   test(
     'multilocation Tick B retains shared time/global/status without events',
     () {
@@ -250,6 +322,75 @@ void main() {
       'tick-3',
     ]);
     expect(p.rows.map((r) => r.sectionId).toSet(), hasLength(1));
+  });
+
+  for (final userAfter in [false, true]) {
+    test(
+      'world Ticks stay in their participating fold; userAfter=$userAfter',
+      () {
+        const locations = [
+          'loc_1_1_1',
+          'loc_1_1_2',
+          'loc_1_2_1',
+          'loc_1_3_1',
+          'loc_1_4_1',
+          'loc_1_5_1',
+          'loc_1_6_1',
+          'loc_1_7_1',
+          'loc_1_8_1',
+        ];
+        final user = historyMessage(
+          'user',
+          type: 'user',
+          locations: ['loc_1_2_1'],
+        );
+        final chronological = [
+          if (!userAfter) user,
+          for (var i = 1; i <= 3; i++)
+            historyMessage('tick-$i', type: 'tick', locations: locations),
+          if (userAfter) user,
+          historyMessage('reply', locations: ['loc_1_2_1']),
+        ];
+        project(chronological.reversed.toList());
+        expect(
+          p.rows
+              .where((r) => r.message.type == 'tick')
+              .map((r) => r.message.id),
+          ['tick-1', 'tick-2', 'tick-3'],
+        );
+        expect(p.rows.every((r) => r.locationId == 'loc_1_2_1'), isTrue);
+        expect(p.rows.map((r) => r.sectionId).toSet(), hasLength(1));
+        expect(p.parsedTickCount, 0);
+      },
+    );
+  }
+
+  test('consecutive shared Ticks aggregate into both participating folds', () {
+    project([
+      historyMessage('user-b', type: 'user', locations: ['B']),
+      historyMessage('tick-2', type: 'tick', locations: ['A', 'B']),
+      historyMessage('tick-1', type: 'tick', locations: ['A', 'B']),
+      historyMessage('user-a', type: 'user'),
+    ]);
+    expect(p.rows.map((r) => (r.message.id, r.locationId)), [
+      ('user-a', 'A'),
+      ('tick-1', 'A'),
+      ('tick-2', 'A'),
+      ('tick-1', 'B'),
+      ('tick-2', 'B'),
+      ('user-b', 'B'),
+    ]);
+    final sections = <String, List<HistoryDisplayRow>>{};
+    for (final row in p.rows) {
+      (sections[row.sectionId] ??= []).add(row);
+    }
+    expect(sections, hasLength(2));
+    expect(
+      sections.values.every(
+        (rows) => rows.any((r) => r.message.type == 'user'),
+      ),
+      isTrue,
+    );
   });
 
   test('revisiting a location does not inherit an earlier section user', () {
