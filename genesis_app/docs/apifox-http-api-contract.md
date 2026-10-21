@@ -51,7 +51,7 @@ Origin detail 增量核对时间：2026-08-05
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
 | app | POST | `/api/v1/app/version/check` | App 版本升级检查 |
-| music | GET | `/api/v1/music/list` | 游客可用的完整音乐目录，无参数、不分页 |
+| music | GET | `/api/v1/music/list` | 游客可用的完整音乐目录，批量返回点赞数量和当前用户状态，无参数、不分页 |
 | music | GET | `/api/v1/music/like_status` | 登录用户的单首音乐点赞状态，query 为精确的 file |
 | music | POST | `/api/v1/music/like` | 登录用户点赞音乐，JSON body 为 file，幂等 |
 | music | POST | `/api/v1/music/unlike` | 登录用户取消点赞，JSON body 为 file，幂等 |
@@ -2809,7 +2809,7 @@ Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
 
 章节的 `global_status`，以及每个地点项（HTTP `paragraphs[]` / 聊天 `story_events[]`）的 `cast`、`status` 均为独立可选数组，可分别省略或同时省略；模型层统一按空数组处理，保留章节旁白、地点叙述和线索，不因此把整条 Tick 判为损坏。字段存在时仍校验数组类型及元素结构（`null` 不视为空数组）。适用于实时 Tick、历史消息、缓存恢复以及 World / Origin 地点段落；旧结构识别和可见性规则不变。
 
-## 音乐目录（2026-10-10）
+## 音乐目录（2026-10-21 更新）
 
 `GET /api/v1/music/list` 游客可用，无参数、不分页。响应为标准
 `{err_no, err_msg, data}` envelope，`data` 含必填 `pre_url` 字符串和
@@ -2817,8 +2817,12 @@ Apifox: https://app.apifox.com/link/project/8297783/apis/api-522735322
 返回顺序使用，不硬编码数量，允许空列表。
 
 曲目必填字段：`file`、`source_worldo_id`、`source_worldo_name`、`artist`、
-`title`、`cover_url`。音频地址直接拼接 `pre_url + file`。`cover_url` 为来源
-Worldo 的 XL 封面，移除首个 `?` 及其后的查询参数。不返回歌词、时长或点赞数。
+`title`、`cover_url`、`like_cnt`（非负 int64）、`is_liked`（boolean）。音频地址直接拼接 `pre_url + file`。`cover_url` 为来源
+Worldo 的 XL 封面，移除首个 `?` 及其后的查询参数。不返回歌词或时长。
+`like_cnt` 为有效点赞总数，`is_liked` 为当前用户有效点赞状态，游客为 false；
+批量查询依赖 MySQL，查询失败返回 `err_no=3103`、`data={}`，不能作为空目录成功处理。
+客户端严格校验新增字段类型，Dart 原生保留整数精度。
+来源：用户提供的新版 `music_list.md`。
 
 实现：`GenesisApi.fetchMusicCatalog()` → `GenesisV1Api.music.list()` →
 `MusicCatalog` / `MusicTrack`。目录请求复用已有 API client 和 Gateway 签名链路，
@@ -2833,7 +2837,7 @@ Mini phone 的音乐页使用返回的曲目、歌手、来源 Worldo 和封面�
 进度超过 3 秒时先回到当前曲首并播放，否则切换上一首。
 预加载失败不影响当前播放。进入非 resumed 生命周期即暂停并取消未完成的音频预加载，
 返回前台不自动恢复。未接入后台播放服务、媒体通知或锁屏控制。
-爱心接入以下点赞接口，不展示接口未提供的点赞数。Mock 模式明确返回空目录，
+爱心接入以下点赞接口，数量和初始状态来自音乐目录。Mock 模式明确返回空目录，
 不注入可播放的生产或演示曲目。
 
 完整音乐页和 Home 卡片复用单行往返滚动文字、48px 点击/拖动进度条及封面过渡组件。
@@ -2857,11 +2861,17 @@ Mini phone 的音乐页使用返回的曲目、歌手、来源 Worldo 和封面�
   仍是失败（未登录 10001、非法文件 4004、数据库错误沿用既有错误码）。
 - `MusicLikeStatus` 严格读取 file/is_liked，`MusicV1Api` 提供
   like/unlike/likeStatus，`GenesisApi` 提供对应 facade。
-- MiniPhone 打开播放器及切歌时拉取当前歌曲状态；点击立即改变爱心，并提交
-  like/unlike。每首歌的提交串行执行，读取旧响应不能覆盖点击后的状态。
-  最新操作失败时回滚到最后一次服务端确认状态，用共享 toast 展示原始
+- MiniPhone 打开手机和进入播放器时通过 `/music/list` 批量刷新数量和状态，合并进行中请求；
+  已有目录时仅合并点赞快照，不替换歌曲目录、当前曲目、进度或解码器。切歌直接读取共享状态，
+  两个界面不再调用 `/music/like_status`，该公共接口仍保留。
+- 完整播放器和桌面卡片共用点赞按钮及控制器；点击立即改变爱心与数量并提交 like/unlike。
+  每首歌提交串行执行，按最近确认状态计算增减，重复目标不重复计数；旧读取不能覆盖操作后的状态。
+  最新操作失败时数量和爱心一起回滚到最后一次服务端确认状态，用共享 toast 展示原始
   `err_msg`；无业务响应的网络失败使用通用重试提示。切歌后旧歌曲的失败
   只回滚旧歌曲，连续操作中旧失败不覆盖新操作。
+- 数量直接复用评论列表的 `formatStatCount()`，统一 K/M/B/T、四舍五入一位并去掉 `.0`，不加 `+`；
+  0 隐藏，`999999 → 1000K` 等临界行为保持一致。爱心 28、数量 11 半粗字体置于右上角，固定 72×48 区域；
+  桌面按钮位于歌曲信息右侧，点击不打开播放器，无障碍提供完整数量。
 
 
 ## MiniPhone wallpaper

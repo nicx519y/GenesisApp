@@ -4,10 +4,10 @@ import '../../../utils/display_name_formatter.dart';
 import 'package:flutter/material.dart';
 import '../../../app/bootstrap/app_services_scope.dart';
 import '../../../components/common/genesis_center_toast.dart';
-import '../../../network/api_exception.dart';
 import '../shared/mini_phone_ui.dart';
 import 'mini_phone_music_service.dart';
 import 'mini_phone_music_widgets.dart';
+import 'mini_phone_music_like_button.dart';
 
 class MiniPhoneMusicPlayer extends StatefulWidget {
   const MiniPhoneMusicPlayer({super.key, required this.music});
@@ -17,26 +17,20 @@ class MiniPhoneMusicPlayer extends StatefulWidget {
 }
 
 class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
-  String? _statusFile;
-  bool _ready = false;
   String? _shownMusicError;
   MiniPhoneMusicService get _music => widget.music;
   @override
   void initState() {
     super.initState();
     _music.addListener(_changed);
-    _music.likes.addListener(_likesChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _ready = true;
       _loadCatalog();
-      _loadLikeStatus();
     });
   }
 
-  Future<void> _loadCatalog() => _music.loadCatalog(
-    () => AppServicesScope.read(context).api.fetchMusicCatalog(),
-  );
+  Future<void> _loadCatalog() =>
+      _music.refreshLikes(AppServicesScope.read(context).api.fetchMusicCatalog);
 
   void _changed() {
     if (!mounted) return;
@@ -46,65 +40,11 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
       if (error != null) showGenesisToast(context, error);
     }
     setState(() {});
-    if (_ready) _loadLikeStatus();
-  }
-
-  void _likesChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _loadLikeStatus() {
-    final file = _music.track?.file;
-    if (file == null || file == _statusFile) return;
-    _statusFile = file;
-    final api = AppServicesScope.read(context).api;
-    unawaited(() async {
-      try {
-        await _music.likes.loadStatus(
-          file,
-          () => api.fetchMusicLikeStatus(file: file),
-        );
-      } catch (error) {
-        if (mounted && _music.track?.file == file) _likeError(error);
-      }
-    }());
-  }
-
-  void _likeError(Object error) => showGenesisToast(
-    context,
-    error is ApiException
-        ? error.message
-        : context.l10n.miniPhoneMusicLikeFailed,
-    brightness: Brightness.dark,
-  );
-
-  Future<void> _toggleLike(String file) async {
-    final api = AppServicesScope.read(context).api;
-    final overlay = Overlay.maybeOf(context, rootOverlay: true);
-    try {
-      _music.trackLike(file, !_music.likes.isLiked(file));
-      await _music.likes.toggle(
-        file,
-        (liked) =>
-            liked ? api.likeMusic(file: file) : api.unlikeMusic(file: file),
-      );
-    } catch (error) {
-      if (overlay != null && overlay.mounted) {
-        showGenesisToastInOverlay(
-          overlay,
-          error is ApiException
-              ? error.message
-              : context.l10n.miniPhoneMusicLikeFailed,
-          brightness: Brightness.dark,
-        );
-      }
-    }
   }
 
   @override
   void dispose() {
     _music.removeListener(_changed);
-    _music.likes.removeListener(_likesChanged);
     super.dispose();
   }
 
@@ -118,7 +58,6 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
     if (track == null) {
       return const SizedBox.expand();
     }
-    final liked = _music.likes.isLiked(track.file);
     return Padding(
       padding: const EdgeInsets.fromLTRB(26, 4, 26, 12),
       child: LayoutBuilder(
@@ -167,31 +106,7 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Semantics(
-                              toggled: liked,
-                              child: IconButton(
-                                tooltip: liked
-                                    ? context.l10n.miniPhoneUnlikeTrack(
-                                        title: track.title,
-                                      )
-                                    : context.l10n.miniPhoneLikeTrack(
-                                        title: track.title,
-                                      ),
-                                onPressed: () =>
-                                    unawaited(_toggleLike(track.file)),
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 44,
-                                  height: 44,
-                                ),
-                                padding: EdgeInsets.zero,
-                                icon: MiniIcon(
-                                  'heart',
-                                  size: 23,
-                                  color: liked ? miniRed : miniWhite,
-                                  filled: liked,
-                                ),
-                              ),
-                            ),
+                            MiniMusicLikeButton(music: _music, track: track),
                           ],
                         ),
                         Align(
@@ -333,45 +248,59 @@ class MiniPhoneHomeMusicCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Semantics(
-            button: true,
-            label: context.l10n.miniPhoneOpenMusic(title: track.title),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onOpen,
-              child: Row(
-                children: [
-                  MiniMusicCover(
-                    track: track,
-                    nextTrack: music.nextTrack,
-                    preloadNext:
-                        music.playing && music.foreground && !music.loading,
-                    width: 44,
-                    height: 66,
-                    radius: 8,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: context.l10n.miniPhoneOpenMusic(title: track.title),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onOpen,
+                    child: Row(
                       children: [
-                        MiniMusicMarquee(
-                          identity: (track.file, 'title'),
-                          text: track.title,
-                          style: miniStyle(16, FontWeight.w600),
+                        MiniMusicCover(
+                          track: track,
+                          nextTrack: music.nextTrack,
+                          preloadNext:
+                              music.playing &&
+                              music.foreground &&
+                              !music.loading,
+                          width: 44,
+                          height: 66,
+                          radius: 8,
                         ),
-                        const SizedBox(height: 2),
-                        MiniMusicMarquee(
-                          identity: (track.file, 'artist'),
-                          text: track.artist,
-                          style: miniStyle(14, FontWeight.w400, miniSecondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MiniMusicMarquee(
+                                identity: (track.file, 'title'),
+                                text: track.title,
+                                style: miniStyle(16, FontWeight.w600),
+                              ),
+                              const SizedBox(height: 2),
+                              MiniMusicMarquee(
+                                identity: (track.file, 'artist'),
+                                text: track.artist,
+                                style: miniStyle(
+                                  14,
+                                  FontWeight.w400,
+                                  miniSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 4),
+              MiniMusicLikeButton(music: music, track: track),
+            ],
           ),
           MiniMusicSeekBar(
             identity: track.file,

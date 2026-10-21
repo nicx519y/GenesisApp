@@ -50,8 +50,8 @@ Future<void> showMiniPhone(
   if (phone.isDisposed) return;
   final ownsSession = session == null && inherited == null;
   Future<GemModelCatalog> loadCatalog() async {
-    final cached = modelCache?.modelCatalog;
-    if (cached != null) return cached;
+    // Phone DM has its own business catalogue; the supplied World cache must
+    // neither satisfy nor coalesce this request with LocationChat.
     if (worldId.isEmpty) {
       if (phone.modelSettings.sourceCatalog != null) {
         return phone.modelSettings.sourceCatalog!;
@@ -61,25 +61,10 @@ Future<void> showMiniPhone(
     final services = AppServicesScope.read(context);
     final session = await services.sessionStore.readCompleteSession();
     if (session == null) throw StateError('Sign in to view models.');
-    final catalog = modelCache == null
-        ? await services.api.v1.gem.models(worldId: worldId)
-        : await modelCache.loadModelCatalog(
-            uid: session.uid,
-            worldId: worldId,
-            loader: () => services.api.v1.gem.models(worldId: worldId),
-          );
-    if (catalog == null) {
-      throw StateError('Models are unavailable in this World.');
-    }
-    modelCache?.storeModelCatalog(catalog);
-    return catalog;
+    return services.api.v1.gem.models(worldId: worldId, biz: 'phone_dm');
   }
 
-  phone.modelSettings.configure(
-    worldId: worldId,
-    loader: loadCatalog,
-    cached: modelCache?.modelCatalog,
-  );
+  phone.modelSettings.configure(worldId: worldId, loader: loadCatalog);
   try {
     if (initialContact != null && phone.data != null) {
       // Resolve the account before its initial notification can clear the target.
@@ -349,6 +334,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           .catchError((Object _) {}),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshMusicLikes());
       if (mounted && _miniResume.viewerPhotos != null) {
         showMiniPhonePreviewGallery(
           context,
@@ -359,6 +345,14 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         );
       }
     });
+  }
+
+  Future<void> _refreshMusicLikes() async {
+    final api = AppServicesScope.read(context).api;
+    await _music.refreshLikes(api.fetchMusicCatalog);
+    if (!mounted || screen == MiniPhoneScreen.music) return;
+    final error = _music.catalogError;
+    if (error != null) showGenesisToast(context, error);
   }
 
   @override
@@ -402,6 +396,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     final identityChanged = phone != null && _phoneOwner != phone!.uid;
     if (identityChanged) {
       if (_phoneOwner != null) {
+        _session.modelSettings.clear();
         phone!.analytics.endOpen(_analyticsOpenId);
         _analyticsOpenId = null;
         _openTracked = false;
@@ -686,6 +681,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       wallpaper: wallpaper,
       header: _navigation(context.l10n.miniPhoneSettings),
       active: screen == MiniPhoneScreen.settings,
+      onApplied: () {
+        if (!mounted ||
+            _closing ||
+            screen != MiniPhoneScreen.settings ||
+            ModalRoute.isCurrentOf(context) == false) {
+          return;
+        }
+        _go(MiniPhoneScreen.home, source: 'settings', navigation: 'back');
+      },
     ),
     MiniPhoneScreen.music => _panel(
       context.l10n.miniPhoneMusic,

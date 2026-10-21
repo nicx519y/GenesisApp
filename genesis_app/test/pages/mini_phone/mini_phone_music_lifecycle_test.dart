@@ -18,6 +18,8 @@ MusicCatalog _catalog() => MusicCatalog(
   tracks: [
     for (var i = 0; i < 2; i++)
       MusicTrack(
+        likeCount: 0,
+        isLiked: false,
         file: '$i.mp3',
         audioUrl: 'https://cdn.example/$i.mp3',
         sourceWorldoId: 'o',
@@ -148,6 +150,7 @@ void main() {
       await _store().write(_saved);
       final players = <TestMusicPlayer>[];
       final music = MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
         progressStore: _store(),
         playerFactory: () {
           final p = TestMusicPlayer();
@@ -168,6 +171,7 @@ void main() {
       await Future.wait([music.released, music.progressSaved]);
       expect(players.every((p) => p.disposed && !p.playing), isTrue);
       final reopened = MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
         progressStore: _store(world: 'b'),
         playerFactory: TestMusicPlayer.new,
       );
@@ -182,6 +186,32 @@ void main() {
       );
     },
   );
+  test('exit during buffering persists the latest seek target', () async {
+    final player = TestMusicPlayer();
+    final music = MiniPhoneMusicService(
+      audioCache: const TestMusicCache(),
+      progressStore: _store(),
+      playerFactory: () => player,
+    );
+    addTearDown(music.dispose);
+    // A single track avoids creating a standby decoder in this boundary test.
+    final catalog = _catalog();
+    await music.loadCatalog(
+      () async =>
+          MusicCatalog(preUrl: catalog.preUrl, tracks: [catalog.tracks.first]),
+    );
+    await music.toggle();
+    player.seekGate = Completer<void>();
+    final first = music.seek(20);
+    final latest = music.seek(60);
+    music.detachWorld();
+    await music.progressSaved;
+    expect((await _store().read())!.position, const Duration(seconds: 60));
+    player.seekGate!.complete();
+    await Future.wait([first, latest]);
+    expect(music.playRequested, isFalse);
+  });
+
   test('deleted cached song falls back to first track at zero', () async {
     await _store().write(
       const MiniPhoneMusicProgress(
@@ -190,6 +220,7 @@ void main() {
       ),
     );
     final music = MiniPhoneMusicService(
+      audioCache: const TestMusicCache(),
       progressStore: _store(),
       playerFactory: TestMusicPlayer.new,
     );
@@ -204,6 +235,7 @@ void main() {
     () async {
       final picker = SystemImagePickerActivity();
       final music = MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
         pickerActivity: picker,
         playerFactory: TestMusicPlayer.new,
       );
@@ -240,7 +272,10 @@ void main() {
     'disposing an owned preview player interrupts in-flight play and both decoders',
     () async {
       final player = TestMusicPlayer()..loadGate = Completer<void>();
-      final music = MiniPhoneMusicService(playerFactory: () => player);
+      final music = MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
+        playerFactory: () => player,
+      );
       final phone = MiniPhoneSession(worldId: 'a', music: music);
       await music.loadCatalog(() async => _catalog());
       final playing = music.toggle();
@@ -256,7 +291,10 @@ void main() {
     tester,
   ) async {
     final phone = MiniPhoneSession(
-      music: MiniPhoneMusicService(playerFactory: TestMusicPlayer.new),
+      music: MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
+        playerFactory: TestMusicPlayer.new,
+      ),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -286,6 +324,7 @@ void main() {
     (tester) async {
       final players = <TestMusicPlayer>[];
       final music = MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
         progressStore: _store(),
         playerFactory: () {
           final p = TestMusicPlayer();

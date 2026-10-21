@@ -25,11 +25,13 @@ class MiniPhoneSettingsPage extends StatefulWidget {
     required this.wallpaper,
     required this.header,
     required this.active,
+    required this.onApplied,
   });
   final MiniPhoneSession session;
   final MiniPhoneWallpaperController wallpaper;
   final Widget header;
   final bool active;
+  final VoidCallback onApplied;
   @override
   State<MiniPhoneSettingsPage> createState() => _MiniPhoneSettingsPageState();
 }
@@ -400,7 +402,10 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
           brightness: Brightness.dark,
         );
       }
-      if (success && mounted) setState(() => feedback = '');
+      if (success && mounted && widget.active) {
+        setState(() => feedback = '');
+        widget.onApplied();
+      }
     } catch (error) {
       if (mounted) {
         showGenesisToast(context, MiniPhoneStore.errorText(error));

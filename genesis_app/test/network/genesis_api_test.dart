@@ -816,6 +816,14 @@ void main() {
       'model_code': 'sake_pro',
     });
     expect(selection.selectedModelCode, 'sake_pro');
+
+    await api.v1.gem.models(worldId: 'W_000001', biz: 'phone_dm');
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/model/list');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'world_id': 'W_000001',
+      'biz': 'phone_dm',
+    });
   });
 
   test('v1 gem task report and claim send only task_code', () async {

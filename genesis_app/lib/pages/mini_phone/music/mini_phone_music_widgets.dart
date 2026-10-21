@@ -431,6 +431,12 @@ class _MiniMusicSeekBarState extends State<MiniMusicSeekBar> {
               : EdgeInsets.zero,
           semanticFormatterCallback: (value) =>
               '${_time(value)} of ${_time(total)}',
+          onChangeStart: enabled
+              ? (value) {
+                  _gestureRevision++;
+                  setState(() => _preview = value);
+                }
+              : null,
           onChanged: enabled
               ? (value) => setState(() => _preview = value)
               : null,

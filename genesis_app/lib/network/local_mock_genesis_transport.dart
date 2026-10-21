@@ -1174,6 +1174,8 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'gem/model/list') {
+      // Accepts biz=phone_dm with the same deterministic response fixture.
+      // Mock prices do not define either business's production pricing.
       return _v1Ok(_state.v1GemModels(query['world_id'] ?? ''));
     }
 

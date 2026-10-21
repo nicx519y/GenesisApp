@@ -17,6 +17,8 @@ final _catalog = MusicCatalog(
   tracks: [
     for (final file in ['a.mp3', 'b.mp3'])
       MusicTrack(
+        likeCount: 0,
+        isLiked: false,
         file: file,
         audioUrl: 'https://cdn.example/$file',
         sourceWorldoId: 'o',
@@ -92,6 +94,7 @@ void main() {
         readUid: () async => 'u',
         accountRevision: revision,
         createMusic: (store) => MiniPhoneMusicService(
+          audioCache: const TestMusicCache(),
           progressStore: store,
           playerFactory: () {
             final player = TestMusicPlayer();
@@ -175,6 +178,7 @@ void main() {
   ) async {
     final progress = _DelayedProgress();
     final music = MiniPhoneMusicService(
+      audioCache: const TestMusicCache(),
       progressStore: progress,
       playerFactory: TestMusicPlayer.new,
     );

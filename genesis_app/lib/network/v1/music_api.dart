@@ -4,7 +4,8 @@ import 'v1_api_resource.dart';
 class MusicV1Api extends V1ApiResource {
   const MusicV1Api(super.client);
 
-  /// Guest-accessible, unpaginated GET /api/v1/music/list. No parameters.
+  /// Guest-accessible, unpaginated catalogue with like_cnt/is_liked per track.
+  /// GET /api/v1/music/list has no parameters.
   Future<MusicCatalog> list() async =>
       MusicCatalog.fromJson(await getMap('music/list'));
 

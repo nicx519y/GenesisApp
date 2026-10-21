@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:genesis_flutter_android/network/models/music.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_service.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_cache.dart';
 import '../../support/mini_phone_audio_player.dart';
 import '../../support/mini_phone_collect_probe.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_analytics.dart';
@@ -14,6 +15,8 @@ MusicCatalog catalog([int count = 3]) => MusicCatalog(
   tracks: [
     for (var i = 0; i < count; i++)
       MusicTrack(
+        likeCount: 0,
+        isLiked: false,
         file: '$i.mp3',
         audioUrl: 'https://cdn.example/$i.mp3',
         sourceWorldoId: 'o_test',
@@ -30,15 +33,29 @@ Future<void> flush() async {
   }
 }
 
+class TestAudioCache implements MiniPhoneMusicCache {
+  final entries = <String, Uri>{};
+  final heard = <String>[];
+  @override
+  Future<Uri?> find(MusicTrack track) async => entries[track.file];
+  @override
+  Future<void> remember(MusicTrack track) async {
+    heard.add(track.file);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late List<TestMusicPlayer> players;
   late MiniPhoneMusicService music;
+  late TestAudioCache cache;
   void Function(TestMusicPlayer player, int number)? configure;
   setUp(() {
     players = [];
     configure = null;
+    cache = TestAudioCache();
     music = MiniPhoneMusicService(
+      audioCache: cache,
       playerFactory: () {
         final player = TestMusicPlayer();
         configure?.call(player, players.length);
@@ -56,6 +73,185 @@ void main() {
     music.dispose();
     await flush();
   });
+
+  test(
+    'engagement refresh merges requests and preserves tracks and decoders',
+    () async {
+      await music.loadCatalog(() async => catalog());
+      await music.toggle();
+      await flush();
+      final tracks = music.tracks;
+      final selected = music.track;
+      final decoders = players.toList();
+      final position = music.positionDuration;
+      final gate = Completer<MusicCatalog>();
+      var calls = 0;
+      Future<MusicCatalog> loader() {
+        calls++;
+        return gate.future;
+      }
+
+      final first = music.refreshLikes(loader);
+      final second = music.refreshLikes(loader);
+      expect(identical(first, second), isTrue);
+      await flush();
+      expect(calls, 1);
+      final song = selected!;
+      gate.complete(
+        MusicCatalog(
+          preUrl: 'https://changed.test/',
+          tracks: [
+            MusicTrack(
+              file: song.file,
+              audioUrl: 'https://changed.test/audio.mp3',
+              sourceWorldoId: song.sourceWorldoId,
+              sourceWorldoName: song.sourceWorldoName,
+              artist: song.artist,
+              title: 'Changed metadata',
+              coverUrl: song.coverUrl,
+              likeCount: 1000,
+              isLiked: true,
+            ),
+          ],
+        ),
+      );
+      await first;
+      expect(identical(music.tracks, tracks), isTrue);
+      expect(identical(music.track, selected), isTrue);
+      expect(players, decoders);
+      expect(decoders.every((p) => !p.disposed), isTrue);
+      expect(music.playing, isTrue);
+      expect(music.positionDuration, position);
+      expect(music.likes.likeCount(song.file), 1000);
+      expect(music.likes.isLiked(song.file), isTrue);
+      await music.refreshLikes(() => throw StateError('offline'));
+      expect(music.likes.likeCount(song.file), 1000);
+      expect(music.track, same(selected));
+      expect(music.catalogError, isNotNull);
+    },
+  );
+
+  test(
+    'plays matching local audio first and only caches audible selections',
+    () async {
+      cache.entries['0.mp3'] = Uri.file('/cache/0.mp3');
+      cache.entries['1.mp3'] = Uri.file('/cache/1.mp3');
+      await music.loadCatalog(() async => catalog());
+      await music.toggle();
+      await flush();
+      expect(players[0].url, 'file:///cache/0.mp3');
+      expect(players[1].url, 'file:///cache/1.mp3');
+      expect(cache.heard, ['0.mp3']);
+      await music.next();
+      expect(cache.heard, ['0.mp3', '1.mp3']);
+    },
+  );
+
+  test('unreadable cached audio falls back to streaming', () async {
+    cache.entries['0.mp3'] = Uri.file('/cache/broken.mp3');
+    configure = (player, number) {
+      if (number == 0) player.failLoads = 1;
+    };
+    await music.loadCatalog(() async => catalog(1));
+    await music.toggle();
+    expect(players.single.loads, 2);
+    expect(players.single.url, 'https://cdn.example/0.mp3');
+    expect(music.playbackError, isNull);
+    expect(music.playing, isTrue);
+  });
+
+  test(
+    'buffering and a pending seek stay interactive; latest seek wins',
+    () async {
+      await music.loadCatalog(() async => catalog(1));
+      await music.toggle();
+      final player = players.single;
+      player.processingState = ProcessingState.buffering;
+      player.emitState();
+      expect(music.canSeek, isTrue);
+      player.seekGate = Completer<void>();
+      final first = music.seek(20);
+      await flush();
+      expect(music.loading, isTrue);
+      expect(music.canSeek, isTrue);
+      final second = music.seek(40);
+      final third = music.seek(60);
+      // A new native target must not wait for the previous target to buffer.
+      expect(player.seekTargets.last, const Duration(seconds: 60));
+      expect(music.position, 60);
+      player.position = const Duration(seconds: 21);
+      player.positions.add(player.position);
+      expect(music.position, 60);
+      player.seekGate!.complete();
+      await Future.wait([first, second, third]);
+      expect(player.seekTargets, [
+        const Duration(seconds: 20),
+        const Duration(seconds: 40),
+        const Duration(seconds: 60),
+      ]);
+      expect(music.position, 60);
+      expect(music.playing, isTrue);
+    },
+  );
+
+  test(
+    'exit during a seek retains the latest target for the next World',
+    () async {
+      await music.loadCatalog(() async => catalog(1));
+      await music.toggle();
+      final player = players.single;
+      player.seekGate = Completer<void>();
+      final seeking = music.seek(60);
+      music.detachWorld();
+      expect(music.position, 60);
+      music.attachWorld();
+      player.seekGate!.complete();
+      await seeking;
+      await music.toggle();
+      expect(music.position, 60);
+      expect(music.playing, isTrue);
+    },
+  );
+
+  test(
+    'seek during initial buffering applies latest target before playback',
+    () async {
+      final gate = Completer<void>();
+      configure = (player, _) => player.loadGate = gate;
+      await music.loadCatalog(() async => catalog(1));
+      final starting = music.toggle();
+      await flush();
+      final player = players.single;
+      player.duration = const Duration(seconds: 90);
+      player.durations.add(player.duration);
+      expect(music.canSeek, isTrue);
+      final first = music.seek(15);
+      final last = music.seek(45);
+      player.onPlay = () => expect(player.position.inSeconds, 45);
+      gate.complete();
+      await Future.wait([starting, first, last]);
+      expect(player.seekTargets, [const Duration(seconds: 45)]);
+      expect(music.position, 45);
+    },
+  );
+
+  test(
+    'switching songs discards a pending seek from the previous song',
+    () async {
+      await music.loadCatalog(() async => catalog());
+      await music.toggle();
+      await flush();
+      players.first.seekGate = Completer<void>();
+      final seeking = music.seek(60);
+      await flush();
+      final switching = music.next();
+      players.first.seekGate!.complete();
+      await Future.wait([seeking, switching]);
+      expect(music.track!.file, '1.mp3');
+      expect(music.position, 0);
+      expect(players[1].seekTargets, isEmpty);
+    },
+  );
 
   test(
     'Collect tracks only user music commands and drops closed open ID',

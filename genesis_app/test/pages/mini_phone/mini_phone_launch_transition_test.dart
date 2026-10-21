@@ -86,6 +86,8 @@ void main() {
           preUrl: 'https://cdn.example/',
           tracks: [
             MusicTrack(
+              likeCount: 0,
+              isLiked: false,
               file: 'launch-test.mp3',
               audioUrl: 'https://cdn.example/launch-test.mp3',
               sourceWorldoId: 'test',

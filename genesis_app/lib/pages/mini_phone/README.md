@@ -45,7 +45,7 @@ HTTP、DTO 和 SQLite 继续位于 `lib/network/mini_phone/`；通用聊天组�
 - Messages / Posts / Photos 控制器通过同一个 `MiniPhoneRequests` 做账号隔离与请求去重，不依赖 `MiniPhoneStore` 或具体页面。
 - `MiniPhoneStore` 保留既有业务方法，统一处理写请求身份、事件、生命周期及恢复顺序。重构不改变接口、数据库、缓存键、请求退避和已读语义。
 - 普通内容变化由页面自身监听；外壳只因导航、身份变化和自身生命周期更新，不因每次列表数据变动重建整套 Navigator。
-- 模型选择与记忆长度仍是会话内设置，不表示后端设置或计费已生效。
+- 模型目录查询带 `biz=phone_dm`；模型选择与记忆长度复用 LocationChat 的公共页面和相同提交参数，不给提交接口传 `biz`。报价直接来自手机业务目录，实际用量与预算范围来自 memory-settings 接口；真实后端及计费仍需联调验收。
 
 ## 验证与文档
 

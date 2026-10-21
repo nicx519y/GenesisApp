@@ -12,13 +12,15 @@ import 'package:genesis_flutter_android/network/v1/genesis_v1_api.dart';
 Map<String, dynamic> _catalogJson() => {
   'pre_url': 'https://cdn-001.worldo.ai/predata/music/',
   'list': [
-    {
+    <String, dynamic>{
       'file': '001.mp3',
       'source_worldo_id': 'o_D91RHR',
       'source_worldo_name': 'My Hero Academia',
       'artist': 'Katsuki Bakugo',
       'title': 'Number One Lungs',
       'cover_url': 'https://cdn.example/cover.jpg?resize=800',
+      'like_cnt': 1234,
+      'is_liked': false,
     },
   ],
 };
@@ -58,19 +60,21 @@ void main() {
       expect(track.artist, 'Katsuki Bakugo');
       expect(track.title, 'Number One Lungs');
       expect(track.coverUrl, 'https://cdn.example/cover.jpg');
+      expect(track.likeCount, 1234);
+      expect(track.isLiked, isFalse);
     },
   );
   test(
     'business errors remain errors instead of becoming empty catalogues',
     () async {
       final transport = _Transport()
-        ..response = {'err_no': 5001, 'err_msg': 'Unavailable'};
+        ..response = {'err_no': 3103, 'err_msg': 'Unavailable', 'data': {}};
       final api = GenesisV1Api(
         ApiClient(baseUrl: 'https://api.example/api/', transport: transport),
       );
       await expectLater(
         api.music.list(),
-        throwsA(isA<ApiException>().having((e) => e.code, 'code', 5001)),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 3103)),
       );
     },
   );
@@ -109,6 +113,32 @@ void main() {
       expect(() => MusicCatalog.fromJson(json), throwsFormatException);
     }
   });
+  test('catalogue preserves int64 counts and current-user state', () {
+    final json = _catalogJson();
+    final track = (json['list'] as List).single as Map<String, dynamic>;
+    track['like_cnt'] = 9223372036854775807;
+    track['is_liked'] = true;
+    final parsed = MusicCatalog.fromJson(json).tracks.single;
+    expect(parsed.likeCount, 9223372036854775807);
+    expect(parsed.isLiked, isTrue);
+  });
+
+  test('catalogue requires nonnegative integer counts and boolean state', () {
+    for (final field in ['like_cnt', 'is_liked']) {
+      final invalidValues = field == 'like_cnt'
+          ? [null, -1, 1.5, '10', true]
+          : [null, 0, 'false'];
+      for (final value in invalidValues) {
+        final json = _catalogJson();
+        ((json['list'] as List).single as Map<String, dynamic>)[field] = value;
+        expect(() => MusicCatalog.fromJson(json), throwsFormatException);
+      }
+      final json = _catalogJson();
+      ((json['list'] as List).single as Map<String, dynamic>).remove(field);
+      expect(() => MusicCatalog.fromJson(json), throwsFormatException);
+    }
+  });
+
   test('facade routes music to the explicit empty mock catalogue', () async {
     final catalog = await GenesisApi(useMock: true).fetchMusicCatalog();
     expect(catalog.tracks, isEmpty);

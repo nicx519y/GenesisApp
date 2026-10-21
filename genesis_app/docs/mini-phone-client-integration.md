@@ -485,7 +485,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `home/`、`entry/`、`shared/` | 桌面与通知布局、手机入口、基础 UI 和列表辅助 |
 | `music/` | 音乐目录、播放、点赞和本地进度 |
 | `settings/mini_phone_settings_page.dart`、`settings/wallpaper/` | 壁纸编辑、选图、上传、保存和缓存 |
-| `settings/mini_phone_model_settings.dart`、`settings/mini_phone_model_settings_page.dart` | AI 模型目录及会话内模型／记忆长度设置 |
+| `settings/mini_phone_model_settings.dart`、`settings/mini_phone_model_settings_page.dart` | 手机业务模型目录缓存，复用公共 Memory & Model 的服务端模型／记忆设置 |
 | `preview/` | 独立预览数据、页面和图片查看 |
 | `lib/network/mini_phone/` | 手机 HTTP、DTO、消息投影 reducer 与 SQLite 存储 |
 | `lib/network/chatroom/chatroom_phone_events.dart` | V2 手机事件模型，解析入口在 `chatroom_models.dart` |
@@ -529,12 +529,26 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 
 这些接口使用既有 `GenesisApi`／V1 resource，保持各自的认证与签名流程。
 
+Music 列表按 2026-10-21 新版 `music_list.md` 接入必填非负 int64 `like_cnt` 和 boolean `is_liked`；游客状态为 false。
+查询失败 `err_no=3103/data={}` 仍是业务错误。打开手机和进入完整播放器时通过 `/music/list` 刷新批量点赞快照，
+进行中请求合并；目录已缓存时只更新点赞状态，不替换曲目、进度或解码器。切歌复用快照，不再单曲查询 `/music/like_status`。
+完整播放器与桌面音乐卡片共用按 `file` 管理的数量和爱心；点击立即乐观增减，按歌串行提交，失败一起回滚，
+迟到快照、旧失败和重复目标不得覆盖新意图或重复计数。其他用户的新点赞在下一次列表刷新时更新，不轮询。
+数量直接复用共用评论列表的 `formatStatCount()`，K/M/B/T、一位小数去 `.0`、不加 `+`；0 隐藏，临界值如 `999999 → 1000K` 保持一致。
+两个按钮统一 28px 爱心、右上角 11px 半粗数字、固定 88×48 点击区域；可见的爱心与数字组合在区域内靠右排列并保留右侧 16px 留白，0 隐藏数字时爱心保持同一右边界。数字与心形重叠并裁掉其下方的右上轮廓，保持桌面半透明卡片背景透出；不以实色数字底块遮盖。桌面按钮位于歌曲信息右侧，点赞不打开播放器，歌曲信息继续负责打开。
+复用原点赞／取消点赞本地化标签，无障碍数量使用完整整数，不新增文案 key。接口与受控测试不代表真实后端或设备已验收。
+
+
+Music 音频使用独立的本机持久缓存（`music/mini_phone_music_cache.dart`）：完整媒体 URL 为匹配键，所有 World 复用，设备上限 10 首。播放及下一首解码器准备先查本地完整文件，未命中或本地解码失败时在线播放；只有实际播放的歌曲在后台串行下载入缓存，下一首预缓冲本身不写入缓存。新音频完整下载、暂存成功后，缓存满额才淘汰最早加入的一首；重复播放不更新加入顺序，不按时间过期或定时清理，退出 World／账号切换不删除公开媒体缓存。下载或本地存储失败不阻断播放。持久目录与通用图片缓存分离，不依赖图片缓存的过期清理策略。
+
+Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用。每次拖动结束立即记录最新目标，等待期间的旧位置事件不得覆盖目标；解码器就绪时新目标立即替换旧跳转，不等待旧目标缓冲完成，初次加载期间则合并中间目标，加载结束后先跳转再开始播放。切歌丢弃旧歌曲的目标；退出 World 撤销旧跳转并保存最后目标，下次恢复仍保持暂停。尚未知时长时仍无法按比例定位。
+
 音乐播放进度保存在本机，按 API 环境和账号共享一条当前歌曲、播放位置与时长，所有 World 共用。正式 World 通过 AppServices 持有的 MiniPhoneMusicOwner 借用同一播放器实例。退出 World 暂停并保存进度，保留目录、当前歌曲及就绪解码器；下一个 World 直接复用且保持暂停，冷启动才恢复本地记录。每次进入 World（包括重新进入同一 World），入口 icon 的音乐气泡和音符显示状态重置；当前 World 播放或切歌后才重新显示，随后暂停仍保留播放按钮。该入口显示状态独立于音乐历史与缓存，异步恢复历史不会激活入口；Home 音乐卡片与播放器继续使用保留的歌曲和进度。同一 World 内关闭／重开手机或地图与地点聊天之间切换不重置入口音乐状态。旧 World 的延迟释放不得暂停新 World；加载中退出撤销播放意图并中断未完成解码器加载。埋点随当前 World 绑定、退出解绑。账号变更、环境服务替换和 AppServices 释放时销毁旧实例；独立无世界预览仍由自己的会话销毁。不做跨设备同步。旧版按 World 保存的记录没有时间戳，共享记录缺失时仅迁移首次读到的有效旧 World 记录，后续旧记录不能覆盖共享进度；各会话的保存和迁移按共享键串行处理。
 
 | 方法与完整路径 | 当前使用场景 |
 | --- | --- |
-| `GET /api/v1/music/list` | 音乐目录、歌曲、音频地址、封面和作者信息；无分页 |
-| `GET /api/v1/music/like_status` | 打开播放器或切歌后查询当前歌曲的点赞状态和数量，参数为目录中的原始 `file` |
+| `GET /api/v1/music/list` | 音乐目录、歌曲、音频地址、封面、作者及每曲 `like_cnt/is_liked`；游客可用，无参数、无分页 |
+| `GET /api/v1/music/like_status` | 保留公共接口，返回 `file/is_liked`；MiniPhone 两个播放器不再调用 |
 | `POST /api/v1/music/like` | 歌曲爱心点赞；乐观更新、失败回滚，按歌曲串行处理 |
 | `POST /api/v1/music/unlike` | 取消歌曲点赞；与点赞共用状态管理 |
 | `GET /api/v1/world/miniphoneinfo` | 打开手机时读取当前世界壁纸配置 |
@@ -542,15 +556,19 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | `POST /api/v1/upload/image` | 壁纸设备选图上传；multipart 字段为 `file`，取得 URL 后保存壁纸配置 |
 | `GET /api/v1/world/detail` | 世界角色、名称、头像和世界时间；初始化及进入 Messages 时获取，供首次私聊、作者入口和 Home 时钟使用 |
 | `GET /api/v1/user/info` | 按 UID 补充用户名称和头像，主要用于世界资料未覆盖的 Post 通知作者 |
-| `GET /api/v1/gem/model/list` | 读取世界模型目录；优先复用已有缓存，供 MiniPhone 模型页展示 |
+| `GET /api/v1/gem/model/list` | MiniPhone 模型页传 `world_id` 和 `biz=phone_dm`，使用手机会话独立目录缓存，不读取或写入 LocationChat 的模型目录缓存 |
+| `POST /api/v1/gem/model/select` | 与 LocationChat 相同，只传 `world_id/model_code`，不传 `biz`；成功后更新公共用户模型缓存 |
+| `GET /api/v1/user/memory-settings` | 与 LocationChat 相同，传 `world_id` 查询实际用量、预算与滑杆范围；不确定提交结果仅做全局查询核对 |
+| `POST /api/v1/user/memory-settings` | 与 LocationChat 相同，只传 `memory_tokens`，不传 `world_id/biz` |
 
 - Home 壁纸在设置页覆盖期间保留旧画面；返回桌面且新图片解码就绪后，以 300ms 淡入淡出切换，加载失败保留旧背景。
-- Apply wallpaper 在保存接口成功后继续等待桌面原图下载、图片校验及缓存处理结束，期间按钮保持 loading、进度不提前到 100%，禁止重复提交和更换选择。自行上传的照片复用已有完整字节，不重复下载；下载失败保留旧桌面并解除 loading，不撤销已成功的服务端保存。账号切换或关闭手机释放控制器后，旧下载不得回写显示状态或成功反馈。
+- Apply wallpaper 在保存接口成功后继续等待桌面原图下载、图片校验及缓存处理结束，期间按钮保持 loading、进度不提前到 100%，禁止重复提交和更换选择。完成后若仍停留在当前 Settings 页面，复用应用收起动画自动返回手机桌面，展示已有壁纸淡入淡出；保存失败停留设置页并保留重试，已离开设置或关闭手机时迟到结果不得触发导航。自行上传的照片复用已有完整字节，不重复下载；下载失败保留旧桌面并解除 loading，不撤销已成功的服务端保存。账号切换或关闭手机释放控制器后，旧下载不得回写显示状态或成功反馈。
 - Settings 壁纸选项使用接口 `default_background_images[].image_url`，列表与上方预览共用 190 × (190 × 16/9) 逻辑尺寸，经公共 CDN 高度缩放入口按预览高度 × DPR（上限 2）加载（1× 高 338px、2× 高 676px）。两处 URL、解码尺寸和 `BoxFit.cover` 缓存键一致，点击已加载选项直接复用解码帧。列表显示高度仍为 100，加载中／失败显示静态深色块（`miniRaised`），不显示默认壁纸占位图。上方预览保留默认壁纸回退和本地图片预览；选择与保存仍使用接口原始 URL。
 - 音乐实现见 `lib/network/v1/music_api.dart`；壁纸、上传、角色和用户资料分别见 `world_api.dart`、`upload_api.dart`、`user_api.dart`；模型目录见 `gem_api.dart`。
-- 当前模型选择和记忆 Token 修改仅更新本地 `MiniPhoneSession`。不要将页面上的选择或折扣展示解释为后端设置／计费已生效。
+- 模型选择和记忆 Token 复用 `MemoryModelPage` 默认服务端提交、用户模型缓存更新、500ms 防抖、失败回滚及退出时待提交处理。手机独立缓存目录和 Memory 快照；保存预算后联合刷新世界用量和 `biz=phone_dm` 报价。客户端与受控测试对齐不表示真实后端或计费已经验收。
+- 手机模型费用与范围直接展示 `biz=phone_dm` 返回值，不再额外乘 0.4 或按 Token 数换算。
 - 音频、封面、头像和相册图片还请求返回的媒体 URL；它们不计入上面的业务接口数。
-- MiniPhone 的 13 个 Collect 事件及完整字段见 [MiniPhone Collect 埋点表](mini-phone-collect-events.md)。复用公共队列、采集配置和上传策略，`object1` 使用真实 World ID。手机模型页关闭通用 `switch_model_page` / `switch_model_save`，改为本地模型/Token 变更事件；不代表后端设置或计费生效。Photos 仅统计大图浏览张次，帖子/评论图片不计入。
+- MiniPhone 的 13 个 Collect 事件及完整字段见 [MiniPhone Collect 埋点表](mini-phone-collect-events.md)。复用公共队列、采集配置和上传策略，`object1` 使用真实 World ID。手机模型页关闭通用 `switch_model_page` / `switch_model_save`；手机模型/Token 变更事件仅在提交成功后记录 `scope=server`，失败不计成功事件。Photos 仅统计大图浏览张次，帖子/评论图片不计入。
 
 ### World WebSocket events
 
