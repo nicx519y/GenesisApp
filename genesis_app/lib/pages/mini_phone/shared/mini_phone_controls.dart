@@ -52,9 +52,11 @@ Widget miniPhoneInput(
   required VoidCallback onChanged,
   int maxLines = 4,
   FocusNode? focusNode,
+  TapRegionCallback? onTapOutside,
 }) => TextField(
   controller: controller,
   focusNode: focusNode,
+  onTapOutside: onTapOutside,
   maxLength: limit,
   minLines: 1,
   maxLines: maxLines,
@@ -112,7 +114,7 @@ Widget miniPhoneAllAuthorsShortcut({
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: selected ? miniPink : const Color(0x33FFFFFF),
+              color: selected ? miniRed : const Color(0x33FFFFFF),
             ),
           ),
           child: Container(
@@ -148,7 +150,12 @@ Widget miniPhonePostAction(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          MiniIcon(icon, size: 15, color: selected ? miniPink : miniSecondary),
+          MiniIcon(
+            icon,
+            size: 15,
+            color: selected ? miniRed : miniSecondary,
+            filled: icon == 'heart' && selected,
+          ),
           if (count != null || reserveCountSpace) ...[
             const SizedBox(width: 6),
             if (reserveCountSpace)

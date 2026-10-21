@@ -69,6 +69,44 @@ Future<void> send(WidgetTester tester, String text) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'touching outside the comment input dismisses the keyboard and keeps the draft and reply action',
+    (tester) async {
+      final b = PhoneBackend();
+      final s = await open(tester, b, count: 1);
+      addTearDown(s.dispose);
+      final field = find.byType(TextField);
+      await tester.enterText(field, 'Unsent draft');
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(find.text('Post body'));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
+
+      await tester.showKeyboard(field);
+      await tester.tap(find.textContaining('Reply 1', findRichText: true));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(
+        tester.widget<TextField>(field).decoration!.hintText,
+        contains('Character'),
+      );
+      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
+
+      await tester.showKeyboard(field);
+      await tester.tapAt(
+        tester.getRect(find.byType(ListView)).bottomLeft + const Offset(8, -8),
+      );
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
+      expect(b.calls('comment/create'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   test(
     'a comments read started before acceptance cannot consume the local row',
     () async {
@@ -338,6 +376,11 @@ void main() {
           ? read.future
           : null;
       await send(tester, 'Optimistic reply');
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isFalse,
+      );
       expect(
         find.textContaining('Optimistic reply', findRichText: true),
         findsOneWidget,
@@ -381,6 +424,11 @@ void main() {
         'Next draft',
       );
       expect(s.comments[8]!.last.id, 13);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isTrue,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

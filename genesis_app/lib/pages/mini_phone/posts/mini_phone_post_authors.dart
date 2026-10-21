@@ -75,7 +75,7 @@ class MiniPhonePostAuthors extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: !create && selectedId == p.id
-                      ? miniPink
+                      ? miniRed
                       : const Color(0x33FFFFFF),
                 ),
               ),

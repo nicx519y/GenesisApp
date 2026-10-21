@@ -261,6 +261,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     hint,
     limit: limit,
     focusNode: commentFocus,
+    onTapOutside: (_) => commentFocus.unfocus(),
     onChanged: () => _update(() {}),
   );
   Widget _liveCommentRow(
@@ -500,6 +501,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                             if (commentInput.text == text) commentInput.clear();
                             replyToComment = null;
                           });
+                          commentFocus.unfocus();
                           final ok = await phone.write(
                             'comment',
                             '$id',

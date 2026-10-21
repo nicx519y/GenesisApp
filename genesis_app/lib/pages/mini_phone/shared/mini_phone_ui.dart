@@ -42,13 +42,15 @@ class MiniIcon extends StatelessWidget {
     super.key,
     this.size = 22,
     this.color = miniWhite,
+    this.filled = false,
   });
   final String name;
   final double size;
   final Color color;
+  final bool filled;
   @override
   Widget build(BuildContext context) => SvgPicture.asset(
-    '${miniPhoneAssets}icons/$name.svg',
+    '${miniPhoneAssets}icons/$name${filled ? '-filled' : ''}.svg',
     width: size,
     height: size,
     colorFilter: ColorFilter.mode(color, BlendMode.srcIn),

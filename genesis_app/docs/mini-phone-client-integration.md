@@ -234,16 +234,17 @@ Validation for this scheduling change:
   detail photos share the same thumbnail component. They reserve exactly 200
   logical pixels before loading and after failure, use the full available body
   width without an extra width cap, and scale proportionally to the fixed height
-  (`BoxFit.fitHeight`). Images are centered; excess width is cropped equally on
-  both sides. They retain square corners and show only background when loading or
-  failed: no placeholder asset, error icon, text, spinner or Toast. Thumbnail
+  (`BoxFit.fitHeight`). Images align to the left edge of the body area; excess
+  width is cropped on the right. They retain square corners and show only
+  background when loading or failed: no placeholder asset, error icon, text,
+  spinner or Toast. Thumbnail
   requests replace the existing OSS transform with fixed-height resize plus
   WebP (`image/resize,h_{ceil(200 * cappedDpr)}/format,webp`), retaining unrelated
   query parameters. The rendered and prefetched thumbnails share identical
   URL/decode/cache keys; tapping opens the original image URL and passes the
   displayed thumbnail provider to the shared viewer, so its cached frame is
   shown immediately until the full image loads (and retained if that fails). The
-  shared source anchor also captures the centered, cropped thumbnail bounds
+  shared source anchor also captures the left-aligned, cropped thumbnail bounds
   for the viewer's 320 ms easeOutCubic opening expansion. The original tile is
   hidden only during flight; full-image loading continues underneath. Missing
   cached frames fall back to fade, and reduced motion opens directly.
@@ -702,6 +703,14 @@ Skeleton height is not a final scroll target. Sending is an exception: a local
 outgoing row renders and scrolls into view immediately, even while reading or
 writing. Layout changes (keyboard, multiline
 input, images, refreshed post) realign while following; manual scroll cancels it.
+
+The Comments page dismisses the keyboard on Send, before awaiting the write
+or confirmation. Touching outside the input also dismisses it while preserving
+the draft and the touched control's action, including selecting a reply target.
+Late responses do not dismiss a newly focused input. This behavior is specific
+to post comments; private-message Send retains the keyboard. The shared Posts
+like action uses a solid brand-red heart when liked and the original outline
+when unliked, in both the feed and detail.
 
 Comment sending uses a World-session outbox owned by the Posts controller and
 keyed by the existing write request ID. It clears the submitted input immediately,

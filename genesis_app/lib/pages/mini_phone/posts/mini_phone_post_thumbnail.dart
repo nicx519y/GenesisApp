@@ -51,7 +51,7 @@ class MiniPhonePostThumbnail extends StatelessWidget {
       return GenesisImageViewerSourceAnchor(
         previewImageProvider: preview,
         fit: BoxFit.fitHeight,
-        alignment: Alignment.center,
+        alignment: Alignment.centerLeft,
         onTap: (source) => onTap(preview, source),
         child: SizedBox(
           width: width,
@@ -62,7 +62,7 @@ class MiniPhonePostThumbnail extends StatelessWidget {
             width: width,
             height: miniPhonePostThumbnailHeight,
             fit: BoxFit.fitHeight,
-            alignment: Alignment.center,
+            alignment: Alignment.centerLeft,
             placeholder: (_) => const SizedBox.expand(),
             errorWidget: (_, _) => const SizedBox.expand(),
           ),
