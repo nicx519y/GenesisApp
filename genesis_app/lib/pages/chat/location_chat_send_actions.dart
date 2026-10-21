@@ -157,6 +157,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         locationChatBubbleLayoutSettings.value.replyWaitingPositioningEnabled;
 
     void addOptimisticMessage() {
+      _finishPrivateChatReturnObservation();
       final previousPresentation = _replyProjection.presentation(
         _renderedReplyState,
       );

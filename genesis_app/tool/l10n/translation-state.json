@@ -5664,16 +5664,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "33a5b4b28711a0042a9c237e34af279cfb0cd69a5f0293244d17d25d3b2d0349",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "afa3b9419c98620e2a177e3aed4ce78b1ff6e1571c9641203c53b3ac0d79eb58",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -11345,16 +11345,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "f95d5fc1304fe71cba03fe0d657b3e25c206cdf337e5802031cd3f7d36d6753a",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "7496792fecbaa842c26881dedc20de35970896befa92e40139dd2acef84498e8",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -17026,16 +17026,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "b685f722bee77895f96e5abb937e6407e5fd3bfeec8c95f10c2434bb37568959",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "77f1df219112648a1002a8d9b04fff9d04afe555db7c46b0461190d36b768827",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -22707,16 +22707,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "03f7054aba16c69d9ea55673ec568dbc52750467b7dcdcdefc1b76317fc75af8",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "e15fac99459731df4e2b887d6aa88eb8529874800ebd19d4f69d7156ba986b87",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -28388,16 +28388,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "e253b90b027553091ae4f13e4aba4aedd331084a510e15186581e89981956c32",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "fd04970429691b97286285008631bbb084612282e99c217de85806dce325697c",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -34069,16 +34069,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "f2f1e0bd264e7e322feead39c40be8d45d7d6be1b2f0b6184bb897d4e20ec682",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "6196e19f613d5f79d2b8662acdce004f09d708d864eb7e908b52b5c4af1489f0",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -39750,16 +39750,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "7114ada2c4bb524825b7d81fef70e9a5383424f90fd35e833dec407daba27fcd",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "dfdc4fd133c3281736641b8532ee0e9f833e5c41b047eb3e5ae79996bc00b47e",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",
@@ -45431,16 +45431,16 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneContactAdded": {
-          "source_hash": "4437b77b4020d349c6b5980aeda0485f2c7ebe732e736ed6b64ed95fe363643e",
+          "source_hash": "776449db6a3d4ed85a5955e2a84c10ab8d13370c01df9402567b2548932f1bf1",
           "text_hash": "f5f31fd41f14e5f25b627de60882bcaff8fb02452744307d1766e2db9ebc0546",
           "status": "ai",
-          "note": "Reviewed updated display scope: contact-added also appears as an empty conversation list subtitle; Posts invitation only appears for the empty All feed. Existing wording remains appropriate."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhoneCharacterIntroduction": {
-          "source_hash": "9e14cb5ea31b9cef09e7e39eff8e6e24bf87c0570f4074cbd36e305162373f18",
+          "source_hash": "d22efd7c157d7eaadce037ce8ae84435c44f1a2a50be0d3beada75e866f76405",
           "text_hash": "9f8f05aacf9db196ad99df259c8da416b3d289e5d1142f09f3ae1f3d0e66f911",
           "status": "ai",
-          "note": "Posts empty-feed invitation, or unchanged previously supplied display-only greeting with name placeholder."
+          "note": "Context reviewed: local opening notices remain above later messages in this open chat. Existing translations retain the same meaning; no wording change."
         },
         "miniPhonePostsEmpty": {
           "source_hash": "1ed5792623965b82826412dbdf94e8cd4b0f407def17527d76122c2ca311c79c",

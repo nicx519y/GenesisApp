@@ -43,6 +43,7 @@ Future<void> showMiniPhone(
   String entrySource = 'unknown',
   MemoryModelPageCache? modelCache,
   MiniPhoneSession? session,
+  ValueChanged<MiniPhoneSession>? onPrivateChatOpened,
 }) async {
   final inherited = MiniPhoneSessionScope.read(context);
   final phone =
@@ -80,6 +81,7 @@ Future<void> showMiniPhone(
           session: phone,
           initialScreen: initialScreen ?? phone.resume.screen,
           initialContact: initialContact,
+          onPrivateChatOpened: onPrivateChatOpened,
           entrySource: entrySource,
           isRestored:
               initialScreen == null &&
@@ -127,8 +129,12 @@ class MiniPhonePage extends StatefulWidget {
     this.worldId = '',
     this.wallpaperController,
     this.session,
+    this.onPrivateChatOpened,
   });
   final MiniPhoneSession? session;
+
+  /// Route-local observation only; no private messages enter the World stream.
+  final ValueChanged<MiniPhoneSession>? onPrivateChatOpened;
   final MiniPhoneScreen initialScreen;
   final PhonePerson? initialContact;
   final String entrySource;
@@ -800,6 +806,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   );
   void _loadLiveScreen(MiniPhoneScreen next) {
     final data = phone!;
+    if (next == MiniPhoneScreen.chat && liveContact != null) {
+      widget.onPrivateChatOpened?.call(_session);
+    }
     data.activeCharId = next == MiniPhoneScreen.chat ? liveContact?.id : null;
     data.activePostId = next == MiniPhoneScreen.comments ? livePostId : null;
     data.postsVisible = next == MiniPhoneScreen.posts;

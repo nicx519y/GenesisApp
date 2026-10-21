@@ -5881,13 +5881,13 @@ abstract class AppLocalizations {
   /// **'Invalid MiniPhone response'**
   String get miniPhoneInvalidResponse;
 
-  /// MiniPhone empty private conversation: display-only contact-added notice, also used as the Messages list subtitle when that conversation has no last message. Never sent, stored, counted as a message, or used for conversation ordering. The conversation notice is hidden when real or outgoing messages exist; a real last message replaces the list subtitle.
+  /// MiniPhone initially empty private conversation: centered display-only contact-added notice using the same style as the day/private-chat heading. Once shown, it stays above subsequent messages for this open chat. Also used as the Messages list subtitle only when there is no real last message. Never sent, stored, counted as a message, or used for conversation ordering.
   ///
   /// In en, this message translates to:
   /// **'You\'\'ve added {name}.'**
   String miniPhoneContactAdded({required String name});
 
-  /// MiniPhone empty private conversation: local display-only character introduction bubble with the contact's dynamic name. Not a generated reply, not stored or sent; hidden when real or outgoing messages exist. Do not assume gender from the name.
+  /// MiniPhone initially empty private conversation: local display-only character introduction bubble with the contact's dynamic name. Once shown, it stays above subsequent messages for this open chat. Not a generated reply, not stored or sent, and not added to World History. Do not assume gender from the name.
   ///
   /// In en, this message translates to:
   /// **'I\'\'m {name}.'**

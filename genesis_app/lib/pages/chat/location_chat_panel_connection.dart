@@ -812,6 +812,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     }
     // Keep connection recovery above alive, but reconcile the latest service
     // snapshot only once when the covering page closes.
+    final privateReturnsChanged = _syncPrivateChatReturns(state);
     if (_presentationPaused) return;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
@@ -852,6 +853,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       state,
     );
     final messageViewportChanged =
+        privateReturnsChanged ||
         historyChanged ||
         changedMessages ||
         changedHasMoreOlder ||

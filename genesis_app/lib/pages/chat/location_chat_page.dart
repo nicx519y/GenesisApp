@@ -5,7 +5,6 @@ import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
-import 'location_chat_movement_projection.dart';
 import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 
 import '../../components/common/page_presentation_scope.dart';
@@ -115,6 +114,7 @@ part 'location_chat_layout.dart';
 part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_message_viewport.dart';
+part 'location_chat_private_return.dart';
 part 'location_chat_shared.dart';
 part '../world/world_chat_history_section.dart';
 part '../world/world_chat_history_loader.dart';
@@ -648,6 +648,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   final BackdropKey _surfaceBackdropKey = BackdropKey();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
+  final _privateChatReturns = <_PrivateChatReturn>[];
   final _localMessageOrder = LocationChatLocalMessageOrder();
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
       <String, _LocationChatTimelineVmCacheEntry>{};
@@ -831,16 +832,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (_rosterOpen) setState(() => _rosterOpen = false);
     _openingCharacterChat = true;
     try {
-      await PagePresentationScope.runCovered(
-        context,
-        () => showMiniPhone(
-          context,
-          worldId: _modelWorldId,
-          modelCache: _modelRequestCache,
-          initialContact: contact,
-          entrySource: source,
-        ),
-      );
+      await _openPhoneFromRoom(contact: contact, source: source);
     } finally {
       _openingCharacterChat = false;
     }
@@ -1144,6 +1136,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _privateChatReturns.clear();
     _presentation?.removeListener(_handlePresentationChanged);
     _initialComposerAvatarImage?.dispose();
     _clearAckLoading();
@@ -1204,6 +1197,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
     if (changedChatTarget) {
+      _privateChatReturns.clear();
       _localMessageOrder.clear();
       _detachReplyActions();
     }
@@ -1219,6 +1213,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _exitRetainedOccupants = null;
       _optimisticSelfOccupancy = widget.isLeafLocation;
     } else if (becameInactive) {
+      _finishPrivateChatReturnObservation();
       _exitRetainedOccupants =
           _lastActiveOccupants ??
           _roomOccupantsForCurrentLocation(_chatroomState);
@@ -1599,17 +1594,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                               worldId: _modelWorldId,
                               topInset: 4,
                               bottomInset: 8,
-                              onPressed: (phone) =>
-                                  PagePresentationScope.runCovered(
-                                    context,
-                                    () => showMiniPhone(
-                                      context,
-                                      session: phone,
-                                      entrySource: 'location_chat_dock',
-                                      worldId: _modelWorldId,
-                                      modelCache: _modelRequestCache,
-                                    ),
-                                  ),
+                              onPressed: (phone) => _openPhoneFromRoom(
+                                session: phone,
+                                source: 'location_chat_dock',
+                              ),
                             ),
                           ),
                       ],

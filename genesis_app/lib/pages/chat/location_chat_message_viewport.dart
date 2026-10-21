@@ -187,7 +187,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             key: const ValueKey<String>('location-chat-message-list'),
             coordinator: _scrollCoordinator,
             active: widget.active,
-            messages: displayMessages,
+            messages: _withPrivateChatReturns(displayMessages),
             restoreInitialCompletedContent: true,
             initialContentReady: _initialContentReadyNotified,
             historyGapLoaders: _historyGapLoaders(displayMessages),

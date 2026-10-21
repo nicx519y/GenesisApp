@@ -32,6 +32,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   final panelKey = GlobalKey();
   int? sdk;
   bool ready = false;
+  // Latch only after an empty conversation has loaded successfully. New
+  // messages append below these local opening rows instead of replacing them.
+  bool _showOpeningRows = false;
   String? owner;
   String? _shownError;
   bool _loadingHistory = false;
@@ -79,7 +82,15 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     }
     await store.refreshMessages(widget.person.id);
     if (mounted && generation == store.accountGeneration) {
-      setState(() => ready = true);
+      setState(() {
+        ready = true;
+        if (_error == null &&
+            store.history(widget.person.id).isEmpty &&
+            store.outgoingDm(widget.person.id).isEmpty &&
+            store.waiting(widget.person.id) == null) {
+          _showOpeningRows = true;
+        }
+      });
     }
   }
 
@@ -93,6 +104,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       _latestMessageId = 0;
       _loadingHistory = false;
       ready = false;
+      _showOpeningRows = false;
       input.clear();
       final generation = _accountGeneration;
       // The account-change notification precedes replacement of store.ready.
@@ -297,9 +309,10 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
           : rows.indexWhere((m) => m.localId == 'phone:${reply.id}');
       rows.insert(replyIndex < 0 ? rows.length : replyIndex, row);
     }
-    // Display-only greetings never enter the store, inbox, unread or history.
-    if (ready && rows.isEmpty && waiting == null && _error == null) {
-      rows.addAll([
+    // These opening rows stay above subsequent messages for this open chat.
+    // They never enter message storage, unread counts or World History.
+    if (_showOpeningRows) {
+      rows.insertAll(0, [
         ChatMessageVm(
           localId: 'phone:empty-contact:${person.id}',
           isMe: false,
@@ -325,6 +338,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
         Theme.of(context).platform == TargetPlatform.iOS ||
         Theme.of(context).platform == TargetPlatform.android &&
             (sdk ?? 0) >= 30;
+    final noticeStyle = miniStyle(11, FontWeight.w400, miniTertiary);
     return SizedBox.expand(
       key: panelKey,
       child: Scaffold(
@@ -346,6 +360,22 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                   child: LocationChatAnchoredMessageList(
                     coordinator: coordinator,
                     messages: rows,
+                    messageDecorator: (message, previous, child) {
+                      if (message.localId !=
+                          'phone:empty-contact:${person.id}') {
+                        return child;
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Center(
+                          child: Text(
+                            message.text,
+                            textAlign: TextAlign.center,
+                            style: noticeStyle,
+                          ),
+                        ),
+                      );
+                    },
                     topTitle: [
                       store.worldDay,
                       context.l10n.miniPhonePrivateConversation,
@@ -358,11 +388,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                     style: kPrivateChatStyle.copyWith(
                       messageListPadding: const EdgeInsets.all(miniPageInset),
                       topTitleBottomPadding: 22,
-                      topTitleTextStyle: miniStyle(
-                        11,
-                        FontWeight.w400,
-                        miniTertiary,
-                      ),
+                      topTitleTextStyle: noticeStyle,
                     ),
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,

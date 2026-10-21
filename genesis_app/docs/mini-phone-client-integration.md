@@ -195,12 +195,26 @@ Validation for this scheduling change:
   icon; request guards and scroll anchoring remain unchanged.
 - Empty initialized conversations show view-only contact-added and character
   introduction rows. They never enter storage, sending, unread counts or
-  History; real or outgoing messages hide them. Messages list rows without a
+  History. Once shown, both stay above subsequent messages for this open chat;
+  the contact-added notice uses the centered day/private-chat heading style.
+  Messages list rows without a
   real last message reuse the contact-added copy as a display-only subtitle,
   without changing cached summaries or ordering. Errors and waiting replies do
-  not synthesize greetings. LocationChat separately collapses adjacent real
-  `characters_moved` notices per character to the final destination; ordinary
-  messages and Ticks end a group. Phone payloads and canonical cursors are unchanged.
+  not synthesize greetings. LocationChat preserves the original movement events;
+  the broad consecutive-movement projection was removed. The private position
+  worker currently only refreshes world positions, without a movement event or
+  client-visible source field.
+- Returning from a real MiniPhone private chat opened by LocationChat adds a
+  view-only comparison of known AI positions before/after that visit. It reuses
+  the movement card and location navigation for arrivals/departures involving
+  this room. A→B→C keeps C; returning to the original position removes the row.
+  Consecutive phone visits with no public activity share this comparison. Opening
+  Music/Posts alone does not start it. One coalesced World refresh runs on return;
+  later world snapshots can update the row until public messages, a Tick, a local
+  room send or leaving the room ends observation. Account/room/service changes
+  invalidate it. No polling, new source claims, synthetic server messages,
+  History records or changes to canonical cursors are introduced. Real private
+  position updates and the device return flow still require manual acceptance.
 - Music covers follow horizontal drags, revealing the adjacent cover. A 48-pixel
   drag or fast flick settles to that cover over 220 ms before committing playback;
   canceled gestures return to the current cover. Right swipes always select the

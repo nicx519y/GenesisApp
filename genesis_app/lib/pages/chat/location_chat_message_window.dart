@@ -511,7 +511,7 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
       .toList(growable: false);
   if (renderableSource.length < 2) {
     return _VisibleLocationChatMessages(
-      messages: collapseLocationCharacterMovements(renderableSource),
+      messages: renderableSource,
       gapFillBeforeLocationMessageId: 0,
       gaps: const <_LocationChatMessageGap>[],
     );
@@ -522,9 +522,7 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
       .toList(growable: false);
   if (locationMessages.isEmpty) {
     return _VisibleLocationChatMessages(
-      messages: collapseLocationCharacterMovements(
-        _collapseConsecutiveTickMessages(sorted),
-      ),
+      messages: _collapseConsecutiveTickMessages(sorted),
       gapFillBeforeLocationMessageId: 0,
       gaps: const <_LocationChatMessageGap>[],
     );
@@ -605,7 +603,7 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
     visibleLocationMessageIds: visibleLocationMessageIds,
   );
   return _VisibleLocationChatMessages(
-    messages: collapseLocationCharacterMovements(visible),
+    messages: visible,
     gapFillBeforeLocationMessageId: gaps.isEmpty
         ? 0
         : gaps.first.upperLocationMessageId,
