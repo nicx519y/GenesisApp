@@ -54,7 +54,7 @@ extension _MiniPhonePosts on _MiniPhonePreviewState {
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: authorFilter == p.id
-                        ? miniPink
+                        ? miniRed
                         : const Color(0x33FFFFFF),
                   ),
                 ),
@@ -150,10 +150,15 @@ extension _MiniPhonePosts on _MiniPhonePreviewState {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(13),
                         child: p.photo != null
-                            ? Image.memory(p.photo!, fit: BoxFit.contain)
+                            ? Image.memory(
+                                p.photo!,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.centerLeft,
+                              )
                             : Image.asset(
                                 '$miniPhoneAssets${p.asset}',
                                 fit: BoxFit.contain,
+                                alignment: Alignment.centerLeft,
                               ),
                       ),
                     ),
@@ -342,7 +347,13 @@ extension _MiniPhonePosts on _MiniPhonePreviewState {
           children: [
             const MiniAvatar(miniDemoMe, size: 31),
             const SizedBox(width: 9),
-            Expanded(child: _input(commentInput, 'Write a comment…')),
+            Expanded(
+              child: _input(
+                commentInput,
+                'Write a comment…',
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
+              ),
+            ),
             const SizedBox(width: 8),
             miniPhoneSendButton(
               commentInput.text.trim().isEmpty
@@ -350,6 +361,7 @@ extension _MiniPhonePosts on _MiniPhonePreviewState {
                   : () {
                       store.comment(p, commentInput.text);
                       commentInput.clear();
+                      FocusScope.of(context).unfocus();
                       _scrollToEnd(commentsScroll);
                     },
             ),

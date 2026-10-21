@@ -51,7 +51,7 @@ class MiniMusicLikeButton extends StatelessWidget {
     builder: (context, _) {
       final liked = music.likes.isLiked(track.file);
       final count = music.likes.likeCount(track.file);
-      final color = liked ? miniPink : miniWhite;
+      final color = liked ? miniRed : miniWhite;
       final countLabel = count > 0 ? formatStatCount(count) : '';
       final countStyle = miniStyle(
         11,
@@ -98,7 +98,12 @@ class MiniMusicLikeButton extends StatelessWidget {
                     children: [
                       ClipPath(
                         clipper: count > 0 ? const _HeartCountClipper() : null,
-                        child: MiniIcon('heart', size: 28, color: color),
+                        child: MiniIcon(
+                          'heart',
+                          size: 28,
+                          color: color,
+                          filled: liked,
+                        ),
                       ),
                       if (count > 0)
                         Positioned(

@@ -111,11 +111,13 @@ class _MiniPhonePreviewState extends State<MiniPhonePreview> {
     TextEditingController controller,
     String hint, {
     int? limit = 500,
+    TapRegionCallback? onTapOutside,
     int maxLines = 4,
   }) => miniPhoneInput(
     controller,
     hint,
     limit: limit,
+    onTapOutside: onTapOutside,
     maxLines: maxLines,
     onChanged: _changed,
   );

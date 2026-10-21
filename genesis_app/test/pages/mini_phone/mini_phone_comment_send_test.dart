@@ -69,6 +69,109 @@ Future<void> send(WidgetTester tester, String text) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final draft in ['', '  ', 'Unsent draft']) {
+    testWidgets(
+      'outside taps dismiss the keyboard and preserve a reply only with a draft, length=${draft.length}',
+      (tester) async {
+        final b = PhoneBackend();
+        final s = await open(tester, b, count: 1);
+        addTearDown(s.dispose);
+        addTearDown(tester.view.resetViewInsets);
+        final field = find.byType(TextField);
+        final normalHint = tester.widget<TextField>(field).decoration!.hintText;
+        final hasDraft = draft.trim().isNotEmpty;
+        void expectDismissed() {
+          final input = tester.widget<TextField>(field);
+          expect(tester.testTextInput.isVisible, isFalse);
+          expect(input.focusNode!.hasFocus, isFalse);
+          expect(input.controller!.text, draft);
+          expect(
+            input.decoration!.hintText,
+            hasDraft ? contains('Character') : normalHint,
+          );
+        }
+
+        await tester.tap(find.textContaining('Reply 1', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+        expect(
+          tester.widget<TextField>(field).decoration!.hintText,
+          contains('Character'),
+        );
+        await tester.enterText(field, draft);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Post body'));
+        await tester.pump();
+        expectDismissed();
+
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Reply 1', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+        await tester.pumpAndSettle();
+        await tester.tapAt(
+          tester.getRect(find.byType(ListView)).bottomLeft +
+              const Offset(8, -8),
+        );
+        await tester.pump();
+        expectDismissed();
+        expect(b.calls('comment/create'), isEmpty);
+        if (hasDraft) {
+          await send(tester, draft);
+          expect(
+            b.body(b.calls('comment/create').single)['reply_to_comment_id'],
+            1,
+          );
+        }
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+  for (final draft in ['', 'Unsent draft']) {
+    testWidgets(
+      'tapping another comment with the keyboard open cancels reply without switching target, draft=$draft',
+      (tester) async {
+        final b = PhoneBackend();
+        final s = await open(tester, b, count: 2);
+        addTearDown(s.dispose);
+        addTearDown(tester.view.resetViewInsets);
+        final field = find.byType(TextField);
+        final normalHint = tester.widget<TextField>(field).decoration!.hintText;
+        await tester.tap(find.textContaining('Reply 1', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        await tester.enterText(field, draft);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Reply 2', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isFalse);
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+        expect(
+          tester.widget<TextField>(field).decoration!.hintText,
+          normalHint,
+        );
+        expect(tester.widget<TextField>(field).controller!.text, draft);
+        expect(b.calls('comment/create'), isEmpty);
+
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Reply 2', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        await send(tester, 'Reply to second');
+        expect(
+          b.body(b.calls('comment/create').single)['reply_to_comment_id'],
+          2,
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   test(
     'a comments read started before acceptance cannot consume the local row',
     () async {
@@ -338,6 +441,11 @@ void main() {
           ? read.future
           : null;
       await send(tester, 'Optimistic reply');
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isFalse,
+      );
       expect(
         find.textContaining('Optimistic reply', findRichText: true),
         findsOneWidget,
@@ -381,6 +489,11 @@ void main() {
         'Next draft',
       );
       expect(s.comments[8]!.last.id, 13);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isTrue,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

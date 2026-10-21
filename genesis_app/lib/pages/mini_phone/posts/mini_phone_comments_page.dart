@@ -2,6 +2,7 @@ import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
 import '../shared/mini_phone_ui.dart';
@@ -250,6 +251,28 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     if (mounted) setState(action);
   }
 
+  void _dismissCommentInput({bool clearReply = false}) {
+    commentFocus.unfocus();
+    if (replyToComment != null &&
+        (clearReply || commentInput.text.trim().isEmpty)) {
+      _update(() => replyToComment = null);
+    }
+  }
+
+  void _selectComment(PhoneComment comment) {
+    if (_keyboardOpen) {
+      _dismissCommentInput(clearReply: true);
+      return;
+    }
+    _update(() => replyToComment = comment);
+    if (commentFocus.hasFocus) {
+      // Android's system Back can hide the keyboard without removing focus.
+      unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.show'));
+    } else {
+      commentFocus.requestFocus();
+    }
+  }
+
   Widget _panel(String title, Widget body, {Widget? footer}) =>
       miniPhonePanel(widget.header, body, footer: footer);
   Widget _input(
@@ -261,6 +284,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     hint,
     limit: limit,
     focusNode: commentFocus,
+    onTapOutside: (_) => _dismissCommentInput(),
     onChanged: () => _update(() {}),
   );
   Widget _liveCommentRow(
@@ -270,69 +294,66 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     PhoneComment? replyTarget,
     String? replyToCharId,
     String? replyToName,
-  }) => InkWell(
-    onTap: replyTarget == null
-        ? null
-        : () => _update(
-            () => replyToComment = replyToComment?.id == replyTarget.id
-                ? null
-                : replyTarget,
-          ),
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: miniPageInset,
-        vertical: 16,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: miniDivider, width: .5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          miniPhonePersonAvatar(author, 36),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        author.name,
-                        style: miniStyle(14, FontWeight.w600),
-                      ),
-                    ),
-                    if (time.isNotEmpty) ...[
-                      const SizedBox(width: 8),
+  }) => TextFieldTapRegion(
+    enabled: replyTarget != null,
+    child: InkWell(
+      onTap: replyTarget == null ? null : () => _selectComment(replyTarget),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: miniPageInset,
+          vertical: 16,
+        ),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: miniDivider, width: .5)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            miniPhonePersonAvatar(author, 36),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Flexible(
                         child: Text(
-                          time,
-                          style: miniStyle(12, FontWeight.w400, miniTertiary),
+                          author.name,
+                          style: miniStyle(14, FontWeight.w600),
                         ),
                       ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      if (replyToName != null || replyToCharId != null)
-                        TextSpan(
-                          text:
-                              '@${replyToName ?? phone.person(replyToCharId!).name} ',
-                          style: miniStyle(14, FontWeight.w600, miniPink),
+                      if (time.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            time,
+                            style: miniStyle(12, FontWeight.w400, miniTertiary),
+                          ),
                         ),
-                      TextSpan(text: content),
+                      ],
                     ],
                   ),
-                  style: miniStyle(14),
-                ),
-              ],
+                  const SizedBox(height: 5),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        if (replyToName != null || replyToCharId != null)
+                          TextSpan(
+                            text:
+                                '@${replyToName ?? phone.person(replyToCharId!).name} ',
+                            style: miniStyle(14, FontWeight.w600, miniPink),
+                          ),
+                        TextSpan(text: content),
+                      ],
+                    ),
+                    style: miniStyle(14),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -378,6 +399,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                 notification is UserScrollNotification &&
                     notification.direction != ScrollDirection.idle) {
               _followBottom = _sendFollow = false;
+              if (commentFocus.hasFocus) _dismissCommentInput();
             }
             return false;
           },
@@ -500,6 +522,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                             if (commentInput.text == text) commentInput.clear();
                             replyToComment = null;
                           });
+                          commentFocus.unfocus();
                           final ok = await phone.write(
                             'comment',
                             '$id',

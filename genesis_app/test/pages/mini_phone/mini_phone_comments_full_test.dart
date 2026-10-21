@@ -495,6 +495,10 @@ void main() {
       );
       await tester.drag(find.byType(ListView), const Offset(0, 250));
       await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isFalse,
+      );
       final readOffset = controller.offset;
       expect(readOffset, lessThan(controller.position.maxScrollExtent - 20));
       b.respond = (r) => r.uri.path.endsWith('/comments')
@@ -506,6 +510,7 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding();
       await tester.pumpAndSettle();
       expect(controller.offset, greaterThan(0));
+      await tester.showKeyboard(find.byType(TextField));
       tester.view.viewInsets = const FakeViewPadding(bottom: 280);
       await tester.pumpAndSettle();
       expect(

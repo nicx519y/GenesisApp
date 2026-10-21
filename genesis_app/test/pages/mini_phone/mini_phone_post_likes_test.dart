@@ -187,7 +187,7 @@ void main() {
             void expectLike(bool liked, int count) {
               expect(
                 tester.widget<MiniIcon>(heart).color,
-                liked ? miniPink : miniSecondary,
+                liked ? miniRed : miniSecondary,
               );
               expect(
                 find.descendant(of: action, matching: find.text('$count')),
