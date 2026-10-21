@@ -558,6 +558,43 @@ void main() {
     },
   );
   test(
+    'account switch clears album pages and confirmed viewport boundary',
+    () async {
+      final b = PhoneBackend(), s = b.store();
+      addTearDown(s.dispose);
+      await s.ready;
+      b.respond = (r) {
+        if (!r.uri.path.endsWith('/album')) return null;
+        final pn = int.parse(r.uri.queryParameters['pn']!);
+        return ok(
+          page(
+            [
+              {
+                'asset_id': pn,
+                'world_id': 'w',
+                'image_url': 'https://cdn.test/$pn',
+              },
+            ],
+            pn: pn,
+            rn: 100,
+            total: 300,
+          ),
+        );
+      };
+      await s.refreshAlbum();
+      await s.refreshAlbum(next: true);
+      expect(s.album.map((p) => p.id), [1, 2]);
+      b.uid = 'other';
+      b.revision.value++;
+      await s.ready;
+      expect(s.album, isEmpty);
+      expect(s.photosController.confirmedAlbum, isEmpty);
+      await s.refreshAlbum();
+      expect(s.album.map((p) => p.id), [1]);
+    },
+  );
+
+  test(
     'history recovery crosses pages until known boundary; native IDs sort numerically',
     () async {
       final b = PhoneBackend(), s = PhoneBackend();

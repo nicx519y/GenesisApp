@@ -284,6 +284,144 @@ void main() {
     },
   );
 
+  testWidgets(
+    'reentry starts at top with cached pages, diffs first page and pages at confirmed boundary',
+    (tester) async {
+      final first = [for (var id = 1; id <= 100; id++) _photo(id)];
+      final probe = await _mount(tester, first);
+      final store = probe.session.data!;
+      final backend = probe.backend;
+      Completer<Object?>? firstGate;
+      Completer<Object?>? secondGate;
+      backend.respond = (request) {
+        if (!request.uri.path.endsWith('/album')) return null;
+        final pn = int.parse(request.uri.queryParameters['pn']!);
+        if (pn == 1 && firstGate != null) return firstGate.future;
+        if (pn == 2 && secondGate != null) return secondGate.future;
+        return ok(
+          page(
+            [
+              for (var id = (pn - 1) * 100 + 1; id <= pn * 100; id++)
+                _photo(id),
+            ],
+            pn: pn,
+            rn: 100,
+            total: 250,
+          ),
+        );
+      };
+      await tester.runAsync(() async {
+        await store.refreshAlbum();
+        await store.refreshAlbum(next: true);
+      });
+      await tester.pumpAndSettle();
+      final cached = store.album;
+      ScrollController scroll() => tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      scroll().jumpTo(1200);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Photos'));
+      await tester.pumpAndSettle();
+      firstGate = Completer<Object?>();
+      final calls = backend.calls('album').length;
+      await tester.tap(find.bySemanticsLabel('Photos'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(backend.calls('album').length, calls + 1);
+      expect(
+        backend.calls('album').last.uri.queryParameters,
+        containsPair('rn', '100'),
+      );
+      expect(scroll().offset, 0);
+      expect(store.album, same(cached));
+      final unchangedTile = tester.widget(find.byKey(const ValueKey<int>(2)));
+      firstGate.complete(
+        ok(page([_photo(301), ...first.skip(1)], rn: 100, total: 250)),
+      );
+      await tester.pumpAndSettle();
+      expect(store.album.length, 200);
+      expect(store.album.first.id, 301);
+      expect(store.album[1], same(cached[1]));
+      expect(
+        tester.widget(find.byKey(const ValueKey<int>(2))),
+        same(unchangedTile),
+      );
+      expect(scroll().offset, 0);
+      expect(backend.calls('album').length, calls + 1);
+
+      // The cache extends to page 2, but the current read only confirmed page 1.
+      secondGate = Completer<Object?>();
+      final gridWidth = tester.getSize(find.byType(CustomScrollView)).width;
+      final boundary = 34 * gridWidth / 3;
+      scroll().jumpTo(boundary - scroll().position.viewportDimension - 200);
+      await tester.pumpAndSettle();
+      expect(backend.calls('album').length, calls + 1);
+      scroll().jumpTo(scroll().offset + 100);
+      await tester.pump();
+      expect(backend.calls('album').length, calls + 2);
+      expect(backend.calls('album').last.uri.queryParameters['pn'], '2');
+      expect(scroll().position.extentAfter, greaterThan(1000));
+      final position = scroll().offset;
+      secondGate.complete(
+        ok(
+          page(
+            [for (var id = 101; id <= 200; id++) _photo(id)],
+            pn: 2,
+            rn: 100,
+            total: 250,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll().offset, position);
+      expect(backend.calls('album').length, calls + 2);
+      await tester.pumpWidget(const SizedBox.shrink());
+      probe.session.dispose();
+    },
+  );
+
+  testWidgets(
+    'filtered pages automatically fill the viewport and stop at visible boundary',
+    (tester) async {
+      final probe = await _mount(tester, [_photo(1)]);
+      final store = probe.session.data!;
+      final calls = probe.backend.calls('album').length;
+      probe.backend.respond = (request) {
+        if (!request.uri.path.endsWith('/album')) return null;
+        final pn = int.parse(request.uri.queryParameters['pn']!);
+        return ok(
+          page(
+            [
+              for (var id = (pn - 1) * 100 + 1; id <= pn * 100; id++)
+                pn < 3
+                    ? {..._photo(id), 'image_url': '', 'thumbnail_url': ''}
+                    : _photo(id),
+            ],
+            pn: pn,
+            rn: 100,
+            total: 300,
+          ),
+        );
+      };
+      await tester.runAsync(store.refreshAlbum);
+      await tester.pumpAndSettle();
+      expect(
+        probe.backend
+            .calls('album')
+            .skip(calls)
+            .map((r) => r.uri.queryParameters['pn']),
+        ['1', '2', '3'],
+      );
+      expect(
+        find.byKey(const ValueKey('mini-phone-album-201')),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      probe.session.dispose();
+    },
+  );
+
   testWidgets('failed adjacent prefetch never interrupts viewing', (
     tester,
   ) async {
@@ -350,8 +488,15 @@ _mount(
     return precacheImage(provider, context, onError: (_, _) {});
   };
   final backend = PhoneBackend();
-  backend.respond = (request) =>
-      request.uri.path.endsWith('/album') ? ok(page(photos)) : null;
+  backend.respond = (request) => request.uri.path.endsWith('/album')
+      ? ok(
+          page(
+            photos,
+            pn: int.parse(request.uri.queryParameters['pn']!),
+            rn: 100,
+          ),
+        )
+      : null;
   final store = (await tester.runAsync(() async {
     final store = backend.store();
     await store.ready;

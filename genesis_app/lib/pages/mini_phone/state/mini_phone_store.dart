@@ -357,7 +357,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     unread = const PhoneUnread(0, null);
     sessions = [];
     posts = [];
-    album = [];
+    photosController.reset();
     worldCoverImageKeys.clear();
     mapStyle = null;
     worldDetailLoaded = false;

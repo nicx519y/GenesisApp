@@ -255,8 +255,21 @@ Validation for this scheduling change:
   sizing. Existing pull refresh, scroll pagination and author shortcuts remain.
 - Photos keep asset-ID-based raw caching, but grid and viewer share an exact
   image-URL-deduplicated projection (thumbnail URL only when original is empty).
-  Auto-load further pages when the viewport is underfilled and hasMore remains
-  true; preserve request/error guards. Do not synthesize missing album records.
+  Album reads use the endpoint maximum `rn=100`. Each app entry starts at the
+  top, renders cached pages immediately and requests `pn=1`. Compare every
+  returned asset field by asset ID, preserving unchanged objects, list references
+  and tile widgets. Replace the corresponding cached page, retaining later pages
+  until they are checked; a terminal page removes all later cached pages. A new
+  first-page response resets the confirmed paging boundary to page 1 even when
+  the cache extends farther. Load the next page when the visible viewport comes
+  within 160 logical pixels of that confirmed prefix's displayed grid boundary,
+  after cover/default-image filtering and URL deduplication. Recheck after page
+  completion or viewport-size changes, including consecutive filtered pages
+  that contribute no visible cells. Do not eagerly fetch every cached page.
+  Preserve foreground, visibility, busy, refresh and error guards; unrelated
+  Store notifications do not trigger pagination. Failed reads retain the cache,
+  account changes clear all page snapshots, and updates preserve scroll position.
+  Do not synthesize missing album records.
   Exclude empty resources and recognized map-default artwork from both grid
   and viewer, using the existing default-map resource resolver. Album rows can
   legitimately be absent for historical worlds: HTTP success with zero rows

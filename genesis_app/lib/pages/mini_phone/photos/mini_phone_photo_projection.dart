@@ -18,7 +18,7 @@ class MiniPhonePhotoProjection {
     _album = album;
     _coverKeys = Set.of(coverKeys);
     final seen = <String>{};
-    _visible = List.unmodifiable(
+    final visible = List<PhoneAlbumAsset>.unmodifiable(
       album.where((asset) {
         final image = asset.image.trim();
         final resource = image.isEmpty ? asset.thumbnail.trim() : image;
@@ -33,6 +33,7 @@ class MiniPhonePhotoProjection {
         return seen.add(resource);
       }),
     );
+    if (!listEquals(_visible, visible)) _visible = visible;
     return _visible;
   }
 }
