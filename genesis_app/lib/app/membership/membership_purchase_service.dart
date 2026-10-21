@@ -910,8 +910,19 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               purchase.purchaseToken == record.purchaseToken) ||
           (purchase.transactionId.isNotEmpty &&
               purchase.transactionId == record.transactionId);
-      if ((storeAccountUuid.isNotEmpty && !hasMatchingStoreAccount) ||
-          (storeAccountUuid.isEmpty && !hasMatchingPurchaseIdentity) ||
+      // A linked checkout uses the UUID captured before launch. The store's
+      // returned UUID cannot veto its receipt; report decides entitlement.
+      // Google has no checkout marker, so its active product-matched attempt
+      // still requires a returned account identity. Unlinked/history callbacks
+      // retain the UUID ownership check, including recovery below.
+      final isCurrentGoogleCheckout =
+          provider == MembershipProvider.google &&
+          _activeRequestId == record.requestId &&
+          _checkoutWaits[record.requestId]?.launchRequested == true;
+      final hasCheckoutIdentity =
+          hasMatchingPurchaseIdentity ||
+          (isCurrentGoogleCheckout && storeAccountUuid.isNotEmpty);
+      if ((!hasCheckoutIdentity && !hasMatchingStoreAccount) ||
           (record.guest == null && await readLoginUid() != record.ownerUid)) {
         debugPrint(
           '[Membership] ignored store callback without matching account ownership',

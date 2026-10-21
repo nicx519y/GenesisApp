@@ -493,21 +493,26 @@ void main() {
     );
   }
   for (final provider in MembershipProvider.values) {
-    test('$provider ignores a purchased callback for another UUID', () async {
-      final client = enableFirebaseAnalytics();
-      final purchaseEvents = RecordingPurchaseEventRecorder();
-      final h = Harness(
-        provider: provider,
-        purchaseEventReporting: purchaseEvents,
-      );
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase(uuid: 'other-account'));
-      await _settleAnalytics();
+    test(
+      '$provider ignores an unlinked historical callback for another UUID',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final purchaseEvents = RecordingPurchaseEventRecorder();
+        final h = Harness(
+          provider: provider,
+          purchaseEventReporting: purchaseEvents,
+        );
+        await h.service.start();
+        await h.service.interceptPurchase(
+          h.purchase(uuid: 'other-account', directResult: false),
+        );
+        await _settleAnalytics();
 
-      expect(h.reports, isEmpty);
-      expect(client.events, isEmpty);
-      expect(purchaseEvents.calls, isEmpty);
-    });
+        expect(h.reports, isEmpty);
+        expect(client.events, isEmpty);
+        expect(purchaseEvents.calls, isEmpty);
+      },
+    );
 
     test(
       '$provider ignores a purchased callback after account switch',
