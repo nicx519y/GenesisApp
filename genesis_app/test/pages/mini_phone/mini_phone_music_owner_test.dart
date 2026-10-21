@@ -17,6 +17,8 @@ final _catalog = MusicCatalog(
   tracks: [
     for (final file in ['a.mp3', 'b.mp3'])
       MusicTrack(
+        likeCount: 0,
+        isLiked: false,
         file: file,
         audioUrl: 'https://cdn.example/$file',
         sourceWorldoId: 'o',
@@ -46,6 +48,7 @@ void main() {
       readUid: () async => 'u',
       accountRevision: revision,
       createMusic: (store) => MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
         progressStore: store,
         playerFactory: () {
           final player = TestMusicPlayer();
@@ -109,6 +112,7 @@ void main() {
         readUid: () async => 'u',
         accountRevision: revision,
         createMusic: (store) => MiniPhoneMusicService(
+          audioCache: const TestMusicCache(),
           progressStore: store,
           playerFactory: () {
             final player = TestMusicPlayer()..loadGate = Completer<void>();
@@ -152,6 +156,7 @@ void main() {
       readUid: () async => uid,
       accountRevision: revision,
       createMusic: (store) => MiniPhoneMusicService(
+        audioCache: const TestMusicCache(),
         progressStore: store,
         playerFactory: () {
           final player = TestMusicPlayer();
@@ -168,6 +173,8 @@ void main() {
     await first.music.loadCatalog(() async => _catalog);
     await first.music.toggle();
     await first.music.seekTo(const Duration(seconds: 12));
+    await first.music.likes.toggle('a.mp3', (_) async {});
+    expect(first.music.likes.likeCount('a.mp3'), 1);
     uid = 'v';
     revision.value++;
     await first.music.released;
@@ -175,6 +182,8 @@ void main() {
     expect(players.every((p) => p.disposed), isTrue);
     final second = owner.acquire('b');
     expect(second.music, isNot(same(first.music)));
+    expect(second.music.likes.isLiked('a.mp3'), isFalse);
+    expect(second.music.likes.likeCount('a.mp3'), 0);
     await second.music.loadCatalog(() async => _catalog);
     expect(second.music.positionDuration, Duration.zero);
     await second.music.toggle();

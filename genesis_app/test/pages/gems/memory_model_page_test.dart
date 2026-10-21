@@ -1,9 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:genesis_flutter_android/pages/mini_phone/settings/mini_phone_model_settings.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/settings/mini_phone_model_settings_page.dart';
-import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_analytics.dart';
-import '../../support/mini_phone_collect_probe.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1318,67 +1313,6 @@ void main() {
     );
     expect(find.text('Water'), findsOneWidget);
   });
-
-  testWidgets(
-    'MiniPhone logs local model and token changes without legacy pay events',
-    (tester) async {
-      final collect = MiniPhoneCollectProbe();
-      addTearDown(collect.dispose);
-      final analytics = MiniPhoneAnalytics(
-        worldId: 'REAL_WORLD',
-        enabled: () => true,
-        generation: () => 0,
-      );
-      analytics.beginOpen();
-      final settings = MiniPhoneModelSettings()
-        ..configure(
-          worldId: 'REAL_WORLD',
-          loader: () async => _catalog(),
-          cached: _catalog(),
-        );
-      await tester.runAsync(settings.ensureLoaded);
-      Future<void> settleLocal() async {
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 10)),
-        );
-        await tester.pumpAndSettle();
-      }
-
-      await tester.pumpWidget(
-        _testApp(
-          MiniPhoneModelSettingsPage(
-            settings: settings,
-            analytics: analytics,
-            onBack: () {},
-          ),
-        ),
-      );
-      await settleLocal();
-      expect(await tester.runAsync(collect.take), isEmpty);
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('gem-model-sake_pro')),
-      );
-      await tester.tap(find.byKey(const ValueKey('gem-model-sake_pro')));
-      await settleLocal();
-      final model = (await tester.runAsync(collect.take))!.single;
-      expect(model.action, 'mini_phone_model_change');
-      expect(model.object1, 'REAL_WORLD');
-      expect(jsonDecode(model.extData)['scope'], 'local_session');
-      await tester.tap(find.byKey(const ValueKey('gem-model-sake_pro')));
-      await settleLocal();
-      expect(await tester.runAsync(collect.take), isEmpty);
-      _setSliderValue(tester, 1);
-      await tester.pump(const Duration(milliseconds: 500));
-      await settleLocal();
-      final memory = (await tester.runAsync(collect.take))!.single;
-      expect(memory.action, 'mini_phone_memory_change');
-      expect(
-        jsonDecode(memory.extData)['memory_tokens'],
-        settings.memoryTokens,
-      );
-      expect(memory.object1, 'REAL_WORLD');
-    },
-  );
 
   testWidgets('reports model page and autosave telemetry', (tester) async {
     final telemetry = _CapturingTelemetrySink();

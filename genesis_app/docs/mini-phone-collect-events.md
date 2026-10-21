@@ -1,6 +1,6 @@
 # MiniPhone Collect 埋点表
 
-更新日期：2026-10-20。此表描述客户端实现；不代表真实 Collect 服务端入库或 Android/iOS 真机已验收。
+更新日期：2026-10-21。此表描述客户端实现；不代表真实 Collect 服务端入库或 Android/iOS 真机已验收。
 
 ## 采集方式与范围
 
@@ -55,8 +55,8 @@
 | `mini_phone_music_control` | event | 用户有效点击播放/暂停/上一首/下一首 | 操作发起时曲目 file | play / pause / previous / next | 空 | open_id（存在时）、source=music/home/dock |
 | `mini_phone_music_like` | event | 用户有效点击音乐点赞或取消点赞 | 曲目 file | like / unlike | 空 | open_id、source=music |
 | `mini_phone_wallpaper_save` | event | 有效提交保存及保存结果 | wallpaper | 壁纸阶段 | attempt_id | open_id、source=settings、wallpaper_type=preset/custom；失败时错误字段 |
-| `mini_phone_model_change` | event | 模型实际写入本地会话且值改变 | model | changed | 空 | open_id、source=models、previous_model、model_code、scope=local_session |
-| `mini_phone_memory_change` | event | Token 设置实际写入本地会话且值改变 | memory_tokens | changed | 空 | open_id、source=models、previous_tokens、memory_tokens、scope=local_session |
+| `mini_phone_model_change` | event | 模型提交成功且值改变；失败不记成功事件 | model | changed | 空 | open_id、source=models、previous_model、model_code、scope=server |
+| `mini_phone_memory_change` | event | Token 提交成功且值改变；失败不记成功事件 | memory_tokens | changed | 空 | open_id、source=models、previous_tokens（已知时）、memory_tokens、scope=server |
 
 ### 扩展参数字典
 
@@ -78,7 +78,7 @@
 | wallpaper_type | string | preset / custom；自选图片为 custom |
 | previous_model / model_code | string | 原模型代码 / 新模型代码 |
 | previous_tokens / memory_tokens | integer | 原 Token 值 / 新 Token 值 |
-| scope | string | 模型及 Token 固定为 local_session，不代表后端设置或计费生效 |
+| scope | string | 模型及 Token 固定为 server，表示设置提交成功；不表示真实计费已经验收 |
 | error_stage | string | journal / upload / prepare / validation / request |
 | error_kind | string | ApiException.kind.name；非 ApiException 为 local |
 | error_code | string | 有业务错误码时携带；无值省略 |

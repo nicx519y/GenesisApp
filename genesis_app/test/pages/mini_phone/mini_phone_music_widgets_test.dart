@@ -9,6 +9,8 @@ import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 MusicTrack song(String id) => MusicTrack(
+  likeCount: 0,
+  isLiked: false,
   file: '$id.mp3',
   audioUrl: 'https://audio.test/$id.mp3',
   sourceWorldoId: 'o_test',
@@ -277,6 +279,42 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('older seek completion cannot clear a newer drag preview', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    await tester.pumpWidget(
+      host(
+        SizedBox(
+          width: 300,
+          child: MiniMusicSeekBar(
+            identity: 'a',
+            position: const Duration(seconds: 5),
+            duration: const Duration(seconds: 90),
+            buffered: Duration.zero,
+            enabled: true,
+            onSeek: (_) => pending.future,
+          ),
+        ),
+      ),
+    );
+    final rect = tester.getRect(find.byType(Slider));
+    await tester.tapAt(Offset(rect.left + rect.width * .3, rect.center.dy));
+    await tester.pump();
+    final gesture = await tester.startGesture(
+      Offset(rect.left + rect.width * .5, rect.center.dy),
+    );
+    await gesture.moveBy(const Offset(60, 0));
+    await tester.pump();
+    final preview = tester.widget<Slider>(find.byType(Slider)).value;
+    expect(preview, greaterThan(45000));
+    pending.complete();
+    await tester.pump();
+    expect(tester.widget<Slider>(find.byType(Slider)).value, preview);
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
     'cover resize URL and decode dimensions follow global DPR and shared tiers',

@@ -9,16 +9,20 @@ import '../../../platform/system_image_picker_activity.dart';
 import 'mini_phone_music_likes.dart';
 import '../state/mini_phone_analytics.dart';
 import 'mini_phone_music_progress.dart';
+import 'mini_phone_music_cache.dart';
 
 /// A single foreground session with at most two native decoders. The standby
-/// decoder prepares the next track without playing or downloading a disk copy.
+/// decoder prepares the next track without playing. Only played tracks are
+/// added to the persistent audio cache.
 class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
   MiniPhoneMusicService({
     AudioPlayer Function()? playerFactory,
     MiniPhoneMusicProgressStore? progressStore,
+    MiniPhoneMusicCache? audioCache,
     SystemImagePickerActivity? pickerActivity,
   }) : _playerFactory = playerFactory ?? _createPlayer,
        _progressStore = progressStore,
+       _audioCache = audioCache ?? LocalMiniPhoneMusicCache.shared,
        _pickerActivity = pickerActivity ?? systemImagePickerActivity {
     WidgetsBinding.instance.addObserver(this);
     final lifecycle = WidgetsBinding.instance.lifecycleState;
@@ -48,6 +52,9 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
   MiniPhoneAnalytics? analytics;
   final AudioPlayer Function() _playerFactory;
   final MiniPhoneMusicProgressStore? _progressStore;
+  final MiniPhoneMusicCache _audioCache;
+  Duration? _pendingSeek;
+  int _seekRevision = 0;
   final SystemImagePickerActivity _pickerActivity;
   late final Future<void> _restorePending;
   MiniPhoneMusicProgress? _restoredProgress;
@@ -93,11 +100,12 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
   bool get foreground => _foreground;
   AudioPlayer? get _current =>
       _active?.trackIndex == index ? _active?.player : null;
-  Duration get positionDuration => (_active?.ready ?? false)
-      ? _current?.position ?? _resumePosition
-      : _resumePosition;
-  Duration? get durationDuration =>
-      (_active?.ready ?? false) ? _current?.duration : _resumeDuration;
+  Duration get positionDuration =>
+      _pendingSeek ??
+      ((_active?.ready ?? false)
+          ? _current?.position ?? _resumePosition
+          : _resumePosition);
+  Duration? get durationDuration => _current?.duration ?? _resumeDuration;
   Duration get bufferedPosition => (_active?.ready ?? false)
       ? _current?.bufferedPosition ?? Duration.zero
       : Duration.zero;
@@ -113,9 +121,7 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
               _current?.processingState == ProcessingState.buffering));
   bool get canSeek =>
       _worldAttached &&
-      !_busy &&
-      !_switching &&
-      (_active?.ready ?? false) &&
+      !_disposed &&
       (durationDuration?.inMilliseconds ?? 0) > 0;
 
   void attachWorld() {
@@ -131,15 +137,19 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
     _worldAttached = false;
     _selectionRevision++;
     _switching = false;
+    final hadPendingSeek = _pendingSeek != null;
     _resumePosition = positionDuration;
     _resumeDuration = durationDuration;
-    final paused = pause();
-    final pending = <Future<void>>[paused];
+    _pendingSeek = null;
+    _seekRevision++;
+    final pending = <Future<void>>[];
     for (final decoder in [_active, _standby]) {
-      if (decoder != null && !decoder.ready) {
+      if (decoder != null &&
+          (!decoder.ready || (hadPendingSeek && identical(decoder, _active)))) {
         pending.add(_cancelDecoder(decoder));
       }
     }
+    pending.add(pause());
     // A newly attached World must wait for the previous native pause/stop.
     final settled = Future.wait(pending);
     _commands = _commands.then((_) => settled).then((_) {});
@@ -147,10 +157,17 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> loadCatalog(Future<MusicCatalog> Function() loader) {
     if (_disposed || _catalog != null) return Future.value();
+    return refreshLikes(loader);
+  }
+
+  /// Refresh engagement without replacing cached tracks or native decoders.
+  Future<void> refreshLikes(Future<MusicCatalog> Function() loader) {
+    if (_disposed) return Future.value();
     return _catalogPending ??= Future.microtask(() => _loadCatalog(loader));
   }
 
   Future<void> _loadCatalog(Future<MusicCatalog> Function() loader) async {
+    final snapshot = likes.beginSnapshot();
     catalogLoading = true;
     catalogError = null;
     _notify();
@@ -158,6 +175,8 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
       final catalog = await loader();
       await _restorePending;
       if (!_disposed) {
+        likes.applyCatalog(catalog.tracks, snapshot);
+        if (_catalog != null) return;
         _catalog = catalog;
         final saved = _restoredProgress;
         if (saved != null) {
@@ -283,12 +302,29 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
       if (_disposed || decoder.generation != generation) return;
       await decoder.player.setLoopMode(LoopMode.off);
       if (_disposed || decoder.generation != generation) return;
-      await decoder.player.setAudioSources(
-        [AudioSource.uri(Uri.parse(tracks[target].audioUrl))],
-        initialPosition: identical(decoder, _active) && target == index
-            ? _resumePosition
-            : Duration.zero,
-      );
+      final track = tracks[target];
+      final cached = await _audioCache
+          .find(track)
+          .catchError((Object _) => null);
+      if (_disposed || decoder.generation != generation) return;
+      Future<void> load(Uri uri) async {
+        await decoder.player.setAudioSources(
+          [AudioSource.uri(uri)],
+          initialPosition: identical(decoder, _active) && target == index
+              ? _resumePosition
+              : Duration.zero,
+        );
+      }
+
+      try {
+        await load(cached ?? Uri.parse(track.audioUrl));
+      } catch (_) {
+        if (cached == null || _disposed || decoder.generation != generation) {
+          rethrow;
+        }
+        // A missing, evicted or unreadable local file can still stream.
+        await load(Uri.parse(track.audioUrl));
+      }
       if (!_disposed && decoder.generation == generation) {
         final duration = decoder.player.duration;
         if (identical(decoder, _active) &&
@@ -343,6 +379,7 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
         _busy ||
         _switching ||
         _advanceScheduled ||
+        _pendingSeek != null ||
         !_foreground ||
         !_wantPlay ||
         _current?.processingState != ProcessingState.completed) {
@@ -354,6 +391,7 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
       _advanceScheduled = false;
       if (!_disposed &&
           revision == _selectionRevision &&
+          _pendingSeek == null &&
           _foreground &&
           _wantPlay &&
           _current?.processingState == ProcessingState.completed) {
@@ -398,6 +436,7 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     final revision = _selectionRevision;
+    unawaited(_audioCache.remember(track!).catchError((Object _) {}));
     unawaited(
       decoder.player.play().catchError((Object _) {
         if (!_disposed &&
@@ -458,7 +497,9 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
       final decoder = _ensureActive();
       await _prepareDecoder(decoder, index);
       if (_disposed || revision != _selectionRevision) return;
-      if (decoder.player.processingState == ProcessingState.completed) {
+      if (_pendingSeek != null) {
+        await _applyPendingSeek(decoder);
+      } else if (decoder.player.processingState == ProcessingState.completed) {
         await decoder.player.seek(Duration.zero);
       }
       if (_disposed || revision != _selectionRevision) return;
@@ -479,15 +520,65 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> seek(int seconds) => seekTo(Duration(seconds: seconds));
-  Future<void> seekTo(Duration value) => _run(() async {
+  Future<void> seekTo(Duration value) {
     final duration = durationDuration;
-    if (!(_active?.ready ?? false) || duration == null) return;
-    final position = Duration(
+    if (!canSeek || duration == null) return Future.value();
+    _pendingSeek = Duration(
       milliseconds: value.inMilliseconds.clamp(0, duration.inMilliseconds),
     );
-    await _active!.player.seek(position);
+    _resumePosition = _pendingSeek!;
+    _seekRevision++;
+    _notify();
     unawaited(saveProgress());
-  });
+    final decoder = _active;
+    if (decoder != null && decoder.ready) {
+      // Native seeks replace an older buffering seek. Do not put these behind
+      // the command queue, which could wait forever for the old target to load.
+      return _applyPendingSeek(decoder);
+    }
+    return _run(() async {
+      final decoder = _active;
+      if (decoder != null) await _applyPendingSeek(decoder);
+    });
+  }
+
+  Future<void> _applyPendingSeek(_MusicDecoder decoder) async {
+    final selection = _selectionRevision;
+    if (_disposed ||
+        !identical(_active, decoder) ||
+        !decoder.ready ||
+        _pendingSeek == null) {
+      return;
+    }
+    final revision = _seekRevision;
+    final duration = decoder.player.duration;
+    final target = Duration(
+      milliseconds: _pendingSeek!.inMilliseconds.clamp(
+        0,
+        duration?.inMilliseconds ?? 1 << 53,
+      ),
+    );
+    try {
+      await decoder.player.seek(target);
+    } catch (_) {
+      if (!_disposed &&
+          selection == _selectionRevision &&
+          revision == _seekRevision) {
+        _failed();
+      }
+      return;
+    }
+    if (_disposed ||
+        selection != _selectionRevision ||
+        revision != _seekRevision) {
+      return;
+    }
+    _resumePosition = target;
+    _pendingSeek = null;
+    unawaited(saveProgress());
+    _notify();
+    _maybeAdvance();
+  }
 
   Future<void> next() {
     return _switchTo(tracks.isEmpty ? 0 : (index + 1) % tracks.length);
@@ -507,6 +598,8 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
     activated = true;
     _entrySuppressed = false;
     _wantPlay = _foreground;
+    _pendingSeek = null;
+    _seekRevision++;
     if (target == index && (_active?.ready ?? false) && !_switching) {
       return _run(() async {
         await _active!.player.seek(Duration.zero);
@@ -549,6 +642,8 @@ class MiniPhoneMusicService extends ChangeNotifier with WidgetsBindingObserver {
         _standby = old;
         _bindActive();
       }
+      await _applyPendingSeek(decoder);
+      if (_disposed || revision != _selectionRevision) return;
       _playActive();
     }, revision: revision);
   }

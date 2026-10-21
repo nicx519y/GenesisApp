@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../network/models/gem_model.dart';
 import '../../gems/memory_model_page.dart';
 import 'mini_phone_model_settings.dart';
 import '../state/mini_phone_analytics.dart';
@@ -18,48 +17,47 @@ class MiniPhoneModelSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final generation = analytics?.generation();
     final eventContext = analytics?.context('models');
+    var previousModel = settings.selectedModelCode;
+    var previousTokens = settings.pageCache.memorySettings?.memoryTokens;
     return MemoryModelPage(
-      worldId: miniPhoneModelPreviewWorldId,
+      key: ObjectKey(settings.pageCache),
+      worldId: settings.worldId,
       enableCollectAnalytics: false,
+      pageCache: settings.pageCache,
       onBack: onBack,
       catalogLoader: (_) => settings.catalog(),
-      selectionHandler: (_, code) async {
-        final previous = settings.selectedModelCode;
-        settings.selectedModelCode = code;
-        if (previous != code && generation == analytics?.generation()) {
+      onModelSaved: (code) {
+        if (previousModel != code && generation == analytics?.generation()) {
           analytics?.event(
             'model_change',
             target: 'model',
             stage: 'changed',
             data: {
               ...?eventContext,
-              'previous_model': previous,
+              'previous_model': previousModel,
               'model_code': code,
-              'scope': 'local_session',
+              'scope': 'server',
             },
           );
         }
-        return GemModelSelection(selectedModelCode: code);
+        previousModel = code;
       },
-      selectedModelCodeCacheWriter: (_) async {},
-      memorySettingsLoader: (_) => settings.memory(),
-      memorySettingsUpdater: (tokens) async {
-        final previous = settings.memoryTokens;
-        settings.memoryTokens = tokens;
-        if (previous != tokens && generation == analytics?.generation()) {
+      onMemorySaved: (saved) {
+        if (previousTokens != saved.memoryTokens &&
+            generation == analytics?.generation()) {
           analytics?.event(
             'memory_change',
             target: 'memory_tokens',
             stage: 'changed',
             data: {
               ...?eventContext,
-              'previous_tokens': previous,
-              'memory_tokens': tokens,
-              'scope': 'local_session',
+              if (previousTokens != null) 'previous_tokens': previousTokens,
+              'memory_tokens': saved.memoryTokens,
+              'scope': 'server',
             },
           );
         }
-        return settings.memory();
+        previousTokens = saved.memoryTokens;
       },
     );
   }

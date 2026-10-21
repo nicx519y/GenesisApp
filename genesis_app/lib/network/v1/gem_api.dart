@@ -21,9 +21,12 @@ class GemV1Api extends V1ApiResource {
   }
 
   /// GET /api/v1/gem/model/list
-  Future<GemModelCatalog> models({required String worldId}) async {
+  Future<GemModelCatalog> models({required String worldId, String? biz}) async {
     return GemModelCatalog.fromJson(
-      await getMap('gem/model/list', v1Query({'world_id': worldId})),
+      await getMap(
+        'gem/model/list',
+        v1Query({'world_id': worldId, 'biz': biz}),
+      ),
     );
   }
 

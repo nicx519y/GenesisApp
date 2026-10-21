@@ -1,5 +1,16 @@
 import 'dart:async';
 import 'package:just_audio/just_audio.dart';
+import 'package:genesis_flutter_android/network/models/music.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/music/mini_phone_music_cache.dart';
+
+/// Lifecycle/widget tests exercise the decoder without native disk IO.
+class TestMusicCache implements MiniPhoneMusicCache {
+  const TestMusicCache();
+  @override
+  Future<Uri?> find(MusicTrack track) async => null;
+  @override
+  Future<void> remember(MusicTrack track) async {}
+}
 
 /// A decoder boundary with controllable loading and completion. It models stop
 /// interrupting a pending native load and play() waiting until pause/completion.
@@ -10,9 +21,12 @@ class TestMusicPlayer implements AudioPlayer {
   final buffers = StreamController<Duration>.broadcast(sync: true);
   final errors = StreamController<PlayerException>.broadcast(sync: true);
   Completer<void>? loadGate;
+  Completer<void>? seekGate;
+  final seekTargets = <Duration>[];
   Completer<void>? playback;
   int failLoads = 0, loads = 0, plays = 0, stops = 0, seeks = 0;
   int _generation = 0;
+  int _seekGeneration = 0;
   bool disposed = false;
   void Function()? onPlay;
   List<AudioSource> sources = [];
@@ -115,6 +129,7 @@ class TestMusicPlayer implements AudioPlayer {
   Future<void> stop() async {
     stops++;
     _generation++;
+    _seekGeneration++;
     if (!(loadGate?.isCompleted ?? true)) loadGate!.complete();
     playing = false;
     position = Duration.zero;
@@ -127,7 +142,11 @@ class TestMusicPlayer implements AudioPlayer {
 
   @override
   Future<void> seek(Duration? position, {int? index}) async {
+    final generation = ++_seekGeneration;
     seeks++;
+    seekTargets.add(position ?? Duration.zero);
+    await seekGate?.future;
+    if (generation != _seekGeneration) return;
     this.position = position ?? Duration.zero;
     if (processingState == ProcessingState.completed) {
       processingState = ProcessingState.ready;

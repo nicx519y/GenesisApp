@@ -10,20 +10,22 @@ import 'package:image/image.dart' as img;
 import 'package:genesis_flutter_android/components/common/local_image_crop_page.dart';
 import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
-import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
-import 'package:genesis_flutter_android/app/config/app_config.dart';
-import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
+import 'package:genesis_flutter_android/network/api_client.dart';
+import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import 'package:genesis_flutter_android/network/models/miniphone_info.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/settings/mini_phone_settings_page.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/settings/wallpaper/mini_phone_wallpaper_controller.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/settings/wallpaper/mini_phone_wallpaper_cache.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/settings/wallpaper/mini_phone_wallpaper_image.dart';
-import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
+import 'package:genesis_flutter_android/ui/animations/app_launch_transition/app_launch_transition.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
+import '../../support/mini_phone_music_services.dart';
 
 const oldUrl = 'https://cdn.example/current.png';
 const newUrl = 'https://cdn.example/new.png';
@@ -109,8 +111,6 @@ void main() {
     tester.view.devicePixelRatio = devicePixelRatio;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final session = MemoryUserSessionStore();
-    if (loggedIn) await session.saveUid('u_test');
     final services = () {
       final previousPlatform = debugDefaultTargetPlatformOverride;
       // File IO tests do not need the mobile billing plugin during setup.
@@ -118,15 +118,21 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       }
       try {
-        return ServiceRegistry.build(
-          config: const AppConfig(useMock: true),
-          sessionStoreOverride: session,
-          chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+        return musicTestServices(
+          GenesisApi(
+            useMock: false,
+            apiClient: ApiClient(
+              baseUrl: 'https://api.example/api/',
+              transport: LocalMockGenesisTransport.instance,
+            ),
+          ),
         );
       } finally {
         debugDefaultTargetPlatformOverride = previousPlatform;
       }
     }();
+    final session = services.sessionStore;
+    if (loggedIn) await session.saveUid('u_test');
     final controller = MiniPhoneWallpaperController(
       worldId: worldId,
       sessionStore: session,
@@ -442,7 +448,7 @@ void main() {
   });
 
   testWidgets(
-    'Settings reads server titles, previews selection and Apply updates Home',
+    'Settings previews selection and Apply automatically returns Home after saving',
     (tester) async {
       final saved = <String>[];
       final pending = Completer<void>();
@@ -516,9 +522,6 @@ void main() {
       pending.complete();
       await tester.pumpAndSettle();
       expect(controller.backgroundImage, newUrl);
-      // The page's back action returns from Settings to Home.
-      await tester.tap(find.text('Settings'));
-      await tester.pumpAndSettle();
       expect(find.text('Apply wallpaper'), findsNothing);
       expect(
         tester
@@ -533,7 +536,7 @@ void main() {
   );
 
   testWidgets(
-    'Apply stays loading until the desktop original is ready and retains its preview',
+    'Apply keeps Settings open until the desktop original is ready then returns Home',
     (tester) async {
       final asset = await rootBundle.load(
         'assets/images/default_list_image.png',
@@ -578,10 +581,9 @@ void main() {
       expect(controller.saveProgress, 1);
       expect(tester.element(image), same(originalElement));
       expect(tester.widget<MiniPhoneWallpaperPreview>(image).url, newUrl);
-      // The retained source must still follow an actual new selection.
-      controller.select(oldUrl);
-      await tester.pump();
-      expect(tester.widget<MiniPhoneWallpaperPreview>(image).url, oldUrl);
+      await tester.pumpAndSettle();
+      expect(find.text('Apply wallpaper'), findsNothing);
+      expect(find.byType(MiniPhonePage), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox());
     },
@@ -630,8 +632,11 @@ void main() {
       expect(photoPreview.height, double.infinity);
       expect(photoPreview.fit, BoxFit.cover);
       expect(photoPreview.alignment, Alignment.center);
-      final previewImage = find.byWidgetPredicate(
-        (widget) => widget is Image && usesSelectedBytes(widget),
+      final previewImage = find.descendant(
+        of: find.byType(MiniPhoneSettingsPage),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Image && usesSelectedBytes(widget),
+        ),
       );
       final originalImageState = tester.state(previewImage);
       await tester.runAsync(() async {
@@ -690,7 +695,8 @@ void main() {
       expect(tester.state(previewImage), same(originalImageState));
       expect(tester.widget<RawImage>(rawPreview).image, same(decodedFrame));
       await tester.pumpAndSettle();
-      expect(tester.widget<GenesisPrimaryButton>(button).isLoading, isFalse);
+      expect(find.text('Apply wallpaper'), findsNothing);
+      expect(find.byType(MiniPhonePage), findsOneWidget);
       expect(controller.displayBytes, same(bytes));
       expect(
         tester.widgetList<Image>(find.byType(Image)).any(usesSelectedBytes),
@@ -700,6 +706,38 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('finishing Apply after leaving Settings keeps the current app', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    final controller = await mount(tester, save: (_) => pending.future);
+    await tester.tap(find.text('New wallpaper'));
+    await tester.ensureVisible(find.text('Apply wallpaper'));
+    await tester.tap(find.text('Apply wallpaper'));
+    await tester.pump();
+    await tester.pump();
+    expect(controller.saving, isTrue);
+    await tester.tap(find.widgetWithText(TextButton, 'Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Home position 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is AppLaunchSource && widget.id == MiniPhoneScreen.messages,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(controller.backgroundImage, newUrl);
+    expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
+    expect(find.byType(MiniPhonePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('failed save preserves draft and shows retry feedback', (
     tester,

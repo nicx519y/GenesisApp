@@ -53,6 +53,8 @@ class MusicTrack {
     required this.artist,
     required this.title,
     required this.coverUrl,
+    required this.likeCount,
+    required this.isLiked,
   });
 
   factory MusicTrack.fromJson(
@@ -61,6 +63,14 @@ class MusicTrack {
   }) {
     final file = _requiredString(json, 'file');
     final audioUrl = '$preUrl$file';
+    final likeCount = json['like_cnt'];
+    final isLiked = json['is_liked'];
+    if (likeCount is! int || likeCount < 0) {
+      throw const FormatException('like_cnt must be a nonnegative integer');
+    }
+    if (isLiked is! bool) {
+      throw const FormatException('is_liked must be a boolean');
+    }
     return MusicTrack(
       file: file,
       audioUrl: audioUrl,
@@ -69,11 +79,15 @@ class MusicTrack {
       artist: _requiredString(json, 'artist'),
       title: _requiredString(json, 'title'),
       coverUrl: _requiredString(json, 'cover_url').split('?').first,
+      likeCount: likeCount,
+      isLiked: isLiked,
     );
   }
 
   final String file, audioUrl, sourceWorldoId, sourceWorldoName;
   final String artist, title, coverUrl;
+  final int likeCount;
+  final bool isLiked;
 }
 
 String _requiredString(Map<String, dynamic> json, String key) {

@@ -776,6 +776,19 @@ void main() {
     expect(refreshedUserInfo['selected_model_code'], 'sake_pro');
   });
 
+  test('local mock accepts the phone DM model catalogue business', () async {
+    final api = GenesisApi(useMock: true);
+    await api.loginWithGoogle(idToken: 'google-token');
+
+    final catalog = await api.v1.gem.models(
+      worldId: 'W_PHONE_MODELS',
+      biz: 'phone_dm',
+    );
+
+    expect(catalog.groups, isNotEmpty);
+    expect(catalog.groups.first.models, isNotEmpty);
+  });
+
   test(
     'local mock model ranges expose the saved budget and system ceiling',
     () async {

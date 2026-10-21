@@ -28,6 +28,7 @@
 ## Model item 范围（2026-09-14）
 
 - `GET /api/v1/gem/model/list` 必传 `world_id`，仅 `err_no=0` 表示成功。每个模型必返整数 `min_gems_cent`、`max_gems_cent`、`min_memory_tokens`、`max_memory_tokens`；缺失、非整数或范围无效按协议错误处理，不以零或旧字段回退。
+- MiniPhone 私信目录额外传 `biz=phone_dm`，LocationChat 保持原请求。两场景不共享模型目录缓存；手机报价同样直接使用服务端字段，不额外打折或按本地 Token 数换算。手机直接复用 `MemoryModelPage` 默认提交：`POST /api/v1/gem/model/select` 只传 `world_id/model_code`，`POST /api/v1/user/memory-settings` 只传 `memory_tokens`，均不传 `biz`。记忆用量和滑杆范围同样来自正式 memory-settings 查询；保存后刷新手机业务报价与世界用量。
 - `min_gems_cent` 必须等于 `estimated_next_message_gems_cent`，`max_gems_cent >= min_gems_cent >= 0`。客户端只格式化服务端报价，不实现定价公式。
 - 消息区间显示 `2.2–4.8 gems`，整数金额保留 `.0`；两端显示值相等时合并为一个值。预计消息费用同样保留一位小数。底层 cent 保持整数原值，仅展示四舍五入。
 - 模型的 `min_memory_tokens` 表示当前保存预算，`max_memory_tokens` 表示系统预算上限（并非价格区间对应的用量范围）。前者为正值，后者不得小于前者。

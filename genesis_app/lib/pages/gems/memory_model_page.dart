@@ -46,10 +46,14 @@ class MemoryModelPage extends StatefulWidget {
     this.pageCache,
     this.onBack,
     this.enableCollectAnalytics = true,
+    this.onModelSaved,
+    this.onMemorySaved,
   });
 
   final String worldId;
   final bool enableCollectAnalytics;
+  final ValueChanged<String>? onModelSaved;
+  final ValueChanged<UserMemorySettings>? onMemorySaved;
   final GemModelCatalogLoader? catalogLoader;
   final GemModelSelectionHandler? selectionHandler;
   final SelectedModelCodeCacheWriter? selectedModelCodeCacheWriter;
@@ -586,6 +590,7 @@ class _MemoryModelPageState extends State<MemoryModelPage>
         debugPrint('[GemModel] cache selected model failed: $error');
       }
       if (request.worldId != widget.worldId.trim()) return;
+      widget.onModelSaved?.call(selectedModelCode);
       _confirmedModelCode = selectedModelCode;
       final updatedCatalog = _catalog?.copyWith(
         selectedModelCode: selectedModelCode,
@@ -664,6 +669,9 @@ class _MemoryModelPageState extends State<MemoryModelPage>
       final saved = _validatedMemorySettings(await request.save());
       request.pageCache?.clearMemorySettings();
       request.pageCache?.clearModelCatalog();
+      if (request.worldId == widget.worldId.trim()) {
+        widget.onMemorySaved?.call(saved);
+      }
       if (!mounted || request.worldId != widget.worldId.trim()) return;
       // The POST confirms persistence before quotation/usage refresh finishes.
       _lastSavedMemoryTokens = saved.memoryTokens;
