@@ -187,7 +187,8 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
                                 icon: MiniIcon(
                                   'heart',
                                   size: 23,
-                                  color: liked ? miniPink : miniWhite,
+                                  color: liked ? miniRed : miniWhite,
+                                  filled: liked,
                                 ),
                               ),
                             ),

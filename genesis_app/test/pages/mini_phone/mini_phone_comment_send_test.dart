@@ -69,44 +69,109 @@ Future<void> send(WidgetTester tester, String text) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  testWidgets(
-    'touching outside the comment input dismisses the keyboard and keeps the draft and reply action',
-    (tester) async {
-      final b = PhoneBackend();
-      final s = await open(tester, b, count: 1);
-      addTearDown(s.dispose);
-      final field = find.byType(TextField);
-      await tester.enterText(field, 'Unsent draft');
-      await tester.pump();
-      expect(tester.testTextInput.isVisible, isTrue);
+  for (final draft in ['', '  ', 'Unsent draft']) {
+    testWidgets(
+      'outside taps dismiss the keyboard and preserve a reply only with a draft, length=${draft.length}',
+      (tester) async {
+        final b = PhoneBackend();
+        final s = await open(tester, b, count: 1);
+        addTearDown(s.dispose);
+        addTearDown(tester.view.resetViewInsets);
+        final field = find.byType(TextField);
+        final normalHint = tester.widget<TextField>(field).decoration!.hintText;
+        final hasDraft = draft.trim().isNotEmpty;
+        void expectDismissed() {
+          final input = tester.widget<TextField>(field);
+          expect(tester.testTextInput.isVisible, isFalse);
+          expect(input.focusNode!.hasFocus, isFalse);
+          expect(input.controller!.text, draft);
+          expect(
+            input.decoration!.hintText,
+            hasDraft ? contains('Character') : normalHint,
+          );
+        }
 
-      await tester.tap(find.text('Post body'));
-      await tester.pump();
-      expect(tester.testTextInput.isVisible, isFalse);
-      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
-      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
+        await tester.tap(find.textContaining('Reply 1', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+        expect(
+          tester.widget<TextField>(field).decoration!.hintText,
+          contains('Character'),
+        );
+        await tester.enterText(field, draft);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Post body'));
+        await tester.pump();
+        expectDismissed();
 
-      await tester.showKeyboard(field);
-      await tester.tap(find.textContaining('Reply 1', findRichText: true));
-      await tester.pump();
-      expect(tester.testTextInput.isVisible, isFalse);
-      expect(
-        tester.widget<TextField>(field).decoration!.hintText,
-        contains('Character'),
-      );
-      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Reply 1', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+        await tester.pumpAndSettle();
+        await tester.tapAt(
+          tester.getRect(find.byType(ListView)).bottomLeft +
+              const Offset(8, -8),
+        );
+        await tester.pump();
+        expectDismissed();
+        expect(b.calls('comment/create'), isEmpty);
+        if (hasDraft) {
+          await send(tester, draft);
+          expect(
+            b.body(b.calls('comment/create').single)['reply_to_comment_id'],
+            1,
+          );
+        }
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+  for (final draft in ['', 'Unsent draft']) {
+    testWidgets(
+      'tapping another comment with the keyboard open cancels reply without switching target, draft=$draft',
+      (tester) async {
+        final b = PhoneBackend();
+        final s = await open(tester, b, count: 2);
+        addTearDown(s.dispose);
+        addTearDown(tester.view.resetViewInsets);
+        final field = find.byType(TextField);
+        final normalHint = tester.widget<TextField>(field).decoration!.hintText;
+        await tester.tap(find.textContaining('Reply 1', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        await tester.enterText(field, draft);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Reply 2', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isFalse);
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+        expect(
+          tester.widget<TextField>(field).decoration!.hintText,
+          normalHint,
+        );
+        expect(tester.widget<TextField>(field).controller!.text, draft);
+        expect(b.calls('comment/create'), isEmpty);
 
-      await tester.showKeyboard(field);
-      await tester.tapAt(
-        tester.getRect(find.byType(ListView)).bottomLeft + const Offset(8, -8),
-      );
-      await tester.pump();
-      expect(tester.testTextInput.isVisible, isFalse);
-      expect(tester.widget<TextField>(field).controller!.text, 'Unsent draft');
-      expect(b.calls('comment/create'), isEmpty);
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('Reply 2', findRichText: true));
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+        await send(tester, 'Reply to second');
+        expect(
+          b.body(b.calls('comment/create').single)['reply_to_comment_id'],
+          2,
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   test(
     'a comments read started before acceptance cannot consume the local row',
     () async {

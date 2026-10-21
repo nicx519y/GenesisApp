@@ -582,7 +582,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - 列表与详情共用 Posts 控制器的 `setLiked`／`likeState`：点击立即切换图标并对最近确认数量加一或减一，最小为零；失败立即回滚最近确认状态。连续点击保留最新意图，同帖请求串行执行；成功后查询详情确认，单独的确认查询失败不撤销成功操作，结果不确定时仍先查询详情再处理最新意图，不重拉 Feed。进入 Posts 的全部已读只在本次进入成功加载后执行；Home 通知直达详情在详情成功加载且仍可见后复用同一已读流程。普通详情浏览不额外触发，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
-- 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情精简评论不用于列表展示；全部真实评论从 `/comments` 获取并一次替换，不伪造回复目标。昵称、时间等缺失字段不使用演示占位值填充。
+- 评论沿用原帖排版、评论分隔线和输入头像；键盘收起时点击有真实 comment_id 的评论设置回复目标并弹起键盘；键盘已打开时点击评论只收起键盘、取消回复目标，不切换到该条评论。不额外增加 Reply to a comment 按钮。详情精简评论不用于列表展示；全部真实评论从 `/comments` 获取并一次替换，不伪造回复目标。昵称、时间等缺失字段不使用演示占位值填充。
 - Post 详情配图加载中／失败时与 Posts Feed 一样留空，不显示默认占位图、错误图标或提示；详情保留原有图片尺寸约束和点击查看大图行为。
 - 会话、Feed、相册通过滚动加载下一页；评论自动取齐所有页，不增加 Load more 按钮。MiniPhone 页面和列表读取均不显示独立 loading 图标，包含首次读取与私聊历史分页；保留已有内容、静态骨架、提交／上传进度和已有下拉刷新指示器，Messages 列表和私聊会话页不提供下拉刷新。移除 Home 额外的 More messages / More notifications 操作行及原版没有的独立通知页面，保留原通知卡片展开与点击行为，通知接口及数据处理仍保留。
 - 保持现有 MiniPhone 样式、导航、启动动画、音乐和壁纸行为；共享聊天修改须回归 LocationChat。动态请求错误使用公共 Toast；演示数据仅用于明确的无世界预览。
@@ -595,7 +595,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 | --- | --- |
 | Home | 删除首页通知区上方的接口错误段落与 Retry，错误只用 Toast，不挤动时钟和通知卡片。 |
 | Messages / Posts / Photos | 删除列表内的错误／重试和通用空数据段落，保留原标题、列表／三列图片网格及滚动分页；Posts／Photos 保留下拉刷新，Messages 列表及私聊会话页取消下拉刷新。 |
-| Comments / Create | 删除写入状态／Retry same request 占位区；原 Send／Post 按钮复用未确认请求 ID、正文、图片和回复 ID。评论回复目标仅改变原输入框提示，再点同一评论取消，不增加一行回复栏。 |
+| Comments / Create | 删除写入状态／Retry same request 占位区；原 Send／Post 按钮复用未确认请求 ID、正文、图片和回复 ID。评论回复目标使用原输入框提示；键盘收起时点评论进入回复并弹起键盘，键盘打开时点评论只收起键盘并取消回复，不增加一行回复栏。 |
 | Private chat | 删除输入区的错误／Refresh 和等待区 Retry；保留正在输入提示与历史锚点，未确认且未受理的请求由原 Send 按钮重试。恢复动态世界日期的 Private conversation 标题，去掉额外的自制长按复制菜单。 |
 | Settings | 删除新增的错误／重试、不可用／空目录提示段落，读取失败使用 Toast 与下拉刷新；正常宽度恢复原版最多四项一排，窄屏和更多动态选项允许换行。Apply 及现有图片裁剪和保存进度保持。 |
 | Music | 播放器固定占满页面可用区域，不提供纵向滚动或下拉刷新，空目录与加载失败同样保持固定布局。封面容器铺满内容区宽度与控制区上方剩余高度，不固定宽高比；图片保持原比例居中覆盖裁切（BoxFit.cover），不因适配留边。短屏或大字体下仅缩小控制区以保留全部操作。读取失败使用 Toast，重新进入页面重试；播放失败仍可用原播放按钮重试。保留长标题横向滚动、进度和点赞逻辑。 |
@@ -705,10 +705,14 @@ writing. Layout changes (keyboard, multiline
 input, images, refreshed post) realign while following; manual scroll cancels it.
 
 The Comments page dismisses the keyboard on Send, before awaiting the write
-or confirmation. Touching outside the input also dismisses it while preserving
-the draft and the touched control's action, including selecting a reply target.
-Late responses do not dismiss a newly focused input. This behavior is specific
-to post comments; private-message Send retains the keyboard. The shared Posts
+or confirmation. With the keyboard closed, tapping a real comment selects its
+reply target and opens the keyboard. With the keyboard open, tapping a comment
+only dismisses it and clears the reply target, without selecting a new target.
+Other outside taps and manual scrolling dismiss the keyboard and keep the reply target when the draft
+contains non-whitespace text; otherwise they clear the target. Draft text is
+preserved in both cases. Late responses do not dismiss a newly focused input.
+This behavior is specific to post comments; private-message Send retains the
+keyboard. The shared Posts
 like action uses a solid brand-red heart when liked and the original outline
 when unliked, in both the feed and detail.
 
