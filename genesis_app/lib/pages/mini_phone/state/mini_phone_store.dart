@@ -735,6 +735,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     attempt.data['client_request_id'] = w.id;
     var sent = false;
     pending[key] = w;
+    if (kind == 'comment') {
+      postsController.trackComment(w, person(uid!, type: 1));
+    }
     if (kind == 'dm' &&
         !history(target).any(
           (m) =>
@@ -776,6 +779,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (!_current(g)) return false;
       attempt.finish('accepted');
       w.accepted = true;
+      if (kind == 'comment') postsController.updateComment(w);
       if (kind != 'dm') pending.remove(key);
       await _save();
       if (!_current(g)) return false;
@@ -809,6 +813,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         if (kind == 'dm' && w.rejected) {
           messagesController.outgoing.remove(w.id);
         }
+        if (kind == 'comment') postsController.updateComment(w);
         await _save();
       }
       return w.accepted;

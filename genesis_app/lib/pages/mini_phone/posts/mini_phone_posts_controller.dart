@@ -2,7 +2,16 @@ import 'package:flutter/foundation.dart';
 
 import '../../../network/mini_phone/mini_phone_api.dart';
 import '../state/mini_phone_requests.dart';
+import '../state/mini_phone_write.dart';
 import 'mini_phone_post_feed_cache.dart';
+
+/// A local display row, never a server comment or a reply target.
+class MiniPhoneOutgoingComment {
+  MiniPhoneOutgoingComment(this.write, this.author, this.replyToAuthor);
+  final PhoneWrite write;
+  final PhonePerson author;
+  final PhonePerson? replyToAuthor;
+}
 
 /// Posts state is independent of DM recovery and never refreshes app lists on push.
 class MiniPhonePostsController {
@@ -40,6 +49,26 @@ class MiniPhonePostsController {
   int _interactionRevision = 0;
   int get interactionRevision => _interactionRevision;
   final comments = <int, List<PhoneComment>>{};
+  final _outgoingComments = <String, MiniPhoneOutgoingComment>{};
+  Iterable<MiniPhoneOutgoingComment> outgoingComments(int postId) =>
+      _outgoingComments.values.where((c) => c.write.target == '$postId');
+
+  void trackComment(PhoneWrite write, PhonePerson author) {
+    final parent = comments[int.tryParse(write.target)]
+        ?.where((c) => c.id == write.replyTo)
+        .firstOrNull;
+    _outgoingComments.putIfAbsent(
+      write.id,
+      () => MiniPhoneOutgoingComment(write, author, parent?.author),
+    );
+    _interactionRevision++;
+  }
+
+  void updateComment(PhoneWrite write) {
+    if (write.rejected) _outgoingComments.remove(write.id);
+    _interactionRevision++;
+  }
+
   final _deferredPostReads = <String, Future<bool> Function()>{};
   Future<bool> load<T>(
     String key,
@@ -66,6 +95,7 @@ class MiniPhonePostsController {
     details.clear();
     _interactionRevision++;
     comments.clear();
+    _outgoingComments.clear();
     _deferredPostReads.clear();
     _likeIntent.clear();
     _likeRunning.clear();
@@ -243,6 +273,10 @@ class MiniPhonePostsController {
   }) {
     final key = 'comments:$id';
     Future<bool> read() {
+      // Only a read started after acceptance may replace these local rows.
+      final accepted = outgoingComments(
+        id,
+      ).where((c) => c.write.accepted).map((c) => c.write.id).toSet();
       final generation = requests.generation;
       final version = (requests.versions[key] ?? 0) + 1;
       void checkCurrent() {
@@ -284,6 +318,8 @@ class MiniPhonePostsController {
         },
         (all) {
           comments[id] = all;
+          _outgoingComments.removeWhere((key, _) => accepted.contains(key));
+          _interactionRevision++;
           pages.remove(key);
           hasMore.remove(key);
         },

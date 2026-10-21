@@ -209,9 +209,9 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
           !phone.phoneVisible ||
           !phone.foreground ||
           !_followBottom ||
-          _comments == null ||
-          _loading ||
-          _sending ||
+          livePostId == null ||
+          ((_comments == null || _loading || _sending) &&
+              phone.postsController.outgoingComments(livePostId!).isEmpty) ||
           (!_sendFollow && (!_keyboardOpen || !commentFocus.hasFocus)) ||
           !commentsScroll.hasClients) {
         return;
@@ -269,6 +269,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     String time = '',
     PhoneComment? replyTarget,
     String? replyToCharId,
+    String? replyToName,
   }) => InkWell(
     onTap: replyTarget == null
         ? null
@@ -317,9 +318,10 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                 Text.rich(
                   TextSpan(
                     children: [
-                      if (replyToCharId != null)
+                      if (replyToName != null || replyToCharId != null)
                         TextSpan(
-                          text: '@${phone.person(replyToCharId).name} ',
+                          text:
+                              '@${replyToName ?? phone.person(replyToCharId!).name} ',
                           style: miniStyle(14, FontWeight.w600, miniPink),
                         ),
                       TextSpan(text: content),
@@ -342,7 +344,15 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     }
     final d = _detail;
     final post = _seed;
-    final count = _comments?.length ?? (_freshDetail ? d?.commentCount : null);
+    final outgoing = phone.postsController.outgoingComments(id).toList();
+    final baseCount =
+        _comments?.length ?? (_freshDetail ? d?.commentCount : null);
+    final count = baseCount == null
+        ? null
+        : baseCount +
+              outgoing
+                  .where((c) => _comments != null || !c.write.accepted)
+                  .length;
     final likes = phone.postsController.likeState(
       id,
       count: d?.likeCount ?? _seedLikes ?? 0,
@@ -413,7 +423,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                 if (_comments == null && _loading)
                   const _CommentSkeleton()
                 else if (_comments != null) ...[
-                  if (_comments!.isEmpty)
+                  if (_comments!.isEmpty && outgoing.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(miniPageInset),
                       child: Text(
@@ -430,6 +440,15 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                       replyToCharId: c.replyToCharId,
                     ),
                 ],
+                for (final c in outgoing)
+                  KeyedSubtree(
+                    key: ValueKey('mini-phone-outgoing-comment-${c.write.id}'),
+                    child: _liveCommentRow(
+                      c.author,
+                      c.write.content,
+                      replyToName: c.replyToAuthor?.name,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -470,24 +489,27 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                           final text = retry
                               ? pending.content
                               : commentInput.text;
+                          final target = retry
+                              ? phone.comments[id]
+                                    ?.where((c) => c.id == pending.replyTo)
+                                    .firstOrNull
+                              : replyToComment;
                           final entry = _entry;
                           _followBottom = _sendFollow = _sending = true;
+                          _update(() {
+                            if (commentInput.text == text) commentInput.clear();
+                            replyToComment = null;
+                          });
                           final ok = await phone.write(
                             'comment',
                             '$id',
                             text,
-                            replyTo: replyToComment?.id,
+                            replyTo: retry ? pending.replyTo : target?.id,
                             retry: retry,
                           );
                           if (!mounted || entry != _entry) return;
                           _sending = false;
                           if (ok) {
-                            _update(() {
-                              if (commentInput.text == text) {
-                                commentInput.clear();
-                              }
-                              replyToComment = null;
-                            });
                             if (phone.errors.containsKey('comments:$id')) {
                               _followBottom = _sendFollow = false;
                             } else {
@@ -495,6 +517,12 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                             }
                           } else {
                             _followBottom = _sendFollow = false;
+                            _update(() {
+                              if (commentInput.text.isEmpty) {
+                                commentInput.text = text;
+                                replyToComment = target;
+                              }
+                            });
                           }
                         },
                 ),

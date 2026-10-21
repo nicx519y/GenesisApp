@@ -683,8 +683,24 @@ reads. Backend fields and notification scheduling are unchanged.
 
 Entry stays at the top. A focused comment input opening the soft keyboard starts
 bottom following only after complete comments and viewport layout are ready.
-Skeleton height is not a final scroll target. Layout changes (keyboard, multiline
+Skeleton height is not a final scroll target. Sending is an exception: a local
+outgoing row renders and scrolls into view immediately, even while reading or
+writing. Layout changes (keyboard, multiline
 input, images, refreshed post) realign while following; manual scroll cancels it.
+
+Comment sending uses a World-session outbox owned by the Posts controller and
+keyed by the existing write request ID. It clears the submitted input immediately,
+shows the actual player and reply target, and preserves a newer draft. Local rows
+have no fabricated comment ID and cannot be replied to. A definite rejection
+removes the row and restores the submitted draft/target only if the input is empty;
+an uncertain failure keeps the row and retry uses the same request/body/target.
+After acceptance, a complete comments read started after that acceptance replaces
+accepted local rows together with the atomic list update; older reads cannot
+consume them. Failed or deferred confirmation keeps the local rows, including
+across page reopen, until a successful complete read. The comments contract has
+no client_request_id, so replacement uses the complete post-acceptance snapshot,
+not fabricated per-row request matching. Closing the page does not cancel the
+World-owned write; account/session reset clears local rows. No Feed read is added.
 Reopening the keyboard or explicitly sending starts a new positioning intent.
 Successful sending reloads all pages before positioning, rather than scrolling
 to the end of page one. Closing the keyboard does not jump to the top; route,
