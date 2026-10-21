@@ -59,6 +59,7 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     phone.posts,
     phone.authors,
     phone.likeTargets[livePostId],
+    phone.postsController.interactionRevision,
     phone.busy.contains('comment:$livePostId'),
     phone.busy.contains('comments:$livePostId'),
     phone.errors['comments:$livePostId'],
@@ -342,6 +343,11 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
     final d = _detail;
     final post = _seed;
     final count = _comments?.length ?? (_freshDetail ? d?.commentCount : null);
+    final likes = phone.postsController.likeState(
+      id,
+      count: d?.likeCount ?? _seedLikes ?? 0,
+      liked: d?.isLiked ?? _seedLiked ?? false,
+    );
     Future<void> refresh() async {
       await Future.wait([_refreshDetail(id), phone.refreshComments(id)]);
     }
@@ -389,8 +395,8 @@ class _MiniPhoneCommentsPageState extends State<MiniPhoneCommentsPage>
                     text: d?.content ?? post!.text,
                     image: d?.image ?? post!.image,
                     time: post?.currentTime ?? '',
-                    likeCount: d?.likeCount ?? _seedLikes ?? 0,
-                    isLiked: d?.isLiked ?? _seedLiked ?? false,
+                    likeCount: likes.count,
+                    isLiked: likes.liked,
                     commentCount: count,
                     detail: true,
                   ),

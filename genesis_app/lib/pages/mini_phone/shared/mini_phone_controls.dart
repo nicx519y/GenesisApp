@@ -136,6 +136,7 @@ Widget miniPhonePostAction(
   int? count,
   VoidCallback action, {
   bool selected = false,
+  bool reserveCountSpace = false,
 }) => Semantics(
   label: count == null ? label : '$label, $count',
   button: true,
@@ -148,18 +149,63 @@ Widget miniPhonePostAction(
         mainAxisSize: MainAxisSize.min,
         children: [
           MiniIcon(icon, size: 15, color: selected ? miniPink : miniSecondary),
-          if (count != null) ...[
+          if (count != null || reserveCountSpace) ...[
             const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: miniStyle(12, FontWeight.w400, miniSecondary),
-            ),
+            if (reserveCountSpace)
+              _PostActionCount(count: count)
+            else
+              Text(
+                '$count',
+                style: miniStyle(12, FontWeight.w400, miniSecondary),
+              ),
           ],
         ],
       ),
     ),
   ),
 );
+
+/// Reserve three digits at the current font scale throughout detail loading.
+class _PostActionCount extends StatelessWidget {
+  const _PostActionCount({required this.count});
+
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = miniStyle(12, FontWeight.w400, miniSecondary);
+    return Stack(
+      children: [
+        Visibility(
+          visible: false,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: Text('000', style: style),
+        ),
+        Positioned.fill(
+          child: count == null
+              ? Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Container(
+                    width: 12,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: miniLine,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                )
+              : FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text('$count', style: style, maxLines: 1),
+                ),
+        ),
+      ],
+    );
+  }
+}
 
 class MiniPhoneUploadBorder extends CustomPainter {
   @override

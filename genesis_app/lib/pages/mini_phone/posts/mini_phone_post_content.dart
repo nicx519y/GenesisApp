@@ -95,6 +95,7 @@ class MiniPhonePostContent extends StatelessWidget {
                       context.l10n.miniPhoneComments,
                       commentCount,
                       () => onOpenPost(id),
+                      reserveCountSpace: detail,
                     ),
                     const SizedBox(width: 20),
                     miniPhonePostAction(

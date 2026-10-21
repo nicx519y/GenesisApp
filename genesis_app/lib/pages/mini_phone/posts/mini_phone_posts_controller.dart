@@ -69,6 +69,7 @@ class MiniPhonePostsController {
     _deferredPostReads.clear();
     _likeIntent.clear();
     _likeRunning.clear();
+    _confirmedLikes.clear();
     likeTargets.clear();
   }
 
@@ -185,6 +186,7 @@ class MiniPhonePostsController {
           hasMore: result.hasMore,
         );
         for (final p in result.posts) {
+          if (!_likeRunning.contains(p.id)) _confirmedLikes.remove(p.id);
           // A fresh feed supersedes interaction details cached before entry.
           if (details.remove(p.id) != null) _interactionRevision++;
           if (p.author.type == 1) users[p.author.id] = p.author;
@@ -228,6 +230,7 @@ class MiniPhonePostsController {
     Future<bool> read() =>
         load('detail:$id', () => api.detail(worldId, id), (d) {
           details[id] = d;
+          _confirmedLikes.remove(id);
           _interactionRevision++;
         }, deduplicate: !afterWrite && !onEntry);
     return afterWrite ? _confirmPostRead('detail:$id', read) : read();
@@ -304,7 +307,47 @@ class MiniPhonePostsController {
   final _likeIntent = <int, bool>{};
   final likeTargets = <int, bool>{};
   final _likeRunning = <int>{};
+  final _confirmedLikes = <int, ({int count, bool liked})>{};
+
+  ({int count, bool liked}) _confirmedLikeState(
+    int id, {
+    int? count,
+    bool? liked,
+  }) {
+    if (_confirmedLikes[id] case final state?) return state;
+    final detail = details[id];
+    if (detail != null) return (count: detail.likeCount, liked: detail.isLiked);
+    final post = count == null || liked == null
+        ? _feeds.values
+              .expand((feed) => feed.posts)
+              .where((p) => p.id == id)
+              .firstOrNull
+        : null;
+    return (
+      count: count ?? post?.likeCount ?? 0,
+      liked: liked ?? post?.isLiked ?? false,
+    );
+  }
+
+  ({int count, bool liked}) _withLiked(
+    ({int count, bool liked}) state,
+    bool liked,
+  ) => (
+    count: (state.count + (liked ? 1 : 0) - (state.liked ? 1 : 0)).clamp(
+      0,
+      0x7fffffffffffffff,
+    ),
+    liked: liked,
+  );
+
+  /// Both pages project the latest intent over one confirmed baseline.
+  ({int count, bool liked}) likeState(int id, {int? count, bool? liked}) {
+    final state = _confirmedLikeState(id, count: count, liked: liked);
+    return _withLiked(state, likeTargets[id] ?? state.liked);
+  }
+
   Future<void> setLiked(int id, bool liked) async {
+    if (requests.disposed) return;
     _likeIntent[id] = liked;
     likeTargets[id] = liked;
     _interactionRevision++;
@@ -314,6 +357,7 @@ class MiniPhonePostsController {
     try {
       while (requests.isCurrent(g) && _likeIntent.containsKey(id)) {
         final desired = _likeIntent.remove(id)!;
+        final accepted = _withLiked(_confirmedLikeState(id), desired);
         final ok = await load(
           'like:$id',
           () => desired ? api.like(worldId, id) : api.unlike(worldId, id),
@@ -321,13 +365,25 @@ class MiniPhonePostsController {
           allowBackground: true,
         );
         if (!requests.isCurrent(g)) return;
+        if (ok) {
+          // A failed confirmation read must not undo an accepted mutation.
+          _confirmedLikes[id] = accepted;
+        } else if (!_likeIntent.containsKey(id)) {
+          // Roll back the failed latest intent before the confirmation read.
+          likeTargets.remove(id);
+        }
+        _interactionRevision++;
+        requests.notify();
         final queried = await refreshDetail(id, afterWrite: true);
+        if (!requests.isCurrent(g)) return;
         if (!ok && !queried) {
           _likeIntent.remove(id);
           return;
         }
         // Only a newer user intent may run after an uncertain operation.
-        if (_likeIntent[id] == details[id]?.isLiked) _likeIntent.remove(id);
+        if (_likeIntent[id] == _confirmedLikeState(id).liked) {
+          _likeIntent.remove(id);
+        }
       }
     } finally {
       if (requests.isCurrent(g)) {

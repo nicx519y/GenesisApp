@@ -124,8 +124,13 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
   }
 
   Widget _livePostCard(PhonePost p) {
-    final likes = phone.details[p.id]?.likeCount ?? p.likeCount;
-    final liked = phone.details[p.id]?.isLiked ?? p.isLiked;
+    final state = phone.postsController.likeState(
+      p.id,
+      count: p.likeCount,
+      liked: p.isLiked,
+    );
+    final likes = state.count;
+    final liked = state.liked;
     final cached = _cards[p.id];
     if (cached != null &&
         identical(cached.post, p) &&

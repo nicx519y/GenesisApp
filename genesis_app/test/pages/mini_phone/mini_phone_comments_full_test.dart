@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/posts/mini_phone_comments_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/shared/mini_phone_ui.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/shared/mini_phone_controls.dart';
 import '../../support/mini_phone_chat_backend.dart';
 import '../../support/mini_phone_memory_cache.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
@@ -29,6 +31,43 @@ Map<String, dynamic> comment(int id) => {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('comment action count slot stays fixed at scale $scale', (
+      tester,
+    ) async {
+      Widget build(int? count) => MaterialApp(
+        home: Scaffold(
+          body: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Row(
+              children: [
+                miniPhonePostAction(
+                  'messages',
+                  'Comments',
+                  count,
+                  () {},
+                  reserveCountSpace: true,
+                ),
+                const SizedBox(width: 20),
+                miniPhonePostAction('heart', 'Like', 0, () {}),
+              ],
+            ),
+          ),
+        ),
+      );
+      final icons = find.byType(MiniIcon);
+      await tester.pumpWidget(build(null));
+      final commentRect = tester.getRect(icons.at(0));
+      final likeRect = tester.getRect(icons.at(1));
+      for (final count in [0, 1, 99, 100, 1234, 9007199254740993]) {
+        await tester.pumpWidget(build(count));
+        expect(tester.getRect(icons.at(0)), commentRect);
+        expect(tester.getRect(icons.at(1)), likeRect);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
 
   test(
     'loads every page atomically, deduplicates and orders full int64 IDs',
@@ -200,13 +239,30 @@ void main() {
             const ValueKey('mini-phone-comments-skeleton'),
           );
           final initialTop = tester.getTopLeft(skeleton).dy;
+          Finder action(String icon) => find
+              .ancestor(
+                of: find.byWidgetPredicate(
+                  (w) => w is MiniIcon && w.name == icon,
+                ),
+                matching: find.byType(InkWell),
+              )
+              .first;
+          final commentAction = tester.getRect(action('messages'));
+          final likeAction = tester.getRect(action('heart'));
+          void expectStableActions() {
+            expect(tester.getRect(action('messages')), commentAction);
+            expect(tester.getRect(action('heart')), likeAction);
+          }
+
           if (detailFirst) {
             detail.complete(ok(phoneDetail()));
             await tester.pumpAndSettle();
+            expectStableActions();
             expect(tester.getTopLeft(skeleton).dy, closeTo(initialTop, .01));
           }
           replies.complete(ok(page([comment(1)], rn: 100)));
           await tester.pumpAndSettle();
+          expectStableActions();
           final firstRow = find
               .ancestor(
                 of: find.textContaining('Reply 1', findRichText: true),
@@ -217,6 +273,7 @@ void main() {
           if (!detailFirst) {
             detail.complete(ok(phoneDetail()));
             await tester.pumpAndSettle();
+            expectStableActions();
             expect(tester.getTopLeft(firstRow).dy, closeTo(initialTop, .01));
           }
           expect(tester.takeException(), isNull);

@@ -563,7 +563,7 @@ World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cy
 - 聊天复用 `LocationChatAnchoredMessageList`、`LocationChatScrollCoordinator`、`ChatMessageRow`、`ChatComposer`、共享 `ChatKeyboardInsetLayout`，视觉采用 `kPrivateChatStyle`。发送保持键盘，不预留回复空白；阅读历史时保留锚点和返回最新入口。
 - “正在输入”是本地请求等待提示；仅 AI 会话等待期间允许编辑草稿、禁止再次发送，其他角色独立运行；请求关联状态可从 HTTP 恢复，终态不回退。玩家互发不显示 AI 状态，user 消息按 UID 判断方向。
 - Posts 作者栏展示全部已加载世界角色，并补充 `/post/authors` 的未知角色 ID；空 Feed 也保留头像，固定宽度左对齐，与当前 Feed 分页和筛选无关；`char_id` 筛选先由服务端执行再分页。All／各 char_id 分别缓存帖子及分页，切换立即恢复缓存并丢弃旧响应；从首至已缓存末页重新校验，成功后按 post_id／字段差异局部更新，失败保留缓存，未变帖子和控件复用；主动刷新 Feed 时保留筛选并刷新作者列表；通知只更新未读聚合，不自动请求 Feed／作者列表。两个 GET 均不标记已读，进入 Posts 的显式已读流程保持不变。评论预览仅使用 Feed 的 `comments`，先取最新三条，再按时间正序展示；不逐帖请求评论或详情补齐，不推算总评论数；回复必须使用 `/comments` 的真实 ID。
-- 同帖点赞／取消点赞串行执行；结果不确定时查询详情，再处理最新操作意图。进入 Posts 的全部已读只在本次进入成功加载后执行；Home 通知直达详情在详情成功加载且仍可见后复用同一已读流程。普通详情浏览不额外触发，停留期间不自动清除新通知。
+- 列表与详情共用 Posts 控制器的 `setLiked`／`likeState`：点击立即切换图标并对最近确认数量加一或减一，最小为零；失败立即回滚最近确认状态。连续点击保留最新意图，同帖请求串行执行；成功后查询详情确认，单独的确认查询失败不撤销成功操作，结果不确定时仍先查询详情再处理最新意图，不重拉 Feed。进入 Posts 的全部已读只在本次进入成功加载后执行；Home 通知直达详情在详情成功加载且仍可见后复用同一已读流程。普通详情浏览不额外触发，停留期间不自动清除新通知。
 - 通知逐页替换，不按帖子合并、不制造通知 ID 或正文。Photos 保留网格和共享查看器；发帖从本机选图后仅统一预处理和预览，点击 Post 才上传（处理后最大 10 MiB）并发帖；发送中 Post 显示圆环、锁定正文和图片操作，返回和关闭仍可用，World 会话继续发送；失败保留草稿并复用已上传图片 URL，保留完整 xl_url；纯文字也可提交；新草稿最多 500 个用户可见字符并显示计数，仍保留后端 65535 UTF-8 字节检查；已提交但未确认的旧请求重试保留原正文。
 - 2026-10-16 布局回归以 `c6b7600e` 为基准：Messages 沿用标题加会话列表，不再增加 Unread / New message；会话与角色资料请求失败只用公共 Toast 展示原始错误，同轮相同错误合并提示，不因无关状态更新重复弹出，列表底部不显示错误文字和 Retry；Messages 列表和私聊会话页不提供下拉刷新，保留进入页面同步、自动消息同步及历史分页；Posts 保留头像叠加号、固定宽度左对齐作者栏（角色较多时可横滑，空列表仍显示全部已加载角色），Create 位于最左侧，与后面的作者筛选组间隔 12；筛选组以同款圆形按钮开头、内部显示小写 `all`，选中态沿用角色边框，点击清除筛选并从第一页加载全部帖子；重复点击已选中的 `all` 不重复请求，再次点击选中作者仍可取消筛选。2026-10-18 UI 调整：发帖使用底部固定全宽 Post 按钮；作者及世界信息、带计数正文框、虚线选图区依次排列，正文独立滚动；2026-10-16 当前 dev 契约更新后配图使用本机选择和上传；正文必填，新草稿限制 500 个用户可见字符（前端交互规则）；保留后端 65535 UTF-8 字节检查，图片仍按现有 10 MiB 规则处理。
 - 评论沿用原帖排版、评论分隔线和输入头像；点击有真实 comment_id 的评论设置回复目标，不额外增加 Reply to a comment 按钮。详情精简评论不用于列表展示；全部真实评论从 `/comments` 获取并一次替换，不伪造回复目标。昵称、时间等缺失字段不使用演示占位值填充。
@@ -669,6 +669,10 @@ skeleton rows. Only a successful complete `/comments` result (including empty)
 replaces them. Before that, the count is absent unless fresh detail supplies it;
 its header keeps the same text-scaled height and padding with a static bone
 until the count is known, so inserting the count does not move the comment rows.
+The detail post's comment action also reserves a font-scaled three-digit count
+slot with a static bone while unknown; longer counts scale down within that slot
+so the comment and like actions keep their positions and row height. Feed actions
+continue to omit the unavailable total.
 Afterwards it uses the complete list length. Failed initial loading ends the
 skeleton, uses the shared Toast and can retry via pull-to-refresh. Refreshing an
 already displayed complete list retains it until atomic success. Partial page
