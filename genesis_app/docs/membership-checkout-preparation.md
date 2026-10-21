@@ -6,6 +6,8 @@ Apple / Google 订阅共用页面级商店商品预热、点击购买时的身�
 
 通过上述登录判断后，购买 UUID 两平台使用同一获取规则：优先使用当前商品接口的 `last_account_uuid`；为空时游客使用 `prepare` 返回的 UUID，已登录用户使用 `/user/info.uuid`。获取后直接传给商店购买，不与历史订单、商店回调或随后刷新的 UUID 比较。商店决定能否购买，回调凭据按原样 report，由服务端判定归属和权益；套餐变更只保留有效年会员转月会员的业务拦截。
 
+回调关联与账号隔离：已通过 Apple checkoutAttemptId、已知交易 ID／purchaseToken 关联到本地订单的回调，不因商店返回 UUID 与下单 UUID 不一致而丢弃。Google 无 checkout 标记时，仍使用已调起商店且商品匹配的当前购买操作，并要求回调带非空账号标识；仅取消 UUID 相等校验，不放宽无 UUID 的未关联回调。订单保留本次下单 UUID，游客 report／claim 使用原身份，交易凭据保持原样；已登录订单继续校验 ownerUid。未关联的历史回调及恢复路径仍校验当前账号 UUID，不能只按同商品归属。仅 purchased 进入 report；pending、restored、取消与失败保持原流程，服务端 completed／rejected 决定结果。
+
 - 订阅页拿到本次新鲜业务商品列表后，只预热当前选中套餐的商店商品。磁盘展示缓存不能用于准备。
 - 预热时支付监听、本地订单读取、UID 与业务商品快照读取并行；然后只查询平台商品详情，不获取或创建购买 UUID。
 - 真正点击购买后，才按 UUID 规则获取身份，并与商店商品查询或等待正在进行的预热并行；每次购买最多调用一次游客 prepare，已存在 last_account_uuid 时无需 prepare。

@@ -172,6 +172,36 @@ void main() {
     ]);
   });
 
+  test('iOS sends empty IDFA until a nonzero value is available', () async {
+    var idfa = '00000000-0000-0000-0000-000000000000';
+    final requests = <String?>[];
+    final registration = AdjustDeviceRegistration(
+      platform: TargetPlatform.iOS,
+      environmentProvider: () => 'sandbox',
+      readAdid: (_) async => 'adid-ios',
+      readIdfa: () async => idfa,
+      readIdfv: () async => 'idfv-ios',
+      registerDevice:
+          ({
+            required adid,
+            required environment,
+            gpsAdid,
+            idfa,
+            idfv,
+            required appInstanceId,
+          }) async {
+            requests.add(idfa);
+          },
+    );
+
+    await registration.register();
+    idfa = '12345678-1234-1234-1234-123456789abc';
+    await registration.register();
+
+    expect(requests, ['', '12345678-1234-1234-1234-123456789abc']);
+    registration.dispose();
+  });
+
   test('Android registration sends ADID, GAID, and Firebase ID', () async {
     final requests = <Map<String, String?>>[];
     final registration = AdjustDeviceRegistration(

@@ -1596,6 +1596,9 @@ void main() {
       var code = 2012;
       final toasts = <String>[];
       final expired = <String>[];
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_current');
+      await sessionStore.saveAuthToken('current-token');
       final transport = _FakeTransport(
         handler: (_) => TransportResponse(
           statusCode: 200,
@@ -1610,7 +1613,7 @@ void main() {
       final api = GenesisApi(
         transport: transport,
         useMock: false,
-        sessionStore: MemoryUserSessionStore(),
+        sessionStore: sessionStore,
         appHeaderProvider: () async => {},
         onChatroomMessageMutationError: toasts.add,
         onSessionExpired: (message) async {
@@ -1630,6 +1633,7 @@ void main() {
         );
         expect(toasts, code == 10001 ? isEmpty : ['server message $code']);
       }
+      await Future<void>.delayed(Duration.zero);
       expect(expired, hasLength(1));
       expect(transport.requests, hasLength(4));
     },
@@ -1641,6 +1645,9 @@ void main() {
       Object? envelope = {'err_no': 10001, 'err_msg': 'expired', 'data': false};
       final toasts = <String>[];
       final expired = <String>[];
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_current');
+      await sessionStore.saveAuthToken('current-token');
       final api = GenesisApi(
         transport: _FakeTransport(
           handler: (_) => TransportResponse(
@@ -1650,7 +1657,7 @@ void main() {
           ),
         ),
         useMock: false,
-        sessionStore: MemoryUserSessionStore(),
+        sessionStore: sessionStore,
         appHeaderProvider: () async => {},
         onSessionExpired: (message) async {
           expired.add(message);
@@ -1682,6 +1689,7 @@ void main() {
           throwsA(isA<ApiException>().having((e) => e.code, 'code', 10001)),
         );
       }
+      await Future<void>.delayed(Duration.zero);
       expect(expired, hasLength(2));
       expect(toasts, isEmpty);
       for (final response in [
@@ -1760,6 +1768,9 @@ void main() {
     () async {
       var sessionExpiredCount = 0;
       var errorCode = 1404;
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_current');
+      await sessionStore.saveAuthToken('current-token');
       final transport = _FakeTransport(
         handler: (_) => TransportResponse(
           statusCode: 200,
@@ -1775,7 +1786,7 @@ void main() {
         useMock: false,
         transport: transport,
         deviceIdService: const _TestDeviceIdService(),
-        sessionStore: MemoryUserSessionStore(),
+        sessionStore: sessionStore,
         onSessionExpired: (_) async => sessionExpiredCount++,
       );
       final localRequests = <Future<Object?> Function()>[
@@ -1816,6 +1827,7 @@ void main() {
           throwsA(isA<ApiException>().having((e) => e.code, 'code', 10001)),
         );
       }
+      await Future<void>.delayed(Duration.zero);
       expect(sessionExpiredCount, localRequests.length);
     },
   );
@@ -5909,6 +5921,20 @@ void main() {
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/feedback/create');
     expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
       'content': '希望增加夜间模式',
+    });
+    await api.v1.feedback.create(rating: 5);
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'rating': 5,
+    });
+    await api.v1.feedback.create(content: 'Improve the experience', rating: 2);
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'content': 'Improve the experience',
+      'rating': 2,
+    });
+    await api.v1.gem.claimTask('rating');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/task/claim');
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'task_code': 'rating',
     });
   });
 

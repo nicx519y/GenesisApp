@@ -28,9 +28,6 @@ class CreateOriginPage extends StatefulWidget {
 }
 
 class _CreateOriginPageState extends State<CreateOriginPage> {
-  static const CreateOriginDraftRepository _repository =
-      CreateOriginDraftRepository();
-
   final OriginPendingSubmissionCoordinator _pendingCoordinator =
       OriginPendingSubmissionCoordinator.instance;
   OriginDraftSubmitStatus _submitStatus = OriginDraftSubmitStatus.idle;
@@ -38,6 +35,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   late final VoidCallback _removeCreateOutcomeListener;
   bool _didResumePendingCreate = false;
   List<GenesisGenerationWaitAvatar> _generationWaitAvatars = const [];
+  CreateOriginDraftRepository? _draftRepository;
 
   @override
   void initState() {
@@ -69,14 +67,20 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final sessionStore = AppServicesScope.read(context).sessionStore;
+    final repository = _draftRepository ??= CreateOriginDraftRepository(
+      sessionStore: sessionStore,
+    );
     final flow = OriginDraftFlowPage(
       title: GenesisL10n.current.createWorldoTitle,
-      repository: _repository,
-      basicsPageBuilder: (_) => const CreateBasicsPage(),
-      charactersPageBuilder: (_) => const CreateCharactersPage(),
-      locationsPageBuilder: (_) => const CreateLocationsPage(),
-      openingPageBuilder: (_) => const CreateOpeningPage(),
-      storyEventsPageBuilder: (_) => const CreateStoryEventsPage(),
+      repository: repository,
+      basicsPageBuilder: (_) => CreateBasicsPage(repository: repository),
+      charactersPageBuilder: (_) =>
+          CreateCharactersPage(repository: repository),
+      locationsPageBuilder: (_) => CreateLocationsPage(repository: repository),
+      openingPageBuilder: (_) => CreateOpeningPage(repository: repository),
+      storyEventsPageBuilder: (_) =>
+          CreateStoryEventsPage(repository: repository),
       failurePrefix: GenesisL10n.current.createFailed,
       submitLabel: GenesisL10n.current.createAction,
       submittingLabel: GenesisL10n.current.createCreating,
@@ -85,7 +89,8 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       reloadSignal: _reloadSignal,
       debugDraftGenerator: createOriginDebugDraftGenerator(),
       confirmLeaveWithDraftOptions: true,
-      onDiscardDraft: (_) => CreateOriginDraftStore.clear(),
+      onDiscardDraft: (_) async =>
+          CreateOriginDraftStore.clear(ownerUid: await repository.ownerUid),
     );
     if (_submitStatus == OriginDraftSubmitStatus.idle) return flow;
     return Stack(
@@ -113,7 +118,22 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     if (!context.mounted) {
       return const OriginSubmitResult(message: '', showMessage: false);
     }
-    final api = AppServicesScope.read(context).api;
+    final services = AppServicesScope.read(context);
+    final api = services.api;
+    final revision = services.sessionRevision.value;
+    final ownerUid = await CreateOriginDraftStore.readOwnerUid(
+      sessionStore: services.sessionStore,
+    );
+    final draftOwnerUid = repository is CreateOriginDraftRepository
+        ? await repository.ownerUid
+        : ownerUid;
+    if (!context.mounted ||
+        ownerUid == CreateOriginDraftStore.anonymousOwner ||
+        (draftOwnerUid != CreateOriginDraftStore.anonymousOwner &&
+            draftOwnerUid != ownerUid) ||
+        revision != services.sessionRevision.value) {
+      return const OriginSubmitResult(message: '', showMessage: false);
+    }
     setState(() {
       _submitStatus = OriginDraftSubmitStatus.checkingPending;
       _generationWaitAvatars = originDraftGenerationWaitAvatars(draft);
@@ -138,10 +158,12 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       await _pendingCoordinator.startCreating(
         originId: originId,
         originName: draft.basics.originName,
+        ownerUid: ownerUid,
         loadOriginInfo: (originId) => api.v1.origin.info(
           originId: originId,
           tracePolicy: ApiRequestTracePolicy.excluded,
         ),
+        context: context.mounted ? context : null,
       );
       return const OriginSubmitResult(message: '', showMessage: false);
     } catch (_) {
@@ -166,8 +188,12 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   }
 
   Future<void> _loadPendingCreateWaitAvatars() async {
-    final draft = await CreateOriginDraftStore.loadFinal();
-    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    final revision = services.sessionRevision.value;
+    final draft = await CreateOriginDraftStore.loadFinal(
+      sessionStore: services.sessionStore,
+    );
+    if (!mounted || revision != services.sessionRevision.value) return;
     setState(() {
       _generationWaitAvatars = originDraftGenerationWaitAvatars(draft);
     });

@@ -3589,4 +3589,72 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get miniPhonePostsEmpty =>
       'Aucune publication pour le moment. Partagez un moment de votre histoire.';
+
+  @override
+  String get gemsProductUnavailable => 'Ce produit n’est pas disponible.';
+
+  @override
+  String get gemsTypeUnsupported =>
+      'Ce type de produit n’est pas pris en charge.';
+
+  @override
+  String get gemsPurchaseTimeout =>
+      'Le délai de l’achat a expiré. Veuillez réessayer.';
+
+  @override
+  String get gemsPaymentUnavailable =>
+      'Le service de paiement est indisponible.';
+
+  @override
+  String get gemsPaymentPending => 'Le paiement est en attente.';
+
+  @override
+  String get gemsPaymentConfirming =>
+      'La confirmation du paiement est en cours.';
+
+  @override
+  String get gemsPurchaseRefunded => 'L’achat a été remboursé.';
+
+  @override
+  String get premiumReportFailed => 'Échec de la transmission de l’achat.';
+
+  @override
+  String get premiumVerifyFailed =>
+      'Nous n’avons pas pu vérifier votre abonnement. Veuillez contacter l’assistance.';
+
+  @override
+  String get rateWorldoTitle => 'Évaluez Worldo';
+
+  @override
+  String get rateWorldoMessage =>
+      'Que pensez-vous de Worldo ? Votre avis compte pour nous.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '$count étoiles';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint =>
+      'Dites-nous comment améliorer votre expérience';
+
+  @override
+  String get rateWorldoThanks => 'Merci pour votre avis !';
+
+  @override
+  String get rateWorldoFeedbackSaved => 'Votre avis a été enregistré.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return 'Votre avis nous aide à nous améliorer. Recevez $gems Gemmes pour vous remercier.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed =>
+      'Impossible d’ouvrir la boutique d’applications. Veuillez réessayer.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'Réinitialisation dans $time';
+  }
 }

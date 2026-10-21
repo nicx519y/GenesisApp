@@ -480,8 +480,21 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     void Function(WorldChatroomMessage message)? onCanonicalMessage,
     void Function(Object error, bool receiptReceived)? onFailure,
   }) async {
+    final ratingServices = AppServicesScope.read(context);
+    final ratingThreshold =
+        RatingPromptDebugSettings.resolve(
+          ratingServices.appGlobalConfig.value.ratingPromptMessageCount,
+        ).catchError(
+          (Object _) =>
+              ratingServices.appGlobalConfig.value.ratingPromptMessageCount,
+        );
+    final ratingRevision = ratingServices.sessionRevision.value;
+    final ratingOwner = ratingServices.sessionStore.readLoginUid().catchError(
+      (Object _) => null,
+    );
     var receiptReceived = false;
     final sentLocationId = widget.locationId;
+    final sentWorldId = widget.worldId;
     try {
       if (isInitialSend) {
         unawaited(
@@ -501,6 +514,28 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       );
       final receipt = await handle.receipt;
       receiptReceived = true;
+      unawaited(
+        ratingThreshold
+            .then((threshold) async {
+              if (threshold <= 0) return;
+              final owner = await ratingOwner;
+              if (owner == null ||
+                  ratingServices.sessionRevision.value != ratingRevision ||
+                  await ratingServices.sessionStore.readLoginUid() != owner) {
+                return;
+              }
+              final currentThreshold = await RatingPromptDebugSettings.resolve(
+                ratingServices.appGlobalConfig.value.ratingPromptMessageCount,
+              );
+              if (currentThreshold <= 0) return;
+              await RatingPromptStore.instance.recordMessage(
+                owner: Future.value(owner),
+                threshold: currentThreshold,
+                messageId: '$sentWorldId:$clientMsgId',
+              );
+            })
+            .catchError((Object _) {}),
+      );
       if (!mounted) {
         service.cancelCanonicalMessageWait(clientMsgId);
         onFailure?.call(

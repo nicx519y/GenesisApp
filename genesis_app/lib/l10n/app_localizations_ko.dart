@@ -3412,4 +3412,64 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get miniPhonePostsEmpty => '아직 게시물이 없어요. 이야기 속 한순간을 공유해 보세요.';
+
+  @override
+  String get gemsProductUnavailable => '이 상품은 이용할 수 없습니다.';
+
+  @override
+  String get gemsTypeUnsupported => '이 상품 유형은 지원되지 않습니다.';
+
+  @override
+  String get gemsPurchaseTimeout => '구매 처리 시간이 초과되었습니다. 다시 시도해 주세요.';
+
+  @override
+  String get gemsPaymentUnavailable => '결제 서비스를 이용할 수 없습니다.';
+
+  @override
+  String get gemsPaymentPending => '결제가 보류 중입니다.';
+
+  @override
+  String get gemsPaymentConfirming => '결제를 확인하고 있습니다.';
+
+  @override
+  String get gemsPurchaseRefunded => '구매가 환불되었습니다.';
+
+  @override
+  String get premiumReportFailed => '구매 내역을 전송하지 못했습니다.';
+
+  @override
+  String get premiumVerifyFailed => '구독을 확인할 수 없습니다. 고객 지원팀에 문의해 주세요.';
+
+  @override
+  String get rateWorldoTitle => 'Worldo 평가';
+
+  @override
+  String get rateWorldoMessage => 'Worldo를 즐겁게 이용하고 계신가요? 여러분의 의견은 저희에게 소중합니다.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '별 $count개';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint => '더 나은 이용 경험을 위해 개선할 점을 알려주세요';
+
+  @override
+  String get rateWorldoThanks => '의견을 보내주셔서 감사합니다!';
+
+  @override
+  String get rateWorldoFeedbackSaved => '의견이 저장되었습니다.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return '보내주신 의견은 서비스 개선에 도움이 됩니다. 감사의 선물로 젬 $gems개를 받아보세요.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed => '앱 스토어를 열 수 없습니다. 다시 시도해 주세요.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return '초기화까지 $time';
+  }
 }

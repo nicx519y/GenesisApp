@@ -3591,4 +3591,69 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get miniPhonePostsEmpty =>
       'Non ci sono ancora post. Condividi un momento della tua storia.';
+
+  @override
+  String get gemsProductUnavailable => 'Questo prodotto non è disponibile.';
+
+  @override
+  String get gemsTypeUnsupported => 'Questo tipo di prodotto non è supportato.';
+
+  @override
+  String get gemsPurchaseTimeout => 'Tempo scaduto per l’acquisto. Riprova.';
+
+  @override
+  String get gemsPaymentUnavailable =>
+      'Il servizio di pagamento non è disponibile.';
+
+  @override
+  String get gemsPaymentPending => 'Il pagamento è in sospeso.';
+
+  @override
+  String get gemsPaymentConfirming => 'Il pagamento è in fase di conferma.';
+
+  @override
+  String get gemsPurchaseRefunded => 'L’acquisto è stato rimborsato.';
+
+  @override
+  String get premiumReportFailed => 'Impossibile comunicare l’acquisto.';
+
+  @override
+  String get premiumVerifyFailed =>
+      'Non siamo riusciti a verificare il tuo abbonamento. Contatta l’assistenza.';
+
+  @override
+  String get rateWorldoTitle => 'Valuta Worldo';
+
+  @override
+  String get rateWorldoMessage =>
+      'Come ti trovi con Worldo? La tua opinione è importante per noi.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '$count stelle';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint =>
+      'Facci sapere come possiamo migliorare la tua esperienza';
+
+  @override
+  String get rateWorldoThanks => 'Grazie per il tuo feedback!';
+
+  @override
+  String get rateWorldoFeedbackSaved => 'Il tuo feedback è stato salvato.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return 'Il tuo feedback ci aiuta a migliorare. Riscatta $gems Gemme come ringraziamento.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed =>
+      'Impossibile aprire lo store delle app. Riprova.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'Si reimposta tra $time';
+  }
 }

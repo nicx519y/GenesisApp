@@ -1085,7 +1085,7 @@ Query：
 错误码：
 
 - `4004`：缺少 `origin_id`，或 `limit` 非法
-- `10001`：未登录或 session 过期
+- `10001`：未登录或 session 过期。客户端仍向调用方抛出业务错误；只有请求实际携带的认证凭据与当前完整登录会话一致时，才触发全局登录失效处理。游客、已退出、旧账号或旧 token 的迟到响应，以及主动 `user/logout` / `user/delete` 请求，不触发全局退出、跳转或提示。该错误码本身不能证明账号在其他设备登录。
 - `20101`：origin 不存在、已软删除或当前调用方不可见
 
 ### GET `/api/v1/app/config`
@@ -1098,6 +1098,7 @@ Query：
 
 响应 `data`：
 
+- `rating_prompt_message_count`: integer；评价引导的消息数量阈值，按本次需求约定为 `20`，`0` 表示关闭。客户端在大于 0 时按本机用户累计 Location Chat 发送成功消息，达到阈值后记为待弹出，离开 Location Chat／World Detail／Worldo Detail 后自动展示一次；同一条消息重试去重。字段缺失或无效时默认 `0`。
 - `language`: string，可为空；当前设备的设置语言。启动时非空有效值覆盖系统语言；为空或请求失败继续使用系统语言。
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
 - `show_personalization_form`: boolean；控制新用户填表入口。默认 `false`，启动时仅成功获取 boolean `true` 才请求 `/api/v1/device/personalization`，按当前身份的 `completed` 判断是否弹出表单；获取失败、字段缺失、`null` 或类型错误均不查询、不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
@@ -1108,6 +1109,7 @@ Query：
   "err_no": 0,
   "err_msg": "succ",
   "data": {
+    "rating_prompt_message_count": 20,
     "show_opening_sheet": false,
     "show_personalization_form": true,
     "apiTraceSamplingRate": 1.0
@@ -2350,6 +2352,12 @@ query：
 
 ## Feedback 接口
 
+### POST `/api/v1/gem/task/claim`：评价奖励扩展
+
+- 按本次需求增加任务编码 `rating`，请求 body 为 `{"task_code":"rating"}`。
+- 最新 Apifox 契约：登录后可直接领取，无需 report；每 UID 终身一次，奖励 30 Gems（3000 cent）、永久有效，不在 tasks 列表展示。服务端不核验商店评分、feedback 或消息数。
+- 重复／并发领取返回相同 `ledger_id` 和首次奖励快照、当前钱包余额，不重复发奖。客户端读取 `reward_gems_cent`、`balance_cent`、`ledger_id`，成功后刷新共享钱包，不自行加余额。
+
 ### POST `/api/v1/feedback/create`
 
 提交产品反馈。登录或未登录用户均可提交；携带有效 session 时服务端记录 `feedbacker_uid`，未登录时保存为空字符串。本接口没有 `target_type` / `target_id`。
@@ -2363,13 +2371,16 @@ query：
 
 请求 body：
 
-- `content*`: string，反馈内容；服务端 trim 后不能为空，最长 1000 字符
+- `content`: string，可选，反馈内容；最长 3000 字符。
+- `rating`: integer，可选，评分范围 `1–5`。
+- 按本次需求更新：`rating` 和非空白 `content` 至少提供一项，可以同时提供；原文字反馈调用保持兼容。
 
 请求示例：
 
 ```json
 {
-  "content": "希望增加夜间模式"
+  "content": "希望增加夜间模式",
+  "rating": 3
 }
 ```
 
@@ -2391,8 +2402,8 @@ query：
 
 错误码：
 
-- `4004`：`content` 为空
-- `20901`：`content` 超过 1000 字符
+- `4004`：`rating` 越界／类型错误，或 `rating` 与有效 `content` 均为空
+- `20901`：`content` 超过 3000 字符
 
 ## Collect 接口
 
@@ -2562,7 +2573,7 @@ query：
 | `GET /api/v1/message/notifications` | `MessagesV1Api.notifications` 已改为必传 `block` query，枚举 `world_apply/follow/interaction`；页面入口已从旧 `system/follower/comment` 映射为 Apifox 的三个 block。 |
 | `POST /api/v1/message/read` | `MessagesV1Api.markNotificationsRead` 已改为 `/message/read`，body 使用 `block` 或 `notification_id`，不再提交旧 `category/notification_ids`。 |
 | `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；World、Worldo、用户详情页和 location chat 长按菜单已接入，其中 message report 的 `target_id` 使用 `global_message_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
-| `POST /api/v1/feedback/create` | 已新增 `FeedbackV1Api.create`，body 使用 `content`，响应消费 `feedback_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验空 `content` 与 1000 字符长度限制。 |
+| `POST /api/v1/feedback/create` | 已新增 `FeedbackV1Api.create`，body 支持可选 `content` / `rating`（1–5），至少一项有效，响应消费 `feedback_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验空 `content` 与 1000 字符长度限制。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |
 | `GET /api/v1/direct_message/blocks` | 已新增 `DmV1Api.blocks`，响应消费拉黑用户分页列表。 |

@@ -3531,4 +3531,68 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get miniPhonePostsEmpty =>
       'No posts yet. Share a moment from your story.';
+
+  @override
+  String get gemsProductUnavailable => 'This product is unavailable.';
+
+  @override
+  String get gemsTypeUnsupported => 'This product type is not supported.';
+
+  @override
+  String get gemsPurchaseTimeout => 'Purchase timed out. Please try again.';
+
+  @override
+  String get gemsPaymentUnavailable => 'Payment service is unavailable.';
+
+  @override
+  String get gemsPaymentPending => 'Payment is pending.';
+
+  @override
+  String get gemsPaymentConfirming => 'Payment is being confirmed.';
+
+  @override
+  String get gemsPurchaseRefunded => 'Purchase was refunded.';
+
+  @override
+  String get premiumReportFailed => 'Report failed.';
+
+  @override
+  String get premiumVerifyFailed =>
+      'We couldn’t verify your subscription. Please contact support.';
+
+  @override
+  String get rateWorldoTitle => 'Rate Worldo';
+
+  @override
+  String get rateWorldoMessage =>
+      'How are you enjoying Worldo? Your feedback matters to us.';
+
+  @override
+  String rateWorldoStars({required int count}) {
+    return '$count stars';
+  }
+
+  @override
+  String get rateWorldoFeedbackHint =>
+      'Let us know how we can improve your experience';
+
+  @override
+  String get rateWorldoThanks => 'Thanks for your feedback!';
+
+  @override
+  String get rateWorldoFeedbackSaved => 'Your feedback has been saved.';
+
+  @override
+  String rateWorldoRewardMessage({required int gems}) {
+    return 'Your feedback helps us improve. Claim $gems Gems as a thank-you.';
+  }
+
+  @override
+  String get rateWorldoStoreFailed =>
+      'Unable to open the app store. Please try again.';
+
+  @override
+  String gemsDailyResetsIn({required String time}) {
+    return 'Resets in $time';
+  }
 }

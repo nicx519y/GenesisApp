@@ -314,7 +314,7 @@
   },
   "purchaseCanceled": "購入はキャンセルされました。",
   "@purchaseCanceled": {
-    "description": "Canceled subscription purchase result."
+    "description": "Gems purchase cancellation toast and canceled subscription purchase result."
   },
   "purchasePending": "購入は保留中です。",
   "@purchasePending": {
@@ -4731,5 +4731,92 @@
   "miniPhonePostsEmpty": "まだ投稿はありません。物語のひとときを共有しましょう。",
   "@miniPhonePostsEmpty": {
     "description": "MiniPhone Posts: secondary-text footer beneath the authors only when the successfully loaded All feed contains no posts. Hidden for every selected-author filter, including empty results, and during initial loading or a failed request. Invites sharing a story moment."
+  },
+  "rateWorldoTitle": "Worldo を評価",
+  "@rateWorldoTitle": {
+    "description": "Title of the in-app five-star feedback dialog. Automatically shown once per local user after acknowledged Location Chat messages reach the configured threshold and the user exits Location Chat, World Detail, and Worldo Detail; also accessible from Developer Rate Dialog for testing."
+  },
+  "rateWorldoMessage": "Worldo を楽しんでいますか？ご意見をお聞かせください。",
+  "@rateWorldoMessage": {
+    "description": "Centered body in the in-app feedback dialog above five tappable stars; asks about the Worldo app experience."
+  },
+  "rateWorldoStars": "星{count}つ",
+  "@rateWorldoStars": {
+    "description": "Accessibility label for each star choice in the five-star in-app feedback dialog. Count ranges from 1 to 5.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoFeedbackHint": "よりよい体験のために、改善点をお聞かせください",
+  "@rateWorldoFeedbackHint": {
+    "description": "Placeholder in the feedback input revealed after selecting 1–3 stars in the Worldo rating dialog. Invites suggestions to improve the app experience; not the generic Settings feedback placeholder."
+  },
+  "rateWorldoThanks": "ご意見ありがとうございます！",
+  "@rateWorldoThanks": {
+    "description": "Title of the thank-you/reward dialog after a successful in-app rating or feedback submission; not confirmation of a store review."
+  },
+  "rateWorldoFeedbackSaved": "ご意見を保存しました。",
+  "@rateWorldoFeedbackSaved": {
+    "description": "Thank-you dialog body when this signed-in user has already claimed the lifetime rating feedback reward."
+  },
+  "rateWorldoRewardMessage": "いただいたご意見を改善に役立てます。お礼として{gems}ジェムをお受け取りください。",
+  "@rateWorldoRewardMessage": {
+    "description": "Thank-you dialog after any in-app rating/feedback submission, regardless of score. Reward is for in-app feedback, not a store review. Gems amount comes from the published rating task contract.",
+    "placeholders": {
+      "gems": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoStoreFailed": "アプリストアを開けませんでした。もう一度お試しください。",
+  "@rateWorldoStoreFailed": {
+    "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
+  },
+  "gemsDailyResetsIn": "リセットまで {time}",
+  "@gemsDailyResetsIn": {
+    "description": "Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "gemsProductUnavailable": "この商品はご利用いただけません。",
+  "@gemsProductUnavailable": {
+    "description": "Gems purchase toast when the selected pack cannot be purchased or has no store product ID."
+  },
+  "gemsTypeUnsupported": "この商品タイプには対応していません。",
+  "@gemsTypeUnsupported": {
+    "description": "Gems purchase toast when the selected pack is not a consumable store product."
+  },
+  "gemsPurchaseTimeout": "購入がタイムアウトしました。もう一度お試しください。",
+  "@gemsPurchaseTimeout": {
+    "description": "Gems purchase toast when checkout preparation times out before the store opens."
+  },
+  "gemsPaymentUnavailable": "決済サービスをご利用いただけません。",
+  "@gemsPaymentUnavailable": {
+    "description": "Gems purchase toast when the App Store payment service or purchase stream is unavailable."
+  },
+  "gemsPaymentPending": "お支払いは保留中です。",
+  "@gemsPaymentPending": {
+    "description": "Gems purchase toast after the store reports a pending transaction."
+  },
+  "gemsPaymentConfirming": "お支払いを確認しています。",
+  "@gemsPaymentConfirming": {
+    "description": "Gems purchase toast when store payment was started but confirmation is delayed."
+  },
+  "gemsPurchaseRefunded": "この購入は返金されました。",
+  "@gemsPurchaseRefunded": {
+    "description": "Gems purchase toast when the server reports that the purchase was refunded."
+  },
+  "premiumReportFailed": "購入情報の送信に失敗しました。",
+  "@premiumReportFailed": {
+    "description": "Premium purchase toast when reporting a confirmed store transaction to the server fails."
+  },
+  "premiumVerifyFailed": "サブスクリプションを確認できませんでした。サポートにお問い合わせください。",
+  "@premiumVerifyFailed": {
+    "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
   }
 }

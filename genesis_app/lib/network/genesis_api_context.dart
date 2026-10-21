@@ -198,7 +198,9 @@ abstract class _GenesisApiContext {
 
     const message = 'Your account is logged in on another device.';
     final handler = _onSessionExpired;
-    if (handler != null) unawaited(handler(message));
+    if (handler != null) {
+      unawaited(_notifyCurrentSessionExpired(response, handler, message));
+    }
     throw ApiException(
       message: message,
       serverErrMsg: serverErrorMessageFromResponse(map),
@@ -210,4 +212,42 @@ abstract class _GenesisApiContext {
       kind: ApiExceptionKind.business,
     );
   }
+
+  Future<void> _notifyCurrentSessionExpired(
+    ApiResponse response,
+    Future<void> Function(String message) handler,
+    String message,
+  ) async {
+    // Explicit session termination must never be treated as a forced logout,
+    // even if its response races the local credential removal.
+    if (const {
+      '/api/v1/user/logout',
+      '/api/v1/user/delete',
+    }.contains(response.uri.path)) {
+      return;
+    }
+    final requestToken = _authorizationToken(response.requestAuthorization);
+    if (requestToken.isEmpty) return;
+
+    CompleteUserSession? session;
+    try {
+      session = await _sessionStore.readCompleteSession();
+    } catch (_) {
+      // Without a readable current session, ownership cannot be established.
+      return;
+    }
+    if (session == null ||
+        _authorizationToken(session.authToken) != requestToken) {
+      return;
+    }
+    // Guests, explicit sign-out and a previous account's in-flight responses
+    // still receive their business error, but cannot clear/navigate/toast the
+    // current session. Only its own rejected credential invokes the handler.
+    await handler(message);
+  }
+
+  String _authorizationToken(String? value) => (value ?? '')
+      .trim()
+      .replaceFirst(RegExp(r'^Bearer\s+', caseSensitive: false), '')
+      .trim();
 }

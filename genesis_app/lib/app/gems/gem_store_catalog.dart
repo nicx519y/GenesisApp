@@ -34,6 +34,7 @@ class GemStoreCatalog {
       'gem_store_catalog_v1.${Uri.encodeComponent(jsonEncode([namespace, platform.provider.name, owner]))}';
   Future<void> preload() async {
     try {
+      if (await readOwner() == null) return;
       if (_loading != null) {
         await _loading;
         return;
@@ -55,6 +56,7 @@ class GemStoreCatalog {
     final generation = _generation;
     await _writes;
     final owner = await readOwner();
+    if (owner == null) return null;
     final prefs = await SharedPreferences.getInstance();
     try {
       final raw = prefs.getString(_key(owner));
@@ -102,6 +104,9 @@ class GemStoreCatalog {
 
   Future<List<GemProduct>> _fetch(int generation) async {
     final owner = await readOwner();
+    if (owner == null) {
+      throw StateError('Gem products require an authenticated session');
+    }
     final products = await loadProducts();
     var available = false;
     try {

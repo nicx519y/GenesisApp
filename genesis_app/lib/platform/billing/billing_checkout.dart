@@ -70,7 +70,7 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
       _emitFailure(
         attempt.product.productId,
         attempt.id,
-        'Payment service is unavailable.',
+        GenesisL10n.current.gemsPaymentUnavailable,
         debugInfo: purchaseDebugInfo('gems.store_stream', error: error),
       );
     }

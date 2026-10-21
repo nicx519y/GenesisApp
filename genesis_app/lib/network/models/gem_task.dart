@@ -22,6 +22,7 @@ class GemTaskGroup {
     required this.groupCode,
     required this.groupTitle,
     required this.tasks,
+    this.nextClaimCountdownSeconds,
   });
 
   factory GemTaskGroup.fromJson(Map<String, dynamic> json) {
@@ -35,12 +36,16 @@ class GemTaskGroup {
       groupCode: asString(json['group_code']),
       groupTitle: asString(json['group_title']),
       tasks: tasks,
+      nextClaimCountdownSeconds: _countdownSeconds(
+        json['next_claim_countdown_seconds'],
+      ),
     );
   }
 
   final String groupCode;
   final String groupTitle;
   final List<GemTask> tasks;
+  final int? nextClaimCountdownSeconds;
 }
 
 class GemTask {
@@ -96,3 +101,6 @@ class GemTask {
   bool get isClaimed => status == 'claimed';
   bool get isClaimable => status == 'claimable';
 }
+
+int? _countdownSeconds(dynamic value) =>
+    value is int && value >= 1 && value <= 86400 ? value : null;

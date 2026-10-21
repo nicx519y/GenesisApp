@@ -314,7 +314,7 @@
   },
   "purchaseCanceled": "Kauf abgebrochen.",
   "@purchaseCanceled": {
-    "description": "Canceled subscription purchase result."
+    "description": "Gems purchase cancellation toast and canceled subscription purchase result."
   },
   "purchasePending": "Dein Kauf ist ausstehend.",
   "@purchasePending": {
@@ -4731,5 +4731,92 @@
   "miniPhonePostsEmpty": "Noch keine Beiträge. Teile einen Moment aus deiner Geschichte.",
   "@miniPhonePostsEmpty": {
     "description": "MiniPhone Posts: secondary-text footer beneath the authors only when the successfully loaded All feed contains no posts. Hidden for every selected-author filter, including empty results, and during initial loading or a failed request. Invites sharing a story moment."
+  },
+  "rateWorldoTitle": "Bewerte Worldo",
+  "@rateWorldoTitle": {
+    "description": "Title of the in-app five-star feedback dialog. Automatically shown once per local user after acknowledged Location Chat messages reach the configured threshold and the user exits Location Chat, World Detail, and Worldo Detail; also accessible from Developer Rate Dialog for testing."
+  },
+  "rateWorldoMessage": "Wie gefällt dir Worldo? Deine Meinung ist uns wichtig.",
+  "@rateWorldoMessage": {
+    "description": "Centered body in the in-app feedback dialog above five tappable stars; asks about the Worldo app experience."
+  },
+  "rateWorldoStars": "{count} Sterne",
+  "@rateWorldoStars": {
+    "description": "Accessibility label for each star choice in the five-star in-app feedback dialog. Count ranges from 1 to 5.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoFeedbackHint": "Sag uns, wie wir dein Erlebnis verbessern können",
+  "@rateWorldoFeedbackHint": {
+    "description": "Placeholder in the feedback input revealed after selecting 1–3 stars in the Worldo rating dialog. Invites suggestions to improve the app experience; not the generic Settings feedback placeholder."
+  },
+  "rateWorldoThanks": "Danke für dein Feedback!",
+  "@rateWorldoThanks": {
+    "description": "Title of the thank-you/reward dialog after a successful in-app rating or feedback submission; not confirmation of a store review."
+  },
+  "rateWorldoFeedbackSaved": "Dein Feedback wurde gespeichert.",
+  "@rateWorldoFeedbackSaved": {
+    "description": "Thank-you dialog body when this signed-in user has already claimed the lifetime rating feedback reward."
+  },
+  "rateWorldoRewardMessage": "Dein Feedback hilft uns, besser zu werden. Hol dir als Dankeschön {gems} Gems.",
+  "@rateWorldoRewardMessage": {
+    "description": "Thank-you dialog after any in-app rating/feedback submission, regardless of score. Reward is for in-app feedback, not a store review. Gems amount comes from the published rating task contract.",
+    "placeholders": {
+      "gems": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoStoreFailed": "Der App-Store konnte nicht geöffnet werden. Bitte versuche es erneut.",
+  "@rateWorldoStoreFailed": {
+    "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
+  },
+  "gemsDailyResetsIn": "Zurücksetzung in {time}",
+  "@gemsDailyResetsIn": {
+    "description": "Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "gemsProductUnavailable": "Dieses Produkt ist nicht verfügbar.",
+  "@gemsProductUnavailable": {
+    "description": "Gems purchase toast when the selected pack cannot be purchased or has no store product ID."
+  },
+  "gemsTypeUnsupported": "Dieser Produkttyp wird nicht unterstützt.",
+  "@gemsTypeUnsupported": {
+    "description": "Gems purchase toast when the selected pack is not a consumable store product."
+  },
+  "gemsPurchaseTimeout": "Zeitüberschreitung beim Kauf. Bitte versuche es erneut.",
+  "@gemsPurchaseTimeout": {
+    "description": "Gems purchase toast when checkout preparation times out before the store opens."
+  },
+  "gemsPaymentUnavailable": "Der Zahlungsdienst ist nicht verfügbar.",
+  "@gemsPaymentUnavailable": {
+    "description": "Gems purchase toast when the App Store payment service or purchase stream is unavailable."
+  },
+  "gemsPaymentPending": "Die Zahlung steht noch aus.",
+  "@gemsPaymentPending": {
+    "description": "Gems purchase toast after the store reports a pending transaction."
+  },
+  "gemsPaymentConfirming": "Die Zahlung wird bestätigt.",
+  "@gemsPaymentConfirming": {
+    "description": "Gems purchase toast when store payment was started but confirmation is delayed."
+  },
+  "gemsPurchaseRefunded": "Der Kauf wurde erstattet.",
+  "@gemsPurchaseRefunded": {
+    "description": "Gems purchase toast when the server reports that the purchase was refunded."
+  },
+  "premiumReportFailed": "Übermittlung des Kaufs fehlgeschlagen.",
+  "@premiumReportFailed": {
+    "description": "Premium purchase toast when reporting a confirmed store transaction to the server fails."
+  },
+  "premiumVerifyFailed": "Wir konnten dein Abonnement nicht überprüfen. Bitte wende dich an den Support.",
+  "@premiumVerifyFailed": {
+    "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
   }
 }

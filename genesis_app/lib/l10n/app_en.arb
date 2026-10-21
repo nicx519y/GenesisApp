@@ -314,7 +314,7 @@
   },
   "purchaseCanceled": "Purchase canceled.",
   "@purchaseCanceled": {
-    "description": "Canceled subscription purchase result."
+    "description": "Gems purchase cancellation toast and canceled subscription purchase result."
   },
   "purchasePending": "Your purchase is pending.",
   "@purchasePending": {
@@ -4731,5 +4731,92 @@
   "miniPhonePostsEmpty": "No posts yet. Share a moment from your story.",
   "@miniPhonePostsEmpty": {
     "description": "MiniPhone Posts: secondary-text footer beneath the authors only when the successfully loaded All feed contains no posts. Hidden for every selected-author filter, including empty results, and during initial loading or a failed request. Invites sharing a story moment."
+  },
+  "gemsProductUnavailable": "This product is unavailable.",
+  "@gemsProductUnavailable": {
+    "description": "Gems purchase toast when the selected pack cannot be purchased or has no store product ID."
+  },
+  "gemsTypeUnsupported": "This product type is not supported.",
+  "@gemsTypeUnsupported": {
+    "description": "Gems purchase toast when the selected pack is not a consumable store product."
+  },
+  "gemsPurchaseTimeout": "Purchase timed out. Please try again.",
+  "@gemsPurchaseTimeout": {
+    "description": "Gems purchase toast when checkout preparation times out before the store opens."
+  },
+  "gemsPaymentUnavailable": "Payment service is unavailable.",
+  "@gemsPaymentUnavailable": {
+    "description": "Gems purchase toast when the App Store payment service or purchase stream is unavailable."
+  },
+  "gemsPaymentPending": "Payment is pending.",
+  "@gemsPaymentPending": {
+    "description": "Gems purchase toast after the store reports a pending transaction."
+  },
+  "gemsPaymentConfirming": "Payment is being confirmed.",
+  "@gemsPaymentConfirming": {
+    "description": "Gems purchase toast when store payment was started but confirmation is delayed."
+  },
+  "gemsPurchaseRefunded": "Purchase was refunded.",
+  "@gemsPurchaseRefunded": {
+    "description": "Gems purchase toast when the server reports that the purchase was refunded."
+  },
+  "premiumReportFailed": "Report failed.",
+  "@premiumReportFailed": {
+    "description": "Premium purchase toast when reporting a confirmed store transaction to the server fails."
+  },
+  "premiumVerifyFailed": "We couldn’t verify your subscription. Please contact support.",
+  "@premiumVerifyFailed": {
+    "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
+  },
+  "rateWorldoTitle": "Rate Worldo",
+  "@rateWorldoTitle": {
+    "description": "Title of the in-app five-star feedback dialog. Automatically shown once per local user after acknowledged Location Chat messages reach the configured threshold and the user exits Location Chat, World Detail, and Worldo Detail; also accessible from Developer Rate Dialog for testing."
+  },
+  "rateWorldoMessage": "How are you enjoying Worldo? Your feedback matters to us.",
+  "@rateWorldoMessage": {
+    "description": "Centered body in the in-app feedback dialog above five tappable stars; asks about the Worldo app experience."
+  },
+  "rateWorldoStars": "{count} stars",
+  "@rateWorldoStars": {
+    "description": "Accessibility label for each star choice in the five-star in-app feedback dialog. Count ranges from 1 to 5.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoFeedbackHint": "Let us know how we can improve your experience",
+  "@rateWorldoFeedbackHint": {
+    "description": "Placeholder in the feedback input revealed after selecting 1–3 stars in the Worldo rating dialog. Invites suggestions to improve the app experience; not the generic Settings feedback placeholder."
+  },
+  "rateWorldoThanks": "Thanks for your feedback!",
+  "@rateWorldoThanks": {
+    "description": "Title of the thank-you/reward dialog after a successful in-app rating or feedback submission; not confirmation of a store review."
+  },
+  "rateWorldoFeedbackSaved": "Your feedback has been saved.",
+  "@rateWorldoFeedbackSaved": {
+    "description": "Thank-you dialog body when this signed-in user has already claimed the lifetime rating feedback reward."
+  },
+  "rateWorldoRewardMessage": "Your feedback helps us improve. Claim {gems} Gems as a thank-you.",
+  "@rateWorldoRewardMessage": {
+    "description": "Thank-you dialog after any in-app rating/feedback submission, regardless of score. Reward is for in-app feedback, not a store review. Gems amount comes from the published rating task contract.",
+    "placeholders": {
+      "gems": {
+        "type": "int"
+      }
+    }
+  },
+  "rateWorldoStoreFailed": "Unable to open the app store. Please try again.",
+  "@rateWorldoStoreFailed": {
+    "description": "Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared."
+  },
+  "gemsDailyResetsIn": "Resets in {time}",
+  "@gemsDailyResetsIn": {
+    "description": "Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

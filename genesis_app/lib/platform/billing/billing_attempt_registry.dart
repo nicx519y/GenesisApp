@@ -149,7 +149,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
         _emitFailure(
           record.productId,
           record.attemptId,
-          'Purchase was refunded.',
+          GenesisL10n.current.gemsPurchaseRefunded,
           debugInfo: purchaseDebugInfo(
             'gems.report',
             status: report.status.name,
@@ -231,7 +231,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       _emitFailure(
         record.productId,
         record.attemptId,
-        'Purchase was refunded.',
+        GenesisL10n.current.gemsPurchaseRefunded,
         debugInfo: purchaseDebugInfo(
           'gems.restore_report',
           status: report.status.name,
@@ -285,8 +285,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
 
   String _storeUnavailableMessage() {
     return switch (_platform.provider) {
-      BillingProvider.googlePlay => 'Google Play is unavailable.',
-      BillingProvider.appStore => 'Payment service is unavailable.',
+      BillingProvider.googlePlay => GenesisL10n.current.meGooglePlayUnavailable,
+      BillingProvider.appStore => GenesisL10n.current.gemsPaymentUnavailable,
     };
   }
 

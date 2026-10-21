@@ -503,7 +503,7 @@ abstract class AppLocalizations {
   /// **'User blocked'**
   String get userBlocked;
 
-  /// Canceled subscription purchase result.
+  /// Gems purchase cancellation toast and canceled subscription purchase result.
   ///
   /// In en, this message translates to:
   /// **'Purchase canceled.'**
@@ -5898,6 +5898,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No posts yet. Share a moment from your story.'**
   String get miniPhonePostsEmpty;
+
+  /// Gems purchase toast when the selected pack cannot be purchased or has no store product ID.
+  ///
+  /// In en, this message translates to:
+  /// **'This product is unavailable.'**
+  String get gemsProductUnavailable;
+
+  /// Gems purchase toast when the selected pack is not a consumable store product.
+  ///
+  /// In en, this message translates to:
+  /// **'This product type is not supported.'**
+  String get gemsTypeUnsupported;
+
+  /// Gems purchase toast when checkout preparation times out before the store opens.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase timed out. Please try again.'**
+  String get gemsPurchaseTimeout;
+
+  /// Gems purchase toast when the App Store payment service or purchase stream is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment service is unavailable.'**
+  String get gemsPaymentUnavailable;
+
+  /// Gems purchase toast after the store reports a pending transaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment is pending.'**
+  String get gemsPaymentPending;
+
+  /// Gems purchase toast when store payment was started but confirmation is delayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment is being confirmed.'**
+  String get gemsPaymentConfirming;
+
+  /// Gems purchase toast when the server reports that the purchase was refunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase was refunded.'**
+  String get gemsPurchaseRefunded;
+
+  /// Premium purchase toast when reporting a confirmed store transaction to the server fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Report failed.'**
+  String get premiumReportFailed;
+
+  /// Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn’t verify your subscription. Please contact support.'**
+  String get premiumVerifyFailed;
+
+  /// Title of the in-app five-star feedback dialog. Automatically shown once per local user after acknowledged Location Chat messages reach the configured threshold and the user exits Location Chat, World Detail, and Worldo Detail; also accessible from Developer Rate Dialog for testing.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate Worldo'**
+  String get rateWorldoTitle;
+
+  /// Centered body in the in-app feedback dialog above five tappable stars; asks about the Worldo app experience.
+  ///
+  /// In en, this message translates to:
+  /// **'How are you enjoying Worldo? Your feedback matters to us.'**
+  String get rateWorldoMessage;
+
+  /// Accessibility label for each star choice in the five-star in-app feedback dialog. Count ranges from 1 to 5.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} stars'**
+  String rateWorldoStars({required int count});
+
+  /// Placeholder in the feedback input revealed after selecting 1–3 stars in the Worldo rating dialog. Invites suggestions to improve the app experience; not the generic Settings feedback placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Let us know how we can improve your experience'**
+  String get rateWorldoFeedbackHint;
+
+  /// Title of the thank-you/reward dialog after a successful in-app rating or feedback submission; not confirmation of a store review.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks for your feedback!'**
+  String get rateWorldoThanks;
+
+  /// Thank-you dialog body when this signed-in user has already claimed the lifetime rating feedback reward.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feedback has been saved.'**
+  String get rateWorldoFeedbackSaved;
+
+  /// Thank-you dialog after any in-app rating/feedback submission, regardless of score. Reward is for in-app feedback, not a store review. Gems amount comes from the published rating task contract.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feedback helps us improve. Claim {gems} Gems as a thank-you.'**
+  String rateWorldoRewardMessage({required int gems});
+
+  /// Toast only when explicitly requesting/opening the platform review UI and store fallback fail; never used to infer that no review dialog appeared.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open the app store. Please try again.'**
+  String get rateWorldoStoreFailed;
+
+  /// Wallet Buy Gems: common daily-task refresh countdown below Daily heading. Based on server remaining seconds, not an individual task claim. time is HH:mm:ss.
+  ///
+  /// In en, this message translates to:
+  /// **'Resets in {time}'**
+  String gemsDailyResetsIn({required String time});
 }
 
 class _AppLocalizationsDelegate

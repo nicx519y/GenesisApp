@@ -21,6 +21,7 @@ class GenesisMethodChannels {
   static const getUserInfo = 'getUserInfo';
   static const getSignInDiagnostics = 'getSignInDiagnostics';
   static const getAppName = 'getAppName';
+  static const requestAppReview = 'requestAppReview';
   static const getAppVersion = 'getAppVersion';
   static const getSystemUserAgent = 'getSystemUserAgent';
   static const getTimeZone = 'getTimeZone';

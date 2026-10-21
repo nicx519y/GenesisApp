@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
+import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
 import '../../support/membership_fixtures.dart';
 import 'membership_purchase_service_test.dart' as support;
@@ -74,6 +76,60 @@ void main() {
   }
 
   for (final provider in MembershipProvider.values) {
+    test(
+      '$provider changed callback UUID still respects backend rejection',
+      () async {
+        final h = support.Harness(provider: provider);
+        addTearDown(h.service.dispose);
+        h.reportHandler = (_) async => const MembershipPurchaseReport(
+          status: MembershipReportStatus.rejected,
+        );
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(
+          h.purchase(uuid: '00000000-0000-4000-8000-000000000002'),
+        );
+        expect(h.reports, hasLength(1));
+        expect(h.service.state.value, MembershipCheckoutState.rejected);
+        expect(h.refreshes, 0);
+      },
+    );
+
+    test(
+      '$provider changed callback UUID cannot bypass account switch',
+      () async {
+        final h = support.Harness(provider: provider);
+        addTearDown(h.service.dispose);
+        await h.service.purchase(h.product());
+        h.uid = 'another-user';
+        await h.service.interceptPurchase(
+          h.purchase(uuid: '00000000-0000-4000-8000-000000000002'),
+        );
+        expect(h.reports, isEmpty);
+        expect(h.refreshes, 0);
+      },
+    );
+
+    for (final status in [
+      BillingPurchaseStatus.pending,
+      BillingPurchaseStatus.restored,
+      BillingPurchaseStatus.canceled,
+      BillingPurchaseStatus.error,
+    ]) {
+      test('$provider $status with changed UUID never starts report', () async {
+        final h = support.Harness(provider: provider);
+        addTearDown(h.service.dispose);
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(
+          h.purchase(
+            status: status,
+            uuid: '00000000-0000-4000-8000-000000000002',
+          ),
+        );
+        expect(h.reports, isEmpty);
+        expect(h.refreshes, 0);
+      });
+    }
+
     for (final isGuest in [false, true]) {
       test(
         '$provider guest=$isGuest uses fetched UUID when catalog UUID changes during preparation',

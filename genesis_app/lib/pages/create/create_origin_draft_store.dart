@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../platform/session/method_channel_user_session_store.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../utils/genesis_ugc_text.dart';
 
 const Object _unchanged = Object();
@@ -11,10 +13,53 @@ class CreateOriginDraftStore {
   static const String _storageKey = 'create_origin_draft_v1';
   static const String _tempTableKey = 'create_origin_temp_table_v1';
   static const String _finalTableKey = 'create_origin_final_table_v1';
+  static const String anonymousOwner = '__anonymous__';
 
-  static Future<CreateOriginDraft> load() async {
+  static Future<String> readOwnerUid({UserSessionStore? sessionStore}) async {
+    final uid = (await (sessionStore ?? NativeUserSessionStore()).readUid())
+        ?.trim();
+    return _normalizeOwner(uid);
+  }
+
+  static String _normalizeOwner(String? uid) {
+    final value = uid?.trim() ?? '';
+    return value.isEmpty || value.startsWith('guest_') ? anonymousOwner : value;
+  }
+
+  static String _scopedKey(String key, String ownerUid) {
+    final suffix = base64Url.encode(utf8.encode(ownerUid)).replaceAll('=', '');
+    return '${key}_owner_$suffix';
+  }
+
+  static Future<String> _owner({
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) => ownerUid == null
+      ? readOwnerUid(sessionStore: sessionStore)
+      : Future.value(_normalizeOwner(ownerUid));
+
+  static String? _readStored(
+    SharedPreferences prefs,
+    String key,
+    String ownerUid,
+  ) =>
+      prefs.getString(_scopedKey(key, ownerUid)) ??
+      (ownerUid == anonymousOwner ? prefs.getString(key) : null);
+
+  static Future<CreateOriginDraft> load({
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) async {
+    final owner = await _owner(ownerUid: ownerUid, sessionStore: sessionStore);
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
+    return _loadForOwner(prefs, owner);
+  }
+
+  static CreateOriginDraft _loadForOwner(
+    SharedPreferences prefs,
+    String owner,
+  ) {
+    final raw = _readStored(prefs, _storageKey, owner);
     if (raw == null || raw.trim().isEmpty) {
       return CreateOriginDraft.empty();
     }
@@ -34,53 +79,85 @@ class CreateOriginDraftStore {
     }
   }
 
-  static Future<void> save(CreateOriginDraft draft) async {
+  static Future<void> save(
+    CreateOriginDraft draft, {
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) async {
+    final owner = await _owner(ownerUid: ownerUid, sessionStore: sessionStore);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKey, jsonEncode(draft.toJson()));
+    await _saveForOwner(prefs, owner, draft);
   }
+
+  static Future<void> _saveForOwner(
+    SharedPreferences prefs,
+    String owner,
+    CreateOriginDraft draft,
+  ) => prefs.setString(
+    _scopedKey(_storageKey, owner),
+    jsonEncode(draft.toJson()),
+  );
 
   static Future<void> saveTemp(
     CreateOriginDraft draft, {
     required bool syncedToFinal,
+    String? ownerUid,
+    UserSessionStore? sessionStore,
   }) async {
+    final owner = await _owner(ownerUid: ownerUid, sessionStore: sessionStore);
     final prefs = await SharedPreferences.getInstance();
-    final table = _decodeTable(prefs.getString(_tempTableKey));
+    final table = _decodeTable(_readStored(prefs, _tempTableKey, owner));
     table[_rowIdFor(draft)] = {
       'synced_to_final': syncedToFinal,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       'draft': draft.toJson(),
     };
-    await prefs.setString(_tempTableKey, jsonEncode(table));
-    await save(draft);
+    await prefs.setString(_scopedKey(_tempTableKey, owner), jsonEncode(table));
+    await _saveForOwner(prefs, owner, draft);
   }
 
-  static Future<void> saveFinal(CreateOriginDraft draft) async {
+  static Future<void> saveFinal(
+    CreateOriginDraft draft, {
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) async {
+    final owner = await _owner(ownerUid: ownerUid, sessionStore: sessionStore);
     final prefs = await SharedPreferences.getInstance();
     final rowId = _rowIdFor(draft);
-    final finalTable = _decodeTable(prefs.getString(_finalTableKey));
+    final finalTable = _decodeTable(_readStored(prefs, _finalTableKey, owner));
     finalTable[rowId] = {
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       'draft': draft.toJson(),
     };
 
-    final tempTable = _decodeTable(prefs.getString(_tempTableKey));
+    final tempTable = _decodeTable(_readStored(prefs, _tempTableKey, owner));
     tempTable[rowId] = {
       'synced_to_final': true,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
       'draft': draft.toJson(),
     };
 
-    await prefs.setString(_finalTableKey, jsonEncode(finalTable));
-    await prefs.setString(_tempTableKey, jsonEncode(tempTable));
-    await save(draft);
+    await prefs.setString(
+      _scopedKey(_finalTableKey, owner),
+      jsonEncode(finalTable),
+    );
+    await prefs.setString(
+      _scopedKey(_tempTableKey, owner),
+      jsonEncode(tempTable),
+    );
+    await _saveForOwner(prefs, owner, draft);
   }
 
-  static Future<CreateOriginDraft> loadFinal() async {
+  static Future<CreateOriginDraft> loadFinal({
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) async {
+    final owner = await _owner(ownerUid: ownerUid, sessionStore: sessionStore);
     final prefs = await SharedPreferences.getInstance();
-    final table = _decodeTable(prefs.getString(_finalTableKey));
+    final table = _decodeTable(_readStored(prefs, _finalTableKey, owner));
     if (table.isEmpty) return CreateOriginDraft.empty();
 
-    final current = await load();
+    final current = _loadForOwner(prefs, owner);
     final rowId = _rowIdFor(current);
     final row = table[rowId] ?? table['pending_origin'];
     final draft = _draftFromTableRow(row);
@@ -93,8 +170,14 @@ class CreateOriginDraftStore {
     return CreateOriginDraft.empty();
   }
 
-  static Future<List<CharacterDraft>> loadFinalCharacters() async {
-    final draft = await loadFinal();
+  static Future<List<CharacterDraft>> loadFinalCharacters({
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) async {
+    final draft = await loadFinal(
+      ownerUid: ownerUid,
+      sessionStore: sessionStore,
+    );
     if (!draft.charactersSaved) return const <CharacterDraft>[];
     return draft.characters
         .where(
@@ -104,11 +187,16 @@ class CreateOriginDraftStore {
         .toList(growable: false);
   }
 
-  static Future<void> clear() async {
+  static Future<void> clear({
+    String? ownerUid,
+    UserSessionStore? sessionStore,
+  }) async {
+    final owner = await _owner(ownerUid: ownerUid, sessionStore: sessionStore);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
-    await prefs.remove(_tempTableKey);
-    await prefs.remove(_finalTableKey);
+    for (final key in [_storageKey, _tempTableKey, _finalTableKey]) {
+      await prefs.remove(_scopedKey(key, owner));
+      if (owner == anonymousOwner) await prefs.remove(key);
+    }
   }
 
   static Map<String, dynamic> _decodeTable(String? raw) {

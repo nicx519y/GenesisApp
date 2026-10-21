@@ -11,7 +11,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_floating_button_unlock.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_content_submission_dialog.dart';
+import '../../components/common/worldo_feedback_dialog.dart';
 import '../../components/login_provider_button.dart';
 import '../../components/page_header.dart';
 import '../../components/gems/pro_user_name.dart';
@@ -80,16 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _showFeedbackDialog(BuildContext context) async {
-    final api = AppServicesScope.read(context).api;
-    await showGenesisContentSubmissionDialog(
-      context: context,
-      title: context.l10n.settingsFeedback,
-      contentInputKey: const ValueKey<String>('genesis-feedback-content-input'),
-      successMessage: context.l10n.feedbackSubmitted,
-      brightness: Brightness.dark,
-      failureMessage: context.l10n.feedbackFailed,
-      onSubmit: (content) => api.v1.feedback.create(content: content),
-    );
+    await showWorldoFeedbackDialog(context);
   }
 
   Future<void> _openDiscord() async {

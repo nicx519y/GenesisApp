@@ -239,9 +239,18 @@ void _expectRichTextSpanColor(
   final richText = tester.widget<RichText>(_richTextWithPlainText(plainText));
   final rootSpan = richText.text;
   expect(rootSpan, isA<TextSpan>());
-  final span = (rootSpan as TextSpan).children
-      ?.whereType<TextSpan>()
-      .firstWhere((child) => child.text == spanText);
+  TextSpan? findSpan(InlineSpan current) {
+    if (current is! TextSpan) return null;
+    if (current.text == spanText) return current;
+    for (final child in current.children ?? const <InlineSpan>[]) {
+      final found = findSpan(child);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  final span = findSpan(rootSpan);
+  expect(span, isNotNull);
   expect(span?.style?.color, color);
 }
 
@@ -25087,8 +25096,8 @@ void main() {
     expect(find.textContaining('Worldo Brief: Xkkdd'), findsOneWidget);
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
-    expect(find.text('1 characters: Tff'), findsOneWidget);
-    expect(find.text('Suggested: Tff'), findsOneWidget);
+    expect(find.textContaining('1 character: Tff'), findsOneWidget);
+    expect(find.textContaining('Suggested: Tff'), findsOneWidget);
     final charactersTitle = find.text('Characters (>=1)');
     final charactersCompleted = find.byKey(
       const ValueKey<String>('section-completed-Characters (>=1)'),
@@ -25116,7 +25125,7 @@ void main() {
     );
     expect(charactersCompleted, findsNothing);
     expect(
-      tester.getTopRight(find.text('1 characters: Tff')).dx,
+      tester.getTopRight(find.textContaining('1 character: Tff')).dx,
       greaterThan(tester.getTopLeft(charactersChevron).dx),
     );
     final bestRoleSummary = tester.widget<Text>(
@@ -25132,13 +25141,13 @@ void main() {
     );
     expect((bestRoleSpans.last as TextSpan).text, ' Tff');
     expect(bestRoleSummary.style?.color, GenesisColors.darkTextSecondary);
-    expect(find.text('L1 · Region : 1'), findsOneWidget);
-    expect(find.text('L2 · Building : 1'), findsOneWidget);
-    expect(find.text('L3 · Room : 1'), findsOneWidget);
+    expect(find.text('L1 · Region: 1'), findsOneWidget);
+    expect(find.text('L2 · Building: 1'), findsOneWidget);
+    expect(find.text('L3 · Room: 1'), findsOneWidget);
     expect(find.text('Jenrn ff'), findsOneWidget);
-    expect(find.text('Character dialogue : 0'), findsOneWidget);
-    expect(find.text('Narrator : 1'), findsOneWidget);
-    expect(find.text('Image : 0'), findsOneWidget);
+    expect(find.text('Character dialogue: 0'), findsOneWidget);
+    expect(find.text('Narrator: 1'), findsOneWidget);
+    expect(find.text('Image: 0'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -240));
     await tester.pump();
@@ -28280,6 +28289,7 @@ void main() {
         storyEventsSaved: true,
         openingSaved: true,
       ),
+      ownerUid: 'u_mock',
     );
 
     await tester.pumpWidget(
@@ -28364,9 +28374,14 @@ void main() {
       ],
     });
 
-    final draft = await CreateOriginDraftStore.load();
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+
+    final draft = await CreateOriginDraftStore.load(ownerUid: 'u_mock');
     expect(draft.hasAllSectionsSaved, isFalse);
-    final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
+    final pendingCreate = await OriginPendingSubmissionStore.loadCreating(
+      ownerUid: 'u_mock',
+    );
     expect(pendingCreate, isNull);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
@@ -28378,7 +28393,7 @@ void main() {
       tester,
       plainText: 'Worldo #Crystal City created!',
       spanText: '#Crystal City',
-      color: const Color(0xFF4B6192),
+      color: GenesisColors.redSecondary,
     );
     expect(find.text('View'), findsOneWidget);
   });
@@ -28418,6 +28433,7 @@ void main() {
         storyEventsSaved: true,
         openingSaved: true,
       ),
+      ownerUid: 'u_mock',
     );
 
     await tester.pumpWidget(
@@ -28447,21 +28463,26 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       for (var i = 0; i < 50; i++) {
-        final storedDraft = await CreateOriginDraftStore.load();
+        final storedDraft = await CreateOriginDraftStore.load(
+          ownerUid: 'u_mock',
+        );
         if (!storedDraft.hasAllSectionsSaved) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
     await tester.pumpAndSettle();
 
-    final draft = await CreateOriginDraftStore.load();
+    final draft = await CreateOriginDraftStore.load(ownerUid: 'u_mock');
     expect(draft.hasAllSectionsSaved, isFalse);
     expect(
       _richTextWithPlainText('Worldo #Crystal City created!'),
       findsOneWidget,
     );
     expect(find.text('View'), findsOneWidget);
-    expect(await OriginPendingSubmissionStore.loadCreating(), isNull);
+    expect(
+      await OriginPendingSubmissionStore.loadCreating(ownerUid: 'u_mock'),
+      isNull,
+    );
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
   });
 
@@ -28499,8 +28520,12 @@ void main() {
         storyEventsSaved: true,
         openingSaved: true,
       ),
+      ownerUid: 'u_mock',
     );
-    await OriginPendingSubmissionStore.saveCreating('o_created_1');
+    await OriginPendingSubmissionStore.saveCreating(
+      'o_created_1',
+      ownerUid: 'u_mock',
+    );
 
     await tester.pumpWidget(
       AppServicesScope(
@@ -29532,6 +29557,44 @@ void main() {
       greaterThan(tester.getTopLeft(find.text('IDFA:')).dy),
     );
   });
+
+  testWidgets(
+    'developer page shows signed-out Gems balance without a wallet request',
+    (WidgetTester tester) async {
+      var walletRequests = 0;
+      final gemWallet = GemWalletStore(
+        loadWallet: () async {
+          walletRequests++;
+          return const GemWallet(balanceCent: 100);
+        },
+        readUid: () async => null,
+      );
+      addTearDown(gemWallet.dispose);
+      final services = await _testServices(
+        gemWallet: gemWallet,
+        initialUid: null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const Scaffold(
+              body: SingleChildScrollView(child: DeveloperPageContent()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('My Balance:'), findsOneWidget);
+      expect(
+        tester.widgetList<Text>(find.byType(Text)).map((text) => text.data),
+        contains('Not logged in'),
+      );
+      expect(walletRequests, 0);
+    },
+  );
 
   testWidgets('developer page saves and resets runtime version overrides', (
     WidgetTester tester,
@@ -32308,6 +32371,7 @@ void main() {
         services: await _testServices(
           transport: transport,
           useMock: false,
+          initialUid: 'u_peer',
           initialAuthToken: 'backend-token',
         ),
         child: const MaterialApp(
@@ -32340,7 +32404,7 @@ void main() {
     expect(find.text('Following Friend 24'), findsNothing);
     expect(find.text('Following'), findsWidgets);
     final followingName = tester.widget<Text>(find.text('Following Friend 01'));
-    expect(followingName.style?.fontWeight, FontWeight.w500);
+    expect(followingName.style?.fontWeight, FontWeight.w600);
     final followingAvatar = find.byKey(
       const ValueKey('follows-avatar-u_following_01'),
     );
@@ -32360,7 +32424,7 @@ void main() {
     expect(followingGenesisAvatar, findsOneWidget);
     expect(
       tester.widget<GenesisAvatar>(followingGenesisAvatar).borderRadius,
-      5,
+      8,
     );
     expect(
       tester.widget<GenesisAvatar>(followingGenesisAvatar).url,
@@ -32383,8 +32447,8 @@ void main() {
     final unfollowButtonSize = tester.getSize(followingAction);
     expect(unfollowButtonSize, const Size(86, 28));
     expect(
-      tester.getCenter(followingAction).dy,
-      tester.getCenter(followingAvatar).dy,
+      tester.getTopLeft(followingAction).dy,
+      tester.getTopLeft(followingAvatar).dy,
     );
 
     await tester.tap(find.text('24 Followers'));
@@ -32421,6 +32485,56 @@ void main() {
       'target_uid': 'u_follower_01',
     });
     expect(find.text('Following'), findsOneWidget);
+  });
+
+  testWidgets('follows loads independent 20-item pages for both tabs', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingFollowsTransport(total: 45);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: const MaterialApp(
+          home: FollowsPage(uid: 'u_peer', initialTitle: 'Peer User'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    List<int> requestedPages(String path) =>
+        transport.requestsFor(path).map((request) {
+          expect(request.uri.queryParameters['rn'], '20');
+          return int.parse(request.uri.queryParameters['pn']!);
+        }).toList();
+
+    const followingPath = '/api/v1/user/following';
+    const followersPath = '/api/v1/user/followers';
+    expect(requestedPages(followingPath), [1]);
+    expect(requestedPages(followersPath), [1]);
+    expect(find.text('45 Following'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(requestedPages(followingPath), [1, 2]);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(requestedPages(followingPath), [1, 2, 3]);
+    expect(requestedPages(followersPath), [1]);
+
+    await tester.tap(find.text('45 Followers'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(requestedPages(followersPath), [1, 2]);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(requestedPages(followersPath), [1, 2, 3]);
+    expect(requestedPages(followingPath), [1, 2, 3]);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('followers retry contains repeated transport failures', (
@@ -39043,11 +39157,13 @@ class _RecordingFollowsTransport implements HttpTransport {
   _RecordingFollowsTransport({
     this.followingCompleter,
     this.followersCompleter,
+    this.total = 24,
   });
 
   final requests = <TransportRequest>[];
   final Completer<TransportResponse>? followingCompleter;
   final Completer<TransportResponse>? followersCompleter;
+  final int total;
   final Completer<TransportResponse> _followCompleter =
       Completer<TransportResponse>();
 
@@ -39069,24 +39185,31 @@ class _RecordingFollowsTransport implements HttpTransport {
     final path = request.uri.path;
     if (path == '/api/v1/user/following') {
       if (followingCompleter != null) return followingCompleter!.future;
+      final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+      final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 10;
       return _v1Response({
-        'total': 24,
-        'pn': 1,
-        'rn': 50,
-        'list': _followUsers(prefix: 'u_following', name: 'Following Friend'),
+        'total': total,
+        'pn': pn,
+        'rn': rn,
+        'list': _followUsers(
+          prefix: 'u_following',
+          name: 'Following Friend',
+        ).skip((pn - 1) * rn).take(rn).toList(),
       });
     }
     if (path == '/api/v1/user/followers') {
       if (followersCompleter != null) return followersCompleter!.future;
+      final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+      final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 10;
       return _v1Response({
-        'total': 24,
-        'pn': 1,
-        'rn': 50,
+        'total': total,
+        'pn': pn,
+        'rn': rn,
         'list': _followUsers(
           prefix: 'u_follower',
           name: 'Follower Friend',
           followed: false,
-        ),
+        ).skip((pn - 1) * rn).take(rn).toList(),
       });
     }
     if (request.method == 'POST' && path == '/api/v1/user/follow') {
@@ -39107,7 +39230,7 @@ class _RecordingFollowsTransport implements HttpTransport {
     required String name,
     bool followed = true,
   }) {
-    return List<Map<String, Object?>>.generate(24, (index) {
+    return List<Map<String, Object?>>.generate(total, (index) {
       final seq = (index + 1).toString().padLeft(2, '0');
       final uid = '${prefix}_$seq';
       return {

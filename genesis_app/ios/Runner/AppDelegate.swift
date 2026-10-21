@@ -431,6 +431,20 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
         let displayName = info?["CFBundleDisplayName"] as? String
         let bundleName = info?["CFBundleName"] as? String
         result(displayName ?? bundleName ?? "")
+      case "requestAppReview":
+        guard let scene = UIApplication.shared.connectedScenes
+          .compactMap({ $0 as? UIWindowScene })
+          .first(where: { $0.activationState == .foregroundActive }) else {
+          result(FlutterError(code: "review_scene_unavailable", message: "No active scene", details: nil))
+          return
+        }
+        if #available(iOS 16.0, *) {
+          AppStore.requestReview(in: scene)
+        } else {
+          SKStoreReviewController.requestReview(in: scene)
+        }
+        // StoreKit does not report whether it displayed or completed a review.
+        result(nil)
       case "getAppVersion":
         result(self.appVersionInfo())
       case "getSystemUserAgent":

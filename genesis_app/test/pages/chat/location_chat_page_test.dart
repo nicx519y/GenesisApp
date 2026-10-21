@@ -1,3 +1,7 @@
+import 'package:genesis_flutter_android/app/debug/rating_prompt_debug_settings.dart';
+import 'package:genesis_flutter_android/app/config/app_global_config.dart';
+import 'package:genesis_flutter_android/app/review/rating_prompt_store.dart';
+import 'package:genesis_flutter_android/components/common/pending_rating_reward_host.dart';
 import 'dart:async';
 
 import 'package:genesis_flutter_android/components/common/page_presentation_scope.dart';
@@ -1110,6 +1114,67 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     },
   );
+
+  for (final signedIn in [false, true]) {
+    testWidgets(
+      'rating message count requires login=$signedIn and successful ACK',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: _LocationChatReplyHttpTransport(),
+        );
+        if (!signedIn) {
+          await harness.services.sessionStore.saveUid('guest_rating');
+        }
+        harness.services.appGlobalConfig.value = const AppGlobalConfig(
+          ratingPromptMessageCount: 0,
+        );
+        await RatingPromptDebugSettings.save(20);
+        addTearDown(() => RatingPromptDebugSettings.save(null));
+        final owner = await PendingRatingReward.owner(
+          tester.element(find.byType(ChatComposer)),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        final key = RatingPromptStore.key(owner);
+        await tester.enterText(
+          find.byType(TextField),
+          'Count only successful messages',
+        );
+        unawaited(
+          tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend(),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.sendMessageCount == 1,
+        );
+        expect(prefs.getString(key), isNull);
+        harness.socket.serverV2AckForLatestSend(errNo: 0);
+        if (signedIn) {
+          await _pumpUntilLocationChatTest(
+            tester,
+            () => prefs.getString(key) != null,
+          );
+          expect((jsonDecode(prefs.getString(key)!) as Map)['count'], 1);
+        }
+        final sent = harness.socket._sentFrames.lastWhere(
+          (frame) => frame['type'] == 'send_message',
+        );
+        harness.socket.serverV2UserMessage(
+          messageId: 401,
+          clientMsgId: sent['client_msg_id'] as String,
+          content: 'Count only successful messages',
+          conversationType: 'user_message',
+        );
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 8));
+        if (!signedIn) expect(prefs.getString(key), isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('composer Send dismisses keyboard before waiting for ACK', (
     tester,

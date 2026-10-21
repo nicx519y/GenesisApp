@@ -18,6 +18,7 @@ import '../../network/direct_message_message_store.dart';
 import '../../network/gateway_auth.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/gem_product.dart';
 import '../../network/local_mock_runtime.dart';
 import '../../network/network_runtime_factory.dart';
 import '../../network/network_capture.dart';
@@ -152,13 +153,20 @@ class AppServices {
   }
 
   late final GemStoreCatalog gemStoreCatalog = GemStoreCatalog(
-    loadProducts: () async => (await api.v1.gem.products()).products,
+    loadProducts: _loadAuthenticatedGemProducts,
     platform: defaultTargetPlatform == TargetPlatform.iOS
         ? AppStoreBillingPlatform()
         : GooglePlayBillingPlatform(),
     namespace: '${config.effectiveApiEnvironment}|${platformConfig.apiBaseUrl}',
-    readOwner: sessionStore.readLoginUid,
+    readOwner: () async => (await sessionStore.readCompleteSession())?.uid,
   );
+
+  Future<List<GemProduct>> _loadAuthenticatedGemProducts() async {
+    if (await sessionStore.readCompleteSession() == null) {
+      throw StateError('Gem products require an authenticated session');
+    }
+    return (await api.v1.gem.products()).products;
+  }
 
   final AppConfig config;
   MiniPhoneMusicOwner? _miniPhoneMusic;
@@ -601,8 +609,7 @@ class ServiceRegistry {
             platform: billingPlatform,
             pendingPurchaseStore: SqfliteBillingPendingPurchaseStore(),
             loadBillingAccountId: loadBillingAccountUuid,
-            loadProductCatalog: () async =>
-                (await api.v1.gem.products()).products,
+            loadProductCatalog: () => services._loadAuthenticatedGemProducts(),
             reportPurchase: api.v1.gem.reportPurchase,
             refreshWallet: gemWallet.refreshAfterEntitlementGranted,
             readUid: sessionStore.readUid,

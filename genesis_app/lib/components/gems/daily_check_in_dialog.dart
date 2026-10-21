@@ -12,7 +12,7 @@ import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'gem_purchase_bottom_sheet.dart';
-import '../../utils/gem_amount.dart';
+import 'gem_task_reward.dart';
 
 const int dailyCheckInPreviewRewardCent = 5000;
 const String dailyCheckInTaskCode = 'daily_checkin';
@@ -71,7 +71,7 @@ Future<bool> showDailyCheckInDialog(
     title: GenesisL10n
         .current
         .meDailyCheck,
-    titleContent: _GemTaskReward(
+    titleContent: GemTaskReward(
       rewardGemsCent: rewardGemsCent,
       showWholeReward: true,
     ),
@@ -159,7 +159,7 @@ Future<void> showGemTaskSuccessDialog(
     await showGenesisActionBox<void>(
       context: context,
       title: title,
-      titleContent: _GemTaskReward(
+      titleContent: GemTaskReward(
         rewardGemsCent: rewardGemsCent,
         showWholeReward: showWholeReward,
       ),
@@ -169,44 +169,5 @@ Future<void> showGemTaskSuccessDialog(
     );
   } finally {
     timer.cancel();
-  }
-}
-
-class _GemTaskReward extends StatelessWidget {
-  const _GemTaskReward({
-    required this.rewardGemsCent,
-    this.showWholeReward = false,
-  });
-
-  final int rewardGemsCent;
-  final bool showWholeReward;
-
-  @override
-  Widget build(BuildContext context) {
-    final rewardText = showWholeReward
-        ? formatWholeGemCent(rewardGemsCent)
-        : formatGemCent(rewardGemsCent);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '+$rewardText',
-          key: const ValueKey<String>('gem-task-reward-value'),
-          style: const TextStyle(
-            color: GenesisColors.darkTextSecondary,
-            fontSize: 15,
-            height: 1.2,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(width: 4),
-        SvgPicture.asset(
-          gemIconAsset,
-          key: const ValueKey<String>('gem-task-reward-icon'),
-          width: gemSmallIconSize,
-          height: gemSmallIconSize,
-        ),
-      ],
-    );
   }
 }

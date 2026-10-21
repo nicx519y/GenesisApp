@@ -186,6 +186,9 @@ class MainActivity : FlutterActivity() {
                     val label = applicationInfo.loadLabel(packageManager)?.toString() ?: ""
                     result.success(label)
                 }
+                "requestAppReview" -> {
+                    AppReviewChannel.request(this, result)
+                }
                 "getAppVersion" -> {
                     result.success(buildAppVersion())
                 }
@@ -557,6 +560,11 @@ class MainActivity : FlutterActivity() {
         if (url.isBlank()) return false
         return try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            // Review listing links must not be resolved by an OEM app store.
+            // A missing/disabled Play Store returns false so Dart tries HTTPS.
+            if (intent.data?.scheme == "market" && intent.data?.host == "details") {
+                intent.setPackage("com.android.vending")
+            }
             startActivity(intent)
             true
         } catch (_: Exception) {

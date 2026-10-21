@@ -10,6 +10,8 @@ import 'v1_api_resource.dart';
 class GemV1Api extends V1ApiResource {
   const GemV1Api(super.client);
 
+  static const ratingTaskCode = 'rating';
+
   /// GET /api/v1/gem/products
   Future<GemProductList> products() async {
     return GemProductList.fromJson(await getMap('gem/products'));
@@ -82,6 +84,7 @@ class GemV1Api extends V1ApiResource {
   }
 
   /// POST /api/v1/gem/task/claim
+  /// Accepts ratingTaskCode for the rating reward; eligibility/amount are server-owned.
   Future<GemTaskActionResult> claimTask(String taskCode) async {
     return GemTaskActionResult.fromJson(
       await postMap(

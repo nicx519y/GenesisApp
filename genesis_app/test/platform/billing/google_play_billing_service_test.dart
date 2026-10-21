@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
+import 'package:genesis_flutter_android/l10n/app_localizations.dart';
+import 'package:genesis_flutter_android/l10n/genesis_l10n.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
@@ -317,6 +320,22 @@ void main() {
   tearDown(() async {
     service.dispose();
     await platform.close();
+  });
+
+  test('pending and canceled Gems callbacks use the active language', () async {
+    GenesisL10n.bind(lookupAppLocalizations(const Locale('zh', 'TW')));
+    addTearDown(
+      () => GenesisL10n.bind(lookupAppLocalizations(const Locale('en'))),
+    );
+
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.pending));
+    await _settle();
+    expect(uiEvents.last.message, '付款尚待處理。');
+
+    platform.emit(_purchase(BillingPurchaseStatus.canceled));
+    await _settle();
+    expect(uiEvents.last.message, '已取消購買。');
   });
 
   _RecordingFirebaseAnalyticsClient enableFirebaseAnalytics() {

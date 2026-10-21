@@ -16,6 +16,8 @@ class _GemWalletContent extends StatelessWidget {
   const _GemWalletContent({
     required this.products,
     required this.taskGroups,
+    required this.dailyResetClock,
+    required this.onDailyReset,
     required this.productsLoading,
     required this.tasksLoading,
     required this.productsError,
@@ -33,6 +35,8 @@ class _GemWalletContent extends StatelessWidget {
 
   final List<GemProduct>? products;
   final List<GemTaskGroup>? taskGroups;
+  final GemDailyResetClock? dailyResetClock;
+  final VoidCallback onDailyReset;
   final bool productsLoading;
   final bool tasksLoading;
   final Object? productsError;
@@ -62,16 +66,12 @@ class _GemWalletContent extends StatelessWidget {
                   ? productsLoading || productsError == null
                         ? const GemProductGridSkeleton()
                         : GemPurchaseState(
-                            message: GenesisL10n
-                                .current
-                                .gemsUnableLoadGemPacks,
+                            message: GenesisL10n.current.gemsUnableLoadGemPacks,
                             onRetry: onRetryProducts,
                           )
                   : products!.isEmpty
                   ? GemPurchaseState(
-                      message: GenesisL10n
-                          .current
-                          .gemsNoGemPacksAvailable,
+                      message: GenesisL10n.current.gemsNoGemPacksAvailable,
                       height: 96,
                     )
                   : GemProductGrid(
@@ -87,9 +87,7 @@ class _GemWalletContent extends StatelessWidget {
           _GemSectionStatePanel(
             isLoading: tasksLoading,
             hasError: tasksError != null,
-            errorMessage: GenesisL10n
-                .current
-                .gemsUnableLoadGemTasks,
+            errorMessage: GenesisL10n.current.gemsUnableLoadGemTasks,
             onRetry: onRetryTasks,
           )
         else
@@ -97,6 +95,8 @@ class _GemWalletContent extends StatelessWidget {
             if (group.tasks.isNotEmpty) ...[
               _TaskGroupSection(
                 group: group,
+                dailyResetClock: dailyResetClock,
+                onDailyReset: onDailyReset,
                 taskStatusFor: taskStatusFor,
                 isTaskLoading: isTaskLoading,
                 onTaskTap: onTaskTap,
@@ -112,6 +112,8 @@ class _GemWalletContent extends StatelessWidget {
 class _TaskGroupSection extends StatelessWidget {
   const _TaskGroupSection({
     required this.group,
+    required this.dailyResetClock,
+    required this.onDailyReset,
     required this.taskStatusFor,
     required this.isTaskLoading,
     required this.onTaskTap,
@@ -119,6 +121,8 @@ class _TaskGroupSection extends StatelessWidget {
   });
 
   final GemTaskGroup group;
+  final GemDailyResetClock? dailyResetClock;
+  final VoidCallback onDailyReset;
   final String Function(GemTask task) taskStatusFor;
   final bool Function(String taskCode) isTaskLoading;
   final ValueChanged<GemTask> onTaskTap;
@@ -128,8 +132,7 @@ class _TaskGroupSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isJoinUs =
         group.groupCode == 'join_us' ||
-        group.groupTitle.trim().toLowerCase() ==
-            GenesisL10n.current.gemsJoinUs;
+        group.groupTitle.trim().toLowerCase() == GenesisL10n.current.gemsJoinUs;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -142,6 +145,13 @@ class _TaskGroupSection extends StatelessWidget {
             color: GenesisColors.darkTextPrimary,
           ),
         ),
+        if (group.groupCode == 'daily' && dailyResetClock != null) ...[
+          const SizedBox(height: 4),
+          GemDailyResetCountdown(
+            clock: dailyResetClock!,
+            onExpired: onDailyReset,
+          ),
+        ],
         const SizedBox(height: 10),
         for (final task in group.tasks) ...[
           if (isJoinUs)
