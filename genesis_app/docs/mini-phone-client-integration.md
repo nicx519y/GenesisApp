@@ -459,6 +459,8 @@ AI replies.
 
 ### Code entry points
 
+地图页 `MiniPhoneEdgeDock` 在手指拖动期间，左右均预留底部面板高度 + 8，跨越屏幕中线时不改变纵向边界。松手后按入口中心选择左右吸边；右侧落点才额外避让地图缩放按钮（底部面板高度 + 110），需要避让时以既有 180ms 吸边动画移动。左侧仍为 + 8；地点聊天沿用自身底部间距，位置仍按吸附侧和该侧可用高度比例保存。
+
 入口显示等待 World Detail 成功返回并应用：World Scope 用 `worldDetailReady` 区分未加载与已加载的 null 风格；共享 Dock 在就绪前不创建入口 Widget、头像气泡或音乐按钮。预取详情应用前同样隐藏，应用后按其真实风格首次显示。独立 Dock 等 Store 既有 `refreshPeople` 成功取得详情（`worldDetailLoaded`）；首次失败继续隐藏，已取得详情后的刷新不重新隐藏。无世界预览正常显示。
 
 World Detail 的 `data.info.map_style.era` 驱动入口：`modern/near_future/cyberpunk/space_scifi/post_apocalyptic` → Classic Handset；`mythic_ancient/historical_east/medieval_fantasy/victorian/steampunk` → Arcane Grimoire；缺失/null/空值/未知 → Classic。World 的 `MiniPhoneSessionScope.mapStyle` 让地图与地点聊天共用当前快照；无 World Scope 的独立入口复用 Store 既有 World 详情读取结果。`style` 仅作为显式预览覆盖，不增加风格查询或推断。
