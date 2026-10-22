@@ -3870,6 +3870,74 @@ void main() {
     });
   }
 
+  testWidgets(
+    'join failure displays only the generic error without diagnostics',
+    (tester) async {
+      final harness = await _connectedLocationChatTestService();
+      harness.socket.autoJoinAck = false;
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      });
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.replyActionFrames('join').isNotEmpty,
+      );
+      harness.socket.autoJoinAck = true;
+      harness.socket.serverReplyActionAck(
+        'join',
+        roundId: 301,
+        errNo: 5001,
+        errMsg: 'Something went wrong',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .messages
+            .any(
+              (message) =>
+                  message.isSystem && message.text == 'Something went wrong',
+            ),
+      );
+      final messages = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages;
+      expect(
+        messages.where(
+          (message) =>
+              message.text.contains('Join failed:') ||
+              message.text.contains('ChatroomFailureEvent('),
+        ),
+        isEmpty,
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
   testWidgets('join failure releases reply recovery busy state', (
     tester,
   ) async {

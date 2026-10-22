@@ -399,7 +399,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       if (!mounted) return;
       if (_replyConnectionAction != null) return;
       _setLocationChatState(() {
-        _messages.add(ChatMessageVm.system('WebSocket connection failed: $e'));
+        _messages.add(ChatMessageVm.system(GenesisL10n.current.genericError));
       });
     }
   }
@@ -450,7 +450,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       if (!mounted) return false;
       if (_replyConnectionAction == null) {
         _setLocationChatState(() {
-          _messages.add(ChatMessageVm.system('Join failed: $e'));
+          _messages.add(ChatMessageVm.system(GenesisL10n.current.genericError));
         });
       }
       return false;
