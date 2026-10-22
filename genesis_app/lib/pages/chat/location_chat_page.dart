@@ -878,6 +878,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   int? _androidSdkInt;
 
   bool get _sendAwaitingResponse {
+    if (_service?.isLocationSendIdleTimedOut(widget.locationId) ?? false) {
+      return false;
+    }
     final state = _service?.state ?? _chatroomState;
     return state.conversationRoundStatesByLocation.containsKey(
       widget.locationId,

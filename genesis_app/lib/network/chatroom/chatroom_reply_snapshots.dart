@@ -23,6 +23,7 @@ extension ChatroomReplySnapshots on ChatroomReplyActionsController {
           .._invalidated = source._invalidated
           .._active = source._active
           .._ended = source._ended
+          .._locallyStalledStream = source._locallyStalledStream
           .._roundFailed = source._roundFailed
           .._generating = source.generating
           .._busy = source._busy

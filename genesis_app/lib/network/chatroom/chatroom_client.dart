@@ -399,6 +399,7 @@ class ChatroomSession {
     String text, {
     String? clientMsgId,
     String messageType = chatroomTextMessageType,
+    void Function()? onSent,
   }) async {
     _throwIfClosed();
     final content = normalizeGenesisUgcTextForSubmission(text);
@@ -419,6 +420,24 @@ class ChatroomSession {
       },
       clientMsgId: clientMsgId,
       requestType: 'send_message',
+      onSent: onSent,
+    );
+  }
+
+  /// Stop waiting/retrying a locally timed-out send. This does not retract a
+  /// message already written to the socket or discard a late canonical echo.
+  void cancelSendMessageWait(String clientMsgId) {
+    final pending = _pendingAcks[clientMsgId];
+    if (pending == null || pending.requestType != 'send_message') return;
+    _pendingAcks.remove(clientMsgId);
+    pending.completeError(
+      ChatroomFailureEvent(
+        code: 'send_idle_timeout',
+        message: 'Something went wrong',
+        sourceType: 'send_message',
+        requestType: 'send_message',
+        clientMsgId: clientMsgId,
+      ),
     );
   }
 
@@ -516,6 +535,7 @@ class ChatroomSession {
     String? clientMsgId,
     String? requestType,
     int maxAttempts = 3,
+    void Function()? onSent,
   }) {
     _throwIfClosed();
     final resolvedClientMsgId = clientMsgId ?? _newClientMessageId();
@@ -553,6 +573,8 @@ class ChatroomSession {
         return;
       }
 
+      if (attempt == 1) onSent?.call();
+      if (_closed || completer.isCompleted) return;
       pending.timer = Timer(_ackTimeout, () {
         if (completer.isCompleted) return;
         if (attempt >= maxAttempts) {

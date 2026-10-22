@@ -177,7 +177,9 @@ class ChatroomReplyRoundState {
       _formal.any(_isRenderableReply) ||
       (_conversationType == 'tick' &&
           _formal.any((message) => message.businessType == 'tick'));
-  bool get complete => !_active && (_ended || _hasReplyActionSource);
+  bool _locallyStalledStream = false;
+  bool get complete =>
+      _locallyStalledStream || (!_active && (_ended || _hasReplyActionSource));
   bool get isLatest =>
       _snapshotLatest ?? (_controller._latest[locationId] == roundId);
   bool get goOnPending => _goOn != null && !_goOn!.finished;
@@ -1419,6 +1421,17 @@ class ChatroomReplyActionsController extends ChangeNotifier {
 
   void receiveEvent(ChatroomEvent event) =>
       batchChanges(() => _receiveEvent(event));
+
+  /// Ends only the local presentation wait. This is not a successful server
+  /// result and does not change candidate generation or round acceptance.
+  void finishLocallyStalledStream(String locationId, String roundId) {
+    if (_disposed) return;
+    final round = int.tryParse(roundId);
+    if (round == null || round <= 0) return;
+    final state = _state(locationId, round);
+    state._locallyStalledStream = true;
+    _notify(locationId);
+  }
 
   void _receiveEvent(ChatroomEvent event) {
     if (_disposed) return;

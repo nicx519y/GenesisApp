@@ -35,6 +35,7 @@ part 'world_chatroom_message_reducer.dart';
 part 'world_chatroom_world_projection.dart';
 part 'world_chatroom_models.dart';
 part 'world_chatroom_retention.dart';
+part 'world_chatroom_stream_watchdog.dart';
 
 const _maxMessagesPerLocation = 200;
 const _maxRecoverableLocationMessageGap = 50;
@@ -44,6 +45,7 @@ const _transientCharactersMovedMessageIdBase = 0x10000000000000;
 const _transientCharactersMovedRoundPrefix = 'ws-event:';
 const _closedConversationRoundRetention = Duration(minutes: 5);
 const conversationRoundFallbackTimeout = Duration(seconds: 30);
+const chatroomStreamIdleTimeout = Duration(seconds: 5);
 
 bool get _chatroomHydrateMetricsEnabled => kDebugMode || kProfileMode;
 
@@ -191,6 +193,7 @@ class WorldChatroomService {
     Duration heartbeatInterval = const Duration(seconds: 2),
     Duration reconnectInterval = const Duration(seconds: 5),
     Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
+    Duration streamIdleTimeout = chatroomStreamIdleTimeout,
     bool refreshInitialSnapshotOnConnect = true,
     ChatroomReplyActionStorage? replyActionStorage,
     ChatroomInspirationStorage? inspirationStorage,
@@ -204,6 +207,7 @@ class WorldChatroomService {
        _heartbeatInterval = heartbeatInterval,
        _reconnectInterval = reconnectInterval,
        _conversationRoundTimeout = conversationRoundTimeout,
+       _streamIdleTimeout = streamIdleTimeout,
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
   final _entryChannels = <String, ValueNotifier<ChatroomLocationEntry>>{};
@@ -340,6 +344,9 @@ class WorldChatroomService {
     controller.addListener(_syncInspirationContexts);
     controller.addListener(_syncEntrySnapshots);
     _observeReplyHistory();
+    for (final key in _locallyEndedStreamRounds.keys) {
+      controller.finishLocallyStalledStream(key.$1, key.$2);
+    }
     return controller;
   }
 
@@ -407,6 +414,9 @@ class WorldChatroomService {
   final Duration _heartbeatInterval;
   final Duration _reconnectInterval;
   final Duration _conversationRoundTimeout;
+  final Duration _streamIdleTimeout;
+  final Map<String, _ChatroomStreamWatch> _streamWatches = {};
+  final Map<(String, String), DateTime> _locallyEndedStreamRounds = {};
   final bool _refreshInitialSnapshotOnConnect;
   final _states = StreamController<WorldChatroomState>.broadcast();
   // Invalidation only: the archive has its own HTTP IDs and Tick aggregation.
@@ -550,11 +560,23 @@ class WorldChatroomService {
         _state.conversationRoundStatesByLocation[resolvedLocationId];
     if (existing != null) {
       if (existing.clientMsgId == resolvedClientMsgId) return;
-      throw const ChatroomProtocolException(
-        'a conversation round is already active for this location',
-      );
+      if (isLocationSendIdleTimedOut(resolvedLocationId)) {
+        _clearConversationRound(
+          resolvedLocationId,
+          expectedGeneration: existing.generation,
+          action: 'conversationRoundIdleSuperseded',
+        );
+      } else {
+        throw const ChatroomProtocolException(
+          'a conversation round is already active for this location',
+        );
+      }
     }
     final startedAt = DateTime.now();
+    _streamWatches.remove(resolvedLocationId)?.timer?.cancel();
+    _streamWatches[resolvedLocationId] = _ChatroomStreamWatch(
+      clientMsgId: resolvedClientMsgId,
+    );
     final roundState = ConversationRoundState(
       phase: ConversationRoundPhase.submitting,
       clientMsgId: resolvedClientMsgId,
@@ -566,6 +588,19 @@ class WorldChatroomService {
     _scheduleConversationRoundTimeout(resolvedLocationId, roundState);
   }
 
+  /// The server round and its 30s cleanup deadline may still exist, but a
+  /// locally stalled stream must not keep the composer or a new send locked.
+  bool isLocationSendIdleTimedOut(String locationId) {
+    final watch = _streamWatches[locationId];
+    if (watch == null || !watch.timedOut) return false;
+    final current = _state.conversationRoundStatesByLocation[locationId];
+    return current == null ||
+        (watch.clientMsgId.isNotEmpty &&
+            current.clientMsgId == watch.clientMsgId) ||
+        (watch.roundId.isNotEmpty &&
+            current.conversationRoundId == watch.roundId);
+  }
+
   void _markConversationRoundAccepted({
     required String locationId,
     required String clientMsgId,
@@ -573,6 +608,10 @@ class WorldChatroomService {
     final resolvedLocationId = locationId.trim();
     final current =
         _state.conversationRoundStatesByLocation[resolvedLocationId];
+    final watch = _streamWatches[resolvedLocationId];
+    if (watch != null && watch.clientMsgId == clientMsgId.trim()) {
+      watch.accepted = true;
+    }
     if (current == null || current.clientMsgId != clientMsgId.trim()) return;
     if (current.phase != ConversationRoundPhase.submitting) return;
     _replaceConversationRoundState(
@@ -588,6 +627,7 @@ class WorldChatroomService {
     final resolvedLocationId = locationId.trim();
     final resolvedRoundId = conversationRoundId.trim();
     if (resolvedLocationId.isEmpty || resolvedRoundId.isEmpty) return;
+    _bindStreamWatch(resolvedLocationId, resolvedRoundId);
     if (_isRecentlyClosedConversationRound(
       resolvedLocationId,
       resolvedRoundId,
@@ -599,6 +639,7 @@ class WorldChatroomService {
     if (current != null &&
         (current.conversationRoundId.isEmpty ||
             current.conversationRoundId == resolvedRoundId)) {
+      _bindStreamWatch(resolvedLocationId, resolvedRoundId);
       if (current.phase == ConversationRoundPhase.processing &&
           current.conversationRoundId == resolvedRoundId) {
         return;
@@ -637,12 +678,19 @@ class WorldChatroomService {
         conversationRoundId.isEmpty) {
       return;
     }
+    if (_streamWatches[locationId]?.clientMsgId == clientMsgId) {
+      _bindStreamWatch(locationId, conversationRoundId);
+    }
+    if (_isRecentlyClosedConversationRound(locationId, conversationRoundId)) {
+      return;
+    }
     final current = _state.conversationRoundStatesByLocation[locationId];
     if (current == null ||
         current.clientMsgId != clientMsgId ||
         current.conversationRoundId.isNotEmpty) {
       return;
     }
+    _bindStreamWatch(locationId, conversationRoundId);
     _replaceConversationRoundState(
       locationId,
       current.copyWith(
@@ -677,6 +725,13 @@ class WorldChatroomService {
     required String clientMsgId,
   }) {
     final resolvedLocationId = locationId.trim();
+    final watch = _streamWatches[resolvedLocationId];
+    if (watch != null && watch.clientMsgId == clientMsgId.trim()) {
+      watch.interrupted = true;
+      if (watch.timedOut) {
+        _releaseInterruptedStreamWatch(resolvedLocationId, watch);
+      }
+    }
     final current =
         _state.conversationRoundStatesByLocation[resolvedLocationId];
     if (current == null || current.clientMsgId != clientMsgId.trim()) return;
@@ -685,6 +740,11 @@ class WorldChatroomService {
       expectedGeneration: current.generation,
       action: 'conversationRoundSendFailed',
     );
+    if (watch != null &&
+        watch.clientMsgId == clientMsgId.trim() &&
+        !watch.started) {
+      _streamWatches.remove(resolvedLocationId)?.timer?.cancel();
+    }
   }
 
   void _completeLegacyCharacterRound(WorldChatroomMessage message) {
@@ -769,6 +829,7 @@ class WorldChatroomService {
   }
 
   void _clearAllConversationRounds() {
+    _clearStreamWatches();
     for (final timer in _conversationRoundTimers.values) {
       timer.cancel();
     }
@@ -1307,6 +1368,13 @@ class WorldChatroomService {
         text,
         clientMsgId: resolvedClientMsgId,
         messageType: messageType,
+        onSent: () {
+          final watch = _streamWatches[roundLocationId];
+          if (_disposed || watch?.clientMsgId != resolvedClientMsgId) return;
+          if (!watch!.started && !watch.ended) {
+            _armStreamWatch(roundLocationId, watch);
+          }
+        },
       );
     } catch (error, stackTrace) {
       _failSubmittingConversationRound(

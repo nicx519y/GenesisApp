@@ -401,6 +401,10 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 
 只有 `err_no=0`、同地点且同 `conversation_round_id` 的 end 可以正常解锁并取消兜底。Character、Narrator、Tick 和 `llm_stream_end` 都不再结束 V2 conversation round。其他地点、旧 round、重复或错误 end 均幂等忽略。30 秒仍未收到匹配 end 时客户端异常兜底解锁；旧 Timer 必须通过 generation 校验，不能清除后续新 round。自动重连保留原绝对截止时间，显式断开或销毁 Service 时清除。
 
+普通 `llm_stream_*` 另有独立的客户端 5 秒空闲兜底：`send_message` 首次实际写入 WebSocket 成功后立即启动，不等待 receipt/ACK；每条当前地点/轮次的 start/chunk 都重置，迟到 ACK 和同一次发送的底层重试不重置。所有在途普通流正常 end 后取消。连续 5 秒无流消息时，结束本地流式展示及对应本地发送/回复阻塞，保留已收内容，不伪造服务端成功、正式消息 ID 或计费结果。30 秒整轮计时本身保留：未断线且回执成功的轮次仍可留在服务层等待正式 end 或原截止时间清理，但不得继续拦截已超时的本地发送；用户再次发送时，以新代次替换该旧等待，旧 Timer 不得清除新轮次。断线或回执丢失时，5 秒到期还会清理对应异常轮次；回执仍未到达的，停止该旧发送的 ACK 等待与后续自动重试，超时后不自动重发用户消息。自动重连不取消、重置或重算空闲截止时间；若先超时再断线，同样立即解除对应异常等待。迟到 chunk 可继续补齐内容但不重新进入 streaming，迟到真实 end 仍以服务端完整正文为准，旧 waiting/用户回显不能重新阻塞超时发送，也不能清除新发送。超时后才到达的轮次标识继承原发送的本地超时结果。状态变化必须进入回复控制 revision，确保输入内容和消息列表均不变化时按钮也会刷新。显式断开/销毁清理计时器。候选 `llm_card_*` 的专用生成恢复机制保持不变。
+
+正式 Location Chat 的 prepared entry 会复制回复状态用于页面展示。`snapshotForActions`、`snapshotForPresentation` 与保留卡片快照必须同步复制 `_locallyStalledStream`，不能让服务层已超时、页面快照仍未结束；回归必须覆盖 `usePreparedEntry=true`、断网超时后销毁页面再进入，并实际发送下一条消息。
+
 Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done → end_conversation_round → world_change`。同一世界各地点接收同一条通知，复用 Tick 的真实 int64 `conversation_round_id`，不逐地点重复发送：
 
 ```json

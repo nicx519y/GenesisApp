@@ -125,6 +125,151 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  for (final stage in [
+    'before receipt',
+    'after receipt',
+    'during stream',
+    'silent stall',
+    'offline beyond deadline',
+  ]) {
+    testWidgets('send recovers after disconnect and 5s idle: $stage', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final secondSocket = _LocationChatTestSocket();
+      final harness = await _connectedLocationChatTestService(
+        reconnectSocket: secondSocket,
+        reconnectInterval: stage == 'offline beyond deadline'
+            ? const Duration(seconds: 6)
+            : const Duration(milliseconds: 50),
+      );
+      final silent = stage == 'silent stall';
+      final peer = silent ? harness.socket : secondSocket;
+      Widget buildPanel(Key key, {String initialDraftText = ''}) =>
+          AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: LocationChatPanel(
+                key: key,
+                worldId: 'world-current',
+                locationId: 'location-current',
+                service: harness.service,
+                leaveOnInactive: false,
+                messageQueueInitializationCovered: true,
+                usePreparedEntry: true,
+                initialDraftText: initialDraftText,
+                networkAvailabilityCheck: _locationChatNetworkAvailable,
+              ),
+            ),
+          );
+      await tester.pumpWidget(buildPanel(const ValueKey('original')));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.joinedLocationId == 'location-current',
+      );
+      ChatComposer composer() =>
+          tester.widget<ChatComposer>(find.byType(ChatComposer));
+      composer().controller.text = 'First message';
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      unawaited(composer().onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 1,
+      );
+      final clientId =
+          '${harness.socket.replyActionFrames('send_message').last['client_msg_id']}';
+      harness.socket.serverWaitingConversationRound(roundId: 301);
+      harness.socket.serverV2UserMessage(
+        messageId: 301,
+        clientMsgId: clientId,
+        content: 'First message',
+      );
+      if (stage != 'before receipt') {
+        harness.socket.serverV2AckForLatestSend(errNo: 0);
+      }
+      if (stage == 'during stream') {
+        harness.socket.serverV2StreamFrame(
+          streamType: 'llm_chunk',
+          roundId: 301,
+          messageId: 302,
+          content: 'Partial reply',
+          seq: 1,
+        );
+      }
+      await tester.pump();
+      if (!silent) {
+        await harness.socket.close();
+        // StreamSubscription.cancel can complete in the real async zone. Drain
+        // that zone while advancing the reconnect scheduler, then assert state.
+        for (
+          var attempt = 0;
+          attempt < 20 && secondSocket.replyActionFrames('join').isEmpty;
+          attempt++
+        ) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await tester.runAsync(() async {
+            await Future<void>.value();
+          });
+          if (stage == 'offline beyond deadline' &&
+              harness.service.state.reconnecting) {
+            await tester.pump(const Duration(seconds: 6));
+          }
+        }
+        await _pumpUntilLocationChatTest(
+          tester,
+          () =>
+              secondSocket.replyActionFrames('join').isNotEmpty &&
+              harness.service.state.joinedLocationId == 'location-current',
+        );
+      }
+      composer().controller.text = 'Second message';
+      await tester.pump();
+      if (stage != 'offline beyond deadline') {
+        await tester.pump(const Duration(seconds: 5));
+      }
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      expect(
+        harness.service.state.conversationRoundStatesByLocation,
+        silent ? contains('location-current') : isEmpty,
+      );
+      // A late waiting event for the interrupted round must not lock it again.
+      peer.serverWaitingConversationRound(roundId: 301);
+      await tester.pump();
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      expect(
+        harness.service.state.conversationRoundStatesByLocation,
+        silent ? contains('location-current') : isEmpty,
+      );
+      // Production opens from a prepared snapshot, including after returning
+      // to the same location. Recreate the actual panel, not just its input.
+      await tester.pumpWidget(
+        buildPanel(
+          const ValueKey('reentered'),
+          initialDraftText: 'Second message',
+        ),
+      );
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      unawaited(composer().onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => peer.sendMessageCount == (silent ? 2 : 1),
+      );
+      final secondId =
+          '${peer.replyActionFrames('send_message').last['client_msg_id']}';
+      peer.serverV2AckForLatestSend(errNo: 0);
+      peer.serverV2UserMessage(
+        messageId: 303,
+        clientMsgId: secondId,
+        content: 'Second message',
+      );
+      peer.serverEndConversationRound(roundId: 303);
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+      await _disposeEnterConversationPanel(tester, harness.service);
+    });
+  }
+
   for (final timing in [
     'snapshot only',
     'without phone',
@@ -14652,6 +14797,9 @@ Future<
 _connectedLocationChatTestService({
   Duration ackTimeout = const Duration(seconds: 12),
   Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
+  Duration streamIdleTimeout = chatroomStreamIdleTimeout,
+  Duration reconnectInterval = const Duration(seconds: 5),
+  _LocationChatTestSocket? reconnectSocket,
   HttpTransport? replyTransport,
   ChatroomMessageStorage? messageStorage,
   ChatroomInspirationStorage? inspirationStorage,
@@ -14713,7 +14861,10 @@ _connectedLocationChatTestService({
   final client = ChatroomClient(
     wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
     sessionStore: sessionStore,
-    transport: _LocationChatTestTransport(socket),
+    transport: _LocationChatTestTransport(
+      socket,
+      reconnectSocket: reconnectSocket,
+    ),
     ackTimeout: ackTimeout,
     autoHeartbeat: false,
     handshakeHeaderSigner: (_, headers) async => <String, String>{
@@ -14730,6 +14881,8 @@ _connectedLocationChatTestService({
     messageStorage: messageStorage ?? MemoryChatroomMessageStorage(),
     refreshInitialSnapshotOnConnect: false,
     conversationRoundTimeout: conversationRoundTimeout,
+    streamIdleTimeout: streamIdleTimeout,
+    reconnectInterval: reconnectInterval,
   );
   await service.connect(
     worldId: 'world-current',
@@ -15309,16 +15462,18 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
 }
 
 class _LocationChatTestTransport implements ChatroomSocketTransport {
-  const _LocationChatTestTransport(this.socket);
+  _LocationChatTestTransport(this.socket, {this.reconnectSocket});
 
   final _LocationChatTestSocket socket;
+  final _LocationChatTestSocket? reconnectSocket;
+  int connects = 0;
 
   @override
   Future<ChatroomSocket> connect(
     Uri uri, {
     Map<String, String>? headers,
   }) async {
-    return socket;
+    return connects++ == 0 ? socket : reconnectSocket ?? socket;
   }
 }
 

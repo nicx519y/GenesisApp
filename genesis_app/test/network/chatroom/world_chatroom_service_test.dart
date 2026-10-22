@@ -99,6 +99,416 @@ void main() {
   );
 
   test(
+    'socket write starts idle timeout even when receipt never arrives',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+        ackTimeout: const Duration(seconds: 2),
+        streamIdleTimeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final joined = service.join(locationId: 'loc-1');
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      final joinFrame =
+          jsonDecode(
+                socket.sent.lastWhere(
+                  (raw) =>
+                      (jsonDecode(raw) as Map<String, dynamic>)['type'] ==
+                      'join',
+                ),
+              )
+              as Map<String, dynamic>;
+      socket.serverV2Ack(clientMsgId: joinFrame['client_msg_id'] as String);
+      await joined;
+      final replies = service.replyActions!;
+      final handle = service.sendMessage(
+        'hello',
+        clientMsgId: 'write-no-receipt',
+      );
+      var receiptFailed = false;
+      unawaited(
+        handle.receipt.then<void>(
+          (_) {},
+          onError: (Object _) {
+            receiptFailed = true;
+          },
+        ),
+      );
+      unawaited(
+        handle.canonicalMessage.then<void>((_) {}, onError: (Object _) {}),
+      );
+      await _waitFor(() => socket.sentTypes.contains('send_message'));
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 901);
+      socket.serverV2Message(
+        type: 'user',
+        senderId: 'user-1',
+        senderName: 'Me',
+        messageId: 901,
+        locationMessageId: 901,
+        roundId: 901,
+        content: 'hello',
+        clientMsgId: handle.clientMsgId,
+      );
+      await _waitFor(() => receiptFailed);
+      expect(service.state.conversationRoundStatesByLocation, isEmpty);
+      expect(replies.stateFor('loc-1')!.complete, isTrue);
+      expect(
+        socket.sent.where(
+          (raw) =>
+              (jsonDecode(raw) as Map<String, dynamic>)['type'] ==
+              'send_message',
+        ),
+        hasLength(1),
+      );
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 901);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(service.state.conversationRoundStatesByLocation, isEmpty);
+      expect(replies.stateFor('loc-1')!.complete, isTrue);
+    },
+  );
+
+  test(
+    'stream idle watchdog isolates locations and waits for all senders',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+        streamIdleTimeout: const Duration(milliseconds: 100),
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 811,
+        locationMessageId: 811,
+        roundId: 811,
+        seq: 1,
+        content: 'One',
+      );
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-2',
+        messageId: 812,
+        locationMessageId: 812,
+        roundId: 811,
+        seq: 1,
+        content: 'Two',
+      );
+      await _waitFor(() => service.state.streamMessagesByKey.length == 2);
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        senderId: 'char-1',
+        messageId: 811,
+        locationMessageId: 811,
+        roundId: 811,
+        content: 'One done',
+      );
+      await _waitFor(() => service.state.streamMessagesByKey.length == 1);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        locationId: 'loc-2',
+        messageId: 813,
+        locationMessageId: 813,
+        roundId: 812,
+        seq: 1,
+        content: 'Other location',
+      );
+      await _waitFor(() => service.state.streamMessagesByKey.length == 2);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(
+        service.state.streamMessagesByKey.values.map((m) => m.locationId),
+        ['loc-2'],
+      );
+      expect(
+        service.state.messagesByLocation['loc-1']!.every((m) => !m.streaming),
+        isTrue,
+      );
+      await service.disconnect();
+      await Future<void>.delayed(const Duration(milliseconds: 110));
+      expect(service.state.streamMessagesByKey, isEmpty);
+    },
+  );
+
+  test(
+    'stream idle watchdog resets on chunks without releasing round',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+        streamIdleTimeout: const Duration(milliseconds: 100),
+        conversationRoundTimeout: const Duration(milliseconds: 450),
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final replies = service.replyActions!;
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 801);
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 801,
+        locationMessageId: 801,
+        roundId: 801,
+        seq: 1,
+        content: 'Hello',
+      );
+      await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 801,
+        locationMessageId: 801,
+        roundId: 801,
+        seq: 2,
+        content: ' world',
+      );
+      await _waitFor(
+        () =>
+            service.state.streamMessagesByKey.values.single.content ==
+            'Hello world',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(service.state.streamMessagesByKey, isNotEmpty);
+      await _waitFor(() => service.state.streamMessagesByKey.isEmpty);
+      expect(
+        service.state.conversationRoundStatesByLocation,
+        contains('loc-1'),
+      );
+      expect(replies.stateFor('loc-1')!.complete, isTrue);
+      expect(
+        service.state.messagesByLocation['loc-1']!.single.content,
+        'Hello world',
+      );
+      expect(replies.snapshotForActions('loc-1')!.complete, isTrue);
+      expect(replies.snapshotForPresentation('loc-1')!.complete, isTrue);
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 801,
+        locationMessageId: 801,
+        roundId: 801,
+        seq: 3,
+        content: '!',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']!.single.content ==
+            'Hello world!',
+      );
+      expect(service.state.streamMessagesByKey, isEmpty);
+      await _waitFor(
+        () => service.state.conversationRoundStatesByLocation.isEmpty,
+      );
+      expect(replies.stateFor('loc-1')!.complete, isTrue);
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        senderId: 'char-1',
+        messageId: 801,
+        locationMessageId: 801,
+        roundId: 801,
+        content: 'Authoritative final',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']!.single.content ==
+            'Authoritative final',
+      );
+      expect(service.state.streamMessagesByKey, isEmpty);
+    },
+  );
+
+  test(
+    'stream idle watchdog starts on write and late receipt preserves stream deadline',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+        ackTimeout: const Duration(seconds: 2),
+        streamIdleTimeout: const Duration(milliseconds: 100),
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final joined = service.join(locationId: 'loc-1');
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      final joinFrame =
+          jsonDecode(
+                socket.sent.lastWhere(
+                  (raw) =>
+                      (jsonDecode(raw) as Map<String, dynamic>)['type'] ==
+                      'join',
+                ),
+              )
+              as Map<String, dynamic>;
+      socket.serverV2Ack(clientMsgId: joinFrame['client_msg_id'] as String);
+      await joined;
+      final replies = service.replyActions!;
+      final handle = service.sendMessage('hello', clientMsgId: 'idle-receipt');
+      unawaited(
+        handle.canonicalMessage.then<void>((_) {}, onError: (Object _) {}),
+      );
+      await _waitFor(() => socket.sentTypes.contains('send_message'));
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 802);
+      await _waitFor(
+        () =>
+            service.state.waitingConversationRoundIdsByLocation['loc-1'] ==
+            '802',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(replies.stateFor('loc-1')!.complete, isFalse);
+      // First stream can precede receipt. A late receipt must not reset its timer.
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 802,
+        locationMessageId: 802,
+        roundId: 802,
+        seq: 1,
+        content: 'Early',
+      );
+      await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+      await handle.receipt;
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(service.state.streamMessagesByKey, isEmpty);
+      expect(
+        service.state.conversationRoundStatesByLocation,
+        contains('loc-1'),
+      );
+    },
+  );
+
+  test('stream idle watchdog normal end cancels fallback', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+      streamIdleTimeout: const Duration(milliseconds: 60),
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 803);
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 803,
+      locationMessageId: 803,
+      roundId: 803,
+      seq: 1,
+      content: 'Partial',
+    );
+    socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      senderId: 'char-1',
+      messageId: 803,
+      locationMessageId: 803,
+      roundId: 803,
+      content: 'Final',
+    );
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.single.content == 'Final',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 90));
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-2',
+      messageId: 804,
+      locationMessageId: 804,
+      roundId: 803,
+      seq: 1,
+      content: 'Next character',
+    );
+    await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
+    expect(service.state.conversationRoundStatesByLocation, contains('loc-1'));
+  });
+
+  test(
+    'stream idle watchdog receipt starts first-byte timeout and late binding stays ended',
+    () async {
+      expect(chatroomStreamIdleTimeout, const Duration(seconds: 5));
+      expect(conversationRoundFallbackTimeout, const Duration(seconds: 30));
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+        ackTimeout: const Duration(seconds: 2),
+        streamIdleTimeout: const Duration(milliseconds: 60),
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final joined = service.join(locationId: 'loc-1');
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      final joinFrame =
+          jsonDecode(
+                socket.sent.lastWhere(
+                  (raw) =>
+                      (jsonDecode(raw) as Map<String, dynamic>)['type'] ==
+                      'join',
+                ),
+              )
+              as Map<String, dynamic>;
+      socket.serverV2Ack(clientMsgId: joinFrame['client_msg_id'] as String);
+      await joined;
+      final handle = service.sendMessage(
+        'hello',
+        clientMsgId: 'idle-first-byte',
+      );
+      unawaited(
+        handle.canonicalMessage.then<void>((_) {}, onError: (Object _) {}),
+      );
+      await _waitFor(() => socket.sentTypes.contains('send_message'));
+      socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+      await handle.receipt;
+      final deadline =
+          service.state.conversationRoundStatesByLocation['loc-1']!.deadlineAt;
+      await Future<void>.delayed(const Duration(milliseconds: 90));
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 805);
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 805,
+        locationMessageId: 805,
+        roundId: 805,
+        seq: 1,
+        content: 'Late first',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (m) => m.content == 'Late first',
+            ) ==
+            true,
+      );
+      expect(service.state.streamMessagesByKey, isEmpty);
+      expect(
+        service.state.conversationRoundStatesByLocation['loc-1']!.deadlineAt,
+        deadline,
+      );
+      socket.serverEndConversationRound(locationId: 'loc-1', roundId: 805);
+      await _waitFor(
+        () => service.state.conversationRoundStatesByLocation.isEmpty,
+      );
+      expect(service.replyActions!.stateFor('loc-1')!.complete, isTrue);
+    },
+  );
+
+  test(
     'phone movement updates map positions without replaying older moves',
     () async {
       final socket = _FakeChatroomSocket();
@@ -5921,6 +6331,7 @@ Future<WorldChatroomService> _service({
   Duration reconnectInterval = const Duration(milliseconds: 20),
   Duration ackTimeout = const Duration(milliseconds: 20),
   Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
+  Duration streamIdleTimeout = chatroomStreamIdleTimeout,
   ChatroomMessageStorage? messageStorage,
   bool refreshInitialSnapshotOnConnect = true,
   bool useV2Protocol = false,
@@ -5957,6 +6368,7 @@ Future<WorldChatroomService> _service({
     heartbeatInterval: heartbeatInterval,
     reconnectInterval: reconnectInterval,
     conversationRoundTimeout: conversationRoundTimeout,
+    streamIdleTimeout: streamIdleTimeout,
     refreshInitialSnapshotOnConnect: refreshInitialSnapshotOnConnect,
   );
 }

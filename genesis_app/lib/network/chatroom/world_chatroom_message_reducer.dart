@@ -370,13 +370,18 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   }
 
   void _startStream(ChatroomAiStreamStart event) {
+    _noteStreamActivity(event.locationId, event.conversationRoundId);
     final key = _streamKey(
       event.locationId,
       event.conversationRoundId,
       event.senderId,
     );
     if (key.isEmpty) return;
-    final message = WorldChatroomMessage.fromAiStreamStart(event);
+    final incoming = WorldChatroomMessage.fromAiStreamStart(event);
+    final message =
+        _streamLocallyEnded(event.locationId, event.conversationRoundId)
+        ? incoming.copyWith(streaming: false)
+        : incoming;
     final existing = _streamAccumulators[key];
     if (existing == null) {
       _streamAccumulators[key] = _ChatroomStreamAccumulator(message: message);
@@ -396,6 +401,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   }
 
   void _appendStreamChunk(ChatroomAiStreamChunk event) {
+    _noteStreamActivity(event.locationId, event.conversationRoundId);
     final key = _streamKey(
       event.locationId,
       event.conversationRoundId,
@@ -425,7 +431,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         content: '',
         currentTime: event.currentTime,
         createdAt: null,
-        streaming: true,
+        streaming: !_streamLocallyEnded(
+          event.locationId,
+          event.conversationRoundId,
+        ),
         isLlmStreamMessage: true,
         minAppVersion: event.minAppVersion ?? 0,
         rawPayload: event.rawPayload,
@@ -484,6 +493,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     );
     if (key.isEmpty) return;
     final accumulator = _streamAccumulators.remove(key);
+    _noteStreamEnd(event.locationId, event.conversationRoundId);
     final existing =
         accumulator?.message ??
         _state.streamMessagesByKey[key] ??
@@ -723,7 +733,15 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     };
     final resolvedMessages = <WorldChatroomMessage>[];
     var lastMessageId = _state.lastMessageId;
-    for (final incoming in messages) {
+    for (final rawIncoming in messages) {
+      final incoming =
+          rawIncoming.streaming &&
+              _streamLocallyEnded(
+                rawIncoming.locationId,
+                rawIncoming.conversationRoundId,
+              )
+          ? rawIncoming.copyWith(streaming: false)
+          : rawIncoming;
       if (_deletedMessageIds[incoming.locationId]?.contains(
             incoming.globalMessageId,
           ) ==

@@ -321,6 +321,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
 
   Future<void> _handleConnectionLost() async {
     if (_userDisconnected || _disposed) return;
+    _interruptStreamWatches();
     _suspendInspirations();
     _replyActionsController?.invalidateCardsOnDisconnect();
     await _detachSession(disconnect: true);
