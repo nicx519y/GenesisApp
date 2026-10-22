@@ -103,6 +103,7 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getNetworkTypes" -> result.success(readNetworkTypes(applicationContext))
                 "getAndroidId", "getDeviceId" -> {
                     Thread {
                         val deviceId = resolveAndroidDeviceId()

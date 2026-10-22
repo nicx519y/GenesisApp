@@ -19,8 +19,11 @@ extension _WorldChatroomConnection on WorldChatroomService {
     _setState(
       _state.copyWith(connected: false, reconnecting: _state.world != null),
     );
+    int? monitorAttempt;
+    var handshakeSucceeded = false;
     try {
       await _detachSession(disconnect: true);
+      monitorAttempt = _disconnectMonitor?.beginAttempt();
       final session = await _client.connect(
         worldId: _worldId,
         userId: identity.userId,
@@ -32,8 +35,12 @@ extension _WorldChatroomConnection on WorldChatroomService {
         await session.disconnect();
         return;
       }
+      handshakeSucceeded = true;
+      if (monitorAttempt != null) {
+        _disconnectMonitor?.succeeded(monitorAttempt);
+      }
       _session = session;
-      _attachSession(session);
+      _attachSession(session, monitorAttempt: monitorAttempt);
       if (_historyConnectedOnce) _historyChanges.add(_worldId);
       _historyConnectedOnce = true;
       _setState(_state.copyWith(connected: true));
@@ -48,6 +55,9 @@ extension _WorldChatroomConnection on WorldChatroomService {
       _setState(_state.copyWith(connected: true, reconnecting: false));
       completer.complete();
     } catch (e) {
+      if (!handshakeSucceeded && monitorAttempt != null) {
+        _disconnectMonitor?.connectFailed(monitorAttempt);
+      }
       final failure = e is ChatroomFailureEvent
           ? e
           : ChatroomFailureEvent(
@@ -187,12 +197,33 @@ extension _WorldChatroomConnection on WorldChatroomService {
     await replyActions?.restoreLocationCards(location, reloadCards: false);
   }
 
-  void _attachSession(ChatroomSession session) {
+  void _attachSession(ChatroomSession session, {int? monitorAttempt}) {
+    _sessionMonitorAttempt = monitorAttempt;
     _eventSubscription = session.events.listen(
       _enqueueEvent,
-      onDone: () => _handleConnectionLost(),
+      onDone: () {
+        if (identical(_session, session)) {
+          _disconnectMonitor?.lost(
+            'socket_closed',
+            attempt: monitorAttempt,
+            closeCode: session.closeCode,
+          );
+          unawaited(_handleConnectionLost());
+        }
+      },
     );
-    _failureSubscription = session.failures.listen(_recordFailure);
+    _failureSubscription = session.failures.listen((failure) {
+      if (!identical(_session, session)) return;
+      if (failure.code == 'socket_error' || failure.code == 'socket_closed') {
+        _disconnectMonitor?.lost(
+          failure.code,
+          attempt: monitorAttempt,
+          errorCode: failure.code,
+          closeCode: session.closeCode,
+        );
+      }
+      _recordFailure(failure);
+    });
     _errorSubscription = session.errors.listen((error) {
       _recordFailure(ChatroomFailureEvent.fromError(error));
     });
@@ -264,6 +295,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
 
   Future<void> _sendHeartbeat() async {
     final session = _session;
+    final monitorAttempt = _sessionMonitorAttempt;
     if (session == null ||
         _userDisconnected ||
         _disposed ||
@@ -274,6 +306,13 @@ extension _WorldChatroomConnection on WorldChatroomService {
     try {
       await session.heartbeat();
     } catch (_) {
+      if (!identical(_session, session)) return;
+      _disconnectMonitor?.lost(
+        'heartbeat_send_failed',
+        attempt: monitorAttempt,
+        errorCode: 'heartbeat_send_failed',
+        closeCode: session.closeCode,
+      );
       await _handleConnectionLost();
     } finally {
       _heartbeatInFlight = false;

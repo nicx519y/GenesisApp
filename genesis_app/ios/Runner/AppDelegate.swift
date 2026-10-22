@@ -389,6 +389,33 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
         return
       }
       switch call.method {
+      case "getNetworkTypes":
+        // A fresh one-shot path avoids stale metadata after a foreground transition.
+        let monitor = NWPathMonitor()
+        var finished = false
+        let finish: ([String]) -> Void = { types in
+          guard !finished else { return }
+          finished = true
+          monitor.pathUpdateHandler = nil
+          monitor.cancel()
+          result(types)
+        }
+        monitor.pathUpdateHandler = { path in
+          DispatchQueue.main.async {
+            var types: [String] = []
+            if path.usesInterfaceType(.wifi) { types.append("wifi") }
+            if path.usesInterfaceType(.cellular) { types.append("mobile") }
+            if path.usesInterfaceType(.wiredEthernet) { types.append("ethernet") }
+            // NWPath does not reliably identify VPN/Bluetooth/satellite. Do not infer them.
+            if types.isEmpty {
+              types = path.status == .unsatisfied && path.availableInterfaces.isEmpty
+                ? ["none"] : ["unknown"]
+            }
+            finish(types)
+          }
+        }
+        monitor.start(queue: DispatchQueue(label: "com.worldo.ai.network_type_snapshot"))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { finish(["unknown"]) }
       case "getDeviceId", "getAndroidId":
         result(self.deviceId())
       case "getDeviceIdentitySnapshot":

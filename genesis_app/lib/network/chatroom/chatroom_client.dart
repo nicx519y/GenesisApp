@@ -13,6 +13,7 @@ import '../../utils/genesis_ugc_text.dart';
 import 'chatroom_models.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_socket_transport.dart';
+import '../websocket_transport.dart' show NetworkWebSocketDiagnostics;
 import 'chatroom_timeline_payload.dart';
 import 'chatroom_message_type.dart';
 
@@ -250,6 +251,13 @@ class ChatroomSession {
   bool _closed = false;
   bool _disposed = false;
   ChatroomJoined? _joined;
+
+  int? get closeCode {
+    final socket = _socket;
+    return socket is NetworkWebSocketDiagnostics
+        ? (socket as NetworkWebSocketDiagnostics).closeCode
+        : null;
+  }
 
   Stream<ChatroomEvent> get events => _events.stream;
 

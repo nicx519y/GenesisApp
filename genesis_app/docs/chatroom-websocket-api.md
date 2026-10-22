@@ -1079,3 +1079,15 @@ messages. See `mini-phone-chat-client-api-2026-10-12.md` and
 Reply events support generating (nullable failure) and failed. Messages carry
 request-correlated reply_status/failure for HTTP recovery; pushes have no offline
 replay guarantee. Player peers do not emit AI reply-state events.
+
+## 客户端持续断线监控（Collect）
+
+`WorldChatroomService` 通过独立 `ChatroomDisconnectMonitor` 观察仍被业务需要的连接，不改变重连、join 或历史恢复逻辑。首次实际发起握手后，前台连续 15 秒仍未成功，或已成功连接异常断开后连续 15 秒未恢复，记录一次 `monitor / websocket_disconnect`。握手成功即取消观察，不等待 join/历史；重试不重置起点，无失败回调的连接卡住也覆盖。同轮最多一次，握手恢复后允许下一轮。主动断开、退出/切换 World、切账号、释放取消；后台取消，回前台仍需连接时重新观察 15 秒。异步网络读取期间恢复或取消会丢弃旧观察，旧 session/attempt 回调不能影响新观察。
+
+| action_type | action | object1 | object2 | object3 | object4 | ext_data |
+| --- | --- | --- | --- | --- | --- | --- |
+| monitor | websocket_disconnect | World ID | initial_connect / reconnect | connect_error / socket_closed / socket_error / heartbeat_send_failed / unknown | 上报时 network_type | JSON 字符串：connect_attempts；存在时附 close_code、last_error_code |
+
+`object3` 保留本轮起始原因（首次握手卡住且没有失败回调时 `unknown`），最近错误码只存固定分类，不上传原始异常文本。关闭码仅取实际 socket 值，缺失不补造。心跳无 ACK 不作为断线依据，仅明确发送失败进入异常观察。`object4` 不上报耗时；类型为 `none / wifi / mobile / ethernet / bluetooth / vpn / satellite / unknown`，多类型去重后按上述具体类型顺序以英文逗号分隔，如 `wifi,vpn`；`none` 不与具体类型并存。只记录平台实际可检测信息：Android 读取 active NetworkCapabilities，iOS NWPath 仅明确提供 Wi-Fi/蜂窝/以太网，不推测 VPN、蓝牙或卫星；无法识别/读取失败为 `unknown`。这些类型不是互联网或服务端可达性证明。
+
+通过 `GenesisTelemetry.collectLog` 进入既有 SQLite Collect 队列，沿用公共身份快照、event_id 和时间戳；离线重试不重建事件，不走 event/report、Firebase 或 Adjust，不套用 HTTP 采样。ext_data 不含正文、Token、完整 URL 或堆栈。受控测试与本地编译不等于真机/Collect 服务端入库验收。

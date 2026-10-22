@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_disconnect_monitor.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -22,6 +23,81 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'disconnect telemetry observes an actual hanging handshake and cancels on recovery',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final ready = Completer<void>();
+      final transport = _BlockingChatroomTransport(socket, ready);
+      final reports = <String>[];
+      final monitor = ChatroomDisconnectMonitor(
+        threshold: const Duration(milliseconds: 30),
+        readNetworkType: () async => 'none',
+        report:
+            ({
+              required worldId,
+              required phase,
+              required cause,
+              required networkType,
+              required extData,
+            }) {
+              reports.add('$worldId/$phase/$cause/$networkType');
+            },
+      );
+      final service = await _service(
+        socketTransport: transport,
+        refreshInitialSnapshotOnConnect: false,
+        disconnectMonitor: monitor,
+      );
+      addTearDown(service.dispose);
+      final connecting = service.connect(
+        worldId: 'world-1',
+        identity: _identity(),
+      );
+      await _waitFor(() => transport.connectStarted);
+      await _waitFor(() => reports.isNotEmpty);
+      expect(reports, ['world-1/initial_connect/unknown/none']);
+      ready.complete();
+      await connecting;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(reports, hasLength(1));
+    },
+  );
+
+  test(
+    'disconnect telemetry sees real socket closure without changing retry timing',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final reports = <String>[];
+      final monitor = ChatroomDisconnectMonitor(
+        threshold: const Duration(milliseconds: 30),
+        readNetworkType: () async => 'wifi',
+        report:
+            ({
+              required worldId,
+              required phase,
+              required cause,
+              required networkType,
+              required extData,
+            }) {
+              reports.add('$phase/$cause');
+            },
+      );
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        reconnectInterval: const Duration(seconds: 5),
+        refreshInitialSnapshotOnConnect: false,
+        disconnectMonitor: monitor,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      await socket.serverClose();
+      await _waitFor(() => reports.isNotEmpty);
+      expect(reports, ['reconnect/socket_closed']);
+      expect(service.state.connected, isFalse);
+    },
+  );
+
   test(
     'phone movement updates map positions without replaying older moves',
     () async {
@@ -5848,6 +5924,7 @@ Future<WorldChatroomService> _service({
   ChatroomMessageStorage? messageStorage,
   bool refreshInitialSnapshotOnConnect = true,
   bool useV2Protocol = false,
+  ChatroomDisconnectMonitor? disconnectMonitor,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('user-1');
@@ -5875,6 +5952,7 @@ Future<WorldChatroomService> _service({
     api: api,
     client: client,
     messageStorage: messageStorage ?? MemoryChatroomMessageStorage(),
+    disconnectMonitor: disconnectMonitor,
     replyActionStorage: MemoryChatroomReplyActionStorage(),
     heartbeatInterval: heartbeatInterval,
     reconnectInterval: reconnectInterval,

@@ -20,6 +20,11 @@ abstract interface class NetworkWebSocket {
   Future<void> close([int? code, String? reason]);
 }
 
+/// Optional native close diagnostics; absent values must not be synthesized.
+abstract interface class NetworkWebSocketDiagnostics {
+  int? get closeCode;
+}
+
 abstract interface class NetworkWebSocketTransport {
   Future<NetworkWebSocket> connect(Uri uri, {Map<String, String>? headers});
 }
@@ -80,7 +85,10 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
   }
 }
 
-class _IoNetworkWebSocket implements NetworkWebSocket {
+class _IoNetworkWebSocket
+    implements NetworkWebSocket, NetworkWebSocketDiagnostics {
+  @override
+  int? get closeCode => _socket.closeCode;
   _IoNetworkWebSocket(
     this._socket, {
     required bool logFrames,

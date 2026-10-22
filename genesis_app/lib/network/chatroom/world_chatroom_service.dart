@@ -11,6 +11,7 @@ import '../json_utils.dart';
 import '../models/location_tree.dart';
 import '../models/world.dart';
 import 'chatroom_client.dart';
+import 'chatroom_disconnect_monitor.dart';
 import 'chatroom_connection_controller.dart';
 import 'chatroom_http_models.dart';
 import 'chatroom_message_type.dart';
@@ -193,7 +194,9 @@ class WorldChatroomService {
     bool refreshInitialSnapshotOnConnect = true,
     ChatroomReplyActionStorage? replyActionStorage,
     ChatroomInspirationStorage? inspirationStorage,
-  }) : _api = api,
+    ChatroomDisconnectMonitor? disconnectMonitor,
+  }) : _disconnectMonitor = disconnectMonitor,
+       _api = api,
        _client = client,
        _replyActionStorage = replyActionStorage,
        _inspirationStorage = inspirationStorage,
@@ -427,6 +430,9 @@ class WorldChatroomService {
   _locationMessageChanges =
       <String, ValueNotifier<WorldChatroomLocationMessagesChange>>{};
   final Map<String, int> _locationMessageChangeRevisions = <String, int>{};
+
+  ChatroomDisconnectMonitor? _disconnectMonitor;
+  int? _sessionMonitorAttempt;
 
   WorldChatroomState _state = const WorldChatroomState();
   ChatroomSession? _session;
@@ -863,6 +869,10 @@ class WorldChatroomService {
       throw const ChatroomProtocolException('worldId is required');
     }
     _identity = identity;
+    (_disconnectMonitor ??= ChatroomDisconnectMonitor()).activate(
+      _worldId,
+      identity.userId,
+    );
     _userDisconnected = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -1231,6 +1241,7 @@ class WorldChatroomService {
   }
 
   Future<void> disconnect() async {
+    _disconnectMonitor?.cancel();
     _suspendInspirations();
     _cancelHistoryRefreshes();
     _userDisconnected = true;
@@ -1560,6 +1571,7 @@ class WorldChatroomService {
     _cacheEvictedRanges.clear();
     _clearAllConversationRounds();
     _disposed = true;
+    _disconnectMonitor?.dispose();
     _replyActionsController?.dispose();
     _replyActionsController = null;
     _inspirations?.dispose();
