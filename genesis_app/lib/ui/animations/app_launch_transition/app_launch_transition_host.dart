@@ -8,6 +8,9 @@ class AppLaunchTransitionHost extends StatefulWidget {
     required this.page,
     required this.surfaceColor,
     required this.onDismissed,
+    this.pageHasTransparentBackground = false,
+    this.enableCloseGesture = false,
+    this.closeGestureFallbackSourceId,
     this.spec = const AppLaunchTransitionSpec(),
   });
 
@@ -16,6 +19,15 @@ class AppLaunchTransitionHost extends StatefulWidget {
   final Widget? page;
   final Color surfaceColor;
   final VoidCallback onDismissed;
+
+  /// Keep the single home surface painted behind a transparent page (for
+  /// example a Navigator's empty desktop route during an iOS back gesture).
+  /// Home input, focus, semantics and tickers remain disabled while open.
+  final bool pageHasTransparentBackground;
+
+  /// Opt-in leading-edge drag, using the same geometry as [controller.close].
+  final bool enableCloseGesture;
+  final Object? closeGestureFallbackSourceId;
   final AppLaunchTransitionSpec spec;
 
   @override
@@ -33,6 +45,8 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
   bool _reducedMotion = false;
   Size? _size;
   bool _settleScheduled = false;
+  bool _interactiveClosing = false;
+  double _closeDragDistance = 0;
   AppLaunchTransitionController get _controller => widget.controller;
 
   @override
@@ -160,6 +174,68 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
     return true;
   }
 
+  double get _closeDragDirection =>
+      Directionality.of(context) == TextDirection.rtl ? -1 : 1;
+
+  void _startCloseDrag(DragStartDetails details) {
+    if (_controller.status != AppLaunchTransitionStatus.open ||
+        (_size?.width ?? 0) <= 0) {
+      return;
+    }
+    _geometry = _launchSource == null
+        ? null
+        : (_measure(_launchSource) ??
+              _measure(widget.closeGestureFallbackSourceId));
+    _animation.reverseDuration = _geometry == null
+        ? widget.spec.fadeDuration
+        : widget.spec.closeDuration;
+    _interactiveClosing = true;
+    _closeDragDistance = 0;
+    _controller._setStatus(AppLaunchTransitionStatus.closing);
+    setState(() {});
+  }
+
+  void _updateCloseDrag(DragUpdateDetails details) {
+    if (!_interactiveClosing || (_size?.width ?? 0) <= 0) return;
+    _closeDragDistance =
+        (_closeDragDistance + details.delta.dx * _closeDragDirection).clamp(
+          0.0,
+          _size!.width,
+        );
+    // Do not dismiss before the finger is lifted, even at the far edge.
+    _animation.value = _reducedMotion
+        ? 1
+        : (1 - _closeDragDistance / _size!.width).clamp(.001, 1.0);
+  }
+
+  void _endCloseDrag(DragEndDetails details) {
+    final velocity = (details.primaryVelocity ?? 0) * _closeDragDirection;
+    _settleCloseDrag(
+      velocity > 700 ||
+          (velocity >= -700 && _closeDragDistance >= (_size?.width ?? 0) * .35),
+    );
+  }
+
+  void _settleCloseDrag(bool dismiss) {
+    if (!mounted || !_interactiveClosing) return;
+    _interactiveClosing = false;
+    _controller._setStatus(
+      dismiss
+          ? AppLaunchTransitionStatus.closing
+          : AppLaunchTransitionStatus.opening,
+    );
+    if (_reducedMotion) {
+      _finish();
+    } else if (dismiss) {
+      _animation.reverse();
+    } else if (_animation.value == 1) {
+      _controller._setStatus(AppLaunchTransitionStatus.open);
+    } else {
+      _animation.forward();
+    }
+    setState(() {});
+  }
+
   void _animationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed &&
         _controller.status == AppLaunchTransitionStatus.opening) {
@@ -172,6 +248,7 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
   }
 
   void _dismiss() {
+    _interactiveClosing = false;
     _geometry = null;
     _launchSource = null;
     _controller._setStatus(AppLaunchTransitionStatus.home);
@@ -181,15 +258,21 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
 
   void _finish() {
     if (!_controller.isAnimating) return;
+    _interactiveClosing = false;
     final closing = _controller.status == AppLaunchTransitionStatus.closing;
     _animation.stop();
     _animation.value = closing ? 0 : 1;
     // Assigning an already-zero value does not always emit a status change.
     if (closing && _controller.hasPage) _dismiss();
+    if (!closing && _controller.status == AppLaunchTransitionStatus.opening) {
+      _controller._setStatus(AppLaunchTransitionStatus.open);
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _interactiveClosing = false;
     _controller._host = null;
     _animation.dispose();
     super.dispose();
@@ -227,7 +310,10 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
                 fit: StackFit.expand,
                 children: [
                   Offstage(
-                    offstage: hasPage && !animating,
+                    offstage:
+                        hasPage &&
+                        !animating &&
+                        !widget.pageHasTransparentBackground,
                     child: TickerMode(
                       enabled: !hasPage,
                       child: ExcludeFocus(
@@ -237,7 +323,11 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
                           child: IgnorePointer(
                             ignoring: hasPage,
                             child: Transform.scale(
-                              scale: _reducedMotion || geometry == null
+                              scale:
+                                  _reducedMotion ||
+                                      geometry == null ||
+                                      (widget.pageHasTransparentBackground &&
+                                          !animating)
                                   ? 1
                                   : 1 - (1 - widget.spec.homeScale) * progress,
                               child: RepaintBoundary(
@@ -276,11 +366,16 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
                                 fit: StackFit.expand,
                                 children: [
                                   ColoredBox(
-                                    color: Color.lerp(
-                                      geometry?.color ?? widget.surfaceColor,
-                                      widget.surfaceColor,
-                                      progress,
-                                    )!,
+                                    color:
+                                        widget.pageHasTransparentBackground &&
+                                            !animating
+                                        ? Colors.transparent
+                                        : Color.lerp(
+                                            geometry?.color ??
+                                                widget.surfaceColor,
+                                            widget.surfaceColor,
+                                            progress,
+                                          )!,
                                   ),
                                   if (geometry?.preview != null &&
                                       progress < .5)
@@ -325,6 +420,33 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
                               ),
                             ),
                           ),
+                        ),
+                      ),
+                    ),
+                  if (hasPage && widget.enableCloseGesture)
+                    PositionedDirectional(
+                      key: const ValueKey('app-launch-close-gesture'),
+                      start: 0,
+                      top: 0,
+                      bottom: 0,
+                      width:
+                          20 +
+                          (Directionality.of(context) == TextDirection.rtl
+                              ? MediaQuery.paddingOf(context).right
+                              : MediaQuery.paddingOf(context).left),
+                      child: Listener(
+                        behavior: HitTestBehavior.translucent,
+                        // DragGestureRecognizer treats an accepted pointer's
+                        // cancellation as an end. Catch it before that callback
+                        // so a system interruption cannot commit a dismissal.
+                        onPointerCancel: (_) => _settleCloseDrag(false),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          dragStartBehavior: DragStartBehavior.down,
+                          onHorizontalDragStart: _startCloseDrag,
+                          onHorizontalDragUpdate: _updateCloseDrag,
+                          onHorizontalDragEnd: _endCloseDrag,
+                          onHorizontalDragCancel: () => _settleCloseDrag(false),
                         ),
                       ),
                     ),

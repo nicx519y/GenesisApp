@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 
 part 'app_launch_source.dart';
 part 'app_launch_transition_host.dart';

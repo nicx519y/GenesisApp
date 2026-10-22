@@ -72,6 +72,7 @@ void main() {
     WidgetTester tester, {
     bool music = false,
     bool nested = false,
+    TargetPlatform? platform,
   }) async {
     phone.dispose();
     backend = PhoneBackend();
@@ -158,6 +159,7 @@ void main() {
       AppServicesScope(
         services: musicTestServices(api),
         child: MaterialApp(
+          theme: platform == null ? null : ThemeData(platform: platform),
           home: nested
               ? Builder(
                   builder: (context) => TextButton(
@@ -185,6 +187,52 @@ void main() {
     await tester.binding.handlePopRoute();
     await settle(tester);
   }
+
+  testWidgets(
+    'iOS icon launches shrink with edge drags and cancel without a route pop',
+    (tester) async {
+      await mount(tester, platform: TargetPlatform.iOS);
+      final desktop = tester.element(find.byType(PageView));
+      for (final app in [
+        MiniPhoneScreen.messages,
+        MiniPhoneScreen.posts,
+        MiniPhoneScreen.photos,
+        MiniPhoneScreen.settings,
+      ]) {
+        await tester.tap(source(app));
+        await settle(tester);
+        final host = find.byType(AppLaunchTransitionHost);
+        final full = tester.getRect(
+          find.byKey(const ValueKey('app-launch-surface')),
+        );
+        final start = tester.getTopLeft(host) + const Offset(1, 400);
+        final drag = await tester.startGesture(start);
+        await drag.moveBy(const Offset(200, 0));
+        await tester.pump();
+        expect(controller(tester).status, AppLaunchTransitionStatus.closing);
+        expect(
+          tester
+              .getRect(find.byKey(const ValueKey('app-launch-surface')))
+              .width,
+          lessThan(full.width),
+        );
+        await drag.cancel();
+        await settle(tester);
+        expect(controller(tester).status, AppLaunchTransitionStatus.open);
+        expect(
+          tester.getRect(find.byKey(const ValueKey('app-launch-surface'))),
+          full,
+        );
+        await tester.dragFrom(start, const Offset(340, 0));
+        await settle(tester);
+        expect(controller(tester).status, AppLaunchTransitionStatus.home);
+        expect(tester.element(find.byType(PageView)), same(desktop));
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      phone.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'all dock apps expand from their icon and retain the home instance',

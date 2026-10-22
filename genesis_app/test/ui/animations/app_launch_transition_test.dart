@@ -43,7 +43,11 @@ void main() {
   var initialized = 0;
   var disposed = 0;
 
-  Future<void> mount(WidgetTester tester, {bool restored = false}) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    bool restored = false,
+    bool interactive = false,
+  }) async {
     controller = AppLaunchTransitionController(initiallyOpen: restored);
     reduced = false;
     showSource = true;
@@ -62,6 +66,7 @@ void main() {
                   size: size,
                   child: AppLaunchTransitionHost(
                     controller: controller,
+                    enableCloseGesture: interactive,
                     surfaceColor: Colors.black,
                     onDismissed: () => dismissed++,
                     home: Stack(
@@ -116,6 +121,90 @@ void main() {
     controller.dispose();
     expect(tester.takeException(), isNull);
   }
+
+  testWidgets(
+    'edge drag follows the button close path and cancellation restores the page',
+    (tester) async {
+      await mount(tester, interactive: true);
+      controller.open(sourceId: 'icon');
+      await tester.pumpAndSettle();
+      final origin = tester.getTopLeft(find.byType(AppLaunchTransitionHost));
+      final drag = await tester.startGesture(origin + const Offset(1, 200));
+      await drag.moveBy(const Offset(150, 0));
+      await tester.pump();
+      final dragRect = rect(tester);
+      expect(dragRect.width, inExclusiveRange(60, 300));
+      expect(dismissed, 0);
+      expect(disposed, 0);
+      expect(tester.getSize(find.byKey(const ValueKey('page-layout'))), size);
+      await drag.cancel();
+      await tester.pumpAndSettle();
+      expect(controller.status, AppLaunchTransitionStatus.open);
+      expect(rect(tester), Offset.zero & size);
+      expect(initialized, 1);
+      controller.close();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 140));
+      expect(rect(tester).width, closeTo(dragRect.width, .1));
+      expect(rect(tester).left, closeTo(dragRect.left, .1));
+      await tester.pumpAndSettle();
+      expect(dismissed, 1);
+      expect(disposed, 1);
+      await unmount(tester);
+    },
+  );
+
+  testWidgets(
+    'edge drag completes once after release and ignores late pointer events after finish',
+    (tester) async {
+      await mount(tester, interactive: true);
+      controller.open(sourceId: 'icon');
+      await tester.pumpAndSettle();
+      final origin = tester.getTopLeft(find.byType(AppLaunchTransitionHost));
+      final drag = await tester.startGesture(origin + const Offset(1, 200));
+      await drag.moveBy(const Offset(300, 0));
+      await tester.pump();
+      expect(
+        dismissed,
+        0,
+        reason: 'Do not dismiss while the finger is still down.',
+      );
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(dismissed, 1);
+      expect(disposed, 1);
+      controller.finish();
+      await tester.pumpAndSettle();
+      expect(dismissed, 1);
+      await unmount(tester);
+    },
+  );
+
+  testWidgets(
+    'reduced motion still distinguishes canceled and completed edge drags',
+    (tester) async {
+      await mount(tester, interactive: true);
+      update(() => reduced = true);
+      await tester.pump();
+      controller.open(sourceId: 'icon');
+      await tester.pumpAndSettle();
+      final start =
+          tester.getTopLeft(find.byType(AppLaunchTransitionHost)) +
+          const Offset(1, 200);
+      final cancel = await tester.startGesture(start);
+      await cancel.moveBy(const Offset(200, 0));
+      await tester.pump();
+      expect(dismissed, 0);
+      await cancel.cancel();
+      await tester.pumpAndSettle();
+      expect(controller.status, AppLaunchTransitionStatus.open);
+      expect(dismissed, 0);
+      await tester.dragFrom(start, const Offset(250, 0));
+      await tester.pumpAndSettle();
+      expect(dismissed, 1);
+      await unmount(tester);
+    },
+  );
 
   testWidgets('local geometry, fixed page layout, radius and single mount', (
     tester,

@@ -98,17 +98,49 @@ class _MiniPhoneRoutePage extends Page<void> {
   const _MiniPhoneRoutePage({
     required this.screen,
     required this.child,
+    this.launchBackGesture = false,
     required super.key,
   });
   final MiniPhoneScreen screen;
   final Widget child;
+  final bool launchBackGesture;
 
   @override
-  Route<void> createRoute(BuildContext context) => GenesisDarkPageRoute<void>(
-    settings: this,
-    builder: (context) =>
-        (ModalRoute.of(context)!.settings as _MiniPhoneRoutePage).child,
-  );
+  Route<void> createRoute(BuildContext context) => launchBackGesture
+      ? _MiniPhoneAppRootRoute(
+          settings: this,
+          builder: (context) =>
+              (ModalRoute.of(context)!.settings as _MiniPhoneRoutePage).child,
+        )
+      : GenesisDarkPageRoute<void>(
+          settings: this,
+          builder: (context) =>
+              (ModalRoute.of(context)!.settings as _MiniPhoneRoutePage).child,
+        );
+}
+
+/// The launch host owns root-app edge drags. Never run a second Cupertino
+/// slide on the same gesture; subpages keep GenesisDarkPageRoute unchanged.
+class _MiniPhoneAppRootRoute extends GenesisDarkPageRoute<void> {
+  _MiniPhoneAppRootRoute({required super.settings, required super.builder});
+  @override
+  bool get popGestureEnabled => false;
+}
+
+class _MiniPhoneNavigatorObserver extends NavigatorObserver {
+  _MiniPhoneNavigatorObserver(this.onPopped);
+  final void Function(MiniPhoneScreen) onPopped;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    final page = route.settings;
+    if (page is! _MiniPhoneRoutePage || route is! TransitionRoute<dynamic>) {
+      return;
+    }
+    // Do not tear down the launch surface halfway through a Cupertino pop or
+    // start a second reverse animation after the interactive gesture finishes.
+    unawaited(route.completed.then((_) => onPopped(page.screen)));
+  }
 }
 
 class MiniPhonePage extends StatefulWidget {
@@ -152,6 +184,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   String get _miniPhoneModelLabel => _session.modelSettings.label;
   late MiniPhoneScreen screen;
   final _pageNavigatorKey = GlobalKey<NavigatorState>();
+  late final _pageNavigatorObserver = _MiniPhoneNavigatorObserver(
+    _internalPagePopped,
+  );
   late final AppLaunchTransitionController _launchTransition;
   MiniPhoneScreen? _launchApp;
   bool _closing = false;
@@ -509,6 +544,17 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     }
   }
 
+  void _internalPagePopped(MiniPhoneScreen poppedScreen) {
+    if (!mounted || _closing || screen != poppedScreen) return;
+    if (_pageStack(screen).length == 1 && widget.initialContact == null) {
+      // The route already supplied the complete interactive return animation.
+      _launchTransition.close(fallbackSourceId: _launchApp);
+      _launchTransition.finish();
+    } else {
+      _back();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -543,12 +589,29 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                     controller: _launchTransition,
                     surfaceColor: miniBackground,
                     onDismissed: _launchDismissed,
+                    pageHasTransparentBackground: widget.initialContact == null,
+                    enableCloseGesture:
+                        Theme.of(context).platform == TargetPlatform.iOS &&
+                        widget.initialContact == null &&
+                        !_closing &&
+                        _pageStack(screen).length == 1,
+                    closeGestureFallbackSourceId: _launchApp,
                     home: _home(),
                     page: screen == MiniPhoneScreen.home
                         ? null
                         : Navigator(
                             key: _pageNavigatorKey,
+                            observers: [_pageNavigatorObserver],
                             pages: [
+                              // This is the desktop's navigation position, not
+                              // a second Home widget. The launch host paints
+                              // the existing desktop below this empty route.
+                              if (widget.initialContact == null)
+                                const _MiniPhoneRoutePage(
+                                  key: ValueKey('mini-phone-desktop-route'),
+                                  screen: MiniPhoneScreen.home,
+                                  child: SizedBox.expand(),
+                                ),
                               for (final destination in _pageStack(screen))
                                 _MiniPhoneRoutePage(
                                   key: ValueKey((
@@ -558,18 +621,20 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                                         : null,
                                   )),
                                   screen: destination,
+                                  launchBackGesture:
+                                      Theme.of(context).platform ==
+                                          TargetPlatform.iOS &&
+                                      widget.initialContact == null &&
+                                      destination == _pageStack(screen).first,
                                   child: ColoredBox(
                                     color: miniBackground,
                                     child: _screen(destination),
                                   ),
                                 ),
                             ],
-                            onDidRemovePage: (page) {
-                              if (page is _MiniPhoneRoutePage &&
-                                  page.screen == screen) {
-                                _back();
-                              }
-                            },
+                            // didPop above waits for the platform transition.
+                            // Declarative removals already update `screen`.
+                            onDidRemovePage: (_) {},
                           ),
                   ),
                 ),

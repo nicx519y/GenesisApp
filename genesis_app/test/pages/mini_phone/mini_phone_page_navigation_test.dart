@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/home/mini_phone_home.dart';
 import 'package:genesis_flutter_android/ui/navigation/genesis_dark_page_route.dart';
 import '../../support/mini_phone_chat_backend.dart';
 import '../../support/mini_phone_collect_probe.dart';
@@ -31,6 +32,7 @@ void main() {
     bool outerRoute = false,
     bool directChat = false,
     String entrySource = 'unknown',
+    MiniPhoneScreen initialScreen = MiniPhoneScreen.messages,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -60,7 +62,7 @@ void main() {
     Widget phone() => MiniPhonePage(
       session: session,
       entrySource: entrySource,
-      initialScreen: MiniPhoneScreen.messages,
+      initialScreen: initialScreen,
       initialContact: directChat
           ? const PhonePerson('c0', 'Person 0', '')
           : null,
@@ -260,6 +262,58 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  for (final screen in [
+    MiniPhoneScreen.messages,
+    MiniPhoneScreen.posts,
+    MiniPhoneScreen.photos,
+    MiniPhoneScreen.music,
+    MiniPhoneScreen.settings,
+  ]) {
+    testWidgets('iOS $screen swipes to desktop then exits the phone', (
+      tester,
+    ) async {
+      await mount(
+        tester,
+        TargetPlatform.iOS,
+        outerRoute: true,
+        initialScreen: screen,
+      );
+      // Exactly one real desktop survives behind every internal app route.
+      final desktop = tester.element(
+        find.byType(MiniPhoneHome, skipOffstage: false),
+      );
+      await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+      await settle(tester);
+      expect(find.byType(MiniPhonePage), findsOneWidget);
+      expect(tester.element(find.byType(MiniPhoneHome)), same(desktop));
+      expect(find.byType(Navigator), findsOneWidget);
+      await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+      await settle(tester);
+      expect(find.byType(MiniPhonePage), findsNothing);
+      expect(find.text('Open phone'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets(
+    'canceling an iOS root-app swipe leaves its page and phone open',
+    (tester) async {
+      await mount(tester, TargetPlatform.iOS, outerRoute: true);
+      final gesture = await tester.startGesture(const Offset(1, 400));
+      await gesture.moveBy(const Offset(70, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-65, 0));
+      await gesture.up();
+      await settle(tester);
+      expect(find.widgetWithText(TextButton, 'Messages'), findsOneWidget);
+      expect(find.byType(MiniPhonePage), findsOneWidget);
+      expect(find.byType(Navigator), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('iOS swipe back from a direct chat returns to its caller', (
     tester,
   ) async {
@@ -275,6 +329,61 @@ void main() {
     expect(find.byType(MiniPhonePage), findsNothing);
     expect(find.text('Open phone'), findsOneWidget);
     expect(session.isDisposed, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final screen in [MiniPhoneScreen.create, MiniPhoneScreen.comments]) {
+    testWidgets('iOS $screen swipes back through Posts to desktop', (
+      tester,
+    ) async {
+      await mount(tester, TargetPlatform.iOS, initialScreen: screen);
+      await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+      await settle(tester);
+      expect(find.widgetWithText(TextButton, 'Posts'), findsOneWidget);
+      await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+      await settle(tester);
+      expect(find.byType(MiniPhoneHome), findsOneWidget);
+      // Returning home schedules its existing debounced refresh. Let it drain
+      // before this test releases the externally-owned phone session.
+      await tester.pump(const Duration(milliseconds: 200));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets('iOS models swipe returns to direct chat then its caller', (
+    tester,
+  ) async {
+    await mount(tester, TargetPlatform.iOS, outerRoute: true, directChat: true);
+    await tester.tap(find.byKey(const ValueKey('memory-model-entry')));
+    await settle(tester);
+    expect(find.byType(MiniPhoneLiveChat), findsNothing);
+    await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+    await settle(tester);
+    expect(find.byType(MiniPhoneLiveChat), findsOneWidget);
+    await tester.dragFrom(const Offset(1, 400), const Offset(340, 0));
+    await settle(tester);
+    expect(find.byType(MiniPhonePage), findsNothing);
+    expect(find.text('Open phone'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('close while iOS swipe is active never pops the caller twice', (
+    tester,
+  ) async {
+    await mount(tester, TargetPlatform.iOS, outerRoute: true);
+    final gesture = await tester.startGesture(const Offset(1, 400));
+    await gesture.moveBy(const Offset(90, 0));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await gesture.up();
+    await settle(tester);
+    expect(find.byType(MiniPhonePage), findsNothing);
+    expect(find.text('Open phone'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });

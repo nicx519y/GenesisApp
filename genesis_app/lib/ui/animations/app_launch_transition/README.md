@@ -21,6 +21,20 @@ no MiniPhone, network, player, or Navigator dependency.
   can replace `page` without starting a new launch.
 - Listen to controller status for completion, use `finish()` before dismissing
   an outer route, and dispose the controller with its owner.
+- For a page containing a Navigator with a transparent base route, opt into
+  `pageHasTransparentBackground`. This keeps the original home painted beneath
+  interactive back gestures without mounting another home. Input, focus,
+  semantics and tickers stay disabled until the page is dismissed. After the
+  platform pop completes, callers may `close()` then `finish()` to settle the
+  launch state without replaying the close animation.
+- Opt into `enableCloseGesture` only on an app root whose platform route edge
+  gesture is disabled. Leading-edge drags drive the same controller geometry
+  as `close()` (optional `closeGestureFallbackSourceId`); release commits at
+  35% width or forward velocity above 700 logical pixels/sec, otherwise springs
+  back along the same path. Pointer cancellation always restores the page.
+  Subpages keep their platform route gestures. No navigation occurs before
+  release, and `onDismissed` remains the single navigation callback. Respect
+  reduced motion and keep close controls outside the host.
 
 Default motion: 360ms open, 280ms close, ease-out cubic, 96% background scale,
 12% black dim, 120ms fallback fade. `AppLaunchTransitionSpec` centralizes these
