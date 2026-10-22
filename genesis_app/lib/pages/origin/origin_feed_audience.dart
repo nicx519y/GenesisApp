@@ -7,7 +7,7 @@ import 'origin_feed_cache_store.dart';
 /// A fixed audience for one paginated list and its first-page cache.
 typedef OriginFeedAudience = ({String? ownerUid, String? gender});
 
-/// An empty gender is All only after the profile source has settled.
+/// Ready from local state; remote configuration never gates the feed.
 typedef OriginFeedAudienceState = ({OriginFeedAudience audience, bool isReady});
 
 Future<OriginFeedAudience> loadOriginFeedAudience(
@@ -23,8 +23,11 @@ Future<OriginFeedAudience> loadOriginFeedAudience(
 Future<OriginFeedAudienceState> loadOriginFeedAudienceState(
   UserSessionStore store, {
   PersonalizationStore? personalization,
+  // Defers only the background GET (until Config / the form gate handles it),
+  // never readiness of the local audience or the first list request.
   bool waitForPersonalization = false,
   Future<String?> Function(String ownerUid)? loadCachedGender,
+  Future<String?> Function(String ownerUid)? loadManualGender,
 }) async {
   try {
     return await _readOriginFeedAudience(
@@ -32,6 +35,7 @@ Future<OriginFeedAudienceState> loadOriginFeedAudienceState(
       personalization,
       waitForPersonalization,
       loadCachedGender,
+      loadManualGender,
     ).timeout(const Duration(seconds: 2));
   } catch (_) {
     // An unresolved owner must not read/write another account's first-page cache.
@@ -45,13 +49,14 @@ Future<OriginFeedAudienceState> _readOriginFeedAudience(
   PersonalizationStore? personalization,
   bool waitForPersonalization,
   Future<String?> Function(String ownerUid)? loadCachedGender,
+  Future<String?> Function(String ownerUid)? loadManualGender,
 ) async {
   final uid = await store.readLoginUid();
   final ownerUid = uid ?? OriginFeedCacheStore.anonymousOwnerUid;
-  final cachedGender = await loadCachedGender?.call(ownerUid);
-  if (cachedGender != null) {
+  final manualGender = await _readCachedGender(loadManualGender, ownerUid);
+  if (manualGender != null) {
     return (
-      audience: (ownerUid: ownerUid, gender: cachedGender),
+      audience: (ownerUid: ownerUid, gender: manualGender),
       isReady: true,
     );
   }
@@ -68,17 +73,32 @@ Future<OriginFeedAudienceState> _readOriginFeedAudience(
   }
   final sameOwner = profile?.uid == uid;
   final preference = sameOwner ? profile?.data?.profile.originFeedGender : null;
+  final confirmed = sameOwner && profile?.data != null;
+  final cachedGender = confirmed
+      ? null
+      : await _readCachedGender(loadCachedGender, ownerUid);
   return (
     audience: (
       ownerUid: ownerUid,
       gender: switch (preference) {
         'Male' || 'Female' || 'Non_binary' => preference,
         'All' => '',
-        _ => null,
+        _ => confirmed ? '' : cachedGender ?? '',
       },
     ),
-    isReady:
-        personalization == null ||
-        (sameOwner && (profile?.data != null || profile?.error != null)),
+    isReady: true,
   );
+}
+
+Future<String?> _readCachedGender(
+  Future<String?> Function(String ownerUid)? read,
+  String ownerUid,
+) async {
+  try {
+    return await read
+        ?.call(ownerUid)
+        .timeout(const Duration(milliseconds: 500));
+  } catch (_) {
+    return null;
+  }
 }

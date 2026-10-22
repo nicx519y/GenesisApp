@@ -174,13 +174,19 @@ class _OriginPageState extends State<OriginPage>
           services.appGlobalConfig.value.showPersonalizationForm,
       loadCachedGender: (ownerUid) async {
         if (useSubmittedPreference) return null;
+        return OriginFeedCacheStore(
+          ownerUid: ownerUid,
+        ).loadLastConfirmedGender().timeout(const Duration(milliseconds: 500));
+      },
+      loadManualGender: (ownerUid) async {
+        if (useSubmittedPreference) return null;
         if (_manualGenderOwnerUid == ownerUid && _manualGender != null) {
           return _manualGender;
         }
         try {
           final saved = await OriginFeedCacheStore(
             ownerUid: ownerUid,
-          ).loadPreferredGender().timeout(const Duration(seconds: 1));
+          ).loadManualGender().timeout(const Duration(milliseconds: 500));
           if (saved != null && mounted && revision == _audienceRevision) {
             _manualGender = saved;
             _manualGenderOwnerUid = ownerUid;
@@ -206,9 +212,17 @@ class _OriginPageState extends State<OriginPage>
             isReady: true,
           )
         : automatic;
-    // An unset value or failed GET may display All, but must not become a
-    // persistent preference that overrides a later successful response.
-    if (next.isReady &&
+    // Only a successful profile may confirm a preference. A startup fallback
+    // or failed GET must not turn temporary All into a saved user choice.
+    final profile = services.personalization.state.value;
+    final hasConfirmedProfile =
+        profile.data != null &&
+        profile.uid ==
+            (ownerUid == OriginFeedCacheStore.anonymousOwnerUid
+                ? null
+                : ownerUid);
+    if (hasConfirmedProfile &&
+        next.isReady &&
         next.audience.gender != null &&
         mounted &&
         revision == _audienceRevision) {
@@ -417,9 +431,9 @@ class _OriginPageState extends State<OriginPage>
         _manualGenderOwnerUid = next.audience.ownerUid;
       }
       _audience = Future.value(next);
-      // No request was sent for a pending audience. Keep its visible cache
-      // and let each tab start its first request with the resolved gender.
-      if (submitted || !sameOwner || old.isReady) {
+      // Remote calibration retains the feed widgets/content. Explicit user
+      // changes and identity changes retain the existing full-reset behavior.
+      if (submitted || !sameOwner || _manualGender != null) {
         _feedKeys.clear();
         _feedStorage = PageStorageBucket();
       }
@@ -1213,6 +1227,9 @@ class _OriginFeedState extends State<_OriginFeed>
       _resetListState();
       _requestIfCurrentTab();
     } else if (oldWidget.audience != widget.audience) {
+      // Remote calibration keeps the old content visible, but all old cursor,
+      // cache and request state must be discarded before the new first page.
+      _resetListState(keepItems: true);
       _requestIfCurrentTab();
     }
   }
@@ -1248,7 +1265,8 @@ class _OriginFeedState extends State<_OriginFeed>
     super.dispose();
   }
 
-  void _resetListState() {
+  void _resetListState({bool keepItems = false}) {
+    final keepHydratedCache = keepItems && _hasHydratedCache;
     _coverLoadWindow.value = OriginCoverLoadWindow.disabled;
     _startupRequestDiagnostics?.cancel('feed_reset');
     if (_isPrimaryFeed) {
@@ -1271,7 +1289,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _firstScreenRequestAttempt = 0;
     _firstScreenRenderCompleted = false;
     _launchRenderRevision += 1;
-    _items.clear();
+    if (!keepItems) _items.clear();
     _exposureCardKeys.clear();
     _renderedExposureCovers.clear();
     _layoutRevision += 1;
@@ -1281,7 +1299,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _hasMore = true;
     _hasRequested = false;
     _hasReadCache = false;
-    _hasHydratedCache = false;
+    _hasHydratedCache = keepHydratedCache;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -1382,7 +1400,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
     if (!_hasReadCache) {
       _hasReadCache = true;
-      _isInitialLoading = _items.isEmpty;
+      _isInitialLoading = _items.isEmpty && !_hasHydratedCache;
       if (_usesFirstPageCache) unawaited(_hydrateCachedFirstPage());
     }
     final audienceFuture = widget.audience;
@@ -1515,6 +1533,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _hydrateCachedFirstPage() async {
+    final audienceFuture = widget.audience;
     Map<String, dynamic>? data;
     try {
       final cacheStore = await _cacheStoreForCurrentOwner();
@@ -1523,6 +1542,8 @@ class _OriginFeedState extends State<_OriginFeed>
       return;
     }
     if (!mounted ||
+        widget.audience != audienceFuture ||
+        _items.isNotEmpty ||
         !_usesFirstPageCache ||
         _hasCompletedFirstPageNetworkRequest ||
         data == null) {
@@ -1555,10 +1576,22 @@ class _OriginFeedState extends State<_OriginFeed>
     _scheduleLaunchRender('cache');
   }
 
-  Future<void> _saveFirstPageCache(Map<String, dynamic> data) async {
+  Future<void> _saveFirstPageCache(
+    Map<String, dynamic> data,
+    Future<OriginFeedAudienceState> audienceFuture,
+  ) async {
     try {
-      final cacheStore = await _cacheStoreForCurrentOwner();
-      await cacheStore?.saveForYouFirstPage(data);
+      final audience = (await audienceFuture).audience;
+      if (!mounted ||
+          widget.audience != audienceFuture ||
+          audience.ownerUid == null) {
+        return;
+      }
+      final cacheStore = OriginFeedCacheStore(
+        ownerUid: audience.ownerUid,
+        gender: audience.gender,
+      );
+      await cacheStore.saveForYouFirstPage(data);
     } catch (_) {
       // Cache writes must not affect the visible network result.
     }
@@ -1603,7 +1636,7 @@ class _OriginFeedState extends State<_OriginFeed>
         phase: FirebasePerformancePhase.request,
         attempt: attempt,
       );
-      if (!mounted) {
+      if (!mounted || widget.audience != audienceFuture) {
         unawaited(requestOperation.cancel());
         return;
       }
@@ -1620,7 +1653,7 @@ class _OriginFeedState extends State<_OriginFeed>
     try {
       final page = await _fetchPage(1, startScore: 0);
       startupRequest?.succeed();
-      if (!mounted) {
+      if (!mounted || widget.audience != audienceFuture) {
         unawaited(requestOperation?.cancel());
         return;
       }
@@ -1634,7 +1667,7 @@ class _OriginFeedState extends State<_OriginFeed>
       );
       _hasCompletedFirstPageNetworkRequest = true;
       if (_usesFirstPageCache) {
-        unawaited(_saveFirstPageCache(page.rawData));
+        unawaited(_saveFirstPageCache(page.rawData, audienceFuture));
       }
       FirebasePerformanceOperation? renderOperation;
       if (shouldTrackFirstScreen &&
@@ -1646,14 +1679,16 @@ class _OriginFeedState extends State<_OriginFeed>
           attempt: requestOperation?.attempt ?? _firstScreenRequestAttempt,
           timeout: FirebasePerformanceOperation.renderTimeout,
         );
-        if (!mounted || _tabController?.index != widget.index) {
+        if (!mounted ||
+            widget.audience != audienceFuture ||
+            _tabController?.index != widget.index) {
           unawaited(renderOperation.cancel());
           renderOperation = null;
         } else {
           _activeFirstScreenRenderOperation = renderOperation;
         }
       }
-      if (!mounted) {
+      if (!mounted || widget.audience != audienceFuture) {
         if (_isPrimaryFeed) {
           AppStartupCoordinator.recordLaunchPageState(
             page: 'worldo',
@@ -1697,6 +1732,10 @@ class _OriginFeedState extends State<_OriginFeed>
       }
     } catch (error) {
       startupRequest?.fail(error);
+      if (!mounted || widget.audience != audienceFuture) {
+        unawaited(requestOperation?.cancel());
+        return;
+      }
       if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
         _activeFirstScreenRequestOperation = null;
       }
@@ -1812,6 +1851,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _loadNextPage({bool advanceLogicalPage = true}) async {
+    final audienceFuture = widget.audience;
     if (!_hasCompletedFirstPageNetworkRequest ||
         !_hasMore ||
         _isInitialLoading ||
@@ -1830,7 +1870,7 @@ class _OriginFeedState extends State<_OriginFeed>
         _nextPage,
         startScore: _isForYouFeed ? requestedScore : null,
       );
-      if (!mounted) return;
+      if (!mounted || widget.audience != audienceFuture) return;
       setState(() {
         final existingIds = _items.map((item) => item.oid).toSet();
         _items.addAll(page.items.where((item) => existingIds.add(item.oid)));
@@ -1848,7 +1888,7 @@ class _OriginFeedState extends State<_OriginFeed>
       _pruneExposureCandidates();
       _scheduleFeedPaginationContinuation();
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || widget.audience != audienceFuture) return;
       setState(() {
         _error = error;
         _isLoadingMore = false;

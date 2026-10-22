@@ -992,7 +992,7 @@ Query：
 
 ### GET `/api/v1/origin/feed`
 
-客户端按账号持久保存 `origin_feed_gender` 筛选偏好，匿名设备单独保存。每次进入 App 加载 Worldo 时优先读取该身份的缓存（已有手动选择优先，包括 All）；没有缓存时使用本次启动 `GET /api/v1/device/personalization` 返回的 `origin_feed_gender`，不从个人 `gender` 或 userInfo 反推。读取本地缓存期间不提前展示默认 All。
+客户端按账号持久保存 `origin_feed_gender` 筛选偏好，匿名设备单独保存。启动加载 Worldo 时优先读取该身份的本地偏好（手动选择优先，包括 All），没有缓存或读取失败/超时时立即按 All 请求，不等待 Config 或 personalization。不从个人 `gender` 或 userInfo 反推。
 
 按设备返回去重后的 Origin For you 推荐流。请求统一通过 Gateway 链路携带必填 `X-Device-ID`。`start_score` 是不包含自身的 Redis ZSET 位置游标；刷新传 `0`，分页传上一次响应的 `next_score`。
 
@@ -1002,7 +1002,7 @@ Query：
 - `rn`: integer，默认 `10`，范围 `1..100`
 - `gender`: string，可选，枚举 `Male` / `Female` / `Non_binary`；默认不传，未传或空表示未指定
 
-有缓存时直接按缓存请求列表，不等待 personalization，后续 GET 也不覆盖该缓存。没有缓存时，已登录和未登录用户均复用当前身份的 `PersonalizationStore`；等待启动 GET 完成后再发第一次列表请求，避免先 All 再定向请求。`origin_feed_gender=Male/Female/Non_binary` 原值传入 feed/list 的 `gender`；`All` 或未设置（空串）不传 gender。明确的服务端偏好存入缓存；读取失败或未设置可按 All 加载，但不写成一份持久的 All 偏好。填表开关关闭且没有可复用 GET 数据时，Worldo 仍通过同一 store 加载一次偏好，不因此打开资料弹窗。首屏、下拉刷新和分页保持相同条件；账号或手动筛选变化后从首屏重新加载，不沿用旧游标。For you 首屏缓存按账号及请求的 gender 区分，迟到的旧身份、旧筛选响应不写入当前列表。其他 origin/list 调用默认不传，不影响 Me 自有列表。
+Config 在后台与列表并行请求；Config 成功或失败结束后，复用当前身份的 `PersonalizationStore` 加载 personalization，表单开关关闭也读取推荐偏好，但不因此打开表单。成功返回的偏好与当前列表条件一致时不重刷，不一致时更新缓存、入口显示并从第一页刷新，保留原内容直到新数据返回；手动筛选不被后台响应覆盖，提交表单仍可替换旧偏好。`Male/Female/Non_binary` 原值传入 feed/list 的 `gender`，`All` 或未设置不传 gender。临时 All 回退和接口失败不写入已确认偏好。首屏、下拉刷新和分页保持同一条件，切换条件重置游标。For you 首屏缓存按账号、语言及 gender 区分，迟到的旧身份、旧筛选响应不更新列表或串写缓存。其他 origin/list 调用默认不传，不影响 Me 自有列表。
 
 Worldo 搜索栏右侧的现有性别筛选 UI、箭头、菜单位置和样式不变。点击选择时立即应用并保存当前身份的缓存，同时调用 `POST /api/v1/device/personalization/update_origin_feed_gender`，body 仅 `{origin_feed_gender: "Male" | "Female" | "Non_binary" | "All"}`。该接口使用正常认证和 `X-Device-ID`，不传 uid，不修改用户 gender/age。只打开、点击窗外或返回关闭菜单不发上报。连续选择按顺序上报，切换账号后跳过旧会话的排队请求；上报失败保留本地选择并提示重试，用户可再次选择上报。客户端手动 All 缓存为空字符串，缓存缺失为 null；上报 All 时显式传 `"All"`，列表查询仍省略 gender。
 
@@ -1103,7 +1103,7 @@ Query：
 - `rating_prompt_message_count`: integer；评价引导的消息数量阈值，按本次需求约定为 `20`，`0` 表示关闭。客户端在大于 0 时按本机用户累计 Location Chat 发送成功消息，达到阈值后记为待弹出，离开 Location Chat／World Detail／Worldo Detail 后自动展示一次；同一条消息重试去重。字段缺失或无效时默认 `0`。
 - `language`: string，可为空；当前设备的设置语言。启动时非空有效值覆盖系统语言；为空或请求失败继续使用系统语言。
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
-- `show_personalization_form`: boolean；控制新用户填表入口。默认 `false`，启动时仅成功获取 boolean `true` 才请求 `/api/v1/device/personalization`，按当前身份的 `completed` 判断是否弹出表单；获取失败、字段缺失、`null` 或类型错误均不查询、不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
+- `show_personalization_form`: boolean；仅控制新用户填表入口，默认 `false`。启动 Config 结束后仍请求 personalization 校准推荐偏好；只有确认此字段为 boolean `true` 且当前身份 `completed=false` 才按现有前台/登录/弹窗互斥规则显示表单。Config 失败、字段缺失、`null` 或类型错误均不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
 - `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
 
 ```json

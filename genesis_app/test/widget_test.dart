@@ -9222,7 +9222,7 @@ void main() {
   }
 
   testWidgets(
-    'Origin waits for guest personalization then uses the logged-in identity preference',
+    'Origin loads All before guest personalization then uses the logged-in identity preference',
     (tester) async {
       final transport = _RecordingV1ListTransport();
       final session = MemoryUserSessionStore();
@@ -9254,14 +9254,14 @@ void main() {
       );
       await tester.pump();
       expect(loads, 0);
-      expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
 
       final loading = personalization.start();
       await tester.pump(const Duration(seconds: 3));
-      expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
       await tester.tap(find.text('Destroyed'));
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
       await tester.tap(find.text('For you'));
       await tester.pump(const Duration(milliseconds: 500));
       response.complete(
@@ -9277,7 +9277,7 @@ void main() {
       );
       await loading;
       await tester.pumpAndSettle();
-      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(2));
       expect(
         transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
         {'start_score': '0', 'rn': '10', 'gender': 'Female'},
@@ -10133,7 +10133,15 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(cachedContent, findsOneWidget);
-        expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+        expect(
+          transport
+              .requestsFor('/api/v1/origin/feed')
+              .single
+              .uri
+              .queryParameters,
+          {'start_score': '0', 'rn': '10'},
+        );
         expect(configCalls, 0);
         configUid.complete(null);
         await tester.pump();
@@ -10143,7 +10151,7 @@ void main() {
         final profileLoading = personalization.start();
         await tester.pump(const Duration(seconds: 3));
         expect(cachedContent, findsOneWidget);
-        expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
         profileResponse.complete(
           const PersonalizationData(
             profile: PersonalizationProfile(
@@ -10158,8 +10166,8 @@ void main() {
         await profileLoading;
         await tester.pumpAndSettle();
         final requests = transport.requestsFor('/api/v1/origin/feed');
-        expect(requests, hasLength(1));
-        expect(requests.single.uri.queryParameters, {
+        expect(requests, hasLength(2));
+        expect(requests.last.uri.queryParameters, {
           'start_score': '0',
           'rn': '10',
           'gender': 'Female',
@@ -10178,7 +10186,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(cachedContent, findsNothing);
         expect(find.text('#Origin 1'), findsOneWidget);
-        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(2));
         final saved = await const OriginFeedCacheStore(
           ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
           gender: 'Female',
@@ -10258,15 +10266,15 @@ void main() {
         );
         await loading;
         await tester.pumpAndSettle();
-        const expectedGender = 'Male';
+        final expectedGender = profileGender;
         expect(
           find.descendant(of: filter, matching: find.text(expectedGender)),
           findsOneWidget,
         );
         expect(find.text('#Origin 51'), findsNothing);
         final requests = transport.requestsFor('/api/v1/origin/feed');
-        expect(requests, hasLength(1));
-        expect(requests.single.uri.queryParameters, {
+        expect(requests, hasLength(profileGender == 'Male' ? 1 : 2));
+        expect(requests.last.uri.queryParameters, {
           'start_score': '0',
           'rn': '10',
           'gender': expectedGender,
@@ -10447,7 +10455,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
       await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
       await tester.pump(const Duration(milliseconds: 400));
       await tester.tap(find.byKey(const ValueKey('origin-gender-option-')));
@@ -21484,13 +21492,15 @@ void main() {
     const exposurePath = '/api/v1/origin/feed/exposure';
     expect(find.byType(VisibilityDetector), findsWidgets);
     expect(transport.requestsFor(exposurePath), isEmpty);
-    await tester.pump(const Duration(milliseconds: 1400));
+    // pumpAndSettle has already advanced the visibility clock. Leave margin
+    // for that frame instead of assuming the exposure timer starts here.
+    await tester.pump(const Duration(milliseconds: 1300));
     expect(
       transport.requestsFor(exposurePath),
       isEmpty,
       reason: 'Rendered cards must remain visible for the full threshold.',
     );
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 20));
 
     final exposureRequests = transport.requestsFor(exposurePath);

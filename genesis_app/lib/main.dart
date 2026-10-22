@@ -151,6 +151,9 @@ Future<void> main() async {
       uidResolution: startupUidResolution,
       collectReady: collectReady.future,
     ).then((_) async {
+      // Remote preference calibration follows Config, never the feed's first
+      // request. Also run when the form is disabled or Worldo is not mounted.
+      unawaited(services.personalization.loadForOriginFeed());
       final resolution = await startupUidResolution;
       if (resolution.uid == null || resolution.uid!.isEmpty) return;
       try {

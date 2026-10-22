@@ -8,6 +8,51 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/platform/session/user_session_store.dart';
 
 void main() {
+  test('confirmed profile replaces stale cache but not manual All', () async {
+    final session = MemoryUserSessionStore();
+    final personalization = _store(session)
+      ..state.value = const PersonalizationState(
+        data: PersonalizationData(
+          profile: PersonalizationProfile(originFeedGender: 'Female'),
+          form: [],
+        ),
+      );
+    addTearDown(personalization.dispose);
+    final calibrated = await loadOriginFeedAudienceState(
+      session,
+      personalization: personalization,
+      waitForPersonalization: true,
+      loadCachedGender: (_) async => 'Male',
+    );
+    expect(calibrated.audience.gender, 'Female');
+    final manual = await loadOriginFeedAudienceState(
+      session,
+      personalization: personalization,
+      loadManualGender: (_) async => '',
+      loadCachedGender: (_) async => 'Male',
+    );
+    expect(manual.audience.gender, '');
+  });
+
+  test(
+    'failed cache keeps identity and falls back without a profile GET',
+    () async {
+      final session = MemoryUserSessionStore();
+      await session.saveUid('u_one');
+      final personalization = _store(session);
+      addTearDown(personalization.dispose);
+      final result = await loadOriginFeedAudienceState(
+        session,
+        personalization: personalization,
+        waitForPersonalization: true,
+        loadCachedGender: (_) async => throw StateError('cache failed'),
+      );
+      expect(result.audience, (ownerUid: 'u_one', gender: ''));
+      expect(result.isReady, isTrue);
+      expect(personalization.state.value.loading, isFalse);
+    },
+  );
+
   for (final uid in <String?>[null, 'u_one']) {
     for (final gender in ['', 'Male', 'Female', 'Non_binary']) {
       test('cached $gender wins before personalization for $uid', () async {
@@ -57,11 +102,14 @@ void main() {
           waitForPersonalization: true,
         );
         expect(result.isReady, isTrue);
-        expect(result.audience.gender, preference == 'All' ? '' : preference);
+        expect(
+          result.audience.gender,
+          preference == 'All' || preference == null ? '' : preference,
+        );
       });
     }
     test(
-      'no cache waits for GET and failure falls back to All for $uid',
+      'no cache starts immediately while GET is pending or failed for $uid',
       () async {
         final session = _FailedUserInfoStore();
         if (uid != null) await session.saveUid(uid);
@@ -78,7 +126,7 @@ void main() {
               personalization: personalization,
               waitForPersonalization: true,
             )).isReady,
-            isFalse,
+            isTrue,
           );
         }
         personalization.state.value = PersonalizationState(
@@ -91,7 +139,7 @@ void main() {
           waitForPersonalization: true,
         );
         expect(failed.isReady, isTrue);
-        expect(failed.audience.gender, isNull);
+        expect(failed.audience.gender, '');
       },
     );
     test('does not use another identity personalization for $uid', () async {
@@ -111,8 +159,8 @@ void main() {
         personalization: personalization,
         waitForPersonalization: true,
       );
-      expect(result.isReady, isFalse);
-      expect(result.audience.gender, isNull);
+      expect(result.isReady, isTrue);
+      expect(result.audience.gender, '');
     });
   }
   test(
@@ -136,7 +184,7 @@ void main() {
             session,
             personalization: personalization,
           )).isReady,
-          isFalse,
+          isTrue,
         );
       }
       expect(calls, 1);
