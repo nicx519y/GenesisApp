@@ -249,7 +249,7 @@ Validation for this scheduling change:
   History. Once shown, both stay above subsequent messages for this open chat;
   the contact-added notice uses the centered day/private-chat heading style.
   Messages list rows without a
-  real last message reuse the contact-added copy as a display-only subtitle,
+  real last message reuse the character introduction ("I'm {name}.") as a display-only subtitle,
   without changing cached summaries or ordering. Errors and waiting replies do
   not synthesize greetings. LocationChat preserves the original movement events;
   the broad consecutive-movement projection was removed. The private position

@@ -94,7 +94,7 @@ class MiniPhoneMessagesPage extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 60),
                             child: Text(
                               s.lastMessage == null
-                                  ? context.l10n.miniPhoneContactAdded(
+                                  ? context.l10n.miniPhoneCharacterIntroduction(
                                       name: s.person.name,
                                     )
                                   : s.lastMessage?.senderId == store.uid

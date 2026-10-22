@@ -65,6 +65,8 @@ void main() {
           findsOneWidget,
         );
       }
+      expect(find.text("I'm Person 2."), findsOneWidget);
+      expect(find.text("You've added Person 2."), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('mini-phone-conversation-char_2')),
       );
