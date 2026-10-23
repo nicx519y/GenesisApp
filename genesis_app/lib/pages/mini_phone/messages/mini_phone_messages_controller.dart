@@ -199,6 +199,9 @@ class MiniPhoneMessagesController {
   Iterable<PhoneWrite> outgoingDm(String charId) =>
       outgoing.values.where((w) => w.target == charId);
   final replyFailures = <String, String>{};
+  // One-shot presentation, separate from the retained message failure state.
+  // Terminal request deduplication prevents history refreshes from requeueing it.
+  final replyFailureNotices = <String, ({String requestId, String message})>{};
   Future<bool> refreshSessions({bool next = false}) {
     const key = 'sessions';
     final revision = cache.revision;
@@ -271,6 +274,10 @@ class MiniPhoneMessagesController {
           (write == null || write.id == requestId)) {
         replyFailures[charId] =
             state.failure ?? GenesisL10n.current.miniPhoneReplyFailed;
+        replyFailureNotices[charId] = (
+          requestId: requestId,
+          message: replyFailures[charId]!,
+        );
       }
     } else {
       final source = messages[sessionId]

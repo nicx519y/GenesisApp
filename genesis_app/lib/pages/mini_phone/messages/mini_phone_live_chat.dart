@@ -36,7 +36,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   // messages append below these local opening rows instead of replacing them.
   bool _showOpeningRows = false;
   String? owner;
-  String? _shownError;
+  ({String message, String? replyRequestId})? _shownError;
   bool _loadingHistory = false;
   int _accountGeneration = 0;
   int _latestMessageId = 0;
@@ -118,16 +118,23 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       input.clear();
     }
     if (mounted) {
-      final error = _error;
+      final error = _errorNotice;
       if (error != _shownError) {
-        _shownError = error;
-        if (error != null) {
+        if (error == null) {
+          _shownError = null;
+        } else {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted &&
-                _error == error &&
+                _errorNotice == error &&
+                _shownError != error &&
                 store.phoneVisible &&
-                store.foreground) {
-              showGenesisToast(context, error);
+                store.foreground &&
+                ModalRoute.of(context)?.isCurrent != false) {
+              showGenesisToast(context, error.message);
+              _shownError = error;
+              if (error.replyRequestId case final requestId?) {
+                store.acknowledgeReplyFailure(widget.person.id, requestId);
+              }
             }
           });
         }
@@ -167,13 +174,20 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     });
   }
 
-  String? get _error {
+  String? get _error => _errorNotice?.message;
+
+  ({String message, String? replyRequestId})? get _errorNotice {
     final id = widget.person.id;
-    return store.errors['messages:${store.sessionFor(id)}'] ??
+    final error =
+        store.errors['messages:${store.sessionFor(id)}'] ??
         store.errors['request:${store.waiting(id)?.id}'] ??
         store.errors['session:$id'] ??
-        store.errors['dm:$id'] ??
-        store.replyFailures[id];
+        store.errors['dm:$id'];
+    if (error != null) return (message: error, replyRequestId: null);
+    final failure = store.replyFailureNotice(id);
+    return failure == null
+        ? null
+        : (message: failure.message, replyRequestId: failure.requestId);
   }
 
   void _focus() {

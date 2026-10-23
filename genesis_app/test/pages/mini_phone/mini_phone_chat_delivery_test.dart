@@ -33,6 +33,11 @@ Future<MiniPhoneStore> openChat(
     return store;
   }))!;
   store.phoneVisible = true;
+  await mountChat(tester, store);
+  return store;
+}
+
+Future<void> mountChat(WidgetTester tester, MiniPhoneStore store) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData.dark(),
@@ -44,7 +49,6 @@ Future<MiniPhoneStore> openChat(
     ),
   );
   await flush(tester);
-  return store;
 }
 
 Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
@@ -58,6 +62,97 @@ Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'shown reply failure does not replay on reentry or history refresh; a new failure still shows',
+    (tester) async {
+      const failure = 'Reply generation failed.';
+      final failedMessage = {
+        ...phoneMessage(1, sender: 'user', requestId: 'failed-request'),
+        'reply_status': 'failed',
+        'failure': {'message': failure},
+      };
+      final backend = PhoneBackend();
+      backend.respond = (r) =>
+          r.uri.path.endsWith('/messages') ? ok(page([failedMessage])) : null;
+      final store = await openChat(tester, backend);
+      await tester.pump();
+      expect(find.text(failure), findsOneWidget);
+      expect(store.history('c').single.replyStatus, 'failed');
+      expect(store.replyFailures['c'], failure);
+      expect(store.replyFailureNotice('c'), isNull);
+      expect(store.waiting('c'), isNull);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await mountChat(tester, store);
+      await tester.pump();
+      expect(find.text(failure), findsNothing);
+      await tester.runAsync(() async {
+        store.receive(
+          phoneEvent(
+            'duplicate-failure',
+            [],
+            requestId: 'failed-request',
+            failure: failure,
+          ),
+        );
+        await store.writesSaved;
+      });
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(failure), findsNothing);
+      await tester.runAsync(() => store.refreshMessages('c'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(failure), findsNothing);
+      expect(store.history('c').single.replyStatus, 'failed');
+      await tester.enterText(find.byType(TextField), 'Next message');
+      await tester.pump();
+      expect(composer(tester).sendEnabled, isTrue);
+
+      await tester.runAsync(composer(tester).onSend);
+      final request = store.waiting('c')!.id;
+      final nextFailure = {
+        ...phoneMessage(2, sender: 'user', requestId: request),
+        'reply_status': 'failed',
+        'failure': {'message': failure},
+      };
+      backend.respond = (r) => r.uri.path.endsWith('/messages')
+          ? ok(page([nextFailure, failedMessage]))
+          : null;
+      await tester.runAsync(() => store.refreshMessages('c'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(failure), findsOneWidget);
+      expect(store.waiting('c'), isNull);
+      expect(store.history('c').map((m) => m.replyStatus), [
+        'failed',
+        'failed',
+      ]);
+      await closeChat(tester, store);
+    },
+  );
+
+  testWidgets('a reply failure while the phone is hidden remains unconsumed', (
+    tester,
+  ) async {
+    const failure = 'Reply generation failed.';
+    final store = await openChat(tester, PhoneBackend());
+    store.phoneVisible = false;
+    store.receive(
+      phoneEvent('hidden-failure', [], requestId: 'hidden', failure: failure),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(failure), findsNothing);
+    store.phoneVisible = true;
+    await tester.runAsync(() => store.refreshMessages('c'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(failure), findsOneWidget);
+    await closeChat(tester, store);
+  });
 
   testWidgets(
     'uncertain send retains one bubble and retries the original operation',

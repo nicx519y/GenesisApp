@@ -375,6 +375,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     pending.clear();
     messagesController.outgoing.clear();
     replyFailures.clear();
+    messagesController.replyFailureNotices.clear();
     messagesController.sessionByChar.clear();
     messagesController.peerByChar.clear();
     messagesController.knownSessionChars.clear();
@@ -632,6 +633,14 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   List<MiniPhoneConversation> get conversations =>
       messagesController.conversations;
   Map<String, String> get replyFailures => messagesController.replyFailures;
+  ({String requestId, String message})? replyFailureNotice(String charId) =>
+      messagesController.replyFailureNotices[charId];
+  void acknowledgeReplyFailure(String charId, String requestId) {
+    if (replyFailureNotice(charId)?.requestId != requestId) return;
+    messagesController.replyFailureNotices.remove(charId);
+    _notify();
+  }
+
   bool isPlayerChat(String charId) => messagesController.isPlayerChat(charId);
   PhonePerson personForMessage(PhoneMessage message) =>
       messagesController.personForMessage(message);
@@ -751,6 +760,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     busy.add(key);
     errors.remove(key);
     replyFailures.remove(target);
+    messagesController.replyFailureNotices.remove(target);
     _notify();
     try {
       if (!await _save()) {

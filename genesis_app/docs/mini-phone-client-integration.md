@@ -44,6 +44,13 @@ unrelated request. Final failures
 preserve committed user messages. Pending AI replies have no timeout-based
 failure rule.
 
+AI reply failure Toasts are queued by request ID in the World session and
+consumed only after a foreground, current chat route displays them. Reopening
+the chat or phone, refreshing history, and duplicate events do not replay an
+already displayed failure within that session. The message's failure status
+remains intact; a new request can show the same error text again. This consumed
+state is in memory and resets when the World session or account is replaced.
+
 Reads, refreshes and incoming events are independent. Event refreshes coalesce
 and retain separate summary, Posts and DM-recovery dirty flags during a refresh.
 Posts has its own dispatch loop and does not wait for a slow DM recovery.
