@@ -325,6 +325,11 @@ void main() {
 
   test('records the agreed launch funnel fields once', () async {
     AppStartupCoordinator.beginLaunchTracking(startupId: 'startup-test-1');
+    expect(GenesisTelemetry.startupId, 'startup-test-1');
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'must-not-replace-process-id',
+    );
+    expect(GenesisTelemetry.startupId, 'startup-test-1');
     final client = await initializeWith(MemoryUserSessionStore());
 
     AppStartupCoordinator.setLaunchPageDecision(

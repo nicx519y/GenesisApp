@@ -711,6 +711,7 @@ class CollectTelemetryUploader {
     Map<String, Object?> payload, {
     bool includeIdentityHeaders = true,
     String? eventId,
+    int? appTimestamp,
   }) {
     if (!_enabled) return Future<bool>.value(false);
     if (_disposed) {
@@ -728,7 +729,7 @@ class CollectTelemetryUploader {
         eventId: eventId ?? _idGenerator(),
         actionType: actionType,
         action: action,
-        appTimestamp: _clock().millisecondsSinceEpoch,
+        appTimestamp: appTimestamp ?? _clock().millisecondsSinceEpoch,
         object1: _boundedString(payload['object1'], 2048),
         object2: _boundedString(payload['object2'], 2048),
         object3: _boundedString(payload['object3'], 2048),

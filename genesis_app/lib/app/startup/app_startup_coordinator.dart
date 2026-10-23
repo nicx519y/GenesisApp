@@ -71,6 +71,7 @@ class AppStartupCoordinator {
   static void beginLaunchTracking({String? startupId}) {
     if (_launchStopwatch != null) return;
     _launchStartupId = startupId ?? const Uuid().v4().replaceAll('-', '');
+    GenesisTelemetry.setStartupId(_launchStartupId);
     _launchStopwatch = Stopwatch()..start();
   }
 
@@ -536,6 +537,7 @@ class AppStartupCoordinator {
     _launchStopwatch?.stop();
     _launchStopwatch = null;
     _launchStartupId = null;
+    GenesisTelemetry.setStartupId(null);
     _launchPage = null;
     _launchPageReason = null;
     _launchStartupRecorded = false;

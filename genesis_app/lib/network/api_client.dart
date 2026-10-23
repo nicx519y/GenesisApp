@@ -771,21 +771,55 @@ int? _apiErrNo(Object? data) {
   return int.tryParse(raw?.toString() ?? '');
 }
 
+class _GatewayTimeTraceState {
+  int retryCount = 0;
+  int? firstFailureTimestamp;
+  String? firstFailureRequestId;
+}
+
 class _ApiCollectRequest {
-  _ApiCollectRequest._({required this.path, required this.requestId}) {
+  _ApiCollectRequest._({
+    required this.path,
+    required this.requestId,
+    String? scope,
+  }) : startupId = path == '/apix/v1/time' ? GenesisTelemetry.startupId : null,
+       startedAt = DateTime.now().millisecondsSinceEpoch,
+       timeState = path == '/apix/v1/time' ? _timeStateFor(scope) : null {
+    if (timeState?.firstFailureTimestamp != null) timeState!.retryCount++;
     _record(action: 'api_req_start', object3: '', object4: '0');
+  }
+
+  static Object? _timeEpoch;
+  static final Map<String, _GatewayTimeTraceState> _timeStates = {};
+
+  static _GatewayTimeTraceState _timeStateFor(String? scope) {
+    final epoch = GenesisTelemetry.startupTelemetryEpoch;
+    if (!identical(_timeEpoch, epoch)) {
+      _timeStates.clear();
+      _timeEpoch = epoch;
+    }
+    return _timeStates.putIfAbsent(scope ?? '', _GatewayTimeTraceState.new);
   }
 
   static _ApiCollectRequest? maybeCreate(
     Uri uri, {
     required ApiRequestTracePolicy tracePolicy,
   }) {
-    return maybeCreateForPath(uri.path, tracePolicy: tracePolicy);
+    return maybeCreateForPath(
+      uri.path,
+      tracePolicy: tracePolicy,
+      scope:
+          uri.path == '/apix/v1/time' &&
+              (uri.scheme == 'https' || uri.scheme == 'http')
+          ? uri.origin
+          : null,
+    );
   }
 
   static _ApiCollectRequest? maybeCreateForPath(
     String path, {
     required ApiRequestTracePolicy tracePolicy,
+    String? scope,
   }) {
     final normalizedPath = _normalizedApiPath(path);
     final isAlwaysMonitored = _alwaysMonitoredApiPaths.contains(normalizedPath);
@@ -802,6 +836,7 @@ class _ApiCollectRequest {
       return _ApiCollectRequest._(
         path: normalizedPath,
         requestId: newCollectEventId(),
+        scope: scope,
       );
     } catch (_) {
       // Telemetry must never prevent the business request from running.
@@ -811,6 +846,9 @@ class _ApiCollectRequest {
 
   final String path;
   final String requestId;
+  final String? startupId;
+  final int startedAt;
+  final _GatewayTimeTraceState? timeState;
   bool _terminalRecorded = false;
 
   void success({required Duration duration}) {
@@ -915,6 +953,15 @@ class _ApiCollectRequest {
     String extData = '',
   }) {
     try {
+      if (timeState != null) {
+        _recordTimeOutcome(
+          action: action,
+          object3: object3,
+          object4: object4,
+          extData: extData,
+        );
+        return;
+      }
       GenesisTelemetry.collectLog(
         actionType: 'monitor',
         action: action,
@@ -927,6 +974,72 @@ class _ApiCollectRequest {
     } catch (_) {
       // Telemetry must never change the business request result.
     }
+  }
+
+  void _recordTimeOutcome({
+    required String action,
+    required String object3,
+    required String object4,
+    required String extData,
+  }) {
+    // Defer only /time's log pair, not the request. This lets concurrent
+    // failures share one failure event without leaving unmatched starts.
+    if (action == 'api_req_start') return;
+    final state = timeState!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (action == 'api_req_success' && state.firstFailureTimestamp != null) {
+      final retries = state.retryCount;
+      final failureAt = state.firstFailureTimestamp!;
+      final failureRequestId = state.firstFailureRequestId!;
+      // Clear before enqueueing; another completion must not duplicate recovery.
+      state.firstFailureTimestamp = null;
+      state.firstFailureRequestId = null;
+      state.retryCount = 0;
+      GenesisTelemetry.collectLog(
+        actionType: 'monitor',
+        action: 'gateway_time_retry_success',
+        object1: retries,
+        appTimestamp: now,
+        extData: jsonEncode({
+          if (startupId != null) 'startup_id': startupId,
+          'first_failure_request_id': failureRequestId,
+          'success_request_id': requestId,
+          'first_failure_timestamp': failureAt,
+          'success_timestamp': now,
+        }),
+      );
+      return;
+    }
+    if (action != 'api_req_success') {
+      if (state.firstFailureTimestamp != null) return;
+      state.firstFailureTimestamp = now;
+      state.firstFailureRequestId = requestId;
+      state.retryCount = 0;
+    }
+    final data = jsonEncode({
+      if (extData.isNotEmpty) ...jsonDecode(extData) as Map<String, dynamic>,
+      if (startupId != null) 'startup_id': startupId,
+    });
+    GenesisTelemetry.collectLog(
+      actionType: 'monitor',
+      action: 'api_req_start',
+      object1: path,
+      object2: requestId,
+      object3: '',
+      object4: '0',
+      appTimestamp: startedAt,
+      extData: startupId == null ? '' : jsonEncode({'startup_id': startupId}),
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'monitor',
+      action: action,
+      object1: path,
+      object2: requestId,
+      object3: object3,
+      object4: object4,
+      appTimestamp: now,
+      extData: data == '{}' ? '' : data,
+    );
   }
 }
 

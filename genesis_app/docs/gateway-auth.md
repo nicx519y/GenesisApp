@@ -73,6 +73,20 @@ Gateway 签名 header 由 `GatewayRequestSigner` 在发送前统一注入：
 
 它们分别使用自己的 path 和 request ID，不合并成 `tech_client_1304`。HTTP、响应 envelope 和 `err_no` 按普通接口监控规则判定。
 
+### `/time` 的失败去重与恢复埋点
+
+仅调整 Collect 上报，不改变请求、超时、签名、并发、前后台、再次尝试的时机，也不增加定时重试或额外网络请求。challenge/register 和其他接口的埋点规则不变。
+
+- 复用 `AppStartupCoordinator.beginLaunchTracking()` 的冷启动 ID，以 `ext_data.startup_id` 关联 `/time` 的开始、终态及恢复事件；前后台切换不更换 ID。主流程尚未生成 ID 时不伪造启动关联。
+- 未处于连续失败期间时，成功请求保留正常 `api_req_start` / `api_req_success`，不报恢复事件。
+- 一轮连续失败只保留第一笔完整的 `api_req_start` / 失败终态及原有诊断字段；后续尝试失败不再生成 Collect 请求日志，仅累计次数。
+- 后续实际尝试成功时，仅报 `action_type=monitor`、`action=gateway_time_retry_success`，`object1` 为首次失败后实际再次尝试的次数，不含首次失败。例如首次失败、又失败两次、随后成功，传 `3`。`object2`～`object4` 不额外赋值。
+- 恢复事件的 `ext_data` 包含 `startup_id`、`first_failure_request_id`、`success_request_id`、`first_failure_timestamp`、`success_timestamp`，可精确关联失败及恢复耗时。成功后清空本轮状态；若后续发生新一轮失败，重新计数。同一进程按 Gateway origin 隔离状态，同一 origin 的多个 client 共用状态；不持久化计数。
+- 仅 `/time` 的常规日志对在请求结束后一起入队，保留真实开始/结束的 `app_timestamp`，避免并发失败去重后残留无终态的开始事件；网络调用不等待日志入队。仍在进行中的请求不会提前出现在 Collect 报表。
+- 并发请求若在首次失败被观察到之前已经开始，不虚算为失败后新发起的重试；这种在途请求带来恢复时，重试次数可以为 `0`。
+
+因此原始 PV 代表已上报的请求，不再代表 `/time` 的所有实际尝试次数。本次不调整报表统计。
+
 如果外层 `/api/...` 请求在发送前因 Gateway 准备失败，外层逻辑请求仍以 `tech_client_13xx` 闭合；`ext_data.upstream_path` 和 `ext_data.upstream_status` 指向实际 Gateway 失败来源。外层请求一旦实际发送，`object4` 只统计该次 transport send，不再把 Gateway 准备耗时算入业务接口耗时。
 
 启动监控的“App 配置 / Gateway”阶段从埋点初始化完成统计到 `/api/v1/app/config` 加载结束。首次无 `key_id` 时会包含 time、challenge、register；该项是“启动依赖等待”的重叠拆解，不能与相邻阶段再次相加。

@@ -124,6 +124,17 @@ class GenesisTelemetry {
   static bool _sinkOverriddenForTesting = false;
   static bool _collectPrepared = false;
   static bool _collectStartRequested = false;
+  static String? _startupId;
+  static Object _startupTelemetryEpoch = Object();
+
+  static String? get startupId => _startupId;
+  static Object get startupTelemetryEpoch => _startupTelemetryEpoch;
+
+  static void setStartupId(String? value) {
+    if (_startupId == value) return;
+    _startupId = value;
+    _startupTelemetryEpoch = Object();
+  }
 
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
@@ -155,6 +166,8 @@ class GenesisTelemetry {
 
   @visibleForTesting
   static void resetForTesting() {
+    _startupId = null;
+    _startupTelemetryEpoch = Object();
     _collectUploader.dispose();
     _sink = const NoopGenesisTelemetrySink();
     _collectUploader = CollectTelemetryUploader(
@@ -392,6 +405,7 @@ class GenesisTelemetry {
     Object? object3,
     Object? object4,
     String extData = '',
+    int? appTimestamp,
   }) {
     unawaited(
       collectLogAndWait(
@@ -402,6 +416,7 @@ class GenesisTelemetry {
         object3: object3,
         object4: object4,
         extData: extData,
+        appTimestamp: appTimestamp,
       ),
     );
   }
@@ -415,6 +430,7 @@ class GenesisTelemetry {
     Object? object4,
     String extData = '',
     String? eventId,
+    int? appTimestamp,
   }) async {
     final normalizedActionType = actionType.trim();
     final normalizedAction = action.trim();
@@ -433,6 +449,7 @@ class GenesisTelemetry {
     final enqueued = await _collectUploader.enqueuePayloadWithResult(
       payload,
       eventId: eventId,
+      appTimestamp: appTimestamp,
     );
     unawaited(
       _sink.record(

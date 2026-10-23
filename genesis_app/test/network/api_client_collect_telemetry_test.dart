@@ -52,6 +52,188 @@ void main() {
     return store.eventsForTesting;
   }
 
+  test(
+    'time logs first failure and recovery only with launch and retry count',
+    () async {
+      GenesisTelemetry.setStartupId('launch-time-1');
+      var fail = false;
+      var sends = 0;
+      final client = ApiClient(
+        baseUrl: 'https://example.test/apix/',
+        transport: _FakeTransport(
+          handler: (_) {
+            sends++;
+            if (fail) {
+              throw ApiException(
+                message: 'offline',
+                kind: ApiExceptionKind.transport,
+                transportErrorKind: TransportErrorKind.connection,
+              );
+            }
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {},
+              body: '{"err_no":0,"data":{"server_time_ms":123}}',
+            );
+          },
+        ),
+      );
+      await client.get<Object>('v1/time');
+      expect((await events()).map((e) => e.action), [
+        'api_req_start',
+        'api_req_success',
+      ]);
+      expect(
+        (await events()).every(
+          (e) => _extData(e)['startup_id'] == 'launch-time-1',
+        ),
+        isTrue,
+      );
+      fail = true;
+      for (var i = 0; i < 3; i++) {
+        await expectLater(
+          client.get<Object>('v1/time'),
+          throwsA(isA<ApiException>()),
+        );
+      }
+      final beforeRecovery = await events();
+      expect(beforeRecovery.map((e) => e.action), [
+        'api_req_start',
+        'api_req_success',
+        'api_req_start',
+        'api_req_fail_tech',
+      ]);
+      final firstFailure = beforeRecovery.last;
+      expect(_extData(firstFailure)['startup_id'], 'launch-time-1');
+      expect(firstFailure.object3, startsWith('tech_client_'));
+      fail = false;
+      await client.get<Object>('v1/time');
+      final recovered = (await events()).last;
+      expect(recovered.actionType, 'monitor');
+      expect(recovered.action, 'gateway_time_retry_success');
+      expect(recovered.object1, '3');
+      expect(recovered.object2, isEmpty);
+      expect(_extData(recovered)['startup_id'], 'launch-time-1');
+      expect(
+        _extData(recovered)['first_failure_request_id'],
+        firstFailure.object2,
+      );
+      expect(
+        _extData(recovered)['first_failure_timestamp'],
+        firstFailure.appTimestamp,
+      );
+      expect(_extData(recovered)['success_timestamp'], recovered.appTimestamp);
+      await client.get<Object>('v1/time');
+      expect(
+        (await events()).where((e) => e.action == 'gateway_time_retry_success'),
+        hasLength(1),
+      );
+      expect(
+        sends,
+        6,
+      ); // instrumentation did not add, delay, or retry a request
+    },
+  );
+
+  test(
+    'time failure state resets with launch and is isolated by host',
+    () async {
+      GenesisTelemetry.setStartupId('launch-a');
+      var fail = true;
+      final transport = _FakeTransport(
+        handler: (_) {
+          if (fail) {
+            throw ApiException(
+              message: 'offline',
+              kind: ApiExceptionKind.transport,
+              transportErrorKind: TransportErrorKind.connection,
+            );
+          }
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {},
+            body: '{"err_no":0,"data":{}}',
+          );
+        },
+      );
+      final a = ApiClient(
+        baseUrl: 'https://a.test/apix/',
+        transport: transport,
+      );
+      final b = ApiClient(
+        baseUrl: 'https://b.test/apix/',
+        transport: transport,
+      );
+      await expectLater(a.get<Object>('v1/time'), throwsA(isA<ApiException>()));
+      fail = false;
+      await b.get<Object>('v1/time');
+      expect(
+        (await events()).where((e) => e.action == 'gateway_time_retry_success'),
+        isEmpty,
+      );
+      // A second client of the same host shares the first failure.
+      await ApiClient(
+        baseUrl: 'https://a.test/apix/',
+        transport: transport,
+      ).get<Object>('v1/time');
+      expect((await events()).last.object1, '1');
+      fail = true;
+      await expectLater(a.get<Object>('v1/time'), throwsA(isA<ApiException>()));
+      GenesisTelemetry.setStartupId('launch-b');
+      fail = false;
+      await a.get<Object>('v1/time');
+      expect(
+        (await events()).where((e) => e.action == 'gateway_time_retry_success'),
+        hasLength(1),
+      );
+      expect(_extData((await events()).last)['startup_id'], 'launch-b');
+    },
+  );
+
+  test('overlapping time failures leave one complete failure pair', () async {
+    GenesisTelemetry.setStartupId('launch-concurrent');
+    final responses = <Completer<TransportResponse>>[];
+    final bothSent = Completer<void>();
+    final client = ApiClient(
+      baseUrl: 'https://example.test/apix/',
+      transport: _FakeTransport(
+        handler: (_) {
+          final response = Completer<TransportResponse>();
+          responses.add(response);
+          if (responses.length == 2) bothSent.complete();
+          return response.future;
+        },
+      ),
+    );
+    final first = expectLater(
+      client.get<Object>('v1/time'),
+      throwsA(isA<ApiException>()),
+    );
+    final second = expectLater(
+      client.get<Object>('v1/time'),
+      throwsA(isA<ApiException>()),
+    );
+    await bothSent.future;
+    responses[1].complete(
+      const TransportResponse(statusCode: 500, headers: {}, body: '{}'),
+    );
+    await second;
+    responses[0].complete(
+      const TransportResponse(statusCode: 500, headers: {}, body: '{}'),
+    );
+    await first;
+    final recorded = await events();
+    expect(recorded.map((e) => e.action), [
+      'api_req_start',
+      'api_req_fail_tech',
+    ]);
+    expect(recorded[0].object2, recorded[1].object2);
+    expect(
+      recorded[0].appTimestamp,
+      lessThanOrEqualTo(recorded[1].appTimestamp),
+    );
+  });
+
   for (final stage in ['headers', 'interceptor']) {
     test(
       '$stage deadline records one timeout terminal even after late completion',
