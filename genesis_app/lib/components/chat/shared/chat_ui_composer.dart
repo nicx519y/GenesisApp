@@ -79,12 +79,16 @@ class ChatComposer extends StatelessWidget {
     this.animateSendButton = true,
     this.pinActionsToBottom = false,
     this.backdropGroupKey,
+    this.maxLength,
   });
 
   final TextEditingController controller;
   final bool inputEnabled;
   final bool sendEnabled;
   final bool sending;
+
+  /// Optional grapheme limit; callers without a limit keep existing behavior.
+  final int? maxLength;
   final Future<void> Function() onSend;
   final ValueChanged<double>? onHeightChanged;
   final String? sendLabel;
@@ -143,6 +147,13 @@ class ChatComposer extends StatelessWidget {
       focusNode: focusNode,
       cursorColor: style.inputTextStyle.color ?? GenesisColors.textPrimary,
       enabled: inputEnabled,
+      inputFormatters: [
+        if (maxLength != null)
+          LengthLimitingTextInputFormatter(
+            maxLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          ),
+      ],
       minLines: style.inputMinLines,
       maxLines: style.inputMaxLines,
       keyboardType: submitFromKeyboard

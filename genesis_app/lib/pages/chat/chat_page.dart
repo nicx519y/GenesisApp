@@ -49,6 +49,7 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   static const _draftSaveDelay = Duration(milliseconds: 250);
+  static const _messageMaxLength = 999;
 
   late ScrollController _scrollController;
   final _textController = TextEditingController();
@@ -347,6 +348,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_sending || _peerUid.isEmpty) return;
     final content = normalizeGenesisUgcTextForSubmission(_textController.text);
     if (isGenesisUgcTextBlank(content)) return;
+    if (content.characters.length > _messageMaxLength) return;
     if (!await ensureGenesisLogin(context, source: LoginSource.privateChat)) {
       return;
     }
@@ -648,6 +650,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   bottom: 0,
                   child: ChatComposer(
                     controller: _textController,
+                    maxLength: _messageMaxLength,
                     inputEnabled: _peerUid.isNotEmpty,
                     sendEnabled: _peerUid.isNotEmpty && !_sending,
                     sending: _sending,

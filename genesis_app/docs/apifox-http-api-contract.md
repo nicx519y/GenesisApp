@@ -2112,6 +2112,8 @@ Query：
 
 当前登录用户向 `peer_uid` 发送一条私信。sender 不能是 peer；任一方拉黑对方会拒绝；互关用户可自由发送，未互关时受 ping-pong 限制；`content` 非空且长度不超过 1000 字符。
 
+客户端 Inbox 私信输入上限为 999 个用户可见字符（grapheme cluster），输入和粘贴统一截断，不显示字数计数器；发送前再次检查，超过上限的内容不提交。此限制不影响 Location Chat，也不修改服务端的 1000 字符契约。
+
 请求 body：
 
 - `peer_uid*`: string
