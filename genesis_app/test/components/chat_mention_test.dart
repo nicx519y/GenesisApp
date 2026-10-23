@@ -34,6 +34,119 @@ ChatMentionCatalog _catalog() => ChatMentionCatalog(
 );
 
 void main() {
+  test('Chinese composition preserves complete platform editing values', () {
+    final c = LocationChatMentionEditingController();
+    addTearDown(c.dispose);
+    for (final text in ['yao', '要', '要qu', '要去', '要去那里']) {
+      final v = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(
+          offset: text.length,
+          affinity: TextAffinity.upstream,
+        ),
+        composing: TextRange(start: 0, end: text.length),
+      );
+      c.value = v;
+      expect(c.value, v);
+    }
+  });
+
+  test('catalog refresh waits for same-text Chinese commit', () {
+    final c = LocationChatMentionEditingController();
+    addTearDown(c.dispose);
+    const v = TextEditingValue(
+      text: '要',
+      selection: TextSelection.collapsed(
+        offset: 1,
+        affinity: TextAffinity.upstream,
+      ),
+      composing: TextRange(start: 0, end: 1),
+    );
+    c.value = v;
+    expect(c.updateCatalog(_catalog()), isTrue);
+    expect(c.value, v);
+    c.value = v.copyWith(composing: TextRange.empty);
+    expect(c.value, v.copyWith(composing: TextRange.empty));
+    expect(c.catalog.characters.map((e) => e.id), contains(_character.id));
+    c.value = const TextEditingValue(
+      text: '要去',
+      selection: TextSelection.collapsed(offset: 2),
+    );
+    expect(c.text, '要去');
+  });
+
+  test('deferred mention parsing preserves Chinese and caret affinity', () {
+    final c = LocationChatMentionEditingController();
+    addTearDown(c.dispose);
+    const text = '@Alice<char-1> 要';
+    const v = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: text.length,
+        affinity: TextAffinity.upstream,
+      ),
+      composing: TextRange(start: 14, end: text.length),
+    );
+    c.value = v;
+    c.updateCatalog(_catalog());
+    expect(c.value, v);
+    c.value = v.copyWith(composing: TextRange.empty);
+    expect(c.serializedText, text);
+    expect(c.text, '\uFFFC要');
+    expect(c.selection.extentOffset, c.text.length);
+    expect(c.selection.affinity, TextAffinity.upstream);
+  });
+
+  test('latest deferred catalog wins when composition is cancelled', () {
+    final c = LocationChatMentionEditingController();
+    addTearDown(c.dispose);
+    c.value = const TextEditingValue(
+      text: 'ni',
+      selection: TextSelection.collapsed(offset: 2),
+      composing: TextRange(start: 0, end: 2),
+    );
+    c.updateCatalog(_catalog());
+    c.updateCatalog(ChatMentionCatalog(characters: const [_secondCharacter]));
+    c.value = const TextEditingValue(
+      text: '',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    expect(c.text, isEmpty);
+    expect(c.catalog.characters.map((e) => e.id), [_secondCharacter.id]);
+  });
+
+  testWidgets('iOS composing input does not echo a modified state', (
+    tester,
+  ) async {
+    final c = LocationChatMentionEditingController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: TextField(controller: c)),
+      ),
+    );
+    await tester.showKeyboard(find.byType(TextField));
+    tester.testTextInput.log.clear();
+    const v = TextEditingValue(
+      text: '要',
+      selection: TextSelection.collapsed(
+        offset: 1,
+        affinity: TextAffinity.upstream,
+      ),
+      composing: TextRange(start: 0, end: 1),
+    );
+    tester.testTextInput.updateEditingValue(v);
+    await tester.pump();
+    expect(c.value, v);
+    expect(
+      tester.testTextInput.log.where(
+        (e) => e.method == 'TextInput.setEditingState',
+      ),
+      isEmpty,
+    );
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
+
   testWidgets(
     'mention tags inherit the surrounding text style without decoration',
     (tester) async {

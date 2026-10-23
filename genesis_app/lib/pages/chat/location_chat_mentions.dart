@@ -192,6 +192,7 @@ class LocationChatMentionEditingController extends TextEditingController {
     : _catalog = catalog ?? ChatMentionCatalog.empty;
 
   ChatMentionCatalog _catalog;
+  ChatMentionCatalog? _pendingCatalog;
   final List<_LocationChatComposerMention> _mentions =
       <_LocationChatComposerMention>[];
   int? _insertedAtOffset;
@@ -261,8 +262,16 @@ class LocationChatMentionEditingController extends TextEditingController {
       composedMentionCatalog,
     );
     if (_catalogSignature(_catalog) == _catalogSignature(effectiveCatalog)) {
+      _pendingCatalog = null;
       return false;
     }
+    if (value.composing.isValid && !value.composing.isCollapsed) {
+      // Re-tokenizing would clear UIKit/IME marked text. Keep only the latest
+      // catalog and apply it after the input method commits or cancels.
+      _pendingCatalog = nextCatalog;
+      return true;
+    }
+    _pendingCatalog = null;
     final rawText = serializedText;
     final serializedBase = _internalOffsetToSerialized(selection.baseOffset);
     final serializedExtent = _internalOffsetToSerialized(
@@ -274,6 +283,8 @@ class LocationChatMentionEditingController extends TextEditingController {
       serializedSelection: TextSelection(
         baseOffset: serializedBase,
         extentOffset: serializedExtent,
+        affinity: selection.affinity,
+        isDirectional: selection.isDirectional,
       ),
     );
     return true;
@@ -335,6 +346,7 @@ class LocationChatMentionEditingController extends TextEditingController {
     final oldValue = super.value;
     if (oldValue.text == newValue.text) {
       super.value = newValue;
+      _flushPendingCatalog();
       return;
     }
 
@@ -384,11 +396,14 @@ class LocationChatMentionEditingController extends TextEditingController {
       }
     }
     _insertedAtOffset = atOffset;
-    super.value = TextEditingValue(
-      text: sanitizedText,
-      selection: nextSelection,
-      composing: nextComposing,
-    );
+    super.value = strippedPlaceholders == 0
+        ? newValue
+        : newValue.copyWith(
+            text: sanitizedText,
+            selection: nextSelection,
+            composing: nextComposing,
+          );
+    _flushPendingCatalog();
   }
 
   @override
@@ -493,9 +508,21 @@ class LocationChatMentionEditingController extends TextEditingController {
             tokens,
             serializedSelection.extentOffset,
           ),
+          affinity: serializedSelection.affinity,
+          isDirectional: serializedSelection.isDirectional,
         ),
       ),
     );
+  }
+
+  void _flushPendingCatalog() {
+    final pending = _pendingCatalog;
+    if (pending == null ||
+        (value.composing.isValid && !value.composing.isCollapsed)) {
+      return;
+    }
+    _pendingCatalog = null;
+    updateCatalog(pending);
   }
 
   void _setInternalValue(TextEditingValue nextValue) {
@@ -505,6 +532,7 @@ class LocationChatMentionEditingController extends TextEditingController {
     } finally {
       _applyingValue = false;
     }
+    _flushPendingCatalog();
   }
 
   int _internalOffsetToSerialized(int internalOffset) {
@@ -578,13 +606,9 @@ TextSelection _shiftSelectionAfterRemovedCharacters(
   int removedCount,
   int textLength,
 ) {
-  if (!selection.isValid || removedCount == 0) {
-    return selection.isValid
-        ? TextSelection(
-            baseOffset: selection.baseOffset.clamp(0, textLength),
-            extentOffset: selection.extentOffset.clamp(0, textLength),
-          )
-        : TextSelection.collapsed(offset: textLength);
+  if (removedCount == 0) return selection;
+  if (!selection.isValid) {
+    return TextSelection.collapsed(offset: textLength);
   }
   int shift(int offset) {
     if (offset <= removalStart) return offset.clamp(0, textLength);
