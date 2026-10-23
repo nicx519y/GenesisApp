@@ -224,17 +224,30 @@ void main() {
         await tester.pumpAndSettle();
         expect(seeks, hasLength(1));
         expect(seeks.single.inSeconds, inInclusiveRange(60, 75));
-        seeks.clear();
-        final gesture = await tester.startGesture(
-          Offset(rect.left + rect.width * .1, rect.center.dy + 18),
-        );
-        await gesture.moveBy(const Offset(100, 0));
-        await tester.pump();
-        expect(seeks, isEmpty);
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(seeks, hasLength(1));
-        expect(seeks.single.inSeconds, greaterThan(20));
+        // Start near both vertical edges, away from the visible track/thumb.
+        // Drag beyond the ends to verify the entire playback range is reachable.
+        for (final dy in [-23.0, 23.0]) {
+          for (final toEnd in [false, true]) {
+            seeks.clear();
+            final gesture = await tester.startGesture(
+              Offset(rect.center.dx, rect.center.dy + dy),
+            );
+            await gesture.moveTo(
+              Offset(
+                toEnd ? rect.right + 20 : rect.left - 20,
+                rect.center.dy + dy,
+              ),
+            );
+            await tester.pump();
+            expect(seeks, isEmpty);
+            expect(tester.widget<Slider>(slider).value, toEnd ? 90000 : 0);
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(seeks, [
+              toEnd ? const Duration(seconds: 90) : Duration.zero,
+            ]);
+          }
+        }
       },
     );
   }

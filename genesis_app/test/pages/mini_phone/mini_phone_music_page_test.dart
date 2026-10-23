@@ -169,6 +169,14 @@ void main() {
       final homeCard = find.byKey(const ValueKey('mini-phone-home-music'));
       expect(homeCard, findsOneWidget);
       expect(
+        tester
+            .getSize(
+              find.descendant(of: homeCard, matching: find.byType(Slider)),
+            )
+            .height,
+        48,
+      );
+      expect(
         find.descendant(of: homeCard, matching: find.text('Number One Lungs')),
         findsOneWidget,
       );

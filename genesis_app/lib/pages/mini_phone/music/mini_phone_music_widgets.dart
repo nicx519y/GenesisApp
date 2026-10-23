@@ -403,7 +403,8 @@ class _MiniMusicSeekBarState extends State<MiniMusicSeekBar> {
       style: style,
     );
     final slider = SizedBox(
-      height: widget.compact ? 20 : 48,
+      // Compact changes the visuals, not the player's drag target size.
+      height: 48,
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
           trackHeight: widget.compact ? 3 : 4,
@@ -414,9 +415,7 @@ class _MiniMusicSeekBarState extends State<MiniMusicSeekBar> {
           thumbShape: RoundSliderThumbShape(
             enabledThumbRadius: widget.compact ? 4 : 5,
           ),
-          overlayShape: RoundSliderOverlayShape(
-            overlayRadius: widget.compact ? 16 : 24,
-          ),
+          overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
         ),
         child: Slider(
           value: value,
