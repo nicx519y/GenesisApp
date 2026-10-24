@@ -1,0 +1,48 @@
+s2:
+  source: foreground
+  target:
+    kind: text
+    value: ""
+    x: 0
+    y: 0
+  property: text
+  operator: equals
+  expected: com.worldo.ai
+  timeoutMs: 1000
+  sampleMs: 500
+s5:
+  source: ui
+  target:
+    kind: description
+    value: 設定
+    x: 0.5
+    y: 0.5
+  property: exists
+  operator: equals
+  expected: "true"
+  timeoutMs: 15000
+  sampleMs: 1000
+s6:
+  source: ui
+  target:
+    kind: description
+    value: Me
+    x: 0.5
+    y: 0.5
+  property: exists
+  operator: equals
+  expected: "true"
+  timeoutMs: 15000
+  sampleMs: 1000
+s7:
+  source: ui
+  target:
+    kind: description
+    value: "UID: u_OEJET4"
+    x: 0.5
+    y: 0.5
+  property: exists
+  operator: equals
+  expected: "true"
+  timeoutMs: 15000
+  sampleMs: 1000

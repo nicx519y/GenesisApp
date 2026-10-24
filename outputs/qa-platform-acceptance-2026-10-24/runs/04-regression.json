@@ -1,0 +1,4517 @@
+{
+  "id": "run-da72c400-c4e8-4be3-bd07-921410dd1d41",
+  "caseId": "case-84cde67a-c4d6-4da9-9e44-55cdd101b3e5",
+  "startedAt": "2026-10-24T15:21:50.958Z",
+  "status": "completed",
+  "appResult": "passed",
+  "mode": "regression",
+  "records": [
+    {
+      "id": "s2",
+      "description": "点击 Me 进入个人页面",
+      "reason": "当前页面树中存在唯一 description 为 Me 的入口；进入后再根据实际页面明确断言。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "Me",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "foreground",
+        "target": {
+          "kind": "text",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "property": "text",
+        "operator": "equals",
+        "expected": "com.worldo.ai",
+        "timeoutMs": 1000,
+        "sampleMs": 500
+      },
+      "before": {
+        "id": "frame-ba917dec-8a20-4814-93ff-b1cd0bb8327e",
+        "at": "2026-10-24T15:22:01.284Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:21:58.386Z",
+          "audio": "2026-10-24T15:21:58.524Z",
+          "ui": "2026-10-24T15:22:01.196Z"
+        },
+        "screenshot": "frame-ba917dec-8a20-4814-93ff-b1cd0bb8327e.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "會員",
+            "enabled": true,
+            "bounds": [
+              42,
+              160,
+              137,
+              254
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo、角色、標籤",
+            "enabled": true,
+            "bounds": [
+              163,
+              160,
+              1038,
+              254
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              270,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              270,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Kny&#10;Tick 0 · 1 Message&#10;10-21 21:35&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              296,
+              1080,
+              611
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              296,
+              200,
+              532
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              393,
+              302,
+              459
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "KATSEYE&#10;Tick 0 · 2 Messages&#10;10-21 21:32&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              611,
+              1080,
+              926
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              611,
+              200,
+              847
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              708,
+              302,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Slytherin Boys&#10;Tick 0 · 1 Message&#10;10-21 21:27&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              926,
+              1080,
+              1241
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              926,
+              200,
+              1162
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1023,
+              302,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "KATSEYE&#10;Tick 0 · 1 Message&#10;10-21 21:27&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              1241,
+              1080,
+              1556
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1241,
+              200,
+              1477
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1338,
+              302,
+              1404
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Demon Slayer: Kimetsu no Yaiba&#10;Tick 0 · 0 Message&#10;10-21 21:12&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              1556,
+              1080,
+              1871
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1556,
+              200,
+              1792
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1653,
+              302,
+              1719
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Demon Slayer: Kimetsu no Yaiba&#10;Tick 0 · 0 Message&#10;10-21 21:11&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              1871,
+              1080,
+              2186
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1871,
+              200,
+              2107
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1968,
+              302,
+              2034
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Gryffindor Boys&#10;Tick 0 · 0 Message&#10;10-21 21:11&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              2186,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              2186,
+              200,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-deb5296f-c89f-4926-be65-5758b20dcbab",
+        "at": "2026-10-24T15:22:04.216Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:01.504Z",
+          "audio": "2026-10-24T15:22:01.608Z",
+          "ui": "2026-10-24T15:22:04.169Z"
+        },
+        "screenshot": "frame-deb5296f-c89f-4926-be65-5758b20dcbab.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              131,
+              943,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              943,
+              131,
+              1070,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo&#10;1&#10;第 1 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              235,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "遊玩中&#10;50&#10;第 2 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              235,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              286,
+              252,
+              496
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              194,
+              438,
+              247,
+              490
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              289,
+              291,
+              550,
+              343
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "UID: u_OEJET4",
+            "enabled": true,
+            "bounds": [
+              289,
+              359,
+              572,
+              412
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;追蹤中",
+            "enabled": true,
+            "bounds": [
+              289,
+              443,
+              438,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              561,
+              286,
+              634,
+              349
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;粉絲",
+            "enabled": true,
+            "bounds": [
+              480,
+              443,
+              592,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Pro 會員&#10;Worldo Premium&#10;已到期&#10;2026-09-24 15:24:26",
+            "enabled": true,
+            "bounds": [
+              42,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              95,
+              598,
+              158,
+              643
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              633,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訂閱",
+            "enabled": true,
+            "bounds": [
+              781,
+              627,
+              996,
+              706
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "紅寶石&#10;146,534.0&#10;儲值",
+            "enabled": true,
+            "bounds": [
+              42,
+              800,
+              1038,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              84,
+              855,
+              152,
+              923
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "粉寶石&#10;0.0",
+            "enabled": true,
+            "bounds": [
+              447,
+              800,
+              633,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              640,
+              756,
+              808,
+              975
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              780,
+              844,
+              912,
+              1019
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              870,
+              800,
+              1033,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "#清朝&#10;OID：o_04YDBA&#10;最新版本：V1&#10;1&#10;1&#10;1",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              200,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "編輯#清朝",
+            "enabled": true,
+            "bounds": [
+              954,
+              1115,
+              1038,
+              1189
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-24T15:22:01.504Z",
+          "value": "com.worldo.ai"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-24T15:21:58.330Z",
+      "finishedAt": "2026-10-24T15:22:04.217Z"
+    },
+    {
+      "id": "s3",
+      "description": "从 Me 点击右上角设置齿轮",
+      "reason": "页面树未提供设置按钮的 id、text 或 description；截图中的齿轮位于右上角，属于授权导航范围。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "image",
+          "value": "FRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVGBgYGBYVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUJBwcHEhYVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFhUVFXOPioorEBYVFhUVFRUVFRUVFRUVFRUVFRUVFRUUGRMn7v/7/2MJGxYUFhUVFRUVFRUVFRUVFRUVFRUVFBUJADnx8Oz/fgAKEBYTFRUVFRUVFRUVFRUVFRUVGAZx2XVXy/bv7/TmdlnBrg8WFRUVFRUVFRUVFRUVFRcPJeT//fv58/7/9/X8/Pz/XwUYFRUVFRUVFRUVFRUVFwye/+3x8Pfwt63e/O/x7/fZJBIWFRUVFRUVFRUVFRUVFLv/8fH53UIKCSCv/vHx/O05DhcVFRUVFRUVFRUVFRYSGaH48PtaARoZDCDe9vfQOA0XFRUVFRUVFRUVFRUVFRcNKOz45iYTFhUZCa39/2oBGhUVFRUVFRUVFRUVFRUVFwU98PbsLBEYFhoKt/z+gAAWFRUVFRUVFRUVFRUVFRYRRtf37/+DABETAELw8/PwdxQVFRUVFRUVFRUVFRUVFRTQ//Dy8vWDLCZa3fjw8vX9QQwXFRUVFRUVFRUVFRUYCXD+7fX38f7s5vv28/jt/bMQFhUVFRUVFRUVFRUVFRYVEcb/69398PX28Pvq3//2OwsXFRUVFRUVFRUVFRUVFRcLR5M4HpX38fD5xDYifHMLFxUVFRUVFRUVFRUVFRUVFRcPBQ8JK+/z7v9vABUHChYVFRUVFRUVFRUVFRUVFRUVFRYYGBQh3fvz/lYLGRgXFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRM6SkhGGxQVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFQ4LCwsUFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFxcXFxUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFQ==",
+          "x": 0.932,
+          "y": 0.081
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": null,
+      "before": {
+        "id": "frame-1780c8fd-9a3b-4326-b8c4-94105af1c553",
+        "at": "2026-10-24T15:22:07.101Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:04.291Z",
+          "audio": "2026-10-24T15:22:04.439Z",
+          "ui": "2026-10-24T15:22:07.043Z"
+        },
+        "screenshot": "frame-1780c8fd-9a3b-4326-b8c4-94105af1c553.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              131,
+              943,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              943,
+              131,
+              1070,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo&#10;1&#10;第 1 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              235,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "遊玩中&#10;50&#10;第 2 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              235,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              286,
+              252,
+              496
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              194,
+              438,
+              247,
+              490
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              289,
+              291,
+              550,
+              343
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "UID: u_OEJET4",
+            "enabled": true,
+            "bounds": [
+              289,
+              359,
+              572,
+              412
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;追蹤中",
+            "enabled": true,
+            "bounds": [
+              289,
+              443,
+              438,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              561,
+              286,
+              634,
+              349
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;粉絲",
+            "enabled": true,
+            "bounds": [
+              480,
+              443,
+              592,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Pro 會員&#10;Worldo Premium&#10;已到期&#10;2026-09-24 15:24:26",
+            "enabled": true,
+            "bounds": [
+              42,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              95,
+              598,
+              158,
+              643
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              633,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訂閱",
+            "enabled": true,
+            "bounds": [
+              781,
+              627,
+              996,
+              706
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "紅寶石&#10;146,534.0&#10;儲值",
+            "enabled": true,
+            "bounds": [
+              42,
+              800,
+              1038,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              84,
+              855,
+              152,
+              923
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "粉寶石&#10;0.0",
+            "enabled": true,
+            "bounds": [
+              447,
+              800,
+              633,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              640,
+              756,
+              808,
+              975
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              780,
+              844,
+              912,
+              1019
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              870,
+              800,
+              1033,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "#清朝&#10;OID：o_04YDBA&#10;最新版本：V1&#10;1&#10;1&#10;1",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              200,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "編輯#清朝",
+            "enabled": true,
+            "bounds": [
+              954,
+              1115,
+              1038,
+              1189
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-8c5d81b1-0165-44aa-a670-43735955857c",
+        "at": "2026-10-24T15:22:09.963Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:07.298Z",
+          "audio": "2026-10-24T15:22:07.422Z",
+          "ui": "2026-10-24T15:22:09.900Z"
+        },
+        "screenshot": "frame-8c5d81b1-0165-44aa-a670-43735955857c.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              259
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "返回",
+            "enabled": true,
+            "bounds": [
+              42,
+              131,
+              87,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "設定",
+            "enabled": true,
+            "bounds": [
+              118,
+              157,
+              223,
+              230
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "語言&#10;繁體中文",
+            "enabled": true,
+            "bounds": [
+              42,
+              307,
+              1038,
+              448
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關於我們",
+            "enabled": true,
+            "bounds": [
+              42,
+              451,
+              1038,
+              593
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "帳號",
+            "enabled": true,
+            "bounds": [
+              42,
+              595,
+              1038,
+              737
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "已封鎖的使用者",
+            "enabled": true,
+            "bounds": [
+              42,
+              740,
+              1038,
+              881
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "意見回饋",
+            "enabled": true,
+            "bounds": [
+              42,
+              884,
+              1038,
+              1026
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "加入 Discord",
+            "enabled": true,
+            "bounds": [
+              42,
+              1028,
+              1038,
+              1170
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "登出",
+            "enabled": true,
+            "bounds": [
+              162,
+              2174,
+              918,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [],
+      "verdict": "unobserved",
+      "startedAt": "2026-10-24T15:22:04.218Z",
+      "finishedAt": "2026-10-24T15:22:09.963Z"
+    },
+    {
+      "id": "s5",
+      "description": "重新断言 Settings 页面并留存截图",
+      "reason": "s4 的实际采样为 true，但最终判定失败，可能与页面树采集超过原 1 秒窗口有关；使用当前唯一标题重新核验，不改变业务预期。",
+      "action": {
+        "kind": "observe",
+        "target": {
+          "kind": "description",
+          "value": "設定",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "ui",
+        "target": {
+          "kind": "description",
+          "value": "設定",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "property": "exists",
+        "operator": "equals",
+        "expected": "true",
+        "timeoutMs": 15000,
+        "sampleMs": 1000
+      },
+      "before": {
+        "id": "frame-ece657ec-7f3e-477f-ac3e-664badd67f52",
+        "at": "2026-10-24T15:22:12.705Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:10.010Z",
+          "audio": "2026-10-24T15:22:10.162Z",
+          "ui": "2026-10-24T15:22:12.660Z"
+        },
+        "screenshot": "frame-ece657ec-7f3e-477f-ac3e-664badd67f52.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              259
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "返回",
+            "enabled": true,
+            "bounds": [
+              42,
+              131,
+              87,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "設定",
+            "enabled": true,
+            "bounds": [
+              118,
+              157,
+              223,
+              230
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "語言&#10;繁體中文",
+            "enabled": true,
+            "bounds": [
+              42,
+              307,
+              1038,
+              448
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關於我們",
+            "enabled": true,
+            "bounds": [
+              42,
+              451,
+              1038,
+              593
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "帳號",
+            "enabled": true,
+            "bounds": [
+              42,
+              595,
+              1038,
+              737
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "已封鎖的使用者",
+            "enabled": true,
+            "bounds": [
+              42,
+              740,
+              1038,
+              881
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "意見回饋",
+            "enabled": true,
+            "bounds": [
+              42,
+              884,
+              1038,
+              1026
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "加入 Discord",
+            "enabled": true,
+            "bounds": [
+              42,
+              1028,
+              1038,
+              1170
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "登出",
+            "enabled": true,
+            "bounds": [
+              162,
+              2174,
+              918,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-15533569-f07e-4c26-9a76-eae1ec5b465f",
+        "at": "2026-10-24T15:22:15.523Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:12.778Z",
+          "audio": "2026-10-24T15:22:12.920Z",
+          "ui": "2026-10-24T15:22:15.473Z"
+        },
+        "screenshot": "frame-15533569-f07e-4c26-9a76-eae1ec5b465f.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              259
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "返回",
+            "enabled": true,
+            "bounds": [
+              42,
+              131,
+              87,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "設定",
+            "enabled": true,
+            "bounds": [
+              118,
+              157,
+              223,
+              230
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "語言&#10;繁體中文",
+            "enabled": true,
+            "bounds": [
+              42,
+              307,
+              1038,
+              448
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關於我們",
+            "enabled": true,
+            "bounds": [
+              42,
+              451,
+              1038,
+              593
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "帳號",
+            "enabled": true,
+            "bounds": [
+              42,
+              595,
+              1038,
+              737
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "已封鎖的使用者",
+            "enabled": true,
+            "bounds": [
+              42,
+              740,
+              1038,
+              881
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "意見回饋",
+            "enabled": true,
+            "bounds": [
+              42,
+              884,
+              1038,
+              1026
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "加入 Discord",
+            "enabled": true,
+            "bounds": [
+              42,
+              1028,
+              1038,
+              1170
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "登出",
+            "enabled": true,
+            "bounds": [
+              162,
+              2174,
+              918,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-24T15:22:15.473Z",
+          "value": "true"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-24T15:22:09.964Z",
+      "finishedAt": "2026-10-24T15:22:15.524Z"
+    },
+    {
+      "id": "s6",
+      "description": "点击返回并检查 Me 页面显示",
+      "reason": "当前页面树存在唯一「返回」控件；按目标返回 Me，并显式检查 Me 入口。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "返回",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "ui",
+        "target": {
+          "kind": "description",
+          "value": "Me",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "property": "exists",
+        "operator": "equals",
+        "expected": "true",
+        "timeoutMs": 15000,
+        "sampleMs": 1000
+      },
+      "before": {
+        "id": "frame-abf495c7-3f4b-4c4e-883f-c00302a1774c",
+        "at": "2026-10-24T15:22:18.305Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:15.587Z",
+          "audio": "2026-10-24T15:22:15.754Z",
+          "ui": "2026-10-24T15:22:18.236Z"
+        },
+        "screenshot": "frame-abf495c7-3f4b-4c4e-883f-c00302a1774c.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              259
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "返回",
+            "enabled": true,
+            "bounds": [
+              42,
+              131,
+              87,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "設定",
+            "enabled": true,
+            "bounds": [
+              118,
+              157,
+              223,
+              230
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "語言&#10;繁體中文",
+            "enabled": true,
+            "bounds": [
+              42,
+              307,
+              1038,
+              448
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關於我們",
+            "enabled": true,
+            "bounds": [
+              42,
+              451,
+              1038,
+              593
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "帳號",
+            "enabled": true,
+            "bounds": [
+              42,
+              595,
+              1038,
+              737
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "已封鎖的使用者",
+            "enabled": true,
+            "bounds": [
+              42,
+              740,
+              1038,
+              881
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "意見回饋",
+            "enabled": true,
+            "bounds": [
+              42,
+              884,
+              1038,
+              1026
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "加入 Discord",
+            "enabled": true,
+            "bounds": [
+              42,
+              1028,
+              1038,
+              1170
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "登出",
+            "enabled": true,
+            "bounds": [
+              162,
+              2174,
+              918,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-5a60ea86-3121-4058-b7f2-850bdf754d39",
+        "at": "2026-10-24T15:22:21.275Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:18.488Z",
+          "audio": "2026-10-24T15:22:18.610Z",
+          "ui": "2026-10-24T15:22:21.239Z"
+        },
+        "screenshot": "frame-5a60ea86-3121-4058-b7f2-850bdf754d39.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              131,
+              943,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              943,
+              131,
+              1070,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo&#10;1&#10;第 1 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              235,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "遊玩中&#10;50&#10;第 2 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              235,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              286,
+              252,
+              496
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              194,
+              438,
+              247,
+              490
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              289,
+              291,
+              550,
+              343
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "UID: u_OEJET4",
+            "enabled": true,
+            "bounds": [
+              289,
+              359,
+              572,
+              412
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;追蹤中",
+            "enabled": true,
+            "bounds": [
+              289,
+              443,
+              438,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              561,
+              286,
+              634,
+              349
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;粉絲",
+            "enabled": true,
+            "bounds": [
+              480,
+              443,
+              592,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Pro 會員&#10;Worldo Premium&#10;已到期&#10;2026-09-24 15:24:26",
+            "enabled": true,
+            "bounds": [
+              42,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              95,
+              598,
+              158,
+              643
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              633,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訂閱",
+            "enabled": true,
+            "bounds": [
+              781,
+              627,
+              996,
+              706
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "紅寶石&#10;146,534.0&#10;儲值",
+            "enabled": true,
+            "bounds": [
+              42,
+              800,
+              1038,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              84,
+              855,
+              152,
+              923
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "粉寶石&#10;0.0",
+            "enabled": true,
+            "bounds": [
+              447,
+              800,
+              633,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              640,
+              756,
+              808,
+              975
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              780,
+              844,
+              912,
+              1019
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              870,
+              800,
+              1033,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "#清朝&#10;OID：o_04YDBA&#10;最新版本：V1&#10;1&#10;1&#10;1",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              200,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "編輯#清朝",
+            "enabled": true,
+            "bounds": [
+              954,
+              1115,
+              1038,
+              1189
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-24T15:22:21.239Z",
+          "value": "true"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-24T15:22:15.525Z",
+      "finishedAt": "2026-10-24T15:22:21.275Z"
+    },
+    {
+      "id": "s7",
+      "description": "断言返回后 Me 个人页主体正常显示并截图",
+      "reason": "s6 已验证 Me 入口存在；进一步检查当前账号 UID，避免仅凭底部导航判断个人页已正常显示。",
+      "action": {
+        "kind": "observe",
+        "target": {
+          "kind": "description",
+          "value": "UID: u_OEJET4",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "ui",
+        "target": {
+          "kind": "description",
+          "value": "UID: u_OEJET4",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "property": "exists",
+        "operator": "equals",
+        "expected": "true",
+        "timeoutMs": 15000,
+        "sampleMs": 1000
+      },
+      "before": {
+        "id": "frame-377d4a83-6a69-45d0-bbfe-3bf136c0a180",
+        "at": "2026-10-24T15:22:24.113Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:21.322Z",
+          "audio": "2026-10-24T15:22:21.449Z",
+          "ui": "2026-10-24T15:22:24.044Z"
+        },
+        "screenshot": "frame-377d4a83-6a69-45d0-bbfe-3bf136c0a180.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              131,
+              943,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              943,
+              131,
+              1070,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo&#10;1&#10;第 1 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              235,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "遊玩中&#10;50&#10;第 2 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              235,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              286,
+              252,
+              496
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              194,
+              438,
+              247,
+              490
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              289,
+              291,
+              550,
+              343
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "UID: u_OEJET4",
+            "enabled": true,
+            "bounds": [
+              289,
+              359,
+              572,
+              412
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;追蹤中",
+            "enabled": true,
+            "bounds": [
+              289,
+              443,
+              438,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              561,
+              286,
+              634,
+              349
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;粉絲",
+            "enabled": true,
+            "bounds": [
+              480,
+              443,
+              592,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Pro 會員&#10;Worldo Premium&#10;已到期&#10;2026-09-24 15:24:26",
+            "enabled": true,
+            "bounds": [
+              42,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              95,
+              598,
+              158,
+              643
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              633,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訂閱",
+            "enabled": true,
+            "bounds": [
+              781,
+              627,
+              996,
+              706
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "紅寶石&#10;146,534.0&#10;儲值",
+            "enabled": true,
+            "bounds": [
+              42,
+              800,
+              1038,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              84,
+              855,
+              152,
+              923
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "粉寶石&#10;0.0",
+            "enabled": true,
+            "bounds": [
+              447,
+              800,
+              633,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              640,
+              756,
+              808,
+              975
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              780,
+              844,
+              912,
+              1019
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              870,
+              800,
+              1033,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "#清朝&#10;OID：o_04YDBA&#10;最新版本：V1&#10;1&#10;1&#10;1",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              200,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "編輯#清朝",
+            "enabled": true,
+            "bounds": [
+              954,
+              1115,
+              1038,
+              1189
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-c63fd592-1b56-4e8e-9550-c332e5010380",
+        "at": "2026-10-24T15:22:27.032Z",
+        "observedAt": {
+          "foreground": "2026-10-24T15:22:24.176Z",
+          "audio": "2026-10-24T15:22:24.292Z",
+          "ui": "2026-10-24T15:22:26.964Z"
+        },
+        "screenshot": "frame-c63fd592-1b56-4e8e-9550-c332e5010380.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "debug",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              131,
+              943,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              943,
+              131,
+              1070,
+              257
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo&#10;1&#10;第 1 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              21,
+              1005,
+              235,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "遊玩中&#10;50&#10;第 2 個分頁 (共 2 個)",
+            "enabled": true,
+            "bounds": [
+              235,
+              1005,
+              430,
+              1089
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              259,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              286,
+              252,
+              496
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              194,
+              438,
+              247,
+              490
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              289,
+              291,
+              550,
+              343
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "UID: u_OEJET4",
+            "enabled": true,
+            "bounds": [
+              289,
+              359,
+              572,
+              412
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;追蹤中",
+            "enabled": true,
+            "bounds": [
+              289,
+              443,
+              438,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              561,
+              286,
+              634,
+              349
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2&#10;粉絲",
+            "enabled": true,
+            "bounds": [
+              480,
+              443,
+              592,
+              506
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Pro 會員&#10;Worldo Premium&#10;已到期&#10;2026-09-24 15:24:26",
+            "enabled": true,
+            "bounds": [
+              42,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              95,
+              598,
+              158,
+              643
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              633,
+              559,
+              1038,
+              774
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訂閱",
+            "enabled": true,
+            "bounds": [
+              781,
+              627,
+              996,
+              706
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "紅寶石&#10;146,534.0&#10;儲值",
+            "enabled": true,
+            "bounds": [
+              42,
+              800,
+              1038,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              84,
+              855,
+              152,
+              923
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "粉寶石&#10;0.0",
+            "enabled": true,
+            "bounds": [
+              447,
+              800,
+              633,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              640,
+              756,
+              808,
+              975
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              780,
+              844,
+              912,
+              1019
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              870,
+              800,
+              1033,
+              979
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1089,
+              1038,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "#清朝&#10;OID：o_04YDBA&#10;最新版本：V1&#10;1&#10;1&#10;1",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              1038,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1115,
+              200,
+              1351
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "編輯#清朝",
+            "enabled": true,
+            "bounds": [
+              954,
+              1115,
+              1038,
+              1189
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-24T15:22:26.964Z",
+          "value": "true"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-24T15:22:21.276Z",
+      "finishedAt": "2026-10-24T15:22:27.033Z"
+    }
+  ],
+  "cleanup": {
+    "ok": true,
+    "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+  },
+  "error": "",
+  "packageHash": "d9cede7be84a7366b499603ef12367b8c716096613fc2504745426ded3220750",
+  "independentSession": true,
+  "identity": {
+    "device": "1A101FDF6006AX",
+    "packageName": "com.worldo.ai",
+    "version": "9.9.9",
+    "apkSha256": "e95764932669e7b70da8bd1634d31d923ff1ad8e2d8abda6e4584924bfc6c311",
+    "android": "17",
+    "width": 1080,
+    "height": 2400
+  },
+  "finishedAt": "2026-10-24T15:22:27.034Z"
+}

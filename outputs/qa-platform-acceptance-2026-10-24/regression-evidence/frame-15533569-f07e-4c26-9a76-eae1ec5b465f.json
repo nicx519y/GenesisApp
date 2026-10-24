@@ -1,0 +1,234 @@
+{
+  "id": "frame-15533569-f07e-4c26-9a76-eae1ec5b465f",
+  "at": "2026-10-24T15:22:15.523Z",
+  "observedAt": {
+    "foreground": "2026-10-24T15:22:12.778Z",
+    "audio": "2026-10-24T15:22:12.920Z",
+    "ui": "2026-10-24T15:22:15.473Z"
+  },
+  "screenshot": "frame-15533569-f07e-4c26-9a76-eae1ec5b465f.png",
+  "width": 1080,
+  "height": 2400,
+  "foreground": "com.worldo.ai",
+  "audio": "none",
+  "nodes": [
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "android:id/content",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "debug",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        2400
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "",
+      "enabled": true,
+      "bounds": [
+        0,
+        0,
+        1080,
+        259
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "返回",
+      "enabled": true,
+      "bounds": [
+        42,
+        131,
+        87,
+        257
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "設定",
+      "enabled": true,
+      "bounds": [
+        118,
+        157,
+        223,
+        230
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "語言&#10;繁體中文",
+      "enabled": true,
+      "bounds": [
+        42,
+        307,
+        1038,
+        448
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "關於我們",
+      "enabled": true,
+      "bounds": [
+        42,
+        451,
+        1038,
+        593
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "帳號",
+      "enabled": true,
+      "bounds": [
+        42,
+        595,
+        1038,
+        737
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "已封鎖的使用者",
+      "enabled": true,
+      "bounds": [
+        42,
+        740,
+        1038,
+        881
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "意見回饋",
+      "enabled": true,
+      "bounds": [
+        42,
+        884,
+        1038,
+        1026
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "加入 Discord",
+      "enabled": true,
+      "bounds": [
+        42,
+        1028,
+        1038,
+        1170
+      ]
+    },
+    {
+      "id": "",
+      "text": "",
+      "description": "登出",
+      "enabled": true,
+      "bounds": [
+        162,
+        2174,
+        918,
+        2285
+      ]
+    }
+  ],
+  "treeAvailable": true,
+  "warnings": []
+}

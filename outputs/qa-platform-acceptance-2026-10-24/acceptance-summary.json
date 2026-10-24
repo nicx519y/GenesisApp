@@ -1,0 +1,100 @@
+{
+  "result": "passed_with_findings",
+  "scenario": "Me 进入设置并返回",
+  "timezone": "Asia/Shanghai",
+  "taskId": "task-411aa9ad-ef56-475f-96b7-c41f9a566091",
+  "caseId": "case-84cde67a-c4d6-4da9-9e44-55cdd101b3e5",
+  "publishedAt": "2026-10-24T15:21:45.390Z",
+  "identity": {
+    "device": "1A101FDF6006AX",
+    "packageName": "com.worldo.ai",
+    "version": "9.9.9",
+    "apkSha256": "e95764932669e7b70da8bd1634d31d923ff1ad8e2d8abda6e4584924bfc6c311",
+    "android": "17",
+    "width": 1080,
+    "height": 2400
+  },
+  "caseHash": "d9cede7be84a7366b499603ef12367b8c716096613fc2504745426ded3220750",
+  "explorationSeconds": 208.374,
+  "elapsedTaskToRegressionSeconds": 441.956,
+  "runs": [
+    {
+      "id": "run-8e5e195a-e916-4591-a203-ab8704b1b316",
+      "mode": "verify",
+      "status": "completed",
+      "appResult": "passed",
+      "seconds": 35.586,
+      "stepCount": 5,
+      "assertionsPassed": 4,
+      "cleanupOk": true,
+      "independentSession": true
+    },
+    {
+      "id": "run-60e2d959-2ab5-45e5-bedb-532a71a6ef6a",
+      "mode": "verify",
+      "status": "completed",
+      "appResult": "passed",
+      "seconds": 36.97,
+      "stepCount": 5,
+      "assertionsPassed": 4,
+      "cleanupOk": true,
+      "independentSession": true
+    },
+    {
+      "id": "run-abb2ed3e-acce-4765-9e6d-19da577b13c7",
+      "mode": "verify",
+      "status": "completed",
+      "appResult": "passed",
+      "seconds": 36.642,
+      "stepCount": 5,
+      "assertionsPassed": 4,
+      "cleanupOk": true,
+      "independentSession": true
+    },
+    {
+      "id": "run-da72c400-c4e8-4be3-bd07-921410dd1d41",
+      "mode": "regression",
+      "status": "completed",
+      "appResult": "passed",
+      "seconds": 36.076,
+      "stepCount": 5,
+      "assertionsPassed": 4,
+      "cleanupOk": true,
+      "independentSession": true
+    }
+  ],
+  "bundleFileHashChecks": {
+    "case.yaml": true,
+    "scenario.md": true,
+    "test.ts": true,
+    "assertions.yaml": true,
+    "locators.yaml": true,
+    "recipe.json": true,
+    "provenance.json": true,
+    "README.md": true
+  },
+  "leasesRemaining": 0,
+  "findings": [
+    {
+      "id": "F1",
+      "priority": "P2",
+      "title": "未基于可用页面树选择定位字段",
+      "evidence": "探索 s1 以 text=Me 检查，但 Me 实际在 description 字段中，误记为失败；s2 自行纠正。",
+      "recommendation": "页面树可用后再选择准确字段；将无法建立可靠定位标记为工程诊断。"
+    },
+    {
+      "id": "F2",
+      "priority": "P2",
+      "title": "观察窗口短于页面树采集耗时",
+      "evidence": "s4 timeoutMs=1000，唯一采样为 true，步骤总耗时 2.853 秒，最终 failed；s5 保持同一预期、改为 15000ms 后 passed。",
+      "recommendation": "给 UI 检查提供符合采集耗时的窗口，并将采集超窗与真实业务失败分开表述；性能目标应单独定义。"
+    },
+    {
+      "id": "F3",
+      "priority": "P2",
+      "title": "最终结果与累计失败统计不一致",
+      "evidence": "最终报告正文为测试通过，但顶部仍显示 2 功能未通过；这两条分别是定位字段错误和采集超窗。",
+      "recommendation": "分别展示最终业务结论、已恢复的探索尝试和执行故障，保留原始记录。"
+    }
+  ]
+}

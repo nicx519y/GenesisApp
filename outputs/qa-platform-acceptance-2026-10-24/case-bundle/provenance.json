@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "sessionId": "task-411aa9ad-ef56-475f-96b7-c41f9a566091",
+  "sourceEngineHash": "2b4329bcd590841937a1b8e397292a316fa8fa337c988957c1dddb64fb477ffc",
+  "candidateEngineHash": "2b4329bcd590841937a1b8e397292a316fa8fa337c988957c1dddb64fb477ffc",
+  "confirmedAt": "2026-10-24T15:18:55.490Z",
+  "confirmedHash": "9d7d12965e3f02d0bc0834dce87d43d3227170d60955282c70fde39596da95a3",
+  "sourceSteps": [
+    {
+      "id": "s2",
+      "hash": "2d985d1bd756df501edaeae3e5cec2e034766e5daa8b1afe3893225013b7553e"
+    },
+    {
+      "id": "s3",
+      "hash": "f80714eb3765bfa6901155853471404c8a4e256ede8cec146c43b5f177290c13"
+    },
+    {
+      "id": "s5",
+      "hash": "ab5dab2d16852eb772637e8b4434120aa3048d67ab06ce21129b4f9e71805b9c"
+    },
+    {
+      "id": "s6",
+      "hash": "b00e56b6dd920f445518fa1f79bcf37998e2b14029854e5f5b327ae7e2bdc0b4"
+    },
+    {
+      "id": "s7",
+      "hash": "3045e61403ba52d9f536f9ca78309c13f6d6cd58fa9e60bd6b614abf1d3df978"
+    }
+  ],
+  "limitations": [
+    "设置齿轮使用截图坐标定位，固化发布前需验证截图模板定位可靠性。"
+  ]
+}

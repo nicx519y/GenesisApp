@@ -1,0 +1,20 @@
+schema: 1
+id: case-84cde67a-c4d6-4da9-9e44-55cdd101b3e5
+version: 1
+runtime: exploration-1
+engineHash: 2b4329bcd590841937a1b8e397292a316fa8fa337c988957c1dddb64fb477ffc
+title: Me 进入设置并返回
+packageName: com.worldo.ai
+dataSource: existing
+preconditions: 使用手机上现有账号、当前安装 App
+  和已有数据；仅进行导航与页面检查，保留账号和缓存。不登录、不编辑资料、不发送内容、不购买、不清除数据；如缺少必要前提则报告阻塞。
+identity:
+  device: 1A101FDF6006AX
+  packageName: com.worldo.ai
+  version: 9.9.9
+  apkSha256: e95764932669e7b70da8bd1634d31d923ff1ad8e2d8abda6e4584924bfc6c311
+  android: "17"
+  width: 1080
+  height: 2400
+cleanup: none
+extensions: []

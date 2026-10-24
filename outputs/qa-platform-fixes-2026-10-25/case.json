@@ -1,0 +1,191 @@
+{
+  "id": "case-478fa199-9647-4457-9a09-48fdf76db2ba",
+  "version": 1,
+  "sessionId": "task-cf4d3281-ec9b-4d49-bd5b-f4d30061535c",
+  "title": "Me 进入 Settings 并返回验收",
+  "createdAt": "2026-10-24T16:20:59.773Z",
+  "status": "published",
+  "recipe": {
+    "title": "Me 进入 Settings 并返回验收",
+    "scope": "当前安装 App、现有账号及数据下的页面导航与显示检查",
+    "preconditions": "使用手机上现有账号、当前安装 App 和已有数据；仅进行导航与页面检查，保留账号和缓存。不登录、不编辑资料、不发送内容、不购买、不清除数据；如缺少必要前提则报告阻塞。",
+    "cleanup": "none",
+    "steps": [
+      {
+        "id": "s1",
+        "description": "重新确认当前前台为目标 App",
+        "reason": "排除上次前台身份错误，避免误操作其他应用。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "foreground",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "com.worldo.ai",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s2",
+        "description": "从首页进入 Me",
+        "reason": "当前页面树中存在唯一可用的 Me 导航入口。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "Me",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": null
+      },
+      {
+        "id": "s3",
+        "description": "从 Me 打开 Settings",
+        "reason": "当前页面树中齿轮控件无 id、text 或 description，使用其中心屏幕比例定位。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "image",
+            "value": "FRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVGBgYGBYVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUJBwcHEhYVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFhUVFXOPioorEBYVFhUVFRUVFRUVFRUVFRUVFRUVFRUUGRMn7v/7/2MJGxYUFhUVFRUVFRUVFRUVFRUVFRUVFBUJADnx8Oz/fgAKEBYTFRUVFRUVFRUVFRUVFRUVGAZx2XVXy/bv7/TmdlnBrg8WFRUVFRUVFRUVFRUVFRcPJeT//fv58/7/9/X8/Pz/XwUYFRUVFRUVFRUVFRUVFwye/+3x8Pfwt63e/O/x7/fZJBIWFRUVFRUVFRUVFRUVFLv/8fH53UIKCSCv/vHx/O05DhcVFRUVFRUVFRUVFRYSGaH48PtaARoZDCDe9vfQOA0XFRUVFRUVFRUVFRUVFRcNKOz45iYTFhUZCa39/2oBGhUVFRUVFRUVFRUVFRUVFwU98PbsLBEYFhoKt/z+gAAWFRUVFRUVFRUVFRUVFRYRRtf37/+DABETAELw8/PwdxQVFRUVFRUVFRUVFRUVFRTQ//Dy8vWDLCZa3fjw8vX9QQwXFRUVFRUVFRUVFRUYCXD+7fX38f7s5vv28/jt/bMQFhUVFRUVFRUVFRUVFRYVEcb/69398PX28Pvq3//2OwsXFRUVFRUVFRUVFRUVFRcLR5M4HpX38fD5xDYifHMLFxUVFRUVFRUVFRUVFRUVFRcPBQ8JK+/z7v9vABUHChYVFRUVFRUVFRUVFRUVFRUVFRYYGBQh3fvz/lYLGRgXFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRM6SkhGGxQVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFQ4LCwsUFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFxcXFxUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFQ==",
+            "x": 0.932,
+            "y": 0.081
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": null
+      },
+      {
+        "id": "s4",
+        "description": "断言 Settings 页面正常显示",
+        "reason": "当前页面树中有唯一 description 为「設定」的标题；进入页面后需显式验证。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "設定",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "true",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s5",
+        "description": "从 Settings 返回 Me",
+        "reason": "当前页面树中存在唯一 description 为「返回」的控件，按目标执行返回导航；随后根据新页面树明确断言 Me 页面。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "返回",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": null
+      },
+      {
+        "id": "s6",
+        "description": "断言返回后 Me 页面正常显示并留存截图",
+        "reason": "当前页面树存在唯一账号 UID，结合本次返回导航可验证 Me 页面内容已恢复显示。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "UID: u_OEJET4",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "true",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      }
+    ],
+    "limitations": []
+  },
+  "identity": {
+    "device": "1A101FDF6006AX",
+    "packageName": "com.worldo.ai",
+    "version": "9.9.9",
+    "apkSha256": "e95764932669e7b70da8bd1634d31d923ff1ad8e2d8abda6e4584924bfc6c311",
+    "android": "17",
+    "width": 1080,
+    "height": 2400
+  },
+  "hash": "132b8be0c76283c7a1b3129b017f3f6eaab9509d55916fc090f100762e6b4d87",
+  "files": {
+    "case.yaml": "8652a086561acc325439a9a9e326af0f09f19dbb24055aa43b6a9980aca69457",
+    "scenario.md": "4c7dd6cbea6fda0c720c0c9c093638f7bc28912f9ef95a59afd54ae8b3090bc2",
+    "test.ts": "238e29d4c250eab53bca81df3710d0a62814e2ecad8f5e9374c7b914fddbbe14",
+    "assertions.yaml": "5907eb4b839cb8702d1c68efb1276f02ec6dbfbd7708bf2db9b269de2786c9e2",
+    "locators.yaml": "dfe9b4a9d26663a1f91e33cd55025228b7bcb878a2f2c4339eb9b0e64639bfe0",
+    "recipe.json": "b09d2ff35f18c682490567382a1055c6efaca2a01180d04a57f9022701de1942",
+    "provenance.json": "b78438d82ba6e5cfceb0bdc206ffa09e3ccaeb11915d6fad8414c49371006373",
+    "README.md": "6bc5838e37381607f6d8ba92c819b8d9ff0d0e4c78c8d04073f2e6214dcbb58f"
+  },
+  "runIds": [
+    "run-4494379a-9c54-482a-b4fc-6a88ed0483f6",
+    "run-50423bae-4f40-4baa-ab1b-a3bc9f6beef5",
+    "run-0a82bc0f-51f0-4614-bfb9-9cda51b8bd48",
+    "run-23c08080-91c4-4fd6-9a7e-8db217be5a49"
+  ],
+  "publishedAt": "2026-10-24T16:23:40.131Z"
+}

@@ -1,0 +1,16 @@
+[
+  "apps/service/src/exploration/model.ts",
+  "apps/service/src/exploration/device.ts",
+  "apps/service/src/exploration/agent.ts",
+  "apps/service/src/exploration/service.ts",
+  "apps/service/src/exploration/cli.ts",
+  "apps/web/src/components/exploration-console.tsx",
+  "apps/web/src/components/exploration-ui.tsx",
+  "apps/service/src/exploration/workflow.test.ts",
+  "docs/exploration-first.md",
+  "apps/service/src/exploration/observation.test.ts",
+  "apps/web/src/lib/exploration-results.ts",
+  "apps/web/src/lib/exploration-results.test.ts",
+  "apps/web/src/components/exploration-summary.tsx",
+  "apps/web/src/components/exploration-summary.test.tsx"
+]

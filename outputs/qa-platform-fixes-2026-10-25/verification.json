@@ -1,0 +1,119 @@
+{
+  "verifiedAt": "2026-10-24T16:26:18.872383+00:00",
+  "repository": "/Users/ionix/Works/GenesisAppAutomationTest",
+  "scope": "Pixel 6 实机 Me → Settings → Me；当前安装版本、现有账号与数据。不是全平台功能覆盖。",
+  "fixes": [
+    "定位字段混用返回执行诊断，不自动换字段、不算作 App 缺陷",
+    "新生成 UI 检查要求先取得页面树且观测窗口至少 15 秒；迟到观测不算通过，执行错误阻止发布",
+    "当前候选方案与历史尝试分开统计，诊断独立展示"
+  ],
+  "testEvidence": {
+    "backend": {
+      "passed": 32,
+      "execution": "31 项全量通过后，新增重复诊断停止测试单独通过；全量日志见 backend-tests.log"
+    },
+    "frontend": {
+      "passed": 5
+    },
+    "typechecks": {
+      "service": "passed",
+      "web": "passed; incremental=false"
+    },
+    "diffCheck": "passed",
+    "productionBuild": "not run"
+  },
+  "engineHash": "c2a6b7ea795861c1ac8b561596686dd429e50235a9ea487dcb252d9338972c12",
+  "taskId": "task-cf4d3281-ec9b-4d49-bd5b-f4d30061535c",
+  "caseId": "case-478fa199-9647-4457-9a09-48fdf76db2ba",
+  "caseStatus": "published",
+  "caseHash": "132b8be0c76283c7a1b3129b017f3f6eaab9509d55916fc090f100762e6b4d87",
+  "deviceIdentity": {
+    "device": "1A101FDF6006AX",
+    "packageName": "com.worldo.ai",
+    "version": "9.9.9",
+    "apkSha256": "e95764932669e7b70da8bd1634d31d923ff1ad8e2d8abda6e4584924bfc6c311",
+    "android": "17",
+    "width": 1080,
+    "height": 2400
+  },
+  "runs": [
+    {
+      "id": "run-4494379a-9c54-482a-b4fc-6a88ed0483f6",
+      "mode": "verify",
+      "status": "completed",
+      "appResult": "passed",
+      "startedAt": "2026-10-24T16:21:02.056Z",
+      "finishedAt": "2026-10-24T16:21:44.103Z",
+      "cleanup": {
+        "ok": true,
+        "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+      },
+      "packageHash": "132b8be0c76283c7a1b3129b017f3f6eaab9509d55916fc090f100762e6b4d87",
+      "independentSession": true
+    },
+    {
+      "id": "run-50423bae-4f40-4baa-ab1b-a3bc9f6beef5",
+      "mode": "verify",
+      "status": "completed",
+      "appResult": "passed",
+      "startedAt": "2026-10-24T16:21:50.572Z",
+      "finishedAt": "2026-10-24T16:22:32.351Z",
+      "cleanup": {
+        "ok": true,
+        "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+      },
+      "packageHash": "132b8be0c76283c7a1b3129b017f3f6eaab9509d55916fc090f100762e6b4d87",
+      "independentSession": true
+    },
+    {
+      "id": "run-0a82bc0f-51f0-4614-bfb9-9cda51b8bd48",
+      "mode": "verify",
+      "status": "completed",
+      "appResult": "passed",
+      "startedAt": "2026-10-24T16:22:50.255Z",
+      "finishedAt": "2026-10-24T16:23:32.229Z",
+      "cleanup": {
+        "ok": true,
+        "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+      },
+      "packageHash": "132b8be0c76283c7a1b3129b017f3f6eaab9509d55916fc090f100762e6b4d87",
+      "independentSession": true
+    },
+    {
+      "id": "run-23c08080-91c4-4fd6-9a7e-8db217be5a49",
+      "mode": "regression",
+      "status": "completed",
+      "appResult": "passed",
+      "startedAt": "2026-10-24T16:23:46.658Z",
+      "finishedAt": "2026-10-24T16:24:29.164Z",
+      "cleanup": {
+        "ok": true,
+        "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+      },
+      "packageHash": "132b8be0c76283c7a1b3129b017f3f6eaab9509d55916fc090f100762e6b4d87",
+      "independentSession": true
+    }
+  ],
+  "leasesAfterRun": 0,
+  "notes": [
+    "探索启动时有一次前台包名暂缺，保护机制拒绝点击，重新观测后恢复；四次固定执行均无执行诊断",
+    "历史任务、旧 Case 与旧运行证据保留；其他旧 Case 需要基于新版执行器重新固化并验证",
+    "每次 6 步包含 3 个实际断言和 3 个导航动作；不把无断言动作计为通过断言"
+  ],
+  "changedFilesSha256": {
+    "apps/service/src/exploration/model.ts": "9cfce80192c983390de607ab252f32ebe832346fa2b145ba058ca3aaefa24fd6",
+    "apps/service/src/exploration/device.ts": "89d56b29de9ff8775632ccbb95e480a3593ef92cedd88c6496acb5a0a5adc091",
+    "apps/service/src/exploration/agent.ts": "aee35e422e89e6d7b2635278d7b489cdcc5ba8ae1a828a106c180ebf6ec2a85b",
+    "apps/service/src/exploration/service.ts": "ceda43a4aae71fddfe7d05759686b2fad6ec55ac0501242e1c1cdb6481367be1",
+    "apps/service/src/exploration/cli.ts": "af28ba614dd8ad921fa5f5c3c26adc58e58b6c07ebe157d02149e78b0e192e34",
+    "apps/web/src/components/exploration-console.tsx": "54439e8a5021d1be7a3dc8c97564f802a025a858df3d801bfb5e69343c19c4e6",
+    "apps/web/src/components/exploration-ui.tsx": "6741c41af382b11153037955cfb333f9c7548811b72194eab16744d67b74b0de",
+    "apps/service/src/exploration/workflow.test.ts": "54d86d29b2602e7a2ffc7baebcbc34de66be2de78ab9822aa7594e87cd0e3c67",
+    "docs/exploration-first.md": "4f99afedc0664fb0f428303af1aaa94f033a601a419d13c7528db2442aa179d7",
+    "apps/service/src/exploration/observation.test.ts": "16a2c0c77bcc2171cb96803017624f870ddfd2feef3959d6cd42d71bdc11dc39",
+    "apps/web/src/lib/exploration-results.ts": "ba823bc90981d67c01bc7541c0571156534a24bcdc7bfdf33a44c42243a207c7",
+    "apps/web/src/lib/exploration-results.test.ts": "6911140854abe71aa7fa96a2df19b306b7c4b58d475c2c337f16b7eb9f1addc7",
+    "apps/web/src/components/exploration-summary.tsx": "0b911b3ec5720b64f42856da7ae9733d10755a7a5e6e998517782805e9935e3c",
+    "apps/web/src/components/exploration-summary.test.tsx": "b50641750169c356a0af9b9c27ecf095aafb6a8b01c1a34ce472afb55f030dec"
+  }
+}
