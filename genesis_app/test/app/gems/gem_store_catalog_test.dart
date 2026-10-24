@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/gems/gem_store_catalog.dart';
@@ -14,6 +15,7 @@ class Store implements BillingPlatform {
   String currency = 'KRW';
   String formatted = '₩12,000';
   bool available = true;
+  Completer<void>? queryGate;
   String? option;
   String? offer;
   String? id;
@@ -27,6 +29,7 @@ class Store implements BillingPlatform {
     String? offerId,
   }) async {
     calls++;
+    await queryGate?.future;
     option = purchaseOptionId;
     offer = offerId;
     id = storeProductId;
@@ -61,6 +64,145 @@ GemProduct product() => GemProduct.fromJson({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+    'entry keeps checkout cache during API then refreshes the store',
+    () async {
+      final response = Completer<List<GemProduct>>();
+      final store = Store(BillingProvider.appStore);
+      var calls = 0;
+      final catalog = GemStoreCatalog(
+        loadProducts: () async => ++calls == 1 ? [product()] : response.future,
+        platform: store,
+        namespace: 'entry',
+        readOwner: () async => 'a',
+      );
+      await catalog.preload();
+      final old = catalog.cached!.single;
+      final refresh = catalog.loadForEntry();
+      await pumpEventQueue();
+      expect(calls, 2);
+      expect(catalog.queryingStore.value, isFalse);
+      expect(
+        await catalog.confirm(old).timeout(const Duration(seconds: 1)),
+        same(old),
+      );
+      expect(store.calls, 1);
+      store.queryGate = Completer<void>();
+      response.complete([product()]);
+      await pumpEventQueue();
+      expect(catalog.queryingStore.value, isTrue);
+      expect(store.calls, 2);
+      store.queryGate!.complete();
+      await refresh;
+      expect(catalog.queryingStore.value, isFalse);
+      expect(await catalog.confirm(catalog.cached!.single), isNotNull);
+      expect(calls, 2);
+      expect(store.calls, 2);
+    },
+  );
+  GemProduct tagged(String tag) => GemProduct.fromJson({
+    ...product().toJson(),
+    'activity_text': tag,
+    'bonus_gems_cent': tag.isEmpty ? 0 : 10000,
+  });
+
+  test(
+    'purchase refresh reloads server eligibility and shares in-flight entry loads',
+    () async {
+      var calls = 0;
+      final fresh = Completer<List<GemProduct>>();
+      final requested = Completer<void>();
+      final catalog = GemStoreCatalog(
+        loadProducts: () async {
+          if (++calls == 1) return [tagged('New User')];
+          if (!requested.isCompleted) requested.complete();
+          return fresh.future;
+        },
+        platform: Store(BillingProvider.googlePlay),
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      expect((await catalog.loadForEntry()).single.tagText, 'New User');
+      final refresh = catalog.refreshAfterPurchase();
+      final entry = catalog.loadForEntry();
+      await requested.future;
+      expect(calls, 2);
+      expect(await catalog.loadCached(), isNull);
+      fresh.complete([tagged('')]);
+      for (final result in await Future.wait([refresh, entry])) {
+        expect(result.single.tagText, isEmpty);
+        expect(result.single.bonusGemsCent, 0);
+      }
+      expect(calls, 2);
+      await catalog.loadForEntry();
+      expect(calls, 3);
+      final restored = GemStoreCatalog(
+        loadProducts: () async => [],
+        platform: Store(BillingProvider.googlePlay),
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      expect((await restored.loadCached())!.single.tagText, isEmpty);
+    },
+  );
+
+  test(
+    'failed purchase refresh cannot restore stale new-user disk cache',
+    () async {
+      var calls = 0;
+      final catalog = GemStoreCatalog(
+        loadProducts: () async {
+          if (++calls == 1) return [tagged('New User')];
+          throw StateError('offline');
+        },
+        platform: Store(BillingProvider.googlePlay),
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      await catalog.loadForEntry();
+      await expectLater(catalog.refreshAfterPurchase(), throwsStateError);
+      expect(await catalog.loadCached(), isNull);
+      final restored = GemStoreCatalog(
+        loadProducts: () async => [],
+        platform: Store(BillingProvider.googlePlay),
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      expect(await restored.loadCached(), isNull);
+      await expectLater(catalog.loadForEntry(), throwsStateError);
+      expect(calls, 3);
+    },
+  );
+
+  test(
+    'late pre-purchase response cannot overwrite refreshed products',
+    () async {
+      var calls = 0;
+      final stale = Completer<List<GemProduct>>();
+      final started = Completer<void>();
+      final catalog = GemStoreCatalog(
+        loadProducts: () async {
+          if (++calls == 1) {
+            started.complete();
+            return stale.future;
+          }
+          return [tagged('')];
+        },
+        platform: Store(BillingProvider.googlePlay),
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      final old = catalog.load();
+      final oldFailed = expectLater(old, throwsStateError);
+      await started.future;
+      expect((await catalog.refreshAfterPurchase()).single.tagText, isEmpty);
+      stale.complete([tagged('New User')]);
+      await oldFailed;
+      expect(catalog.cached!.single.tagText, isEmpty);
+      expect(calls, 2);
+    },
+  );
   for (final provider in BillingProvider.values) {
     test(
       '$provider preload stores prices and restart reads disk without checkout tokens',
@@ -181,8 +323,8 @@ void main() {
       expect(serverCalls, 1);
       expect(store.calls, 1);
       await source.loadForEntry();
-      expect(serverCalls, 1);
-      expect(store.calls, 1);
+      expect(serverCalls, 2);
+      expect(store.calls, 2);
     },
   );
 }

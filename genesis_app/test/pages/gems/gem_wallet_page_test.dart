@@ -11,9 +11,12 @@ import 'package:genesis_flutter_android/l10n/language_data_refresh.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/gems/gem_store_catalog.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
+import 'package:genesis_flutter_android/components/gems/gem_purchase_bottom_sheet.dart';
+import 'package:genesis_flutter_android/components/gems/gem_purchase_state.dart';
 import 'package:genesis_flutter_android/components/gems/wallet_purchase_tabs.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
@@ -24,6 +27,7 @@ import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
+import '../../app/gems/gem_store_catalog_test.dart' as catalog_support;
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
@@ -405,7 +409,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
+            [subscriptionFirst ? 3 : 2, 2, 1, 1, 1, 1],
           );
           // Returning to the foreground while Subscription is selected must
           // not issue background Gems page requests, even after visiting Gems.
@@ -420,7 +424,7 @@ void main() {
             AppLifecycleState.resumed,
           );
           await tester.pumpAndSettle();
-          expect([products, tasks, balances], [1, 1, 1]);
+          expect([products, tasks, balances], [2, 1, 1]);
           expect(tester.takeException(), isNull);
         },
       );
@@ -603,7 +607,7 @@ void main() {
         GenesisColors.darkTextSecondary,
       );
       expect(position.pixels, offset);
-      expect(productLoads, 1);
+      expect(productLoads, 2);
       await tester.drag(pages, const Offset(330, 0));
       await tester.pumpAndSettle();
       expect(
@@ -1630,6 +1634,186 @@ void main() {
     expect(find.text('Purchase failed.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
   });
+
+  testWidgets(
+    'Gems sheet uses cached purchase during API and blocks store refresh',
+    (tester) async {
+      final wallet = GemWalletStore(
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+        readUid: () async => 'u_user',
+      );
+      final billing = _FakeBillingService();
+      addTearDown(wallet.dispose);
+      addTearDown(billing.dispose);
+      final response = Completer<List<GemProduct>>();
+      final store = catalog_support.Store(BillingProvider.appStore);
+      var calls = 0;
+      final catalog = GemStoreCatalog(
+        loadProducts: () async => ++calls == 1 ? _products() : response.future,
+        platform: store,
+        namespace: 'sheet-entry',
+        readOwner: () async => 'u_user',
+      );
+      await catalog.preload();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 700,
+              child: GemPurchaseBottomSheet(
+                productsLoader: catalog.loadForEntry,
+                catalog: catalog,
+                walletStore: wallet,
+                billingService: billing,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      final card = find.byKey(const ValueKey('gem-product-gem_pack_500'));
+      expect(
+        tester
+            .widget<GemProductCard>(find.byType(GemProductCard))
+            .isPurchaseInProgress,
+        isFalse,
+      );
+      await tester.tap(card);
+      await tester.pump();
+      expect(billing.purchasedProducts, hasLength(1));
+      expect(calls, 2);
+      expect(store.calls, 1);
+      billing._state.value = BillingState(storeAvailable: true);
+      store.queryGate = Completer<void>();
+      response.complete(_products());
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('gem-products-global-loading')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<GemProductCard>(find.byType(GemProductCard))
+            .isPurchaseInProgress,
+        isTrue,
+      );
+      billing.emitFailure();
+      store.queryGate!.complete();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('gem-products-global-loading')),
+        findsNothing,
+      );
+      expect(store.calls, 2);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  for (final sheet in [false, true]) {
+    for (final failedRefresh in [false, true]) {
+      testWidgets(
+        'completed purchase replaces New User tag in ${sheet ? "sheet" : "page"} (refresh failure: $failedRefresh)',
+        (tester) async {
+          var calls = 0;
+          final wallet = GemWalletStore(
+            loadWallet: () async => const GemWallet(balanceCent: 43000),
+            readUid: () async => 'u_user',
+          );
+          final billing = _FakeBillingService();
+          addTearDown(wallet.dispose);
+          addTearDown(billing.dispose);
+          final refreshedProducts = Completer<List<GemProduct>>();
+          Future<List<GemProduct>> products() async {
+            calls++;
+            if (calls > 1) return refreshedProducts.future;
+            return _products()
+                .map(
+                  (p) => GemProduct.fromJson({
+                    ...p.toJson(),
+                    'activity_text': calls == 1 ? 'New User' : '',
+                  }),
+                )
+                .toList();
+          }
+
+          await tester.pumpWidget(
+            MaterialApp(
+              home: sheet
+                  ? Scaffold(
+                      body: SizedBox(
+                        height: 700,
+                        child: GemPurchaseBottomSheet(
+                          productsLoader: products,
+                          walletStore: wallet,
+                          billingService: billing,
+                        ),
+                      ),
+                    )
+                  : GemWalletPage(
+                      walletStore: wallet,
+                      billingService: billing,
+                      productsLoader: (_) => products(),
+                      tasksLoader: (_) async => _taskGroups(),
+                    ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('New User'), findsWidgets);
+          await tester.tap(
+            find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+          );
+          await tester.pump();
+          billing._state.value = BillingState(storeAvailable: true);
+          billing.emitSuccess();
+          await tester.pump();
+          await tester.pump();
+          expect(
+            find.byKey(const ValueKey<String>('gem-products-global-loading')),
+            findsOneWidget,
+          );
+          final cards = tester.widgetList<GemProductCard>(
+            find.byType(GemProductCard),
+          );
+          expect(cards, isNotEmpty);
+          expect(cards.every((card) => card.isPurchaseInProgress), isTrue);
+          await tester.tapAt(
+            tester.getCenter(
+              find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+            ),
+          );
+          expect(billing.purchasedProducts, hasLength(1));
+          if (failedRefresh) {
+            refreshedProducts.completeError(StateError('offline'));
+          } else {
+            refreshedProducts.complete(_products());
+          }
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey<String>('gem-products-global-loading')),
+            findsNothing,
+          );
+          expect(calls, 2);
+          expect(find.text('New User'), findsNothing);
+          if (failedRefresh) {
+            expect(find.byType(GemProductCard), findsNothing);
+            expect(
+              tester
+                  .widget<GemPurchaseState>(find.byType(GemPurchaseState))
+                  .onRetry,
+              isNotNull,
+            );
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        },
+      );
+    }
+  }
 
   testWidgets('billing success refreshes products tasks and wallet', (
     tester,

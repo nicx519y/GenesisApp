@@ -76,6 +76,7 @@ class _GemWalletContent extends StatelessWidget {
                     )
                   : GemProductGrid(
                       products: products!,
+                      isRefreshing: productsLoading || productsError != null,
                       billingStateListenable: billingStateListenable,
                       onPurchase: onPurchase,
                     ),

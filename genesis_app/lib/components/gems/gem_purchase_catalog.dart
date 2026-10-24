@@ -130,11 +130,13 @@ class GemProductGrid extends StatelessWidget {
     required this.products,
     required this.billingStateListenable,
     required this.onPurchase,
+    this.isRefreshing = false,
   });
 
   final List<GemProduct> products;
   final ValueListenable<BillingState> billingStateListenable;
   final ValueChanged<GemProduct> onPurchase;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +157,7 @@ class GemProductGrid extends StatelessWidget {
           return GemProductCard(
             product: product,
             isBuying: billingState.isBusy(product.productId),
-            isPurchaseInProgress: billingState.hasBusyPurchase,
+            isPurchaseInProgress: billingState.hasBusyPurchase || isRefreshing,
             onPurchase: () => onPurchase(product),
           );
         },

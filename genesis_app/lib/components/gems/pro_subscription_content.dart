@@ -133,6 +133,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   MembershipCheckoutPreparation? _checkoutPreparation;
   bool _loading = false;
   bool _started = false;
+  int? _entryRevision;
   int _requestGeneration = 0;
   MembershipPurchasePresentation? _purchasePresentation;
   MembershipPurchaseService? _presentationService;
@@ -162,13 +163,16 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     if (state != AppLifecycleState.resumed) {
       _clearCheckoutPreparation();
     } else if (!_submitting && _hasFreshCatalog) {
-      unawaited(_load(silent: true, forceRefresh: true));
+      unawaited(_load(silent: true));
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final revision = PurchaseCatalogEntry.of(context);
+    final reentered = _entryRevision != null && revision != _entryRevision;
+    _entryRevision = revision;
     _tracking = SubscriptionTrackingScope.maybeOf(context) ?? _ownTracking;
     final services = AppServicesScope.maybeOf(context);
     if (!_started || !identical(services, _services)) {
@@ -182,6 +186,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       services?.sessionRevision.addListener(_sessionChanged);
       _started = true;
       unawaited(_load());
+    } else if (reentered) {
+      unawaited(_load(silent: _offers.isNotEmpty));
     }
   }
 
@@ -221,11 +227,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   }
 
   void _purchaseChanged() {
-    unawaited(_load(silent: true, forceRefresh: true));
+    unawaited(_load(silent: true));
   }
 
   void _sessionChanged() {
-    unawaited(_load(silent: _offers.isNotEmpty, forceRefresh: true));
+    unawaited(_load(silent: _offers.isNotEmpty));
   }
 
   @override
@@ -240,11 +246,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     super.dispose();
   }
 
-  Future<void> _load({bool silent = false, bool forceRefresh = false}) async {
-    _clearCheckoutPreparation();
-    _hasFreshCatalog = false;
+  Future<void> _load({bool silent = false, bool checkoutOnly = false}) async {
     final request = ++_requestGeneration;
     final source = _catalog;
+    _hasFreshCatalog = source?.hasCheckoutProducts == true;
     final cached = source?.cached;
     setState(() {
       if (!silent) {
@@ -277,7 +282,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     try {
       final loader =
           widget.productsLoader ??
-          (forceRefresh ? source?.load : source?.loadForEntry);
+          (checkoutOnly ? source?.loadForCheckout : source?.loadForEntry);
       if (loader == null) throw MembershipPlatformUnavailable();
       final catalog = await loader();
       if (!mounted || request != _requestGeneration) return;
@@ -339,7 +344,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   }
 
   Future<void> _onSubscribePressed() async {
-    if (_submitting) return;
+    if (_submitting || _catalog?.queryingStore.value == true) return;
     final session = _services?.sessionRevision.value;
     setState(() {
       _submitting = true;
@@ -353,7 +358,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
           (_catalog != null &&
               !_catalog!.hasStoreProduct(_offerFor(_plan)?.product))) {
         final previous = _offerFor(_plan);
-        await _load(silent: true);
+        await _load(silent: true, checkoutOnly: true);
         if (!mounted || !_hasFreshCatalog) return;
         final current = _offerFor(_plan);
         if ((_catalog?.loadStorePrices != null &&
@@ -462,7 +467,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       // Keep this click occupied until the fresh catalog resolves. Without
       // this, a fast pre-store catalog failure releases `_submitting` and
       // repeated touches emit click/failed pairs in the same second.
-      await _load(forceRefresh: true);
+      await _load();
     }
     if (confirmed &&
         mounted &&
@@ -478,7 +483,17 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   }
 
   @override
-  Widget build(BuildContext context) => SubscriptionExposure(
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: Listenable.merge([
+      if (_catalog != null) _catalog!.queryingStore,
+    ]),
+    builder: (_, _) => GemProductRefreshGuard(
+      isLoading: _offers.isNotEmpty && _catalog?.queryingStore.value == true,
+      child: _buildExposure(context),
+    ),
+  );
+
+  Widget _buildExposure(BuildContext context) => SubscriptionExposure(
     key: ValueKey('subscription-exposure-${_tracking.pageId}'),
     onVisible: () {
       if (!mounted || ModalRoute.of(context)?.isCurrent == false) return false;

@@ -7,6 +7,7 @@ import 'subscription_tracking_scope.dart';
 import '../../app/membership/subscription_analytics.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/gems/gem_store_catalog.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
@@ -72,6 +73,7 @@ Future<void> showGemPurchaseBottomSheet(
         analyticsPageId: analyticsPageId,
         gemsBuilder: (_) => GemPurchaseBottomSheet(
           productsLoader: resolvedProductsLoader,
+          catalog: productsLoader == null ? services?.gemStoreCatalog : null,
           walletStore: resolvedWalletStore,
           billingService: resolvedBillingService,
         ),
@@ -114,6 +116,7 @@ Future<void> showSubscriptionPurchaseBottomSheet(
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
                   productsLoader: services.gemStoreCatalog.loadForEntry,
+                  catalog: services.gemStoreCatalog,
                   walletStore: services.gemWallet,
                   billingService: billingService,
                 ),
@@ -140,11 +143,13 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.productsLoader,
     required this.walletStore,
     required this.billingService,
+    this.catalog,
   });
 
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
+  final GemStoreCatalog? catalog;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -153,6 +158,18 @@ class GemPurchaseBottomSheet extends StatefulWidget {
 class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     with WidgetsBindingObserver {
   bool _checkingPrice = false;
+  int? _entryRevision;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = PurchaseCatalogEntry.of(context);
+    if (_entryRevision != null && revision != _entryRevision) {
+      unawaited(_loadProducts());
+    }
+    _entryRevision = revision;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed &&
@@ -165,6 +182,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   List<GemProduct>? _products;
   Object? _productsError;
   bool _productsLoading = false;
+  bool _blockingProductRefresh = false;
   int _productsRequestGeneration = 0;
   StreamSubscription<BillingUiEvent>? _billingEvents;
   final Set<String> _startedProductIds = <String>{};
@@ -196,10 +214,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   Future<void> _loadProducts() async {
     final generation = ++_productsRequestGeneration;
     setState(() {
+      _blockingProductRefresh =
+          widget.catalog == null &&
+          (_products != null || _productsError != null);
       _productsLoading = true;
       _productsError = null;
     });
-    final catalog = AppServicesScope.maybeRead(context)?.gemStoreCatalog;
+    final catalog = widget.catalog;
     if (catalog != null) {
       unawaited(() async {
         final snapshot = await catalog.loadCached();
@@ -220,23 +241,31 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       setState(() {
         _products = products;
         _productsLoading = false;
+        _blockingProductRefresh = false;
       });
     } catch (error) {
       if (!mounted || generation != _productsRequestGeneration) return;
       setState(() {
+        _products = null;
         _productsError = error;
         _productsLoading = false;
+        _blockingProductRefresh = false;
       });
     }
   }
 
   Future<void> _purchase(GemProduct product) async {
-    if (_checkingPrice || widget.billingService.state.value.hasBusyPurchase) {
+    if (_isProductRefreshBlocking ||
+        _productsError != null ||
+        _checkingPrice ||
+        widget.billingService.state.value.hasBusyPurchase) {
       return;
     }
     _showPurchaseProcessing(attemptId: '');
     if (product.requiresStorePrice) {
-      final catalog = AppServicesScope.maybeRead(context)?.gemStoreCatalog;
+      final catalog =
+          widget.catalog ??
+          AppServicesScope.maybeRead(context)?.gemStoreCatalog;
       if (catalog == null) {
         _dismissPurchaseDialog();
         return;
@@ -297,6 +326,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         return;
       case BillingUiEventKind.success:
         _showPurchaseSuccess(event);
+        unawaited(_loadProducts());
         return;
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
@@ -420,16 +450,32 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 14),
-      child: ValueListenableBuilder<GemWalletState>(
-        valueListenable: widget.walletStore.state,
-        builder: (context, walletState, _) => GemPurchaseCatalogSection(
-          balanceCent: walletState.balanceCent ?? 0,
-          balanceKey: const ValueKey<String>('gem-purchase-sheet-balance'),
-          compactBalance: true,
-          catalog: _buildProducts(),
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        if (widget.catalog != null) widget.catalog!.queryingStore,
+      ]),
+      builder: (_, _) => _buildPurchaseContent(context),
+    );
+  }
+
+  bool get _isProductRefreshBlocking =>
+      _blockingProductRefresh ||
+      (_products != null && widget.catalog?.queryingStore.value == true);
+
+  Widget _buildPurchaseContent(BuildContext context) {
+    return GemProductRefreshGuard(
+      isLoading: _isProductRefreshBlocking,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 14),
+        child: ValueListenableBuilder<GemWalletState>(
+          valueListenable: widget.walletStore.state,
+          builder: (context, walletState, _) => GemPurchaseCatalogSection(
+            balanceCent: walletState.balanceCent ?? 0,
+            balanceKey: const ValueKey<String>('gem-purchase-sheet-balance'),
+            compactBalance: true,
+            catalog: _buildProducts(),
+          ),
         ),
       ),
     );
@@ -453,6 +499,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     }
     return GemProductGrid(
       products: products,
+      isRefreshing: _isProductRefreshBlocking || _productsError != null,
       billingStateListenable: widget.billingService.state,
       onPurchase: (product) => unawaited(_purchase(product)),
     );

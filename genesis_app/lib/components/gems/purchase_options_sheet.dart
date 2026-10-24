@@ -10,6 +10,7 @@ import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_catalog.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import 'pro_subscription_content.dart';
+import 'gem_purchase_state.dart';
 import 'purchase_attribution_registration.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -54,6 +55,8 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   late TabController _tabs;
   late bool _gemsVisited;
   late bool _subscriptionVisited;
+  late int _lastEntryTab;
+  final List<int> _entryRevisions = [0, 0];
   MembershipAccessStore? _membership;
   late final SubscriptionPageTracking _subscriptionTracking;
   final PurchaseAttributionRegistration _attributionRegistration =
@@ -92,11 +95,15 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
       vsync: this,
     );
     _tabs.addListener(_visitCurrentTab);
+    _lastEntryTab = _tabs.index;
     _registerAttributionForCurrentTab();
   }
 
   void _visitCurrentTab() {
     _registerAttributionForCurrentTab();
+    if (_lastEntryTab == _tabs.index) return;
+    _lastEntryTab = _tabs.index;
+    setState(() => _entryRevisions[_tabs.index]++);
     if (_tabs.index == PurchaseSheetTab.subscription.index &&
         !_subscriptionVisited) {
       setState(() => _subscriptionVisited = true);
@@ -173,28 +180,35 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
               children: [
                 _PurchaseSheetPage(
                   child: GenesisActionSheetBody(
-                    child: _subscriptionVisited
-                        ? widget.subscriptionBuilder?.call(context) ??
-                              ProSubscriptionContent(
-                                refreshMembershipOnOpen: false,
-                                productsLoader: widget.membershipProductsLoader,
-                                closeOnPurchaseSuccess: true,
-                                topSpacing: 0,
-                                horizontalInset: 0,
-                                // Buy Gems starts its balance at the header
-                                // boundary; this tab starts there too.
-                                headingTopSpacing: 0,
-                              )
-                        : const SizedBox.expand(),
+                    child: PurchaseCatalogEntry(
+                      revision: _entryRevisions[0],
+                      child: _subscriptionVisited
+                          ? widget.subscriptionBuilder?.call(context) ??
+                                ProSubscriptionContent(
+                                  refreshMembershipOnOpen: false,
+                                  productsLoader:
+                                      widget.membershipProductsLoader,
+                                  closeOnPurchaseSuccess: true,
+                                  topSpacing: 0,
+                                  horizontalInset: 0,
+                                  // Buy Gems starts its balance at the header
+                                  // boundary; this tab starts there too.
+                                  headingTopSpacing: 0,
+                                )
+                          : const SizedBox.expand(),
+                    ),
                   ),
                 ),
                 if (widget.showBuyGems)
                   _PurchaseSheetPage(
                     child: GenesisActionSheetBody(
                       bottom: 10,
-                      child: _gemsVisited
-                          ? Builder(builder: widget.gemsBuilder)
-                          : const SizedBox.expand(),
+                      child: PurchaseCatalogEntry(
+                        revision: _entryRevisions[1],
+                        child: _gemsVisited
+                            ? Builder(builder: widget.gemsBuilder)
+                            : const SizedBox.expand(),
+                      ),
                     ),
                   ),
               ],

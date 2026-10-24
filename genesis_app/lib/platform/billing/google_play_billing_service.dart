@@ -30,6 +30,7 @@ class GooglePlayBillingService implements BillingService {
     required BillingProductCatalogLoader loadProductCatalog,
     required BillingPurchaseReporter reportPurchase,
     required BillingWalletRefresher refreshWallet,
+    BillingWalletRefresher? refreshProductsAfterPurchase,
     required BillingUidReader readUid,
     BillingAnalytics analytics = const GenesisBillingAnalytics(),
     Duration attemptTimeout = const Duration(seconds: 90),
@@ -43,6 +44,7 @@ class GooglePlayBillingService implements BillingService {
        _loadProductCatalog = loadProductCatalog,
        _reportPurchase = reportPurchase,
        _refreshWallet = refreshWallet,
+       _refreshProductsAfterPurchase = refreshProductsAfterPurchase,
        _readUid = readUid,
        _analytics = analytics,
        _attemptTimeout = attemptTimeout,
@@ -56,6 +58,7 @@ class GooglePlayBillingService implements BillingService {
   final BillingProductCatalogLoader _loadProductCatalog;
   final BillingPurchaseReporter _reportPurchase;
   final BillingWalletRefresher _refreshWallet;
+  final BillingWalletRefresher? _refreshProductsAfterPurchase;
   final BillingUidReader _readUid;
   final BillingAnalytics _analytics;
   final Duration _attemptTimeout;

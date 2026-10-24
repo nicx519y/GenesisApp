@@ -149,7 +149,7 @@ class AppServices {
     _featureQuotaMembershipChanged();
     this.sessionRevision.addListener(_membershipSessionChanged);
     membershipPurchases?.catalogRevision.addListener(
-      this.membershipCatalog.invalidate,
+      _refreshMembershipProducts,
     );
   }
 
@@ -299,11 +299,22 @@ class AppServices {
     unawaited(membershipPurchases?.start());
   }
 
+  void _refreshMembershipProducts() {
+    membershipCatalog.invalidate();
+    unawaited(
+      membershipCatalog.loadForEntry().then<void>((_) {}).catchError((
+        Object error,
+      ) {
+        debugPrint('[Membership] product refresh failed: ${error.runtimeType}');
+      }),
+    );
+  }
+
   void dispose() {
     StoreQueryCache.reset();
     _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(
-      membershipCatalog.invalidate,
+      _refreshMembershipProducts,
     );
     membershipCatalog.resetForSession();
     gemStoreCatalog.reset();
@@ -618,6 +629,9 @@ class ServiceRegistry {
             loadBillingAccountId: loadBillingAccountUuid,
             loadProductCatalog: () => services._loadAuthenticatedGemProducts(),
             reportPurchase: api.v1.gem.reportPurchase,
+            refreshProductsAfterPurchase: () async {
+              await services.gemStoreCatalog.refreshAfterPurchase();
+            },
             refreshWallet: gemWallet.refreshAfterEntitlementGranted,
             readUid: sessionStore.readUid,
             interceptPurchase: membershipPurchases?.interceptPurchase,

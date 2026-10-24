@@ -139,8 +139,10 @@ class MembershipCatalog {
   Future<MembershipCatalogData>? _loading;
   int _session = 0;
   int _loadGeneration = 0;
+  final ValueNotifier<bool> queryingStore = ValueNotifier(false);
 
   MembershipCatalogData? get cached => _cached;
+  bool get hasCheckoutProducts => _checkoutProducts != null;
   bool get hasStoreProducts =>
       loadStorePrices == null ||
       (_storeRevision == StoreQueryCache.revision &&
@@ -169,6 +171,7 @@ class MembershipCatalog {
 
   /// Keep display snapshots, but discard credentials after purchase/claim changes.
   void invalidate() {
+    queryingStore.value = false;
     _loadGeneration++;
     _checkoutProducts = null;
     _checkoutOwner = null;
@@ -211,9 +214,15 @@ class MembershipCatalog {
     return _loading = _load(_session, generation);
   }
 
-  /// Reuse this session's server credentials and native store products. Disk
-  /// snapshots provide display only and never substitute for checkout identity.
-  Future<MembershipCatalogData> loadForEntry() => _loadForPreload();
+  /// Refresh on every entry; keep usable checkout data until the API returns.
+  Future<MembershipCatalogData> loadForEntry() {
+    final pending = _loading;
+    if (pending != null) return pending;
+    return _loading = _load(_session, ++_loadGeneration);
+  }
+
+  /// Checkout only repairs a missing cache; it does not refresh a valid catalog.
+  Future<MembershipCatalogData> loadForCheckout() => _loadForPreload();
 
   /// Entries, clicks and startup share current-session server/store results.
   /// Disk snapshots never authorize checkout without in-memory credentials.
@@ -277,7 +286,7 @@ class MembershipCatalog {
   Future<MembershipProductList> readCheckoutProducts() async {
     final session = _session;
     final generation = _loadGeneration;
-    await _loading;
+    if (_checkoutProducts == null) await _loading;
     final owner = await readOwnerUid?.call();
     final products = _checkoutProducts;
     if (session != _session ||
@@ -295,6 +304,7 @@ class MembershipCatalog {
     } finally {
       if (session == _session && generation == _loadGeneration) {
         _loading = null;
+        queryingStore.value = false;
       }
     }
   }
@@ -304,11 +314,21 @@ class MembershipCatalog {
     if (platform == null) throw MembershipPlatformUnavailable();
     final owner = await readOwnerUid?.call();
     final response = await loadProducts(platform);
+    if (session != _session ||
+        generation != _loadGeneration ||
+        await readOwnerUid?.call() != owner) {
+      return _catalog(response, platform);
+    }
+    queryingStore.value = true;
+    _checkoutProducts = null;
+    _checkoutOwner = null;
     final storeRevision = StoreQueryCache.revision;
     Map<String, MembershipStorePrice> prices = {};
     if (loadStorePrices != null) {
       try {
-        prices = await loadStorePrices!(response.products);
+        prices = await StoreQueryCache.refresh(
+          () => loadStorePrices!(response.products),
+        );
       } catch (error) {
         debugPrint(
           '[Membership] store price lookup failed: ${error.runtimeType}',

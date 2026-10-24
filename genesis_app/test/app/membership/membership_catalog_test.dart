@@ -13,6 +13,61 @@ import '../../support/membership_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'entry preserves checkout while API loads and refreshes store afterwards',
+    () async {
+      var calls = 0;
+      var storeCalls = 0;
+      final response = Completer<MembershipProductList>();
+      final store = Completer<Map<String, MembershipStorePrice>>();
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.apple,
+        loadProducts: (_) async => ++calls == 1
+            ? MembershipProductList(
+                products: [
+                  membershipProduct(provider: MembershipProvider.apple),
+                ],
+              )
+            : response.future,
+        loadStorePrices: (_) async => ++storeCalls == 1 ? {} : store.future,
+      );
+      await catalog.preload();
+      final old = await catalog.readCheckoutProducts();
+      final refresh = catalog.loadForEntry();
+      await pumpEventQueue();
+      expect(catalog.queryingStore.value, isFalse);
+      expect(
+        await catalog.readCheckoutProducts().timeout(
+          const Duration(seconds: 1),
+        ),
+        same(old),
+      );
+      expect(calls, 2);
+      expect(storeCalls, 1);
+      response.complete(
+        MembershipProductList(
+          products: [
+            membershipProduct(
+              provider: MembershipProvider.apple,
+              title: 'Updated',
+            ),
+          ],
+        ),
+      );
+      await pumpEventQueue();
+      expect(catalog.queryingStore.value, isTrue);
+      store.complete({});
+      await refresh;
+      expect(catalog.queryingStore.value, isFalse);
+      expect(
+        (await catalog.readCheckoutProducts()).products.single.title,
+        'Updated',
+      );
+      expect(storeCalls, 2);
+      expect(calls, 2);
+    },
+  );
+
   for (final example in [
     ('JPY', '¥13,999', 13999000000, '¥1,167'),
     ('KRW', '₩139,999', 139999000000, '₩11,667'),
@@ -178,25 +233,28 @@ void main() {
       },
     );
 
-    test('$provider every entry reuses session checkout credentials', () async {
-      var calls = 0;
-      final catalog = MembershipCatalog(
-        provider: provider,
-        loadProducts: (_) async => MembershipProductList(
-          lastAccountUuid: '00000000-0000-4000-8000-00000000000${++calls}',
-          products: [membershipProduct(provider: provider)],
-        ),
-      );
-      await catalog.preload();
-      for (var entry = 2; entry <= 3; entry++) {
-        await catalog.loadForEntry();
-        expect(calls, 1);
-        expect(
-          (await catalog.readCheckoutProducts()).lastAccountUuid,
-          '00000000-0000-4000-8000-000000000001',
+    test(
+      '$provider every entry refreshes session checkout credentials',
+      () async {
+        var calls = 0;
+        final catalog = MembershipCatalog(
+          provider: provider,
+          loadProducts: (_) async => MembershipProductList(
+            lastAccountUuid: '00000000-0000-4000-8000-00000000000${++calls}',
+            products: [membershipProduct(provider: provider)],
+          ),
         );
-      }
-    });
+        await catalog.preload();
+        for (var entry = 2; entry <= 3; entry++) {
+          await catalog.loadForEntry();
+          expect(calls, entry);
+          expect(
+            (await catalog.readCheckoutProducts()).lastAccountUuid,
+            '00000000-0000-4000-8000-00000000000$entry',
+          );
+        }
+      },
+    );
   }
 
   test(

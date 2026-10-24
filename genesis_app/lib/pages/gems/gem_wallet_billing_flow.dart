@@ -33,7 +33,11 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
   }
 
   Future<void> _purchaseProduct(GemProduct product) async {
-    if (_checkingStorePrice) return;
+    if (_isProductRefreshBlocking ||
+        _productsError != null ||
+        _checkingStorePrice) {
+      return;
+    }
     final service =
         _billingService ??
         widget.billingService ??

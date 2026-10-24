@@ -26,6 +26,9 @@ extension _GemWalletDataActions on _GemWalletPageState {
     final generation = ++_productsRequestGeneration;
     final future = _loadProducts();
     _updateState(() {
+      _blockingProductRefresh =
+          widget.productsLoader != null &&
+          (_products != null || _productsError != null);
       _productsLoading = true;
       _productsError = null;
       if (!silent) _products = null;
@@ -54,13 +57,16 @@ extension _GemWalletDataActions on _GemWalletPageState {
         _products = products;
         _productsError = null;
         _productsLoading = false;
+        _blockingProductRefresh = false;
       });
       _startStoreRecovery(products);
     } catch (error) {
       if (!mounted || generation != _productsRequestGeneration) return;
       _updateState(() {
+        _products = null;
         _productsError = error;
         _productsLoading = false;
+        _blockingProductRefresh = false;
       });
     }
   }

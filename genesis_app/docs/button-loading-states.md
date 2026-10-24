@@ -17,8 +17,8 @@
 | Worldo Story Events | Save | `Saving...`，不加圆环 | 原品牌红 | `origin_story_events_editor_page.dart` |
 | Worldo 创建 / 发布 | Create / Publish | `Creating...` / `Publishing...` / `Checking...`，不加圆环 | 原品牌红 | `origin_editor_pages.dart` |
 | 新用户表单 | Continue | 标准 18px 圆环，线宽 2，提交中隐藏文字 | 原品牌红 | `personalization_sheet.dart` |
-| Gems 完整页 / Sheet | 充值卡片购买 | 接受点击立即显示购买处理弹窗，覆盖缺失商品缓存的补查；后续沿用原购买状态 | 原品牌红 | `gem_wallet_billing_flow.dart` / `gem_purchase_bottom_sheet.dart` |
-| 订阅 | Subscribe | 缺失目录补查期间立即显示按钮 loading；购买弹窗覆盖 checking、preparing、store、reporting | 原金色渐变 | `pro_subscription_content.dart` / `membership_purchase_presentation.dart` |
+| Gems 完整页 / Sheet | 充值卡片购买 | 入页服务端请求期间有效缓存可购买；服务端返回后查询商店期间已有商品显示全局 loading、禁用购买。首次无缓存仍用骨架。购买后旧缓存失效并刷新，失败清除旧商品并允许重试。接受购买点击后立即显示原购买处理弹窗 | 原品牌红 | `gem_wallet_billing_flow.dart` / `gem_purchase_bottom_sheet.dart` / `gem_purchase_state.dart` |
+| 订阅 | Subscribe | 入页服务端请求期间有效缓存可购买；服务端返回后查询商店期间已有套餐显示共用全局 loading。缺失缓存补查期间立即显示按钮 loading；购买弹窗覆盖 checking、preparing、store、reporting | 原金色渐变 | `pro_subscription_content.dart` / `membership_purchase_presentation.dart` |
 | 会员完整页 / 独立 Sheet / 新用户订阅 | 套餐购买 | 独立购买进度弹窗，按钮不加圆环 | 原金色渐变 | `pro_subscription_content.dart` |
 | 黑名单 | Block / Unblock | 原有 15px 圆环 | 原灰底 / 品牌红 | `settings_page.dart` |
 | 用户资料 | Follow / Following | 原有 16px 圆环 | 原品牌红 / 灰底 | `user_profile_actions.dart` |

@@ -8,6 +8,11 @@ abstract final class StoreQueryCache {
   static Expando<Map<String, Future<Object?>>> _pending = Expando();
   static int _generation = 0;
   static int get revision => _generation;
+  static final Object _freshQueryKey = Object();
+
+  /// Refresh only the queried SKUs, without invalidating unrelated checkout data.
+  static Future<T> refresh<T>(Future<T> Function() action) =>
+      runZoned(action, zoneValues: {_freshQueryKey: true});
 
   static void reset() {
     _generation++;
@@ -36,16 +41,22 @@ abstract final class StoreQueryCache {
   }) async {
     final values = _values[owner] ??= {};
     final cached = values[key];
-    if (cached is T && usable(cached)) return cached;
+    final fresh = Zone.current[_freshQueryKey] == true;
+    if (!fresh && cached is T && usable(cached)) return cached;
     final pending = _pending[owner] ??= {};
     final existing = pending[key];
-    if (existing != null) return (await existing) as T;
+    if (!fresh && existing != null) return (await existing) as T;
+    if (fresh) values.remove(key);
     final generation = _generation;
     final future = Future<T>.sync(loader);
     pending[key] = future;
     try {
       final value = await future;
-      if (generation == _generation && usable(value)) values[key] = value;
+      if (generation == _generation &&
+          identical(pending[key], future) &&
+          usable(value)) {
+        values[key] = value;
+      }
       return value;
     } finally {
       if (identical(pending[key], future)) pending.remove(key);

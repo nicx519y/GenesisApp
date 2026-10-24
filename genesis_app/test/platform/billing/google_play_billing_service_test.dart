@@ -263,6 +263,7 @@ void main() {
   late RecordingPurchaseEventRecorder purchaseEvents;
   late GooglePlayBillingService service;
   var refreshCount = 0;
+  var productRefreshCount = 0;
   var reportError = false;
   var reportStatus = GemPurchaseReportStatus.completed;
   var reportTransactionId = '';
@@ -279,6 +280,7 @@ void main() {
     analytics = _FakeBillingAnalytics();
     purchaseEvents = RecordingPurchaseEventRecorder();
     refreshCount = 0;
+    productRefreshCount = 0;
     reportError = false;
     reportStatus = GemPurchaseReportStatus.completed;
     reportTransactionId = '';
@@ -310,6 +312,9 @@ void main() {
         );
       },
       refreshWallet: () async => refreshCount += 1,
+      refreshProductsAfterPurchase: () async {
+        productRefreshCount++;
+      },
       readUid: () async => currentUid,
       analytics: analytics,
       purchaseEventReporting: purchaseEvents,
@@ -1140,6 +1145,7 @@ void main() {
     expect(reports, hasLength(1));
     expect(reports.single.purchaseToken, 'purchase-token-1');
     expect(refreshCount, 1);
+    expect(productRefreshCount, 1);
     expect(await pendingStore.loadAll(), isEmpty);
     expect(uiEvents, hasLength(2));
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
@@ -1158,6 +1164,7 @@ void main() {
       analytics.records.where((record) => record.action == 'purchase_success'),
       hasLength(1),
     );
+    expect(productRefreshCount, 1);
   });
 
   test(
@@ -1170,6 +1177,8 @@ void main() {
         expectedStoreProductId: 'com.worldo.gems.500',
       );
       final releaseRefresh = Completer<void>();
+      final releaseProducts = Completer<void>();
+      var productReloadStarted = false;
       service = GooglePlayBillingService(
         platform: platform,
         pendingPurchaseStore: pendingStore,
@@ -1184,6 +1193,10 @@ void main() {
           );
         },
         refreshWallet: () => releaseRefresh.future,
+        refreshProductsAfterPurchase: () {
+          productReloadStarted = true;
+          return releaseProducts.future;
+        },
         readUid: () async => 'u_1',
         analytics: analytics,
       );
@@ -1205,6 +1218,8 @@ void main() {
       expect(uiEvents.last.kind, BillingUiEventKind.success);
 
       releaseRefresh.complete();
+      expect(productReloadStarted, isTrue);
+      releaseProducts.complete();
       await _settle();
     },
   );

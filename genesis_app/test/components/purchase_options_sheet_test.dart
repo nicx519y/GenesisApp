@@ -260,7 +260,10 @@ void main() {
           await tester.tap(find.byKey(ValueKey(key)));
           await tester.pumpAndSettle();
         }
-        expect([memberships, products, balances, billing.starts], [1, 1, 1, 1]);
+        expect(
+          [memberships, products, balances, billing.starts],
+          [subscriptionFirst ? 4 : 3, 3, 1, 1],
+        );
         expect(tester.takeException(), isNull);
       },
     );

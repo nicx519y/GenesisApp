@@ -26,15 +26,21 @@ class GemStoreCatalog {
   int _storeRevision = -1;
   int _generation = 0;
   Future<List<GemProduct>>? _loading;
+  Future<List<GemProduct>>? _entryRefresh;
+  final ValueNotifier<bool> queryingStore = ValueNotifier(false);
+  bool _ignorePersistedCache = false;
   DateTime? _loadedAt;
   Future<void> _writes = Future.value();
   void reset() {
+    _ignorePersistedCache = false;
     _generation++;
     cached = null;
     _serverProducts = null;
     _storeReady = false;
     _storeReadyIds.clear();
     _loading = null;
+    _entryRefresh = null;
+    queryingStore.value = false;
     _loadedAt = null;
   }
 
@@ -55,6 +61,7 @@ class GemStoreCatalog {
 
   Future<List<GemProduct>?> loadCached() async {
     if (cached != null) return cached;
+    if (_ignorePersistedCache) return null;
     final generation = _generation;
     await _writes;
     final owner = await readOwner();
@@ -88,7 +95,11 @@ class GemStoreCatalog {
               : product.withStorePrice(),
         );
       }
-      if (generation != _generation || await readOwner() != owner) return null;
+      if (generation != _generation ||
+          _ignorePersistedCache ||
+          await readOwner() != owner) {
+        return null;
+      }
       _serverProducts ??= List.unmodifiable(result);
       return cached ??= List.unmodifiable(result);
     } catch (_) {
@@ -114,25 +125,75 @@ class GemStoreCatalog {
 
   Future<List<GemProduct>> loadForEntry() async {
     await loadCached();
-    return load();
+    final pending = _entryRefresh;
+    if (pending != null) return pending;
+    final generation = ++_generation;
+    final future = _fetch(generation, refresh: true);
+    _entryRefresh = _loading = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_entryRefresh, future)) _entryRefresh = null;
+      if (identical(_loading, future)) _loading = null;
+      if (generation == _generation) queryingStore.value = false;
+    }
   }
 
-  Future<List<GemProduct>> _fetch(int generation, {String? productId}) async {
+  /// Entitlement changed: refresh server eligibility, not just store prices.
+  /// Purchase completion discards old eligibility even if the refresh fails.
+  Future<List<GemProduct>> refreshAfterPurchase() {
+    reset();
+    _ignorePersistedCache = true;
+    final generation = _generation;
+    final future = _reloadPurchasedCatalog(generation);
+    _loading = future;
+    _entryRefresh = future;
+    return future.whenComplete(() {
+      if (identical(_loading, future)) _loading = null;
+      if (identical(_entryRefresh, future)) _entryRefresh = null;
+      if (generation == _generation) queryingStore.value = false;
+    });
+  }
+
+  Future<List<GemProduct>> _reloadPurchasedCatalog(int generation) async {
+    final owner = await readOwner();
+    await _writes;
+    if (owner == null ||
+        generation != _generation ||
+        await readOwner() != owner) {
+      throw StateError('Gem catalog session changed');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(owner));
+    if (generation != _generation || await readOwner() != owner) {
+      throw StateError('Gem catalog session changed');
+    }
+    return _fetch(generation, refresh: true);
+  }
+
+  Future<List<GemProduct>> _fetch(
+    int generation, {
+    String? productId,
+    bool refresh = false,
+  }) async {
     final owner = await readOwner();
     if (owner == null) {
       throw StateError('Gem products require an authenticated session');
     }
-    final products = _serverProducts ?? await loadProducts();
+    final products = refresh
+        ? await loadProducts()
+        : _serverProducts ?? await loadProducts();
     if (generation != _generation || await readOwner() != owner) {
       throw StateError('Gem catalog session changed');
     }
     _serverProducts = products;
+    if (refresh) queryingStore.value = true;
     final storeRevision = StoreQueryCache.revision;
     var available = false;
     try {
       available = await platform.isAvailable();
     } catch (_) {}
-    final result = await Future.wait(
+    Future<List<GemProduct>> query() => Future.wait(
       products.map((product) async {
         if (productId != null && product.productId != productId) {
           for (final previous in cached ?? const <GemProduct>[]) {
@@ -170,6 +231,7 @@ class GemStoreCatalog {
         }
       }),
     );
+    final result = await (refresh ? StoreQueryCache.refresh(query) : query());
     if (generation == _generation && await readOwner() == owner) {
       cached = List.unmodifiable(result);
       if (_storeRevision != storeRevision) _storeReadyIds.clear();
@@ -182,6 +244,7 @@ class GemStoreCatalog {
         }
       }
       _storeReady = result.every((p) => _storeReadyIds.contains(p.productId));
+      _ignorePersistedCache = false;
       _storeRevision = storeRevision;
       _loadedAt = DateTime.now();
       final body = jsonEncode({
@@ -213,10 +276,10 @@ class GemStoreCatalog {
 
   Future<GemProduct?> confirm(GemProduct displayed) async {
     final owner = await readOwner();
-    await _loading;
     final ready =
         _storeRevision == StoreQueryCache.revision &&
         _storeReadyIds.contains(displayed.productId);
+    if (!ready) await _loading;
     final loading = ready && cached != null
         ? Future.value(cached!)
         : _serverProducts == null

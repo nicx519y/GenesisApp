@@ -131,6 +131,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
 
     if (report.status == GemPurchaseReportStatus.completed) {
       _finishPurchaseAttempt(record, purchase);
+      _refreshProductsInBackground();
       if (!silent) {
         _emitUiEvent(
           BillingUiEvent(
@@ -217,6 +218,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
 
     if (report.status == GemPurchaseReportStatus.completed) {
+      _refreshProductsInBackground();
       _emitUiEvent(
         BillingUiEvent(
           kind: BillingUiEventKind.success,
@@ -251,6 +253,20 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       _clearAttempt(purchase, _attemptByPurchaseToken[record.purchaseToken]);
     } else {
       _setBusy(record.productId, false);
+    }
+  }
+
+  void _refreshProductsInBackground() {
+    final refresh = _refreshProductsAfterPurchase;
+    if (refresh == null) return;
+    try {
+      unawaited(
+        refresh().catchError((Object error, StackTrace stackTrace) {
+          debugPrint('[Billing] product refresh failed after purchase: $error');
+        }),
+      );
+    } catch (error) {
+      debugPrint('[Billing] product refresh failed after purchase: $error');
     }
   }
 

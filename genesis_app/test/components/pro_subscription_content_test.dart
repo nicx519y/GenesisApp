@@ -137,6 +137,77 @@ void _testWidgets(String name, Future<void> Function(WidgetTester) body) {
 
 void main() {
   testWidgets(
+    'cached purchase stays usable during API refresh then store lookup blocks',
+    (tester) async {
+      var calls = 0;
+      var storeCalls = 0;
+      var purchases = 0;
+      final response = Completer<MembershipProductList>();
+      final storeResult = Completer<Map<String, MembershipStorePrice>>();
+      const price = MembershipStorePrice(
+        formattedPrice: r'$99.99',
+        amountMicros: 99990000,
+        currencyCode: 'USD',
+        currencySymbol: r'$',
+      );
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async => ++calls == 1
+            ? MembershipProductList(products: [membershipProduct(yearly: true)])
+            : response.future,
+        loadStorePrices: (_) async =>
+            ++storeCalls == 1 ? {'pro_yearly': price} : storeResult.future,
+      );
+      await catalog.preload();
+      await tester.pumpWidget(
+        page(
+          null,
+          catalog: catalog,
+          purchase: (_) async {
+            purchases++;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(
+        find.byKey(const ValueKey('gem-products-global-loading')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pumpAndSettle();
+      expect(purchases, 1);
+      expect(calls, 2);
+      expect(storeCalls, 1);
+      response.complete(
+        MembershipProductList(products: [membershipProduct(yearly: true)]),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(catalog.queryingStore.value, isTrue);
+      expect(
+        find.byKey(const ValueKey('gem-products-global-loading')),
+        findsOneWidget,
+      );
+      await tester.tapAt(tester.getCenter(find.byKey(buttonKey)));
+      await tester.pump();
+      expect(purchases, 1);
+      storeResult.complete({'pro_yearly': price});
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('gem-products-global-loading')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pumpAndSettle();
+      expect(purchases, 2);
+      expect(calls, 2);
+      expect(storeCalls, 2);
+    },
+  );
+
+  testWidgets(
     'selected cached plan purchases without querying another missing plan',
     (tester) async {
       var serverCalls = 0;
@@ -695,30 +766,27 @@ void main() {
     }
   }
 
-  testWidgets(
-    'immediate reentry reuses the prepared catalog without requests',
-    (tester) async {
-      var calls = 0;
-      final catalog = MembershipCatalog(
-        provider: MembershipProvider.google,
-        loadProducts: (_) async {
-          calls++;
-          return MembershipProductList(
-            products: [membershipProduct(yearly: true)],
-          );
-        },
-      );
-      await tester.pumpWidget(page(null, catalog: catalog));
-      await tester.pumpAndSettle();
-      expect(calls, 1);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpWidget(page(null, catalog: catalog));
-      await tester.pumpAndSettle();
-      expect(calls, 1);
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-    },
-  );
+  testWidgets('immediate reentry refreshes the catalog', (tester) async {
+    var calls = 0;
+    final catalog = MembershipCatalog(
+      provider: MembershipProvider.google,
+      loadProducts: (_) async {
+        calls++;
+        return MembershipProductList(
+          products: [membershipProduct(yearly: true)],
+        );
+      },
+    );
+    await tester.pumpWidget(page(null, catalog: catalog));
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(page(null, catalog: catalog));
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 
   testWidgets('new app catalog displays disk cache before the API completes', (
     tester,

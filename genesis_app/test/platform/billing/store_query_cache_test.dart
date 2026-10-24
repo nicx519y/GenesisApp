@@ -5,6 +5,56 @@ import 'package:genesis_flutter_android/platform/billing/store_query_cache.dart'
 void main() {
   setUp(StoreQueryCache.reset);
 
+  test('refresh bypasses a cached SKU without clearing other SKUs', () async {
+    final owner = Object();
+    var calls = 0;
+    Future<int> query(String sku) => StoreQueryCache.load(
+      owner,
+      sku,
+      () async => ++calls,
+      usable: (_) => true,
+    );
+    expect(await query('gems'), 1);
+    expect(await query('subscription'), 2);
+    expect(await StoreQueryCache.refresh(() => query('gems')), 3);
+    expect(await query('gems'), 3);
+    expect(await query('subscription'), 2);
+    expect(calls, 3);
+  });
+
+  test('an older native lookup cannot overwrite a refreshed SKU', () async {
+    final owner = Object();
+    final oldResponse = Completer<int>();
+    final old = StoreQueryCache.load(
+      owner,
+      'sku',
+      () => oldResponse.future,
+      usable: (_) => true,
+    );
+    expect(
+      await StoreQueryCache.refresh(
+        () => StoreQueryCache.load(
+          owner,
+          'sku',
+          () async => 2,
+          usable: (_) => true,
+        ),
+      ),
+      2,
+    );
+    oldResponse.complete(1);
+    await old;
+    expect(
+      await StoreQueryCache.load(
+        owner,
+        'sku',
+        () async => 3,
+        usable: (_) => true,
+      ),
+      2,
+    );
+  });
+
   test(
     'reuses successful native objects and coalesces in-flight queries',
     () async {
