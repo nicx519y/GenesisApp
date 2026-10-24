@@ -1,0 +1,19 @@
+schema: 1
+id: case-8a28407f-feae-40e2-b634-609f8379aae2
+version: 1
+runtime: exploration-1
+engineHash: 2b4329bcd590841937a1b8e397292a316fa8fa337c988957c1dddb64fb477ffc
+title: Worldo 前台与无自动播放验收
+packageName: com.worldo.ai
+dataSource: existing
+preconditions: 用户已授权本次验收截图交给 Codex 模型，使用现有账号与数据；不创建内容，不清空数据。
+identity:
+  device: 1A101FDF6006AX
+  packageName: com.worldo.ai
+  version: 9.9.9
+  apkSha256: 53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab
+  android: "17"
+  width: 1080
+  height: 2400
+cleanup: none
+extensions: []

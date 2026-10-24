@@ -1,0 +1,11 @@
+{
+  "observed": "Uncommanded transition from music to app shell/create page during steps 21-25; affected playback continuity evidence is inconclusive and must be rerun.",
+  "excluded_steps": [
+    "21-latest-seek",
+    "22-seek-settled",
+    "23-resume-after-seek",
+    "24-resume-progress",
+    "25-next-track"
+  ],
+  "reason": "Device operation interference or unexplained navigation; no root cause assigned."
+}

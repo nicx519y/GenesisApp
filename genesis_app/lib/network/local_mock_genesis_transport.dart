@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../app/qa/fixtures/http/mock_response_overrides.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -67,6 +68,8 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
+    final qaResponse = await QaMockResponseOverrides.respond(request);
+    if (qaResponse != null) return qaResponse;
     final path = request.uri.path;
     final query = request.uri.queryParameters;
     final method = request.method.toUpperCase();
@@ -5089,10 +5092,25 @@ class _MockState {
   }
 
   Map<String, dynamic> _v1WorldContractItem(Map<String, dynamic> world) {
+    final completedTicks =
+        _v1WorldTicks(
+          world,
+        ).where((tick) => asInt(tick['status']) == 50).toList()..sort((a, b) {
+          final tick = asInt(b['tick_no']).compareTo(asInt(a['tick_no']));
+          return tick != 0
+              ? tick
+              : asInt(b['sub_tick_no']).compareTo(asInt(a['sub_tick_no']));
+        });
+    final currentTime = completedTicks.isEmpty
+        ? asString(world['current_time'])
+        : asString(
+            asJsonMap(completedTicks.first['tick_result'])['current_time'],
+          );
     return {
       'info': {
         'world_id': world['wid'],
         'world_name': world['name'],
+        'current_time': currentTime,
         'origin_id': world['oid'],
         'origin_version': '${world['origin_version_num'] ?? 1}',
         'origin_version_time': world['origin_version_create_at'],

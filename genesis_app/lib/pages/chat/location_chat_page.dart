@@ -691,6 +691,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   int _serviceGeneration = 0;
   int _selectedModelLoadGeneration = 0;
   ValueListenable<int>? _userInfoRevisionListenable;
+  // Extension method tear-offs are distinct closures; retain the registration
+  // callback so replacement and disposal remove that exact listener.
+  late final VoidCallback _cachedUserInfoListener =
+      _handleCachedUserInfoChanged;
+  late final VoidCallback _locationMessagesListener =
+      _handleLocationMessageChanges;
+  late final VoidCallback _replyActionsListener = _onReplyActionsChanged;
+  late final VoidCallback _preparedEntryListener = _onPreparedEntryChanged;
   int _tickProgressGeneration = 0;
   bool _tickProgressSessionActive = false;
   bool _awaitingTickProgressMessage = false;
@@ -978,7 +986,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _selectedModelLoadGeneration++;
     _timelineVmCache.clear();
     _messageParseCache.clear();
-    _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
+    _userInfoRevisionListenable?.removeListener(_cachedUserInfoListener);
     _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;
     if (_ownsService && service != null) {
@@ -1131,9 +1139,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       context,
     ).sessionStore.userInfoRevision;
     if (!identical(_userInfoRevisionListenable, userInfoRevision)) {
-      _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
+      _userInfoRevisionListenable?.removeListener(_cachedUserInfoListener);
       _userInfoRevisionListenable = userInfoRevision;
-      userInfoRevision.addListener(_handleCachedUserInfoChanged);
+      userInfoRevision.addListener(_cachedUserInfoListener);
     }
     final previousDevicePixelRatio = _devicePixelRatio;
     _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);

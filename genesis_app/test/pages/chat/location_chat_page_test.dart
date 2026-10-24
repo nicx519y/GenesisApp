@@ -73,6 +73,19 @@ bool _returnTrue() => true;
 
 bool _returnFalse() => false;
 
+class _TrackedUserInfoRevision extends ValueNotifier<int> {
+  _TrackedUserInfoRevision() : super(0);
+
+  bool get hasActiveSubscriptions => hasListeners;
+}
+
+class _TrackedUserInfoStore extends MemoryUserSessionStore {
+  final revision = _TrackedUserInfoRevision();
+
+  @override
+  ValueListenable<int> get userInfoRevision => revision;
+}
+
 Finder _replyActionLoading(String label) => find.descendant(
   of: find.bySemanticsLabel(label),
   matching: find.byType(CircularProgressIndicator),
@@ -2994,8 +3007,13 @@ void main() {
       content: 'Live prepared candidate',
       seq: 1,
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
+    // Positioning, source-card collapse and streamed text reveal need separate
+    // frames. A single large pump can only start the next animation stage.
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.textContaining('Live prepared candidate').evaluate().isNotEmpty,
+      step: const Duration(milliseconds: 50),
+    );
     expect(find.textContaining('Live prepared candidate'), findsWidgets);
     expect(
       harness.service
@@ -11727,6 +11745,104 @@ void main() {
     final userInfo = await sessionStore.readUserInfo();
     expect(userInfo?['selected_model_titles'], isNull);
   });
+
+  testWidgets(
+    'location chat releases shared service listeners on location change and disposal',
+    (tester) async {
+      final harness = await _connectedLocationChatTestService();
+      bool subscribed(Listenable value) {
+        // Inspect the real shared notifier without disposing its service owner.
+        // ignore: invalid_use_of_protected_member
+        return (value as ChangeNotifier).hasListeners;
+      }
+
+      List<Listenable> channels(String location) => [
+        harness.service.changesForLocation(location),
+        harness.service.replyActions!.changesForLocation(location),
+        harness.service.entryForLocation(location),
+      ];
+      final previous = channels('location-current');
+      final next = channels('location-next');
+      expect(previous.map(subscribed), everyElement(isFalse));
+      Future<void> show(String location) async {
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: LocationChatPanel(
+                worldId: 'world-current',
+                locationId: location,
+                service: harness.service,
+                usePreparedEntry: true,
+                leaveOnInactive: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      await show('location-current');
+      expect(previous.map(subscribed), everyElement(isTrue));
+      await show('location-next');
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await _pumpUntilLocationChatTest(tester, () => next.every(subscribed));
+      expect(previous.map(subscribed), everyElement(isFalse));
+      expect(next.map(subscribed), everyElement(isTrue));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(next.map(subscribed), everyElement(isFalse));
+      expect(tester.takeException(), isNull);
+      unawaited(harness.service.dispose());
+    },
+  );
+
+  testWidgets(
+    'location chat releases user info listeners on replacement and disposal',
+    (tester) async {
+      final stores = [_TrackedUserInfoStore(), _TrackedUserInfoStore()];
+      final services = stores
+          .map(
+            (store) => ServiceRegistry.build(
+              config: const AppConfig(useMock: true),
+              sessionStoreOverride: store,
+            ),
+          )
+          .toList();
+      Future<void> show(int index) async {
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services[index],
+            child: const MaterialApp(
+              home: LocationChatPanel(
+                worldId: 'world-current',
+                modelWorldId: 'world-current',
+                locationId: 'location-current',
+                active: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await show(0);
+      expect(stores[0].revision.hasActiveSubscriptions, isTrue);
+      await show(1);
+      expect(stores[0].revision.hasActiveSubscriptions, isFalse);
+      expect(stores[1].revision.hasActiveSubscriptions, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(stores[1].revision.hasActiveSubscriptions, isFalse);
+      for (final store in stores) {
+        store.revision.value++;
+        store.revision.dispose();
+      }
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('model catalog backfill requires a complete session', (
     tester,

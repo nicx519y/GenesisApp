@@ -34,10 +34,10 @@ class FirebaseCrashReporting {
   }
 
   static Future<void> configure(bool enabled) async {
-    final crashlytics = FirebaseCrashlytics.instance;
     if (!enabled) {
       _enabled = false;
       try {
+        final crashlytics = FirebaseCrashlytics.instance;
         await crashlytics.setCrashlyticsCollectionEnabled(false);
         await crashlytics.deleteUnsentReports();
         debugPrint(
@@ -52,6 +52,7 @@ class FirebaseCrashReporting {
     }
     if (_enabled) return;
     try {
+      final crashlytics = FirebaseCrashlytics.instance;
       await crashlytics.setCrashlyticsCollectionEnabled(true);
       if (!_handlersInstalled) {
         _installFlutterErrorHandler();

@@ -1,0 +1,157 @@
+[
+  {
+    "id": "M01",
+    "name": "目录与播放器入口",
+    "status": "通过",
+    "observation": "已有 World → MiniPhone 第二屏 → 音乐；真实标题、作者、来源和封面成功展示。初始未自动播放。",
+    "evidence": [
+      "14-player-initial"
+    ]
+  },
+  {
+    "id": "M02",
+    "name": "播放、暂停、恢复",
+    "status": "通过",
+    "observation": "首次播放建立 MUSIC 音轨；暂停后两次采样均为 0:09 且音轨 paused。桌面恢复后进度由 1:11 推进至 1:29，音轨 started。",
+    "evidence": [
+      "16-playing-advances",
+      "17-paused",
+      "18-paused-stable",
+      "29-home-playing",
+      "30-home-progress"
+    ]
+  },
+  {
+    "id": "M03",
+    "name": "下一首",
+    "status": "通过",
+    "observation": "Keep You Out of the Fire 切换到 Trust the One Who Stays，显示 0:04，系统音轨 started。",
+    "evidence": [
+      "32-next-track"
+    ]
+  },
+  {
+    "id": "M04",
+    "name": "上一首：当前曲重播",
+    "status": "通过",
+    "observation": "当前曲已超过 3 秒时点击上一首，仍为 Trust the One Who Stays 并回到 0:00；后续恢复推进至 0:46。",
+    "evidence": [
+      "33-previous-restart",
+      "35-after-switch-settled"
+    ]
+  },
+  {
+    "id": "M05",
+    "name": "上一首：切回前曲",
+    "status": "通过（加载完成后）",
+    "observation": "Sunny Side Up 在 0:00、控件可用时点击上一首，切回 Trust the One Who Stays。缓冲阶段的点击限制另见观察项 O01。",
+    "evidence": [
+      "60-fresh-controls",
+      "61-previous-stable-retry",
+      "62-previous-stable-ready"
+    ]
+  },
+  {
+    "id": "M06",
+    "name": "封面滑动切歌",
+    "status": "通过",
+    "observation": "在 Trust the One Who Stays 封面右滑，切至 Keep You Out of the Fire；后续播放和拖动使用该曲继续完成。",
+    "evidence": [
+      "36-cover-previous",
+      "39-latest-seek-progress"
+    ]
+  },
+  {
+    "id": "M07",
+    "name": "完整播放器连续拖动",
+    "status": "通过",
+    "observation": "连续向前、向后拖动，最后目标约为 1:06；之后显示 1:11 且音轨 started，未回到较早目标。",
+    "evidence": [
+      "38-latest-seek-retest",
+      "39-latest-seek-progress"
+    ]
+  },
+  {
+    "id": "M08",
+    "name": "桌面卡片与完整播放器同步",
+    "status": "通过",
+    "observation": "桌面播放进度持续推进，打开完整播放器保持同曲；桌面进度条中心点击可从 0:54 跳至 2:37，暂停状态保持。",
+    "evidence": [
+      "30-home-progress",
+      "31-full-player-sync",
+      "47-compact-center-seek",
+      "49-compact-center-control"
+    ]
+  },
+  {
+    "id": "M09",
+    "name": "桌面进度条扩大触摸区域",
+    "status": "失败",
+    "observation": "中心点击有效；同一目标上方约 18 个逻辑像素处点击无响应，仍停留 0:54。当前紧凑 Slider 高 20，已有测试要求至少 48。",
+    "evidence": [
+      "47-compact-center-seek",
+      "48-compact-offset-missed",
+      "49-compact-center-control"
+    ]
+  },
+  {
+    "id": "M10",
+    "name": "关闭 MiniPhone 后继续播放",
+    "status": "通过",
+    "observation": "播放器右上角关闭，返回 World 地图；音轨仍为 started。",
+    "evidence": [
+      "40-close-phone-playing"
+    ]
+  },
+  {
+    "id": "M11",
+    "name": "World 浮动音乐按钮",
+    "status": "通过",
+    "observation": "在暂停状态点击手机入口上方的播放气泡，系统音轨恢复 started。",
+    "evidence": [
+      "42-foreground-still-paused",
+      "43-dock-resumes"
+    ]
+  },
+  {
+    "id": "M12",
+    "name": "后台暂停与前台恢复规则",
+    "status": "通过",
+    "observation": "返回 Android 桌面后音轨 paused；再打开 Worldo 仍 paused，没有自动恢复播放。",
+    "evidence": [
+      "41-background-paused",
+      "42-foreground-still-paused"
+    ]
+  },
+  {
+    "id": "M13",
+    "name": "退出、重进 World",
+    "status": "通过",
+    "observation": "播放中退出 World 后音轨 paused；重进同一 World 后入口音乐提示清空，打开 MiniPhone 保留原歌曲和 1:24 的暂停进度。",
+    "evidence": [
+      "44-leave-world-pauses",
+      "45-reenter-world-icon-reset",
+      "46-progress-retained"
+    ]
+  },
+  {
+    "id": "M14",
+    "name": "结束后自动下一首",
+    "status": "通过",
+    "observation": "从 Keep You Out of the Fire 的 2:37 附近继续播放至结束，自动进入 Trust the One Who Stays，显示 0:12 且音轨 started。",
+    "evidence": [
+      "50-near-end-playing",
+      "51-auto-next"
+    ]
+  },
+  {
+    "id": "M15",
+    "name": "应用进程重启后恢复",
+    "status": "通过",
+    "observation": "Trust the One Who Stays 暂停在 1:12；保留数据结束进程并重新打开，再进入同一 World，仍是同曲 1:12，保持暂停且未建立播放音轨。",
+    "evidence": [
+      "63-before-restart",
+      "65-cold-restored"
+    ]
+  }
+]

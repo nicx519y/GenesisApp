@@ -303,7 +303,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             child: Center(
                               key: ValueKey('direct-messages-empty-state'),
                               child: Text(
-                                'Chat with your friends on Worldo.',
+                                'no private messages yet.',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: GenesisColors.darkTextSecondary,

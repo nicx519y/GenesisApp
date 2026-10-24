@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "runtime": "exploration-1",
+  "hash": "efa7a4372449a8c965d72c222c7f16472f4eab61bb22ee1f00f5e647ca29583d",
+  "files": {
+    "case.yaml": "0190b183c09fa2ce02ab4362d0978d7170c855a6d94fd8d82831651543ba72fa",
+    "scenario.md": "4bd97c0fa20e3e08d64ccf8d16b3dfad1a6f3b1615ae69f722d6e2e707bde8e1",
+    "test.ts": "4b53ca25dacbf393f2b2001fd8be296efe106448a3d02b3701f0e14f3be851f5",
+    "assertions.yaml": "619d092733674d763b66d1f9276294c199ea19cf57588d94f837c9b2a9fdd26f",
+    "locators.yaml": "7178c14347336dc9a7a1325791c39a0932e0d50b3ac12c9f46a734e9a102babd",
+    "recipe.json": "b7c1fe3188a64289d6cdac9a27dd969f2eb0d57ac8e7201162981dd7b94e9461",
+    "provenance.json": "756732146f77ac9e50c5fbfc7c3d53eb3821cec9b56dfe52f8924bfafebec8a7",
+    "README.md": "6bc5838e37381607f6d8ba92c819b8d9ff0d0e4c78c8d04073f2e6214dcbb58f"
+  }
+}

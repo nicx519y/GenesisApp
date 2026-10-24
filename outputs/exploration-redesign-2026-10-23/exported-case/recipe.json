@@ -1,0 +1,71 @@
+{
+  "title": "Worldo 前台与无自动播放验收",
+  "scope": "现有账号和数据；前台包名及至少 5 秒系统音轨观察",
+  "preconditions": "用户已授权本次验收截图交给 Codex 模型，使用现有账号与数据；不创建内容，不清空数据。",
+  "cleanup": "none",
+  "steps": [
+    {
+      "id": "s1",
+      "description": "检查前台包为 com.worldo.ai",
+      "reason": "用户要求显式验证前台包名，无需再次重启或导航。",
+      "action": {
+        "kind": "observe",
+        "target": {
+          "kind": "text",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "foreground",
+        "target": {
+          "kind": "text",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "property": "text",
+        "operator": "equals",
+        "expected": "com.worldo.ai",
+        "timeoutMs": 1000,
+        "sampleMs": 500
+      }
+    },
+    {
+      "id": "s2",
+      "description": "持续 5 秒检查系统音轨保持 none",
+      "reason": "验证观察窗口内没有自动播放；系统音轨状态不代表主观听感。",
+      "action": {
+        "kind": "observe",
+        "target": {
+          "kind": "text",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "audio",
+        "target": {
+          "kind": "text",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "property": "text",
+        "operator": "stable",
+        "expected": "none",
+        "timeoutMs": 5000,
+        "sampleMs": 500
+      }
+    }
+  ],
+  "limitations": []
+}

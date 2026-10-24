@@ -1,0 +1,2 @@
+pid=25185
+  AudioPlaybackConfiguration piid:2343 deviceIds:[] type:android.media.AudioTrack u/pid:10365/25185 state:idle attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_MUSIC flags=0xA00(FLAG_DEEP_BUFFER+FLAG_MUTE_HAPTIC)  tags= bundle=null sessionId:2569 mutedState:none  FormatInfo{isSpatialized=false, channelMask=0x0, sampleRate=0}

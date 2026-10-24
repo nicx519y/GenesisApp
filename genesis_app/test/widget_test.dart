@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
@@ -2765,6 +2766,76 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  for (final parent in [true, false]) {
+    testWidgets(
+      'Locations sheet opens selected ${parent ? "parent" : "leaf"} row',
+      (tester) async {
+        final services = await _testServices(
+          transport: _RecordingV1ListTransport(),
+          useMock: false,
+        );
+        final world = await services.api.getWorld('w_test_1');
+        final worldState = ValueNotifier<WorldDetail?>(world);
+        final selection = ValueNotifier(
+          const WorldBottomSheetSelection(
+            kind: WorldBottomSheetKind.locations,
+            eventsLatestRevision: 0,
+          ),
+        );
+        final notices = ValueNotifier<List<WorldNewUserJoinNotice>>([]);
+        final cache = WorldSectionsEventsCache()..reset(world.worldId);
+        addTearDown(worldState.dispose);
+        addTearDown(selection.dispose);
+        addTearDown(notices.dispose);
+        final selectedIds = <String>[];
+        final selectedLeafFlags = <bool>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) {
+                return Scaffold(
+                  body: TextButton(
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => WorldSingleSectionBottomSheet(
+                        selectionListenable: selection,
+                        services: services,
+                        initialWorld: world,
+                        worldListenable: worldState,
+                        newUserJoinNoticesListenable: notices,
+                        eventsCache: cache,
+                        currentUid: 'u_mock',
+                        recentChatLocationIds: const {},
+                        onLocationTap: (point) {
+                          selectedIds.add(point.sceneId);
+                          selectedLeafFlags.add(point.isLeafLocation);
+                        },
+                      ),
+                    ),
+                    child: const Text('Open locations'),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open locations'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.text(parent ? '- World Location' : 'Child Location'),
+        );
+        await tester.pumpAndSettle();
+        expect(selectedIds, [parent ? 'l_w_test_1' : 'l_w_test_1_child']);
+        expect(selectedLeafFlags, [!parent]);
+        expect(find.byType(WorldSingleSectionBottomSheet), findsNothing);
+        expect(find.text('Open locations'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
   testWidgets('loaded empty events survive reopening during refresh', (
     tester,
   ) async {
@@ -5589,7 +5660,7 @@ void main() {
       final emptyState = find.byKey(
         const ValueKey('direct-messages-empty-state'),
       );
-      final emptyText = find.text('Chat with your friends on Worldo.');
+      final emptyText = find.text('no private messages yet.');
       final emptyCenter = tester.getCenter(emptyState);
       final textCenter = tester.getCenter(emptyText);
       expect(textCenter.dx, closeTo(emptyCenter.dx, 0.1));
@@ -5621,14 +5692,14 @@ void main() {
       1,
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Chat with your friends on Worldo.'), findsOneWidget);
+    expect(find.text('no private messages yet.'), findsOneWidget);
     expectEmptyTextCentered();
 
     transport.completeConversations();
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Chat with your friends on Worldo.'), findsOneWidget);
+    expect(find.text('no private messages yet.'), findsOneWidget);
     expectEmptyTextCentered();
   });
 
@@ -5672,7 +5743,7 @@ void main() {
     final emptyState = find.byKey(
       const ValueKey('direct-messages-empty-state'),
     );
-    final emptyText = find.text('Chat with your friends on Worldo.');
+    final emptyText = find.text('no private messages yet.');
     final emptyCenter = tester.getCenter(emptyState);
     final textCenter = tester.getCenter(emptyText);
     expect(textCenter.dx, closeTo(emptyCenter.dx, 0.1));
@@ -34413,6 +34484,58 @@ void main() {
     },
   );
 
+  testWidgets(
+    'world completion targets refreshed round when page notification is pending',
+    (tester) async {
+      final rounds = <int>[3];
+      final locks = <bool>[true];
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'owner',
+        worldDetailTickCountsByRequest: rounds,
+        tickLockStatuses: locks,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: _FakeChatroomClient(),
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final action = find.byKey(const ValueKey('world-header-action-button'));
+      expect(action, findsOneWidget);
+      await tester.tap(action);
+      await tester.pump();
+      expect(transport.requestsFor('/api/v1/world/tick'), hasLength(1));
+      rounds[0] = 4;
+      locks[0] = false;
+      await tester.pump(const Duration(seconds: 10));
+      for (
+        var i = 0;
+        i < 40 && find.byType(WorldEventsSection).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+      final section = tester.widget<WorldEventsSection>(
+        find.byType(WorldEventsSection),
+      );
+      expect(section.targetTickNumber, 4);
+      expect(find.text('Tick 4-1'), findsOneWidget);
+      expect(find.text('Tick 3-1'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets('world progress opens pending completed tick then fills it', (
     WidgetTester tester,
   ) async {
@@ -37592,6 +37715,9 @@ void main() {
       matching: find.byType(TextButton),
     );
     expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 2));
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets('location chat input stays editable before connection', (

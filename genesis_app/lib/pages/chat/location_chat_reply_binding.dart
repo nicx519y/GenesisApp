@@ -5,7 +5,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _finishPendingReplyAnalyticsForDetach();
     _replyRenderGate.reset();
     _clearDeferredTick();
-    _entryChanges?.removeListener(_onPreparedEntryChanged);
+    _entryChanges?.removeListener(_preparedEntryListener);
     _entryChanges = null;
     _editQuotaChecking = false;
     _editQuotaLoading = false;
@@ -16,7 +16,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _waitingPositionOperation = 0;
     _waitingPositionClientMsgId = null;
     _replyRebuildScheduled = false;
-    _replyLocationChanges?.removeListener(_onReplyActionsChanged);
+    _replyLocationChanges?.removeListener(_replyActionsListener);
     _replyLocationChanges = null;
     _lastReplyBodyRevision = null;
     _unseenReplyMessageLocalIds.clear();
@@ -47,7 +47,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
       _detachReplyActions();
       _replyController = next;
       _replyLocationChanges = next.changesForLocation(widget.locationId);
-      _replyLocationChanges!.addListener(_onReplyActionsChanged);
+      _replyLocationChanges!.addListener(_replyActionsListener);
       _bindInspirations();
       service.setReplyWalletRefresher(
         AppServicesScope.read(context).gemWallet.refresh,
@@ -55,7 +55,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     }
     if (_usesPreparedEntry && _entryChanges == null) {
       _entryChanges = service.entryForLocation(widget.locationId);
-      _entryChanges!.addListener(_onPreparedEntryChanged);
+      _entryChanges!.addListener(_preparedEntryListener);
     }
     if (_restoredReplyLocations.add(widget.locationId) && !_usesPreparedEntry) {
       unawaited(

@@ -1,0 +1,108 @@
+{"time": "2026-10-23T11:10:12.906606+08:00", "action": "launch", "args": []}
+{"time": "2026-10-23T11:10:18.745877+08:00", "action": "capture", "args": ["10-current-build-home", "3"]}
+{"time": "2026-10-23T11:10:31.639275+08:00", "action": "tap", "args": ["480", "350"]}
+{"time": "2026-10-23T11:10:37.401156+08:00", "action": "capture", "args": ["11-world-entry", "3"]}
+{"time": "2026-10-23T11:10:48.878575+08:00", "action": "tap", "args": ["78", "1950"]}
+{"time": "2026-10-23T11:10:55.275698+08:00", "action": "capture", "args": ["12-miniphone-home", "3"]}
+{"time": "2026-10-23T11:11:11.426613+08:00", "action": "tap", "args": ["563", "1952"]}
+{"time": "2026-10-23T11:11:16.058091+08:00", "action": "capture", "args": ["13-miniphone-apps", "1"]}
+{"time": "2026-10-23T11:11:22.756218+08:00", "action": "tap", "args": ["415", "431"]}
+{"time": "2026-10-23T11:11:28.610524+08:00", "action": "capture", "args": ["14-player-initial", "3"]}
+{"time": "2026-10-23T11:11:34.881472+08:00", "action": "tap", "args": ["540", "2222"]}
+{"time": "2026-10-23T11:11:43.051888+08:00", "action": "capture", "args": ["15-playing", "5"]}
+{"time": "2026-10-23T11:11:51.648329+08:00", "action": "capture", "args": ["16-playing-advances", "5"]}
+{"time": "2026-10-23T11:12:11.838272+08:00", "action": "tap", "args": ["540", "2222"]}
+{"time": "2026-10-23T11:12:16.709976+08:00", "action": "capture", "args": ["17-paused", "1"]}
+{"time": "2026-10-23T11:12:24.575616+08:00", "action": "capture", "args": ["18-paused-stable", "5"]}
+{"time": "2026-10-23T11:12:24.692344+08:00", "action": "tap", "args": ["540", "2222"]}
+{"time": "2026-10-23T11:12:30.612322+08:00", "action": "capture", "args": ["19-resumed", "3"]}
+{"time": "2026-10-23T11:12:38.130941+08:00", "action": "swipe", "args": ["300", "2004", "730", "2004", "400"]}
+{"time": "2026-10-23T11:12:43.064204+08:00", "action": "capture", "args": ["20-seek-forward", "2"]}
+{"time": "2026-10-23T11:12:43.486763+08:00", "action": "swipe", "args": ["730", "2004", "280", "2004", "300"]}
+{"time": "2026-10-23T11:12:43.820647+08:00", "action": "swipe", "args": ["280", "2004", "820", "2004", "250"]}
+{"time": "2026-10-23T11:12:44.180684+08:00", "action": "swipe", "args": ["820", "2004", "420", "2004", "250"]}
+{"time": "2026-10-23T11:12:53.316720+08:00", "action": "capture", "args": ["21-latest-seek", "2"]}
+{"time": "2026-10-23T11:13:07.007052+08:00", "action": "capture", "args": ["22-seek-settled", "8"]}
+{"time": "2026-10-23T11:13:35.087270+08:00", "action": "tap", "args": ["540", "2222"]}
+{"time": "2026-10-23T11:13:41.825710+08:00", "action": "capture", "args": ["23-resume-after-seek", "4"]}
+{"time": "2026-10-23T11:13:50.497917+08:00", "action": "capture", "args": ["24-resume-progress", "6"]}
+{"time": "2026-10-23T11:13:50.595810+08:00", "action": "tap", "args": ["787", "2222"]}
+{"time": "2026-10-23T11:13:57.368114+08:00", "action": "capture", "args": ["25-next-track", "4"]}
+{"time": "2026-10-23T11:14:31.723363+08:00", "action": "key", "args": ["4"]}
+{"time": "2026-10-23T11:14:35.566918+08:00", "action": "capture", "args": ["26-restart-home", "1"]}
+{"time": "2026-10-23T11:14:42.529529+08:00", "action": "tap", "args": ["108", "2260"]}
+{"time": "2026-10-23T11:14:43.658268+08:00", "action": "tap", "args": ["480", "350"]}
+{"time": "2026-10-23T11:14:48.407484+08:00", "action": "capture", "args": ["27-world-restored", "2"]}
+{"time": "2026-10-23T11:14:53.600497+08:00", "action": "tap", "args": ["78", "1950"]}
+{"time": "2026-10-23T11:14:59.045056+08:00", "action": "capture", "args": ["28-home-music-restored", "2"]}
+{"time": "2026-10-23T11:15:18.313299+08:00", "action": "tap", "args": ["540", "1775"]}
+{"time": "2026-10-23T11:15:33.868202+08:00", "action": "capture", "args": ["29-home-playing", "3"]}
+{"time": "2026-10-23T11:15:51.456097+08:00", "action": "capture", "args": ["30-home-progress", "5"]}
+{"time": "2026-10-23T11:16:24.435623+08:00", "action": "tap", "args": ["400", "1570"]}
+{"time": "2026-10-23T11:16:26.109289+08:00", "action": "capture", "args": ["31-full-player-sync", "1"]}
+{"time": "2026-10-23T11:16:47.028477+08:00", "action": "tap", "args": ["787", "2222"]}
+{"time": "2026-10-23T11:16:52.017638+08:00", "action": "capture", "args": ["32-next-track", "4"]}
+{"time": "2026-10-23T11:16:52.149225+08:00", "action": "tap", "args": ["293", "2222"]}
+{"time": "2026-10-23T11:16:54.245371+08:00", "action": "capture", "args": ["33-previous-restart", "1"]}
+{"time": "2026-10-23T11:16:54.349902+08:00", "action": "tap", "args": ["293", "2222"]}
+{"time": "2026-10-23T11:16:57.421061+08:00", "action": "capture", "args": ["34-previous-track", "2"]}
+{"time": "2026-10-23T11:17:47.826097+08:00", "action": "capture", "args": ["35-after-switch-settled", "6"]}
+{"time": "2026-10-23T11:17:48.339048+08:00", "action": "swipe", "args": ["200", "900", "850", "900", "400"]}
+{"time": "2026-10-23T11:17:53.062962+08:00", "action": "capture", "args": ["36-cover-previous", "4"]}
+{"time": "2026-10-23T11:18:08.711366+08:00", "action": "capture", "args": ["37-cover-previous-ready", "5"]}
+{"time": "2026-10-23T11:18:09.221326+08:00", "action": "swipe", "args": ["300", "2004", "730", "2004", "400"]}
+{"time": "2026-10-23T11:18:09.574162+08:00", "action": "swipe", "args": ["730", "2004", "280", "2004", "250"]}
+{"time": "2026-10-23T11:18:09.941946+08:00", "action": "swipe", "args": ["280", "2004", "820", "2004", "250"]}
+{"time": "2026-10-23T11:18:10.281865+08:00", "action": "swipe", "args": ["820", "2004", "420", "2004", "250"]}
+{"time": "2026-10-23T11:18:14.990322+08:00", "action": "capture", "args": ["38-latest-seek-retest", "4"]}
+{"time": "2026-10-23T11:18:20.718382+08:00", "action": "capture", "args": ["39-latest-seek-progress", "5"]}
+{"time": "2026-10-23T11:18:28.628372+08:00", "action": "tap", "args": ["1000", "202"]}
+{"time": "2026-10-23T11:18:31.108373+08:00", "action": "capture", "args": ["40-close-phone-playing", "2"]}
+{"time": "2026-10-23T11:18:31.203132+08:00", "action": "key", "args": ["3"]}
+{"time": "2026-10-23T11:18:33.980441+08:00", "action": "capture", "args": ["41-background-paused", "2"]}
+{"time": "2026-10-23T11:18:34.264443+08:00", "action": "launch", "args": []}
+{"time": "2026-10-23T11:18:36.876586+08:00", "action": "capture", "args": ["42-foreground-still-paused", "2"]}
+{"time": "2026-10-23T11:19:12.799632+08:00", "action": "tap", "args": ["74", "1803"]}
+{"time": "2026-10-23T11:19:15.304219+08:00", "action": "capture", "args": ["43-dock-resumes", "2"]}
+{"time": "2026-10-23T11:19:15.381244+08:00", "action": "key", "args": ["4"]}
+{"time": "2026-10-23T11:19:17.982729+08:00", "action": "capture", "args": ["44-leave-world-pauses", "2"]}
+{"time": "2026-10-23T11:19:18.087836+08:00", "action": "tap", "args": ["480", "350"]}
+{"time": "2026-10-23T11:19:20.631126+08:00", "action": "capture", "args": ["45-reenter-world-icon-reset", "2"]}
+{"time": "2026-10-23T11:19:20.749687+08:00", "action": "tap", "args": ["78", "1950"]}
+{"time": "2026-10-23T11:19:24.043241+08:00", "action": "capture", "args": ["46-progress-retained", "2"]}
+{"time": "2026-10-23T11:19:44.140454+08:00", "action": "tap", "args": ["400", "1697"]}
+{"time": "2026-10-23T11:19:46.440204+08:00", "action": "capture", "args": ["47-compact-center-seek", "1"]}
+{"time": "2026-10-23T11:19:46.522284+08:00", "action": "tap", "args": ["800", "1650"]}
+{"time": "2026-10-23T11:19:48.849150+08:00", "action": "capture", "args": ["48-compact-offset-missed", "1"]}
+{"time": "2026-10-23T11:19:48.963037+08:00", "action": "tap", "args": ["800", "1697"]}
+{"time": "2026-10-23T11:19:51.352114+08:00", "action": "capture", "args": ["49-compact-center-control", "1"]}
+{"time": "2026-10-23T11:20:11.861739+08:00", "action": "tap", "args": ["540", "1775"]}
+{"time": "2026-10-23T11:20:16.126221+08:00", "action": "capture", "args": ["50-near-end-playing", "3"]}
+{"time": "2026-10-23T11:20:45.390699+08:00", "action": "capture", "args": ["51-auto-next", "28"]}
+{"time": "2026-10-23T11:20:54.209520+08:00", "action": "tap", "args": ["540", "1775"]}
+{"time": "2026-10-23T11:20:54.312880+08:00", "action": "tap", "args": ["188", "1697"]}
+{"time": "2026-10-23T11:20:58.626821+08:00", "action": "capture", "args": ["52-at-start-paused", "3"]}
+{"time": "2026-10-23T11:20:58.749754+08:00", "action": "tap", "args": ["362", "1775"]}
+{"time": "2026-10-23T11:21:05.088650+08:00", "action": "capture", "args": ["53-previous-from-start", "5"]}
+{"time": "2026-10-23T11:21:37.869588+08:00", "action": "capture", "args": ["54-before-offline", "1"]}
+{"time": "2026-10-23T11:22:05.024007+08:00", "action": "tap", "args": ["719", "1775"]}
+{"time": "2026-10-23T11:22:14.342431+08:00", "action": "capture", "args": ["55-recovery-next", "8"]}
+{"time": "2026-10-23T11:22:39.231476+08:00", "action": "tap", "args": ["540", "1775"]}
+{"time": "2026-10-23T11:22:41.580374+08:00", "action": "capture", "args": ["56-repro-paused", "1"]}
+{"time": "2026-10-23T11:22:41.704549+08:00", "action": "tap", "args": ["188", "1697"]}
+{"time": "2026-10-23T11:22:45.065171+08:00", "action": "capture", "args": ["57-repro-zero", "2"]}
+{"time": "2026-10-23T11:22:45.153846+08:00", "action": "tap", "args": ["362", "1775"]}
+{"time": "2026-10-23T11:22:51.502031+08:00", "action": "capture", "args": ["58-repro-previous", "5"]}
+{"time": "2026-10-23T11:23:00.794916+08:00", "action": "capture", "args": ["59-repro-stable", "8"]}
+{"time": "2026-10-23T11:23:31.730005+08:00", "action": "capture", "args": ["60-fresh-controls", "0", "tree"]}
+{"time": "2026-10-23T11:23:51.303269+08:00", "action": "tap", "args": ["362", "1775"]}
+{"time": "2026-10-23T11:23:53.556060+08:00", "action": "capture", "args": ["61-previous-stable-retry", "1"]}
+{"time": "2026-10-23T11:24:02.896412+08:00", "action": "capture", "args": ["62-previous-stable-ready", "8"]}
+{"time": "2026-10-23T11:24:44.216461+08:00", "action": "tap", "args": ["540", "1775"]}
+{"time": "2026-10-23T11:24:44.306682+08:00", "action": "tap", "args": ["500", "1697"]}
+{"time": "2026-10-23T11:24:48.619222+08:00", "action": "capture", "args": ["63-before-restart", "3"]}
+{"time": "2026-10-23T11:24:49.016529+08:00", "action": "launch", "args": []}
+{"time": "2026-10-23T11:24:53.688677+08:00", "action": "capture", "args": ["64-after-restart-home", "4"]}
+{"time": "2026-10-23T11:25:09.102019+08:00", "action": "tap", "args": ["480", "350"]}
+{"time": "2026-10-23T11:25:12.227459+08:00", "action": "tap", "args": ["78", "1950"]}
+{"time": "2026-10-23T11:25:16.507977+08:00", "action": "capture", "args": ["65-cold-restored", "3"]}

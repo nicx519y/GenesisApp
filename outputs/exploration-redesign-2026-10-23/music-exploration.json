@@ -1,0 +1,4410 @@
+{
+  "id": "task-3d3fc674-fe08-4e4f-9b3f-5fd8db33f2db",
+  "revision": 8,
+  "goal": "MiniPhone 音乐验收：进入一个已有 World，打开 MiniPhone 音乐播放器，播放一首已有歌曲，验证系统音轨 started；再暂停，验证音轨 paused，最后保持暂停。只验证这条最小播放/暂停路径。不要点赞、发送消息、创建内容或购买。若需选 World，可选择现有列表第一个。每个关键状态必须有明确 check。",
+  "device": "1A101FDF6006AX",
+  "packageName": "com.worldo.ai",
+  "sourceRoot": "",
+  "model": "gpt-6.1-sol",
+  "allowModelScreenshots": true,
+  "dataSource": "existing",
+  "preconditions": "手机已登录；可使用已有 World、角色与歌曲。用户已允许本次 Worldo 验收截图发给 Codex 模型。保留账号和缓存；不要创建内容。",
+  "status": "report",
+  "createdAt": "2026-10-23T08:55:34.666Z",
+  "updatedAt": "2026-10-23T08:59:10.898Z",
+  "records": [
+    {
+      "id": "s1",
+      "description": "进入第一个已有 World",
+      "reason": "用户允许选择现有列表第一个 World；当前页面树提供唯一描述。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "ui",
+        "target": {
+          "kind": "description",
+          "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+          "x": 0,
+          "y": 0
+        },
+        "property": "exists",
+        "operator": "equals",
+        "expected": "false",
+        "timeoutMs": 15000,
+        "sampleMs": 500
+      },
+      "before": {
+        "id": "frame-68b0d5d2-288c-48d7-a20d-284db26d2d98",
+        "at": "2026-10-23T08:55:41.074Z",
+        "screenshot": "frame-68b0d5d2-288c-48d7-a20d-284db26d2d98.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "會員",
+            "enabled": true,
+            "bounds": [
+              42,
+              160,
+              137,
+              254
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo、角色、標籤",
+            "enabled": true,
+            "bounds": [
+              163,
+              160,
+              1038,
+              254
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              270,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              270,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "enabled": true,
+            "bounds": [
+              0,
+              296,
+              1080,
+              622
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              296,
+              200,
+              532
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              477,
+              302,
+              543
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+            "enabled": true,
+            "bounds": [
+              0,
+              622,
+              1080,
+              947
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              622,
+              200,
+              858
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              803,
+              302,
+              868
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+            "enabled": true,
+            "bounds": [
+              0,
+              947,
+              1080,
+              1262
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              947,
+              200,
+              1183
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1044,
+              302,
+              1110
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+            "enabled": true,
+            "bounds": [
+              0,
+              1262,
+              1080,
+              1588
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1262,
+              200,
+              1498
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1443,
+              302,
+              1509
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+            "enabled": true,
+            "bounds": [
+              0,
+              1588,
+              1080,
+              1913
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1588,
+              200,
+              1824
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              1769,
+              302,
+              1834
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+            "enabled": true,
+            "bounds": [
+              0,
+              1913,
+              1080,
+              2208
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              42,
+              1913,
+              200,
+              2149
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              236,
+              2094,
+              302,
+              2160
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Home",
+            "enabled": true,
+            "bounds": [
+              0,
+              2208,
+              216,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Worldo",
+            "enabled": true,
+            "bounds": [
+              216,
+              2208,
+              432,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Create",
+            "enabled": true,
+            "bounds": [
+              432,
+              2208,
+              648,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Inbox",
+            "enabled": true,
+            "bounds": [
+              648,
+              2208,
+              864,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Me",
+            "enabled": true,
+            "bounds": [
+              864,
+              2208,
+              1080,
+              2337
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-7362bf08-b43d-4920-9d45-51763b53bff6",
+        "at": "2026-10-23T08:56:11.050Z",
+        "screenshot": "frame-7362bf08-b43d-4920-9d45-51763b53bff6.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2044
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2044
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_guild_headquarters__medieval_fantasy_v5 5,4",
+            "enabled": true,
+            "bounds": [
+              648,
+              643,
+              1080,
+              1075
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_castle_keep__medieval_fantasy_v1 6,6",
+            "enabled": true,
+            "bounds": [
+              432,
+              967,
+              864,
+              1399
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              13,
+              144,
+              113,
+              244
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Spoiled by the Seven Archons",
+            "enabled": true,
+            "bounds": [
+              139,
+              149,
+              764,
+              199
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "第3天, 13:25",
+            "enabled": true,
+            "bounds": [
+              176,
+              212,
+              332,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "enabled": true,
+            "bounds": [
+              32,
+              1874,
+              121,
+              2023
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              2064,
+              1080,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "詳細資料",
+            "enabled": true,
+            "bounds": [
+              32,
+              2064,
+              268,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "歷史紀錄",
+            "enabled": true,
+            "bounds": [
+              289,
+              2064,
+              525,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "事件",
+            "enabled": true,
+            "bounds": [
+              546,
+              2064,
+              719,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "故事回顧",
+            "enabled": true,
+            "bounds": [
+              740,
+              2064,
+              977,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "地點",
+            "enabled": true,
+            "bounds": [
+              998,
+              2064,
+              1080,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              922,
+              1735,
+              1049,
+              1966
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "放大地圖",
+            "enabled": true,
+            "bounds": [
+              959,
+              1787,
+              1049,
+              1876
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "縮小地圖",
+            "enabled": true,
+            "bounds": [
+              959,
+              1876,
+              1049,
+              1966
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-23T08:56:11.050Z",
+          "value": "false"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-23T08:56:07.090Z",
+      "finishedAt": "2026-10-23T08:56:11.051Z"
+    },
+    {
+      "id": "s2",
+      "description": "打开 MiniPhone",
+      "reason": "已进入已有 World，页面提供唯一的迷你手机入口。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "ui",
+        "target": {
+          "kind": "description",
+          "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+          "x": 0,
+          "y": 0
+        },
+        "property": "exists",
+        "operator": "equals",
+        "expected": "false",
+        "timeoutMs": 10000,
+        "sampleMs": 500
+      },
+      "before": {
+        "id": "frame-f83efba8-fe0a-46be-8499-38b3367568e9",
+        "at": "2026-10-23T08:56:16.053Z",
+        "screenshot": "frame-f83efba8-fe0a-46be-8499-38b3367568e9.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              2044,
+              1080,
+              2081
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "xiaoyi yaohfjfjf&#10;Tick 18-17 · 142 Messages",
+            "enabled": true,
+            "bounds": [
+              32,
+              2180,
+              1049,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "立即 Tick",
+            "enabled": true,
+            "bounds": [
+              807,
+              2214,
+              1049,
+              2303
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "神殿&#10;神殿&#10;1",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2044
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2044
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 1,1",
+            "enabled": true,
+            "bounds": [
+              432,
+              0,
+              864,
+              319
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_temple_shrine__medieval_fantasy_v4 3,2",
+            "enabled": true,
+            "bounds": [
+              648,
+              211,
+              1080,
+              643
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 2,5",
+            "enabled": true,
+            "bounds": [
+              0,
+              427,
+              216,
+              859
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_library_archive__medieval_fantasy_v4 3,5",
+            "enabled": true,
+            "bounds": [
+              0,
+              535,
+              432,
+              967
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 3,6",
+            "enabled": true,
+            "bounds": [
+              0,
+              643,
+              216,
+              1075
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_guild_headquarters__medieval_fantasy_v5 5,4",
+            "enabled": true,
+            "bounds": [
+              648,
+              643,
+              1080,
+              1075
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v6 5,5",
+            "enabled": true,
+            "bounds": [
+              432,
+              751,
+              864,
+              1183
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 5,6",
+            "enabled": true,
+            "bounds": [
+              216,
+              859,
+              648,
+              1291
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_castle_keep__medieval_fantasy_v1 6,6",
+            "enabled": true,
+            "bounds": [
+              432,
+              967,
+              864,
+              1399
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_house_cottage__medieval_fantasy__temperate__warm_cozy_v3 8,7",
+            "enabled": true,
+            "bounds": [
+              648,
+              1291,
+              1080,
+              1723
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_house_cottage__medieval_fantasy__temperate__warm_cozy_v1 8,9",
+            "enabled": true,
+            "bounds": [
+              216,
+              1507,
+              648,
+              1939
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v6 9,10",
+            "enabled": true,
+            "bounds": [
+              216,
+              1723,
+              648,
+              2044
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 10,9",
+            "enabled": true,
+            "bounds": [
+              648,
+              1723,
+              1080,
+              2044
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              823,
+              398,
+              905,
+              456
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "最近的聊天",
+            "enabled": true,
+            "bounds": [
+              781,
+              414,
+              808,
+              440
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              712,
+              506,
+              806,
+              600
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              506,
+              911,
+              600
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              922,
+              506,
+              1016,
+              600
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              712,
+              611,
+              806,
+              705
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              817,
+              611,
+              911,
+              705
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Sumeru Academy Library&#10;Sumeru Academy Library",
+            "enabled": true,
+            "bounds": [
+              73,
+              685,
+              359,
+              814
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              922,
+              611,
+              1016,
+              705
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Adventurers' Guild Hub&#10;Adventurers' Guild Hub",
+            "enabled": true,
+            "bounds": [
+              713,
+              793,
+              1015,
+              922
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Realm of the Archons&#10;Realm of the Archons",
+            "enabled": true,
+            "bounds": [
+              476,
+              1154,
+              820,
+              1246
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Wangsheng Funeral Parlor&#10;Wangsheng Funeral Parlor",
+            "enabled": true,
+            "bounds": [
+              272,
+              1657,
+              592,
+              1786
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "The Mortal Nations&#10;The Mortal Nations",
+            "enabled": true,
+            "bounds": [
+              710,
+              1478,
+              1018,
+              1570
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              13,
+              144,
+              113,
+              244
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Spoiled by the Seven Archons",
+            "enabled": true,
+            "bounds": [
+              139,
+              149,
+              764,
+              199
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "第3天, 13:25",
+            "enabled": true,
+            "bounds": [
+              176,
+              212,
+              332,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "enabled": true,
+            "bounds": [
+              32,
+              1874,
+              121,
+              2023
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              2064,
+              1080,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "詳細資料",
+            "enabled": true,
+            "bounds": [
+              32,
+              2064,
+              268,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "歷史紀錄",
+            "enabled": true,
+            "bounds": [
+              289,
+              2064,
+              525,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "事件",
+            "enabled": true,
+            "bounds": [
+              546,
+              2064,
+              719,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "故事回顧",
+            "enabled": true,
+            "bounds": [
+              740,
+              2064,
+              977,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "地點",
+            "enabled": true,
+            "bounds": [
+              998,
+              2064,
+              1080,
+              2153
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              922,
+              1735,
+              1049,
+              1966
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "放大地圖",
+            "enabled": true,
+            "bounds": [
+              959,
+              1787,
+              1049,
+              1876
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "縮小地圖",
+            "enabled": true,
+            "bounds": [
+              959,
+              1876,
+              1049,
+              1966
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-60fa6fcf-2f8c-422b-af4f-3394a28c0871",
+        "at": "2026-10-23T08:56:39.255Z",
+        "screenshot": "frame-60fa6fcf-2f8c-422b-af4f-3394a28c0871.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Spoiled by the Seven Archons",
+            "enabled": true,
+            "bounds": [
+              186,
+              299,
+              894,
+              364
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "13:25",
+            "enabled": true,
+            "bounds": [
+              210,
+              370,
+              870,
+              682
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "開啟音樂：Trust the One Who Stays&#10;Trust the One Who Stays cover&#10;Trust the One Who Stays&#10;Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              81,
+              1424,
+              757,
+              1597
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              81,
+              1424,
+              197,
+              1597
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              768,
+              1447,
+              999,
+              1573
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21",
+            "enabled": true,
+            "bounds": [
+              81,
+              1640,
+              165,
+              1679
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              165,
+              1597,
+              899,
+              1723
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21 of 2:39",
+            "enabled": true,
+            "bounds": [
+              215,
+              1597,
+              341,
+              1723
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:18",
+            "enabled": true,
+            "bounds": [
+              899,
+              1640,
+              999,
+              1679
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": true,
+            "bounds": [
+              299,
+              1723,
+              425,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              477,
+              1723,
+              603,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "播放",
+            "enabled": true,
+            "bounds": [
+              477,
+              1723,
+              603,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": true,
+            "bounds": [
+              656,
+              1723,
+              782,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              451,
+              1917,
+              629,
+              1991
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "主畫面第 1 頁",
+            "enabled": true,
+            "bounds": [
+              498,
+              1917,
+              540,
+              1991
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "主畫面第 2 頁",
+            "enabled": true,
+            "bounds": [
+              540,
+              1917,
+              582,
+              1991
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訊息",
+            "enabled": true,
+            "bounds": [
+              84,
+              2080,
+              247,
+              2243
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "貼文",
+            "enabled": true,
+            "bounds": [
+              334,
+              2080,
+              497,
+              2243
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "照片",
+            "enabled": true,
+            "bounds": [
+              584,
+              2080,
+              746,
+              2243
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "設定",
+            "enabled": true,
+            "bounds": [
+              833,
+              2080,
+              996,
+              2243
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-23T08:56:39.255Z",
+          "value": "false"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-23T08:56:35.439Z",
+      "finishedAt": "2026-10-23T08:56:39.255Z"
+    },
+    {
+      "id": "s3",
+      "description": "打开 MiniPhone 音乐播放器",
+      "reason": "当前音乐卡片提供唯一语义入口，进入播放器后继续验证播放与暂停。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "開啟音樂：Trust the One Who Stays&#10;Trust the One Who Stays cover&#10;Trust the One Who Stays&#10;Mattheo Riddle",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "ui",
+        "target": {
+          "kind": "description",
+          "value": "播放",
+          "x": 0,
+          "y": 0
+        },
+        "property": "exists",
+        "operator": "equals",
+        "expected": "true",
+        "timeoutMs": 10000,
+        "sampleMs": 500
+      },
+      "before": {
+        "id": "frame-2fd2b9fc-0b2f-48d3-8b20-35807e0d40ef",
+        "at": "2026-10-23T08:56:42.815Z",
+        "screenshot": "frame-2fd2b9fc-0b2f-48d3-8b20-35807e0d40ef.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2337
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Spoiled by the Seven Archons",
+            "enabled": true,
+            "bounds": [
+              186,
+              299,
+              894,
+              364
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "13:25",
+            "enabled": true,
+            "bounds": [
+              210,
+              370,
+              870,
+              682
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "開啟音樂：Trust the One Who Stays&#10;Trust the One Who Stays cover&#10;Trust the One Who Stays&#10;Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              81,
+              1424,
+              757,
+              1597
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              81,
+              1424,
+              197,
+              1597
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              768,
+              1447,
+              999,
+              1573
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21",
+            "enabled": true,
+            "bounds": [
+              81,
+              1640,
+              165,
+              1679
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              165,
+              1597,
+              899,
+              1723
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21 of 2:39",
+            "enabled": true,
+            "bounds": [
+              215,
+              1597,
+              341,
+              1723
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:18",
+            "enabled": true,
+            "bounds": [
+              899,
+              1640,
+              999,
+              1679
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": true,
+            "bounds": [
+              299,
+              1723,
+              425,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              477,
+              1723,
+              603,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "播放",
+            "enabled": true,
+            "bounds": [
+              477,
+              1723,
+              603,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": true,
+            "bounds": [
+              656,
+              1723,
+              782,
+              1828
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              451,
+              1917,
+              629,
+              1991
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "主畫面第 1 頁",
+            "enabled": true,
+            "bounds": [
+              498,
+              1917,
+              540,
+              1991
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "主畫面第 2 頁",
+            "enabled": true,
+            "bounds": [
+              540,
+              1917,
+              582,
+              1991
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "訊息",
+            "enabled": true,
+            "bounds": [
+              84,
+              2080,
+              247,
+              2243
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "貼文",
+            "enabled": true,
+            "bounds": [
+              334,
+              2080,
+              497,
+              2243
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "照片",
+            "enabled": true,
+            "bounds": [
+              584,
+              2080,
+              746,
+              2243
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "設定",
+            "enabled": true,
+            "bounds": [
+              833,
+              2080,
+              996,
+              2243
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-b22f7e73-e2b9-44da-82d0-3baf5ab8590a",
+        "at": "2026-10-23T08:57:14.562Z",
+        "screenshot": "frame-b22f7e73-e2b9-44da-82d0-3baf5ab8590a.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "音樂",
+            "enabled": true,
+            "bounds": [
+              42,
+              139,
+              964,
+              265
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays cover",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays",
+            "enabled": true,
+            "bounds": [
+              68,
+              1710,
+              760,
+              1778
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              781,
+              1681,
+              1012,
+              1807
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              68,
+              1807,
+              292,
+              1851
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "來自 #Hogwarts: Slytherin boys&#128013;",
+            "enabled": true,
+            "bounds": [
+              68,
+              1865,
+              574,
+              1909
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              1941,
+              1012,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21 of 2:39",
+            "enabled": true,
+            "bounds": [
+              130,
+              1941,
+              256,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21",
+            "enabled": true,
+            "bounds": [
+              68,
+              2067,
+              129,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:18",
+            "enabled": true,
+            "bounds": [
+              938,
+              2067,
+              1012,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": true,
+            "bounds": [
+              230,
+              2159,
+              356,
+              2285
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "播放",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": true,
+            "bounds": [
+              724,
+              2159,
+              850,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-23T08:57:14.562Z",
+          "value": "true"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-23T08:57:10.987Z",
+      "finishedAt": "2026-10-23T08:57:14.562Z"
+    },
+    {
+      "id": "s4",
+      "description": "播放歌曲并验证系统音轨 started",
+      "reason": "播放器中存在唯一“播放”控件；当前音轨为 none，需实际播放并验证系统音轨状态。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "播放",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "audio",
+        "target": {
+          "kind": "description",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "property": "text",
+        "operator": "equals",
+        "expected": "started",
+        "timeoutMs": 15000,
+        "sampleMs": 500
+      },
+      "before": {
+        "id": "frame-bcb41169-771e-4b3f-a7e2-eedb8e2b3fc3",
+        "at": "2026-10-23T08:57:17.906Z",
+        "screenshot": "frame-bcb41169-771e-4b3f-a7e2-eedb8e2b3fc3.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "音樂",
+            "enabled": true,
+            "bounds": [
+              42,
+              139,
+              964,
+              265
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays cover",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays",
+            "enabled": true,
+            "bounds": [
+              68,
+              1710,
+              760,
+              1778
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              781,
+              1681,
+              1012,
+              1807
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              68,
+              1807,
+              292,
+              1851
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "來自 #Hogwarts: Slytherin boys&#128013;",
+            "enabled": true,
+            "bounds": [
+              68,
+              1865,
+              574,
+              1909
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              1941,
+              1012,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21 of 2:39",
+            "enabled": true,
+            "bounds": [
+              130,
+              1941,
+              256,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21",
+            "enabled": true,
+            "bounds": [
+              68,
+              2067,
+              129,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:18",
+            "enabled": true,
+            "bounds": [
+              938,
+              2067,
+              1012,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": true,
+            "bounds": [
+              230,
+              2159,
+              356,
+              2285
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "播放",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": true,
+            "bounds": [
+              724,
+              2159,
+              850,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-ef2481a3-0d11-4a78-a05c-d4671cb9b636",
+        "at": "2026-10-23T08:58:00.163Z",
+        "screenshot": "frame-ef2481a3-0d11-4a78-a05c-d4671cb9b636.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "音樂",
+            "enabled": true,
+            "bounds": [
+              42,
+              139,
+              964,
+              265
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays cover",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays",
+            "enabled": true,
+            "bounds": [
+              68,
+              1710,
+              760,
+              1778
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              781,
+              1681,
+              1012,
+              1807
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              68,
+              1807,
+              292,
+              1851
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "來自 #Hogwarts: Slytherin boys&#128013;",
+            "enabled": true,
+            "bounds": [
+              68,
+              1865,
+              574,
+              1909
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              1941,
+              1012,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21 of 2:39",
+            "enabled": true,
+            "bounds": [
+              130,
+              1941,
+              256,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21",
+            "enabled": true,
+            "bounds": [
+              68,
+              2067,
+              129,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:18",
+            "enabled": true,
+            "bounds": [
+              938,
+              2067,
+              1012,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": false,
+            "bounds": [
+              230,
+              2159,
+              356,
+              2285
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "暫停",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": false,
+            "bounds": [
+              724,
+              2159,
+              850,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-23T08:57:44.823Z",
+          "value": "none"
+        },
+        {
+          "at": "2026-10-23T08:57:48.698Z",
+          "value": "none"
+        },
+        {
+          "at": "2026-10-23T08:57:52.557Z",
+          "value": "none"
+        },
+        {
+          "at": "2026-10-23T08:57:56.426Z",
+          "value": "none"
+        },
+        {
+          "at": "2026-10-23T08:58:00.163Z",
+          "value": "none"
+        }
+      ],
+      "verdict": "failed",
+      "startedAt": "2026-10-23T08:57:41.554Z",
+      "finishedAt": "2026-10-23T08:58:00.164Z"
+    },
+    {
+      "id": "s5",
+      "description": "暂停歌曲并验证系统音轨 paused",
+      "reason": "播放断言失败，不能用界面进度代替系统音轨证据；按原目标暂停并保持暂停。",
+      "action": {
+        "kind": "tap",
+        "target": {
+          "kind": "description",
+          "value": "暫停",
+          "x": 0.5,
+          "y": 0.5
+        },
+        "endX": 0,
+        "endY": 0,
+        "durationMs": 0
+      },
+      "check": {
+        "source": "audio",
+        "target": {
+          "kind": "description",
+          "value": "",
+          "x": 0,
+          "y": 0
+        },
+        "property": "text",
+        "operator": "equals",
+        "expected": "paused",
+        "timeoutMs": 15000,
+        "sampleMs": 500
+      },
+      "before": {
+        "id": "frame-feb19b6c-3602-4801-ab13-7c4d80040bb5",
+        "at": "2026-10-23T08:58:03.426Z",
+        "screenshot": "frame-feb19b6c-3602-4801-ab13-7c4d80040bb5.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "none",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "音樂",
+            "enabled": true,
+            "bounds": [
+              42,
+              139,
+              964,
+              265
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays cover",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays",
+            "enabled": true,
+            "bounds": [
+              68,
+              1710,
+              760,
+              1778
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              781,
+              1681,
+              1012,
+              1807
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              68,
+              1807,
+              292,
+              1851
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "來自 #Hogwarts: Slytherin boys&#128013;",
+            "enabled": true,
+            "bounds": [
+              68,
+              1865,
+              574,
+              1909
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              1941,
+              1012,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21 of 2:39",
+            "enabled": true,
+            "bounds": [
+              130,
+              1941,
+              256,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:21",
+            "enabled": true,
+            "bounds": [
+              68,
+              2067,
+              129,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:18",
+            "enabled": true,
+            "bounds": [
+              938,
+              2067,
+              1012,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": false,
+            "bounds": [
+              230,
+              2159,
+              356,
+              2285
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "暫停",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": false,
+            "bounds": [
+              724,
+              2159,
+              850,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "after": {
+        "id": "frame-9ae8358f-beee-4163-9042-9c1e3a8c08b8",
+        "at": "2026-10-23T08:58:35.609Z",
+        "screenshot": "frame-9ae8358f-beee-4163-9042-9c1e3a8c08b8.png",
+        "width": 1080,
+        "height": 2400,
+        "foreground": "com.worldo.ai",
+        "audio": "paused",
+        "nodes": [
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "android:id/content",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "關閉",
+            "enabled": true,
+            "bounds": [
+              964,
+              165,
+              1038,
+              238
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "音樂",
+            "enabled": true,
+            "bounds": [
+              42,
+              139,
+              964,
+              265
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays cover",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              286,
+              1012,
+              1639
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Trust the One Who Stays",
+            "enabled": true,
+            "bounds": [
+              68,
+              1710,
+              760,
+              1778
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "2, 對 Trust the One Who Stays 按讚",
+            "enabled": true,
+            "bounds": [
+              781,
+              1681,
+              1012,
+              1807
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "Mattheo Riddle",
+            "enabled": true,
+            "bounds": [
+              68,
+              1807,
+              292,
+              1851
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "來自 #Hogwarts: Slytherin boys&#128013;",
+            "enabled": true,
+            "bounds": [
+              68,
+              1865,
+              574,
+              1909
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              68,
+              1941,
+              1012,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              0,
+              0,
+              1080,
+              2400
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:27 of 2:39",
+            "enabled": true,
+            "bounds": [
+              169,
+              1941,
+              295,
+              2067
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "0:27",
+            "enabled": true,
+            "bounds": [
+              68,
+              2067,
+              134,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "-2:11",
+            "enabled": true,
+            "bounds": [
+              944,
+              2067,
+              1012,
+              2111
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "上一首",
+            "enabled": true,
+            "bounds": [
+              230,
+              2159,
+              356,
+              2285
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "播放",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "",
+            "enabled": true,
+            "bounds": [
+              456,
+              2138,
+              624,
+              2306
+            ]
+          },
+          {
+            "id": "",
+            "text": "",
+            "description": "下一首",
+            "enabled": true,
+            "bounds": [
+              724,
+              2159,
+              850,
+              2285
+            ]
+          }
+        ],
+        "treeAvailable": true,
+        "warnings": []
+      },
+      "samples": [
+        {
+          "at": "2026-10-23T08:58:35.609Z",
+          "value": "paused"
+        }
+      ],
+      "verdict": "passed",
+      "startedAt": "2026-10-23T08:58:32.210Z",
+      "finishedAt": "2026-10-23T08:58:35.609Z"
+    }
+  ],
+  "report": "验收未通过：已进入已有 World 并打开 MiniPhone 音乐播放器。播放后系统音轨在15秒检查窗口内持续为 none，未满足 started；随后暂停，明确检查到音轨 paused，当前保持暂停。最小路径已覆盖，播放音轨验证失败保留为复现证据。",
+  "limitations": [
+    "播放状态 started 未验证通过；界面播放状态不能代替系统音轨证据。"
+  ],
+  "question": "",
+  "answer": "",
+  "error": "",
+  "engineHash": "dcec4d33b4e94c3e3d5b2b2134432db0b5471a87ed4d574a5845645799a28a02",
+  "identity": {
+    "device": "1A101FDF6006AX",
+    "packageName": "com.worldo.ai",
+    "version": "9.9.9",
+    "apkSha256": "53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab",
+    "android": "17",
+    "width": 1080,
+    "height": 2400
+  },
+  "candidate": {
+    "title": "MiniPhone 音乐播放与暂停验收",
+    "scope": "已有 World、已有歌曲的最小播放/暂停路径",
+    "preconditions": "手机已登录；可使用已有 World、角色与歌曲。用户已允许本次 Worldo 验收截图发给 Codex 模型。保留账号和缓存；不要创建内容。",
+    "cleanup": "none",
+    "steps": [
+      {
+        "id": "s1",
+        "description": "进入第一个已有 World",
+        "reason": "用户允许选择现有列表第一个 World；当前页面树提供唯一描述。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "false",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s2",
+        "description": "打开 MiniPhone",
+        "reason": "已进入已有 World，页面提供唯一的迷你手机入口。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "false",
+          "timeoutMs": 10000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s3",
+        "description": "打开 MiniPhone 音乐播放器",
+        "reason": "当前音乐卡片提供唯一语义入口，进入播放器后继续验证播放与暂停。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "開啟音樂：Trust the One Who Stays&#10;Trust the One Who Stays cover&#10;Trust the One Who Stays&#10;Mattheo Riddle",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "播放",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "true",
+          "timeoutMs": 10000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s4",
+        "description": "播放歌曲并验证系统音轨 started",
+        "reason": "播放器中存在唯一“播放”控件；当前音轨为 none，需实际播放并验证系统音轨状态。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "播放",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "started",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s5",
+        "description": "暂停歌曲并验证系统音轨 paused",
+        "reason": "播放断言失败，不能用界面进度代替系统音轨证据；按原目标暂停并保持暂停。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "暫停",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "paused",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      }
+    ],
+    "limitations": [
+      "播放状态 started 未验证通过；界面播放状态不能代替系统音轨证据。"
+    ]
+  }
+}

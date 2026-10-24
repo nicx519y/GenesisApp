@@ -1,0 +1,5543 @@
+[
+  {
+    "id": "run-d4e3baf1-a4fc-4de5-a9b8-9ee02b4f9812",
+    "caseId": "case-22a029fd-2fb6-408a-a512-47a03acb919c",
+    "startedAt": "2026-10-23T08:53:50.204Z",
+    "status": "completed",
+    "appResult": "passed",
+    "mode": "verify",
+    "records": [
+      {
+        "id": "s1",
+        "description": "检查前台包为 com.worldo.ai",
+        "reason": "用户要求显式验证前台包名，无需再次重启或导航。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "foreground",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "com.worldo.ai",
+          "timeoutMs": 1000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-4e7f673a-e187-4b25-9e68-0f84334d0bc2",
+          "at": "2026-10-23T08:53:59.510Z",
+          "screenshot": "frame-4e7f673a-e187-4b25-9e68-0f84334d0bc2.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-e1cef226-3a02-47aa-ba26-080999387d4c",
+          "at": "2026-10-23T08:54:02.399Z",
+          "screenshot": "frame-e1cef226-3a02-47aa-ba26-080999387d4c.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T08:54:02.399Z",
+            "value": "com.worldo.ai"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T08:53:56.637Z",
+        "finishedAt": "2026-10-23T08:54:02.400Z"
+      },
+      {
+        "id": "s2",
+        "description": "持续 5 秒检查系统音轨保持 none",
+        "reason": "验证观察窗口内没有自动播放；系统音轨状态不代表主观听感。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "stable",
+          "expected": "none",
+          "timeoutMs": 5000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-2d7008e3-12c8-4a82-8d62-8f27b63384dc",
+          "at": "2026-10-23T08:54:05.258Z",
+          "screenshot": "frame-2d7008e3-12c8-4a82-8d62-8f27b63384dc.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-ed551b5b-7d6d-4a15-b006-1b69f5b7e781",
+          "at": "2026-10-23T08:54:14.888Z",
+          "screenshot": "frame-ed551b5b-7d6d-4a15-b006-1b69f5b7e781.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T08:54:08.100Z",
+            "value": "none"
+          },
+          {
+            "at": "2026-10-23T08:54:11.517Z",
+            "value": "none"
+          },
+          {
+            "at": "2026-10-23T08:54:14.888Z",
+            "value": "none"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T08:54:02.400Z",
+        "finishedAt": "2026-10-23T08:54:14.889Z"
+      }
+    ],
+    "cleanup": {
+      "ok": true,
+      "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+    },
+    "error": "",
+    "packageHash": "51c279e35a92151422eef76412206897218bb8809007c8a67b680ccd8c68edef",
+    "independentSession": true,
+    "identity": {
+      "device": "1A101FDF6006AX",
+      "packageName": "com.worldo.ai",
+      "version": "9.9.9",
+      "apkSha256": "53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab",
+      "android": "17",
+      "width": 1080,
+      "height": 2400
+    },
+    "finishedAt": "2026-10-23T08:54:14.889Z"
+  },
+  {
+    "id": "run-b8d31b51-60ad-4f78-8386-f92ebaa68460",
+    "caseId": "case-22a029fd-2fb6-408a-a512-47a03acb919c",
+    "startedAt": "2026-10-23T08:54:17.286Z",
+    "status": "completed",
+    "appResult": "passed",
+    "mode": "verify",
+    "records": [
+      {
+        "id": "s1",
+        "description": "检查前台包为 com.worldo.ai",
+        "reason": "用户要求显式验证前台包名，无需再次重启或导航。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "foreground",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "com.worldo.ai",
+          "timeoutMs": 1000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-1c5e0c56-beb4-4b7f-920a-dde362b7af7d",
+          "at": "2026-10-23T08:54:26.648Z",
+          "screenshot": "frame-1c5e0c56-beb4-4b7f-920a-dde362b7af7d.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-84c3729b-a725-4005-bbf1-fb4f20e136bb",
+          "at": "2026-10-23T08:54:29.419Z",
+          "screenshot": "frame-84c3729b-a725-4005-bbf1-fb4f20e136bb.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T08:54:29.419Z",
+            "value": "com.worldo.ai"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T08:54:23.738Z",
+        "finishedAt": "2026-10-23T08:54:29.419Z"
+      },
+      {
+        "id": "s2",
+        "description": "持续 5 秒检查系统音轨保持 none",
+        "reason": "验证观察窗口内没有自动播放；系统音轨状态不代表主观听感。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "stable",
+          "expected": "none",
+          "timeoutMs": 5000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-1c715ad3-7b5f-4f5d-a4d1-78e0d0b1879e",
+          "at": "2026-10-23T08:54:32.309Z",
+          "screenshot": "frame-1c715ad3-7b5f-4f5d-a4d1-78e0d0b1879e.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-40ff8ac7-83cd-4f49-a59f-b1bcb44f2b8d",
+          "at": "2026-10-23T08:54:41.962Z",
+          "screenshot": "frame-40ff8ac7-83cd-4f49-a59f-b1bcb44f2b8d.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T08:54:35.234Z",
+            "value": "none"
+          },
+          {
+            "at": "2026-10-23T08:54:38.642Z",
+            "value": "none"
+          },
+          {
+            "at": "2026-10-23T08:54:41.962Z",
+            "value": "none"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T08:54:29.420Z",
+        "finishedAt": "2026-10-23T08:54:41.962Z"
+      }
+    ],
+    "cleanup": {
+      "ok": true,
+      "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+    },
+    "error": "",
+    "packageHash": "51c279e35a92151422eef76412206897218bb8809007c8a67b680ccd8c68edef",
+    "independentSession": true,
+    "identity": {
+      "device": "1A101FDF6006AX",
+      "packageName": "com.worldo.ai",
+      "version": "9.9.9",
+      "apkSha256": "53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab",
+      "android": "17",
+      "width": 1080,
+      "height": 2400
+    },
+    "finishedAt": "2026-10-23T08:54:41.962Z"
+  },
+  {
+    "id": "run-9813948f-2baf-4989-9672-385ecc936eac",
+    "caseId": "case-22a029fd-2fb6-408a-a512-47a03acb919c",
+    "startedAt": "2026-10-23T08:54:44.363Z",
+    "status": "completed",
+    "appResult": "passed",
+    "mode": "verify",
+    "records": [
+      {
+        "id": "s1",
+        "description": "检查前台包为 com.worldo.ai",
+        "reason": "用户要求显式验证前台包名，无需再次重启或导航。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "foreground",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "com.worldo.ai",
+          "timeoutMs": 1000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-dbd836ee-b834-4f99-b743-24876a10efea",
+          "at": "2026-10-23T08:54:53.517Z",
+          "screenshot": "frame-dbd836ee-b834-4f99-b743-24876a10efea.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-21b4f631-c813-4aa3-a58a-cbf8b0d9ac8b",
+          "at": "2026-10-23T08:54:56.477Z",
+          "screenshot": "frame-21b4f631-c813-4aa3-a58a-cbf8b0d9ac8b.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T08:54:56.477Z",
+            "value": "com.worldo.ai"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T08:54:50.565Z",
+        "finishedAt": "2026-10-23T08:54:56.477Z"
+      },
+      {
+        "id": "s2",
+        "description": "持续 5 秒检查系统音轨保持 none",
+        "reason": "验证观察窗口内没有自动播放；系统音轨状态不代表主观听感。",
+        "action": {
+          "kind": "observe",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "text",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "stable",
+          "expected": "none",
+          "timeoutMs": 5000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-89c863a4-cda7-4155-85e2-758dbca6676c",
+          "at": "2026-10-23T08:54:59.286Z",
+          "screenshot": "frame-89c863a4-cda7-4155-85e2-758dbca6676c.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-93a696a4-71d4-4986-9d91-d0cedec7dce4",
+          "at": "2026-10-23T08:55:08.794Z",
+          "screenshot": "frame-93a696a4-71d4-4986-9d91-d0cedec7dce4.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T08:55:02.148Z",
+            "value": "none"
+          },
+          {
+            "at": "2026-10-23T08:55:05.489Z",
+            "value": "none"
+          },
+          {
+            "at": "2026-10-23T08:55:08.794Z",
+            "value": "none"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T08:54:56.478Z",
+        "finishedAt": "2026-10-23T08:55:08.795Z"
+      }
+    ],
+    "cleanup": {
+      "ok": true,
+      "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+    },
+    "error": "",
+    "packageHash": "51c279e35a92151422eef76412206897218bb8809007c8a67b680ccd8c68edef",
+    "independentSession": true,
+    "identity": {
+      "device": "1A101FDF6006AX",
+      "packageName": "com.worldo.ai",
+      "version": "9.9.9",
+      "apkSha256": "53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab",
+      "android": "17",
+      "width": 1080,
+      "height": 2400
+    },
+    "finishedAt": "2026-10-23T08:55:08.796Z"
+  }
+]

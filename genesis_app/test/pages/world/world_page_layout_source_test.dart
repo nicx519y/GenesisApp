@@ -608,17 +608,23 @@ void main() {
   test('world tick completion closes other sheets before opening events', () {
     final tickDone = worldPageTickFlowSource.substring(
       worldPageTickFlowSource.indexOf('Future<void> _handleWorldTickDone()'),
-      worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
+      worldPageTickFlowSource.indexOf(
+        'void _showOrSelectEventsAfterTick(int? completedTickCount)',
+      ),
     );
     final showOrSelectEvents = worldPageTickFlowSource.substring(
-      worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
+      worldPageTickFlowSource.indexOf(
+        'void _showOrSelectEventsAfterTick(int? completedTickCount)',
+      ),
       worldPageTickFlowSource.indexOf('void _markWorldTickIdle()'),
     );
     final suppressAutoEvents = worldPageTickFlowSource.substring(
       worldPageTickFlowSource.indexOf(
         'bool get _shouldSuppressAutoEventsAfterTick',
       ),
-      worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
+      worldPageTickFlowSource.indexOf(
+        'void _showOrSelectEventsAfterTick(int? completedTickCount)',
+      ),
     );
     final openBottomSheet = worldPageSheetsSource.substring(
       worldPageSheetsSource.indexOf('void _openWorldBottomSheet('),
@@ -627,7 +633,10 @@ void main() {
       ),
     );
 
-    expect(tickDone, contains('_showOrSelectEventsAfterTick();'));
+    expect(
+      tickDone,
+      contains('_showOrSelectEventsAfterTick(completedTickCount);'),
+    );
     expect(tickDone, contains('!_shouldSuppressAutoEventsAfterTick'));
     expect(suppressAutoEvents, contains('_activeChatLocationId.isNotEmpty'));
     expect(
@@ -652,7 +661,7 @@ void main() {
     expect(showOrSelectEvents, contains('scrollEventsToLatest: true'));
     expect(
       showOrSelectEvents,
-      contains('eventsTargetTickNumber: _world?.tickCount'),
+      contains('eventsTargetTickNumber: completedTickCount'),
     );
     expect(openBottomSheet, contains('_worldBottomSheetSelection.value'));
     expect(openBottomSheet, contains('if (_worldBottomSheetOpen) return;'));

@@ -1,0 +1,195 @@
+{
+  "id": "case-bf78d819-bb81-4c42-bd29-9c94142d07bd",
+  "version": 1,
+  "sessionId": "task-3d3fc674-fe08-4e4f-9b3f-5fd8db33f2db",
+  "title": "MiniPhone 音乐播放与暂停验收",
+  "createdAt": "2026-10-23T09:18:08.899Z",
+  "status": "candidate",
+  "recipe": {
+    "title": "MiniPhone 音乐播放与暂停验收",
+    "scope": "已有 World、已有歌曲的最小播放/暂停路径",
+    "preconditions": "手机已登录；可使用已有 World、角色与歌曲。用户已允许本次 Worldo 验收截图发给 Codex 模型。保留账号和缓存；不要创建内容。",
+    "cleanup": "none",
+    "steps": [
+      {
+        "id": "s1",
+        "description": "进入第一个已有 World",
+        "reason": "用户允许选择现有列表第一个 World；当前页面树提供唯一描述。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "false",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s2",
+        "description": "打开 MiniPhone",
+        "reason": "已进入已有 World，页面提供唯一的迷你手机入口。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "false",
+          "timeoutMs": 10000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s3",
+        "description": "打开 MiniPhone 音乐播放器",
+        "reason": "当前音乐卡片提供唯一语义入口，进入播放器后继续验证播放与暂停。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "開啟音樂：Trust the One Who Stays&#10;Trust the One Who Stays cover&#10;Trust the One Who Stays&#10;Mattheo Riddle",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "播放",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "true",
+          "timeoutMs": 10000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s4",
+        "description": "播放歌曲并验证系统音轨 started",
+        "reason": "播放器中存在唯一“播放”控件；当前音轨为 none，需实际播放并验证系统音轨状态。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "播放",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "started",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      },
+      {
+        "id": "s5",
+        "description": "暂停歌曲并验证系统音轨 paused",
+        "reason": "播放断言失败，不能用界面进度代替系统音轨证据；按原目标暂停并保持暂停。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "暫停",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "audio",
+          "target": {
+            "kind": "description",
+            "value": "",
+            "x": 0,
+            "y": 0
+          },
+          "property": "text",
+          "operator": "equals",
+          "expected": "paused",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        }
+      }
+    ],
+    "limitations": [
+      "播放状态 started 未验证通过；界面播放状态不能代替系统音轨证据。"
+    ]
+  },
+  "identity": {
+    "device": "1A101FDF6006AX",
+    "packageName": "com.worldo.ai",
+    "version": "9.9.9",
+    "apkSha256": "53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab",
+    "android": "17",
+    "width": 1080,
+    "height": 2400
+  },
+  "hash": "770c1e007184891befaef3ee6f7214a703a3eff08e3e24fd38deab8de019f20a",
+  "files": {
+    "case.yaml": "c4b19ac9b2369ca22af9ae7a04036fa17c6f1a387991f604957f21b4b42b2d53",
+    "scenario.md": "10f1ebbd8042bc9fb64e8f34902ad2f53345827ebc74c0d6ebe65ac8c877c675",
+    "test.ts": "ce96b8bc06928cad8e8a5b4fbf9aacb36fd595e3c7e6e8b1803e2028e4285b38",
+    "assertions.yaml": "b74f53ba95d039d82938c8f21d0a69900195ff9f4d16ff85a27e12d871cdafa9",
+    "locators.yaml": "ccbb841f9645ed1f228c0c6b55f17d0f2bdb1743bc713cd3e398ec35f050fcdf",
+    "recipe.json": "0fcbaa181418e19351555b316a0516f85c2f506634f4287bd6fd5cf1561471e7",
+    "provenance.json": "a54fdd75c84b955b43795b23bd9cb8d4078022d194f6ec711b6f5c6d3acc3aac",
+    "README.md": "6bc5838e37381607f6d8ba92c819b8d9ff0d0e4c78c8d04073f2e6214dcbb58f"
+  },
+  "runIds": []
+}

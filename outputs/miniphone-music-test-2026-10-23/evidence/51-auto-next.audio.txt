@@ -1,0 +1,3 @@
+pid=25185
+  AudioPlaybackConfiguration piid:2367 deviceIds:[3] type:android.media.AudioTrack u/pid:10365/25185 state:started attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_MUSIC flags=0xA00(FLAG_DEEP_BUFFER+FLAG_MUTE_HAPTIC)  tags= bundle=null sessionId:2585 mutedState:none  FormatInfo{isSpatialized=false, channelMask=0x3, sampleRate=44100}
+  AudioPlaybackConfiguration piid:2391 deviceIds:[] type:android.media.AudioTrack u/pid:10365/25185 state:idle attr:AudioAttributes: usage=USAGE_MEDIA content=CONTENT_TYPE_MUSIC flags=0xA00(FLAG_DEEP_BUFFER+FLAG_MUTE_HAPTIC)  tags= bundle=null sessionId:2593 mutedState:none  FormatInfo{isSpatialized=false, channelMask=0x0, sampleRate=0}

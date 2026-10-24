@@ -1,0 +1,53 @@
+import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/pages/world/world_header.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/qa/hooks/qa%253Aandroid%253A5067e0cb3a4208bb5923/hook.dart'
+    as hook;
+
+void main() {
+  test('rejects undeclared input before resource access', () async {
+    await expectLater(
+      hook.invoke({'operation': 'prepare'}, false, true),
+      throwsArgumentError,
+    );
+    await expectLater(
+      hook.invoke({'operation': 'read', 'foreign': true}, false, true),
+      throwsArgumentError,
+    );
+    await expectLater(
+      hook.invoke({'operation': 'read'}, false, false),
+      throwsArgumentError,
+    );
+  });
+  test(
+    'missing selection cannot manufacture a successful observation',
+    () async {
+      await expectLater(
+        hook.invoke({'operation': 'read'}, false, true),
+        throwsStateError,
+      );
+    },
+  );
+
+  testWidgets('compares actual rendered header field with selected data', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldMapTopBar(
+            title: 'Actual name',
+            timeText: 'Year 42',
+            maxIdentityWidth: 240,
+            onBackPressed: () {},
+          ),
+        ),
+      ),
+    );
+    final root = tester.element(find.byType(Scaffold));
+    expect(hook.observe(root, "Actual name"), isTrue);
+    expect(hook.observe(root, 'different'), isFalse);
+    expect(hook.observe(root, ''), isFalse);
+    expect(hook.observe(null, 'Actual name'), isFalse);
+  });
+}

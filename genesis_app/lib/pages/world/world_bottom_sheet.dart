@@ -548,23 +548,26 @@ class WorldSingleSectionBottomSheetState
           12,
           32,
         ),
-        onPointTap: (point) {
-          final locationId = point.sceneId.trim().isNotEmpty
-              ? point.sceneId.trim()
-              : (point.pointId.trim().isNotEmpty
-                    ? point.pointId.trim()
-                    : point.id.trim());
-          GenesisTelemetry.collectLog(
-            actionType: 'event',
-            action: 'world_locations_click',
-            object1: _currentWorld.worldId,
-            object2: locationId,
-          );
-          Navigator.of(context).pop();
-          widget.onLocationTap(point);
-        },
+        onPointTap: _openLocation,
+        onNodeHeaderTap: _openLocation,
       ),
     );
+  }
+
+  void _openLocation(WorldPoint point) {
+    final locationId = point.sceneId.trim().isNotEmpty
+        ? point.sceneId.trim()
+        : (point.pointId.trim().isNotEmpty
+              ? point.pointId.trim()
+              : point.id.trim());
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'world_locations_click',
+      object1: _currentWorld.worldId,
+      object2: locationId,
+    );
+    Navigator.of(context).pop();
+    widget.onLocationTap(point);
   }
 
   WorldLocationListData _locationListDataForCurrentWorld() {

@@ -1,0 +1,3481 @@
+[
+  {
+    "id": "run-01e39754-4981-4844-b95a-a202cbf509fb",
+    "caseId": "case-bf78d819-bb81-4c42-bd29-9c94142d07bd",
+    "startedAt": "2026-10-23T09:18:08.902Z",
+    "status": "error",
+    "appResult": "unknown",
+    "mode": "verify",
+    "records": [
+      {
+        "id": "s1",
+        "description": "进入第一个已有 World",
+        "reason": "用户允许选择现有列表第一个 World；当前页面树提供唯一描述。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "false",
+          "timeoutMs": 15000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-809ebabe-57f9-4940-a4a9-955bce4a954f",
+          "at": "2026-10-23T09:18:18.255Z",
+          "observedAt": {
+            "foreground": "2026-10-23T09:18:15.473Z",
+            "audio": "2026-10-23T09:18:15.572Z",
+            "ui": "2026-10-23T09:18:18.194Z"
+          },
+          "screenshot": "frame-809ebabe-57f9-4940-a4a9-955bce4a954f.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "會員",
+              "enabled": true,
+              "bounds": [
+                42,
+                160,
+                137,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo、角色、標籤",
+              "enabled": true,
+              "bounds": [
+                163,
+                160,
+                1038,
+                254
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                270,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons&#10;Tick 18-17 · 142 Messages&#10;9-26 16:37&#10;冰墓再无门，众神却还守着那截已经化灰的残红不肯退开。&#10;xiaoyi yaohfjfjf&#10;· 另有 1 位玩家",
+              "enabled": true,
+              "bounds": [
+                0,
+                296,
+                1080,
+                622
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                296,
+                200,
+                532
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                477,
+                302,
+                543
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "At the Mercy of Four Nurses&#10;Tick 2 · 197 Messages&#10;9-23 16:29&#10;智浩成功夺得最后一枚出院私章，但沾满黏液的漫长走廊已化为恐怖的猎场。&#10;Hong Ji-ho",
+              "enabled": true,
+              "bounds": [
+                0,
+                622,
+                1080,
+                947
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                622,
+                200,
+                858
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                803,
+                302,
+                868
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Four Doting Senior Sisters&#10;Tick 0 · 1 Message&#10;9-17 08:48&#10;Han Seo-jin",
+              "enabled": true,
+              "bounds": [
+                0,
+                947,
+                1080,
+                1262
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                947,
+                200,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1044,
+                302,
+                1110
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Roaming Meridian&#10;Tick 0-1 · 21 Messages&#10;9-17 03:43&#10;月落裂谷的古老闸门在身后轰然合拢，三人小队必须在通道彻底下陷前冲出水域。&#10;Ren Akiyama",
+              "enabled": true,
+              "bounds": [
+                0,
+                1262,
+                1080,
+                1588
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1262,
+                200,
+                1498
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1443,
+                302,
+                1509
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Caught Between Two Beach Girls&#10;Tick 3-2 · 47 Messages&#10;9-17 03:41&#10;金秀妍在酒精中彻底缴械，而门外窥视的朴诗恩正手握房卡步步逼近。&#10;xiaoyi yao",
+              "enabled": true,
+              "bounds": [
+                0,
+                1588,
+                1080,
+                1913
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1588,
+                200,
+                1824
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                1769,
+                302,
+                1834
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "My Possessive Little Sister&#10;Tick 0-12 · 92 Messages&#10;9-17 02:41&#10;清晨六点四十五分，都贤以有事为由抽身离场，留下真雅举着来路不明的旧手机堵在房中、惠妍倚门让路却不肯真走。&#10;Do-hyun",
+              "enabled": true,
+              "bounds": [
+                0,
+                1913,
+                1080,
+                2208
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                42,
+                1913,
+                200,
+                2149
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                236,
+                2094,
+                302,
+                2160
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Home",
+              "enabled": true,
+              "bounds": [
+                0,
+                2208,
+                216,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Worldo",
+              "enabled": true,
+              "bounds": [
+                216,
+                2208,
+                432,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Create",
+              "enabled": true,
+              "bounds": [
+                432,
+                2208,
+                648,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Inbox",
+              "enabled": true,
+              "bounds": [
+                648,
+                2208,
+                864,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Me",
+              "enabled": true,
+              "bounds": [
+                864,
+                2208,
+                1080,
+                2337
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-87fcc827-dfc1-4701-bc27-6642d4aa543c",
+          "at": "2026-10-23T09:18:22.063Z",
+          "observedAt": {
+            "foreground": "2026-10-23T09:18:18.395Z",
+            "audio": "2026-10-23T09:18:18.522Z",
+            "ui": "2026-10-23T09:18:22.010Z"
+          },
+          "screenshot": "frame-87fcc827-dfc1-4701-bc27-6642d4aa543c.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                2044,
+                1080,
+                2081
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "xiaoyi yaohfjfjf&#10;Tick 18-17 · 142 Messages",
+              "enabled": true,
+              "bounds": [
+                32,
+                2180,
+                1049,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "立即 Tick",
+              "enabled": true,
+              "bounds": [
+                807,
+                2214,
+                1049,
+                2303
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "神殿&#10;神殿&#10;1",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v8 0,3",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                216,
+                427
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 0,2",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                432,
+                319
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v14 1,2",
+              "enabled": true,
+              "bounds": [
+                216,
+                0,
+                648,
+                427
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 1,1",
+              "enabled": true,
+              "bounds": [
+                432,
+                0,
+                864,
+                319
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v15 2,1",
+              "enabled": true,
+              "bounds": [
+                648,
+                0,
+                1080,
+                427
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v13 1,0",
+              "enabled": true,
+              "bounds": [
+                648,
+                0,
+                1080,
+                211
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v2 1,3",
+              "enabled": true,
+              "bounds": [
+                0,
+                103,
+                432,
+                535
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v1 2,2",
+              "enabled": true,
+              "bounds": [
+                432,
+                103,
+                864,
+                535
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 1,4",
+              "enabled": true,
+              "bounds": [
+                0,
+                211,
+                216,
+                643
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v18 2,3",
+              "enabled": true,
+              "bounds": [
+                216,
+                211,
+                648,
+                643
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_temple_shrine__medieval_fantasy_v4 3,2",
+              "enabled": true,
+              "bounds": [
+                648,
+                211,
+                1080,
+                643
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v9 2,4",
+              "enabled": true,
+              "bounds": [
+                0,
+                319,
+                432,
+                751
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 3,3",
+              "enabled": true,
+              "bounds": [
+                432,
+                319,
+                864,
+                751
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v10 4,2",
+              "enabled": true,
+              "bounds": [
+                864,
+                319,
+                1080,
+                751
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 2,5",
+              "enabled": true,
+              "bounds": [
+                0,
+                427,
+                216,
+                859
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v14 3,4",
+              "enabled": true,
+              "bounds": [
+                216,
+                427,
+                648,
+                859
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v17 4,3",
+              "enabled": true,
+              "bounds": [
+                648,
+                427,
+                1080,
+                859
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_library_archive__medieval_fantasy_v4 3,5",
+              "enabled": true,
+              "bounds": [
+                0,
+                535,
+                432,
+                967
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v15 4,4",
+              "enabled": true,
+              "bounds": [
+                432,
+                535,
+                864,
+                967
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v12 5,3",
+              "enabled": true,
+              "bounds": [
+                864,
+                535,
+                1080,
+                967
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 3,6",
+              "enabled": true,
+              "bounds": [
+                0,
+                643,
+                216,
+                1075
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 2,0",
+              "enabled": true,
+              "bounds": [
+                864,
+                0,
+                1080,
+                319
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v11 4,5",
+              "enabled": true,
+              "bounds": [
+                216,
+                643,
+                648,
+                1075
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_guild_headquarters__medieval_fantasy_v5 5,4",
+              "enabled": true,
+              "bounds": [
+                648,
+                643,
+                1080,
+                1075
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v18 4,6",
+              "enabled": true,
+              "bounds": [
+                0,
+                751,
+                432,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v6 5,5",
+              "enabled": true,
+              "bounds": [
+                432,
+                751,
+                864,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 6,4",
+              "enabled": true,
+              "bounds": [
+                864,
+                751,
+                1080,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 4,7",
+              "enabled": true,
+              "bounds": [
+                0,
+                859,
+                216,
+                1291
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v9 3,1",
+              "enabled": true,
+              "bounds": [
+                864,
+                103,
+                1080,
+                535
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 5,6",
+              "enabled": true,
+              "bounds": [
+                216,
+                859,
+                648,
+                1291
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v2 6,5",
+              "enabled": true,
+              "bounds": [
+                648,
+                859,
+                1080,
+                1291
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v19 5,7",
+              "enabled": true,
+              "bounds": [
+                0,
+                967,
+                432,
+                1399
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_castle_keep__medieval_fantasy_v1 6,6",
+              "enabled": true,
+              "bounds": [
+                432,
+                967,
+                864,
+                1399
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v2 7,5",
+              "enabled": true,
+              "bounds": [
+                864,
+                967,
+                1080,
+                1399
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v5 5,8",
+              "enabled": true,
+              "bounds": [
+                0,
+                1075,
+                216,
+                1507
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v5 6,7",
+              "enabled": true,
+              "bounds": [
+                216,
+                1075,
+                648,
+                1507
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v10 7,6",
+              "enabled": true,
+              "bounds": [
+                648,
+                1075,
+                1080,
+                1507
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v13 6,8",
+              "enabled": true,
+              "bounds": [
+                0,
+                1183,
+                432,
+                1615
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v16 7,7",
+              "enabled": true,
+              "bounds": [
+                432,
+                1183,
+                864,
+                1615
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 8,6",
+              "enabled": true,
+              "bounds": [
+                864,
+                1183,
+                1080,
+                1615
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v12 6,9",
+              "enabled": true,
+              "bounds": [
+                0,
+                1291,
+                216,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v13 7,8",
+              "enabled": true,
+              "bounds": [
+                216,
+                1291,
+                648,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_house_cottage__medieval_fantasy__temperate__warm_cozy_v3 8,7",
+              "enabled": true,
+              "bounds": [
+                648,
+                1291,
+                1080,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v17 7,9",
+              "enabled": true,
+              "bounds": [
+                0,
+                1399,
+                432,
+                1831
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v7 8,8",
+              "enabled": true,
+              "bounds": [
+                432,
+                1399,
+                864,
+                1831
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v1 7,10",
+              "enabled": true,
+              "bounds": [
+                0,
+                1507,
+                216,
+                1939
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_house_cottage__medieval_fantasy__temperate__warm_cozy_v1 8,9",
+              "enabled": true,
+              "bounds": [
+                216,
+                1507,
+                648,
+                1939
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v8 9,8",
+              "enabled": true,
+              "bounds": [
+                648,
+                1507,
+                1080,
+                1939
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 8,10",
+              "enabled": true,
+              "bounds": [
+                0,
+                1615,
+                432,
+                2047
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v12 9,9",
+              "enabled": true,
+              "bounds": [
+                432,
+                1615,
+                864,
+                2047
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v8 10,8",
+              "enabled": true,
+              "bounds": [
+                864,
+                1615,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v9 8,11",
+              "enabled": true,
+              "bounds": [
+                0,
+                1723,
+                216,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v6 9,10",
+              "enabled": true,
+              "bounds": [
+                216,
+                1723,
+                648,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 10,9",
+              "enabled": true,
+              "bounds": [
+                648,
+                1723,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v18 9,11",
+              "enabled": true,
+              "bounds": [
+                0,
+                1831,
+                432,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v11 10,10",
+              "enabled": true,
+              "bounds": [
+                432,
+                1831,
+                864,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v5 9,12",
+              "enabled": true,
+              "bounds": [
+                0,
+                1939,
+                216,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v15 10,11",
+              "enabled": true,
+              "bounds": [
+                216,
+                1939,
+                648,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v1 9,7",
+              "enabled": true,
+              "bounds": [
+                864,
+                1399,
+                1080,
+                1831
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v7 11,10",
+              "enabled": true,
+              "bounds": [
+                648,
+                1939,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v10 11,9",
+              "enabled": true,
+              "bounds": [
+                864,
+                1831,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                823,
+                398,
+                905,
+                456
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "最近的聊天",
+              "enabled": true,
+              "bounds": [
+                781,
+                414,
+                808,
+                440
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                712,
+                506,
+                806,
+                600
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                817,
+                506,
+                911,
+                600
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                922,
+                506,
+                1016,
+                600
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                712,
+                611,
+                806,
+                705
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                817,
+                611,
+                911,
+                705
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Sumeru Academy Library&#10;Sumeru Academy Library",
+              "enabled": true,
+              "bounds": [
+                73,
+                685,
+                359,
+                814
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                922,
+                611,
+                1016,
+                705
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Adventurers' Guild Hub&#10;Adventurers' Guild Hub",
+              "enabled": true,
+              "bounds": [
+                713,
+                793,
+                1015,
+                922
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Realm of the Archons&#10;Realm of the Archons",
+              "enabled": true,
+              "bounds": [
+                476,
+                1154,
+                820,
+                1246
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Wangsheng Funeral Parlor&#10;Wangsheng Funeral Parlor",
+              "enabled": true,
+              "bounds": [
+                272,
+                1657,
+                592,
+                1786
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Mortal Nations&#10;The Mortal Nations",
+              "enabled": true,
+              "bounds": [
+                710,
+                1478,
+                1018,
+                1570
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                13,
+                144,
+                113,
+                244
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons",
+              "enabled": true,
+              "bounds": [
+                139,
+                149,
+                764,
+                199
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "第3天, 13:25",
+              "enabled": true,
+              "bounds": [
+                176,
+                212,
+                332,
+                238
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+              "enabled": true,
+              "bounds": [
+                32,
+                1874,
+                121,
+                2023
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                2064,
+                1080,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "詳細資料",
+              "enabled": true,
+              "bounds": [
+                32,
+                2064,
+                268,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "歷史紀錄",
+              "enabled": true,
+              "bounds": [
+                289,
+                2064,
+                525,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "事件",
+              "enabled": true,
+              "bounds": [
+                546,
+                2064,
+                719,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "故事回顧",
+              "enabled": true,
+              "bounds": [
+                740,
+                2064,
+                977,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "地點",
+              "enabled": true,
+              "bounds": [
+                998,
+                2064,
+                1080,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                922,
+                1735,
+                1049,
+                1966
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "放大地圖",
+              "enabled": true,
+              "bounds": [
+                959,
+                1787,
+                1049,
+                1876
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "縮小地圖",
+              "enabled": true,
+              "bounds": [
+                959,
+                1876,
+                1049,
+                1966
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T09:18:22.010Z",
+            "value": "false"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T09:18:15.427Z",
+        "finishedAt": "2026-10-23T09:18:22.064Z"
+      },
+      {
+        "id": "s2",
+        "description": "打开 MiniPhone",
+        "reason": "已进入已有 World，页面提供唯一的迷你手机入口。",
+        "action": {
+          "kind": "tap",
+          "target": {
+            "kind": "description",
+            "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "x": 0.5,
+            "y": 0.5
+          },
+          "endX": 0,
+          "endY": 0,
+          "durationMs": 0
+        },
+        "check": {
+          "source": "ui",
+          "target": {
+            "kind": "description",
+            "value": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+            "x": 0,
+            "y": 0
+          },
+          "property": "exists",
+          "operator": "equals",
+          "expected": "false",
+          "timeoutMs": 10000,
+          "sampleMs": 500
+        },
+        "before": {
+          "id": "frame-09c1f8dc-99e7-4729-acf3-8028693f2dcc",
+          "at": "2026-10-23T09:18:25.419Z",
+          "observedAt": {
+            "foreground": "2026-10-23T09:18:22.126Z",
+            "audio": "2026-10-23T09:18:22.283Z",
+            "ui": "2026-10-23T09:18:25.371Z"
+          },
+          "screenshot": "frame-09c1f8dc-99e7-4729-acf3-8028693f2dcc.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                2044,
+                1080,
+                2081
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "xiaoyi yaohfjfjf&#10;Tick 18-17 · 142 Messages",
+              "enabled": true,
+              "bounds": [
+                32,
+                2180,
+                1049,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "立即 Tick",
+              "enabled": true,
+              "bounds": [
+                807,
+                2214,
+                1049,
+                2303
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "神殿&#10;神殿&#10;1",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v8 0,3",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                216,
+                427
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 0,2",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                432,
+                319
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v14 1,2",
+              "enabled": true,
+              "bounds": [
+                216,
+                0,
+                648,
+                427
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 1,1",
+              "enabled": true,
+              "bounds": [
+                432,
+                0,
+                864,
+                319
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v15 2,1",
+              "enabled": true,
+              "bounds": [
+                648,
+                0,
+                1080,
+                427
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v13 1,0",
+              "enabled": true,
+              "bounds": [
+                648,
+                0,
+                1080,
+                211
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v2 1,3",
+              "enabled": true,
+              "bounds": [
+                0,
+                103,
+                432,
+                535
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v1 2,2",
+              "enabled": true,
+              "bounds": [
+                432,
+                103,
+                864,
+                535
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 1,4",
+              "enabled": true,
+              "bounds": [
+                0,
+                211,
+                216,
+                643
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v18 2,3",
+              "enabled": true,
+              "bounds": [
+                216,
+                211,
+                648,
+                643
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_temple_shrine__medieval_fantasy_v4 3,2",
+              "enabled": true,
+              "bounds": [
+                648,
+                211,
+                1080,
+                643
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v9 2,4",
+              "enabled": true,
+              "bounds": [
+                0,
+                319,
+                432,
+                751
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 3,3",
+              "enabled": true,
+              "bounds": [
+                432,
+                319,
+                864,
+                751
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v10 4,2",
+              "enabled": true,
+              "bounds": [
+                864,
+                319,
+                1080,
+                751
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 2,5",
+              "enabled": true,
+              "bounds": [
+                0,
+                427,
+                216,
+                859
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v14 3,4",
+              "enabled": true,
+              "bounds": [
+                216,
+                427,
+                648,
+                859
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v17 4,3",
+              "enabled": true,
+              "bounds": [
+                648,
+                427,
+                1080,
+                859
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_library_archive__medieval_fantasy_v4 3,5",
+              "enabled": true,
+              "bounds": [
+                0,
+                535,
+                432,
+                967
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v15 4,4",
+              "enabled": true,
+              "bounds": [
+                432,
+                535,
+                864,
+                967
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v12 5,3",
+              "enabled": true,
+              "bounds": [
+                864,
+                535,
+                1080,
+                967
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 3,6",
+              "enabled": true,
+              "bounds": [
+                0,
+                643,
+                216,
+                1075
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v3 2,0",
+              "enabled": true,
+              "bounds": [
+                864,
+                0,
+                1080,
+                319
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v11 4,5",
+              "enabled": true,
+              "bounds": [
+                216,
+                643,
+                648,
+                1075
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_guild_headquarters__medieval_fantasy_v5 5,4",
+              "enabled": true,
+              "bounds": [
+                648,
+                643,
+                1080,
+                1075
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v18 4,6",
+              "enabled": true,
+              "bounds": [
+                0,
+                751,
+                432,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v6 5,5",
+              "enabled": true,
+              "bounds": [
+                432,
+                751,
+                864,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 6,4",
+              "enabled": true,
+              "bounds": [
+                864,
+                751,
+                1080,
+                1183
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 4,7",
+              "enabled": true,
+              "bounds": [
+                0,
+                859,
+                216,
+                1291
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v9 3,1",
+              "enabled": true,
+              "bounds": [
+                864,
+                103,
+                1080,
+                535
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 5,6",
+              "enabled": true,
+              "bounds": [
+                216,
+                859,
+                648,
+                1291
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v2 6,5",
+              "enabled": true,
+              "bounds": [
+                648,
+                859,
+                1080,
+                1291
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v19 5,7",
+              "enabled": true,
+              "bounds": [
+                0,
+                967,
+                432,
+                1399
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_castle_keep__medieval_fantasy_v1 6,6",
+              "enabled": true,
+              "bounds": [
+                432,
+                967,
+                864,
+                1399
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v2 7,5",
+              "enabled": true,
+              "bounds": [
+                864,
+                967,
+                1080,
+                1399
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v5 5,8",
+              "enabled": true,
+              "bounds": [
+                0,
+                1075,
+                216,
+                1507
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v5 6,7",
+              "enabled": true,
+              "bounds": [
+                216,
+                1075,
+                648,
+                1507
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v10 7,6",
+              "enabled": true,
+              "bounds": [
+                648,
+                1075,
+                1080,
+                1507
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v13 6,8",
+              "enabled": true,
+              "bounds": [
+                0,
+                1183,
+                432,
+                1615
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v16 7,7",
+              "enabled": true,
+              "bounds": [
+                432,
+                1183,
+                864,
+                1615
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 8,6",
+              "enabled": true,
+              "bounds": [
+                864,
+                1183,
+                1080,
+                1615
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v12 6,9",
+              "enabled": true,
+              "bounds": [
+                0,
+                1291,
+                216,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v13 7,8",
+              "enabled": true,
+              "bounds": [
+                216,
+                1291,
+                648,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_house_cottage__medieval_fantasy__temperate__warm_cozy_v3 8,7",
+              "enabled": true,
+              "bounds": [
+                648,
+                1291,
+                1080,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v17 7,9",
+              "enabled": true,
+              "bounds": [
+                0,
+                1399,
+                432,
+                1831
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v7 8,8",
+              "enabled": true,
+              "bounds": [
+                432,
+                1399,
+                864,
+                1831
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v1 7,10",
+              "enabled": true,
+              "bounds": [
+                0,
+                1507,
+                216,
+                1939
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_house_cottage__medieval_fantasy__temperate__warm_cozy_v1 8,9",
+              "enabled": true,
+              "bounds": [
+                216,
+                1507,
+                648,
+                1939
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v8 9,8",
+              "enabled": true,
+              "bounds": [
+                648,
+                1507,
+                1080,
+                1939
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v4 8,10",
+              "enabled": true,
+              "bounds": [
+                0,
+                1615,
+                432,
+                2047
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v12 9,9",
+              "enabled": true,
+              "bounds": [
+                432,
+                1615,
+                864,
+                2047
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v8 10,8",
+              "enabled": true,
+              "bounds": [
+                864,
+                1615,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v9 8,11",
+              "enabled": true,
+              "bounds": [
+                0,
+                1723,
+                216,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v6 9,10",
+              "enabled": true,
+              "bounds": [
+                216,
+                1723,
+                648,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v20 10,9",
+              "enabled": true,
+              "bounds": [
+                648,
+                1723,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v18 9,11",
+              "enabled": true,
+              "bounds": [
+                0,
+                1831,
+                432,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v11 10,10",
+              "enabled": true,
+              "bounds": [
+                432,
+                1831,
+                864,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v5 9,12",
+              "enabled": true,
+              "bounds": [
+                0,
+                1939,
+                216,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v15 10,11",
+              "enabled": true,
+              "bounds": [
+                216,
+                1939,
+                648,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v1 9,7",
+              "enabled": true,
+              "bounds": [
+                864,
+                1399,
+                1080,
+                1831
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v7 11,10",
+              "enabled": true,
+              "bounds": [
+                648,
+                1939,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "L2_default__medieval_fantasy__temperate__warm_cozy_v10 11,9",
+              "enabled": true,
+              "bounds": [
+                864,
+                1831,
+                1080,
+                2044
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                823,
+                398,
+                905,
+                456
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "最近的聊天",
+              "enabled": true,
+              "bounds": [
+                781,
+                414,
+                808,
+                440
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                712,
+                506,
+                806,
+                600
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                817,
+                506,
+                911,
+                600
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                922,
+                506,
+                1016,
+                600
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                712,
+                611,
+                806,
+                705
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                817,
+                611,
+                911,
+                705
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Sumeru Academy Library&#10;Sumeru Academy Library",
+              "enabled": true,
+              "bounds": [
+                73,
+                685,
+                359,
+                814
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                922,
+                611,
+                1016,
+                705
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Adventurers' Guild Hub&#10;Adventurers' Guild Hub",
+              "enabled": true,
+              "bounds": [
+                713,
+                793,
+                1015,
+                922
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Realm of the Archons&#10;Realm of the Archons",
+              "enabled": true,
+              "bounds": [
+                476,
+                1154,
+                820,
+                1246
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Wangsheng Funeral Parlor&#10;Wangsheng Funeral Parlor",
+              "enabled": true,
+              "bounds": [
+                272,
+                1657,
+                592,
+                1786
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "The Mortal Nations&#10;The Mortal Nations",
+              "enabled": true,
+              "bounds": [
+                710,
+                1478,
+                1018,
+                1570
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                13,
+                144,
+                113,
+                244
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons",
+              "enabled": true,
+              "bounds": [
+                139,
+                149,
+                764,
+                199
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "第3天, 13:25",
+              "enabled": true,
+              "bounds": [
+                176,
+                212,
+                332,
+                238
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "開啟迷你手機，0 則未讀訊息&#10;13:25",
+              "enabled": true,
+              "bounds": [
+                32,
+                1874,
+                121,
+                2023
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                2064,
+                1080,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "詳細資料",
+              "enabled": true,
+              "bounds": [
+                32,
+                2064,
+                268,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "歷史紀錄",
+              "enabled": true,
+              "bounds": [
+                289,
+                2064,
+                525,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "事件",
+              "enabled": true,
+              "bounds": [
+                546,
+                2064,
+                719,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "故事回顧",
+              "enabled": true,
+              "bounds": [
+                740,
+                2064,
+                977,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "地點",
+              "enabled": true,
+              "bounds": [
+                998,
+                2064,
+                1080,
+                2153
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                922,
+                1735,
+                1049,
+                1966
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "放大地圖",
+              "enabled": true,
+              "bounds": [
+                959,
+                1787,
+                1049,
+                1876
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "縮小地圖",
+              "enabled": true,
+              "bounds": [
+                959,
+                1876,
+                1049,
+                1966
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "after": {
+          "id": "frame-9c93fb83-1076-4bcd-bb87-a2d47a726fed",
+          "at": "2026-10-23T09:18:29.395Z",
+          "observedAt": {
+            "foreground": "2026-10-23T09:18:25.534Z",
+            "audio": "2026-10-23T09:18:25.642Z",
+            "ui": "2026-10-23T09:18:29.334Z"
+          },
+          "screenshot": "frame-9c93fb83-1076-4bcd-bb87-a2d47a726fed.png",
+          "width": 1080,
+          "height": 2400,
+          "foreground": "com.worldo.ai",
+          "audio": "none",
+          "nodes": [
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "android:id/content",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2337
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "Spoiled by the Seven Archons",
+              "enabled": true,
+              "bounds": [
+                186,
+                299,
+                894,
+                364
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "13:25",
+              "enabled": true,
+              "bounds": [
+                210,
+                370,
+                870,
+                682
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "開啟音樂：Steel I Keep&#10;Steel I Keep cover&#10;Steel I Keep&#10;Megumi Fushiguro",
+              "enabled": true,
+              "bounds": [
+                81,
+                1424,
+                757,
+                1597
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                81,
+                1424,
+                197,
+                1597
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "3, 對 Steel I Keep 按讚",
+              "enabled": true,
+              "bounds": [
+                768,
+                1447,
+                999,
+                1573
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "2:03",
+              "enabled": true,
+              "bounds": [
+                81,
+                1640,
+                165,
+                1679
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                165,
+                1597,
+                899,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "2:03 of 3:10",
+              "enabled": true,
+              "bounds": [
+                572,
+                1597,
+                698,
+                1723
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "-1:07",
+              "enabled": true,
+              "bounds": [
+                899,
+                1640,
+                999,
+                1679
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "上一首",
+              "enabled": true,
+              "bounds": [
+                299,
+                1723,
+                425,
+                1828
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                477,
+                1723,
+                603,
+                1828
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "播放",
+              "enabled": true,
+              "bounds": [
+                477,
+                1723,
+                603,
+                1828
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "下一首",
+              "enabled": true,
+              "bounds": [
+                656,
+                1723,
+                782,
+                1828
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                0,
+                0,
+                1080,
+                2400
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "關閉",
+              "enabled": true,
+              "bounds": [
+                964,
+                165,
+                1038,
+                238
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "",
+              "enabled": true,
+              "bounds": [
+                451,
+                1917,
+                629,
+                1991
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "主畫面第 1 頁",
+              "enabled": true,
+              "bounds": [
+                498,
+                1917,
+                540,
+                1991
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "主畫面第 2 頁",
+              "enabled": true,
+              "bounds": [
+                540,
+                1917,
+                582,
+                1991
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "訊息",
+              "enabled": true,
+              "bounds": [
+                84,
+                2080,
+                247,
+                2243
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "貼文",
+              "enabled": true,
+              "bounds": [
+                334,
+                2080,
+                497,
+                2243
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "照片",
+              "enabled": true,
+              "bounds": [
+                584,
+                2080,
+                746,
+                2243
+              ]
+            },
+            {
+              "id": "",
+              "text": "",
+              "description": "設定",
+              "enabled": true,
+              "bounds": [
+                833,
+                2080,
+                996,
+                2243
+              ]
+            }
+          ],
+          "treeAvailable": true,
+          "warnings": []
+        },
+        "samples": [
+          {
+            "at": "2026-10-23T09:18:29.334Z",
+            "value": "false"
+          }
+        ],
+        "verdict": "passed",
+        "startedAt": "2026-10-23T09:18:22.065Z",
+        "finishedAt": "2026-10-23T09:18:29.395Z"
+      }
+    ],
+    "cleanup": {
+      "ok": true,
+      "detail": "本次设备命令已结束，临时页面树已释放；账号和应用数据保留"
+    },
+    "error": "Error: 操作定位不唯一：0",
+    "packageHash": "770c1e007184891befaef3ee6f7214a703a3eff08e3e24fd38deab8de019f20a",
+    "independentSession": true,
+    "identity": {
+      "device": "1A101FDF6006AX",
+      "packageName": "com.worldo.ai",
+      "version": "9.9.9",
+      "apkSha256": "53e43189249f36a1e8148ce2f6f26cc13745509b2ba3aa9dd2fa99b942b996ab",
+      "android": "17",
+      "width": 1080,
+      "height": 2400
+    },
+    "finishedAt": "2026-10-23T09:18:33.009Z"
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "name": "genesis-automation-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Manual local QA console for GenesisApp semantic cases and device automation.",
+  "engines": {
+    "node": ">=22 <26",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "apps/service",
+    "apps/web",
+    "packages/core",
+    "runners/appium"
+  ],
+  "scripts": {
+    "predev": "npm run build -w @genesis/qa-core",
+    "dev": "concurrently -k -n service,web -c blue,magenta \"npm run dev -w @genesis/qa-service\" \"npm run dev -w @genesis/qa-web\"",
+    "start": "concurrently -k -n service,web -c blue,magenta \"npm run start -w @genesis/qa-service\" \"npm run start -w @genesis/qa-web\"",
+    "build": "npm run build -w @genesis/qa-core && npm run build -w @genesis/qa-service && npm run build -w @genesis/qa-web",
+    "typecheck": "npm run build -w @genesis/qa-core && npm run typecheck -w @genesis/qa-service && npm run typecheck -w @genesis/qa-web && npm run typecheck -w @genesis/qa-appium",
+    "pretest": "npm run build -w @genesis/qa-core",
+    "test": "npm run test --workspaces --if-present",
+    "qa": "npm run qa -w @genesis/qa-service --",
+    "drivers:status": "npm run drivers:status -w @genesis/qa-appium",
+    "drivers:install:android": "npm run drivers:install:android -w @genesis/qa-appium",
+    "drivers:install:ios": "npm run drivers:install:ios -w @genesis/qa-appium"
+  },
+  "devDependencies": {
+    "@babel/generator": "7.29.7",
+    "@babel/parser": "7.29.7",
+    "@babel/traverse": "7.29.7",
+    "@babel/types": "7.29.7",
+    "concurrently": "10.0.5"
+  },
+  "overrides": {
+    "@babel/generator": "7.29.7",
+    "@babel/traverse": "7.29.7",
+    "serialize-javascript": "7.1.0"
+  }
+}

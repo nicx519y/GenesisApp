@@ -225,7 +225,7 @@ extension _WorldPageTickFlow on _WorldPageState {
       if (_openEventsAfterTickDone) {
         _openEventsAfterTickDone = false;
         if (!_shouldSuppressAutoEventsAfterTick) {
-          _showOrSelectEventsAfterTick();
+          _showOrSelectEventsAfterTick(completedTickCount);
         }
       }
     } finally {
@@ -247,14 +247,14 @@ extension _WorldPageTickFlow on _WorldPageState {
     return false;
   }
 
-  void _showOrSelectEventsAfterTick() {
+  void _showOrSelectEventsAfterTick(int? completedTickCount) {
     if (_worldBottomSheetOpen &&
         _worldBottomSheetSelection.value.kind != WorldBottomSheetKind.events) {
       final sheetContext = _worldBottomSheetContext;
       if (sheetContext != null) {
         _openEventsAfterCurrentBottomSheetClosed = true;
         _eventsAfterCurrentBottomSheetClosedTargetTickNumber =
-            _world?.tickCount;
+            completedTickCount;
         unawaited(Navigator.of(sheetContext).maybePop());
         return;
       }
@@ -262,7 +262,7 @@ extension _WorldPageTickFlow on _WorldPageState {
     _openWorldBottomSheet(
       WorldBottomSheetKind.events,
       scrollEventsToLatest: true,
-      eventsTargetTickNumber: _world?.tickCount,
+      eventsTargetTickNumber: completedTickCount,
     );
   }
 

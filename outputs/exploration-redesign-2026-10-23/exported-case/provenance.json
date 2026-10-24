@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "sessionId": "task-4a879c0a-905a-40c6-8b79-c2087aa73a7d",
+  "sourceEngineHash": "dcec4d33b4e94c3e3d5b2b2134432db0b5471a87ed4d574a5845645799a28a02",
+  "candidateEngineHash": "2b4329bcd590841937a1b8e397292a316fa8fa337c988957c1dddb64fb477ffc",
+  "confirmedAt": "2026-10-23T09:16:19.744Z",
+  "confirmedHash": "cd7e112ee980e2f2896625319fe43dcc951eb566f5f4549c6746d42d41eea06c",
+  "sourceSteps": [
+    {
+      "id": "s1",
+      "hash": "82a30254cfa6742a97c2d30f9bcc42f45ad1edfb3c3862d8616cae22ad7b4b59"
+    },
+    {
+      "id": "s2",
+      "hash": "f0baa13defba3f844e81365a9a39e8f2bd115d95f1973a99cc665776282deb6f"
+    }
+  ],
+  "limitations": []
+}

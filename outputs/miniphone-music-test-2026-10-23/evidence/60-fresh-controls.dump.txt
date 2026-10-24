@@ -1,0 +1,1 @@
+UI hierchary dumped to: /sdcard/miniphone-test-window.xml

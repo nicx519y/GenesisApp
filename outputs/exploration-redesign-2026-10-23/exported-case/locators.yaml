@@ -1,0 +1,22 @@
+s1:
+  action:
+    kind: text
+    value: ""
+    x: 0
+    y: 0
+  check:
+    kind: text
+    value: ""
+    x: 0
+    y: 0
+s2:
+  action:
+    kind: text
+    value: ""
+    x: 0
+    y: 0
+  check:
+    kind: text
+    value: ""
+    x: 0
+    y: 0

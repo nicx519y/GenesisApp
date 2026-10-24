@@ -461,11 +461,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (identical(_locationMessageChanges, next)) return;
     _unbindLocationMessageChanges();
     _locationMessageChanges = next;
-    next.addListener(_handleLocationMessageChanges);
+    next.addListener(_locationMessagesListener);
   }
 
   void _unbindLocationMessageChanges() {
-    _locationMessageChanges?.removeListener(_handleLocationMessageChanges);
+    _locationMessageChanges?.removeListener(_locationMessagesListener);
     _locationMessageChanges = null;
   }
 
