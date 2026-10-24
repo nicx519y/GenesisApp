@@ -2674,7 +2674,7 @@ World：
 - Me 当前账号会员卡片和徽章读取同一全局状态；状态 2 或状态 1 且已到期使用已有失效样式。只调整数据绑定，不调整 UI 尺寸、布局、颜色或文案。
 - 未登录用户不请求 wallet、不按游客月年会员类型做客户端购买拦截。游客继续依据 `/membership/guest/purchase/check` 的 `has_unbound_order` 触发登录绑定；该字段不是会员有效状态。启动时优先用已购买缓存中的 UUID 调用 check，不查询商店；没有已购买缓存时才只读查询当前 App 的 Google SUBS / Apple 有效订阅，排除待付款及已过期订单，按购买时间选择最新一笔取得原 UUID，只查这一笔。仅 prepare 的临时身份不参与 check；false 是正常结果，不触发退避重试。平台交易校验、归属校验、购买成功后的 report、成功弹窗 OK、强制登录及 claim 退避重试保持原链路。
 - 商品展示缓存为 v3，按账号、平台和环境隔离，仅存展示与选中套餐配置。last_account_uuid 和 has_subscription_order 仅保留本次响应的内存下单快照，不写商品磁盘缓存；重新进入或切换账号后使用新响应。report/claim 状态变化继续使快照失效并刷新商品。
-- 年付卡片展示完整年价除以 `billing_months` 的月均金额，底部按钮展示完整周期价格；币种及月额度相同才按月价乘 12 与年价计算 Save。实际扣款由商店确认。每次入页及购买 report／claim 后重新拉取商品列表，并查询匹配 store product/base plan/offer，更新缓存；有效缓存下点击购买只复用缓存。入页服务端返回前有效旧缓存可购买，返回后查询商店期间显示 loading、禁止购买；磁盘展示快照不单独授权下单。
+- 年付卡片展示完整年价除以 `billing_months` 的月均金额，底部按钮展示完整周期价格；币种及月额度相同才按月价乘 12 与年价计算 Save。实际扣款由商店确认。每次入页及购买 report／claim 后重新拉取商品列表，并查询匹配 store product/base plan/offer，更新缓存；有效缓存下点击购买只复用缓存。入页服务端返回前有效旧缓存可购买，返回后查询商店期间仅禁止购买，不显示全局 loading；磁盘展示快照不单独授权下单。
 - `report=completed` 后登录用户刷新 wallet，游客保留待绑定证明；`report=rejected` 提示失败。购买 report 只接受这两种业务状态且不再补报；claim 独立处理，完成后刷新 wallet，不重新触发 report。
 - 商品权益仍由服务端返回并按当前套餐展示；title 保持现有固定页面标题行为，价格及权益不补本地数据。`enhanced/locked/included`、图标映射和加载表现保持现有样式。未登录仍隐藏 Buy Gems 和购买历史入口。
 - 普通 Gems 使用 `wallet.balance_cent`，会员 Blue Gems 使用 `membership.blue_gems_cent`，互不替换；原 Gems 购买、签到、补报逻辑不变。

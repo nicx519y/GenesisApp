@@ -342,72 +342,69 @@ class _GemWalletPageState extends State<GemWalletPage>
               true);
 
   Widget _buildPurchasePage(BuildContext context) {
-    return GemProductRefreshGuard(
-      isLoading: _isProductRefreshBlocking,
-      child: GenesisDarkTheme(
-        child: PopScope(
-          canPop: !_billingPurchaseDialogShowing,
-          child: Scaffold(
-            backgroundColor: GenesisColors.darkBackground,
-            appBar: GenesisBackAppBar(
-              pageName: GenesisL10n.current.gemsBuy,
-              titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
-              titleSideInset: 56,
-              actions: [
-                if (widget.showBuyGems)
-                  IconButton(
-                    key: const ValueKey('wallet-records-button'),
-                    tooltip: GenesisL10n.current.gemsRecords,
-                    padding: const EdgeInsets.only(left: 4),
-                    constraints: const BoxConstraints.tightFor(
-                      width: 56,
-                      height: 50,
-                    ),
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed(RouteNames.gemRecords),
-                    icon: SvgPicture.asset(
-                      recordsIconAsset,
-                      key: const ValueKey('wallet-records-icon'),
-                      width: 17,
-                      height: 17,
-                      colorFilter: const ColorFilter.mode(
-                        Color(0x99FFFFFF),
-                        BlendMode.srcIn,
-                      ),
+    return GenesisDarkTheme(
+      child: PopScope(
+        canPop: !_billingPurchaseDialogShowing,
+        child: Scaffold(
+          backgroundColor: GenesisColors.darkBackground,
+          appBar: GenesisBackAppBar(
+            pageName: GenesisL10n.current.gemsBuy,
+            titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
+            titleSideInset: 56,
+            actions: [
+              if (widget.showBuyGems)
+                IconButton(
+                  key: const ValueKey('wallet-records-button'),
+                  tooltip: GenesisL10n.current.gemsRecords,
+                  padding: const EdgeInsets.only(left: 4),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 56,
+                    height: 50,
+                  ),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(RouteNames.gemRecords),
+                  icon: SvgPicture.asset(
+                    recordsIconAsset,
+                    key: const ValueKey('wallet-records-icon'),
+                    width: 17,
+                    height: 17,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0x99FFFFFF),
+                      BlendMode.srcIn,
                     ),
                   ),
-              ],
-            ),
-            body: SafeArea(
-              child: TabBarView(
-                key: const ValueKey('wallet-purchase-pages'),
-                controller: _purchaseTabs,
-                children: [
-                  _WalletTabPage(
-                    child: _subscriptionVisited
-                        ? SubscriptionTrackingScope(
-                            page: _subscriptionTracking,
-                            child: PurchaseCatalogEntry(
-                              revision: _subscriptionEntryRevision,
-                              child: ProSubscriptionContent(
-                                refreshMembershipOnOpen: false,
-                                closeOnPurchaseSuccess: true,
-                                horizontalInset: 16,
-                                headingTopSpacing: 10,
-                                productsLoader: widget.membershipProductsLoader,
-                              ),
+                ),
+            ],
+          ),
+          body: SafeArea(
+            child: TabBarView(
+              key: const ValueKey('wallet-purchase-pages'),
+              controller: _purchaseTabs,
+              children: [
+                _WalletTabPage(
+                  child: _subscriptionVisited
+                      ? SubscriptionTrackingScope(
+                          page: _subscriptionTracking,
+                          child: PurchaseCatalogEntry(
+                            revision: _subscriptionEntryRevision,
+                            child: ProSubscriptionContent(
+                              refreshMembershipOnOpen: false,
+                              closeOnPurchaseSuccess: true,
+                              horizontalInset: 16,
+                              headingTopSpacing: 10,
+                              productsLoader: widget.membershipProductsLoader,
                             ),
-                          )
+                          ),
+                        )
+                      : const SizedBox.expand(),
+                ),
+                if (widget.showBuyGems)
+                  _WalletTabPage(
+                    child: _gemsVisited
+                        ? _buildBody(_walletStateListenable)
                         : const SizedBox.expand(),
                   ),
-                  if (widget.showBuyGems)
-                    _WalletTabPage(
-                      child: _gemsVisited
-                          ? _buildBody(_walletStateListenable)
-                          : const SizedBox.expand(),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
         ),

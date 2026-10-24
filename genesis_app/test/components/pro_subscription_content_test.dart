@@ -179,6 +179,7 @@ void main() {
       expect(purchases, 1);
       expect(calls, 2);
       expect(storeCalls, 1);
+      final barriersBeforeRefresh = find.byType(ModalBarrier).evaluate().length;
       response.complete(
         MembershipProductList(products: [membershipProduct(yearly: true)]),
       );
@@ -188,8 +189,9 @@ void main() {
       expect(catalog.queryingStore.value, isTrue);
       expect(
         find.byKey(const ValueKey('gem-products-global-loading')),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(find.byType(ModalBarrier).evaluate().length, barriersBeforeRefresh);
       await tester.tapAt(tester.getCenter(find.byKey(buttonKey)));
       await tester.pump();
       expect(purchases, 1);

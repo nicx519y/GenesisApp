@@ -487,10 +487,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     animation: Listenable.merge([
       if (_catalog != null) _catalog!.queryingStore,
     ]),
-    builder: (_, _) => GemProductRefreshGuard(
-      isLoading: _offers.isNotEmpty && _catalog?.queryingStore.value == true,
-      child: _buildExposure(context),
-    ),
+    builder: (_, _) => _buildExposure(context),
   );
 
   Widget _buildExposure(BuildContext context) => SubscriptionExposure(

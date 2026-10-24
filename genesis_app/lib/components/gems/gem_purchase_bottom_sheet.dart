@@ -463,19 +463,16 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       (_products != null && widget.catalog?.queryingStore.value == true);
 
   Widget _buildPurchaseContent(BuildContext context) {
-    return GemProductRefreshGuard(
-      isLoading: _isProductRefreshBlocking,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 14),
-        child: ValueListenableBuilder<GemWalletState>(
-          valueListenable: widget.walletStore.state,
-          builder: (context, walletState, _) => GemPurchaseCatalogSection(
-            balanceCent: walletState.balanceCent ?? 0,
-            balanceKey: const ValueKey<String>('gem-purchase-sheet-balance'),
-            compactBalance: true,
-            catalog: _buildProducts(),
-          ),
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 14),
+      child: ValueListenableBuilder<GemWalletState>(
+        valueListenable: widget.walletStore.state,
+        builder: (context, walletState, _) => GemPurchaseCatalogSection(
+          balanceCent: walletState.balanceCent ?? 0,
+          balanceKey: const ValueKey<String>('gem-purchase-sheet-balance'),
+          compactBalance: true,
+          catalog: _buildProducts(),
         ),
       ),
     );

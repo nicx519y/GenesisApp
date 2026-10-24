@@ -1692,7 +1692,7 @@ void main() {
       await tester.pump();
       expect(
         find.byKey(const ValueKey('gem-products-global-loading')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         tester
@@ -1774,7 +1774,7 @@ void main() {
           await tester.pump();
           expect(
             find.byKey(const ValueKey<String>('gem-products-global-loading')),
-            findsOneWidget,
+            findsNothing,
           );
           final cards = tester.widgetList<GemProductCard>(
             find.byType(GemProductCard),
