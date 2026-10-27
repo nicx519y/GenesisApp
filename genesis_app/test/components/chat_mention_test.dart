@@ -34,6 +34,63 @@ ChatMentionCatalog _catalog() => ChatMentionCatalog(
 );
 
 void main() {
+  testWidgets(
+    'catalog refresh does not echo a collapsed IME commit',
+    (tester) async {
+      final c = LocationChatMentionEditingController();
+      final focus = FocusNode();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: LocationChatComposerInput(
+              controller: c,
+              focusNode: focus,
+              inputEnabled: true,
+              sendEnabled: true,
+              sending: false,
+              onSend: () async {},
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      );
+      await tester.showKeyboard(find.byType(TextField));
+      const composing = TextEditingValue(
+        text: '你好',
+        selection: TextSelection.collapsed(offset: 2),
+        composing: TextRange(start: 0, end: 2),
+      );
+      tester.testTextInput.updateEditingValue(composing);
+      c.updateCatalog(_catalog());
+      tester.testTextInput.log.clear();
+      final committed = composing.copyWith(
+        composing: const TextRange.collapsed(2),
+      );
+      tester.testTextInput.updateEditingValue(committed);
+      await tester.pump();
+      expect(c.value, committed);
+      expect(
+        tester.testTextInput.log.where(
+          (e) => e.method == 'TextInput.setEditingState',
+        ),
+        isEmpty,
+      );
+      const next = TextEditingValue(
+        text: '你好shi',
+        selection: TextSelection.collapsed(offset: 5),
+        composing: TextRange(start: 2, end: 5),
+      );
+      tester.testTextInput.updateEditingValue(next);
+      await tester.pump();
+      expect(c.value, next);
+      await tester.pumpWidget(const SizedBox());
+      focus.dispose();
+      c.dispose();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   test('Chinese composition preserves complete platform editing values', () {
     final c = LocationChatMentionEditingController();
     addTearDown(c.dispose);

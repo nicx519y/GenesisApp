@@ -150,4 +150,4 @@ Developer Page 的 `switch → Location Chat → Streaming animations` 提供四
 
 ### 中文输入与提及目录刷新
 
-Worldo 详情开场输入框与 Location Chat 共用的 `LocationChatMentionEditingController`，在普通输入未过滤任何内部占位符时，原样保留系统 `TextEditingValue`（包括 composing、selection affinity 和方向），不能重建光标状态后额外回写输入法。角色/地点目录发生变化且输入法仍在组词时，仅暂存最新目录；直到组词提交或取消后再解析提及、换算光标，保持既有提及序列化与原子删除规则。相同文本但 composing 清空也必须处理延期刷新。该规则适用于共享控制器，iOS 中文连续输入/选词/删除仍需真机验收，并回归 Android 输入。
+Worldo 详情开场输入框与 Location Chat 共用的 `LocationChatMentionEditingController`，在普通输入未过滤任何内部占位符时，原样保留系统 `TextEditingValue`（包括 composing、selection affinity 和方向），不能重建光标状态后额外回写输入法。角色/地点目录发生变化且输入法仍在组词时，仅暂存最新目录；直到组词提交或取消后再解析提及、换算光标，保持既有提及序列化与原子删除规则。相同文本但 composing 清空也必须处理延期刷新。目录更新（包括延期更新）若未改变内部输入文本，只更新提及元数据，不回写编辑值；系统提交的折叠 composing 范围和光标状态也须原样保留。显式设置草稿、插入或删除提及仍按原有文本编辑规则处理。该规则适用于共享控制器，iOS 中文连续输入/选词/删除仍需真机验收，并回归 Android 输入。

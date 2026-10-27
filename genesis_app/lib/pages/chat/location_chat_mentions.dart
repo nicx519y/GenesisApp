@@ -280,6 +280,7 @@ class LocationChatMentionEditingController extends TextEditingController {
     _catalog = effectiveCatalog;
     _setSerializedValue(
       rawText,
+      preserveUnchangedEditingValue: true,
       serializedSelection: TextSelection(
         baseOffset: serializedBase,
         extentOffset: serializedExtent,
@@ -469,6 +470,7 @@ class LocationChatMentionEditingController extends TextEditingController {
   void _setSerializedValue(
     String rawText, {
     required TextSelection serializedSelection,
+    bool preserveUnchangedEditingValue = false,
   }) {
     final tokens = parseKnownChatMentions(rawText, _catalog);
     final buffer = StringBuffer();
@@ -494,6 +496,10 @@ class LocationChatMentionEditingController extends TextEditingController {
       ..clear()
       ..addAll(mentions);
     _insertedAtOffset = null;
+    // Catalog-only changes must not rewrite UIKit's editing state, including
+    // a collapsed composing range between successive Chinese compositions.
+    // Explicit draft/shortcut edits still use the normal replacement path.
+    if (preserveUnchangedEditingValue && internalText == value.text) return;
     _setInternalValue(
       TextEditingValue(
         text: internalText,
