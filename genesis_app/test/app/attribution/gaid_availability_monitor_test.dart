@@ -1,470 +1,160 @@
 import 'dart:async';
-import 'dart:convert';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
-import 'package:genesis_flutter_android/app/attribution/gaid_availability_monitor.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/attribution/gaid_availability_monitor.dart';
+
+void observe(GaidAvailabilityMonitor monitor, bool available) =>
+    monitor.observe(
+      available: available,
+      adjustId: available ? 'adjust' : '',
+      nativeId: available ? 'native' : '',
+      appInstanceId: 'instance',
+    );
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
-  tearDown(GenesisTelemetry.resetForTesting);
-
-  test('default reporter queues the requested monitor payloads', () async {
-    final events = MemoryCollectEventStore();
+  test('default reporter queues the paired event fields', () async {
+    final store = MemoryCollectEventStore();
     GenesisTelemetry.setCollectUploaderForTesting(
-      CollectTelemetryUploader(store: events)..configure(enabled: true),
+      CollectTelemetryUploader(store: store)..configure(enabled: true),
     );
+    addTearDown(GenesisTelemetry.resetForTesting);
     final monitor = GaidAvailabilityMonitor();
-
-    monitor.observe(environment: 'sandbox', source: null);
-    monitor.observe(environment: 'sandbox', source: 'native');
+    observe(monitor, false);
+    observe(monitor, true);
     await monitor.whenIdle;
-
     expect(
-      events.eventsForTesting.map(
-        (event) =>
-            (event.actionType, event.action, event.object1, event.object2),
+      store.eventsForTesting.map(
+        (event) => (
+          event.actionType,
+          event.action,
+          event.object1,
+          event.object2,
+          event.object3,
+        ),
       ),
       [
-        (
-          'monitor',
-          'get_gaid_failed',
-          'adjust_and_native_unavailable',
-          'android',
-        ),
-        ('monitor', 'get_gaid_success', 'native', 'android'),
+        ('monitor', 'get_gaid_failed', '', '', 'instance'),
+        ('monitor', 'get_gaid_success', 'adjust', 'native', 'instance'),
       ],
     );
   });
 
   test(
-    'GAID failure payload uses the same identifier snapshot as registration',
+    'healthy launch has no event; one pair only even after another failure',
     () async {
-      final events = MemoryCollectEventStore();
-      GenesisTelemetry.setCollectUploaderForTesting(
-        CollectTelemetryUploader(store: events)..configure(enabled: true),
-      );
-      final monitor = GaidAvailabilityMonitor();
-      Map<String, Object?>? registered;
-      var firebaseReads = 0;
-      final registration = AdjustDeviceRegistration(
-        platform: TargetPlatform.android,
-        environmentProvider: () => 'sandbox',
-        gaidAvailabilityMonitor: monitor,
-        readAdid: (_) async => 'known-adid',
-        readGoogleAdId: () async => null,
-        readNativeGoogleAdId: () async => null,
-        readAppInstanceId: () async {
-          firebaseReads++;
-          return 'firebase-id';
-        },
-        registerDevice:
-            ({
-              required adid,
-              required environment,
-              gpsAdid,
-              idfa,
-              idfv,
-              required appInstanceId,
-              privacyConsent,
-            }) async {
-              registered = {
-                'adid': adid,
-                'app_instance_id': appInstanceId,
-                'gps_adid': gpsAdid,
-              };
-            },
-      );
-      await registration.register();
-      await monitor.whenIdle;
-      final failure = events.eventsForTesting.singleWhere(
-        (event) => event.action == 'get_gaid_failed',
-      );
-      expect(jsonDecode(failure.object3), registered);
-      expect(jsonDecode(failure.object3), {
-        'adid': 'known-adid',
-        'app_instance_id': 'firebase-id',
-        'gps_adid': '',
-      });
-      expect(firebaseReads, 1);
-      registration.dispose();
-    },
-  );
-
-  test('queued failure keeps its identifier snapshot immutable', () async {
-    final snapshots = <Map<String, Object?>>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        snapshots.add(identifiers);
-        return true;
-      },
-    );
-    final identifiers = <String, Object?>{
-      'adid': 'first',
-      'app_instance_id': 'firebase',
-      'gps_adid': '',
-    };
-    monitor.observe(
-      environment: 'sandbox',
-      source: null,
-      identifiers: identifiers,
-    );
-    identifiers['adid'] = 'changed';
-    await monitor.whenIdle;
-    expect(snapshots.single['adid'], 'first');
-  });
-
-  test('a GAID available on the first read never reports success', () async {
-    final events = <(String, String)>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add((action, source));
-        return true;
-      },
-    );
-    final registration = _registration(
-      monitor: monitor,
-      adjustReader: () async => 'adjust-gaid',
-      nativeReader: () async => throw StateError('native must not be read'),
-    );
-
-    await registration.register();
-    await registration.register();
-    await monitor.whenIdle;
-
-    expect(events, isEmpty);
-    registration.dispose();
-  });
-
-  test(
-    'native fallback success does not report a failed Adjust read',
-    () async {
-      final events = <(String, String)>[];
+      final events = <String>[];
       final monitor = GaidAvailabilityMonitor(
-        report: (action, source, identifiers) async {
-          events.add((action, source));
+        report: (action, a, n, f) async {
+          events.add(action);
           return true;
         },
       );
-      final requests = <String?>[];
-      final registration = _registration(
-        monitor: monitor,
-        adjustReader: () async => null,
-        nativeReader: () async => 'native-gaid',
-        requests: requests,
-      );
-
-      await registration.register();
+      observe(monitor, true);
       await monitor.whenIdle;
-
-      expect(requests, ['native-gaid']);
       expect(events, isEmpty);
-      registration.dispose();
+      observe(monitor, false);
+      observe(monitor, false);
+      observe(monitor, true);
+      observe(monitor, false);
+      observe(monitor, true);
+      await monitor.whenIdle;
+      expect(events, ['get_gaid_failed', 'get_gaid_success']);
+      expect(monitor.shouldCaptureNative, isFalse);
     },
   );
 
-  test('both readers failing report once, then Adjust recovery once', () async {
-    final events = <(String, String)>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add((action, source));
-        return true;
-      },
-    );
-    final requests = <String?>[];
-    var reads = 0;
-    final registration = _registration(
-      monitor: monitor,
-      adjustReader: () async => ++reads < 3 ? null : 'later-adjust-gaid',
-      nativeReader: () async => null,
-      requests: requests,
-    );
-
-    await registration.register();
-    await registration.register();
-    await registration.register();
-    await registration.register();
-    await monitor.whenIdle;
-
-    expect(requests, ['', 'later-adjust-gaid']);
-    expect(events, [
-      ('get_gaid_failed', 'adjust_and_native_unavailable'),
-      ('get_gaid_success', 'adjust'),
-    ]);
-    registration.dispose();
-  });
-
-  test('recovery can come from the native reader after a failure', () async {
-    final events = <(String, String)>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add((action, source));
-        return true;
-      },
-    );
-    var nativeReads = 0;
-    final registration = _registration(
-      monitor: monitor,
-      adjustReader: () async => null,
-      nativeReader: () async => ++nativeReads == 1 ? null : 'native-gaid',
-    );
-
-    await registration.register();
-    await registration.register();
-    await monitor.whenIdle;
-
-    expect(events, [
-      ('get_gaid_failed', 'adjust_and_native_unavailable'),
-      ('get_gaid_success', 'native'),
-    ]);
-    registration.dispose();
-  });
-
   test(
-    'both readers timing out or throwing still register an empty GAID',
+    'recovery waits for failure enqueue and carries the raw identifiers',
     () async {
-      final events = <String>[];
-      final requests = <String?>[];
+      final accepted = Completer<bool>();
+      final events = <List<String>>[];
       final monitor = GaidAvailabilityMonitor(
-        report: (action, source, identifiers) async {
-          events.add(action);
-          return true;
+        report: (action, a, n, f) async {
+          events.add([action, a, n, f]);
+          return action == 'get_gaid_failed' ? accepted.future : true;
         },
       );
-      final registration = _registration(
-        monitor: monitor,
-        adjustReader: () => Completer<String?>().future,
-        nativeReader: () async => throw StateError('native unavailable'),
-        optionalIdTimeout: const Duration(milliseconds: 10),
-        requests: requests,
-      );
-
-      await registration.register();
+      observe(monitor, false);
+      expect(monitor.shouldCaptureNative, isTrue);
+      observe(monitor, true);
+      await Future<void>.delayed(Duration.zero);
+      expect(events, [
+        ['get_gaid_failed', '', '', 'instance'],
+      ]);
+      accepted.complete(true);
       await monitor.whenIdle;
+      expect(events.last, ['get_gaid_success', 'adjust', 'native', 'instance']);
+    },
+  );
 
-      expect(requests, ['']);
+  test(
+    'failed enqueue cannot produce an orphan success; next failure can retry',
+    () async {
+      final events = <String>[];
+      var accepted = false;
+      final monitor = GaidAvailabilityMonitor(
+        report: (action, a, n, f) async {
+          events.add(action);
+          return accepted;
+        },
+      );
+      observe(monitor, false);
+      await monitor.whenIdle;
+      observe(monitor, true);
+      await monitor.whenIdle;
       expect(events, ['get_gaid_failed']);
-      registration.dispose();
+      accepted = true;
+      observe(monitor, false);
+      observe(monitor, true);
+      await monitor.whenIdle;
+      expect(events, [
+        'get_gaid_failed',
+        'get_gaid_failed',
+        'get_gaid_success',
+      ]);
     },
   );
 
-  test('a new failure after recovery starts a new monitoring period', () async {
-    final events = <String>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add(action);
-        return true;
-      },
-    );
-    var reads = 0;
-    final registration = _registration(
-      monitor: monitor,
-      adjustReader: () async => (++reads).isEven ? 'gaid' : null,
-      nativeReader: () async => null,
-    );
-
-    await registration.register();
-    await registration.register();
-    await registration.register();
-    await registration.register();
-    await monitor.whenIdle;
-
-    expect(events, [
-      'get_gaid_failed',
-      'get_gaid_success',
-      'get_gaid_failed',
-      'get_gaid_success',
-    ]);
-    registration.dispose();
-  });
-
-  test('failed enqueue never arms a success event', () async {
-    final events = <String>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add(action);
-        return false;
-      },
-    );
-    var reads = 0;
-    final registration = _registration(
-      monitor: monitor,
-      adjustReader: () async => ++reads == 1 ? null : 'later-gaid',
-      nativeReader: () async => null,
-    );
-
-    await registration.register();
-    await registration.register();
-    await monitor.whenIdle;
-
-    expect(events, ['get_gaid_failed']);
-    expect(await monitor.store.hasPendingFailure('sandbox'), isFalse);
-    registration.dispose();
-  });
-
   test(
-    'failed recovery enqueue leaves recovery pending for another read',
+    'success enqueue failure is retried but failure is not duplicated',
     () async {
+      var acceptRecovery = false;
       final events = <String>[];
-      var successAttempts = 0;
       final monitor = GaidAvailabilityMonitor(
-        report: (action, source, identifiers) async {
+        report: (action, a, n, f) async {
           events.add(action);
-          return action != 'get_gaid_success' || ++successAttempts > 1;
+          return action == 'get_gaid_failed' || acceptRecovery;
         },
       );
-      var reads = 0;
-      final registration = _registration(
-        monitor: monitor,
-        adjustReader: () async => ++reads == 1 ? null : 'later-gaid',
-        nativeReader: () async => null,
-      );
-
-      await registration.register();
-      await registration.register();
-      await registration.register();
+      observe(monitor, false);
+      observe(monitor, true);
       await monitor.whenIdle;
-
+      expect(monitor.shouldCaptureNative, isTrue);
+      acceptRecovery = true;
+      observe(monitor, false);
+      observe(monitor, true);
+      await monitor.whenIdle;
       expect(events, [
         'get_gaid_failed',
         'get_gaid_success',
         'get_gaid_success',
       ]);
-      expect(await monitor.store.hasPendingFailure('sandbox'), isFalse);
-      registration.dispose();
     },
   );
 
-  test('failure can be recovered after a new registration instance', () async {
-    final events = <(String, String)>[];
-    GaidAvailabilityMonitor monitor() => GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add((action, source));
-        return true;
-      },
-    );
-    final firstMonitor = monitor();
-    final first = _registration(
-      monitor: firstMonitor,
-      adjustReader: () async => null,
-      nativeReader: () async => null,
-    );
-    await first.register();
-    await firstMonitor.whenIdle;
-    first.dispose();
-
-    final secondMonitor = monitor();
-    final second = _registration(
-      monitor: secondMonitor,
-      adjustReader: () async => 'later-gaid',
-      nativeReader: () async => null,
-    );
-    await second.register();
-    await secondMonitor.whenIdle;
-
-    expect(events, [
-      ('get_gaid_failed', 'adjust_and_native_unavailable'),
-      ('get_gaid_success', 'adjust'),
-    ]);
-    expect(await secondMonitor.store.hasPendingFailure('sandbox'), isFalse);
-    second.dispose();
-  });
-
-  test('a failure from another environment does not arm success', () async {
-    final events = <(String, String)>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add((action, source));
-        return true;
-      },
-    );
-    final sandbox = _registration(
-      monitor: monitor,
-      adjustReader: () async => null,
-      nativeReader: () async => null,
-    );
-    final production = _registration(
-      monitor: monitor,
-      environment: 'production',
-      adjustReader: () async => 'production-gaid',
-      nativeReader: () async => null,
-    );
-
-    await sandbox.register();
-    await production.register();
-    await monitor.whenIdle;
-
-    expect(events, [('get_gaid_failed', 'adjust_and_native_unavailable')]);
-    expect(await monitor.store.hasPendingFailure('sandbox'), isTrue);
-    expect(await monitor.store.hasPendingFailure('production'), isFalse);
-    sandbox.dispose();
-    production.dispose();
-  });
-
-  test('iOS does not report GAID availability', () async {
+  test('fresh launch does not inherit an earlier failure', () async {
     final events = <String>[];
-    final monitor = GaidAvailabilityMonitor(
-      report: (action, source, identifiers) async {
-        events.add(action);
-        return true;
-      },
-    );
-    final registration = AdjustDeviceRegistration(
-      platform: TargetPlatform.iOS,
-      environmentProvider: () => 'sandbox',
-      gaidAvailabilityMonitor: monitor,
-      readAdid: (_) async => 'adid',
-      readGoogleAdId: () async => throw StateError('must not be read'),
-      readIdfa: () async => null,
-      readIdfv: () async => null,
-      registerDevice:
-          ({
-            required adid,
-            required environment,
-            gpsAdid,
-            idfa,
-            idfv,
-            required appInstanceId,
-            privacyConsent,
-          }) async {},
-    );
+    Future<bool> report(String action, String a, String n, String f) async {
+      events.add(action);
+      return true;
+    }
 
-    await registration.register();
-    await monitor.whenIdle;
-
-    expect(events, isEmpty);
-    registration.dispose();
+    final previous = GaidAvailabilityMonitor(report: report);
+    observe(previous, false);
+    await previous.whenIdle;
+    final nextLaunch = GaidAvailabilityMonitor(report: report);
+    observe(nextLaunch, true);
+    await nextLaunch.whenIdle;
+    expect(events, ['get_gaid_failed']);
   });
 }
-
-AdjustDeviceRegistration _registration({
-  required GaidAvailabilityMonitor monitor,
-  required Future<String?> Function() adjustReader,
-  required Future<String?> Function() nativeReader,
-  String environment = 'sandbox',
-  Duration optionalIdTimeout = const Duration(seconds: 3),
-  List<String?>? requests,
-}) => AdjustDeviceRegistration(
-  platform: TargetPlatform.android,
-  environmentProvider: () => environment,
-  gaidAvailabilityMonitor: monitor,
-  readAdid: (_) async => 'adid',
-  readGoogleAdId: adjustReader,
-  readNativeGoogleAdId: nativeReader,
-  optionalIdTimeout: optionalIdTimeout,
-  registerDevice:
-      ({
-        required adid,
-        required environment,
-        gpsAdid,
-        idfa,
-        idfv,
-        required appInstanceId,
-        privacyConsent,
-      }) async {
-        requests?.add(gpsAdid);
-      },
-);

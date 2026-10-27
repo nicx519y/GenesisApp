@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:adjust_sdk/adjust.dart';
 import 'package:flutter/foundation.dart';
@@ -60,16 +59,24 @@ VoidCallback _scheduleRetryWithTimer(
 }
 
 void _reportAdidFailure(
-  String source,
+  String _,
   TargetPlatform platform,
   Map<String, Object?> identifiers,
 ) {
   GenesisTelemetry.collectLog(
     actionType: 'monitor',
     action: 'get_adid_failed',
-    object1: source,
-    object2: platform.name,
-    object3: jsonEncode(identifiers),
+    object1:
+        identifiers[platform == TargetPlatform.android
+            ? 'adjust_gps_adid'
+            : 'idfa'] ??
+        '',
+    object2:
+        identifiers[platform == TargetPlatform.android
+            ? 'native_gps_adid'
+            : 'idfv'] ??
+        '',
+    object3: identifiers['app_instance_id'] ?? '',
   );
 }
 
@@ -101,7 +108,7 @@ class AdjustDeviceRegistration {
     AdjustDeviceRegistrationRetryScheduler retryScheduler =
         _scheduleRetryWithTimer,
   }) : gaidAvailabilityMonitor =
-           gaidAvailabilityMonitor ?? GaidAvailabilityMonitor(),
+           gaidAvailabilityMonitor ?? launchGaidAvailabilityMonitor,
        _retryScheduler = retryScheduler;
 
   final TargetPlatform platform;
@@ -202,7 +209,11 @@ class AdjustDeviceRegistration {
     }
   }
 
-  void _reportPendingAdidFailure(_AdjustDeviceIdentifiers identifiers) {
+  void _reportPendingAdidFailure(
+    _AdjustDeviceIdentifiers identifiers, {
+    String adjustGaid = '',
+    String nativeGaid = '',
+  }) {
     if (_disposed ||
         !_adidFailureCheckPending ||
         _adidFailureReported ||
@@ -214,7 +225,8 @@ class AdjustDeviceRegistration {
     final payload = <String, Object?>{
       'adid': identifiers.adid,
       'app_instance_id': identifiers.appInstanceId,
-      if (platform == TargetPlatform.android) 'gps_adid': identifiers.gpsAdid,
+      if (platform == TargetPlatform.android) 'adjust_gps_adid': adjustGaid,
+      if (platform == TargetPlatform.android) 'native_gps_adid': nativeGaid,
       if (platform == TargetPlatform.iOS) 'idfa': identifiers.idfa,
       if (platform == TargetPlatform.iOS) 'idfv': identifiers.idfv,
     };
@@ -346,7 +358,11 @@ class AdjustDeviceRegistration {
     try {
       final environment = environmentProvider();
       final googleAdId = platform == TargetPlatform.android
-          ? await _readGoogleAdId()
+          ? await _readGoogleAdId(
+              captureNative:
+                  (_adidFailureCheckPending && adid.isEmpty) ||
+                  gaidAvailabilityMonitor.shouldCaptureNative,
+            )
           : null;
       final appInstanceId = await _readOptional(
         readAppInstanceId,
@@ -372,20 +388,21 @@ class AdjustDeviceRegistration {
               idfv: idfv,
               appInstanceId: appInstanceId,
             );
-      // Attach the latest choice without restarting identifier reads.
-      final consentJson = privacyConsent.registrationJson;
       if (platform == TargetPlatform.android) {
         gaidAvailabilityMonitor.observe(
-          environment: environment,
-          source: googleAdId!.source,
-          identifiers: {
-            'adid': identifiers.adid,
-            'app_instance_id': identifiers.appInstanceId,
-            'gps_adid': identifiers.gpsAdid,
-          },
+          available: _isUsableAdvertisingId(googleAdId!.id),
+          adjustId: googleAdId.adjustId,
+          nativeId: googleAdId.nativeId,
+          appInstanceId: appInstanceId,
         );
       }
-      _reportPendingAdidFailure(identifiers);
+      // Attach the latest choice without restarting identifier reads.
+      final consentJson = privacyConsent.registrationJson;
+      _reportPendingAdidFailure(
+        identifiers,
+        adjustGaid: googleAdId?.adjustId ?? '',
+        nativeGaid: googleAdId?.nativeId ?? '',
+      );
       if (!force &&
           identifiers == _lastRegistered &&
           consentJson == _lastRegisteredPrivacy) {
@@ -504,19 +521,21 @@ class AdjustDeviceRegistration {
     return _isUsableAdvertisingId(idfa) ? idfa : '';
   }
 
-  Future<({String id, String? source})> _readGoogleAdId() async {
+  Future<({String id, String adjustId, String nativeId})> _readGoogleAdId({
+    bool captureNative = false,
+  }) async {
     final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
-    if (_isUsableAdvertisingId(adjustId)) {
-      return (id: adjustId, source: 'adjust');
+    if (_isUsableAdvertisingId(adjustId) && !captureNative) {
+      return (id: adjustId, adjustId: adjustId, nativeId: '');
     }
     final nativeReader = readNativeGoogleAdId;
-    if (nativeReader != null) {
-      final nativeId = await _readOptional(nativeReader, 'native GPS ADID');
-      if (_isUsableAdvertisingId(nativeId)) {
-        return (id: nativeId, source: 'native');
-      }
-    }
-    return (id: '', source: null);
+    final nativeId = nativeReader == null
+        ? ''
+        : await _readOptional(nativeReader, 'native GPS ADID');
+    final id = _isUsableAdvertisingId(adjustId)
+        ? adjustId
+        : (_isUsableAdvertisingId(nativeId) ? nativeId : '');
+    return (id: id, adjustId: adjustId, nativeId: nativeId);
   }
 
   bool _isUsableAdvertisingId(String value) =>

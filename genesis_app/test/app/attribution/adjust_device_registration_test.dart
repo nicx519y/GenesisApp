@@ -8,6 +8,8 @@ import 'package:genesis_flutter_android/app/attribution/adjust_device_registrati
 import 'package:genesis_flutter_android/app/attribution/adjust_local_adid_store.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
+import 'package:genesis_flutter_android/app/attribution/gaid_availability_monitor.dart';
 
 void main() {
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
@@ -22,6 +24,7 @@ void main() {
           environmentProvider: () => 'sandbox',
           readAdid: (_) async => null,
           readGoogleAdId: () async => 'gaid-test',
+          readNativeGoogleAdId: () async => 'native-gaid-test',
           readIdfa: () async => '00000000-0000-0000-0000-000000000000',
           readIdfv: () async => 'idfv-test',
           readAppInstanceId: () async => 'instance-test',
@@ -51,13 +54,14 @@ void main() {
           await Future<void>.delayed(Duration.zero);
         }
         expect(registered, isNotNull);
-        expect(reports, [registered]);
+        expect(reports, hasLength(1));
+        expect(registered?['adid'], '');
         expect(reports.single['app_instance_id'], 'instance-test');
         expect(
           reports.single[platform == TargetPlatform.android
-              ? 'gps_adid'
+              ? 'native_gps_adid'
               : 'idfv'],
-          platform == TargetPlatform.android ? 'gaid-test' : 'idfv-test',
+          platform == TargetPlatform.android ? 'native-gaid-test' : 'idfv-test',
         );
         request.complete();
         await check;
@@ -68,7 +72,134 @@ void main() {
     );
   }
 
-  setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    test(
+      'default ADID monitor exposes raw identifiers on ${platform.name}',
+      () async {
+        final events = MemoryCollectEventStore();
+        GenesisTelemetry.setCollectUploaderForTesting(
+          CollectTelemetryUploader(store: events)..configure(enabled: true),
+        );
+        addTearDown(GenesisTelemetry.resetForTesting);
+        var nativeReads = 0;
+        final registration = AdjustDeviceRegistration(
+          platform: platform,
+          environmentProvider: () => 'sandbox',
+          readAdid: (_) async => '',
+          readGoogleAdId: () async => 'adjust-gaid',
+          readNativeGoogleAdId: () async {
+            nativeReads++;
+            return 'native-gaid';
+          },
+          readIdfa: () async => 'idfa',
+          readIdfv: () async => 'idfv',
+          readAppInstanceId: () async => 'instance',
+          registerDevice:
+              ({
+                required adid,
+                required environment,
+                gpsAdid,
+                idfa,
+                idfv,
+                required appInstanceId,
+                privacyConsent,
+              }) async {},
+        );
+        await registration.register();
+        expect(nativeReads, 0);
+        await registration.checkAdidAfterStartup();
+        await GenesisTelemetry.waitForCollectWritesForTesting();
+        final event = events.eventsForTesting.singleWhere(
+          (event) => event.action == 'get_adid_failed',
+        );
+        expect(
+          (event.actionType, event.object1, event.object2, event.object3),
+          (
+            'monitor',
+            platform == TargetPlatform.android ? 'adjust-gaid' : 'idfa',
+            platform == TargetPlatform.android ? 'native-gaid' : 'idfv',
+            'instance',
+          ),
+        );
+        expect(
+          events.eventsForTesting.where(
+            (event) =>
+                event.action == 'get_gaid_failed' ||
+                event.action == 'get_gaid_success',
+          ),
+          isEmpty,
+        );
+        expect(nativeReads, platform == TargetPlatform.android ? 1 : 0);
+        registration.dispose();
+      },
+    );
+  }
+
+  test(
+    'GAID pairing shares the launch state and telemetry enqueue does not block registration',
+    () async {
+      final failureQueued = Completer<bool>();
+      final events = <List<String>>[];
+      var valid = false;
+      var nativeReads = 0;
+      var requests = 0;
+      final monitor = GaidAvailabilityMonitor(
+        report: (action, a, n, f) async {
+          events.add([action, a, n, f]);
+          return action == 'get_gaid_failed' ? failureQueued.future : true;
+        },
+      );
+      AdjustDeviceRegistration create() => AdjustDeviceRegistration(
+        platform: TargetPlatform.android,
+        environmentProvider: () => 'sandbox',
+        readAdid: (_) async => 'adid',
+        readGoogleAdId: () async => valid ? 'adjust-gaid' : '',
+        readNativeGoogleAdId: () async {
+          nativeReads++;
+          return valid ? 'native-gaid' : '';
+        },
+        readAppInstanceId: () async => 'instance',
+        gaidAvailabilityMonitor: monitor,
+        registerDevice:
+            ({
+              required adid,
+              required environment,
+              gpsAdid,
+              idfa,
+              idfv,
+              required appInstanceId,
+              privacyConsent,
+            }) async {
+              requests++;
+            },
+      );
+      final first = create();
+      await first.register();
+      expect(requests, 1);
+      valid = true;
+      final second = create();
+      await second.register();
+      expect(requests, 2);
+      expect(nativeReads, 2);
+      failureQueued.complete(true);
+      await monitor.whenIdle;
+      expect(events, [
+        ['get_gaid_failed', '', '', 'instance'],
+        ['get_gaid_success', 'adjust-gaid', 'native-gaid', 'instance'],
+      ]);
+      await second.register();
+      await monitor.whenIdle;
+      expect(events, hasLength(2));
+      expect(nativeReads, 2);
+      first.dispose();
+      second.dispose();
+    },
+  );
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    launchGaidAvailabilityMonitor.resetForTesting();
+  });
   tearDown(AdjustAttributionRuntime.resetForTesting);
 
   test('saved ADID survives a new local-store instance', () async {

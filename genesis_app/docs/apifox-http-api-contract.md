@@ -2912,3 +2912,17 @@ Source: supplied `wallpaper.md` contract.
 `GET /aitown-chat/api/v1/world/history` 由 `ChatroomHttpApi.getWorldHistory` 与 `GenesisApi.getWorldHistory` 接入。沿用 Chatroom HTTP 认证、Gateway 签名及取消机制，首次仅传 `world_id` / `limit=20`，随后原样传 `cursor`。消息 ID 是字符串；响应按世界分页，`location_refs` 是唯一地点归属依据。
 
 完整契约见 [world-history-client-guide.md](world-history-client-guide.md)，客户端窗口、生命周期和测试入口见 [world-history-client-implementation.md](world-history-client-implementation.md)。此接口不是用户 History 水位设置接口，也不改变普通地点聊天、MiniPhone 和 World Events 的协议。设计稿明确 Chat history 服务尚未实现；当前完成的是客户端与受控验证，真实服务验收待服务可用。
+
+## ADID 启动诊断事件（2026-10-27）
+
+- `action_type=monitor`、`action=get_adid_failed`。启动延迟检查确认本地 ADID 缓存可读但为空、SDK 也正常返回空时，每个注册实例最多上报一次；异常/超时不按正常空值处理。隐私初始化与首次会话延迟的现有门禁继续保留。
+- Android：object1=Adjust 读取的 GAID，object2=原生读取的 GAID，object3=Firebase App Instance ID。诊断时即使 Adjust GAID 可用也读取原生值，正常注册仍优先 Adjust、原生仅回退。
+- iOS：object1=IDFA，object2=IDFV，object3=Firebase App Instance ID。未取得值使用空串；不再把 source、platform 或 JSON 放入这三个字段。
+- GAID 失败/恢复改为本次进程内配对，不持久化；旧偏好键留存但不再读取。设备注册 body、隐私选择同步和 SDK 初始化逻辑不变。
+
+### GAID 本次启动失败与恢复
+
+- 仅 Android，`action_type=monitor`，事件为 `get_gaid_failed` / `get_gaid_success`。object1=Adjust GAID，object2=原生 GAID，object3=Firebase App Instance ID；未取得为空串。
+- 每个进程共享状态，最多成功入队一次失败、一次恢复。正常取得 GAID 不报成功；两路均不可用时失败，失败成功写入 Collect 本地队列后，任一路恢复才报成功。配对结束后本次启动不再报；重启重新判断，不跨进程保存。
+- 失败/成功未能入队时不推进状态，后续已有读取机会可重试；串行队列保证失败先于恢复，打点写入不等待网络且不阻塞注册。
+- 复用注册、前台/网络恢复等现有读取，不增加轮询。等待恢复时可额外读取原生 GAID以补齐诊断字段，实际注册仍优先 Adjust、原生回退。`get_adid_failed` 的触发和字段规则保持独立。

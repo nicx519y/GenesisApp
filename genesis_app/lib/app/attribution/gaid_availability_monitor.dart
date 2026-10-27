@@ -1,116 +1,103 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../telemetry/genesis_telemetry.dart';
 
 typedef GaidAvailabilityReporter =
     Future<bool> Function(
       String action,
-      String source,
-      Map<String, Object?> identifiers,
+      String adjustId,
+      String nativeId,
+      String appInstanceId,
     );
 
-abstract interface class GaidFailureStateStore {
-  Future<bool> hasPendingFailure(String environment);
-  Future<void> setPendingFailure(String environment, bool pending);
-}
+final launchGaidAvailabilityMonitor = GaidAvailabilityMonitor();
 
-/// Persists only whether a GAID failure was queued, never the GAID itself.
-class SharedPreferencesGaidFailureStateStore implements GaidFailureStateStore {
-  const SharedPreferencesGaidFailureStateStore();
+enum _LaunchGaidState { fresh, waitingForRecovery, finished }
 
-  String _key(String environment) =>
-      'adjust_gaid_failure_${environment.trim().toLowerCase()}_v1';
-
-  @override
-  Future<bool> hasPendingFailure(String environment) async {
-    final preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(_key(environment)) ?? false;
-  }
-
-  @override
-  Future<void> setPendingFailure(String environment, bool pending) async {
-    final preferences = await SharedPreferences.getInstance();
-    if (!await preferences.setBool(_key(environment), pending)) {
-      throw StateError('Failed to save GAID failure state');
-    }
-  }
-}
-
-Future<bool> _reportGaidAvailability(
-  String action,
-  String source,
-  Map<String, Object?> identifiers,
-) => GenesisTelemetry.collectLogAndWait(
-  actionType: 'monitor',
-  action: action,
-  object1: source,
-  object2: TargetPlatform.android.name,
-  object3: action == 'get_gaid_failed' ? jsonEncode(identifiers) : null,
-);
-
-/// Emits one failure per unavailable period, followed by one recovery only
-/// when that failure was successfully queued for upload.
+/// One failure/recovery pair per process; never persisted across launches.
 class GaidAvailabilityMonitor {
-  GaidAvailabilityMonitor({
-    this.store = const SharedPreferencesGaidFailureStateStore(),
-    this.report = _reportGaidAvailability,
-  });
-
-  final GaidFailureStateStore store;
+  GaidAvailabilityMonitor({this.report = _report});
   final GaidAvailabilityReporter report;
-  final Map<String, bool> _pendingByEnvironment = <String, bool>{};
+  _LaunchGaidState _state = _LaunchGaidState.fresh;
+  bool _failureObserved = false;
   Future<void> _work = Future<void>.value();
+  int _generation = 0;
 
-  /// The reporting queue is separate from registration, so telemetry never
-  /// holds up the device request or the page that triggered it.
+  bool get shouldCaptureNative =>
+      _state != _LaunchGaidState.finished && _failureObserved;
+
   void observe({
-    required String environment,
-    required String? source,
-    Map<String, Object?> identifiers = const {},
+    required bool available,
+    required String adjustId,
+    required String nativeId,
+    required String appInstanceId,
   }) {
-    final snapshot = Map<String, Object?>.unmodifiable(identifiers);
+    if (!available && _state != _LaunchGaidState.finished) {
+      _failureObserved = true;
+    }
+    final generation = _generation;
     _work = _work
-        .then((_) => _record(environment, source, snapshot))
+        .then((_) async {
+          if (generation != _generation ||
+              _state == _LaunchGaidState.finished) {
+            return;
+          }
+          if (!available && _state == _LaunchGaidState.fresh) {
+            try {
+              if (await report(
+                    'get_gaid_failed',
+                    adjustId,
+                    nativeId,
+                    appInstanceId,
+                  ) &&
+                  generation == _generation) {
+                _state = _LaunchGaidState.waitingForRecovery;
+              }
+            } finally {
+              if (generation == _generation) {
+                _failureObserved =
+                    _state == _LaunchGaidState.waitingForRecovery;
+              }
+            }
+          } else if (available &&
+              _state == _LaunchGaidState.waitingForRecovery) {
+            if (await report(
+                  'get_gaid_success',
+                  adjustId,
+                  nativeId,
+                  appInstanceId,
+                ) &&
+                generation == _generation) {
+              _state = _LaunchGaidState.finished;
+              _failureObserved = false;
+            }
+          }
+        })
         .catchError((Object error) {
-          debugPrint('[Adjust][GAID] availability monitor failed: $error');
+          debugPrint('[Adjust][GAID] launch monitor enqueue failed: $error');
         });
   }
 
   @visibleForTesting
   Future<void> get whenIdle => _work;
 
-  Future<void> _record(
-    String environment,
-    String? source,
-    Map<String, Object?> identifiers,
-  ) async {
-    final normalizedEnvironment = environment.trim().toLowerCase();
-    final pending =
-        _pendingByEnvironment[normalizedEnvironment] ??
-        await store.hasPendingFailure(normalizedEnvironment);
-    _pendingByEnvironment[normalizedEnvironment] = pending;
-
-    if (source == null) {
-      if (pending ||
-          !await report(
-            'get_gaid_failed',
-            'adjust_and_native_unavailable',
-            identifiers,
-          )) {
-        return;
-      }
-      _pendingByEnvironment[normalizedEnvironment] = true;
-      await store.setPendingFailure(normalizedEnvironment, true);
-      return;
-    }
-
-    if (!pending || !await report('get_gaid_success', source, identifiers)) {
-      return;
-    }
-    _pendingByEnvironment[normalizedEnvironment] = false;
-    await store.setPendingFailure(normalizedEnvironment, false);
+  @visibleForTesting
+  void resetForTesting() {
+    _generation++;
+    _state = _LaunchGaidState.fresh;
+    _failureObserved = false;
+    _work = Future<void>.value();
   }
+
+  static Future<bool> _report(
+    String action,
+    String adjustId,
+    String nativeId,
+    String appInstanceId,
+  ) => GenesisTelemetry.collectLogAndWait(
+    actionType: 'monitor',
+    action: action,
+    object1: adjustId,
+    object2: nativeId,
+    object3: appInstanceId,
+  );
 }
