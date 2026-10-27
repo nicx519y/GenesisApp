@@ -1,3 +1,4 @@
+import '../../app/startup/startup_prompt_sequence.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
@@ -67,6 +68,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
   @override
   void initState() {
     super.initState();
+    startupPromptSequence.addListener(_schedule);
     widget.store.setEnabled(widget.appConfig.value.showPersonalizationForm);
     WidgetsBinding.instance.addObserver(this);
     widget.appConfig.addListener(_configChanged);
@@ -155,6 +157,10 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       _completedRequiredLogin = false;
     }
     if (!_startupReady) {
+      if (startupPromptSequence.blocksOtherPrompts &&
+          widget.loginPending?.value != null) {
+        return;
+      }
       if (_retry == null) await _prepareStartup();
       return;
     }
@@ -197,6 +203,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       }
       return;
     }
+    if (startupPromptSequence.blocksOtherPrompts) return;
     final data = snapshot.data;
     final navigator = widget.navigatorKey.currentState;
     final context = navigator?.overlay?.context;
@@ -365,7 +372,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
         uid = await store.readLoginUid();
         if (!current()) return;
         if (uid == null && widget.loginPending?.value != null) {
-          if (!_foreground) return;
+          if (!_foreground || startupPromptSequence.blocksOtherPrompts) return;
           final context = widget.navigatorKey.currentState?.overlay?.context;
           if (context == null || !context.mounted) return;
           final login = widget.requestRequiredLogin;
@@ -426,6 +433,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
 
   @override
   void dispose() {
+    startupPromptSequence.removeListener(_schedule);
     _retry?.cancel();
     widget.store.state.removeListener(_schedule);
     widget.loginPending?.removeListener(_schedule);

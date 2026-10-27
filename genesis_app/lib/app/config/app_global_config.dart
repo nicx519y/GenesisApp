@@ -13,6 +13,7 @@ class AppGlobalConfig {
     this.language = '',
     this.showOpeningSheet = false,
     this.showPersonalizationForm = false,
+    this.privacyConsentEnabled = false,
     this.apiTraceSamplingRate = 0,
     this.ratingPromptMessageCount = 0,
   });
@@ -23,6 +24,7 @@ class AppGlobalConfig {
       ratingPromptMessageCount: asInt(json['rating_prompt_message_count']),
       showOpeningSheet: asBool(json['show_opening_sheet']),
       showPersonalizationForm: json['show_personalization_form'] == true,
+      privacyConsentEnabled: json['privacy_consent_enabled'] == true,
       apiTraceSamplingRate: _samplingRate(
         json['apiTraceSamplingRate'] ?? json['api_trace_sampling_rate'],
       ),
@@ -35,6 +37,7 @@ class AppGlobalConfig {
   final String language;
   final bool showOpeningSheet;
   final bool showPersonalizationForm;
+  final bool privacyConsentEnabled;
   final double apiTraceSamplingRate;
 }
 

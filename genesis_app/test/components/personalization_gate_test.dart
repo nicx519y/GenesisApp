@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/app/startup/startup_prompt_sequence.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,6 +37,52 @@ void main() {
     addTearDown(appConfig.dispose);
     SharedPreferences.setMockInitialValues({});
   });
+
+  testWidgets(
+    'prompt priority delays presentation while preparing profile data',
+    (tester) async {
+      startupPromptSequence.begin();
+      addTearDown(startupPromptSequence.resetForTesting);
+      var reads = 0;
+      var preloads = 0;
+      final store = PersonalizationStore(
+        readLoginUid: () async => 'signed-in',
+        load: () async {
+          reads++;
+          return personalizationData();
+        },
+        save: (value) async => value,
+      );
+      addTearDown(store.dispose);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
+            store: store,
+            navigatorKey: navigator,
+            preloadMembership: () async {
+              preloads++;
+            },
+            child: child!,
+          ),
+          home: const Scaffold(body: Text('Home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(reads, 1);
+      expect(preloads, 1);
+      expect(find.byType(PersonalizationSheet), findsNothing);
+      startupPromptSequence.finishPrivacy();
+      await tester.pumpAndSettle();
+      expect(find.byType(PersonalizationSheet), findsNothing);
+      startupPromptSequence.finishAtt();
+      await tester.pumpAndSettle();
+      expect(find.byType(PersonalizationSheet), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   for (final entry in ['form', 'home_completed', 'home_disabled']) {
     for (final preloadReady in [true, false]) {

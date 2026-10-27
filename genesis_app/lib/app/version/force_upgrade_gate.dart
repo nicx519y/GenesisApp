@@ -8,6 +8,7 @@ import '../../components/page_header.dart';
 import 'package:flutter/services.dart';
 import '../bootstrap/app_services_scope.dart';
 import '../startup/app_startup_coordinator.dart';
+import '../startup/startup_prompt_sequence.dart';
 import 'app_version_check_service.dart';
 
 class ForceUpgradeGate extends StatefulWidget {
@@ -32,6 +33,7 @@ class _ForceUpgradeGateState extends State<ForceUpgradeGate>
   @override
   void initState() {
     super.initState();
+    startupPromptSequence.addListener(_refreshPresentation);
     WidgetsBinding.instance.addObserver(this);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.addListener(
       _handlePostLaunchWorkAllowed,
@@ -59,12 +61,17 @@ class _ForceUpgradeGateState extends State<ForceUpgradeGate>
 
   @override
   void dispose() {
+    startupPromptSequence.removeListener(_refreshPresentation);
     _sessionRevision?.removeListener(_requestCheck);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.removeListener(
       _handlePostLaunchWorkAllowed,
     );
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _refreshPresentation() {
+    if (mounted) setState(() {});
   }
 
   void _handlePostLaunchWorkAllowed() {
@@ -124,7 +131,9 @@ class _ForceUpgradeGateState extends State<ForceUpgradeGate>
   @override
   Widget build(BuildContext context) {
     final upgrade = _upgrade;
-    if (upgrade == null) return widget.child;
+    if (upgrade == null || startupPromptSequence.blocksOtherPrompts) {
+      return widget.child;
+    }
 
     return ForceUpgradePage(
       response: upgrade,

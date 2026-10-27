@@ -7,12 +7,17 @@ import 'package:flutter/services.dart';
 import '../app/attribution/adjust_attribution_runtime.dart';
 import '../app/attribution/adjust_device_registration.dart';
 import '../app/attribution/adjust_network_recovery.dart';
+import '../app/privacy/privacy_consent_controller.dart';
+import '../app/startup/startup_prompt_sequence.dart';
+import '../app/config/app_global_config.dart';
+import '../components/privacy/privacy_choices_dialog.dart';
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
 import '../app/startup/ios_startup_network.dart';
 import '../app/gems/daily_check_in_coordinator.dart';
 import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
+import '../app/telemetry/telemetry_runtime_controller.dart';
 import '../components/auth/login_guard.dart';
 import '../components/bottom_tabs.dart';
 import '../network/api_client.dart';
@@ -58,7 +63,11 @@ class AppShellPage extends StatefulWidget {
 }
 
 class _AppShellPageState extends State<AppShellPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
+  AppGlobalConfigStore? _privacyConfig;
+  ModalRoute<dynamic>? _privacyRoute;
+  bool _privacyScheduled = false;
+  bool _privacyShowing = false;
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
@@ -102,6 +111,8 @@ class _AppShellPageState extends State<AppShellPage>
   String? _lastBillingRecoveryUid;
   AppLifecycleState? _lifecycleState;
   Future<void>? _adjustInitializationAttempt;
+  Future<void>? _privacySdkInitialization;
+  bool _privacySdksReady = false;
   AdjustNetworkRecoveryTrigger? _adjustNetworkRecovery;
 
   @override
@@ -110,6 +121,7 @@ class _AppShellPageState extends State<AppShellPage>
     _lifecycleState = WidgetsBinding.instance.lifecycleState;
     _hasSeenResumed = _lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
+    startupPromptSequence.addListener(_schedulePendingDailyCheckIn);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.addListener(
       _handlePostLaunchWorkAllowed,
     );
@@ -163,6 +175,10 @@ class _AppShellPageState extends State<AppShellPage>
 
   @override
   void dispose() {
+    startupPromptSequence.removeListener(_schedulePendingDailyCheckIn);
+    _privacyConfig?.requestState.removeListener(_schedulePrivacy);
+    privacyConsent.removeListener(_schedulePrivacy);
+    privacyRouteObserver.unsubscribe(this);
     _attDelayTimer?.cancel();
     _startupAdidCheckTimer?.cancel();
     final adjustNetworkRecovery = _adjustNetworkRecovery;
@@ -199,6 +215,8 @@ class _AppShellPageState extends State<AppShellPage>
     _lifecycleState = state;
     _adjustNetworkRecovery?.setForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) {
+      privacyConsent.retrySynchronization();
+      _schedulePrivacy();
       _startDeferredAdjustInitialization();
       _runStartupAdidCheckIfDue();
       final adjustDeviceRegistration = mounted
@@ -251,6 +269,9 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   Future<void> _ensureDeferredAdjustInitialization() {
+    if (privacyConsent.active && !privacyConsent.startupResolved) {
+      return Future<void>.value();
+    }
     final current = _adjustInitializationAttempt;
     if (current != null) return current;
     if (!mounted ||
@@ -270,6 +291,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _recoverAdjustAfterNetworkRestored() async {
     if (!mounted) return;
+    privacyConsent.retrySynchronization();
     if (!AdjustAttributionRuntime.hasAttemptedInitialization) {
       await _ensureDeferredAdjustInitialization();
       return;
@@ -340,6 +362,7 @@ class _AppShellPageState extends State<AppShellPage>
     if (!mounted ||
         !_startupAdidCheckDue ||
         !AdjustAttributionRuntime.isInitialized ||
+        AdjustAttributionRuntime.isAwaitingFirstSessionPrivacy ||
         (_lifecycleState != null &&
             _lifecycleState != AppLifecycleState.resumed)) {
       return;
@@ -354,10 +377,16 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _scheduleAttRequest() {
-    if (!mounted || _attScheduleStarted) return;
+    if (!mounted ||
+        _attScheduleStarted ||
+        startupPromptSequence.waitingForPrivacy ||
+        (privacyConsent.active && !_privacySdksReady)) {
+      return;
+    }
     if ((widget.startupPlatform ?? defaultTargetPlatform) !=
         TargetPlatform.iOS) {
       _attScheduleStarted = true;
+      startupPromptSequence.finishAtt();
       return;
     }
     _attScheduleStarted = true;
@@ -368,7 +397,16 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _requestAttIfNeeded() {
-    if (!mounted || _attRequestInFlight) return;
+    if (!mounted ||
+        _attRequestInFlight ||
+        startupPromptSequence.waitingForPrivacy ||
+        (privacyConsent.active && !_privacySdksReady)) {
+      return;
+    }
+    if (_mainRoute?.isCurrent != true) {
+      _attWaitingForResume = true;
+      return;
+    }
     if (_lifecycleState != null &&
         _lifecycleState != AppLifecycleState.resumed) {
       _attWaitingForResume = true;
@@ -393,8 +431,9 @@ class _AppShellPageState extends State<AppShellPage>
       if (status != AppTrackingAuthorizationStatus.notDetermined) return;
       // Reading native status is asynchronous. A permission prompt or a
       // background transition can arrive before its result comes back.
-      if (_lifecycleState != null &&
-          _lifecycleState != AppLifecycleState.resumed) {
+      if (_mainRoute?.isCurrent != true ||
+          (_lifecycleState != null &&
+              _lifecycleState != AppLifecycleState.resumed)) {
         shouldRetry = true;
         return;
       }
@@ -412,6 +451,7 @@ class _AppShellPageState extends State<AppShellPage>
     } finally {
       if (claimed && shouldRetry) AppStartupCoordinator.releaseAttRequest();
       _attRequestInFlight = false;
+      if (!shouldRetry) startupPromptSequence.finishAtt();
       if (mounted && shouldRetry) {
         _attWaitingForResume = true;
         // The app may resume before the native callback arrives. Only retry
@@ -429,6 +469,19 @@ class _AppShellPageState extends State<AppShellPage>
     super.didChangeDependencies();
     _mainRoute = ModalRoute.of(context);
     final services = AppServicesScope.of(context);
+    if (!identical(_privacyConfig, services.appGlobalConfig)) {
+      _privacyConfig?.requestState.removeListener(_schedulePrivacy);
+      _privacyConfig = services.appGlobalConfig;
+      _privacyConfig!.requestState.addListener(_schedulePrivacy);
+      privacyConsent.removeListener(_schedulePrivacy);
+      privacyConsent.addListener(_schedulePrivacy);
+    }
+    if (_mainRoute != null && !identical(_privacyRoute, _mainRoute)) {
+      privacyRouteObserver.unsubscribe(this);
+      _privacyRoute = _mainRoute;
+      privacyRouteObserver.subscribe(this, _mainRoute!);
+    }
+    _schedulePrivacy();
     final personalization = services.personalization;
     if (!identical(
       _personalizationBlocker,
@@ -454,7 +507,7 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   bool _canShowLoginCheckIn() {
-    if (!mounted) return false;
+    if (!mounted || startupPromptSequence.blocksOtherPrompts) return false;
     final services = AppServicesScope.read(context);
     return mounted &&
         !((services.personalization.isStarted ||
@@ -463,6 +516,72 @@ class _AppShellPageState extends State<AppShellPage>
         _mainRoute?.isCurrent == true &&
         (_lifecycleState == null ||
             _lifecycleState == AppLifecycleState.resumed);
+  }
+
+  @override
+  void didPopNext() {
+    _schedulePrivacy();
+    if (_attWaitingForResume) _requestAttIfNeeded();
+  }
+
+  void _schedulePrivacy() {
+    if (!mounted ||
+        !privacyConsent.active ||
+        _privacyScheduled ||
+        _privacyShowing) {
+      return;
+    }
+    _privacyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _privacyScheduled = false;
+      if (mounted) unawaited(_resolvePrivacy());
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _resolvePrivacy() async {
+    final config = _privacyConfig;
+    if (config == null ||
+        !privacyConsent.loaded ||
+        _privacyShowing ||
+        _mainRoute?.isCurrent != true ||
+        (_lifecycleState != null &&
+            _lifecycleState != AppLifecycleState.resumed)) {
+      return;
+    }
+    if (!privacyConsent.startupResolved) {
+      final state = config.requestState.value;
+      if (state.isLoading || (state.data == null && state.error == null)) {
+        return;
+      }
+      if (privacyConsent.shouldPrompt(config)) {
+        _privacyShowing = true;
+        try {
+          await showPrivacyChoicesDialog(context);
+        } finally {
+          _privacyShowing = false;
+        }
+        if (!mounted) return;
+      }
+    }
+    privacyConsent.resolveStartup(config: config);
+    AdjustAttributionRuntime.initialize();
+    _privacySdkInitialization ??=
+        Future.wait<void>([TelemetryRuntimeController.whenInitialized])
+            .timeout(const Duration(seconds: 10))
+            .then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stack) {
+                debugPrint(
+                  '[Startup] SDK initialization incomplete; continuing prompts: $error',
+                );
+              },
+            );
+    await _privacySdkInitialization;
+    if (!mounted) return;
+    _privacySdksReady = true;
+    _runStartupAdidCheckIfDue();
+    _scheduleAttRequest();
   }
 
   void _schedulePendingDailyCheckIn() {

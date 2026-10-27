@@ -69,6 +69,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               registered = {
                 'adid': adid,
@@ -427,6 +428,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {},
     );
 
@@ -461,6 +463,7 @@ AdjustDeviceRegistration _registration({
         idfa,
         idfv,
         required appInstanceId,
+        privacyConsent,
       }) async {
         requests?.add(gpsAdid);
       },

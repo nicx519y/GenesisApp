@@ -4018,6 +4018,24 @@ abstract class AppLocalizations {
   /// **'Current login account:'**
   String get settingsCurrentLoginAccount;
 
+  /// Settings > Account: standalone status in the account card when no user is signed in; replace the current-account label and hide the provider icon and all account-deletion UI. This is a status, not a sign-in button.
+  ///
+  /// In en, this message translates to:
+  /// **'Not signed in'**
+  String get settingsNotSignedIn;
+
+  /// Settings > Account: button in the signed-out account card that opens the shared sign-in sheet. Privacy choices below remain usable without signing in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get settingsAccountSignIn;
+
+  /// Settings > Account: short explanatory subtitle beneath the signed-out status, next to a Sign in button; refers only to account management, not access to privacy choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to manage your account'**
+  String get settingsAccountSignInDescription;
+
   /// 首页 - Me → 新用户个性化页，新用户个性化提交或登录时显示的提示
   ///
   /// In en, this message translates to:
@@ -6006,6 +6024,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resets in {time}'**
   String gemsDailyResetsIn({required String time});
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Settings; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy settings'**
+  String get privacyChoicesSettings;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Title; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy settings'**
+  String get privacyChoicesTitle;
+
+  /// Privacy consent dialog and Settings: first dialog explanation; privacyPolicy is the inline clickable policy link, keep the full sentence translatable.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how your data is used in Worldo: Firebase Analytics for app usage analysis, Google for ad measurement and personalized ads, and Adjust for ad measurement and attribution. Read our {privacyPolicy}.'**
+  String privacyChoicesIntro({required String privacyPolicy});
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Consent; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent'**
+  String get privacyChoicesConsent;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Reject; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Do not consent'**
+  String get privacyChoicesReject;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Manage; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage options'**
+  String get privacyChoicesManage;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for AcceptAll; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept all'**
+  String get privacyChoicesAcceptAll;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Confirm; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm choices'**
+  String get privacyChoicesConfirm;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for AdStorage; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Advertising storage'**
+  String get privacyChoicesAdStorage;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for AdStorageDescription; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow advertising-related information to be stored on your device and accessed.'**
+  String get privacyChoicesAdStorageDescription;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for AdUserData; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Advertising data sharing'**
+  String get privacyChoicesAdUserData;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for AdUserDataDescription; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Google to use your data to measure advertising performance.'**
+  String get privacyChoicesAdUserDataDescription;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Personalization; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Personalized ads'**
+  String get privacyChoicesPersonalization;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for PersonalizationDescription; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Google to use your data to show you personalized ads.'**
+  String get privacyChoicesPersonalizationDescription;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Analytics; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage analytics'**
+  String get privacyChoicesAnalytics;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for AnalyticsDescription; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Firebase Analytics to store and use information about how you use Worldo to help us improve the app.'**
+  String get privacyChoicesAnalyticsDescription;
+
+  /// Privacy consent dialog and Settings: label or explanatory text for Partners; controls analytics and advertising consent, not account login or ATT.
+  ///
+  /// In en, this message translates to:
+  /// **'Our partners'**
+  String get privacyChoicesPartners;
+
+  /// Shared text for the first privacy dialog body and the second dialog footer below the four switches. Describes Firebase Analytics, Google advertising and Adjust purposes; privacyPolicy is the inline clickable policy link.
+  ///
+  /// In en, this message translates to:
+  /// **'Firebase Analytics analyzes app usage, Google measures ad performance and personalizes ads, and Adjust measures ad performance and attribution. Learn more in our {privacyPolicy}.'**
+  String privacyChoicesPartnersDescription({required String privacyPolicy});
+
+  /// Privacy consent dialog and Settings: error toast when local saved choices could not be read.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load privacy choices.'**
+  String get privacyChoicesLoadError;
+
+  /// Privacy consent dialog and Settings: error toast when the local choice could not be saved; do not imply a network failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save privacy choices. Please try again.'**
+  String get privacyChoicesSaveError;
 }
 
 class _AppLocalizationsDelegate

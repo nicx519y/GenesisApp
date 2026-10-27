@@ -825,6 +825,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         'language': _deviceLanguages[deviceId] ?? '',
         'show_opening_sheet': false,
         'show_personalization_form': true,
+        'privacy_consent_enabled': false,
         'rating_prompt_message_count': 20,
         'apiTraceSamplingRate': 1.0,
       });
@@ -1445,6 +1446,24 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'POST' && path == 'device/register') {
+      final consent = body['privacy_consent'];
+      if (consent != null) {
+        if (consent is! String) {
+          throw const FormatException('privacy_consent must be a JSON string');
+        }
+        final decoded = jsonDecode(consent);
+        if (decoded is! Map ||
+            [
+              'ad_storage',
+              'ad_user_data',
+              'ad_personalization',
+              'analytics_storage',
+            ].any((key) => decoded[key] is! bool)) {
+          throw const FormatException(
+            'privacy_consent requires four boolean states',
+          );
+        }
+      }
       return _v1Ok(<String, dynamic>{});
     }
 

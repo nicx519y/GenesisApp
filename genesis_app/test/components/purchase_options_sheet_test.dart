@@ -38,6 +38,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests++;
             await pendingRequest.future;
@@ -86,6 +87,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(adid);
             },

@@ -29,9 +29,8 @@ class DeviceV1Api extends V1ApiResource {
   ///
   /// An empty ADID means it is not available yet; the server preserves any
   /// previously registered ADID and creates a new device with an empty one.
-  /// The registration flow sends empty strings for unavailable identifiers.
-  /// The server treats empty optional advertising IDs as a request to clear
-  /// their existing values; only platform-inapplicable null fields are omitted.
+  /// Unavailable optional identifiers are omitted to preserve server values.
+  /// Privacy choices are reported independently and never clear identifiers.
   Future<void> registerAttribution({
     required String adid,
     required String environment,
@@ -39,6 +38,7 @@ class DeviceV1Api extends V1ApiResource {
     String? idfa,
     String? idfv,
     String? appInstanceId,
+    String? privacyConsent,
   }) async {
     final normalizedAdid = adid.trim();
     final normalizedEnvironment = environment.trim().toLowerCase();
@@ -50,15 +50,20 @@ class DeviceV1Api extends V1ApiResource {
         'must be sandbox or production',
       );
     }
+    String? available(String? value) {
+      final normalized = value?.trim();
+      return normalized == null || normalized.isEmpty ? null : normalized;
+    }
+
     await postData(
       'device/register',
       v1Body({
         'adid': normalizedAdid,
-        'environment': normalizedEnvironment,
-        'gps_adid': gpsAdid?.trim(),
-        'idfa': idfa?.trim(),
-        'idfv': idfv?.trim(),
-        'app_instance_id': appInstanceId?.trim() ?? '',
+        'gps_adid': available(gpsAdid),
+        'idfa': available(idfa),
+        'idfv': available(idfv),
+        'app_instance_id': available(appInstanceId),
+        'privacy_consent': privacyConsent,
       }),
     );
   }

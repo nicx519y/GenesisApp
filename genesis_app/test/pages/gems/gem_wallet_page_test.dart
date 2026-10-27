@@ -158,6 +158,7 @@ void main() {
                 idfa,
                 idfv,
                 required appInstanceId,
+                privacyConsent,
               }) async {
                 requests.add(adid);
               },

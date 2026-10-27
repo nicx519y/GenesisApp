@@ -5788,6 +5788,144 @@
           "text_hash": "04a6ad2ec5ae684bb9ec9be364030bb6458bb753157db0d6e4d610d34fa7f136",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "68e4de43e88bc6962cf2845bc01662bc33d0ea4b7706f36ab72f69430f1613a8",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "68e4de43e88bc6962cf2845bc01662bc33d0ea4b7706f36ab72f69430f1613a8",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "ef4e73927977eaf5db75f4f844661b2feec426760c1d3a8570826b01ba0bbf6b",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "b23c18e30aaa9a6f223bad01ce4ecd12d601d434f7b55e49d1691362a2115b12",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "d2aa17f686127119a8a7598265f5dfd261b36ce97a6cab6faa7ea9ebe0a0a07c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "a721195820df0173e5fdd1196b63ac7a6b11530ffea2cb4deeb2316ac0022cf1",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "2ebe697e32f8b8710eeb91da66b526ca10fe7ff852de97f40154de393a785f1c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "5b2d3390f3ec4187cc180828dba6a6e40f0b0e4515040cf64c9f2109a0698f15",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "e54edefe07a83551350db38c48162d9c1034db67067a81c74dde4bff3562dbff",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "4a6da21dc655e42e521381c01c6c513b18b58b90f810a7955d7205c458cd8aad",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "75eb7ca1f2de7c3d217ef0367982bb94d46c660beb05bf301cce7b5ed44ef667",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "7cb4a7c399a072159f374ccdc8326d510ddc8b6c1c1ee408b467a46223a91469",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "9d03d88473dcad1f58a78df36b89a7babae32290beb05434cd764603650daece",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "0e66b05afcebcf77c827de320dac90a5a9b10f8685b5cd358ef8c42b47305027",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "f970193d30da010fb15f1030f13d927753638baa96692d95f18bda0315d0d254",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "2e05b86c0e28e1a49555801b323b7dccfcd2e43aec12a5f7d2b7a179fc10ee7b",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "081b0f223b93a9588b4c3960738762870791c35652fb5592e9da6e2bc6b315b3",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "5a42a96edd80f9dcff55949e91d3262a4aa5e71e06f6f2e638edf58d5961bf18",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "fc34d201124151e8c06dc298f9a8fd7b0a04eb20ba1e290ed291ae7fe1690b45",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "5825ee761266ce6f71e36a014ee69ce8120d8b957f1d8302c72a8fdbf9ccf443",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "76acd2a8e612956b0fd2d5997605b8905df6acd7c308f45725596d4a9954fdaf",
+          "status": "manual",
+          "note": "Shorten the signed-out status for the actionable account card; no human review claimed."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "a2b1fd6e09590d3b1daec5fa84b11c0b01efb5889d9ddf993dfb51fe3ff0aefe",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "99d06439bf55cfc791ac7078b768c2f2604a59a7e4004ba09e9066e37d070d48",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -11577,6 +11715,144 @@
           "text_hash": "8dfa8201544870b1b6403b4c3e2d4e0cf5d9ea09950e68d420820f7cabe7ac7f",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "2ac87b3c6db7f7f84ae034f87916cc802669adb382f82780bc3b5ca4fd513881",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "2ac87b3c6db7f7f84ae034f87916cc802669adb382f82780bc3b5ca4fd513881",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "4747419eab6f70c072f24cdfe6c25dd871056bbc5c75bae286799162553fbafd",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "9e4afb65b70c4cf0d2da2d8bbd4fe15a138302fc616f44cecb7e9abab524d8d0",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "8b884211f6882dc7e0c2cacda4aac7f7fae268e16beb3a5f1ed0eb2121773598",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "7c47e9000d82a876f6d0db56d72b253c9445cdba9303ad2d3728f86206d65a7f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "7a8cba4f10d69be21fbe75836d17f8c9d004dbf10156dc3a0fb8e08c031b5b7f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "72dca52030d38d9735b16fe9d55b10cb70151bbc6d5e31fdfa96b51423e5d5b1",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "04423ff303f4078552fed196dd5ec6e8c5ac665d183ff67d40086049c6b5bda3",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "2c04083276a0a0fa185522941d8ca5e4d11981e0dac8836d1a49b254eb1e1690",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "88c0095eff2e8bb14a6dc4b607d1fc1da9fa0787338764fef5fda3e653900152",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "0b38daaad74b30962d89a558ec5497d7318110f14d57a587c38e10a62a1a72d0",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "11106d8ca4ad599e8b262f82af123c830cc4f52ca5bf272cabc77ab029deb078",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "0d07d455355e3b76064ef181d438cf32b4f3f454c1be2687bef707c9d520e8bc",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "66436766d1cc3a041ebd5b3b2e7bb7b871ead9720130e05be683b45d64af30e1",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "b44ed4a9efa689bb30aa2356ad19c02b0ed9ddb259c9ad96f229f5301d80212a",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "53975e666fd9d04343ddde0655c5a917690c0b25ea3f19585406c3e652d65e5d",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "44a4aac9913834bd09d5cf90f003ab909b64b47824ee7fb9a230487e3a04f4a6",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "3cf52f958820e758bec2e357f915a21f5d78117f417bd88f9349c72b2b5097da",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "5c46da06c625b4ba8511c3b7acf659d22cef6c0408655a47bfbb14f83d2a2c8c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "d60089837a956f943e1941ca1981b1ffaa4ff8f095681d52bfef8bab746a718a",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "087b3e4e07ed7b357e6c41c2ff1e23c4425b0938ac1b4f140d463e2f1618995a",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "55c7b5b341bdb6e8aa920d1a7e71cfe31830424b106c5ef49a3340884374fdca",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -17366,6 +17642,144 @@
           "text_hash": "ba1c3b9e679ca68ebe90a16de89ba803384e86779c057cfe4ee3cbc96aeae59b",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "520495f333291956be07e6563937fdd61bd1cade5074b7841f21bddc701aba52",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "520495f333291956be07e6563937fdd61bd1cade5074b7841f21bddc701aba52",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "d599960a97c0d01ebe10be0a010d5fa3821cef54406734d992c11dbae2358b44",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "3966d390b5b48140e50faac7ff80814b636fcb11ebbfc9e898b5e66020a1f81f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "615b7cbdcd5845aa0c18586ea3955310a29e215b0e346d627f48dd0a261043ea",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "c8e4e12f4f502d09751136192b7cf61a2652f63bd1e42b5ce90ffee8e8b4ecca",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "b38ae8689df826451602ea0baf2b129e342556323039a011e55406582468fb4d",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "01caa2fed1a41dcb260d2eb65e61d136466169d405d7fded510834e2687e360c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "e555772606df28c54658280c7a5808cfcbf93d74e5d4b9bad2938ff2323014dd",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "7a6b6d5d90d2cde91aef613ccdd47e177be15b6d064b26d53c0ff806a633e6fe",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "aba88b28682fa5bf38a02f8426468582cae0c6956736d0ab5ed6d35f9d77db7f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "c7976dcf0e0d1635332222c70569202cfd3e6183c6878253921b413acfeea750",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "9b514bf824a0b47fd3ecd1cbcf49fab036786943bea8900f162726c24adf6d31",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "0b35e6136d3fc922253334268b5f6a16e64c54a141905092f9eec716e09f9c6a",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "613a34128428009067fbb8afacd62bef1e95b7f73ee055bddcf0d5206c971ecb",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "91a263041f0b7441c87a16dec0be9e1a1e3da1fba1a24e59e16d32faa8162530",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "e913fe9021156e902a75e5489824a8199184e404f007ad8cf8e002e08dbdaf78",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "03169e2a8b37e339ab7d4693a9e1eade033db0a4d94dc7ace802ea484101ff2f",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "ae117dffebf6ac3237f161f87cde77bdf3d4d5e47e9ee04535dbc001b4bb5282",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "222929c63363f3e02c683dadbef933f6b76c86d261e12bcb10e99c49d9c7ccee",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "1f3fbbd2798c1e398cbcf653c2ced9056f98a28e9b47a44dc03cbf1948291256",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "8430782343ec3399947be8f6e8fd67a9e0a1928eb88bca387ac568b9f1bf9791",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "f257fb8dec27643b689e473081bb3141c3c9799bc0139d756c40f7d477d33076",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -23155,6 +23569,144 @@
           "text_hash": "0c6dec7e27c5dafa4430e0fec58448f2238fc1b6f9bcd02a0de0dd47497c6b53",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "b8960545b1df06fa481a5d4c0f3146aa9fbe361ce26a17b3cec1be603ec8697d",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "b8960545b1df06fa481a5d4c0f3146aa9fbe361ce26a17b3cec1be603ec8697d",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "42753ea36506c4a8bf2e1a132bb00fdbff7675f4211095c51398e71fd0515b02",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "afe4d1deea5a9e17b0fe14c9aa51b85499f540ecbeebecd8faaae13776c81f30",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "c349be92f2629536bf618c601af42dea3730609c22fd20a07b0b6e90b5f8d490",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "ee28e821b5c831731013e35813d68f5c00e6d52dcf394042ef0339ad83d5c443",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "c940223ff6b1a1d45a1355e66dd006670b3b99d64eb908bfd7905d48bc50c630",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "3437353ff4a74bb866f01ad4d821da234586e5bb07746005cbd8613cde418f45",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "6406313f84992c16c98b10794d5a48725290ef0a31c2f2fd58da8c7f96873904",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "c8f6525028b0062730a4b0bb8838dfaa0fd6f2c780cd6ca7eafb66fd04b64013",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "24e3d7aae62a5f4b24cb0ca63cbb7ae34e0202562341e8f670c27ddaf7a9d0d6",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "3f3c6f98021a39efef42a495ffb44a092a3dc76a4a788e17ae3ce6f06e6859c9",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "fd930e32673180e12717db642f95644d70df726a6703ded4b0684cfe1080c6e1",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "3f0702576dc96a61be873d00e2e2df628dd751bf31ddb742c4c4038482c51ea2",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "ca9513a9b926ca6535f465d03c4372c6a8f148dc7a84e2277fbc89942901accb",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "96dceafa014dad2dadbcffaa8f1f14905ca955e401ae41d89446f53de03e18bf",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "eb50b91c436bca3ddc6c9f29dbd2ebeee9823087768db4d886258f9536340e05",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "5766d7bb951a50fe14d080e2170a526a0816c4760d5bff572f4e8fba7fefd1cb",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "2247b355d88b8f689f71f510b1568422ac16d919cb0807eb2aa367052197d740",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "8c6c3f032b81036c82237608f7a7f75b015a8282c3d244cfe16ea6a9861c384a",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "8be2fbd77649c831209b1acc540e1c0a1ec0f5d575f9fa307280c2e989f7301f",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "e00da1a2ef4dcd1540bc6f7037a2eb388a55e095e08feddff1bff2f38e1e7a00",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "b93eaba5ea735de23c542e88bc2727560b2bae0095a766ded888ad535a14ce96",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -28944,6 +29496,144 @@
           "text_hash": "4d533bcfc783000fcd44d1b868f03a8a38897e263844f69fca0509dfed99d8ea",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "377ea23efc04dff6076457aaef7e29480ad2ecc95618c36c5a607206fff78fa4",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "377ea23efc04dff6076457aaef7e29480ad2ecc95618c36c5a607206fff78fa4",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "ff4de8f45b82f2ff724a84c1650d1582048c726af6041ec5804995c3fc18ea71",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "bbc1952cd5be2f9acc8c9149203fb451010d9b83aff73e431e6b80aebdfa620e",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "2b14709bcfce5098b78f718942550168329c8fe298c42f1a8cfbaa009a8458db",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "36fafa449c1a7adaaed58739d62356da774de9396b10f86fe961eff7d44dda40",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "54b51efeb7d21647df8cbf865d04df9e973a4599ab948e4e17e9320b10095fa6",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "62fa5445543d166ab300c7c1601b892ae7f03808f9aa77e2c2080509c0fe3304",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "33edf0c0b9df66637fbbf8feb28e9244b0a56b88e045080f5a3182e34eae2fa7",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "def65bac22a54a055e68feeaafaeb9cff7ea931c866649c12907ea9ed8ce612f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "ce0dbaa0744bb9a75e484acd1fd22280104d7141810ef5e607caa735eb5bfe7b",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "3c77aa012eeeece06d21920139e5c286ddd40d535c0a9dcd9ec2807a2cbbf0d8",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "f3c0b4ae976a451d67d8f88a4ccb143934c4f2cff3d818ed8dc122ab2686fbde",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "7327fa6bf452ba276d3bf081dcfcd559f97a5b68f449199f9feb97bb83b2728f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "1b53fe375fc05e6e8688337a07a52fea358be2de617a81e14637bdec8215d724",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "a5212aaf17427c39dc01eef3e39dd90b5d2916ec0f391e3800b579d1391d3f8c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "7868a93e02c5a7398da4b796f6ee2c523eb14f7e681377edc812aa2386e3fb07",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "cd21c682368b8ef12afbb18b9f5774a7453955c222fa46c82a112107dc6d93d9",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "46cfe88fbb09f19f0353664eaa3453f90c37e3b5fc8a0f1c391a5bf232d36b9e",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "81c4025d9dfabd8c1954e2bc9101f3d3366149b8851ca03ecaa99784539040af",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "870fa0d7a36e72f981f865d0b07b056742c4dddcfed305eba2eef2454f1413b9",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "a3ddcbb71cc3b92fb91a180cdd3a6201a89f1e528922c122fd548da60ea10ca3",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "48c4b71a647f1781e3cc9cb98cbda919306ba87a31c1aa3e46ee1464fac02c70",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -34733,6 +35423,144 @@
           "text_hash": "84cca02741da6b506745a75d101bf91b28c4403c7d0de2636d7058c9ff907db3",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "d47365a90c49b715031a45845bde9a066bb18ce0e740f790c419f20c7c0510e4",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "d47365a90c49b715031a45845bde9a066bb18ce0e740f790c419f20c7c0510e4",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "49f1708340451db80e882d4e59b251a45ca72546daa9a6b801d7d514aa5691bc",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "bf8042d05ae3d4db517cbbeee16510a5d68896822636ed38d9a8f5eb9b07a525",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "c0e555f0a317eafb3f7be242514baccce160258f861f4fac6f0c368f6cd0c6f7",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "8747043707fcc470b6ad91d0a59580521f7a4d5813d2100548788539d28befa4",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "362f754fd33a774f4b652a2a9ece1e0d271383347fdff8ad905c0d1dda354912",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "68910a1c5e9dd6cbfcdad94c4d7c1054eb2963c944987eb4d8f480bcac1df091",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "642666b3a13245b0cb34d378b20fdf5e56c407744ee2c2a9160867aeb30c61d5",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "a9a8cc2534b4b96226cc5641dbf4aff9217b327820336bbd14bd90fbe7869ed7",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "8c791cecb06a11de95e6e15e0d060a1d30955dcae0c6783f616e99387a107f9a",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "c619462ad82163e5a2a4ef4f4998569d1c7a7cf87a264918129ec8ac7c7bf841",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "837bf6a26f877a3c572552deb23bc603b1abba311476946c9d81ac859ae3af86",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "85fc4cf3dd1545c2deff538c857f163a8a0fad9ab99abec64bcda81c994c481b",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "ce6aadcfc83596dbc58a832d938992fc72494f8c294622ab68e67134e8f93862",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "44b4754a8e56f7567542ea0bb2d097cdaa60de423bdc6c9cc4f17ece22d81baa",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "de90d358e689b52127176dcac4b40864e0d8e79556502f89b3fb037af12635bb",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "09b34dbc7f39f24f2e0bce84c74a3a498f869c96495e12daca6f10e26bed1dca",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "e4371ceaecc14a0d931a30424ca226f7d137c1f72210cf72f6d6edf868797700",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "76329d8f8ba3e50f969c13f31c1a96ccbecb1cb1b56c21a2da1ffdc4922d64b4",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "58c0f678b21cee19469574b07e2a9abe68708d5d463a1a34857d4e04bb337137",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "cfbbe455543fdf235fa5855c1b74b967fc4609554fcc9f837df0ea767ecc7024",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "e904ad33114f1e998fa7ece1899d0c0518d7657a97c6935e494d8b0192e28c5d",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -40522,6 +41350,144 @@
           "text_hash": "73c0089d37fb47b18d6c20fd91061426e40ff3fb303de6a3dbcdb8c7a889ce2d",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "580fb4a7ac3d92c7936b79aa52dc4bcf6991465a0b2fa9727affee3f4d584cf8",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "580fb4a7ac3d92c7936b79aa52dc4bcf6991465a0b2fa9727affee3f4d584cf8",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "0bc4849f2d8cbc9bea6bf7ea97b4352f4eff6b2e8f61552b0e981908572bd8f5",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "435f0c6be82269cbe9c1aa696fafae005e45907e1c998949efaf143ebc6bd069",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "916950d4a8ea054793ce2e7812c2c1d76e152ebd0c3502b2d0c943598e6226c5",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "26e0cb9babc5d52bb11fa6e994c7360080e65bf1e238322ee803ee937273914b",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "a89a109d11122da9e1f2b7c868699fc035053118b51216e45eb5b8ce30fae5d0",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "39606a302ea6fc97b9f34c67c06c4136cffdfa0dca789ff9e48214ed65d6afde",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "6ff0c53ef90c852eeff0e9aa971047977363cafa06ad7bcf268dffa90869da4e",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "36d9b37b852c914e350189c748cf31eaa6bb11bc123d94569a4bb2925f5c3424",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "32a92e96d05467ffdad392e9e3d14a8c8b5c4e48a6acfb880bf405f163e6e2c4",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "19f9f84db8393532eb6afa3fc1266a0419ee1351720750dee6bb44ed037c556c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "070356fb8c537037c6480b29d782f3010ccfd8b7521afbfafc607f6e46a02c3c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "1320047bc20d84f848e03d96d5248931299007fffaecdd7b0936f41d0dfd0a3c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "05a630be04e7a232107a3ff64ffab8cda4fd3f38497788141d3f941cd7f724c2",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "2ee9783f77c8b41d778283e9215d84ad64ddf8dd820d69acffb05b415e15d284",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "fcfa045d0388296487f4cdc3c6f1e375eee78738ea6bf3f9ed62dc1a76f25a51",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "e7c4f6c6ab4f4430bb0a78466a78db04fb577445a420f685366ae0d9da6ad64b",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "7e0227ed6fe379fd054f91156c8e660c143888e6c480d65a07479e2ecc92204f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "c0901e0ff9636fe5225b5f5ef629f8b6f0791bdcbdfddec199ac2bd0d76dbcc5",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "fe01ced3ce0aef3a485674cc327d2d4ef1efe2641d2f9bec69f23dca0fa5387c",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "771edfd1b8d223fa74e523d81c5c7efc4ce3db7f478b09fab1e634d223eca2c7",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "b810243e6488ff4b18091a74e50a0e3f215f479ee529ae5730b2623146e58fb0",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     },
@@ -46311,6 +47277,144 @@
           "text_hash": "545e6b5b4c8aeaf40493c9601644e01d53b3a717f655c52640ac112b0218f66a",
           "status": "ai",
           "note": ""
+        },
+        "privacyChoicesSettings": {
+          "source_hash": "1f62ca2a1e90810f72a8fe9f240ddad5941330d234b7346b8ac7dd47d0a6e42a",
+          "text_hash": "08f82c02e9e8bd130dc1c5de4b2411aadf588a9b382d018b2ae07b0108ded0a1",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesTitle": {
+          "source_hash": "56e38dd30cd9fe06359b97f9ca39332527fb6d973053a832ba72fdff22dd10de",
+          "text_hash": "08f82c02e9e8bd130dc1c5de4b2411aadf588a9b382d018b2ae07b0108ded0a1",
+          "status": "ai",
+          "note": "Use the same privacy-settings name for the account entry and consent dialog title; not the privacy-policy link."
+        },
+        "privacyChoicesIntro": {
+          "source_hash": "d13481be13fd6d8456837a3a0e87918e47fc4e4f8570ae728f72e8f44c88ca68",
+          "text_hash": "c634083168a6a4b98236ae5a95183d7b8233ad6a3c441935834ac0ea165da5e9",
+          "status": "ai",
+          "note": "Align partner names and purposes across both privacy dialogs."
+        },
+        "privacyChoicesConsent": {
+          "source_hash": "81b9bb31f7285a0d1cd09fb613f84a43171f120d01e78b0f66d7bfb0721762b4",
+          "text_hash": "75ce17a50159ad4bf7c0601c35fbae3217a8baa35955fa7b1a8ec3dcd6db9070",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesReject": {
+          "source_hash": "d5b0724ec02db7e67bcd56b2f46c8ba828784d3492f74673c5eac2dac1687dac",
+          "text_hash": "7a2dce0de679c8ea8fcee48c6ea8d3c507731ea5f948ebd3aec26774dc0aa283",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesManage": {
+          "source_hash": "fe7b73e42bbd84a507bab220853f90a123f6317912f074576de2e066c6ff9088",
+          "text_hash": "7592b76ac96cb8a7247d62670a31de958ba80b14e1a2984508e01dfa506a3e92",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAcceptAll": {
+          "source_hash": "0a2f3d5f01080873f265fe86182038204df0b08fe7515d1cd07554dcf896f295",
+          "text_hash": "b20758708f897e16112a424d07fd1ae02359c0e9268c3ee43aab71f8ac541a31",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesConfirm": {
+          "source_hash": "46df2f65693d87340dddeccfa8caa0e1e71e4a10afde806dbe074f4fa568a010",
+          "text_hash": "1c08e58aa6007ad628f4d04d554e7a7dad86f2bf78ef97fd74570e9990691f2a",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorage": {
+          "source_hash": "506a993e3fe8c7a25f72e8b732c3ba794ed34ce4769bf7197ea9c9ba83635ced",
+          "text_hash": "195ac1c5f136bdc87d6685a3f1521855e893cb75e90a51cfd45677b6ed3c07de",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdStorageDescription": {
+          "source_hash": "896fd87a39d15305db5954a35b287b36f3f3c81630a181bca020ae3f7ce12e45",
+          "text_hash": "cbc13b9c558f78a9c29b8556d46b4ef0ae2a7f5c5496055f269cbb90f1ddc725",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserData": {
+          "source_hash": "48bb159c58f3a10c4727bceb5a0bddcf04c1238f0742bf5e38c8f6ee33e0ebb8",
+          "text_hash": "bf51af5f4b1f3592d4c355ae91c84eeade472ce97ff15f4c05cd3378f70d0163",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAdUserDataDescription": {
+          "source_hash": "d3a28b9e0acf5cd7251ece362aaefb7ee0a275032b3f45eb457e2b6a3de45e96",
+          "text_hash": "5b7164e6c702ab1fe601212411e5588980d3097f2807b50929a3fe60c9d8d44c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalization": {
+          "source_hash": "85a11d5cc5929bccfc362e7210507a5cbe1abcee4512654d982ce30bb3bbcf4d",
+          "text_hash": "16424e24439c30537410d2cc96024ea62a53cd04b662fd16061aa229a819d210",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPersonalizationDescription": {
+          "source_hash": "9780cbcfe660f828bed26b7c5befb7a2ce5d9a92004dfbdb2d8341d386ffe50b",
+          "text_hash": "8bb9b362834ed4a3e5620baa868bf407f9b6381cb21ae4d713457ae9a92c5f5c",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalytics": {
+          "source_hash": "f89e008b6e4bc4c9759f5b0a6c8ed4c05909f9cc8e45847427b059e06b896990",
+          "text_hash": "f556f8eb75afbfdc170c831517685418180d848c908aadbebc79540ccf76446f",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesAnalyticsDescription": {
+          "source_hash": "b2437157f8f758974b3341b61f1b1371b8b697e7c14347aa1a2d5af8672aa715",
+          "text_hash": "c107aea4d1ff3d9112cea4215904d7a6e8817740a9be439155f2ef7aa2915380",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartners": {
+          "source_hash": "bfe4d9014ec25dad277b270d963260d75091fccff08b73978e354784edb7facc",
+          "text_hash": "5689c0c085ec375902327649820f50e9c10b52d962c0daa9f320eaa0942d00a8",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesPartnersDescription": {
+          "source_hash": "545fc9a9fba4bf5b2f76e9ac5121976997aaad5300e7fc5fe053ce440eefdbd0",
+          "text_hash": "00b2113fcf33e572c6fcd5a73c506c8e66fa83f01dfe5b2a621d4ec4893d814a",
+          "status": "ai",
+          "note": "Same concise disclosure in both privacy dialogs."
+        },
+        "privacyChoicesLoadError": {
+          "source_hash": "8c4abfae645007c1277ee0028d279d543d4f7e68fb03086d3e3860c554082e39",
+          "text_hash": "ed95068e8e48d308254af7891b4dc332bd106383541ad1671e74360e19210e09",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "privacyChoicesSaveError": {
+          "source_hash": "c4e59ba448384c452cebc3118cb102d2d5fa22d505e31e5ebee806766de34ed3",
+          "text_hash": "a802cfb0180d2e6b25730abcb0e027ebb793cfb909b1c92df8372d4d900cb586",
+          "status": "ai",
+          "note": "Translated for consent UI; preserves four independent purposes and inline policy placeholder."
+        },
+        "settingsNotSignedIn": {
+          "source_hash": "42b747882efd60ee899055491b9bfa18c0a27f6d7e8a95783b8150304266a267",
+          "text_hash": "facbd2601e2885def8d957ad72b245c24f364d53633471d3a8baf49f6943cdf2",
+          "status": "ai",
+          "note": "Standalone signed-out account status; not a sign-in action."
+        },
+        "settingsAccountSignIn": {
+          "source_hash": "33e334657e26205b1cd4ad23a2f7cf23cabea8ad414ef170f6e29ec8c887d615",
+          "text_hash": "ab25db6df29a33cff6568be288e0e8d9153941217cc4f96da0b679d0c8ce6574",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "settingsAccountSignInDescription": {
+          "source_hash": "0828c40eb6253d83de65ea06c0f9ae85221b5a353da5130dcc5f039c0cf07059",
+          "text_hash": "690ee32658a88a51e12a60e695ab5615b479cd586915a7174d485c66351f99da",
+          "status": "ai",
+          "note": "Signed-out account card; privacy choices do not require sign-in."
         }
       }
     }

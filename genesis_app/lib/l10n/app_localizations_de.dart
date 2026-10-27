@@ -2422,6 +2422,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsCurrentLoginAccount => 'Aktuell angemeldetes Konto:';
 
   @override
+  String get settingsNotSignedIn => 'Nicht angemeldet';
+
+  @override
+  String get settingsAccountSignIn => 'Anmelden';
+
+  @override
+  String get settingsAccountSignInDescription =>
+      'Melde dich an, um dein Konto zu verwalten';
+
+  @override
   String get profileSaveFailed =>
       'Dein Profil konnte nicht gespeichert werden. Bitte versuche es erneut.';
 
@@ -3658,4 +3668,74 @@ class AppLocalizationsDe extends AppLocalizations {
   String gemsDailyResetsIn({required String time}) {
     return 'Zurücksetzung in $time';
   }
+
+  @override
+  String get privacyChoicesSettings => 'Datenschutzeinstellungen';
+
+  @override
+  String get privacyChoicesTitle => 'Datenschutzeinstellungen';
+
+  @override
+  String privacyChoicesIntro({required String privacyPolicy}) {
+    return 'Wähle, wie deine Daten in Worldo verwendet werden: Firebase Analytics zur Analyse der App-Nutzung, Google zur Messung der Werbeleistung und für personalisierte Werbung und Adjust zur Messung der Werbeleistung und Attribution. Lies unsere $privacyPolicy.';
+  }
+
+  @override
+  String get privacyChoicesConsent => 'Zustimmen';
+
+  @override
+  String get privacyChoicesReject => 'Nicht zustimmen';
+
+  @override
+  String get privacyChoicesManage => 'Optionen verwalten';
+
+  @override
+  String get privacyChoicesAcceptAll => 'Allen zustimmen';
+
+  @override
+  String get privacyChoicesConfirm => 'Auswahl bestätigen';
+
+  @override
+  String get privacyChoicesAdStorage => 'Werbebezogene Speicherung';
+
+  @override
+  String get privacyChoicesAdStorageDescription =>
+      'Erlaube, dass werbebezogene Informationen auf deinem Gerät gespeichert und abgerufen werden.';
+
+  @override
+  String get privacyChoicesAdUserData => 'Weitergabe von Werbedaten';
+
+  @override
+  String get privacyChoicesAdUserDataDescription =>
+      'Erlaube Google, deine Daten zur Messung der Werbeleistung zu verwenden.';
+
+  @override
+  String get privacyChoicesPersonalization => 'Personalisierte Werbung';
+
+  @override
+  String get privacyChoicesPersonalizationDescription =>
+      'Erlaube Google, deine Daten zu verwenden, um dir personalisierte Werbung zu zeigen.';
+
+  @override
+  String get privacyChoicesAnalytics => 'Nutzungsanalyse';
+
+  @override
+  String get privacyChoicesAnalyticsDescription =>
+      'Erlaube Firebase Analytics, Informationen über deine Nutzung von Worldo zu speichern und zu verwenden, damit wir die App verbessern können.';
+
+  @override
+  String get privacyChoicesPartners => 'Unsere Partner';
+
+  @override
+  String privacyChoicesPartnersDescription({required String privacyPolicy}) {
+    return 'Firebase Analytics analysiert die App-Nutzung, Google misst die Werbeleistung und personalisiert Anzeigen, und Adjust misst die Werbeleistung und Attribution. Mehr erfährst du in unserer $privacyPolicy.';
+  }
+
+  @override
+  String get privacyChoicesLoadError =>
+      'Deine Datenschutzeinstellungen konnten nicht geladen werden.';
+
+  @override
+  String get privacyChoicesSaveError =>
+      'Deine Datenschutzeinstellungen konnten nicht gespeichert werden. Versuche es erneut.';
 }

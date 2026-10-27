@@ -1,3 +1,4 @@
+import '../../app/startup/startup_prompt_sequence.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -35,6 +36,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   @override
   void initState() {
     super.initState();
+    startupPromptSequence.addListener(_schedule);
     widget.service?.guestLoginRequestId.addListener(_schedule);
     widget.blocked?.addListener(_schedule);
     _schedule();
@@ -56,7 +58,10 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   }
 
   void _schedule() {
-    if (!mounted || _showing || widget.blocked?.value == true) {
+    if (!mounted ||
+        _showing ||
+        widget.blocked?.value == true ||
+        startupPromptSequence.blocksOtherPrompts) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,7 +72,10 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   }
 
   Future<void> _show() async {
-    if (widget.blocked?.value == true) return;
+    if (widget.blocked?.value == true ||
+        startupPromptSequence.blocksOtherPrompts) {
+      return;
+    }
     final service = widget.service;
     final requestId = service?.guestLoginRequestId.value;
     final context = widget.navigatorKey.currentState?.overlay?.context;
@@ -108,6 +116,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
 
   @override
   void dispose() {
+    startupPromptSequence.removeListener(_schedule);
     widget.blocked?.removeListener(_schedule);
     widget.service?.guestLoginRequestId.removeListener(_schedule);
     super.dispose();

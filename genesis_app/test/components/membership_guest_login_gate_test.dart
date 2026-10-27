@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/app/startup/startup_prompt_sequence.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -96,9 +97,17 @@ void main() {
       )..uid = null;
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
+      startupPromptSequence.begin();
+      addTearDown(startupPromptSequence.resetForTesting);
       await openGuestApp(tester, h, homeOnly: true);
       expect(find.byType(LoginSheet), findsNothing);
       await h.service.checkGuestPurchasesOnHome();
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginSheet), findsNothing);
+      startupPromptSequence.finishPrivacy();
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginSheet), findsNothing);
+      startupPromptSequence.finishAtt();
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
       expect(find.text('Purchase successful!'), findsNothing);

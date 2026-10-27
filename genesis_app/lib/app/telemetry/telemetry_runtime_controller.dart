@@ -15,12 +15,15 @@ class TelemetryRuntimeController {
 
   static Future<void> _queue = Future<void>.value();
   static bool _initialized = false;
+  static Future<void>? _initialization;
+  static Future<void> get whenInitialized =>
+      _initialization ?? Future<void>.value();
 
   static Future<void> initialize(
     AppConfig config, {
     VoidCallback? onCollectReady,
   }) {
-    return _enqueue(() async {
+    return _initialization ??= _enqueue(() async {
       final state = await TelemetryUploadPolicy.initialize(config);
       _initialized = true;
       await _apply(config, state, onCollectReady: onCollectReady);
@@ -89,5 +92,6 @@ class TelemetryRuntimeController {
   static void resetForTesting() {
     _queue = Future<void>.value();
     _initialized = false;
+    _initialization = null;
   }
 }

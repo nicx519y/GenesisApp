@@ -245,11 +245,23 @@ class _MePageState extends State<MePage>
               return const SizedBox.shrink();
             }
             if (!content.isSignedIn) {
-              return SignedOutMeView(
-                loggingInProvider: _loggingInProvider,
-                onLogin: _login,
-                reselectionListenable: widget.reselectionListenable,
-                isActiveListenable: widget.isActiveListenable,
+              return Stack(
+                children: [
+                  SignedOutMeView(
+                    loggingInProvider: _loggingInProvider,
+                    onLogin: _login,
+                    reselectionListenable: widget.reselectionListenable,
+                    isActiveListenable: widget.isActiveListenable,
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 4,
+                    child: SafeArea(
+                      bottom: false,
+                      child: _buildSettingsButton(),
+                    ),
+                  ),
+                ],
               );
             }
             final data = content.data!;
@@ -305,16 +317,7 @@ class _MePageState extends State<MePage>
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  onPressed: _openSettings,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 48,
-                                    height: 48,
-                                  ),
-                                  padding: const EdgeInsets.all(12),
-                                  icon: const Icon(Icons.settings, size: 24),
-                                  color: GenesisColors.darkTextPrimary,
-                                ),
+                                _buildSettingsButton(),
                               ],
                             ),
                           ),

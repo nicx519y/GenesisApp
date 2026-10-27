@@ -1092,7 +1092,9 @@ Query：
 
 ### GET `/api/v1/app/config`
 
-App 启动时尽早请求的全局配置。客户端在首个 Flutter 页面展示前完成一次有超时兜底的加载；失败或超时使用默认值。
+App 启动时并行请求的全局配置，不阻塞首帧或 Worldo 列表。失败或超时使用关闭的隐私展示策略。
+
+- `privacy_consent_enabled`: boolean，2026-10-27 已核对 Apifox 请求模型，真实后端保存仍需联调验收。仅严格 `true` 开启隐私自动提示及设置入口判断；false、缺失、格式错误、请求中及请求失败均不展示入口、不自动弹窗。关闭配置不删除或覆盖已有同意状态。详见 [隐私接入说明](privacy-consent-integration.md)。
 
 Query：
 
@@ -2693,14 +2695,16 @@ World：
 - 优先级：资料检查/填写 > 游客 VIP 强制登录。Continue 保存成功后，待绑定订单的游客关闭资料弹窗进入原强制登录；其他情况继续原 Subscription。登录后重读当前 UID，清除跨身份状态；迟到的读写结果不得完成另一账号的引导。登录签到等待资料流程结束。
 - 正式选项与预览数据分离；`PersonalizationStore` 管理当前身份与在途请求，`PersonalizationGate` 管理启动弹窗，VIP report/claim 和 Gems 购买、余额及奖励规则不变。
 
-## Adjust 设备标识注册（2026-09-23 核对）
+## Adjust 设备标识注册（2026-10-27 核对）
 
 - `POST /api/v1/device/register`：游客与登录用户均可调用。当前 Gateway 请求链提供必填 `X-Device-ID`、`X-App-ID`、`X-Platform`；UID 由服务端 session 读取，不在 body 中传递。
-- `adid` 服务端非必传；客户端暂未取得时传空串，服务端保留已有 ADID，新设备默认空串。客户端继续传 `environment`，与当前进程的 Adjust SDK 环境保持一致：SDK 使用 `production` 时传 `production`，使用 `sandbox` 时传 `sandbox`；当前 Apifox 请求体模型未列出该字段，保留现有客户端行为。SDK 环境在启动时由 Release 构建模式及实际 API 地址决定；运行中切换地址需重启后才能切换 SDK 环境。Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`；这些字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。
-- 启动后注册为 best effort，不阻塞首帧。四个标识分别尝试读取，取到就传：ADID 未取得时传空串；Android `gps_adid` 优先使用 Adjust `getGoogleAdId()` 的当前有效值，Adjust 返回空白、全零或读取失败／超时才实时通过 Google Play Services `AdvertisingIdClient` 读取；两者均不可用时传空串，不使用历史 GAID 缓存。iOS `idfa`、`idfv` 未取得（包括 SDK 返回空白、异常或超时）时也传空串。任何一个标识缺失都不阻断本次注册；按当前服务端契约，后三个字段传空串会清除其已有值。后续会话回调、前台恢复等时机可补齐新取得的值，请求失败按有限次数重试。登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册；空 ADID 的成功请求不视为 ADID 已补齐。
+- `privacy_consent`: 可选 **string**，2026-10-27 已核对 Apifox 请求模型，真实后端保存仍需联调验收。值为四个布尔值的 JSON 字符串，例如 `"{\"ad_storage\":true,\"ad_user_data\":true,\"ad_personalization\":false,\"analytics_storage\":true}"`。未选择时省略，不用全 false 冒充用户拒绝；已有选择时始终传，包括配置关闭后。修改选择立即触发注册；去重包含 consent，失败沿用注册重试。该字段不加入 Gateway `/apix/v1/app/device/register`。
+- `adid` 服务端非必传，暂不可用时空串保留已有值。业务注册请求不再发送文档模型之外的 `environment`；Adjust 环境仍用于 SDK 和内部去重。Android 使用 `gps_adid`，iOS 使用 `idfa`、`idfv`。暂未取得标识时省略字段，保留服务端已有值；隐私选择只通过 privacy_consent 同步，不额外拦截标识读取或主动清空标识。
+- 业务归因注册保持原有触发时机，不等待隐私弹窗或 config，Gateway 注册不受影响。Adjust 初始化及 Firebase Analytics 启用等待隐私流程确定；Firebase Core/Crashlytics/Performance 保持原有启动流程。Adjust 首次发送前应用选择；业务注册不受该 SDK 初始化等待门控，暂缺标识时允许按现有契约补报。读取标识期间收到 ADID 回调时，发送前合并最新 ADID；请求已发出后取得的新标识仍补报，相同完整快照去重。
+- 启动注册为 best effort，不阻塞首帧。Android `gps_adid` 优先读取 Adjust 当前有效值；空白、全零或失败时实时回退 Google Play Services，不使用历史 GAID 缓存。未取得的可选标识省略，不因一次读取失败清除服务端旧值。后续会话回调、Firebase 就绪、前台恢复等时机补齐，请求失败有限重试。登录、退出或切换账号仍强制同步当前 session 映射；普通触发按完整快照去重。
 - Gems／订阅共用完整购买页和购买底部弹层，任一标签在该页面／弹层实例中首次展示后，非阻塞地调用一次强制注册，重新读取当前平台的标识并实际发送请求；重建、同实例重复切换和回前台不因该兜底逻辑额外重复发送。重新打开购买页／弹层可再次兜底，不改变购买流程。
 - 本接口只保存设备与 Adjust／广告／Firebase Analytics 标识映射，不直接上报归因事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
-- 新增 `app_instance_id` 字符串字段：Android／iOS 均从 Firebase Analytics SDK 读取，去除首尾空白；取不到、返回空白、异常或超时时传 `""`，不阻断本次注册。该字段纳入进程内参数变化去重；Firebase 初始化完成后会再检查一次，后续正常注册触发时也重新读取并补报。它不是 Adjust ADID、Firebase App ID 或 Firebase Installation ID。服务端需确认接收、保存及空串更新语义；客户端代码和本地请求测试不代表服务端已上线该字段。
+- `app_instance_id` 从 Firebase Analytics SDK 读取；未就绪、空值、异常或超时省略；客户端不因隐私选择额外清空，SDK 内部根据 setConsent 决定可用性。SDK 就绪或标识变化后再次注册。Apifox 约定缺失/null 保留、空串清除、有效值覆盖；`privacy_consent` 为包含布尔值的 JSON 对象字符串。
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 

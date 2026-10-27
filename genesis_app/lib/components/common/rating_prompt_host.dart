@@ -1,3 +1,4 @@
+import '../../app/startup/startup_prompt_sequence.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../app/debug/rating_prompt_debug_settings.dart';
 import 'package:flutter/material.dart';
@@ -76,6 +77,7 @@ class _RatingPromptHostState extends State<RatingPromptHost> {
   @override
   void initState() {
     super.initState();
+    startupPromptSequence.addListener(_afterCount);
     ratingPromptRouteObserver.onExit = () {
       _exitObserved = true;
       _check();
@@ -85,6 +87,7 @@ class _RatingPromptHostState extends State<RatingPromptHost> {
 
   @override
   void dispose() {
+    startupPromptSequence.removeListener(_afterCount);
     ratingPromptRouteObserver.onExit = null;
     RatingPromptStore.instance.changes.removeListener(_afterCount);
     super.dispose();
@@ -92,6 +95,7 @@ class _RatingPromptHostState extends State<RatingPromptHost> {
 
   bool get _available =>
       mounted &&
+      !startupPromptSequence.blocksOtherPrompts &&
       ratingPromptRouteObserver.canPresent &&
       !PendingRatingReward.flowActive &&
       (WidgetsBinding.instance.lifecycleState == null ||

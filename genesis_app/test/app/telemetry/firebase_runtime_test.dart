@@ -1,11 +1,33 @@
+import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/privacy/privacy_consent_controller.dart';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_runtime.dart';
 
 void main() {
-  setUp(FirebaseRuntime.resetForTesting);
-  tearDown(FirebaseRuntime.resetForTesting);
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    FirebaseRuntime.resetForTesting();
+    privacyConsent.resetForTesting();
+  });
+  tearDown(() {
+    FirebaseRuntime.resetForTesting();
+    privacyConsent.resetForTesting();
+  });
+
+  test('Core initializes while privacy is unresolved', () async {
+    SharedPreferences.setMockInitialValues({});
+    await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+    var calls = 0;
+    FirebaseRuntime.setInitializerForTesting(() async {
+      calls++;
+    });
+    await FirebaseRuntime.ensureInitialized();
+    expect(calls, 1);
+    expect(privacyConsent.startupResolved, isFalse);
+  });
 
   test(
     'shares one Firebase initialization across concurrent callers',

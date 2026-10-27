@@ -1,3 +1,4 @@
+import '../components/privacy/privacy_choices_dialog.dart';
 import '../components/common/rating_prompt_host.dart';
 import '../components/common/pending_rating_reward_host.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +49,7 @@ class GenesisApp extends StatelessWidget {
             navigatorKey: genesisNavigatorKey,
             navigatorObservers: [
               genesisRouteObserver,
+              privacyRouteObserver,
               ratingPromptRouteObserver,
               genesisPageRouteObserver,
             ],

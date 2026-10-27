@@ -5,6 +5,7 @@ import 'package:adjust_sdk/adjust.dart';
 import 'package:flutter/foundation.dart';
 
 import '../telemetry/genesis_telemetry.dart';
+import '../privacy/privacy_consent_controller.dart';
 import 'adjust_local_adid_store.dart';
 import 'gaid_availability_monitor.dart';
 
@@ -19,6 +20,7 @@ typedef AdjustDeviceRegistrationRequest =
       String? idfa,
       String? idfv,
       required String appInstanceId,
+      String? privacyConsent,
     });
 typedef AdjustDeviceRegistrationRetryCallback = Future<void> Function();
 typedef AdjustAdidFailureReporter =
@@ -123,6 +125,7 @@ class AdjustDeviceRegistration {
   bool _rerunRequested = false;
   bool _forceRerunRequested = false;
   _AdjustDeviceIdentifiers? _lastRegistered;
+  String? _lastRegisteredPrivacy;
   VoidCallback? _cancelScheduledRetry;
   int _nextRetryDelayIndex = 0;
   int _retryGeneration = 0;
@@ -345,26 +348,32 @@ class AdjustDeviceRegistration {
       final googleAdId = platform == TargetPlatform.android
           ? await _readGoogleAdId()
           : null;
+      final appInstanceId = await _readOptional(
+        readAppInstanceId,
+        'Firebase app instance ID',
+      );
+      final idfa = platform == TargetPlatform.iOS ? await _readIdfa() : null;
+      final idfv = platform == TargetPlatform.iOS
+          ? await _readOptional(readIdfv, 'IDFV')
+          : null;
+      // A session callback may assign ADID while optional IDs are being read.
+      adid = _knownAdid ?? adid;
       final identifiers = platform == TargetPlatform.android
           ? _AdjustDeviceIdentifiers(
               adid: adid,
               environment: environment,
               gpsAdid: googleAdId!.id,
-              appInstanceId: await _readOptional(
-                readAppInstanceId,
-                'Firebase app instance ID',
-              ),
+              appInstanceId: appInstanceId,
             )
           : _AdjustDeviceIdentifiers(
               adid: adid,
               environment: environment,
-              idfa: await _readIdfa(),
-              idfv: await _readOptional(readIdfv, 'IDFV'),
-              appInstanceId: await _readOptional(
-                readAppInstanceId,
-                'Firebase app instance ID',
-              ),
+              idfa: idfa,
+              idfv: idfv,
+              appInstanceId: appInstanceId,
             );
+      // Attach the latest choice without restarting identifier reads.
+      final consentJson = privacyConsent.registrationJson;
       if (platform == TargetPlatform.android) {
         gaidAvailabilityMonitor.observe(
           environment: environment,
@@ -377,7 +386,9 @@ class AdjustDeviceRegistration {
         );
       }
       _reportPendingAdidFailure(identifiers);
-      if (!force && identifiers == _lastRegistered) {
+      if (!force &&
+          identifiers == _lastRegistered &&
+          consentJson == _lastRegisteredPrivacy) {
         return adid.isEmpty
             ? missingAdidResult
             : AdjustDeviceRegistrationResult.alreadyRegistered;
@@ -390,8 +401,10 @@ class AdjustDeviceRegistration {
         idfa: identifiers.idfa,
         idfv: identifiers.idfv,
         appInstanceId: identifiers.appInstanceId,
+        privacyConsent: consentJson,
       );
       _lastRegistered = identifiers;
+      _lastRegisteredPrivacy = consentJson;
       debugPrint(
         '[Adjust][DeviceRegister] registration succeeded; '
         'platform=${platform.name}, adidAvailable=${adid.isNotEmpty}',

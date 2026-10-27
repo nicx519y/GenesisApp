@@ -2319,6 +2319,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsCurrentLoginAccount => '현재 로그인 계정:';
 
   @override
+  String get settingsNotSignedIn => '로그인되지 않음';
+
+  @override
+  String get settingsAccountSignIn => '로그인';
+
+  @override
+  String get settingsAccountSignInDescription => '로그인하여 계정을 관리하세요';
+
+  @override
   String get profileSaveFailed => '프로필을 저장하지 못했습니다. 다시 시도해 주세요.';
 
   @override
@@ -3472,4 +3481,72 @@ class AppLocalizationsKo extends AppLocalizations {
   String gemsDailyResetsIn({required String time}) {
     return '초기화까지 $time';
   }
+
+  @override
+  String get privacyChoicesSettings => '개인정보 보호 설정';
+
+  @override
+  String get privacyChoicesTitle => '개인정보 보호 설정';
+
+  @override
+  String privacyChoicesIntro({required String privacyPolicy}) {
+    return 'Worldo에서 데이터가 사용되는 방식을 선택하세요. Firebase Analytics는 앱 사용 분석에, Google은 광고 성과 측정과 맞춤형 광고에, Adjust는 광고 성과 및 기여도 측정에 사용됩니다. $privacyPolicy을 확인해 주세요.';
+  }
+
+  @override
+  String get privacyChoicesConsent => '동의';
+
+  @override
+  String get privacyChoicesReject => '동의하지 않음';
+
+  @override
+  String get privacyChoicesManage => '옵션 관리';
+
+  @override
+  String get privacyChoicesAcceptAll => '모두 동의';
+
+  @override
+  String get privacyChoicesConfirm => '선택 확인';
+
+  @override
+  String get privacyChoicesAdStorage => '광고 관련 저장';
+
+  @override
+  String get privacyChoicesAdStorageDescription =>
+      '기기에 광고 관련 정보를 저장하고 해당 정보에 접근하도록 허용합니다.';
+
+  @override
+  String get privacyChoicesAdUserData => '광고 데이터 공유';
+
+  @override
+  String get privacyChoicesAdUserDataDescription =>
+      'Google이 광고 성과를 측정하기 위해 데이터를 사용하도록 허용합니다.';
+
+  @override
+  String get privacyChoicesPersonalization => '맞춤 광고';
+
+  @override
+  String get privacyChoicesPersonalizationDescription =>
+      'Google이 맞춤 광고를 표시하기 위해 데이터를 사용하도록 허용합니다.';
+
+  @override
+  String get privacyChoicesAnalytics => '사용 현황 분석';
+
+  @override
+  String get privacyChoicesAnalyticsDescription =>
+      '앱 개선을 위해 Firebase Analytics가 Worldo 사용 방식에 관한 정보를 저장하고 사용하도록 허용합니다.';
+
+  @override
+  String get privacyChoicesPartners => '파트너 안내';
+
+  @override
+  String privacyChoicesPartnersDescription({required String privacyPolicy}) {
+    return 'Firebase Analytics는 앱 사용을 분석하고, Google은 광고 성과를 측정하고 광고를 맞춤화하며, Adjust는 광고 성과와 기여도를 측정합니다. 자세한 내용은 $privacyPolicy을 확인해 주세요.';
+  }
+
+  @override
+  String get privacyChoicesLoadError => '개인정보 설정을 불러올 수 없습니다.';
+
+  @override
+  String get privacyChoicesSaveError => '개인정보 설정을 저장할 수 없습니다. 다시 시도해 주세요.';
 }

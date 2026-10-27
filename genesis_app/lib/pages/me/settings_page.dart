@@ -3,6 +3,7 @@ import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,6 +26,11 @@ import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../../utils/display_name_formatter.dart';
 import 'about_us_page.dart';
+import '../../components/privacy/privacy_choices_dialog.dart';
+import '../../app/privacy/privacy_consent_controller.dart';
+import '../../platform/session/user_session_store.dart';
+import '../../components/auth/login_guard.dart';
+import 'signed_out_account_card.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -39,6 +45,40 @@ class _SettingsPageState extends State<SettingsPage> {
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
 
   int _debugUnlockTapCount = 0;
+  ValueListenable<int>? _sessionRevision;
+  bool _signedIn = false;
+  int _sessionRead = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = AppServicesScope.of(context).sessionRevision;
+    if (identical(revision, _sessionRevision)) return;
+    _sessionRevision?.removeListener(_refreshSession);
+    _sessionRevision = revision;
+    revision.addListener(_refreshSession);
+    _refreshSession();
+  }
+
+  Future<void> _refreshSession() async {
+    final read = ++_sessionRead;
+    final session = AppServicesScope.read(context).sessionStore;
+    bool signedIn;
+    try {
+      signedIn = await session.readLoginUid() != null;
+    } catch (_) {
+      signedIn = false;
+    }
+    if (!mounted || read != _sessionRead) return;
+    setState(() => _signedIn = signedIn);
+  }
+
+  @override
+  void dispose() {
+    _sessionRead++;
+    _sessionRevision?.removeListener(_refreshSession);
+    super.dispose();
+  }
 
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showGenesisActionBox<bool>(
@@ -269,36 +309,38 @@ class _SettingsPageState extends State<SettingsPage> {
                       height: 1,
                       color: GenesisColors.darkFaintFill,
                     ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _openBlockedUsersPage(context),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                context.l10n.settingsBlockedUsers,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: GenesisColors.darkTextPrimary,
-                                  fontWeight: FontWeight.w400,
+                    if (_signedIn) ...[
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _openBlockedUsersPage(context),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  context.l10n.settingsBlockedUsers,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: GenesisColors.darkTextPrimary,
+                                    fontWeight: FontWeight.w400,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Icon(
-                              Icons.chevron_right,
-                              color: GenesisColors.darkTextTertiary,
-                              size: 30,
-                            ),
-                          ],
+                              Icon(
+                                Icons.chevron_right,
+                                color: GenesisColors.darkTextTertiary,
+                                size: 30,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const Divider(
-                      height: 1,
-                      color: GenesisColors.darkFaintFill,
-                    ),
+                      const Divider(
+                        height: 1,
+                        color: GenesisColors.darkFaintFill,
+                      ),
+                    ],
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _showFeedbackDialog(context),
@@ -370,15 +412,16 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: GenesisColors.darkFaintFill,
                     ),
                     const Expanded(child: SizedBox.shrink()),
-                    GenesisPrimaryButton(
-                      label: context.l10n.settingsLogOut,
-                      width:
-                          MediaQuery.sizeOf(context).width *
-                          _logoutButtonWidthFactor,
-                      onPressed: () => _confirmLogout(context),
-                      backgroundColor: GenesisColors.darkFaintFill,
-                      foregroundColor: GenesisColors.darkTextTertiary,
-                    ),
+                    if (_signedIn)
+                      GenesisPrimaryButton(
+                        label: context.l10n.settingsLogOut,
+                        width:
+                            MediaQuery.sizeOf(context).width *
+                            _logoutButtonWidthFactor,
+                        onPressed: () => _confirmLogout(context),
+                        backgroundColor: GenesisColors.darkFaintFill,
+                        foregroundColor: GenesisColors.darkTextTertiary,
+                      ),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -787,23 +830,56 @@ class _AccountPageState extends State<AccountPage> {
 
   IdentityProvider _provider = IdentityProvider.google;
   bool _hasReadAgreement = false;
+  bool? _signedIn;
+  bool _openingLogin = false;
+  String? _accountUid;
+  ValueListenable<int>? _sessionRevision;
+  int _sessionRead = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _loadProvider();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = AppServicesScope.of(context).sessionRevision;
+    if (identical(revision, _sessionRevision)) return;
+    _sessionRevision?.removeListener(_loadAccount);
+    _sessionRevision = revision;
+    revision.addListener(_loadAccount);
+    _loadAccount();
   }
 
-  Future<void> _loadProvider() async {
-    final userInfo = await AppServicesScope.read(
-      context,
-    ).sessionStore.readUserInfo();
-    if (!mounted) return;
+  @override
+  void dispose() {
+    _sessionRead++;
+    _sessionRevision?.removeListener(_loadAccount);
+    super.dispose();
+  }
+
+  Future<void> _loadAccount() async {
+    final read = ++_sessionRead;
+    final session = AppServicesScope.read(context).sessionStore;
+    String? uid;
+    Map<String, dynamic>? userInfo;
+    try {
+      uid = await session.readLoginUid();
+    } catch (_) {
+      uid = null;
+    }
+    if (uid != null) {
+      try {
+        userInfo = await session.readUserInfo();
+      } catch (_) {
+        // A missing provider cache does not invalidate the login session.
+      }
+    }
+    if (!mounted || read != _sessionRead) return;
     final rawProvider = (userInfo?['login_provider'] ?? userInfo?['provider'])
         ?.toString()
         .trim()
         .toLowerCase();
     setState(() {
+      if (_accountUid != uid) _hasReadAgreement = false;
+      _accountUid = uid;
+      _signedIn = uid != null;
       _provider = rawProvider == IdentityProvider.apple.name
           ? IdentityProvider.apple
           : IdentityProvider.google;
@@ -811,6 +887,8 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   Future<void> _handleDeletePressed() async {
+    final owner = _accountUid;
+    if (_signedIn != true || owner == null) return;
     if (!_hasReadAgreement) {
       showGenesisToast(
         context,
@@ -831,12 +909,36 @@ class _AccountPageState extends State<AccountPage> {
       ],
     );
     if (confirmed == true && mounted) {
-      await _deleteAccount();
+      await _deleteAccount(owner);
     }
   }
 
-  Future<void> _deleteAccount() async {
+  Future<void> _signIn() async {
+    if (_openingLogin || _signedIn == true) return;
+    setState(() => _openingLogin = true);
+    try {
+      await ensureGenesisLogin(context, source: LoginSource.me);
+      if (mounted) await _loadAccount();
+    } catch (error) {
+      if (mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(error, fallback: context.l10n.meSignInFailed),
+          brightness: Brightness.dark,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _openingLogin = false);
+    }
+  }
+
+  Future<void> _deleteAccount(String owner) async {
     final services = AppServicesScope.read(context);
+    if (await services.sessionStore.readLoginUid() != owner ||
+        !mounted ||
+        _accountUid != owner) {
+      return;
+    }
     await services.backendAuth.deleteAccount();
     services.notifySessionChanged();
     if (!mounted) return;
@@ -869,114 +971,127 @@ class _AccountPageState extends State<AccountPage> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                       children: [
-                        _CurrentLoginAccountCard(provider: _provider),
-                        const SizedBox(height: 42),
-                        Text(
-                          context.l10n.settingsAccountDeletionAgreement,
-                          style: TextStyle(
-                            color: GenesisColors.darkTextPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          context.l10n.settingsEnsureSecurityAccount,
-                          style: TextStyle(
-                            color: GenesisColors.darkTextSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            height: 1.55,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          context.l10n.gemsAllUnusedIncludingPurchased,
-                          style: TextStyle(
-                            color: GenesisColors.redSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            height: 1.55,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SafeArea(
-                    top: false,
-                    minimum: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(
-                            () => _hasReadAgreement = !_hasReadAgreement,
-                          ),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: Checkbox(
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                    value: _hasReadAgreement,
-                                    activeColor: GenesisColors.redPrimary,
-                                    side: WidgetStateBorderSide.resolveWith(
-                                      (states) =>
-                                          states.contains(WidgetState.selected)
-                                          ? null
-                                          : const BorderSide(
-                                              color: GenesisColors
-                                                  .darkTextTertiary,
-                                              width: 2,
-                                            ),
-                                    ),
-                                    checkColor: GenesisColors.darkTextPrimary,
-                                    onChanged: (value) => setState(
-                                      () => _hasReadAgreement = value ?? false,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    GenesisL10n
-                                        .current
-                                        .settingsIHaveReadAccountDeletion,
-                                    style: TextStyle(
-                                      color: GenesisColors.darkTextSecondary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        if (_signedIn == false)
+                          SignedOutAccountCard(
+                            onSignIn: _signIn,
+                            openingLogin: _openingLogin,
+                          )
+                        else if (_signedIn == true)
+                          _CurrentLoginAccountCard(provider: _provider),
+                        const _AccountPrivacyChoicesEntry(),
+                        if (_signedIn == true) ...[
+                          const SizedBox(height: 42),
+                          Text(
+                            context.l10n.settingsAccountDeletionAgreement,
+                            style: TextStyle(
+                              color: GenesisColors.darkTextPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        GenesisPrimaryButton(
-                          label: context.l10n.worldDetailDelete,
-                          width:
-                              MediaQuery.sizeOf(context).width *
-                              _deleteButtonWidthFactor,
-                          onPressed: _handleDeletePressed,
-                          backgroundColor: GenesisColors.darkFaintFill,
-                          foregroundColor: _hasReadAgreement
-                              ? GenesisColors.redSecondary
-                              : GenesisColors.darkTextTertiary,
-                        ),
+                          const SizedBox(height: 18),
+                          Text(
+                            context.l10n.settingsEnsureSecurityAccount,
+                            style: TextStyle(
+                              color: GenesisColors.darkTextSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 1.55,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            context.l10n.gemsAllUnusedIncludingPurchased,
+                            style: TextStyle(
+                              color: GenesisColors.redSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 1.55,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
+                  if (_signedIn == true)
+                    SafeArea(
+                      top: false,
+                      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => setState(
+                              () => _hasReadAgreement = !_hasReadAgreement,
+                            ),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      value: _hasReadAgreement,
+                                      activeColor: GenesisColors.redPrimary,
+                                      side: WidgetStateBorderSide.resolveWith(
+                                        (states) =>
+                                            states.contains(
+                                              WidgetState.selected,
+                                            )
+                                            ? null
+                                            : const BorderSide(
+                                                color: GenesisColors
+                                                    .darkTextTertiary,
+                                                width: 2,
+                                              ),
+                                      ),
+                                      checkColor: GenesisColors.darkTextPrimary,
+                                      onChanged: (value) => setState(
+                                        () =>
+                                            _hasReadAgreement = value ?? false,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      GenesisL10n
+                                          .current
+                                          .settingsIHaveReadAccountDeletion,
+                                      style: TextStyle(
+                                        color: GenesisColors.darkTextSecondary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          GenesisPrimaryButton(
+                            label: context.l10n.worldDetailDelete,
+                            width:
+                                MediaQuery.sizeOf(context).width *
+                                _deleteButtonWidthFactor,
+                            onPressed: _handleDeletePressed,
+                            backgroundColor: GenesisColors.darkFaintFill,
+                            foregroundColor: _hasReadAgreement
+                                ? GenesisColors.redSecondary
+                                : GenesisColors.darkTextTertiary,
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -990,7 +1105,7 @@ class _AccountPageState extends State<AccountPage> {
 class _CurrentLoginAccountCard extends StatelessWidget {
   const _CurrentLoginAccountCard({required this.provider});
 
-  final IdentityProvider provider;
+  final IdentityProvider? provider;
 
   @override
   Widget build(BuildContext context) {
@@ -1004,7 +1119,9 @@ class _CurrentLoginAccountCard extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              context.l10n.settingsCurrentLoginAccount,
+              provider == null
+                  ? context.l10n.settingsNotSignedIn
+                  : context.l10n.settingsCurrentLoginAccount,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: GenesisColors.darkTextSecondary,
@@ -1013,11 +1130,68 @@ class _CurrentLoginAccountCard extends StatelessWidget {
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 18),
-            LoginProviderIcon(provider: provider),
+            if (provider != null) ...[
+              const SizedBox(height: 18),
+              LoginProviderIcon(provider: provider!),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AccountPrivacyChoicesEntry extends StatelessWidget {
+  const _AccountPrivacyChoicesEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        privacyConsent,
+        AppServicesScope.read(context).appGlobalConfig.requestState,
+      ]),
+      builder: (context, _) {
+        if (!privacyConsent.showSettings(
+          AppServicesScope.read(context).appGlobalConfig,
+        )) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          children: [
+            const SizedBox(height: 42),
+            GestureDetector(
+              key: const ValueKey('settings-privacy-choices'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () =>
+                  showPrivacyChoicesDialog(context, openChoicesDirectly: true),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.privacyChoicesSettings,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: GenesisColors.darkTextPrimary,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: GenesisColors.darkTextTertiary,
+                      size: 30,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1, color: GenesisColors.darkFaintFill),
+          ],
+        );
+      },
     );
   }
 }

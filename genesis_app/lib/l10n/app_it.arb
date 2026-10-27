@@ -4818,5 +4818,107 @@
   "premiumVerifyFailed": "Non siamo riusciti a verificare il tuo abbonamento. Contatta l’assistenza.",
   "@premiumVerifyFailed": {
     "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
+  },
+  "privacyChoicesSettings": "Impostazioni sulla privacy",
+  "@privacyChoicesSettings": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Settings; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesTitle": "Impostazioni sulla privacy",
+  "@privacyChoicesTitle": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Title; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesIntro": "Scegli come vengono usati i tuoi dati in Worldo: Firebase Analytics per analizzare l’uso dell’app, Google per misurare il rendimento pubblicitario e personalizzare gli annunci, e Adjust per misurare il rendimento pubblicitario e l’attribuzione. Leggi la nostra {privacyPolicy}.",
+  "@privacyChoicesIntro": {
+    "description": "Privacy consent dialog and Settings: first dialog explanation; privacyPolicy is the inline clickable policy link, keep the full sentence translatable.",
+    "placeholders": {
+      "privacyPolicy": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyChoicesConsent": "Acconsento",
+  "@privacyChoicesConsent": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Consent; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesReject": "Non acconsento",
+  "@privacyChoicesReject": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Reject; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesManage": "Gestisci opzioni",
+  "@privacyChoicesManage": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Manage; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAcceptAll": "Accetta tutto",
+  "@privacyChoicesAcceptAll": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AcceptAll; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesConfirm": "Conferma le scelte",
+  "@privacyChoicesConfirm": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Confirm; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdStorage": "Archiviazione pubblicitaria",
+  "@privacyChoicesAdStorage": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdStorage; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdStorageDescription": "Consenti di memorizzare informazioni relative alla pubblicità sul tuo dispositivo e di accedervi.",
+  "@privacyChoicesAdStorageDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdStorageDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdUserData": "Condivisione di dati pubblicitari",
+  "@privacyChoicesAdUserData": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdUserData; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdUserDataDescription": "Consenti a Google di utilizzare i tuoi dati per misurare le prestazioni pubblicitarie.",
+  "@privacyChoicesAdUserDataDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdUserDataDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPersonalization": "Annunci personalizzati",
+  "@privacyChoicesPersonalization": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Personalization; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPersonalizationDescription": "Consenti a Google di utilizzare i tuoi dati per mostrarti annunci personalizzati.",
+  "@privacyChoicesPersonalizationDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for PersonalizationDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAnalytics": "Analisi dell’utilizzo",
+  "@privacyChoicesAnalytics": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Analytics; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAnalyticsDescription": "Consenti a Firebase Analytics di memorizzare e utilizzare informazioni su come usi Worldo per aiutarci a migliorare l’app.",
+  "@privacyChoicesAnalyticsDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AnalyticsDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPartners": "I nostri partner",
+  "@privacyChoicesPartners": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Partners; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPartnersDescription": "Firebase Analytics analizza l’uso dell’app, Google misura il rendimento pubblicitario e personalizza gli annunci, e Adjust misura il rendimento pubblicitario e l’attribuzione. Scopri di più nella nostra {privacyPolicy}.",
+  "@privacyChoicesPartnersDescription": {
+    "description": "Shared text for the first privacy dialog body and the second dialog footer below the four switches. Describes Firebase Analytics, Google advertising and Adjust purposes; privacyPolicy is the inline clickable policy link.",
+    "placeholders": {
+      "privacyPolicy": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyChoicesLoadError": "Impossibile caricare le scelte sulla privacy.",
+  "@privacyChoicesLoadError": {
+    "description": "Privacy consent dialog and Settings: error toast when local saved choices could not be read."
+  },
+  "privacyChoicesSaveError": "Impossibile salvare le scelte sulla privacy. Riprova.",
+  "@privacyChoicesSaveError": {
+    "description": "Privacy consent dialog and Settings: error toast when the local choice could not be saved; do not imply a network failure."
+  },
+  "settingsNotSignedIn": "Accesso non effettuato",
+  "@settingsNotSignedIn": {
+    "description": "Settings > Account: standalone status in the account card when no user is signed in; replace the current-account label and hide the provider icon and all account-deletion UI. This is a status, not a sign-in button."
+  },
+  "settingsAccountSignIn": "Accedi",
+  "@settingsAccountSignIn": {
+    "description": "Settings > Account: button in the signed-out account card that opens the shared sign-in sheet. Privacy choices below remain usable without signing in."
+  },
+  "settingsAccountSignInDescription": "Accedi per gestire il tuo account",
+  "@settingsAccountSignInDescription": {
+    "description": "Settings > Account: short explanatory subtitle beneath the signed-out status, next to a Sign in button; refers only to account management, not access to privacy choices."
   }
 }

@@ -69,7 +69,7 @@ void main() {
     expect(AdjustAttributionRuntime.environment.name, 'sandbox');
   });
 
-  test('debug iOS config sends immediately without waiting for ATT', () {
+  test('debug iOS config leaves the ATT waiting interval unset', () {
     final config = AdjustAttributionRuntime.createConfig(
       releaseMode: false,
       platform: TargetPlatform.iOS,

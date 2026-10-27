@@ -1,3 +1,19 @@
+import 'package:genesis_flutter_android/app/startup/startup_prompt_sequence.dart';
+import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
+import 'package:genesis_flutter_android/app/privacy/privacy_consent_controller.dart';
+import 'package:genesis_flutter_android/app/privacy/privacy_choices_store.dart';
+import 'package:genesis_flutter_android/components/privacy/privacy_choices_dialog.dart';
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
+import 'package:genesis_flutter_android/components/login_sheet.dart';
+import 'package:genesis_flutter_android/components/login_provider_button.dart';
+import 'package:genesis_flutter_android/app/attribution/adjust_attribution_runtime.dart';
+import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
+import 'package:genesis_flutter_android/pages/app_shell_page.dart';
+import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/app/debug/rating_prompt_debug_settings.dart';
 import 'package:genesis_flutter_android/components/common/rating_prompt_debug_control.dart';
 import 'package:genesis_flutter_android/components/common/rating_prompt_host.dart';
@@ -30,11 +46,434 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
+import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/platform/platform_services.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 import 'package:genesis_flutter_android/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets(
+    'account sign-in opens shared login sheet and cancellation preserves guest state',
+    (tester) async {
+      final services = _feedbackTestServices(_RecordingFeedbackTransport());
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: AccountPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Sign in to manage your account'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('account-sign-in')));
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginSheet), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
+      Navigator.of(tester.element(find.byType(LoginSheet))).pop(false);
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginSheet), findsNothing);
+      expect(find.text('Not signed in'), findsOneWidget);
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.byKey(const ValueKey('account-sign-in')),
+            )
+            .isLoading,
+        isFalse,
+      );
+      expect(find.byType(Checkbox), findsNothing);
+    },
+  );
+  testWidgets('signed-out Me opens settings without starting login', (
+    tester,
+  ) async {
+    final transport = _RecordingFeedbackTransport();
+    final services = _feedbackTestServices(transport);
+    await services.sessionStore.saveUid('guest_settings');
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: MePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final button = find.byKey(const ValueKey('me-settings-button'));
+    expect(button, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('signed-out-login-buttons')),
+      findsOneWidget,
+    );
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    for (final text in [
+      'Language',
+      'About us',
+      'Account',
+      'Feedback',
+      'Join Discord',
+    ]) {
+      expect(find.text(text), findsOneWidget);
+    }
+    for (final text in ['Blocked users', 'Log out']) {
+      expect(find.text(text), findsNothing);
+    }
+    await tester.tap(find.text('Account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Not signed in'), findsOneWidget);
+    expect(find.byType(LoginProviderIcon), findsNothing);
+    expect(find.text('Account Deletion Agreement'), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
+    expect(find.widgetWithText(GenesisPrimaryButton, 'Delete'), findsNothing);
+    Navigator.of(tester.element(find.byType(AccountPage))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Feedback'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('genesis-feedback-content-input')),
+      findsOneWidget,
+    );
+    expect(
+      transport.requests.where(
+        (request) => request.uri.path.endsWith('/user/blocks'),
+      ),
+      isEmpty,
+    );
+    expect(await services.sessionStore.readUid(), 'guest_settings');
+  });
+
+  testWidgets('settings account actions follow login and logout revisions', (
+    tester,
+  ) async {
+    final services = _feedbackTestServices(_RecordingFeedbackTransport());
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Log out'), findsNothing);
+    await services.sessionStore.saveUid('u_settings');
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Blocked users'), findsOneWidget);
+    expect(find.text('Log out'), findsOneWidget);
+    await services.sessionStore.clearUid();
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Blocked users'), findsNothing);
+    expect(find.text('Log out'), findsNothing);
+  });
+
+  testWidgets('account page follows session and resets deletion consent', (
+    tester,
+  ) async {
+    final services = _feedbackTestServices(_RecordingFeedbackTransport());
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AccountPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Not signed in'), findsOneWidget);
+    expect(find.byType(LoginProviderIcon), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
+
+    await services.sessionStore.saveUid('u_account');
+    await services.sessionStore.saveUserInfo({'provider': 'apple'});
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+    expect(find.text('Not signed in'), findsNothing);
+    expect(find.text('Current login account:'), findsOneWidget);
+    expect(
+      tester.widget<LoginProviderIcon>(find.byType(LoginProviderIcon)).provider,
+      IdentityProvider.apple,
+    );
+    expect(find.text('Account Deletion Agreement'), findsOneWidget);
+    expect(find.widgetWithText(GenesisPrimaryButton, 'Delete'), findsOneWidget);
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+
+    await services.sessionStore.clearUid();
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+    expect(find.text('Not signed in'), findsOneWidget);
+    expect(find.text('Account Deletion Agreement'), findsNothing);
+    expect(find.byType(Checkbox), findsNothing);
+    expect(find.widgetWithText(GenesisPrimaryButton, 'Delete'), findsNothing);
+    expect(find.byType(LoginProviderIcon), findsNothing);
+
+    await services.sessionStore.saveUid('u_another_account');
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+  });
+  for (final consentEnabled in [true, false]) {
+    testWidgets('Privacy then ATT then other prompts config=$consentEnabled', (
+      tester,
+    ) async {
+      AppStartupCoordinator.resetForTesting();
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
+      privacyConsent.resetForTesting();
+      AdjustAttributionRuntime.resetForTesting();
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('com.adjust.sdk/api'),
+        (_) async => null,
+      );
+      addTearDown(() {
+        AppStartupCoordinator.resetForTesting();
+        privacyConsent.resetForTesting();
+        AdjustAttributionRuntime.resetForTesting();
+        messenger.setMockMethodCallHandler(
+          const MethodChannel('com.adjust.sdk/api'),
+          null,
+        );
+      });
+      await tester.runAsync(
+        () => privacyConsent.initialize(systemLocale: const Locale('de', 'DE')),
+      );
+      final pendingConfig = Completer<Map<String, dynamic>>();
+      final config = AppGlobalConfigStore(
+        loadConfig: ({uid}) => pendingConfig.future,
+      );
+      final refresh = config.refresh();
+      var attRequests = 0;
+      final attResult = Completer<AppTrackingAuthorizationStatus>();
+      final services = _feedbackTestServices(
+        _RecordingFeedbackTransport(),
+        appGlobalConfig: config,
+        useMock: true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorObservers: [privacyRouteObserver],
+          home: AppServicesScope(
+            services: services,
+            child: AppShellPage(
+              initialIndex: 4,
+              startupPlatform: TargetPlatform.iOS,
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.notDetermined,
+              requestTrackingAuthorization: () async {
+                attRequests++;
+                return attResult.future;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('Privacy settings'), findsNothing);
+      expect(attRequests, 0);
+      expect(startupPromptSequence.blocksOtherPrompts, isTrue);
+      pendingConfig.complete({'privacy_consent_enabled': consentEnabled});
+      await refresh;
+      await tester.pumpAndSettle();
+      if (consentEnabled) {
+        expect(find.text('Privacy settings'), findsOneWidget);
+        expect(attRequests, 0);
+        await tester.tap(find.text('Do not consent'));
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.text('Privacy settings'), findsNothing);
+        expect(privacyConsent.registrationJson, isNull);
+      }
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(attRequests, 1);
+      expect(startupPromptSequence.blocksOtherPrompts, isTrue);
+      attResult.complete(AppTrackingAuthorizationStatus.denied);
+      await tester.pumpAndSettle();
+      expect(startupPromptSequence.blocksOtherPrompts, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final scenario in ['android', 'authorized', 'config failure']) {
+    testWidgets('prompt priority skips unavailable stages: $scenario', (
+      tester,
+    ) async {
+      AppStartupCoordinator.resetForTesting();
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
+      privacyConsent.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      addTearDown(privacyConsent.resetForTesting);
+      await tester.runAsync(
+        () => privacyConsent.initialize(systemLocale: const Locale('en', 'US')),
+      );
+      final config = AppGlobalConfigStore(
+        loadConfig: ({uid}) async {
+          if (scenario == 'config failure') throw StateError('offline');
+          return {'privacy_consent_enabled': false};
+        },
+      );
+      if (scenario == 'config failure') {
+        await expectLater(config.refresh(), throwsStateError);
+      } else {
+        await config.refresh();
+      }
+      var requests = 0;
+      final services = _feedbackTestServices(
+        _RecordingFeedbackTransport(),
+        appGlobalConfig: config,
+        useMock: true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorObservers: [privacyRouteObserver],
+          home: AppServicesScope(
+            services: services,
+            child: AppShellPage(
+              initialIndex: 4,
+              startupPlatform: scenario == 'android'
+                  ? TargetPlatform.android
+                  : TargetPlatform.iOS,
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.authorized,
+              requestTrackingAuthorization: () async {
+                requests++;
+                return AppTrackingAuthorizationStatus.denied;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.text('Privacy settings'), findsNothing);
+      expect(requests, 0);
+      expect(startupPromptSequence.blocksOtherPrompts, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final signedIn in [false, true]) {
+    testWidgets(
+      'Privacy choices in Account preserve config gating signedIn=$signedIn',
+      (tester) async {
+        const capturePreview = bool.fromEnvironment(
+          'CAPTURE_ACCOUNT_CARD_PREVIEW',
+        );
+        final previewKey = GlobalKey();
+        if (capturePreview && !signedIn) {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await (FontLoader(
+            'Inter',
+          )..addFont(rootBundle.load('assets/fonts/InterVariable.ttf'))).load();
+          await (FontLoader('MaterialIcons')
+                ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+              .load();
+        }
+        privacyConsent.resetForTesting();
+        addTearDown(privacyConsent.resetForTesting);
+        await tester.runAsync(() async {
+          await privacyConsent.initialize(
+            systemLocale: const Locale('de', 'DE'),
+          );
+          await privacyConsent.save(PrivacyChoices.denied);
+        });
+        var enabled = true;
+        final config = AppGlobalConfigStore(
+          loadConfig: ({uid}) async => {'privacy_consent_enabled': enabled},
+        );
+        await config.refresh();
+        final services = _feedbackTestServices(
+          _RecordingFeedbackTransport(),
+          appGlobalConfig: config,
+        );
+        if (signedIn) await services.sessionStore.saveUid('u_account_privacy');
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: previewKey,
+            child: AppServicesScope(
+              services: services,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: GenesisTheme.dark(),
+                home: const SettingsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Privacy settings'), findsNothing);
+        await tester.tap(find.text('Account'));
+        await tester.pumpAndSettle();
+        final entry = find.byKey(const ValueKey('settings-privacy-choices'));
+        expect(entry, findsOneWidget);
+        expect(
+          find.ancestor(of: entry, matching: find.byType(AccountPage)),
+          findsOneWidget,
+        );
+        if (signedIn) {
+          expect(
+            tester.getTopLeft(entry).dy,
+            lessThan(
+              tester.getTopLeft(find.text('Account Deletion Agreement')).dy,
+            ),
+          );
+        } else {
+          expect(find.text('Not signed in'), findsOneWidget);
+          expect(find.text('Account Deletion Agreement'), findsNothing);
+          expect(find.byType(Checkbox), findsNothing);
+          expect(
+            find.widgetWithText(GenesisPrimaryButton, 'Delete'),
+            findsNothing,
+          );
+        }
+        if (capturePreview && !signedIn) {
+          await tester.runAsync(() async {
+            final boundary =
+                previewKey.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage(pixelRatio: 2);
+            try {
+              final data = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              await File(
+                '/private/tmp/worldo-account-card-preview.png',
+              ).writeAsBytes(data!.buffer.asUint8List());
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+        await tester.tap(entry);
+        await tester.pumpAndSettle();
+        expect(find.text('Confirm choices'), findsOneWidget);
+        Navigator.of(tester.element(find.text('Confirm choices'))).pop();
+        await tester.pumpAndSettle();
+        expect(find.byType(AccountPage), findsOneWidget);
+        enabled = false;
+        await config.refresh();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('settings-privacy-choices')),
+          findsNothing,
+        );
+        expect(privacyConsent.choices, isNotNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final sheet in [true, false]) {
     testWidgets(
@@ -145,6 +584,15 @@ void main() {
       await services.sessionStore.saveUid('guest_debug');
       services.sessionRevision.value++;
       await tester.pumpAndSettle();
+      // AppServices preloads catalogs on identity changes independently of
+      // rendering/tapping this button. Assert and clear only that background work.
+      expect(
+        transport.requests.map((r) => r.uri.path),
+        everyElement(
+          anyOf('/api/v1/gem/products', '/api/v1/membership/products'),
+        ),
+      );
+      transport.requests.clear();
       expect(rateButton, findsOneWidget);
       await tester.tap(rateButton);
       await tester.pumpAndSettle();
@@ -153,6 +601,15 @@ void main() {
       await services.sessionStore.saveUid('u_debug');
       services.sessionRevision.value++;
       await tester.pumpAndSettle();
+      // AppServices preloads catalogs on identity changes independently of
+      // rendering/tapping this button. Assert and clear only that background work.
+      expect(
+        transport.requests.map((r) => r.uri.path),
+        everyElement(
+          anyOf('/api/v1/gem/products', '/api/v1/membership/products'),
+        ),
+      );
+      transport.requests.clear();
       expect(rateButton, findsOneWidget);
       expect(transport.requests, isEmpty);
       expect(find.text('Rating message threshold'), findsNothing);
@@ -841,6 +1298,7 @@ void main() {
 
     final transport = _RecordingFeedbackTransport();
     final services = _feedbackTestServices(transport);
+    await services.sessionStore.saveUid('u_settings_feedback');
 
     await tester.pumpWidget(
       AppServicesScope(
@@ -1019,8 +1477,12 @@ void main() {
   });
 }
 
-AppServices _feedbackTestServices(_RecordingFeedbackTransport transport) {
-  const config = AppConfig(useMock: false);
+AppServices _feedbackTestServices(
+  _RecordingFeedbackTransport transport, {
+  AppGlobalConfigStore? appGlobalConfig,
+  bool useMock = false,
+}) {
+  final config = AppConfig(useMock: useMock);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
   final deviceId = const _FakeDeviceIdService();
   final sessionStore = MemoryUserSessionStore();
@@ -1041,6 +1503,7 @@ AppServices _feedbackTestServices(_RecordingFeedbackTransport transport) {
   );
   return AppServices(
     config: config,
+    appGlobalConfig: appGlobalConfig,
     platformConfig: platformConfig,
     deviceId: deviceId,
     sessionStore: sessionStore,

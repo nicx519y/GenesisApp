@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/privacy/privacy_consent_controller.dart';
+import 'package:genesis_flutter_android/app/privacy/privacy_choices_store.dart';
+import 'package:genesis_flutter_android/app/telemetry/telemetry_upload_policy.dart';
 import 'package:genesis_flutter_android/app/telemetry/app_event_reporting.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,6 +47,94 @@ void main() {
     );
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+
+  for (final allowed in [true, false]) {
+    test(
+      'Analytics waits for privacy and applies consent before enabling: $allowed',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        privacyConsent.resetForTesting();
+        addTearDown(privacyConsent.resetForTesting);
+        await privacyConsent.initialize();
+        final calls = <String>[];
+        FirebaseAnalyticsMonitoring.setConsentApplierForTesting(() async {
+          calls.add('consent:${privacyConsent.choices!.analyticsStorage}');
+        });
+        FirebaseAnalyticsMonitoring.setCollectionConfiguratorForTesting((
+          enabled,
+          environment,
+        ) async {
+          calls.add('collection:$enabled');
+        });
+        final configuration = FirebaseAnalyticsMonitoring.configureCollection(
+          enabled: true,
+          appEnvironment: 'production',
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, isEmpty);
+        await privacyConsent.save(
+          PrivacyChoices(
+            adStorage: allowed,
+            adUserData: allowed,
+            adPersonalization: allowed,
+            analyticsStorage: allowed,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, isEmpty);
+        privacyConsent.resolveStartup();
+        await configuration;
+        expect(calls, ['consent:$allowed', 'collection:true']);
+      },
+    );
+  }
+
+  test(
+    'Analytics keeps the original environment disable rule after consent',
+    () async {
+      final calls = <String>[];
+      FirebaseAnalyticsMonitoring.setConsentApplierForTesting(() async {
+        calls.add('consent');
+      });
+      FirebaseAnalyticsMonitoring.setCollectionConfiguratorForTesting((
+        enabled,
+        environment,
+      ) async {
+        calls.add('collection:$enabled');
+      });
+      await FirebaseAnalyticsMonitoring.configureCollection(
+        enabled: false,
+        appEnvironment: 'test',
+      );
+      expect(calls, ['consent', 'collection:false']);
+    },
+  );
+
+  test(
+    'privacy rejection does not override business Analytics policy',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      privacyConsent.resetForTesting();
+      addTearDown(privacyConsent.resetForTesting);
+      await privacyConsent.initialize();
+      await privacyConsent.save(PrivacyChoices.denied);
+      privacyConsent.resolveStartup();
+      final previous = TelemetryUploadPolicy.state.value;
+      addTearDown(() => TelemetryUploadPolicy.state.value = previous);
+      TelemetryUploadPolicy.state.value = const TelemetryUploadState(
+        isReleaseBuild: true,
+        isProductionFlavor: true,
+        usesOfficialEndpoints: true,
+        automaticEnabled: true,
+        debugOverrides: TelemetryDebugOverrides.none(),
+        appEnvironment: 'production',
+        blockReason: TelemetryUploadBlockReason.none,
+      );
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(null);
+      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+      expect(client.events.map((event) => event.name), ['login']);
+    },
+  );
 
   test(
     'four once events are server-only, retaining base Firebase events',
@@ -90,8 +181,9 @@ void main() {
       required occurredAtSeconds,
       required parameters,
     }) async {
-      if (event == 'login_first')
+      if (event == 'login_first') {
         forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+      }
     });
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
     expect(forwardedEvents.map((e) => e.name), ['login_first']);
@@ -417,8 +509,9 @@ void main() {
         required occurredAtSeconds,
         required parameters,
       }) async {
-        if (AppEventReporting.firebaseForwardedOnceEvents.contains(event))
+        if (AppEventReporting.firebaseForwardedOnceEvents.contains(event)) {
           forwardedEvents.add(_RecordedEvent(event, Map.of(parameters)));
+        }
       });
       FirebaseAnalyticsMonitoring.setClientForTesting(client);
       FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(

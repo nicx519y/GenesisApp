@@ -5,9 +5,11 @@ import 'package:adjust_sdk/adjust_attribution.dart';
 import 'package:adjust_sdk/adjust_config.dart';
 import 'package:adjust_sdk/adjust_session_failure.dart';
 import 'package:adjust_sdk/adjust_session_success.dart';
+import 'package:adjust_sdk/adjust_third_party_sharing.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
+import '../privacy/privacy_consent_controller.dart';
 
 typedef AdjustSdkInitializer = void Function(AdjustConfig config);
 typedef AdjustIdfvGetter = Future<String?> Function();
@@ -24,6 +26,7 @@ class AdjustAttributionRuntime {
   static bool _initialized = false;
   static bool _initializing = false;
   static bool _initializationAttempted = false;
+  static bool _firstSessionDelayReleased = false;
   static AdjustEnvironment? _selectedEnvironment;
   static bool _hasSuccessfulSession = false;
   static final Set<AdjustSessionListener> _sessionListeners =
@@ -36,6 +39,8 @@ class AdjustAttributionRuntime {
   static bool get isInitialized => _initialized;
   static bool get hasAttemptedInitialization => _initializationAttempted;
   static bool get hasSuccessfulSession => _hasSuccessfulSession;
+  static bool get isAwaitingFirstSessionPrivacy =>
+      _initialized && !_firstSessionDelayReleased && privacyConsent.active;
   static AdjustEnvironment get environment =>
       _selectedEnvironment ??
       (kReleaseMode ? AdjustEnvironment.production : AdjustEnvironment.sandbox);
@@ -95,6 +100,7 @@ class AdjustAttributionRuntime {
     AdjustSdkInitializer initializeSdk = Adjust.initSdk,
     AdjustIdfvGetter getIdfv = Adjust.getIdfv,
   }) {
+    if (privacyConsent.active && !privacyConsent.startupResolved) return;
     if (_initializationAttempted || _initializing) return;
     _selectedEnvironment ??= releaseMode
         ? AdjustEnvironment.production
@@ -104,6 +110,7 @@ class AdjustAttributionRuntime {
 
     try {
       final resolvedPlatform = platform ?? defaultTargetPlatform;
+      applyPrivacyConsent();
       initializeSdk(
         createConfig(
           releaseMode: releaseMode,
@@ -112,6 +119,7 @@ class AdjustAttributionRuntime {
         ),
       );
       _initialized = true;
+      _finishFirstSessionDelayIfReady();
 
       if (debugMode && resolvedPlatform == TargetPlatform.iOS) {
         unawaited(_logDebugIdfv(getIdfv));
@@ -122,6 +130,45 @@ class AdjustAttributionRuntime {
     } finally {
       _initializing = false;
     }
+  }
+
+  /// Queue Google DMA values before initSdk; later choices update the SDK.
+  static void applyPrivacyConsent() {
+    final choices = privacyConsent.choices;
+    if (choices == null) {
+      _finishFirstSessionDelayIfReady();
+      return;
+    }
+    final sharing = AdjustThirdPartySharing(null);
+    final eea = privacyConsent.region.eea;
+    if (eea != null) sharing.addGranularOption('google_dma', 'eea', eea);
+    sharing.addGranularOption(
+      'google_dma',
+      'ad_user_data',
+      choices.adUserData ? '1' : '0',
+    );
+    sharing.addGranularOption(
+      'google_dma',
+      'ad_personalization',
+      choices.adPersonalization ? '1' : '0',
+    );
+    Adjust.trackThirdPartySharing(sharing);
+    _finishFirstSessionDelayIfReady();
+  }
+
+  // Same-channel calls preserve order: consent is queued before ending delay.
+  // No timer: an open consent dialog must never be treated as a decision.
+  static void _finishFirstSessionDelayIfReady() {
+    if (!_initialized || _firstSessionDelayReleased || !privacyConsent.active) {
+      return;
+    }
+    if (!privacyConsent.loaded ||
+        (privacyConsent.choices == null && !privacyConsent.startupResolved)) {
+      return;
+    }
+    Adjust.endFirstSessionDelay();
+    _firstSessionDelayReleased = true;
+    debugPrint('[Adjust] first-session delay release requested');
   }
 
   @visibleForTesting
@@ -137,6 +184,7 @@ class AdjustAttributionRuntime {
             ? AdjustEnvironment.production
             : AdjustEnvironment.sandbox);
     final config = AdjustConfig(appToken, selectedEnvironment)
+      ..isFirstSessionDelayEnabled = privacyConsent.active
       ..logLevel = selectedEnvironment == AdjustEnvironment.production
           ? AdjustLogLevel.suppress
           : AdjustLogLevel.verbose;
@@ -170,6 +218,7 @@ class AdjustAttributionRuntime {
     _initialized = false;
     _initializing = false;
     _initializationAttempted = false;
+    _firstSessionDelayReleased = false;
     _selectedEnvironment = null;
     _hasSuccessfulSession = false;
     _latestSessionAdid = null;

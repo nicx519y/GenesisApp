@@ -4818,5 +4818,107 @@
   "premiumVerifyFailed": "구독을 확인할 수 없습니다. 고객 지원팀에 문의해 주세요.",
   "@premiumVerifyFailed": {
     "description": "Premium purchase toast when the server rejects a subscription report for a reason other than account mismatch."
+  },
+  "privacyChoicesSettings": "개인정보 보호 설정",
+  "@privacyChoicesSettings": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Settings; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesTitle": "개인정보 보호 설정",
+  "@privacyChoicesTitle": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Title; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesIntro": "Worldo에서 데이터가 사용되는 방식을 선택하세요. Firebase Analytics는 앱 사용 분석에, Google은 광고 성과 측정과 맞춤형 광고에, Adjust는 광고 성과 및 기여도 측정에 사용됩니다. {privacyPolicy}을 확인해 주세요.",
+  "@privacyChoicesIntro": {
+    "description": "Privacy consent dialog and Settings: first dialog explanation; privacyPolicy is the inline clickable policy link, keep the full sentence translatable.",
+    "placeholders": {
+      "privacyPolicy": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyChoicesConsent": "동의",
+  "@privacyChoicesConsent": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Consent; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesReject": "동의하지 않음",
+  "@privacyChoicesReject": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Reject; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesManage": "옵션 관리",
+  "@privacyChoicesManage": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Manage; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAcceptAll": "모두 동의",
+  "@privacyChoicesAcceptAll": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AcceptAll; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesConfirm": "선택 확인",
+  "@privacyChoicesConfirm": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Confirm; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdStorage": "광고 관련 저장",
+  "@privacyChoicesAdStorage": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdStorage; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdStorageDescription": "기기에 광고 관련 정보를 저장하고 해당 정보에 접근하도록 허용합니다.",
+  "@privacyChoicesAdStorageDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdStorageDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdUserData": "광고 데이터 공유",
+  "@privacyChoicesAdUserData": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdUserData; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAdUserDataDescription": "Google이 광고 성과를 측정하기 위해 데이터를 사용하도록 허용합니다.",
+  "@privacyChoicesAdUserDataDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AdUserDataDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPersonalization": "맞춤 광고",
+  "@privacyChoicesPersonalization": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Personalization; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPersonalizationDescription": "Google이 맞춤 광고를 표시하기 위해 데이터를 사용하도록 허용합니다.",
+  "@privacyChoicesPersonalizationDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for PersonalizationDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAnalytics": "사용 현황 분석",
+  "@privacyChoicesAnalytics": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Analytics; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesAnalyticsDescription": "앱 개선을 위해 Firebase Analytics가 Worldo 사용 방식에 관한 정보를 저장하고 사용하도록 허용합니다.",
+  "@privacyChoicesAnalyticsDescription": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for AnalyticsDescription; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPartners": "파트너 안내",
+  "@privacyChoicesPartners": {
+    "description": "Privacy consent dialog and Settings: label or explanatory text for Partners; controls analytics and advertising consent, not account login or ATT."
+  },
+  "privacyChoicesPartnersDescription": "Firebase Analytics는 앱 사용을 분석하고, Google은 광고 성과를 측정하고 광고를 맞춤화하며, Adjust는 광고 성과와 기여도를 측정합니다. 자세한 내용은 {privacyPolicy}을 확인해 주세요.",
+  "@privacyChoicesPartnersDescription": {
+    "description": "Shared text for the first privacy dialog body and the second dialog footer below the four switches. Describes Firebase Analytics, Google advertising and Adjust purposes; privacyPolicy is the inline clickable policy link.",
+    "placeholders": {
+      "privacyPolicy": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyChoicesLoadError": "개인정보 설정을 불러올 수 없습니다.",
+  "@privacyChoicesLoadError": {
+    "description": "Privacy consent dialog and Settings: error toast when local saved choices could not be read."
+  },
+  "privacyChoicesSaveError": "개인정보 설정을 저장할 수 없습니다. 다시 시도해 주세요.",
+  "@privacyChoicesSaveError": {
+    "description": "Privacy consent dialog and Settings: error toast when the local choice could not be saved; do not imply a network failure."
+  },
+  "settingsNotSignedIn": "로그인되지 않음",
+  "@settingsNotSignedIn": {
+    "description": "Settings > Account: standalone status in the account card when no user is signed in; replace the current-account label and hide the provider icon and all account-deletion UI. This is a status, not a sign-in button."
+  },
+  "settingsAccountSignIn": "로그인",
+  "@settingsAccountSignIn": {
+    "description": "Settings > Account: button in the signed-out account card that opens the shared sign-in sheet. Privacy choices below remain usable without signing in."
+  },
+  "settingsAccountSignInDescription": "로그인하여 계정을 관리하세요",
+  "@settingsAccountSignInDescription": {
+    "description": "Settings > Account: short explanatory subtitle beneath the signed-out status, next to a Sign in button; refers only to account management, not access to privacy choices."
   }
 }

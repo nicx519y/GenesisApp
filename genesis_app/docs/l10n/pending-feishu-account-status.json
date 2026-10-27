@@ -1,0 +1,101 @@
+{
+  "sync_status": "pending",
+  "reason": "No connected document session was available; cloud write/readback not performed.",
+  "target": "https://my.feishu.cn/wiki/UuK0whQptiTiCRkyNy5cQDQln2N?sheet=cd7861",
+  "new_rows": [
+    {
+      "key": "settingsNotSignedIn",
+      "display_location": "Me → 设置 → 账号：未登录状态卡",
+      "translation_notes": "状态卡分别显示未登录状态、登录按钮及说明。登录按钮打开共享登录 Sheet；隐私选择仍独立可用。",
+      "translations": {
+        "en": "Not signed in",
+        "zh-TW": "未登入",
+        "es": "Sin iniciar sesión",
+        "pt": "Você não fez login",
+        "fr": "Non connecté",
+        "de": "Nicht angemeldet",
+        "it": "Accesso non effettuato",
+        "ja": "未ログイン",
+        "ko": "로그인되지 않음"
+      }
+    },
+    {
+      "key": "settingsAccountSignIn",
+      "display_location": "Me → 设置 → 账号：未登录状态卡",
+      "translation_notes": "状态卡分别显示未登录状态、登录按钮及说明。登录按钮打开共享登录 Sheet；隐私选择仍独立可用。",
+      "translations": {
+        "en": "Sign in",
+        "zh-TW": "登入",
+        "es": "Iniciar sesión",
+        "pt": "Entrar",
+        "fr": "Se connecter",
+        "de": "Anmelden",
+        "it": "Accedi",
+        "ja": "ログイン",
+        "ko": "로그인"
+      }
+    },
+    {
+      "key": "settingsAccountSignInDescription",
+      "display_location": "Me → 设置 → 账号：未登录状态卡",
+      "translation_notes": "状态卡分别显示未登录状态、登录按钮及说明。登录按钮打开共享登录 Sheet；隐私选择仍独立可用。",
+      "translations": {
+        "en": "Sign in to manage your account",
+        "zh-TW": "登入後可管理帳號",
+        "es": "Inicia sesión para administrar tu cuenta",
+        "pt": "Entre para gerenciar sua conta",
+        "fr": "Connectez-vous pour gérer votre compte",
+        "de": "Melde dich an, um dein Konto zu verwalten",
+        "it": "Accedi per gestire il tuo account",
+        "ja": "ログインしてアカウントを管理",
+        "ko": "로그인하여 계정을 관리하세요"
+      }
+    }
+  ],
+  "existing_rows_to_update": [
+    {
+      "key": "settingsAccount",
+      "display_location": "Me → 设置列表：登录及未登录都显示账号入口"
+    },
+    {
+      "key": "settingsCurrentLoginAccount",
+      "display_location": "Me → 设置 → 账号页：仅登录后显示当前账号标签及登录提供方图标"
+    },
+    {
+      "key": "privacyChoicesSettings",
+      "display_location": "Me → 设置 → 账号：隐私设置入口",
+      "translation_notes": "入口与弹窗标题统一为 Privacy settings；台湾繁中为隱私設定；隐私政策链接名称不变。",
+      "translations": {
+        "en": "Privacy settings",
+        "zh-TW": "隱私設定",
+        "es": "Configuración de privacidad",
+        "pt": "Configurações de privacidade",
+        "fr": "Paramètres de confidentialité",
+        "de": "Datenschutzeinstellungen",
+        "it": "Impostazioni sulla privacy",
+        "ja": "プライバシー設定",
+        "ko": "개인정보 보호 설정"
+      }
+    },
+    {
+      "key": "settingsAccountDeletionAgreement",
+      "display_location": "Me → 设置 → 账号：仅登录显示，排在隐私选择下方"
+    },
+    {
+      "key": "privacyChoicesTitle",
+      "display_location": "启动隐私提示及账号页隐私设置弹窗标题",
+      "translation_notes": "入口与弹窗标题统一为 Privacy settings；台湾繁中为隱私設定；隐私政策链接名称不变。",
+      "translations": {
+        "en": "Privacy settings",
+        "zh-TW": "隱私設定",
+        "es": "Configuración de privacidad",
+        "pt": "Configurações de privacidade",
+        "fr": "Paramètres de confidentialité",
+        "de": "Datenschutzeinstellungen",
+        "it": "Impostazioni sulla privacy",
+        "ja": "プライバシー設定",
+        "ko": "개인정보 보호 설정"
+      }
+    }
+  ]
+}

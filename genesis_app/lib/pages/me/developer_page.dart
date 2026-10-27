@@ -64,6 +64,7 @@ import '../../network/models/app_version_check.dart';
 import 'about_us_page.dart';
 import 'developer_personalization_preview.dart';
 import 'developer_forced_login_preview.dart';
+import 'developer_dma_preview.dart';
 
 part 'developer_endpoint_actions.dart';
 part 'developer_version_actions.dart';
@@ -235,6 +236,22 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   late final TabController _tabController;
   late int _selectedTabIndex;
   bool _clearingDirectMessageCache = false;
+  bool _openingDmaPreview = false;
+
+  Future<void> _showDmaPreview() async {
+    if (_openingDmaPreview) return;
+    setState(() => _openingDmaPreview = true);
+    try {
+      await showDeveloperDmaPreview(
+        context,
+        dismissCurrentRoute: true,
+        persistChoices: false,
+      );
+    } finally {
+      if (mounted) setState(() => _openingDmaPreview = false);
+    }
+  }
+
   bool _clearingImageCache = false;
   bool _clearingGatewayAuth = false;
   bool _verifyingGatewaySignature = false;
@@ -603,6 +620,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         ),
         const SizedBox(height: _itemGap),
         _buildPersonalizationInfoRows(),
+        const SizedBox(height: _itemGap),
+        _DeveloperInfoSingleLineRow(
+          title: 'CountryCole',
+          content:
+              WidgetsBinding.instance.platformDispatcher.locale.countryCode ??
+              'null',
+        ),
         const SizedBox(height: _itemGap),
         FutureBuilder<DeviceIdDiagnostics>(
           future: _deviceIdDiagnosticsFuture,
@@ -1134,6 +1158,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
         const RatingPromptDebugSection(spacing: _itemGap),
+        GenesisPrimaryButton(
+          key: const ValueKey('developer-dma-preview'),
+          label: 'DMA Consent Dialog',
+          onPressed: _openingDmaPreview ? null : _showDmaPreview,
+          backgroundColor: GenesisColors.darkFaintFill,
+          foregroundColor: GenesisColors.darkTextPrimary,
+        ),
+        const SizedBox(height: _itemGap),
         if (buildOriginDebugRandomContentButton(action: widget.randomAction)
             case final randomButton?) ...[
           randomButton,

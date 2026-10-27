@@ -68,6 +68,15 @@ extension _MePageActions on _MePageState {
     }
   }
 
+  Widget _buildSettingsButton() => IconButton(
+    key: const ValueKey('me-settings-button'),
+    onPressed: _openSettings,
+    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+    padding: const EdgeInsets.all(12),
+    icon: const Icon(Icons.settings, size: 24),
+    color: GenesisColors.darkTextPrimary,
+  );
+
   Future<void> _openDiscord() async {
     try {
       final launched = await launchUrl(

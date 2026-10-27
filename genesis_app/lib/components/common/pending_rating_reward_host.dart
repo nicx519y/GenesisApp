@@ -1,3 +1,4 @@
+import '../../app/startup/startup_prompt_sequence.dart';
 import '../../platform/session/user_session_store.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +74,10 @@ class _PendingRatingRewardHostState extends State<PendingRatingRewardHost> {
   }
 
   Future<void> _tryShow() async {
-    if (!mounted || _opening || PendingRatingReward.flowActive) {
+    if (!mounted ||
+        _opening ||
+        PendingRatingReward.flowActive ||
+        startupPromptSequence.blocksOtherPrompts) {
       return;
     }
     final state = WidgetsBinding.instance.lifecycleState;
@@ -93,6 +97,7 @@ class _PendingRatingRewardHostState extends State<PendingRatingRewardHost> {
       if (!mounted ||
           !target.mounted ||
           rating == null ||
+          startupPromptSequence.blocksOtherPrompts ||
           services.sessionRevision.value != revision ||
           PendingRatingReward.flowActive) {
         return;

@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../platform/device/method_channel_device_id_service.dart';
+import '../privacy/privacy_consent_controller.dart';
 import 'firebase_runtime.dart';
+import 'firebase_consent.dart';
 import 'app_event_reporting.dart';
 import 'telemetry_upload_policy.dart';
 
@@ -84,7 +86,9 @@ class FirebaseAnalyticsMonitoring {
   /// An unavailable ID must not prevent the independent device registration.
   static Future<String?> readAppInstanceId() async {
     if (!_isEnabled) return null;
+    if (privacyConsent.active && !privacyConsent.startupResolved) return null;
     await FirebaseRuntime.ensureInitialized();
+    await _waitForAnalyticsReady();
     return FirebaseAnalytics.instance.appInstanceId;
   }
 
@@ -106,11 +110,44 @@ class FirebaseAnalyticsMonitoring {
       DateTime.now().toUtc().millisecondsSinceEpoch ~/
       Duration.millisecondsPerSecond;
 
+  static Future<void> _configurationQueue = Future<void>.value();
+  static Future<void>? _analyticsConfiguration;
+  static Future<void> Function() _consentApplier = applyFirebaseConsent;
+
   static Future<void> configureCollection({
     required bool enabled,
     required String appEnvironment,
   }) {
-    return _collectionConfigurator(enabled, appEnvironment);
+    final configuration = _enqueueConfiguration(() async {
+      if (privacyConsent.active) await privacyConsent.startupReady;
+      await _readiness();
+      await _consentApplier();
+      await _collectionConfigurator(enabled, appEnvironment);
+    });
+    _analyticsConfiguration = configuration;
+    return configuration;
+  }
+
+  static Future<void> refreshPrivacyConsent() =>
+      _enqueueConfiguration(() async {
+        if (privacyConsent.active) await privacyConsent.startupReady;
+        if (privacyConsent.choices == null) return;
+        await _readiness();
+        await _consentApplier();
+      }).catchError((Object error) {
+        debugPrint('[Privacy] Firebase sync deferred: $error');
+      });
+
+  static Future<void> _enqueueConfiguration(Future<void> Function() operation) {
+    final next = _configurationQueue.then((_) => operation());
+    _configurationQueue = next.catchError((Object _) {});
+    return next;
+  }
+
+  static Future<void> _waitForAnalyticsReady() async {
+    if (!privacyConsent.active) return;
+    await privacyConsent.startupReady;
+    await _analyticsConfiguration;
   }
 
   static void configureServerEventReporter(
@@ -232,6 +269,7 @@ class FirebaseAnalyticsMonitoring {
     );
     try {
       await _readiness();
+      await _waitForAnalyticsReady();
       await _client.logEvent(name: name, parameters: parameters);
     } catch (e, st) {
       debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');
@@ -330,6 +368,7 @@ class FirebaseAnalyticsMonitoring {
       );
       try {
         await _readiness();
+        await _waitForAnalyticsReady();
         // Firebase exposes SDK acceptance, not a server-delivery
         // acknowledgement. Persist only after the platform SDK accepts the
         // event call.
@@ -390,6 +429,11 @@ class FirebaseAnalyticsMonitoring {
   }
 
   @visibleForTesting
+  static void setConsentApplierForTesting(Future<void> Function() value) {
+    _consentApplier = value;
+  }
+
+  @visibleForTesting
   static void setClientForTesting(AppAnalyticsClient value) {
     _client = value;
   }
@@ -436,6 +480,9 @@ class FirebaseAnalyticsMonitoring {
     _onceEventRecordings.clear();
     _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
+    _configurationQueue = Future<void>.value();
+    _analyticsConfiguration = null;
+    _consentApplier = applyFirebaseConsent;
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;
     _serverEventReporter = null;
     _occurredAtSecondsReader = () =>

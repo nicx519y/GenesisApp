@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'app/attribution/adjust_attribution_runtime.dart';
+import 'app/privacy/privacy_consent_controller.dart';
 import 'app/bootstrap/app_bootstrap.dart';
 import 'app/startup/startup_endpoint_config.dart';
 import 'app/debug/origin_world_sheet_debug_settings.dart';
@@ -20,6 +21,7 @@ import 'app/startup/startup_dependency_guard.dart';
 import 'app/startup/startup_uid_resolution.dart';
 import 'platform/session/method_channel_user_session_store.dart';
 import 'app/telemetry/genesis_telemetry.dart';
+import 'app/telemetry/firebase_analytics_monitoring.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'app/telemetry/telemetry_upload_policy.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
@@ -35,6 +37,7 @@ const _startupSystemUiTimeout = Duration(seconds: 2);
 Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
+  final privacyLoad = privacyConsent.initialize();
   final appConfigLoad = loadStartupEndpointConfig();
   await appLanguageController.load();
   final systemUiInitialization = waitForStartupDependency(
@@ -85,15 +88,14 @@ Future<void> main() async {
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
   AdjustAttributionRuntime.configureEnvironment(appConfig);
-  var adjustNetworkAvailable = true;
   if (appConfig.useMock != true) {
     // Keep the iOS permission flow ahead of service creation (image warm-up,
     // billing and Gateway requests) and Adjust's first session.
-    adjustNetworkAvailable = await waitForIosStartupNetwork(
+    await waitForIosStartupNetwork(
       probeUri: Uri.parse(appConfig.gatewayApiBaseUrl).resolve('v1/time'),
     );
   }
-  if (adjustNetworkAvailable) AdjustAttributionRuntime.initialize();
+  unawaited(privacyLoad);
   final collectReady = Completer<void>();
   // Prepare the durable Collect queue as soon as the runtime endpoints are
   // known. The two launch sentinels intentionally do not wait for UID,
@@ -114,6 +116,23 @@ Future<void> main() async {
     }),
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
+  String? lastPrivacySnapshot;
+  void synchronizePrivacy() {
+    // Also release Adjust's delay when startup resolves without a saved choice.
+    AdjustAttributionRuntime.applyPrivacyConsent();
+    if (!privacyConsent.startupResolved) return;
+    unawaited(FirebaseAnalyticsMonitoring.refreshPrivacyConsent());
+    final snapshot = privacyConsent.registrationJson;
+    if (snapshot == null) return;
+    final changed = snapshot != lastPrivacySnapshot;
+    lastPrivacySnapshot = snapshot;
+    if (changed) {
+      unawaited(services.adjustDeviceRegistration?.register(force: true));
+    }
+  }
+
+  privacyConsent.addListener(synchronizePrivacy);
+  synchronizePrivacy();
   unawaited(
     telemetryRuntimeInitialization
         .then((_) async {

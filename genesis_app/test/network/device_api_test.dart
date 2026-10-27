@@ -94,16 +94,26 @@ void main() {
         idfa: '',
         idfv: 'idfv-1',
         appInstanceId: ' firebase-instance-1 ',
+        privacyConsent: jsonEncode({
+          'ad_storage': true,
+          'ad_user_data': true,
+          'ad_personalization': false,
+          'analytics_storage': true,
+        }),
       );
 
       expect(captured?.method, 'POST');
       expect(captured?.uri.path, '/api/v1/device/register');
       expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
         'adid': 'adid-1',
-        'environment': 'production',
-        'idfa': '',
         'idfv': 'idfv-1',
         'app_instance_id': 'firebase-instance-1',
+        'privacy_consent': jsonEncode({
+          'ad_storage': true,
+          'ad_user_data': true,
+          'ad_personalization': false,
+          'analytics_storage': true,
+        }),
       });
     },
   );
@@ -133,59 +143,64 @@ void main() {
 
     expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
       'adid': '',
-      'environment': 'sandbox',
       'gps_adid': 'gaid-1',
-      'app_instance_id': '',
     });
   });
 
-  test('device attribution registration sends empty platform IDs', () async {
-    final bodies = <Map<String, dynamic>>[];
-    final api = DeviceV1Api(
-      ApiClient(
-        baseUrl: 'https://example.test/api/',
-        transport: _CallbackTransport((request) {
-          bodies.add(
-            jsonDecode(utf8.decode(request.bodyBytes!)) as Map<String, dynamic>,
-          );
-          return const TransportResponse(
-            statusCode: 200,
-            headers: {'content-type': 'application/json'},
-            body: '{"err_no":0,"err_msg":"succ","data":{}}',
-          );
-        }),
-        responseProcessor: ApiClient.defaultResponseProcessor,
-      ),
-    );
+  test(
+    'device attribution registration omits unavailable platform IDs',
+    () async {
+      final bodies = <Map<String, dynamic>>[];
+      final api = DeviceV1Api(
+        ApiClient(
+          baseUrl: 'https://example.test/api/',
+          transport: _CallbackTransport((request) {
+            bodies.add(
+              jsonDecode(utf8.decode(request.bodyBytes!))
+                  as Map<String, dynamic>,
+            );
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body: '{"err_no":0,"err_msg":"succ","data":{}}',
+            );
+          }),
+          responseProcessor: ApiClient.defaultResponseProcessor,
+        ),
+      );
 
-    await api.registerAttribution(
-      adid: '',
-      environment: 'sandbox',
-      gpsAdid: '',
-    );
-    await api.registerAttribution(
-      adid: '',
-      environment: 'sandbox',
-      idfa: '',
-      idfv: '',
-    );
+      await api.registerAttribution(
+        adid: '',
+        environment: 'sandbox',
+        gpsAdid: '',
+      );
+      await api.registerAttribution(
+        adid: '',
+        environment: 'sandbox',
+        idfa: '',
+        idfv: '',
+      );
 
-    expect(bodies, [
-      {
-        'adid': '',
-        'environment': 'sandbox',
-        'gps_adid': '',
-        'app_instance_id': '',
-      },
-      {
-        'adid': '',
-        'environment': 'sandbox',
-        'idfa': '',
-        'idfv': '',
-        'app_instance_id': '',
-      },
-    ]);
-  });
+      final denial = jsonEncode({
+        'ad_storage': false,
+        'ad_user_data': false,
+        'ad_personalization': false,
+        'analytics_storage': false,
+      });
+      await api.registerAttribution(
+        adid: '',
+        environment: 'sandbox',
+        gpsAdid: '',
+        appInstanceId: '',
+        privacyConsent: denial,
+      );
+      expect(bodies, [
+        {'adid': ''},
+        {'adid': ''},
+        {'adid': '', 'privacy_consent': denial},
+      ]);
+    },
+  );
 
   test(
     'device attribution registration rejects an invalid environment',

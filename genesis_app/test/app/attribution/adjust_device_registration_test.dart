@@ -34,6 +34,7 @@ void main() {
                 idfa,
                 idfv,
                 required appInstanceId,
+                privacyConsent,
               }) async {
                 registered = {
                   'adid': adid,
@@ -117,6 +118,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             environments.add(environment);
           },
@@ -146,6 +148,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({
               'adid': adid,
@@ -189,6 +192,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(idfa);
           },
@@ -220,6 +224,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({
               'adid': adid,
@@ -269,6 +274,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(appInstanceId);
             },
@@ -310,6 +316,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(appInstanceId);
             },
@@ -347,6 +354,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(gpsAdid);
           },
@@ -389,6 +397,7 @@ void main() {
                 idfa,
                 idfv,
                 required appInstanceId,
+                privacyConsent,
               }) async {
                 requests.add(gpsAdid);
               },
@@ -419,6 +428,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(gpsAdid);
           },
@@ -447,6 +457,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(gpsAdid);
           },
@@ -481,6 +492,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(gpsAdid);
             },
@@ -516,6 +528,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {},
     );
 
@@ -541,6 +554,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({'adid': adid, 'gps_adid': gpsAdid});
           },
@@ -579,6 +593,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({'adid': adid, 'idfa': idfa, 'idfv': idfv});
           },
@@ -606,6 +621,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({'adid': adid, 'gps_adid': gpsAdid});
           },
@@ -624,6 +640,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({'adid': adid, 'idfa': idfa, 'idfv': idfv});
           },
@@ -655,6 +672,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({'adid': adid, 'gps_adid': gpsAdid});
           },
@@ -690,6 +708,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(adid);
           },
@@ -732,6 +751,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(adid);
             },
@@ -770,6 +790,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(gpsAdid);
           },
@@ -800,6 +821,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add({'adid': adid, 'idfa': idfa, 'idfv': idfv});
           },
@@ -833,6 +855,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requestCount++;
           },
@@ -871,6 +894,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(adid);
           },
@@ -900,6 +924,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {},
     );
     await first.register();
@@ -920,6 +945,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             secondRequests.add(adid);
           },
@@ -946,6 +972,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {},
     );
 
@@ -979,6 +1006,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(adid);
             },
@@ -1018,6 +1046,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(adid);
             },
@@ -1058,6 +1087,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add(adid);
             },
@@ -1099,6 +1129,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requestCount++;
             },
@@ -1144,6 +1175,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(adid);
           },
@@ -1175,6 +1207,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requestCount++;
             },
@@ -1219,6 +1252,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requestCount++;
             if (requestCount == 1) throw StateError('offline');
@@ -1265,6 +1299,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requestCount++;
             throw StateError('offline');
@@ -1308,6 +1343,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requestCount++;
             throw StateError('offline');
@@ -1340,6 +1376,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requestCount++;
             },
@@ -1371,6 +1408,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requestCount++;
               if (requestCount == 1) await firstRequest.future;
@@ -1402,6 +1440,7 @@ void main() {
             idfa,
             idfv,
             required appInstanceId,
+            privacyConsent,
           }) async {
             requests.add(environment);
           },
@@ -1435,6 +1474,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requests.add('$environment:$adid');
             },
@@ -1471,6 +1511,7 @@ void main() {
               idfa,
               idfv,
               required appInstanceId,
+              privacyConsent,
             }) async {
               requestCount++;
               if (requestCount == 1) throw StateError('offline');
