@@ -9,7 +9,7 @@ import 'package:genesis_flutter_android/app/attribution/adjust_local_adid_store.
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
-import 'package:genesis_flutter_android/app/attribution/gaid_availability_monitor.dart';
+import 'package:genesis_flutter_android/app/attribution/adid_availability_monitor.dart';
 
 void main() {
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
@@ -108,6 +108,7 @@ void main() {
         await registration.register();
         expect(nativeReads, 0);
         await registration.checkAdidAfterStartup();
+        await launchAdidAvailabilityMonitor.whenIdle;
         await GenesisTelemetry.waitForCollectWritesForTesting();
         final event = events.eventsForTesting.singleWhere(
           (event) => event.action == 'get_adid_failed',
@@ -130,36 +131,50 @@ void main() {
           isEmpty,
         );
         expect(nativeReads, platform == TargetPlatform.android ? 1 : 0);
+        await registration.registerKnownAdid('recovered-adid');
+        await registration.registerKnownAdid('recovered-adid');
+        await launchAdidAvailabilityMonitor.whenIdle;
+        final paired = events.eventsForTesting
+            .where((event) => event.action.startsWith('get_adid_'))
+            .toList();
+        expect(paired.map((event) => event.action), [
+          'get_adid_failed',
+          'get_adid_success',
+        ]);
+        expect(
+          (paired.last.object1, paired.last.object2, paired.last.object3),
+          ('recovered-adid', '', 'instance'),
+        );
         registration.dispose();
       },
     );
   }
 
   test(
-    'GAID pairing shares the launch state and telemetry enqueue does not block registration',
+    'ADID pairing shares the launch state and telemetry enqueue does not block registration',
     () async {
       final failureQueued = Completer<bool>();
       final events = <List<String>>[];
       var valid = false;
       var nativeReads = 0;
       var requests = 0;
-      final monitor = GaidAvailabilityMonitor(
+      final monitor = AdidAvailabilityMonitor(
         report: (action, a, n, f) async {
           events.add([action, a, n, f]);
-          return action == 'get_gaid_failed' ? failureQueued.future : true;
+          return action == 'get_adid_failed' ? failureQueued.future : true;
         },
       );
       AdjustDeviceRegistration create() => AdjustDeviceRegistration(
         platform: TargetPlatform.android,
         environmentProvider: () => 'sandbox',
-        readAdid: (_) async => 'adid',
+        readAdid: (_) async => valid ? 'adid' : '',
         readGoogleAdId: () async => valid ? 'adjust-gaid' : '',
         readNativeGoogleAdId: () async {
           nativeReads++;
           return valid ? 'native-gaid' : '';
         },
         readAppInstanceId: () async => 'instance',
-        gaidAvailabilityMonitor: monitor,
+        adidAvailabilityMonitor: monitor,
         registerDevice:
             ({
               required adid,
@@ -174,7 +189,7 @@ void main() {
             },
       );
       final first = create();
-      await first.register();
+      await first.checkAdidAfterStartup();
       expect(requests, 1);
       valid = true;
       final second = create();
@@ -184,8 +199,8 @@ void main() {
       failureQueued.complete(true);
       await monitor.whenIdle;
       expect(events, [
-        ['get_gaid_failed', '', '', 'instance'],
-        ['get_gaid_success', 'adjust-gaid', 'native-gaid', 'instance'],
+        ['get_adid_failed', '', '', 'instance'],
+        ['get_adid_success', 'adid', '', 'instance'],
       ]);
       await second.register();
       await monitor.whenIdle;
@@ -198,7 +213,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    launchGaidAvailabilityMonitor.resetForTesting();
+    launchAdidAvailabilityMonitor.resetForTesting();
   });
   tearDown(AdjustAttributionRuntime.resetForTesting);
 

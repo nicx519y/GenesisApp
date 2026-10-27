@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../telemetry/genesis_telemetry.dart';
 
-typedef GaidAvailabilityReporter =
+typedef AdidAvailabilityReporter =
     Future<bool> Function(
       String action,
       String adjustId,
@@ -9,21 +9,21 @@ typedef GaidAvailabilityReporter =
       String appInstanceId,
     );
 
-final launchGaidAvailabilityMonitor = GaidAvailabilityMonitor();
+final launchAdidAvailabilityMonitor = AdidAvailabilityMonitor();
 
-enum _LaunchGaidState { fresh, waitingForRecovery, finished }
+enum _LaunchAdidState { fresh, waitingForRecovery, finished }
 
 /// One failure/recovery pair per process; never persisted across launches.
-class GaidAvailabilityMonitor {
-  GaidAvailabilityMonitor({this.report = _report});
-  final GaidAvailabilityReporter report;
-  _LaunchGaidState _state = _LaunchGaidState.fresh;
+class AdidAvailabilityMonitor {
+  AdidAvailabilityMonitor({this.report = _report});
+  final AdidAvailabilityReporter report;
+  _LaunchAdidState _state = _LaunchAdidState.fresh;
   bool _failureObserved = false;
   Future<void> _work = Future<void>.value();
   int _generation = 0;
 
   bool get shouldCaptureNative =>
-      _state != _LaunchGaidState.finished && _failureObserved;
+      _state != _LaunchAdidState.finished && _failureObserved;
 
   void observe({
     required bool available,
@@ -31,49 +31,49 @@ class GaidAvailabilityMonitor {
     required String nativeId,
     required String appInstanceId,
   }) {
-    if (!available && _state != _LaunchGaidState.finished) {
+    if (!available && _state != _LaunchAdidState.finished) {
       _failureObserved = true;
     }
     final generation = _generation;
     _work = _work
         .then((_) async {
           if (generation != _generation ||
-              _state == _LaunchGaidState.finished) {
+              _state == _LaunchAdidState.finished) {
             return;
           }
-          if (!available && _state == _LaunchGaidState.fresh) {
+          if (!available && _state == _LaunchAdidState.fresh) {
             try {
               if (await report(
-                    'get_gaid_failed',
+                    'get_adid_failed',
                     adjustId,
                     nativeId,
                     appInstanceId,
                   ) &&
                   generation == _generation) {
-                _state = _LaunchGaidState.waitingForRecovery;
+                _state = _LaunchAdidState.waitingForRecovery;
               }
             } finally {
               if (generation == _generation) {
                 _failureObserved =
-                    _state == _LaunchGaidState.waitingForRecovery;
+                    _state == _LaunchAdidState.waitingForRecovery;
               }
             }
           } else if (available &&
-              _state == _LaunchGaidState.waitingForRecovery) {
+              _state == _LaunchAdidState.waitingForRecovery) {
             if (await report(
-                  'get_gaid_success',
+                  'get_adid_success',
                   adjustId,
                   nativeId,
                   appInstanceId,
                 ) &&
                 generation == _generation) {
-              _state = _LaunchGaidState.finished;
+              _state = _LaunchAdidState.finished;
               _failureObserved = false;
             }
           }
         })
         .catchError((Object error) {
-          debugPrint('[Adjust][GAID] launch monitor enqueue failed: $error');
+          debugPrint('[Adjust][ADID] launch monitor enqueue failed: $error');
         });
   }
 
@@ -83,7 +83,7 @@ class GaidAvailabilityMonitor {
   @visibleForTesting
   void resetForTesting() {
     _generation++;
-    _state = _LaunchGaidState.fresh;
+    _state = _LaunchAdidState.fresh;
     _failureObserved = false;
     _work = Future<void>.value();
   }

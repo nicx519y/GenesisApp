@@ -2918,11 +2918,10 @@ Source: supplied `wallpaper.md` contract.
 - `action_type=monitor`、`action=get_adid_failed`。启动延迟检查确认本地 ADID 缓存可读但为空、SDK 也正常返回空时，每个注册实例最多上报一次；异常/超时不按正常空值处理。隐私初始化与首次会话延迟的现有门禁继续保留。
 - Android：object1=Adjust 读取的 GAID，object2=原生读取的 GAID，object3=Firebase App Instance ID。诊断时即使 Adjust GAID 可用也读取原生值，正常注册仍优先 Adjust、原生仅回退。
 - iOS：object1=IDFA，object2=IDFV，object3=Firebase App Instance ID。未取得值使用空串；不再把 source、platform 或 JSON 放入这三个字段。
-- GAID 失败/恢复改为本次进程内配对，不持久化；旧偏好键留存但不再读取。设备注册 body、隐私选择同步和 SDK 初始化逻辑不变。
+- 移除 `get_gaid_failed` / `get_gaid_success` 独立打点。设备注册、隐私同步和 SDK 初始化逻辑不变。
 
-### GAID 本次启动失败与恢复
+### ADID 本次启动失败与恢复
 
-- 仅 Android，`action_type=monitor`，事件为 `get_gaid_failed` / `get_gaid_success`。object1=Adjust GAID，object2=原生 GAID，object3=Firebase App Instance ID；未取得为空串。
-- 每个进程共享状态，最多成功入队一次失败、一次恢复。正常取得 GAID 不报成功；两路均不可用时失败，失败成功写入 Collect 本地队列后，任一路恢复才报成功。配对结束后本次启动不再报；重启重新判断，不跨进程保存。
-- 失败/成功未能入队时不推进状态，后续已有读取机会可重试；串行队列保证失败先于恢复，打点写入不等待网络且不阻塞注册。
-- 复用注册、前台/网络恢复等现有读取，不增加轮询。等待恢复时可额外读取原生 GAID以补齐诊断字段，实际注册仍优先 Adjust、原生回退。`get_adid_failed` 的触发和字段规则保持独立。
+- Android/iOS 共用进程内状态，失败沿用上述触发条件和字段；失败成功写入 Collect 本地队列后，后续获取有效 ADID 才报 `get_adid_success`（action_type=monitor，object1=恢复的 ADID，object2=空串，object3=Firebase App Instance ID）。
+- 正常启动直接取得 ADID 不报成功；每次启动最多成功入队一组失败与恢复，不跨启动配对。队列保证先失败后恢复，入队失败不推进状态，不阻塞业务注册。
+- 复用 SDK 回调、注册及前台/网络恢复的读取机会，不新增轮询。

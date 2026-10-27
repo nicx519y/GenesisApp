@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
-import 'package:genesis_flutter_android/app/attribution/gaid_availability_monitor.dart';
+import 'package:genesis_flutter_android/app/attribution/adid_availability_monitor.dart';
 
-void observe(GaidAvailabilityMonitor monitor, bool available) =>
+void observe(AdidAvailabilityMonitor monitor, bool available) =>
     monitor.observe(
       available: available,
       adjustId: available ? 'adjust' : '',
@@ -18,7 +18,7 @@ void main() {
       CollectTelemetryUploader(store: store)..configure(enabled: true),
     );
     addTearDown(GenesisTelemetry.resetForTesting);
-    final monitor = GaidAvailabilityMonitor();
+    final monitor = AdidAvailabilityMonitor();
     observe(monitor, false);
     observe(monitor, true);
     await monitor.whenIdle;
@@ -33,8 +33,8 @@ void main() {
         ),
       ),
       [
-        ('monitor', 'get_gaid_failed', '', '', 'instance'),
-        ('monitor', 'get_gaid_success', 'adjust', 'native', 'instance'),
+        ('monitor', 'get_adid_failed', '', '', 'instance'),
+        ('monitor', 'get_adid_success', 'adjust', 'native', 'instance'),
       ],
     );
   });
@@ -43,7 +43,7 @@ void main() {
     'healthy launch has no event; one pair only even after another failure',
     () async {
       final events = <String>[];
-      final monitor = GaidAvailabilityMonitor(
+      final monitor = AdidAvailabilityMonitor(
         report: (action, a, n, f) async {
           events.add(action);
           return true;
@@ -58,7 +58,7 @@ void main() {
       observe(monitor, false);
       observe(monitor, true);
       await monitor.whenIdle;
-      expect(events, ['get_gaid_failed', 'get_gaid_success']);
+      expect(events, ['get_adid_failed', 'get_adid_success']);
       expect(monitor.shouldCaptureNative, isFalse);
     },
   );
@@ -68,10 +68,10 @@ void main() {
     () async {
       final accepted = Completer<bool>();
       final events = <List<String>>[];
-      final monitor = GaidAvailabilityMonitor(
+      final monitor = AdidAvailabilityMonitor(
         report: (action, a, n, f) async {
           events.add([action, a, n, f]);
-          return action == 'get_gaid_failed' ? accepted.future : true;
+          return action == 'get_adid_failed' ? accepted.future : true;
         },
       );
       observe(monitor, false);
@@ -79,11 +79,11 @@ void main() {
       observe(monitor, true);
       await Future<void>.delayed(Duration.zero);
       expect(events, [
-        ['get_gaid_failed', '', '', 'instance'],
+        ['get_adid_failed', '', '', 'instance'],
       ]);
       accepted.complete(true);
       await monitor.whenIdle;
-      expect(events.last, ['get_gaid_success', 'adjust', 'native', 'instance']);
+      expect(events.last, ['get_adid_success', 'adjust', 'native', 'instance']);
     },
   );
 
@@ -92,7 +92,7 @@ void main() {
     () async {
       final events = <String>[];
       var accepted = false;
-      final monitor = GaidAvailabilityMonitor(
+      final monitor = AdidAvailabilityMonitor(
         report: (action, a, n, f) async {
           events.add(action);
           return accepted;
@@ -102,15 +102,15 @@ void main() {
       await monitor.whenIdle;
       observe(monitor, true);
       await monitor.whenIdle;
-      expect(events, ['get_gaid_failed']);
+      expect(events, ['get_adid_failed']);
       accepted = true;
       observe(monitor, false);
       observe(monitor, true);
       await monitor.whenIdle;
       expect(events, [
-        'get_gaid_failed',
-        'get_gaid_failed',
-        'get_gaid_success',
+        'get_adid_failed',
+        'get_adid_failed',
+        'get_adid_success',
       ]);
     },
   );
@@ -120,10 +120,10 @@ void main() {
     () async {
       var acceptRecovery = false;
       final events = <String>[];
-      final monitor = GaidAvailabilityMonitor(
+      final monitor = AdidAvailabilityMonitor(
         report: (action, a, n, f) async {
           events.add(action);
-          return action == 'get_gaid_failed' || acceptRecovery;
+          return action == 'get_adid_failed' || acceptRecovery;
         },
       );
       observe(monitor, false);
@@ -135,9 +135,9 @@ void main() {
       observe(monitor, true);
       await monitor.whenIdle;
       expect(events, [
-        'get_gaid_failed',
-        'get_gaid_success',
-        'get_gaid_success',
+        'get_adid_failed',
+        'get_adid_success',
+        'get_adid_success',
       ]);
     },
   );
@@ -149,12 +149,12 @@ void main() {
       return true;
     }
 
-    final previous = GaidAvailabilityMonitor(report: report);
+    final previous = AdidAvailabilityMonitor(report: report);
     observe(previous, false);
     await previous.whenIdle;
-    final nextLaunch = GaidAvailabilityMonitor(report: report);
+    final nextLaunch = AdidAvailabilityMonitor(report: report);
     observe(nextLaunch, true);
     await nextLaunch.whenIdle;
-    expect(events, ['get_gaid_failed']);
+    expect(events, ['get_adid_failed']);
   });
 }

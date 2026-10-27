@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:adjust_sdk/adjust.dart';
 import 'package:flutter/foundation.dart';
 
-import '../telemetry/genesis_telemetry.dart';
 import '../privacy/privacy_consent_controller.dart';
 import 'adjust_local_adid_store.dart';
-import 'gaid_availability_monitor.dart';
+import 'adid_availability_monitor.dart';
 
 typedef AdjustAdidReader = Future<String?> Function(int timeoutMilliseconds);
 typedef AdjustOptionalIdReader = Future<String?> Function();
@@ -58,28 +57,6 @@ VoidCallback _scheduleRetryWithTimer(
   return timer.cancel;
 }
 
-void _reportAdidFailure(
-  String _,
-  TargetPlatform platform,
-  Map<String, Object?> identifiers,
-) {
-  GenesisTelemetry.collectLog(
-    actionType: 'monitor',
-    action: 'get_adid_failed',
-    object1:
-        identifiers[platform == TargetPlatform.android
-            ? 'adjust_gps_adid'
-            : 'idfa'] ??
-        '',
-    object2:
-        identifiers[platform == TargetPlatform.android
-            ? 'native_gps_adid'
-            : 'idfv'] ??
-        '',
-    object3: identifiers['app_instance_id'] ?? '',
-  );
-}
-
 /// Best-effort bridge between the Adjust SDK identity and Worldo's device
 /// registration endpoint.
 ///
@@ -103,12 +80,12 @@ class AdjustDeviceRegistration {
     this.adidTimeout = const Duration(seconds: 5),
     this.optionalIdTimeout = const Duration(seconds: 3),
     this.retryDelays = _defaultRetryDelays,
-    this.reportAdidFailure = _reportAdidFailure,
-    GaidAvailabilityMonitor? gaidAvailabilityMonitor,
+    this.reportAdidFailure,
+    AdidAvailabilityMonitor? adidAvailabilityMonitor,
     AdjustDeviceRegistrationRetryScheduler retryScheduler =
         _scheduleRetryWithTimer,
-  }) : gaidAvailabilityMonitor =
-           gaidAvailabilityMonitor ?? launchGaidAvailabilityMonitor,
+  }) : adidAvailabilityMonitor =
+           adidAvailabilityMonitor ?? launchAdidAvailabilityMonitor,
        _retryScheduler = retryScheduler;
 
   final TargetPlatform platform;
@@ -124,8 +101,8 @@ class AdjustDeviceRegistration {
   final Duration adidTimeout;
   final Duration optionalIdTimeout;
   final List<Duration> retryDelays;
-  final AdjustAdidFailureReporter reportAdidFailure;
-  final GaidAvailabilityMonitor gaidAvailabilityMonitor;
+  final AdjustAdidFailureReporter? reportAdidFailure;
+  final AdidAvailabilityMonitor adidAvailabilityMonitor;
   final AdjustDeviceRegistrationRetryScheduler _retryScheduler;
 
   Future<void>? _inFlight;
@@ -230,8 +207,24 @@ class AdjustDeviceRegistration {
       if (platform == TargetPlatform.iOS) 'idfa': identifiers.idfa,
       if (platform == TargetPlatform.iOS) 'idfv': identifiers.idfv,
     };
+    adidAvailabilityMonitor.observe(
+      available: false,
+      adjustId:
+          (payload[platform == TargetPlatform.android
+                  ? 'adjust_gps_adid'
+                  : 'idfa']
+              as String?) ??
+          '',
+      nativeId:
+          (payload[platform == TargetPlatform.android
+                  ? 'native_gps_adid'
+                  : 'idfv']
+              as String?) ??
+          '',
+      appInstanceId: identifiers.appInstanceId,
+    );
     try {
-      reportAdidFailure('startup_delayed_check', platform, payload);
+      reportAdidFailure?.call('startup_delayed_check', platform, payload);
     } catch (error) {
       debugPrint('[Adjust][DeviceRegister] ADID failure report failed: $error');
     }
@@ -361,7 +354,7 @@ class AdjustDeviceRegistration {
           ? await _readGoogleAdId(
               captureNative:
                   (_adidFailureCheckPending && adid.isEmpty) ||
-                  gaidAvailabilityMonitor.shouldCaptureNative,
+                  adidAvailabilityMonitor.shouldCaptureNative,
             )
           : null;
       final appInstanceId = await _readOptional(
@@ -388,14 +381,6 @@ class AdjustDeviceRegistration {
               idfv: idfv,
               appInstanceId: appInstanceId,
             );
-      if (platform == TargetPlatform.android) {
-        gaidAvailabilityMonitor.observe(
-          available: _isUsableAdvertisingId(googleAdId!.id),
-          adjustId: googleAdId.adjustId,
-          nativeId: googleAdId.nativeId,
-          appInstanceId: appInstanceId,
-        );
-      }
       // Attach the latest choice without restarting identifier reads.
       final consentJson = privacyConsent.registrationJson;
       _reportPendingAdidFailure(
@@ -403,6 +388,14 @@ class AdjustDeviceRegistration {
         adjustGaid: googleAdId?.adjustId ?? '',
         nativeGaid: googleAdId?.nativeId ?? '',
       );
+      if (adid.isNotEmpty) {
+        adidAvailabilityMonitor.observe(
+          available: true,
+          adjustId: adid,
+          nativeId: '',
+          appInstanceId: appInstanceId,
+        );
+      }
       if (!force &&
           identifiers == _lastRegistered &&
           consentJson == _lastRegisteredPrivacy) {
