@@ -25,6 +25,12 @@ abstract interface class NetworkWebSocketDiagnostics {
   int? get closeCode;
 }
 
+abstract interface class NetworkWebSocketCloseDetails {
+  String? get closeReason;
+  bool get localCloseRequested;
+  String? get localCloseReason;
+}
+
 abstract interface class NetworkWebSocketTransport {
   Future<NetworkWebSocket> connect(Uri uri, {Map<String, String>? headers});
 }
@@ -86,7 +92,16 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
 }
 
 class _IoNetworkWebSocket
-    implements NetworkWebSocket, NetworkWebSocketDiagnostics {
+    implements
+        NetworkWebSocket,
+        NetworkWebSocketDiagnostics,
+        NetworkWebSocketCloseDetails {
+  @override
+  String? get closeReason => _socket.closeReason;
+  @override
+  bool localCloseRequested = false;
+  @override
+  String? localCloseReason;
   @override
   int? get closeCode => _socket.closeCode;
   _IoNetworkWebSocket(
@@ -129,6 +144,7 @@ class _IoNetworkWebSocket
             error: error,
             stackTrace: stackTrace,
           );
+          Error.throwWithStackTrace(error, stackTrace);
         })
         .transform(
           StreamTransformer<String, String>.fromHandlers(
@@ -157,6 +173,8 @@ class _IoNetworkWebSocket
       'closing socket code=${code ?? ''} reason=${reason ?? ''}',
       name: _logName,
     );
+    localCloseRequested = true;
+    localCloseReason = reason;
     return _socket.close(code, reason);
   }
 

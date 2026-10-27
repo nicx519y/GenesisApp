@@ -54,9 +54,13 @@ extension _WorldChatroomConnection on WorldChatroomService {
       _startHeartbeat();
       _setState(_state.copyWith(connected: true, reconnecting: false));
       completer.complete();
-    } catch (e) {
+    } catch (e, stack) {
       if (!handshakeSucceeded && monitorAttempt != null) {
-        _disconnectMonitor?.connectFailed(monitorAttempt);
+        _disconnectMonitor?.connectFailed(
+          monitorAttempt,
+          error: e,
+          stack: stack,
+        );
       }
       final failure = e is ChatroomFailureEvent
           ? e
@@ -207,6 +211,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
             'socket_closed',
             attempt: monitorAttempt,
             closeCode: session.closeCode,
+            closeDetails: session.closeDiagnostics,
           );
           unawaited(_handleConnectionLost());
         }
@@ -219,7 +224,10 @@ extension _WorldChatroomConnection on WorldChatroomService {
           failure.code,
           attempt: monitorAttempt,
           errorCode: failure.code,
+          error: failure.cause,
+          stackSummary: failure.detail,
           closeCode: session.closeCode,
+          closeDetails: session.closeDiagnostics,
         );
       }
       _recordFailure(failure);
@@ -305,13 +313,16 @@ extension _WorldChatroomConnection on WorldChatroomService {
     _heartbeatInFlight = true;
     try {
       await session.heartbeat();
-    } catch (_) {
+    } catch (error, stack) {
       if (!identical(_session, session)) return;
       _disconnectMonitor?.lost(
         'heartbeat_send_failed',
+        error: error,
+        stack: stack,
         attempt: monitorAttempt,
         errorCode: 'heartbeat_send_failed',
         closeCode: session.closeCode,
+        closeDetails: session.closeDiagnostics,
       );
       await _handleConnectionLost();
     } finally {

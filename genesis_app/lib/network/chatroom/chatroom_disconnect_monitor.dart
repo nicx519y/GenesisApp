@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
@@ -15,14 +16,27 @@ typedef DisconnectReport =
       required String extData,
     });
 
+typedef ReconnectSuccessReport =
+    void Function({
+      required String worldId,
+      required String phase,
+      required int retryCount,
+      required int durationMs,
+      required int connectAttempts,
+    });
+
 /// One observation per foreground outage, independent of retry and join work.
 class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   ChatroomDisconnectMonitor({
     this.threshold = const Duration(seconds: 15),
     Future<String> Function()? readNetworkType,
     DisconnectReport? report,
+    ReconnectSuccessReport? reportSuccess,
+    DateTime Function()? now,
   }) : _readNetworkType = readNetworkType ?? NetworkTypeSnapshot.read,
-       _report = report ?? _collect {
+       _report = report ?? _collect,
+       _reportSuccess = reportSuccess ?? _collectSuccess,
+       _now = now ?? DateTime.now {
     try {
       _binding = WidgetsBinding.instance;
     } catch (_) {
@@ -36,6 +50,14 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   final Duration threshold;
   final Future<String> Function() _readNetworkType;
   final DisconnectReport _report;
+  final ReconnectSuccessReport _reportSuccess;
+  final DateTime Function() _now;
+  DateTime? _recoveryForegroundSince;
+  Duration _recoveryElapsed = Duration.zero;
+  int _recoveryAttempts = 0;
+  bool _recoveryFailed = false;
+  bool _recovering = false;
+
   WidgetsBinding? _binding;
   bool _foreground = true;
   bool _needed = false;
@@ -52,6 +74,8 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   String? _errorCode;
   int? _closeCode;
   Timer? _timer;
+  final _details = <Map<String, Object?>>[];
+  Stopwatch? _attemptClock;
 
   static void _collect({
     required String worldId,
@@ -65,10 +89,50 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       action: 'websocket_disconnect',
       object1: worldId,
       object2: phase,
-      object3: cause,
+      object3: _fitDiagnostics(
+        jsonDecode(extData) as Map<String, dynamic>,
+        2000,
+      ),
       object4: networkType,
       extData: extData,
     );
+  }
+
+  static void _collectSuccess({
+    required String worldId,
+    required String phase,
+    required int retryCount,
+    required int durationMs,
+    required int connectAttempts,
+  }) {
+    GenesisTelemetry.collectLog(
+      actionType: 'monitor',
+      action: 'websocket_reconnect_success',
+      object1: worldId,
+      object2: retryCount.toString(),
+      object3: durationMs.toString(),
+      object4: phase,
+      extData: jsonEncode({
+        'connect_attempts': connectAttempts,
+        'duration_unit': 'ms',
+        'duration_scope': 'foreground_recovery',
+        'success_stage': 'ws_connected',
+      }),
+    );
+  }
+
+  void _startRecovery() {
+    if (_recovering) return;
+    _recovering = true;
+    if (_foreground) _recoveryForegroundSince = _now();
+  }
+
+  void _resetRecovery() {
+    _recovering = false;
+    _recoveryForegroundSince = null;
+    _recoveryElapsed = Duration.zero;
+    _recoveryAttempts = 0;
+    _recoveryFailed = false;
   }
 
   void activate(String worldId, String owner) {
@@ -83,7 +147,10 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
 
   int beginAttempt() {
     _attempt++;
+    _attemptClock = Stopwatch()..start();
     if (!_disposed && _needed && !_connected) {
+      _startRecovery();
+      _recoveryAttempts++;
       _observe();
       _attempts++;
     }
@@ -92,25 +159,86 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
 
   void succeeded(int attempt) {
     if (!_needed || _disposed || attempt != _attempt) return;
+    if (_connected) return;
+    if (_recovering && _recoveryFailed) {
+      final elapsed =
+          _recoveryElapsed +
+          (_recoveryForegroundSince == null
+              ? Duration.zero
+              : _now().difference(_recoveryForegroundSince!));
+      try {
+        _reportSuccess(
+          worldId: _worldId,
+          phase: _everConnected ? 'reconnect' : 'initial_connect',
+          retryCount: _everConnected
+              ? _recoveryAttempts
+              : (_recoveryAttempts - 1).clamp(0, _recoveryAttempts),
+          durationMs: elapsed.inMilliseconds.clamp(0, 1 << 53),
+          connectAttempts: _recoveryAttempts,
+        );
+      } catch (_) {
+        /* Diagnostics must not affect reconnect. */
+      }
+    }
+    _resetRecovery();
     _connected = true;
     _everConnected = true;
     _clearObservation();
   }
 
-  void connectFailed(int attempt) {
+  void connectFailed(int attempt, {Object? error, StackTrace? stack}) {
     if (attempt != _attempt || _connected) return;
-    lost('connect_error', errorCode: 'connect_failed');
+    lost(
+      'connect_error',
+      errorCode: 'connect_failed',
+      error: error,
+      stack: stack,
+      connectDurationMs: _attemptClock?.elapsedMilliseconds,
+    );
   }
 
-  void lost(String cause, {String? errorCode, int? closeCode, int? attempt}) {
+  void lost(
+    String cause, {
+    String? errorCode,
+    int? closeCode,
+    int? attempt,
+    Object? error,
+    StackTrace? stack,
+    String? stackSummary,
+    int? connectDurationMs,
+    Map<String, Object?> closeDetails = const {},
+  }) {
     if (!_needed || _disposed || (attempt != null && attempt != _attempt)) {
       return;
     }
+    _startRecovery();
+    _recoveryFailed = true;
+    _details.add({
+      'attempt': _attempt,
+      'cause': cause,
+      'time': DateTime.now().toUtc().toIso8601String(),
+      if (connectDurationMs != null) 'connect_duration_ms': connectDurationMs,
+      if (error != null) 'error_type': error.runtimeType.toString(),
+      if (error != null) 'error_message': _bounded(error.toString(), 400),
+      if (error is SocketException) ...{
+        'os_error_code': error.osError?.errorCode,
+        'os_error_message': error.osError?.message,
+      },
+      if (stack != null || stackSummary != null)
+        'stack_summary': _bounded(
+          (stack?.toString() ?? stackSummary!).split('\n').take(8).join('\n'),
+          600,
+        ),
+      'ws_close_code': closeCode,
+      ...closeDetails,
+    });
+    if (_details.length > 10) _details.removeAt(0);
     _connected = false;
     _observe();
     _cause ??= cause;
     if (errorCode != null) _errorCode = errorCode;
     if (closeCode != null) _closeCode = closeCode;
+    if (_reported) unawaited(_emit(_generation, repeat: true));
   }
 
   void _observe() {
@@ -121,8 +249,8 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _timer = Timer(threshold, () => unawaited(_emit(generation)));
   }
 
-  Future<void> _emit(int generation) async {
-    if (!_valid(generation)) return;
+  Future<void> _emit(int generation, {bool repeat = false}) async {
+    if (!_valid(generation, repeat: repeat)) return;
     String network;
     try {
       network = await _readNetworkType().timeout(const Duration(seconds: 1));
@@ -130,9 +258,13 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       network = 'unknown';
     }
     // Recovery/background/account changes while native snapshot is pending cancel it.
-    if (!_valid(generation)) return;
+    if (!_valid(generation, repeat: repeat)) return;
     _reported = true;
-    final ext = <String, Object>{'connect_attempts': _attempts};
+    final ext = <String, Object>{
+      'connect_attempts': _attempts,
+      'cause': _cause ?? 'unknown',
+      'attempt_details': List.of(_details),
+    };
     if (_closeCode != null) ext['close_code'] = _closeCode!;
     if (_errorCode != null) ext['last_error_code'] = _errorCode!;
     try {
@@ -141,19 +273,19 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
         phase: _everConnected ? 'reconnect' : 'initial_connect',
         cause: _cause ?? 'unknown',
         networkType: network,
-        extData: jsonEncode(ext),
+        extData: _fitDiagnostics(ext, 4000),
       );
     } catch (_) {
       // Diagnostics must never affect the connection or retry path.
     }
   }
 
-  bool _valid(int generation) =>
+  bool _valid(int generation, {bool repeat = false}) =>
       !_disposed &&
       _needed &&
       _foreground &&
       !_connected &&
-      !_reported &&
+      (repeat || !_reported) &&
       generation == _generation;
 
   void _clearObservation() {
@@ -165,18 +297,26 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _errorCode = null;
     _closeCode = null;
     _attempts = 0;
+    _details.clear();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final foreground = state == AppLifecycleState.resumed;
     if (_foreground == foreground) return;
+    if (!foreground && _recoveryForegroundSince != null) {
+      _recoveryElapsed += _now().difference(_recoveryForegroundSince!);
+      _recoveryForegroundSince = null;
+    } else if (foreground && _recovering) {
+      _recoveryForegroundSince = _now();
+    }
     _foreground = foreground;
     _clearObservation();
     if (_foreground && _needed && !_connected) _observe();
   }
 
   void cancel() {
+    _resetRecovery();
     _needed = false;
     _connected = false;
     _everConnected = false;
@@ -189,4 +329,22 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _disposed = true;
     _binding?.removeObserver(this);
   }
+}
+
+String _bounded(String value, int limit) =>
+    value.length <= limit ? value : value.substring(0, limit);
+
+String _fitDiagnostics(Map<String, dynamic> source, int limit) {
+  final data = Map<String, dynamic>.of(source);
+  final details = List<Object?>.of((data['attempt_details'] as List?) ?? []);
+  data['attempt_details'] = details;
+  while (jsonEncode(data).length > limit && details.length > 1) {
+    details.removeAt(0);
+    data['history_truncated'] = true;
+  }
+  if (jsonEncode(data).length > limit) {
+    data['attempt_details'] = [];
+    data['detail_truncated'] = true;
+  }
+  return jsonEncode(data);
 }

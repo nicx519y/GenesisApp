@@ -13,7 +13,8 @@ import '../../utils/genesis_ugc_text.dart';
 import 'chatroom_models.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_socket_transport.dart';
-import '../websocket_transport.dart' show NetworkWebSocketDiagnostics;
+import '../websocket_transport.dart'
+    show NetworkWebSocketDiagnostics, NetworkWebSocketCloseDetails;
 import 'chatroom_timeline_payload.dart';
 import 'chatroom_message_type.dart';
 
@@ -257,6 +258,20 @@ class ChatroomSession {
     return socket is NetworkWebSocketDiagnostics
         ? (socket as NetworkWebSocketDiagnostics).closeCode
         : null;
+  }
+
+  Map<String, Object?> get closeDiagnostics {
+    final socket = _socket;
+    return {
+      'ws_close_code': closeCode,
+      if (socket is NetworkWebSocketCloseDetails) ...{
+        'ws_close_reason': (socket as NetworkWebSocketCloseDetails).closeReason,
+        'local_close_requested':
+            (socket as NetworkWebSocketCloseDetails).localCloseRequested,
+        'local_close_reason':
+            (socket as NetworkWebSocketCloseDetails).localCloseReason,
+      },
+    };
   }
 
   Stream<ChatroomEvent> get events => _events.stream;
@@ -986,7 +1001,7 @@ class ChatroomSession {
     return MapEntry(entry.key, entry.value);
   }
 
-  void _handleSocketError(Object error) {
+  void _handleSocketError(Object error, StackTrace stack) {
     _chatroomTelemetry(
       'chatroom.failure',
       data: <String, Object?>{
@@ -1001,7 +1016,15 @@ class ChatroomSession {
       cause: error,
     );
     _emitError(event);
-    _emitFailure(ChatroomFailureEvent.fromError(event, requestType: 'socket'));
+    _emitFailure(
+      ChatroomFailureEvent(
+        code: 'socket_error',
+        message: event.message,
+        cause: error,
+        detail: stack.toString(),
+        requestType: 'socket',
+      ),
+    );
   }
 
   void _stopHeartbeat() {
