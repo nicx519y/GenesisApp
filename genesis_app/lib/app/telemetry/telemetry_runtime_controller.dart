@@ -15,6 +15,7 @@ class TelemetryRuntimeController {
 
   static Future<void> _queue = Future<void>.value();
   static bool _initialized = false;
+  static AppConfig? _latestConfig;
   static Future<void>? _initialization;
   static Future<void> get whenInitialized =>
       _initialization ?? Future<void>.value();
@@ -23,6 +24,7 @@ class TelemetryRuntimeController {
     AppConfig config, {
     VoidCallback? onCollectReady,
   }) {
+    _latestConfig = config;
     return _initialization ??= _enqueue(() async {
       final state = await TelemetryUploadPolicy.initialize(config);
       _initialized = true;
@@ -31,6 +33,7 @@ class TelemetryRuntimeController {
   }
 
   static Future<void> updateConfig(AppConfig config) {
+    _latestConfig = config;
     return _enqueue(() async {
       final state = TelemetryUploadPolicy.updateConfig(config);
       if (!_initialized) return;
@@ -43,6 +46,7 @@ class TelemetryRuntimeController {
     required TelemetryChannel channel,
     required bool enabled,
   }) {
+    _latestConfig = config;
     return _enqueue(() async {
       TelemetryUploadPolicy.updateConfig(config);
       final state = await TelemetryUploadPolicy.setDebugOverrideEnabled(
@@ -67,19 +71,44 @@ class TelemetryRuntimeController {
     // cannot remove the startup from the monitoring denominator.
     onCollectReady?.call();
     try {
-      await FirebaseRuntime.ensureInitialized();
+      await _boundedSdk(FirebaseRuntime.ensureInitialized());
       await Future.wait<void>(<Future<void>>[
         FirebaseAnalyticsMonitoring.configureCollection(
           enabled: state.analyticsEnabled,
           appEnvironment: state.appEnvironment,
         ),
-        FirebasePerformanceMonitoring.configure(state.performanceEnabled),
-        FirebaseCrashReporting.configure(state.crashlyticsEnabled),
+        _boundedSdk(
+          FirebasePerformanceMonitoring.configure(state.performanceEnabled),
+        ),
+        _boundedSdk(FirebaseCrashReporting.configure(state.crashlyticsEnabled)),
       ]);
     } catch (error, stackTrace) {
       debugPrint('[Telemetry] runtime configuration failed: $error');
       debugPrint('[Telemetry] stacktrace:\n$stackTrace');
     }
+  }
+
+  static Future<void> _boundedSdk(Future<void> pending) async {
+    var timedOut = false;
+    unawaited(
+      pending.then((_) {
+        final latest = _latestConfig;
+        if (timedOut && latest != null) {
+          unawaited(
+            updateConfig(latest).catchError((Object error) {
+              debugPrint('[Telemetry] late SDK recovery failed: $error');
+            }),
+          );
+        }
+      }, onError: (Object _, StackTrace __) {}),
+    );
+    await pending.timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        timedOut = true;
+        throw TimeoutException('Firebase SDK setup timed out');
+      },
+    );
   }
 
   static Future<void> _enqueue(Future<void> Function() operation) {
@@ -93,5 +122,6 @@ class TelemetryRuntimeController {
     _queue = Future<void>.value();
     _initialized = false;
     _initialization = null;
+    _latestConfig = null;
   }
 }

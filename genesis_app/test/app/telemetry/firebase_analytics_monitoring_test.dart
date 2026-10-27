@@ -111,6 +111,64 @@ void main() {
   );
 
   test(
+    'timed out consent does not block a newer choice and late completion is repaired',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      privacyConsent.resetForTesting();
+      addTearDown(privacyConsent.resetForTesting);
+      await privacyConsent.initialize();
+      await privacyConsent.save(
+        const PrivacyChoices(
+          adStorage: true,
+          adUserData: true,
+          adPersonalization: true,
+          analyticsStorage: true,
+        ),
+      );
+      privacyConsent.resolveStartup();
+      FirebaseAnalyticsMonitoring.sdkTimeout = const Duration(milliseconds: 20);
+      final old = Completer<void>();
+      final calls = <String>[];
+      var first = true;
+      FirebaseAnalyticsMonitoring.setConsentApplierForTesting(() async {
+        final allowed = privacyConsent.choices!.analyticsStorage;
+        if (first) {
+          first = false;
+          await old.future;
+        }
+        calls.add('consent:$allowed');
+      });
+      FirebaseAnalyticsMonitoring.setCollectionConfiguratorForTesting((
+        enabled,
+        _,
+      ) async {
+        calls.add('collection:$enabled');
+      });
+      await expectLater(
+        FirebaseAnalyticsMonitoring.configureCollection(
+          enabled: true,
+          appEnvironment: 'production',
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      await privacyConsent.save(PrivacyChoices.denied);
+      await FirebaseAnalyticsMonitoring.refreshPrivacyConsent();
+      expect(calls, ['consent:false', 'collection:true']);
+      old.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(calls.take(3), [
+        'consent:false',
+        'collection:true',
+        'consent:true',
+      ]);
+      expect(calls.sublist(calls.length - 2), [
+        'consent:false',
+        'collection:true',
+      ]);
+    },
+  );
+
+  test(
     'privacy rejection does not override business Analytics policy',
     () async {
       SharedPreferences.setMockInitialValues({});

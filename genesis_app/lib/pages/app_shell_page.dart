@@ -68,6 +68,10 @@ class _AppShellPageState extends State<AppShellPage>
   ModalRoute<dynamic>? _privacyRoute;
   bool _privacyScheduled = false;
   bool _privacyShowing = false;
+  Timer? _privacyRetry;
+  int _privacyRetries = 0;
+  Timer? _attRetryTimer;
+  int _attFailures = 0;
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
@@ -105,7 +109,6 @@ class _AppShellPageState extends State<AppShellPage>
   var _attWaitingForResume = false;
   var _attScheduleStarted = false;
   var _attRequestInFlight = false;
-  var _attResumeGeneration = 0;
   var _initialBillingRecoveryStarted = false;
   late bool _hasSeenResumed;
   String? _lastBillingRecoveryUid;
@@ -179,6 +182,8 @@ class _AppShellPageState extends State<AppShellPage>
     _privacyConfig?.requestState.removeListener(_schedulePrivacy);
     privacyConsent.removeListener(_schedulePrivacy);
     privacyRouteObserver.unsubscribe(this);
+    _privacyRetry?.cancel();
+    _attRetryTimer?.cancel();
     _attDelayTimer?.cancel();
     _startupAdidCheckTimer?.cancel();
     final adjustNetworkRecovery = _adjustNetworkRecovery;
@@ -242,7 +247,6 @@ class _AppShellPageState extends State<AppShellPage>
       } else if (mounted) {
         unawaited(AppServicesScope.read(context).eventReporting?.flush());
       }
-      if (previousState != AppLifecycleState.resumed) _attResumeGeneration++;
       _schedulePendingDailyCheckIn();
       _hasSeenResumed = true;
       _startInitialBillingRecoveryIfReady();
@@ -418,11 +422,12 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _requestAtt() async {
     _attRequestInFlight = true;
-    final resumeGeneration = _attResumeGeneration;
     var claimed = false;
     var shouldRetry = false;
     try {
-      final status = await widget.trackingAuthorizationStatus();
+      final status = await widget.trackingAuthorizationStatus().timeout(
+        const Duration(seconds: 5),
+      );
       if (!mounted) return;
       if (status == AppTrackingAuthorizationStatus.unknown) {
         shouldRetry = true;
@@ -439,7 +444,9 @@ class _AppShellPageState extends State<AppShellPage>
       }
       if (!AppStartupCoordinator.claimAttRequest()) return;
       claimed = true;
-      final result = await widget.requestTrackingAuthorization();
+      final result = await widget.requestTrackingAuthorization().timeout(
+        const Duration(seconds: 15),
+      );
       shouldRetry =
           result == AppTrackingAuthorizationStatus.notDetermined ||
           result == AppTrackingAuthorizationStatus.unknown;
@@ -451,14 +458,32 @@ class _AppShellPageState extends State<AppShellPage>
     } finally {
       if (claimed && shouldRetry) AppStartupCoordinator.releaseAttRequest();
       _attRequestInFlight = false;
-      if (!shouldRetry) startupPromptSequence.finishAtt();
+      if (!shouldRetry) {
+        _attFailures = 0;
+        startupPromptSequence.finishAtt();
+        final registration = mounted
+            ? AppServicesScope.read(context).adjustDeviceRegistration
+            : null;
+        unawaited(registration?.registerAfterFirebaseReady());
+      }
       if (mounted && shouldRetry) {
         _attWaitingForResume = true;
         // The app may resume before the native callback arrives. Only retry
         // after that request completes, and never spin on an unresolved result.
-        if (_lifecycleState == AppLifecycleState.resumed &&
-            _attResumeGeneration != resumeGeneration) {
-          _requestAttIfNeeded();
+        if (_lifecycleState == null ||
+            _lifecycleState == AppLifecycleState.resumed) {
+          if (++_attFailures >= 3) {
+            debugPrint(
+              '[ATT] unresolved after bounded retries; deferring to next foreground',
+            );
+            startupPromptSequence.finishAtt();
+          } else {
+            _attRetryTimer?.cancel();
+            _attRetryTimer = Timer(
+              const Duration(seconds: 2),
+              _requestAttIfNeeded,
+            );
+          }
         }
       }
     }
@@ -557,7 +582,18 @@ class _AppShellPageState extends State<AppShellPage>
       if (privacyConsent.shouldPrompt(config)) {
         _privacyShowing = true;
         try {
-          await showPrivacyChoicesDialog(context);
+          final result = await showPrivacyChoicesDialog(context);
+          if (result != PrivacyDialogResult.submitted) {
+            if (_privacyRetries++ < 3) {
+              _privacyRetry?.cancel();
+              _privacyRetry = Timer(
+                const Duration(seconds: 2),
+                _schedulePrivacy,
+              );
+            }
+            return;
+          }
+          _privacyRetries = 0;
         } finally {
           _privacyShowing = false;
         }

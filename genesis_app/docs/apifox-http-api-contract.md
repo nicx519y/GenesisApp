@@ -2704,7 +2704,7 @@ World：
 - 启动注册为 best effort，不阻塞首帧。Android `gps_adid` 优先读取 Adjust 当前有效值；空白、全零或失败时实时回退 Google Play Services，不使用历史 GAID 缓存。未取得的可选标识省略，不因一次读取失败清除服务端旧值。后续会话回调、Firebase 就绪、前台恢复等时机补齐，请求失败有限重试。登录、退出或切换账号仍强制同步当前 session 映射；普通触发按完整快照去重。
 - Gems／订阅共用完整购买页和购买底部弹层，任一标签在该页面／弹层实例中首次展示后，非阻塞地调用一次强制注册，重新读取当前平台的标识并实际发送请求；重建、同实例重复切换和回前台不因该兜底逻辑额外重复发送。重新打开购买页／弹层可再次兜底，不改变购买流程。
 - 本接口只保存设备与 Adjust／广告／Firebase Analytics 标识映射，不直接上报归因事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
-- `app_instance_id` 从 Firebase Analytics SDK 读取；未就绪、空值、异常或超时省略；客户端不因隐私选择额外清空，SDK 内部根据 setConsent 决定可用性。SDK 就绪或标识变化后再次注册。Apifox 约定缺失/null 保留、空串清除、有效值覆盖；`privacy_consent` 为包含布尔值的 JSON 对象字符串。
+- `app_instance_id` 从 Firebase Analytics SDK 读取；未就绪、空值、异常或超时省略；客户端不因隐私选择额外清空，SDK 内部根据 setConsent 决定可用性。SDK 就绪或标识变化后再次注册；Firebase 同意同步成功和 ATT 最终结果均触发标识重读，相同快照去重。Apifox 约定缺失/null 保留、空串清除、有效值覆盖；`privacy_consent` 为包含布尔值的 JSON 对象字符串。
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 

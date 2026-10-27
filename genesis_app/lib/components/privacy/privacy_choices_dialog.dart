@@ -15,37 +15,43 @@ import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/components/genesis_dark_close_button.dart';
 
 /// Shared consent UI for startup, Settings, and isolated developer previews.
+enum PrivacyDialogResult { submitted, closed, failed }
+
 final privacyRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-Future<void> showPrivacyChoicesDialog(
+Future<PrivacyDialogResult> showPrivacyChoicesDialog(
   BuildContext context, {
   bool dismissCurrentRoute = false,
   bool openChoicesDirectly = false,
   bool persistChoices = true,
+  Future<PrivacyChoices?> Function()? loadChoices,
 }) async {
   final rootNavigator = Navigator.of(context, rootNavigator: true);
   final target = rootNavigator.overlay?.context ?? rootNavigator.context;
   if (dismissCurrentRoute) {
     final route = ModalRoute.of(context);
     final navigator = Navigator.of(context);
-    if (route == null || !route.isCurrent) return;
+    if (route == null || !route.isCurrent) return PrivacyDialogResult.closed;
     if (navigator.canPop()) {
       final dismissed = await navigator.maybePop();
-      if (!dismissed || route.isCurrent) return;
+      if (!dismissed || route.isCurrent) return PrivacyDialogResult.closed;
       await route.completed;
     }
   }
   PrivacyChoices? initialChoices;
   try {
-    if (persistChoices) initialChoices = await PrivacyChoicesStore.read();
+    if (persistChoices) {
+      initialChoices = await (loadChoices ?? PrivacyChoicesStore.read)()
+          .timeout(const Duration(seconds: 2));
+    }
   } catch (_) {
     if (target.mounted) {
       showGenesisToast(target, target.l10n.privacyChoicesLoadError);
     }
-    return;
+    return PrivacyDialogResult.failed;
   }
-  if (!target.mounted) return;
+  if (!target.mounted) return PrivacyDialogResult.closed;
   TransitionRoute<dynamic>? presentedRoute;
-  await showGenesisDialog<void>(
+  final submitted = await showGenesisDialog<PrivacyChoices>(
     context: target,
     barrierColor: const Color(0x52000000),
     barrierDismissible: false,
@@ -60,6 +66,9 @@ Future<void> showPrivacyChoicesDialog(
     },
   );
   await presentedRoute?.completed;
+  return submitted == null
+      ? PrivacyDialogResult.closed
+      : PrivacyDialogResult.submitted;
 }
 
 class _DmaPreview extends StatefulWidget {
@@ -137,7 +146,16 @@ class _DmaPreviewState extends State<_DmaPreview> {
           ),
         );
       }
-      if (mounted) _close();
+      if (mounted) {
+        Navigator.of(context).pop(
+          PrivacyChoices(
+            adStorage: _adStorage,
+            adUserData: _shareData,
+            adPersonalization: _personalize,
+            analyticsStorage: _analytics,
+          ),
+        );
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _saving = false);

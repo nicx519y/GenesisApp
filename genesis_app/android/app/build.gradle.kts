@@ -123,6 +123,9 @@ kotlin {
 }
 
 dependencies {
+    // Match FlutterFire's resolved SDK version for the native startup switch.
+    implementation(platform("com.google.firebase:firebase-bom:${rootProject.findProperty("FirebaseSDKVersion") ?: rootProject.project(":firebase_core").property("FirebaseSDKVersion")}"))
+    implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.android.play:review:2.0.2")
     implementation("androidx.core:core:1.18.0")
     implementation("androidx.core:core-splashscreen:1.2.0")

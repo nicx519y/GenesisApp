@@ -360,6 +360,97 @@ void main() {
     });
   }
 
+  for (final scenario in [
+    'status retry',
+    'status exhausted',
+    'system prompt pending',
+  ]) {
+    testWidgets('ATT recovery preserves prompt priority: $scenario', (
+      tester,
+    ) async {
+      AppStartupCoordinator.resetForTesting();
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
+      privacyConsent.resetForTesting();
+      AdjustAttributionRuntime.resetForTesting();
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('com.adjust.sdk/api'),
+        (_) async => null,
+      );
+      addTearDown(() {
+        AppStartupCoordinator.resetForTesting();
+        privacyConsent.resetForTesting();
+        AdjustAttributionRuntime.resetForTesting();
+        messenger.setMockMethodCallHandler(
+          const MethodChannel('com.adjust.sdk/api'),
+          null,
+        );
+      });
+      await tester.runAsync(
+        () => privacyConsent.initialize(systemLocale: const Locale('en', 'US')),
+      );
+      final config = AppGlobalConfigStore(
+        loadConfig: ({uid}) async => {'privacy_consent_enabled': false},
+      );
+      await config.refresh();
+      var status = scenario.startsWith('status')
+          ? AppTrackingAuthorizationStatus.unknown
+          : AppTrackingAuthorizationStatus.notDetermined;
+      var reads = 0;
+      final reply = Completer<AppTrackingAuthorizationStatus>();
+      final services = _feedbackTestServices(
+        _RecordingFeedbackTransport(),
+        appGlobalConfig: config,
+        useMock: true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorObservers: [privacyRouteObserver],
+          home: AppServicesScope(
+            services: services,
+            child: AppShellPage(
+              initialIndex: 4,
+              startupPlatform: TargetPlatform.iOS,
+              trackingAuthorizationStatus: () async {
+                reads++;
+                return status;
+              },
+              requestTrackingAuthorization: () => reply.future,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      expect(startupPromptSequence.blocksOtherPrompts, isTrue);
+      if (scenario.startsWith('status')) {
+        await tester.pump(const Duration(seconds: 2));
+        status = AppTrackingAuthorizationStatus.authorized;
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expect(reads, 3);
+      } else {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.pump(const Duration(seconds: 16));
+        expect(startupPromptSequence.blocksOtherPrompts, isTrue);
+        status = AppTrackingAuthorizationStatus.denied;
+        reply.complete(status);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(startupPromptSequence.blocksOtherPrompts, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   for (final signedIn in [false, true]) {
     testWidgets(
       'Privacy choices in Account preserve config gating signedIn=$signedIn',

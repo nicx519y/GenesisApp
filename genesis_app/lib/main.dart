@@ -121,7 +121,19 @@ Future<void> main() async {
     // Also release Adjust's delay when startup resolves without a saved choice.
     AdjustAttributionRuntime.applyPrivacyConsent();
     if (!privacyConsent.startupResolved) return;
-    unawaited(FirebaseAnalyticsMonitoring.refreshPrivacyConsent());
+    unawaited(
+      FirebaseAnalyticsMonitoring.refreshPrivacyConsent()
+          .then((_) async {
+            // Consent can change the Analytics instance ID. Re-read after application.
+            await services.adjustDeviceRegistration
+                ?.registerAfterFirebaseReady();
+          })
+          .catchError((Object error) {
+            debugPrint(
+              '[Privacy] Firebase sync failed; retry on recovery: $error',
+            );
+          }),
+    );
     final snapshot = privacyConsent.registrationJson;
     if (snapshot == null) return;
     final changed = snapshot != lastPrivacySnapshot;

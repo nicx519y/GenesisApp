@@ -256,6 +256,8 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Override the persisted enable flag before Flutter initializes Firebase.
+    Analytics.setAnalyticsCollectionEnabled(false)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

@@ -25,6 +25,14 @@
 - 业务注册不等待隐私选择；选择改变后额外同步 privacy_consent。暂时不可用的可选标识省略，避免误清空，不因拒绝选择主动清空已有标识。ADID 晚到合并和普通重复请求去重继续保留。
 - 保存后本地状态立即发布，SDK 与注册分别同步。前台、网络恢复及下次启动重试 SDK 同步；SDK 接受调用不等于服务端已经收到。服务端转发策略独立验收。
 
+## 启动异常恢复（2026-10-27）
+
+- Analytics 的运行时采集开关会跨进程保存。Android AnalyticsStartupProvider（initOrder=101）在 FirebaseInitProvider（100）前调用公开 API 关闭 Analytics；iOS AppDelegate 在 Flutter/Firebase 注册前关闭 Analytics。只重置 Analytics 启用开关，不改四项选择、不清数据、不关闭 Core/Crashlytics/Performance；隐私完成后仍先 setConsent，再按环境规则开启。原生冷启动的实际发送顺序需通过设备日志/抓包验收。
+- 隐私弹窗返回 submitted/closed/failed，存储读取最多 2 秒；只有真实提交才结束需要弹窗的启动阶段。失败有限重试，前台恢复可再次尝试，不把失败当作用户拒绝或流程完成。
+- Analytics 的准备、同意 API、采集配置各有 8 秒期限，隐私等待本身不计入该期限。同步队列失败后可接受新请求；使用最新选择/环境版本防止旧操作继续启用，超时的原生调用迟到完成（含部分失败）后重新应用最新状态，不将超时误认为已取消原生调用。
+- ATT 状态查询最多 5 秒，请求桥接最多等待 15 秒。系统弹窗导致应用 inactive 时不放行其他弹窗；恢复前台后重新查状态。前台未确定/异常最多重试 3 次，随后记录异常并将 ATT 延后到下次前台机会，不伪造同意/拒绝，也不永久挡住其他弹窗。
+- Firebase 同意同步成功后以及 ATT 得到最终状态后，重读标识；注册沿用完整快照去重，变化才补报。选择的首次服务端同步不等待 SDK，SDK 完成后的刷新用于校准标识。
+
 ## 服务端配合
 
 1. `/api/v1/device/register` 接受可选 privacy_consent JSON string，内部只保存四项 boolean。缺省表示未提供选择，不应自动解释为同意或拒绝。

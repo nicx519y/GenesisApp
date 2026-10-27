@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -113,30 +115,84 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> _configurationQueue = Future<void>.value();
   static Future<void>? _analyticsConfiguration;
   static Future<void> Function() _consentApplier = applyFirebaseConsent;
+  static int _configurationRevision = 0;
+  static int _configurationEpoch = 0;
+  static bool? _desiredCollection;
+  static String _desiredEnvironment = 'test';
+  static Duration sdkTimeout = const Duration(seconds: 8);
 
   static Future<void> configureCollection({
     required bool enabled,
     required String appEnvironment,
   }) {
-    final configuration = _enqueueConfiguration(() async {
-      if (privacyConsent.active) await privacyConsent.startupReady;
-      await _readiness();
-      await _consentApplier();
-      await _collectionConfigurator(enabled, appEnvironment);
-    });
-    _analyticsConfiguration = configuration;
-    return configuration;
+    _desiredCollection = enabled;
+    _desiredEnvironment = appEnvironment;
+    return _scheduleLatestConfiguration();
   }
 
-  static Future<void> refreshPrivacyConsent() =>
-      _enqueueConfiguration(() async {
-        if (privacyConsent.active) await privacyConsent.startupReady;
-        if (privacyConsent.choices == null) return;
-        await _readiness();
-        await _consentApplier();
-      }).catchError((Object error) {
-        debugPrint('[Privacy] Firebase sync deferred: $error');
-      });
+  static Future<void> refreshPrivacyConsent() => _scheduleLatestConfiguration();
+
+  static Future<void> _scheduleLatestConfiguration() {
+    _configurationRevision++;
+    final next = _enqueueConfiguration(() async {
+      if (privacyConsent.active) await privacyConsent.startupReady;
+      final revision = _configurationRevision;
+      await _sdkStep(_readiness);
+      if (revision != _configurationRevision) return;
+      await _sdkStep(_consentApplier);
+      if (revision != _configurationRevision) return;
+      final enabled = _desiredCollection;
+      if (enabled != null) {
+        await _sdkStep(
+          () => _collectionConfigurator(enabled, _desiredEnvironment),
+        );
+      }
+    });
+    _analyticsConfiguration = next;
+    return _waitForLatestConfiguration();
+  }
+
+  static Future<void> _waitForLatestConfiguration() async {
+    while (true) {
+      final pending = _analyticsConfiguration;
+      await pending;
+      if (identical(pending, _analyticsConfiguration)) return;
+    }
+  }
+
+  static Future<void> _sdkStep(Future<void> Function() action) async {
+    var timedOut = false;
+    final epoch = _configurationEpoch;
+    final pending = Future<void>.sync(action);
+    // A timed-out native call cannot be cancelled. Reapply the latest state if
+    // it later finishes, so stale completion does not become the final state.
+    void repairLateCompletion() {
+      if (timedOut && epoch == _configurationEpoch) {
+        unawaited(
+          _scheduleLatestConfiguration().catchError((Object error) {
+            debugPrint('[Privacy] late SDK repair failed: $error');
+          }),
+        );
+      }
+    }
+
+    unawaited(
+      pending.then(
+        (_) => repairLateCompletion(),
+        onError: (Object _, StackTrace __) => repairLateCompletion(),
+      ),
+    );
+    await pending.timeout(
+      sdkTimeout,
+      onTimeout: () {
+        timedOut = true;
+        throw TimeoutException(
+          'Firebase Analytics SDK step timed out',
+          sdkTimeout,
+        );
+      },
+    );
+  }
 
   static Future<void> _enqueueConfiguration(Future<void> Function() operation) {
     final next = _configurationQueue.then((_) => operation());
@@ -147,7 +203,7 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> _waitForAnalyticsReady() async {
     if (!privacyConsent.active) return;
     await privacyConsent.startupReady;
-    await _analyticsConfiguration;
+    await _waitForLatestConfiguration();
   }
 
   static void configureServerEventReporter(
@@ -483,6 +539,11 @@ class FirebaseAnalyticsMonitoring {
     _configurationQueue = Future<void>.value();
     _analyticsConfiguration = null;
     _consentApplier = applyFirebaseConsent;
+    _configurationRevision = 0;
+    _configurationEpoch++;
+    _desiredCollection = null;
+    _desiredEnvironment = 'test';
+    sdkTimeout = const Duration(seconds: 8);
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;
     _serverEventReporter = null;
     _occurredAtSecondsReader = () =>
