@@ -391,7 +391,7 @@ object3 = ""
 全局配置字段：
 
 ```text
-apiTraceSamplingRate: float，范围 [0, 1]
+api_trace_sampling_rate: float，范围 [0, 1]
 ```
 
 - APP 本地默认值：`0`；
@@ -402,7 +402,7 @@ apiTraceSamplingRate: float，范围 [0, 1]
 ### 8.2 采样方式
 
 - 每次 APP 进程启动只生成一次随机数；
-- 配置接口成功后，根据 `random < apiTraceSamplingRate` 得到本次启动是否上报；
+- 配置接口成功后，根据 `random < api_trace_sampling_rate` 得到本次启动是否上报；
 - 同一次启动内，普通业务接口共用同一个采样开关；
 - 不依赖 UID 或 deviceId；
 - 被采中的启动上报完整 start/终态链路，未被采中的启动不生成普通接口事件。

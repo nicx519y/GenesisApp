@@ -827,7 +827,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         'show_personalization_form': true,
         'privacy_consent_enabled': false,
         'rating_prompt_message_count': 20,
-        'apiTraceSamplingRate': 1.0,
+        'api_trace_sampling_rate': 1.0,
       });
     }
 

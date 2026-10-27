@@ -55,10 +55,26 @@ void main() {
     }
   });
 
+  test('AppGlobalConfig ignores legacy camel-case sampling field', () {
+    expect(
+      AppGlobalConfig.fromJson({
+        'apiTraceSamplingRate': 1,
+      }).apiTraceSamplingRate,
+      0,
+    );
+    expect(
+      AppGlobalConfig.fromJson({
+        'apiTraceSamplingRate': 1,
+        'api_trace_sampling_rate': 0.25,
+      }).apiTraceSamplingRate,
+      0.25,
+    );
+  });
+
   test('AppGlobalConfig parses and clamps API trace sampling rate', () {
     expect(
       AppGlobalConfig.fromJson(const {
-        'apiTraceSamplingRate': 0.25,
+        'api_trace_sampling_rate': 0.25,
       }).apiTraceSamplingRate,
       0.25,
     );
@@ -70,19 +86,19 @@ void main() {
     );
     expect(
       AppGlobalConfig.fromJson(const {
-        'apiTraceSamplingRate': 2,
+        'api_trace_sampling_rate': 2,
       }).apiTraceSamplingRate,
       1,
     );
     expect(
       AppGlobalConfig.fromJson(const {
-        'apiTraceSamplingRate': -1,
+        'api_trace_sampling_rate': -1,
       }).apiTraceSamplingRate,
       0,
     );
     expect(
       AppGlobalConfig.fromJson(const {
-        'apiTraceSamplingRate': 'invalid',
+        'api_trace_sampling_rate': 'invalid',
       }).apiTraceSamplingRate,
       0,
     );
@@ -93,7 +109,7 @@ void main() {
       loadConfig: ({String? uid}) async => {
         'show_opening_sheet': true,
         'show_personalization_form': true,
-        'apiTraceSamplingRate': 0.5,
+        'api_trace_sampling_rate': 0.5,
       },
     );
     addTearDown(store.dispose);
@@ -153,7 +169,7 @@ void main() {
       final refresh = store.refresh();
       expect(store.requestState.value.isLoading, isTrue);
       final data = <String, dynamic>{
-        'apiTraceSamplingRate': 2,
+        'api_trace_sampling_rate': 2,
         'future_config': {
           'enabled': true,
           'values': [1, '中文', null],

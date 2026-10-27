@@ -25,9 +25,7 @@ class AppGlobalConfig {
       showOpeningSheet: asBool(json['show_opening_sheet']),
       showPersonalizationForm: json['show_personalization_form'] == true,
       privacyConsentEnabled: json['privacy_consent_enabled'] == true,
-      apiTraceSamplingRate: _samplingRate(
-        json['apiTraceSamplingRate'] ?? json['api_trace_sampling_rate'],
-      ),
+      apiTraceSamplingRate: _samplingRate(json['api_trace_sampling_rate']),
     );
   }
 

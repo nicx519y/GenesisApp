@@ -65,7 +65,7 @@ Gateway 签名 header 由 `GatewayRequestSigner` 在发送前统一注入：
 
 ## 接口监控
 
-以下三个启动关键 Gateway 接口固定生成独立的 `api_req_start` 和单一终态，不受 `apiTraceSamplingRate` 影响：
+以下三个启动关键 Gateway 接口固定生成独立的 `api_req_start` 和单一终态，不受 `api_trace_sampling_rate` 影响：
 
 - `/apix/v1/time`
 - `/apix/v1/app/device/challenge`

@@ -909,6 +909,7 @@ void main() {
       'language': '',
       'show_opening_sheet': false,
       'show_personalization_form': true,
+      'privacy_consent_enabled': false,
       'api_trace_sampling_rate': 1.0,
       'rating_prompt_message_count': 20,
     });

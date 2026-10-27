@@ -1099,7 +1099,7 @@ void main() {
           handler: (_) => const TransportResponse(
             statusCode: 200,
             headers: {'content-type': 'application/json'},
-            body: '{"err_no":0,"data":{"apiTraceSamplingRate":1}}',
+            body: '{"err_no":0,"data":{"api_trace_sampling_rate":1}}',
           ),
         ),
       );

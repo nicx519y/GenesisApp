@@ -1106,7 +1106,7 @@ Query：
 - `language`: string，可为空；当前设备的设置语言。启动时非空有效值覆盖系统语言；为空或请求失败继续使用系统语言。
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
 - `show_personalization_form`: boolean；仅控制新用户填表入口，默认 `false`。启动 Config 结束后仍请求 personalization 校准推荐偏好；只有确认此字段为 boolean `true` 且当前身份 `completed=false` 才按现有前台/登录/弹窗互斥规则显示表单。Config 失败、字段缺失、`null` 或类型错误均不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
-- `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
+- `api_trace_sampling_rate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
 
 ```json
 {
@@ -1116,7 +1116,7 @@ Query：
     "rating_prompt_message_count": 20,
     "show_opening_sheet": false,
     "show_personalization_form": true,
-    "apiTraceSamplingRate": 1.0
+    "api_trace_sampling_rate": 1.0
   }
 }
 ```
