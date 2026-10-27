@@ -122,7 +122,15 @@ class PrivacyConsentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> save(PrivacyChoices value) async {
+  Future<void> save(PrivacyChoices value, {bool fromSettings = false}) async {
+    value = PrivacyChoices(
+      adStorage: value.adStorage,
+      adUserData: value.adUserData,
+      adPersonalization: value.adPersonalization,
+      analyticsStorage: value.analyticsStorage,
+      syncDenied:
+          fromSettings || value.syncDenied || (choices?.syncDenied ?? false),
+    );
     await PrivacyChoicesStore.save(value);
     choices = value;
     loaded = true;

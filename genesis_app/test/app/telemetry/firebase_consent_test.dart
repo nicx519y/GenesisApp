@@ -14,6 +14,31 @@ void main() {
   });
   tearDown(privacyConsent.resetForTesting);
 
+  test('settings denial reaches Firebase and survives restart', () async {
+    await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+    final client = _Analytics();
+    await privacyConsent.save(
+      const PrivacyChoices(
+        adStorage: true,
+        adUserData: true,
+        adPersonalization: true,
+        analyticsStorage: true,
+      ),
+    );
+    await applyFirebaseConsent(analytics: client);
+    await privacyConsent.save(PrivacyChoices.denied, fromSettings: true);
+    client.calls.clear();
+    await applyFirebaseConsent(analytics: client);
+    expect(client.calls.first, PrivacyChoices.denied.toJson());
+    expect(client.calls.last['ad_personalization'], false);
+    privacyConsent.resetForTesting();
+    await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+    client.calls.clear();
+    await applyFirebaseConsent(analytics: client);
+    expect(client.calls.first, PrivacyChoices.denied.toJson());
+    expect(privacyConsent.choices!.syncDenied, true);
+  });
+
   for (var mask = 0; mask < 16; mask++) {
     test('only grants reach Firebase for choice mask $mask', () async {
       await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));

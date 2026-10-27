@@ -16,10 +16,10 @@
 
 - 隐私功能只负责展示、保存明确用户选择，并同步给 Adjust、Firebase 和业务注册接口。不通过四项选择改变原有客户端业务门控。
 - 最终顺序：iOS 网络权限处理 → 隐私流程确定（含缓存/跳过）→ Adjust 初始化／Firebase Analytics 启用 → ATT → 其他自动弹窗。隐私启动完成使用独立 Future；不依赖四项选择真假，全部拒绝也初始化 Adjust 并按环境规则启用 Analytics。
-- Adjust 不再在 main 提前初始化；隐私结束后先按下述规则传递同意项，再 initSdk，保留官方首次会话延迟作为首次发送保护并立即释放，不等待 ATT。SDK 决定非首次会话忽略延迟设置。两个广告同意项均拒绝时跳过 trackThirdPartySharing，但仍初始化并释放首次会话延迟。
+- Adjust 不再在 main 提前初始化；隐私结束后先按下述规则传递同意项，再 initSdk，保留官方首次会话延迟作为首次发送保护并立即释放，不等待 ATT。SDK 决定非首次会话忽略延迟设置。首次弹窗两个广告同意项均拒绝时跳过 trackThirdPartySharing，但仍初始化并释放首次会话延迟。
 - Firebase Core、Crashlytics、Performance 恢复原启动流程，不等待隐私；Android 保留 FirebaseInitProvider，production Android/iOS 恢复 Performance 原生启动采样。Analytics 独立串行等待隐私流程完成，先 setConsent，再按原有环境开关启用，不用 analytics_storage 或其他选择额外控制启用。
-- SDK 同意参数采用仅上报同意项规则：Firebase 四项 true 传 true，false 省略，全部 false 时不调用 setConsent；ad_personalization=true 时保留单独补传。Adjust 仅为同意的 ad_user_data/ad_personalization 添加字符串 "1"，拒绝项省略；两个广告项都拒绝时整次跳过。存在广告同意项时，eea 仍按实际地区判断传 "0"/"1"（未知省略），它不是用户同意开关。
-- 此规则同样用于设置页后续修改。省略不代表拒绝，不撤销 SDK 已保存的同意或覆盖默认值，因此从同意改为拒绝不会通过此路径撤回 SDK 同意。本地保存及注册接口仍完整传递真实四项 boolean。无选择的配置关闭/无需提示/配置失败路径不伪造用户同意。
+- 首次弹窗的 SDK 同意参数采用仅上报同意项规则：Firebase 四项 true 传 true，false 省略，全部 false 时不调用 setConsent；ad_personalization=true 时保留单独补传。Adjust 仅为同意的 ad_user_data/ad_personalization 添加字符串 "1"，拒绝项省略；两个广告项都拒绝时整次跳过。存在广告同意项时，eea 仍按实际地区判断传 "0"/"1"（未知省略），它不是用户同意开关。
+- 账号隐私设置提交时完整同步：Firebase 四项传 true/false；Adjust 两项传 "1"/"0"，eea 仍按地区传递。设置来源以本地 sync_denied 标记持久化，后续启动继续完整同步，避免拒绝被省略；旧缓存无该标记保持首次弹窗规则。该标记不进入注册接口，注册仍仅包含四项 boolean。关闭设置弹窗而未提交不改变选择。
 - Collect 自有监控队列仍独立初始化，config、页面和业务请求不等待 Analytics。ATT 等待 SDK 初始化尝试完成；失败或超过 10 秒后记录日志并继续展示流程，后台初始化可继续，不将故障变成弹窗永久阻塞。
 - ADID、GPS ADID（含原生回退）、IDFA、IDFV 沿用原有读取链路，不受隐私模块附加门控。iOS ATT 保留系统权限与原有触发时机，不要求四项选择为 true，不通过其他标识绕过系统限制。
 - 启动展示优先级固定为隐私 → ATT → 其他自动弹窗，由独立 StartupPromptSequence 协调。等待配置/隐私关闭动画结束后才安排 ATT，ATT 有最终状态（含已有授权/拒绝）或平台无需 ATT 后才放行资料填写、签到、评分奖励、购买登录及强制升级展示；隐私选择 true/false 不决定是否显示 ATT。配置失败/关闭、无需提示、有历史选择时跳过隐私展示。资料/购买检查及预加载照常执行，只有展示需要等待，不影响 SDK、标识读取、请求和打点。

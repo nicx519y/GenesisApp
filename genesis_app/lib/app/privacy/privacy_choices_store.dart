@@ -15,8 +15,11 @@ class PrivacyChoices {
     required this.adUserData,
     required this.adPersonalization,
     required this.analyticsStorage,
+    this.syncDenied = false,
   });
 
+  // Settings choices must explicitly synchronize denials, including on restart.
+  final bool syncDenied;
   final bool adStorage;
   final bool adUserData;
   final bool adPersonalization;
@@ -51,6 +54,7 @@ class PrivacyChoicesStore {
         return null;
       }
       return PrivacyChoices(
+        syncDenied: data['sync_denied'] == true,
         adStorage: data['ad_storage'] as bool,
         adUserData: data['ad_user_data'] as bool,
         adPersonalization: data['ad_personalization'] as bool,
@@ -67,6 +71,7 @@ class PrivacyChoicesStore {
       storageKey,
       jsonEncode({
         'version': policyVersion,
+        'sync_denied': choices.syncDenied,
         'saved_at': DateTime.now().toUtc().toIso8601String(),
         'ad_storage': choices.adStorage,
         'ad_user_data': choices.adUserData,

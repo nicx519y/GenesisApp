@@ -144,6 +144,7 @@ class _DmaPreviewState extends State<_DmaPreview> {
             adPersonalization: _personalize,
             analyticsStorage: _analytics,
           ),
+          fromSettings: widget.openChoicesDirectly,
         );
       }
       if (mounted) {

@@ -6,7 +6,8 @@ Future<void> applyFirebaseConsent({FirebaseAnalytics? analytics}) async {
   if (choices == null) return;
   // Omitted values retain the SDK's previous/default state; this is not a
   // revocation API. Keep the original booleans in local/server storage.
-  if (!choices.adStorage &&
+  if (!choices.syncDenied &&
+      !choices.adStorage &&
       !choices.adUserData &&
       !choices.adPersonalization &&
       !choices.analyticsStorage) {
@@ -14,14 +15,22 @@ Future<void> applyFirebaseConsent({FirebaseAnalytics? analytics}) async {
   }
   final client = analytics ?? FirebaseAnalytics.instance;
   await client.setConsent(
-    adStorageConsentGranted: choices.adStorage ? true : null,
-    adUserDataConsentGranted: choices.adUserData ? true : null,
-    adPersonalizationSignalsConsentGranted: choices.adPersonalization
-        ? true
-        : null,
-    analyticsStorageConsentGranted: choices.analyticsStorage ? true : null,
+    adStorageConsentGranted: choices.syncDenied
+        ? choices.adStorage
+        : (choices.adStorage ? true : null),
+    adUserDataConsentGranted: choices.syncDenied
+        ? choices.adUserData
+        : (choices.adUserData ? true : null),
+    adPersonalizationSignalsConsentGranted: choices.syncDenied
+        ? choices.adPersonalization
+        : (choices.adPersonalization ? true : null),
+    analyticsStorageConsentGranted: choices.syncDenied
+        ? choices.analyticsStorage
+        : (choices.analyticsStorage ? true : null),
   );
-  if (choices.adPersonalization) {
-    await client.setConsent(adPersonalizationSignalsConsentGranted: true);
+  if (choices.syncDenied || choices.adPersonalization) {
+    await client.setConsent(
+      adPersonalizationSignalsConsentGranted: choices.adPersonalization,
+    );
   }
 }

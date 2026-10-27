@@ -136,18 +136,28 @@ class AdjustAttributionRuntime {
   static void applyPrivacyConsent() {
     final choices = privacyConsent.choices;
     if (choices == null ||
-        (!choices.adUserData && !choices.adPersonalization)) {
+        (!choices.syncDenied &&
+            !choices.adUserData &&
+            !choices.adPersonalization)) {
       _finishFirstSessionDelayIfReady();
       return;
     }
     final sharing = AdjustThirdPartySharing(null);
     final eea = privacyConsent.region.eea;
     if (eea != null) sharing.addGranularOption('google_dma', 'eea', eea);
-    if (choices.adUserData) {
-      sharing.addGranularOption('google_dma', 'ad_user_data', '1');
+    if (choices.syncDenied || choices.adUserData) {
+      sharing.addGranularOption(
+        'google_dma',
+        'ad_user_data',
+        choices.adUserData ? '1' : '0',
+      );
     }
-    if (choices.adPersonalization) {
-      sharing.addGranularOption('google_dma', 'ad_personalization', '1');
+    if (choices.syncDenied || choices.adPersonalization) {
+      sharing.addGranularOption(
+        'google_dma',
+        'ad_personalization',
+        choices.adPersonalization ? '1' : '0',
+      );
     }
     Adjust.trackThirdPartySharing(sharing);
     _finishFirstSessionDelayIfReady();

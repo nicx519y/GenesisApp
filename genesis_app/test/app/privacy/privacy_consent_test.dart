@@ -33,6 +33,35 @@ void main() {
           null,
         );
   });
+  test('settings denial sends Adjust zeros after restart', () async {
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('com.adjust.sdk/api'), (
+          call,
+        ) async {
+          calls.add(call);
+          return null;
+        });
+    await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+    await privacyConsent.save(accepted);
+    await privacyConsent.save(PrivacyChoices.denied, fromSettings: true);
+    for (var attempt = 0; attempt < 2; attempt++) {
+      calls.clear();
+      AdjustAttributionRuntime.applyPrivacyConsent();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        calls.single.arguments['granularOptions'],
+        'google_dma__ADJ__eea__ADJ__1__ADJ__google_dma__ADJ__ad_user_data__ADJ__0__ADJ__google_dma__ADJ__ad_personalization__ADJ__0',
+      );
+      expect(
+        jsonDecode(privacyConsent.registrationJson!),
+        PrivacyChoices.denied.toJson(),
+      );
+      privacyConsent.resetForTesting();
+      await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+    }
+  });
+
   for (var mask = 0; mask < 4; mask++) {
     test('Adjust sends only granted advertising options: $mask', () async {
       final calls = <MethodCall>[];
