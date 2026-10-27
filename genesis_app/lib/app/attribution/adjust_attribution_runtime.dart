@@ -135,23 +135,20 @@ class AdjustAttributionRuntime {
   /// Queue Google DMA values before initSdk; later choices update the SDK.
   static void applyPrivacyConsent() {
     final choices = privacyConsent.choices;
-    if (choices == null) {
+    if (choices == null ||
+        (!choices.adUserData && !choices.adPersonalization)) {
       _finishFirstSessionDelayIfReady();
       return;
     }
     final sharing = AdjustThirdPartySharing(null);
     final eea = privacyConsent.region.eea;
     if (eea != null) sharing.addGranularOption('google_dma', 'eea', eea);
-    sharing.addGranularOption(
-      'google_dma',
-      'ad_user_data',
-      choices.adUserData ? '1' : '0',
-    );
-    sharing.addGranularOption(
-      'google_dma',
-      'ad_personalization',
-      choices.adPersonalization ? '1' : '0',
-    );
+    if (choices.adUserData) {
+      sharing.addGranularOption('google_dma', 'ad_user_data', '1');
+    }
+    if (choices.adPersonalization) {
+      sharing.addGranularOption('google_dma', 'ad_personalization', '1');
+    }
     Adjust.trackThirdPartySharing(sharing);
     _finishFirstSessionDelayIfReady();
   }

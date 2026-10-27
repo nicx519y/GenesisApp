@@ -33,6 +33,42 @@ void main() {
           null,
         );
   });
+  for (var mask = 0; mask < 4; mask++) {
+    test('Adjust sends only granted advertising options: $mask', () async {
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('com.adjust.sdk/api'), (
+            call,
+          ) async {
+            calls.add(call);
+            return null;
+          });
+      await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+      await privacyConsent.save(
+        PrivacyChoices(
+          adStorage: true,
+          analyticsStorage: true,
+          adUserData: mask & 1 != 0,
+          adPersonalization: mask & 2 != 0,
+        ),
+      );
+      AdjustAttributionRuntime.applyPrivacyConsent();
+      await Future<void>.delayed(Duration.zero);
+      if (mask == 0) {
+        expect(calls, isEmpty);
+      } else {
+        expect(calls.single.method, 'trackThirdPartySharing');
+        expect(
+          calls.single.arguments['granularOptions'],
+          [
+            'google_dma__ADJ__eea__ADJ__1',
+            if (mask & 1 != 0) 'google_dma__ADJ__ad_user_data__ADJ__1',
+            if (mask & 2 != 0) 'google_dma__ADJ__ad_personalization__ADJ__1',
+          ].join('__ADJ__'),
+        );
+      }
+    });
+  }
   test(
     'registration proceeds before privacy resolution and merges a late ADID',
     () async {
@@ -238,15 +274,13 @@ void main() {
       ]);
       expect(
         calls.first.arguments['granularOptions'],
-        'google_dma__ADJ__eea__ADJ__0__ADJ__google_dma__ADJ__ad_user_data__ADJ__1__ADJ__google_dma__ADJ__ad_personalization__ADJ__0',
+        'google_dma__ADJ__eea__ADJ__0__ADJ__google_dma__ADJ__ad_user_data__ADJ__1',
       );
       await privacyConsent.save(PrivacyChoices.denied);
+      final previousCallCount = calls.length;
       AdjustAttributionRuntime.applyPrivacyConsent();
       await Future<void>.delayed(Duration.zero);
-      expect(
-        calls.last.arguments['granularOptions'],
-        contains('ad_user_data__ADJ__0'),
-      );
+      expect(calls, hasLength(previousCallCount));
     },
   );
   for (final savedChoice in [accepted, PrivacyChoices.denied]) {
@@ -268,15 +302,22 @@ void main() {
         AdjustAttributionRuntime.initialize(debugMode: false);
         await Future<void>.delayed(Duration.zero);
         expect(calls.map((call) => call.method), [
-          'trackThirdPartySharing',
+          if (savedChoice.adUserData) 'trackThirdPartySharing',
           'initSdk',
           'endFirstSessionDelay',
         ]);
-        expect(calls[1].arguments['isFirstSessionDelayEnabled'], 'true');
         expect(
-          calls.first.arguments['granularOptions'],
-          contains('ad_user_data__ADJ__${savedChoice.adUserData ? 1 : 0}'),
+          calls
+              .firstWhere((c) => c.method == 'initSdk')
+              .arguments['isFirstSessionDelayEnabled'],
+          'true',
         );
+        if (savedChoice.adUserData) {
+          expect(
+            calls.first.arguments['granularOptions'],
+            contains('ad_user_data__ADJ__1'),
+          );
+        }
         AdjustAttributionRuntime.applyPrivacyConsent();
         AdjustAttributionRuntime.initialize(debugMode: false);
         await Future<void>.delayed(Duration.zero);
