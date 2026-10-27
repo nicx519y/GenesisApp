@@ -506,7 +506,7 @@ class LocationChatPanel extends StatefulWidget {
 }
 
 class _LocationChatPanelState extends State<LocationChatPanel>
-    with LanguageDataRefresh<LocationChatPanel> {
+    with LanguageDataRefresh<LocationChatPanel>, WidgetsBindingObserver {
   @override
   bool get languageSectionVisible => widget.active;
   @override
@@ -1062,6 +1062,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final sharedModelCache = widget.memoryModelPageCache;
     _ownsModelRequestCache = sharedModelCache == null;
     _modelRequestCache = sharedModelCache ?? MemoryModelPageCache();
@@ -1156,6 +1157,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _presentation?.removeListener(_handlePresentationChanged);
     _initialComposerAvatarImage?.dispose();
     _clearAckLoading();
@@ -1193,8 +1195,21 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && widget.active) {
+      _service?.reconcileLocationStreamWait(widget.locationId);
+    }
+  }
+
+  @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.active &&
+        !oldWidget.active &&
+        oldWidget.service == widget.service &&
+        oldWidget.locationId == widget.locationId) {
+      _service?.reconcileLocationStreamWait(widget.locationId);
+    }
     _replyProjectionEpoch++;
     final modelWorldIdChanged =
         (oldWidget.modelWorldId?.trim() ?? '') != _modelWorldId;

@@ -567,6 +567,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
                 locationAliases: widget.localMessageLocationIds,
               ));
         if (!_isCurrentService(service, generation)) return;
+        service.reconcileLocationStreamWait(widget.locationId);
         _syncFromServiceState(service);
         _logPanelMetric(
           'hydrateLocal done owner=service '
@@ -615,6 +616,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         locationAliases: widget.localMessageLocationIds,
       );
       if (!_isCurrentService(service, generation)) return;
+      service.reconcileLocationStreamWait(widget.locationId);
       _syncFromServiceState(service);
       _logPanelMetric(
         'hydrateLocal done owner=session '

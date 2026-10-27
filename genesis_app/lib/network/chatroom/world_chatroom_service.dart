@@ -590,6 +590,44 @@ class WorldChatroomService {
 
   /// The server round and its 30s cleanup deadline may still exist, but a
   /// locally stalled stream must not keep the composer or a new send locked.
+  /// Reconcile presentation waits after reentry/resume without extending them.
+  void reconcileLocationStreamWait(String locationId) {
+    if (_disposed) return;
+    final location = locationId.trim();
+    final watch = _streamWatches[location];
+    if (watch != null) {
+      if (watch.started && !watch.ended && !watch.timedOut) {
+        _armStreamWatch(location, watch, preserveDeadline: true);
+      }
+      return;
+    }
+    if (_state.conversationRoundStatesByLocation.containsKey(location)) return;
+    // Historical presentation has no live send to wait for. Do not touch the
+    // separate candidate-generation, regeneration or Go On recovery flows.
+    final controller = _replyActionsController;
+    if (controller == null) return;
+    final stalledRounds = <String>{};
+    for (final round in controller.statesFor(location).toList()) {
+      if (!round.complete &&
+          round.formalReplyMessages.isNotEmpty &&
+          !round.generating &&
+          !round.busy &&
+          !round.goOnPending) {
+        stalledRounds.add('${round.roundId}');
+        controller.finishLocallyStalledStream(location, '${round.roundId}');
+      }
+    }
+    final settled = <WorldChatroomMessage>[
+      for (final message
+          in _state.messagesByLocation[location] ??
+              const <WorldChatroomMessage>[])
+        if (message.streaming &&
+            stalledRounds.contains(message.conversationRoundId))
+          message.copyWith(streaming: false),
+    ];
+    if (settled.isNotEmpty) _upsertMessages(settled, persist: false);
+  }
+
   bool isLocationSendIdleTimedOut(String locationId) {
     final watch = _streamWatches[locationId];
     if (watch == null || !watch.timedOut) return false;

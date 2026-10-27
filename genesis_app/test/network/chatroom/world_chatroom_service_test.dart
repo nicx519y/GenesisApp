@@ -23,6 +23,97 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('reentry releases orphaned ordinary reply presentation', () async {
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final replies = service.replyActions!;
+    replies.observeMessages('loc-1', [
+      WorldChatroomMessage(
+        messageId: 1,
+        locationMessageId: 1,
+        conversationRoundId: '1',
+        roundOrder: 0,
+        locationId: 'loc-1',
+        senderType: 'character',
+        senderId: 'char-1',
+        senderName: 'Guide',
+        content: 'Partial',
+        createdAt: null,
+        streaming: true,
+      ),
+    ]);
+    expect(replies.stateFor('loc-1')!.complete, isFalse);
+    service.reconcileLocationStreamWait('loc-1');
+    expect(replies.stateFor('loc-1')!.complete, isTrue);
+    expect(service.state.conversationRoundStatesByLocation, isEmpty);
+  });
+
+  test('reentry expires an overdue stream before its timer can run', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+      streamIdleTimeout: const Duration(milliseconds: 80),
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final replies = service.replyActions!;
+    socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 801);
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 801,
+      locationMessageId: 801,
+      roundId: 801,
+      seq: 1,
+      content: 'Partial',
+    );
+    await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
+    // Simulate a suspended event loop: wall time advances but Timer cannot fire.
+    sleep(const Duration(milliseconds: 100));
+    expect(service.isLocationSendIdleTimedOut('loc-1'), isFalse);
+    service.reconcileLocationStreamWait('loc-1');
+    expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
+    expect(replies.stateFor('loc-1')!.complete, isTrue);
+    expect(service.state.conversationRoundStatesByLocation, contains('loc-1'));
+    service.reconcileLocationStreamWait('loc-1');
+    expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
+  });
+
+  test('reentry preserves the original stream deadline', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+      streamIdleTimeout: const Duration(milliseconds: 150),
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 802,
+      locationMessageId: 802,
+      roundId: 802,
+      seq: 1,
+      content: 'Partial',
+    );
+    await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
+    sleep(const Duration(milliseconds: 90));
+    service.reconcileLocationStreamWait('loc-1');
+    expect(service.isLocationSendIdleTimedOut('loc-1'), isFalse);
+    sleep(const Duration(milliseconds: 80));
+    service.reconcileLocationStreamWait('loc-1');
+    expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
+  });
+
   test(
     'disconnect telemetry observes an actual hanging handshake and cancels on recovery',
     () async {
@@ -424,6 +515,8 @@ void main() {
           service.state.messagesByLocation['loc-1']?.single.content == 'Final',
     );
     await Future<void>.delayed(const Duration(milliseconds: 90));
+    service.reconcileLocationStreamWait('loc-1');
+    expect(service.isLocationSendIdleTimedOut('loc-1'), isFalse);
     socket.serverV2StreamFrame(
       streamType: 'llm_chunk',
       senderId: 'char-2',

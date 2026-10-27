@@ -405,6 +405,8 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 
 正式 Location Chat 的 prepared entry 会复制回复状态用于页面展示。`snapshotForActions`、`snapshotForPresentation` 与保留卡片快照必须同步复制 `_locallyStalledStream`，不能让服务层已超时、页面快照仍未结束；回归必须覆盖 `usePreparedEntry=true`、断网超时后销毁页面再进入，并实际发送下一条消息。
 
+聊天页重新绑定、重新激活或回到前台时，主动校验普通流原有的绝对空闲截止时间：已到期立即执行本地超时收尾，未到期仅恢复剩余等待，不重新计算 5 秒。正常流结束后不重新启动空闲计时。历史回复没有有效流等待、没有活动整轮且没有候选生成、提交或 Go On 操作时，可解除残留的本地展示等待；不修改候选恢复流程，也不修改整轮 30 秒规则。
+
 Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done → end_conversation_round → world_change`。同一世界各地点接收同一条通知，复用 Tick 的真实 int64 `conversation_round_id`，不逐地点重复发送：
 
 ```json

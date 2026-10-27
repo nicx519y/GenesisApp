@@ -105,7 +105,7 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
     }
     watch.timer?.cancel();
     final remaining = watch.deadlineAt!.difference(DateTime.now());
-    watch.timer = Timer(remaining.isNegative ? Duration.zero : remaining, () {
+    void expire() {
       if (_disposed || !identical(_streamWatches[location], watch)) return;
       watch.timer = null;
       watch.ended = true;
@@ -157,7 +157,13 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
         locationId: location,
         details: {'conversationRoundId': round},
       );
-    });
+    }
+
+    if (remaining <= Duration.zero) {
+      expire();
+    } else {
+      watch.timer = Timer(remaining, expire);
+    }
   }
 
   void _releaseInterruptedStreamWatch(
@@ -188,7 +194,7 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
       watch.interrupted = true;
       if (watch.timedOut) {
         _releaseInterruptedStreamWatch(entry.key, watch);
-      } else if (watch.started && watch.timer == null) {
+      } else if (watch.started && !watch.ended && watch.timer == null) {
         _armStreamWatch(entry.key, watch, preserveDeadline: true);
       }
     }

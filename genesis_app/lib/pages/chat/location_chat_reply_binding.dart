@@ -43,6 +43,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     if (service == null || !widget.isLeafLocation) return;
     final next = service.replyActions;
     if (next == null) return;
+    service.reconcileLocationStreamWait(widget.locationId);
     if (!identical(next, _replyController)) {
       _detachReplyActions();
       _replyController = next;
