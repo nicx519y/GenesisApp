@@ -387,6 +387,71 @@ ChatroomLlmCardGenerationEnd _terminal(
 
 void main() {
   test(
+    'candidate retry replaces every old message and isolates other candidates',
+    () {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      void frame(int attempt, int card, int id, String stage, String text) =>
+          h.controller.receiveEvent(
+            ChatroomLlmCardStream.fromV2Message(
+              ChatroomV2Message(
+                type: 'llm_card_stream',
+                streamType: stage,
+                worldId: 'w',
+                locationId: 'l',
+                userId: 'u',
+                triggerUid: 'u',
+                conversationRoundId: _round,
+                globalMessageId: id,
+                gatewayRequestId: 'r$card',
+                attemptNo: attempt,
+                senderType: 'character',
+                senderId: 'c',
+                senderName: 'Attempt $attempt',
+                payload: {
+                  'card_id': card,
+                  'card_message_index': id - _messageId + 1,
+                  'seq': 1,
+                  'content': text,
+                },
+              ),
+            ),
+          );
+      frame(1, 102, _messageId, 'end', 'Old A');
+      frame(1, 102, _messageId + 1, 'end', 'Old B');
+      frame(1, 103, _messageId + 2, 'end', 'Other candidate');
+      final old = h.state.messagesForCard(102).first.llmAttempt!;
+      frame(3, 102, _messageId, 'chunk', 'New A');
+      expect(old.invalidated, isTrue);
+      expect(h.state.messagesForCard(102).map((m) => m.content), ['New A']);
+      expect(h.state.messagesForCard(102).single.senderName, 'Attempt 3');
+      expect(h.state.messagesForCard(103).single.content, 'Other candidate');
+      frame(1, 102, _messageId + 1, 'end', 'Late B');
+      expect(h.state.messagesForCard(102).map((m) => m.content), ['New A']);
+      h.controller.receiveEvent(
+        ChatroomLlmGenerationState.fromV2Message(
+          ChatroomV2Message(
+            type: 'llm_generation_state',
+            worldId: 'w',
+            locationId: 'l',
+            conversationRoundId: _round,
+            gatewayRequestId: 'r102',
+            payload: {
+              'card_id': 102,
+              'state': 'failed',
+              'retract_attempt_no': 3,
+              'reason_code': 'stream_failed',
+            },
+          ),
+        ),
+      );
+      frame(4, 102, _messageId, 'end', 'Late new attempt');
+      expect(h.state.messagesForCard(102), isEmpty);
+      expect(h.state.messagesForCard(103).single.content, 'Other candidate');
+    },
+  );
+
+  test(
     'inspiration tail changes controls without replacing formal reply bodies',
     () {
       final h = _Harness();

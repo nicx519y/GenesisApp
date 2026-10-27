@@ -42,6 +42,9 @@ void main() {
         {'message_id': 0},
         {'global_message_id': -1},
         {'conversation_round_id': 801.5},
+        {'conversation_round_id': 0},
+        {'conversation_round_id': -1},
+        {'conversation_round_id': '801'},
         {'location_message_id': '25'},
         {'location_id': ''},
         {'world_id': ''},
@@ -114,4 +117,52 @@ void main() {
       expect(page.newestMessageId, 25);
     },
   );
+
+  for (final explicitNull in [false, true]) {
+    test(
+      'roundless phone movement survives WSS and HTTP null=$explicitNull',
+      () {
+        final json = frame()..remove('conversation_round_id');
+        if (explicitNull) json['conversation_round_id'] = null;
+        final dto = ChatroomV2Message.fromJson(json);
+        expect(dto.conversationRoundId, isNull);
+        expect(dto.toJson().containsKey('conversation_round_id'), isFalse);
+        final event =
+            chatroomEventFromV2Message(dto) as ChatroomPhoneCharactersMoved;
+        expect(event.conversationRoundId, isEmpty);
+        final socket = WorldChatroomMessage.fromPhoneCharactersMovedMessage(
+          event,
+        );
+        final http = WorldChatroomMessage.fromHttpMessage(
+          ChatroomHttpMessage.fromV2Json(json),
+        );
+        for (final message in [socket, http]) {
+          expect(message.conversationRoundNumber, 0);
+          expect(message.locationMessageId, 25);
+          expect(message.rawPayload, json['payload']);
+          final payload =
+              message.timelinePayload as ChatroomPhoneCharactersMovedPayload;
+          expect(payload.movements.single.toLocationId, 'loc_b');
+        }
+        expect(socket.content, http.content);
+        expect(
+          ChatroomMessageListResponse.fromV2Json({
+            'messages': [json],
+            'has_more': false,
+          }).newestMessageId,
+          25,
+        );
+      },
+    );
+  }
+
+  test('llm message updates still require a conversation round', () {
+    final json = frame()
+      ..['type'] = 'llm_message_updated'
+      ..remove('conversation_round_id');
+    expect(
+      () => ChatroomV2Message.fromJson(json),
+      throwsA(isA<ChatroomProtocolException>()),
+    );
+  });
 }

@@ -1,3 +1,4 @@
+import '../../utils/llm_generation.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -244,6 +245,7 @@ class ChatroomSession {
   // operation type so late rejections still enter the correct failure path.
   final _sentRequestTypes = <String, String>{};
   final _reportedFailureOccurrences = <String>{};
+  final _generations = <LlmGenerationId, LlmGenerationState>{};
   final _activeStreams = <String, ChatroomAiMessageStream>{};
   var _streamOrdinal = 0;
   late final StreamSubscription<String> _subscription;
@@ -857,6 +859,68 @@ class ChatroomSession {
   }
 
   void _dispatchEvent(ChatroomEvent event) {
+    final identity = switch (event) {
+      ChatroomAiStreamStart e => e.identity,
+      ChatroomAiStreamChunk e => e.identity,
+      ChatroomAiStreamEnd e => e.identity,
+      _ => null,
+    };
+    LlmGenerationState? generation;
+    if (identity?.attemptNo != null) {
+      final i = identity!;
+      if (i.worldId != worldId) return;
+      final id = LlmGenerationId(
+        i.worldId,
+        i.locationId,
+        i.conversationRoundId,
+        i.gatewayRequestId,
+      );
+      generation = _generations.putIfAbsent(id, () => LlmGenerationState(id));
+      if (generation.accept(
+            i.attemptNo!,
+            i.globalMessageId,
+            end: event is ChatroomAiStreamEnd,
+          ) ==
+          null) {
+        return;
+      }
+    } else if (event is ChatroomLlmGenerationState &&
+        event.generation.card == null) {
+      if (event.generation.world != worldId) return;
+      generation = _generations.putIfAbsent(
+        event.generation,
+        () => LlmGenerationState(event.generation),
+      );
+      if (!generation.retract(
+        event.retractAttemptNo,
+        retrying: event.state == 'retrying',
+        next: event.nextAttemptNo,
+      )) {
+        return;
+      }
+    }
+    if (generation != null) {
+      final current = generation;
+      _activeStreams.removeWhere((_, stream) {
+        final i = stream.start.identity;
+        if (i.attemptNo == null ||
+            LlmGenerationId(
+                  i.worldId,
+                  i.locationId,
+                  i.conversationRoundId,
+                  i.gatewayRequestId,
+                ) !=
+                current.id) {
+          return false;
+        }
+        final obsolete =
+            current.closed ||
+            i.attemptNo! < current.latest ||
+            current.invalidated.contains(i.attemptNo);
+        if (obsolete) stream.retire();
+        return obsolete;
+      });
+    }
     if (event is ChatroomLlmCardStream &&
         (event.worldId != worldId || event.userId != userId)) {
       return;
@@ -923,6 +987,12 @@ class ChatroomSession {
         ),
       );
     } else if (event is ChatroomAiStreamStart) {
+      if (event.attemptNo != null &&
+          _activeStreams.values.any(
+            (s) => s.start.identity.stableKey == event.identity.stableKey,
+          )) {
+        return;
+      }
       final stream = ChatroomAiMessageStream._(event);
       final baseKey = event.identity.stableKey ?? 'cursorless';
       _streamOrdinal += 1;
@@ -1075,6 +1145,7 @@ class ChatroomSession {
       stream.fail(reason);
     }
     _activeStreams.clear();
+    _generations.clear();
 
     await _subscription.cancel();
     await _events.close();
@@ -1243,6 +1314,9 @@ bool _streamIdentityConflicts(
   ChatroomStreamIdentity incoming,
   ChatroomStreamIdentity candidate,
 ) {
+  if (incoming.attemptNo != null || candidate.attemptNo != null) {
+    return incoming.stableKey != candidate.stableKey;
+  }
   bool stringConflict(String left, String right) =>
       left.isNotEmpty && right.isNotEmpty && left != right;
   final sameConversationRound =
@@ -1316,6 +1390,14 @@ class ChatroomAiMessageStream {
 
   void addChunk(ChatroomAiStreamChunk chunk) {
     if (_done.isCompleted) return;
+    if (start.attemptNo != null) {
+      if (_pendingChunks.containsKey(chunk.seq)) return;
+      _pendingChunks[chunk.seq] = chunk;
+      final keys = _pendingChunks.keys.toList()..sort();
+      _content = keys.map((key) => _pendingChunks[key]!.chunk).join();
+      _chunks.add(chunk);
+      return;
+    }
     if (chunk.seq <= 0) {
       _emitChunk(chunk);
       return;
@@ -1334,7 +1416,9 @@ class ChatroomAiMessageStream {
 
   void complete(ChatroomAiStreamEnd end) {
     if (_done.isCompleted) return;
-    _completedContent = end.content.isEmpty ? _content : end.content;
+    _completedContent = start.attemptNo != null
+        ? end.content
+        : (end.content.isEmpty ? _content : end.content);
     _pendingChunks.clear();
     _done.complete(end);
     unawaited(_chunks.close());
@@ -1343,6 +1427,15 @@ class ChatroomAiMessageStream {
   void _emitChunk(ChatroomAiStreamChunk chunk) {
     _content = chunk.isDelta ? '$_content${chunk.chunk}' : chunk.chunk;
     _chunks.add(chunk);
+  }
+
+  void retire() {
+    if (!_done.isCompleted) {
+      _done.completeError(StateError('Stream attempt retracted'));
+    }
+    _pendingChunks.clear();
+    _content = '';
+    if (!_chunks.isClosed) unawaited(_chunks.close());
   }
 
   void fail(Object error) {

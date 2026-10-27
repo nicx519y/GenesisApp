@@ -100,6 +100,11 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
     bool preserveDeadline = false,
   }) {
     watch.started = true;
+    if (_generationPresentationPending(location, watch.roundId)) {
+      watch.timer?.cancel();
+      watch.timer = null;
+      return;
+    }
     if (!preserveDeadline || watch.deadlineAt == null) {
       watch.deadlineAt = DateTime.now().add(_streamIdleTimeout);
     }
@@ -110,6 +115,14 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
       watch.timer = null;
       watch.ended = true;
       watch.timedOut = true;
+      for (final generation in _llmGenerations.values) {
+        if (generation.id.location == location &&
+            generation.id.round == watch.roundId) {
+          for (final attempt in generation.attempts.values) {
+            attempt.waitingExpired = true;
+          }
+        }
+      }
       if (watch.clientMsgId.isNotEmpty && !watch.accepted) {
         watch.interrupted = true;
         _session?.cancelSendMessageWait(watch.clientMsgId);

@@ -7,6 +7,7 @@ const String chatAiContentDisclaimerMessageLocalId =
 class ChatMessageVm {
   ChatMessageVm({
     required this.localId,
+    this.llmAttempt,
     this.clientMsgId = '',
     this.globalMessageId = 0,
     this.messageId,
@@ -63,6 +64,7 @@ class ChatMessageVm {
     );
   }
 
+  final LlmAttempt? llmAttempt;
   final String localId;
   String clientMsgId;
   int globalMessageId;
@@ -142,6 +144,11 @@ class ChatMessageVm {
   bool get isNarrator => senderType == 'narrator';
 
   bool get isTick => senderType == 'tick';
+
+  /// Standalone phone movement notifications do not participate in reply waits.
+  bool get isRoundlessPhoneMovement =>
+      senderType == chatroomPhoneCharactersMovedSenderType &&
+      (int.tryParse(roundId) ?? 0) <= 0;
 
   bool get isImage =>
       senderType == 'image' ||

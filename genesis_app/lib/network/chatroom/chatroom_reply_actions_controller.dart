@@ -1,3 +1,4 @@
+import '../../utils/llm_generation.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 
@@ -426,6 +427,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
        _goOnStreamStartTimeout = goOnStreamStartTimeout,
        _goOnStreamEndTimeout = goOnStreamEndTimeout;
 
+  final _llmGenerations = <LlmGenerationId, LlmGenerationState>{};
   final DateTime Function() _now;
   final Duration _regenerationStreamStartTimeout;
   final Duration _regenerationStreamEndTimeout;
@@ -1134,6 +1136,13 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         state._streamMessages.remove(card.cardId);
         state._cardTerminals.remove(card.cardId);
         state._authoritativeCards.add(card.cardId);
+        for (final generation in _llmGenerations.values) {
+          if (generation.id.location == state.locationId &&
+              generation.id.round == '${state.roundId}' &&
+              generation.id.card == card.cardId) {
+            generation.close();
+          }
+        }
       }
     }
     if (!_completeCard(state._card(state._lastCompleteCardId))) {
@@ -1433,6 +1442,34 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     _notify(locationId);
   }
 
+  bool failedGenerationForCard(String location, int round, int card) =>
+      _llmGenerations.values.any(
+        (g) =>
+            g.failed &&
+            g.id.location == location &&
+            g.id.round == '$round' &&
+            g.id.card == card,
+      );
+
+  bool generationFailed(LlmGenerationId id) =>
+      _llmGenerations[id]?.failed ?? false;
+
+  void failGeneration(String location, String round) {
+    final number = int.tryParse(round);
+    if (number == null) return;
+    final state = _state(location, number);
+    state._roundFailed = true;
+    state._active = false;
+    state._locallyStalledStream = true;
+    for (final source in statesFor(location)) {
+      if (source.goOnPending && source.goOnRoundId == number) {
+        source._goOn!.finished = true;
+        _cancelGoOnWatchdog(source);
+      }
+    }
+    _notify(location);
+  }
+
   void _receiveEvent(ChatroomEvent event) {
     if (_disposed) return;
     if (event is ChatroomAck) {
@@ -1447,6 +1484,52 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       if (event.worldId == worldId && event.errNo == 0) {
         unawaited(clearCardsCache(event.locationId).catchError((Object _) {}));
       }
+      return;
+    }
+    if (event is ChatroomLlmGenerationState) {
+      final id = event.generation;
+      if (id.world != worldId) return;
+      if (id.card == null) return;
+      final known = stateForRound(id.location, int.parse(id.round));
+      if (known?.confirmed == true ||
+          (known?._authoritativeCards.contains(id.card) ?? false)) {
+        return;
+      }
+      final generation = _llmGenerations.putIfAbsent(
+        id,
+        () => LlmGenerationState(id),
+      );
+      final changed = generation.retract(
+        event.retractAttemptNo,
+        retrying: event.state == 'retrying',
+        next: event.nextAttemptNo,
+      );
+      if (!changed) return;
+      final state = _state(id.location, int.parse(id.round));
+      final streams = state._streamMessages[id.card];
+      streams?.removeWhere((_, m) => m.attempt?.invalidated ?? false);
+      state._streamStructureRevisions.update(
+        id.card!,
+        (v) => v + 1,
+        ifAbsent: () => 1,
+      );
+      _invalidateCardsCache(state);
+      ++state._generation;
+      if (event.state == 'failed') {
+        _cancelRegenerationWatchdog(state);
+        state._generating = false;
+        final index = state._cards.indexWhere((c) => c.cardId == id.card);
+        if (index >= 0) {
+          state._cards[index] = _placeholder(
+            id.card!,
+            state._cards[index].cardIndex,
+            generationState: ChatroomCardGenerationState.failed,
+          );
+        }
+      } else {
+        _watchRegeneration(state, id.card!);
+      }
+      _notify(id.location);
       return;
     }
     if (event is ChatroomLlmCardStream) {
@@ -1472,10 +1555,39 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         state._cards.add(_placeholder(event.cardId, index));
       }
       final streams = state._streamMessages.putIfAbsent(event.cardId, () => {});
+      LlmAttempt? attempt;
+      if (event.attemptNo != null) {
+        final id = LlmGenerationId(
+          event.worldId,
+          event.locationId,
+          '${event.conversationRoundId}',
+          event.gatewayRequestId,
+          event.cardId,
+        );
+        final generation = _llmGenerations.putIfAbsent(
+          id,
+          () => LlmGenerationState(id),
+        );
+        attempt = generation.accept(
+          event.attemptNo!,
+          event.globalMessageId,
+          end: event.streamType == 'end',
+        );
+        if (attempt == null) return;
+        final before = streams.length;
+        streams.removeWhere((_, m) => m.attempt?.invalidated ?? false);
+        if (before != streams.length) {
+          state._streamStructureRevisions.update(
+            event.cardId,
+            (v) => v + 1,
+            ifAbsent: () => 1,
+          );
+        }
+      }
       final isNewMessage = !streams.containsKey(event.globalMessageId);
       final message = streams.putIfAbsent(
         event.globalMessageId,
-        () => _CandidateMessage(event),
+        () => _CandidateMessage(event, attempt: attempt),
       );
       final receivedChunk = message._receivedChunk;
       final contentChanged = message.apply(event);
@@ -1520,6 +1632,13 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       }
       _invalidateCardsCache(state);
       ++state._generation;
+      for (final generation in _llmGenerations.values) {
+        if (generation.id.location == event.locationId &&
+            generation.id.round == '${event.conversationRoundId}' &&
+            generation.id.card == event.cardId) {
+          generation.close();
+        }
+      }
       state._cardTerminals[event.cardId] = event;
       _completeLocalCard(state, event);
       if (state._generating && state._regenerationRequestId != null) {
@@ -1573,7 +1692,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       final state = _state(event.locationId, round);
       state._active = false;
       state._ended = true;
-      state._roundFailed = !event.ok;
+      state._roundFailed = state._roundFailed || !event.ok;
       _mergeRoundMetadata(
         state,
         conversationType: event.conversationType,
@@ -2339,7 +2458,7 @@ class _PendingGoOn {
 }
 
 class _CandidateMessage {
-  _CandidateMessage(ChatroomLlmCardStream event)
+  _CandidateMessage(ChatroomLlmCardStream event, {this.attempt})
     : id = event.globalMessageId,
       index = event.cardMessageIndex,
       senderType = event.senderType,
@@ -2349,6 +2468,7 @@ class _CandidateMessage {
       triggerUid = event.triggerUid,
       currentTime = event.currentTime,
       ts = event.ts;
+  final LlmAttempt? attempt;
   final int id, index;
   final String senderType,
       senderId,
@@ -2408,6 +2528,7 @@ class _CandidateMessage {
       _needsMerge = false;
     }
     return _snapshot = WorldChatroomMessage(
+      llmAttempt: attempt,
       globalMessageId: id,
       messageId: 0,
       locationMessageId: 0,

@@ -7,6 +7,8 @@ import '../../components/chat/shared/chat_ui.dart';
 ChatMessageVm freezeLocationChatReplyMessage(ChatMessageVm message) =>
     ChatMessageVm(
       localId: message.localId,
+      llmAttempt: message.llmAttempt,
+      avatarSnapshot: message.avatarSnapshot,
       clientMsgId: message.clientMsgId,
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
@@ -47,6 +49,7 @@ bool locationChatReplyMessagePresentationEqual(
   ChatMessageVm a,
   ChatMessageVm b,
 ) =>
+    a.llmAttempt == b.llmAttempt &&
     a.localId == b.localId &&
     a.clientMsgId == b.clientMsgId &&
     a.globalMessageId == b.globalMessageId &&

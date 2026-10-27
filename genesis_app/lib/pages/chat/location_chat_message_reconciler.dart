@@ -189,7 +189,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     for (final parsed in visibleSource) {
       final message = parsed.source;
       final clientMsgId = parsed.clientMsgId.trim();
-      final existing =
+      final candidate =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
           existingByKey[parsed.localId] ??
           (parsed.messageId > 0
@@ -200,6 +200,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
             message,
             usedLocalIds: usedLocalIds,
           );
+      final existing = candidate?.llmAttempt == message.llmAttempt
+          ? candidate
+          : null;
       if (existing != null) {
         if (usedLocalIds.contains(existing.localId)) {
           changed = true;
@@ -255,6 +258,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       } else {
         changed = true;
         final nextMessage = ChatMessageVm(
+          llmAttempt: message.llmAttempt,
           localId: parsed.localId,
           clientMsgId: parsed.clientMsgId,
           globalMessageId: parsed.globalMessageId,

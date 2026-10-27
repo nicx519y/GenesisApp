@@ -23,6 +23,84 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'attempt recovery removes ended siblings and resumes watchdog after visual retirement',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final storage = MemoryChatroomMessageStorage();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        messageStorage: storage,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+        streamIdleTimeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 801);
+      void frame(
+        int attempt,
+        int id,
+        String stage,
+        String content, {
+        int seq = 1,
+      }) => socket.serverFrame('character', {
+        'stream_type': stage,
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'conversation_round_id': 801,
+        'gateway_request_id': 'recovery',
+        'attempt_no': attempt,
+        'global_message_id': 90000 + id,
+        'message_id': id,
+        'location_message_id': id,
+        'sender_id': 'c',
+        'sender_type': 'character',
+        'sender_name': 'Attempt $attempt',
+        'payload': {'seq': seq, 'content': content},
+      });
+      frame(1, 801, 'llm_stream_end', 'Old A');
+      frame(1, 802, 'llm_stream_end', 'Old B');
+      await _waitFor(
+        () => (service.state.messagesByLocation['loc-1'] ?? []).length == 2,
+      );
+      final old =
+          (service.state.messagesByLocation['loc-1'] ?? []).first.llmAttempt!;
+      void Function()? release;
+      old.addListener(() {
+        release = old.retainPresentation();
+      });
+      frame(3, 801, 'llm_chunk', 'New A', seq: 8);
+      await _waitFor(
+        () =>
+            (service.state.messagesByLocation['loc-1'] ?? []).length == 1 &&
+            (service.state.messagesByLocation['loc-1'] ?? []).first.content ==
+                'New A',
+      );
+      expect(
+        (service.state.messagesByLocation['loc-1'] ?? []).first.senderName,
+        'Attempt 3',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 110));
+      expect(service.isLocationSendIdleTimedOut('loc-1'), isFalse);
+      release!();
+      await _waitFor(() => service.isLocationSendIdleTimedOut('loc-1'));
+      frame(1, 802, 'llm_stream_end', 'Stale B');
+      frame(3, 801, 'llm_stream_end', 'Complete A');
+      await _waitFor(
+        () =>
+            (service.state.messagesByLocation['loc-1'] ?? []).first.content ==
+            'Complete A',
+      );
+      frame(3, 801, 'llm_chunk', 'Must not append', seq: 9);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(
+        (service.state.messagesByLocation['loc-1'] ?? []).map((m) => m.content),
+        ['Complete A'],
+      );
+    },
+  );
+
   test('reentry releases orphaned ordinary reply presentation', () async {
     final service = await _service(
       socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
@@ -631,7 +709,6 @@ void main() {
         'global_message_id': id,
         'message_id': id,
         'location_message_id': id,
-        'conversation_round_id': 801,
         'conversation_type': 'phone_characters_moved',
         'sender_type': 'phone_characters_moved',
         'payload': {
@@ -699,141 +776,147 @@ void main() {
     },
   );
 
-  test(
-    'canonical phone movements queue, order, deduplicate and survive SQLite reopen',
-    () async {
-      sqfliteFfiInit();
-      final directory = await Directory.systemTemp.createTemp(
-        'phone-movement-',
-      );
-      final path = '${directory.path}/messages.db';
-      final storage = SqfliteChatroomMessageStorage(
-        databasePath: path,
-        databaseFactoryOverride: databaseFactoryFfi,
-      );
-      final socket = _FakeChatroomSocket();
-      final http = _WorldChatroomHttpTransport();
-      final service = await _service(
-        socketTransport: _FakeChatroomTransport(socket),
-        messageStorage: storage,
-        httpTransport: http,
-        useV2Protocol: true,
-        refreshInitialSnapshotOnConnect: false,
-      );
-      final hints = <String>[];
-      final history = service.historyChanges.listen(hints.add);
-      await service.connect(worldId: 'world-1', identity: _identity());
-      Map<String, Object?> frame({
-        String world = 'world-1',
-        int cursor = 25,
-        int id = 1001,
-      }) => {
-        'world_id': world,
-        'location_id': 'loc-2',
-        'global_message_id': id,
-        'message_id': id,
-        'location_message_id': cursor,
-        'conversation_round_id': 801,
-        'conversation_type': 'phone_characters_moved',
-        'sender_type': 'phone_characters_moved',
-        'payload': {
-          'content': [
-            {'char_id': 'char-1', 'old_loc_id': 'loc-1', 'to_loc_id': 'loc-2'},
-          ],
-        },
-      };
-      try {
-        // No location join or MiniPhone visit is needed. Replays use cursor dedupe.
-        socket.serverFrame('phone_characters_moved', frame(world: 'other'));
-        socket.serverFrame(
-          'phone_characters_moved',
-          frame(cursor: 26, id: 1002),
+  for (final roundId in <int?>[801, null]) {
+    test(
+      'canonical phone movements queue, order, deduplicate and survive SQLite reopen round=$roundId',
+      () async {
+        sqfliteFfiInit();
+        final directory = await Directory.systemTemp.createTemp(
+          'phone-movement-',
         );
-        socket.serverFrame('phone_characters_moved', frame());
-        socket.serverFrame('phone_characters_moved', frame());
-        await _waitFor(
-          () => service.state.messagesByLocation['loc-2']?.length == 2,
+        final path = '${directory.path}/messages.db';
+        final storage = SqfliteChatroomMessageStorage(
+          databasePath: path,
+          databaseFactoryOverride: databaseFactoryFfi,
         );
-        final messages = service.state.messagesByLocation['loc-2']!;
-        expect(messages.map((m) => m.locationMessageId), [25, 26]);
-        expect(messages.map((m) => m.messageId), [1001, 1002]);
-        expect(service.state.messagesByLocation['loc-1'] ?? [], isEmpty);
-        expect(service.state.lastMessageId, 1002);
-        expect(hints, isNotEmpty);
-        expect(hints, everyElement('world-1'));
-        List<Map<String, dynamic>> stored = [];
-        for (var i = 0; i < 100; i++) {
-          stored = await storage.loadLatestMessages(
-            ownerUid: 'user-1',
-            worldId: 'world-1',
-            locationId: 'loc-2',
-            limit: 20,
+        final socket = _FakeChatroomSocket();
+        final http = _WorldChatroomHttpTransport();
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(socket),
+          messageStorage: storage,
+          httpTransport: http,
+          useV2Protocol: true,
+          refreshInitialSnapshotOnConnect: false,
+        );
+        final hints = <String>[];
+        final history = service.historyChanges.listen(hints.add);
+        await service.connect(worldId: 'world-1', identity: _identity());
+        Map<String, Object?> frame({
+          String world = 'world-1',
+          int cursor = 25,
+          int id = 1001,
+        }) => {
+          'world_id': world,
+          'location_id': 'loc-2',
+          'global_message_id': id,
+          'message_id': id,
+          'location_message_id': cursor,
+          if (roundId != null) 'conversation_round_id': roundId,
+          'conversation_type': 'phone_characters_moved',
+          'sender_type': 'phone_characters_moved',
+          'payload': {
+            'content': [
+              {
+                'char_id': 'char-1',
+                'old_loc_id': 'loc-1',
+                'to_loc_id': 'loc-2',
+              },
+            ],
+          },
+        };
+        try {
+          // No location join or MiniPhone visit is needed. Replays use cursor dedupe.
+          socket.serverFrame('phone_characters_moved', frame(world: 'other'));
+          socket.serverFrame(
+            'phone_characters_moved',
+            frame(cursor: 26, id: 1002),
           );
-          if (stored.length == 2) break;
-          await Future<void>.delayed(const Duration(milliseconds: 10));
+          socket.serverFrame('phone_characters_moved', frame());
+          socket.serverFrame('phone_characters_moved', frame());
+          await _waitFor(
+            () => service.state.messagesByLocation['loc-2']?.length == 2,
+          );
+          final messages = service.state.messagesByLocation['loc-2']!;
+          expect(messages.map((m) => m.locationMessageId), [25, 26]);
+          expect(messages.map((m) => m.messageId), [1001, 1002]);
+          expect(service.state.messagesByLocation['loc-1'] ?? [], isEmpty);
+          expect(service.state.lastMessageId, 1002);
+          expect(hints, isNotEmpty);
+          expect(hints, everyElement('world-1'));
+          List<Map<String, dynamic>> stored = [];
+          for (var i = 0; i < 100; i++) {
+            stored = await storage.loadLatestMessages(
+              ownerUid: 'user-1',
+              worldId: 'world-1',
+              locationId: 'loc-2',
+              limit: 20,
+            );
+            if (stored.length == 2) break;
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          expect(stored, hasLength(2));
+          http.messagesByLocation['loc-2'] = [
+            {'type': 'phone_characters_moved', ...frame()},
+            {'type': 'phone_characters_moved', ...frame(cursor: 26, id: 1002)},
+          ];
+          await service.refreshLatestMessages(locationId: 'loc-2');
+          expect(service.state.messagesByLocation['loc-2'], hasLength(2));
+          expect(
+            service.state.messagesByLocation['loc-2']!.every(
+              (m) => m.timelinePayload is ChatroomPhoneCharactersMovedPayload,
+            ),
+            isTrue,
+          );
+        } finally {
+          await history.cancel();
+          await service.dispose();
+          await storage.close();
         }
-        expect(stored, hasLength(2));
-        http.messagesByLocation['loc-2'] = [
-          {'type': 'phone_characters_moved', ...frame()},
-          {'type': 'phone_characters_moved', ...frame(cursor: 26, id: 1002)},
-        ];
-        await service.refreshLatestMessages(locationId: 'loc-2');
-        expect(service.state.messagesByLocation['loc-2'], hasLength(2));
-        expect(
-          service.state.messagesByLocation['loc-2']!.every(
-            (m) => m.timelinePayload is ChatroomPhoneCharactersMovedPayload,
-          ),
-          isTrue,
+        final reopened = SqfliteChatroomMessageStorage(
+          databasePath: path,
+          databaseFactoryOverride: databaseFactoryFfi,
         );
-      } finally {
-        await history.cancel();
-        await service.dispose();
-        await storage.close();
-      }
-      final reopened = SqfliteChatroomMessageStorage(
-        databasePath: path,
-        databaseFactoryOverride: databaseFactoryFfi,
-      );
-      final restored = await _service(
-        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
-        messageStorage: reopened,
-        useV2Protocol: true,
-        refreshInitialSnapshotOnConnect: false,
-      );
-      try {
-        await restored.connect(worldId: 'world-1', identity: _identity());
-        await restored.hydrateLocalMessages(
-          worldId: 'world-1',
-          locationId: 'loc-2',
+        final restored = await _service(
+          socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+          messageStorage: reopened,
+          useV2Protocol: true,
+          refreshInitialSnapshotOnConnect: false,
         );
-        final messages = restored.state.messagesByLocation['loc-2']!;
-        expect(messages.map((m) => m.locationMessageId), [25, 26]);
-        for (final message in messages) {
-          expect(message.senderType, 'phone_characters_moved');
-          expect(message.businessType, 'phone_characters_moved');
-          expect(message.conversationRoundId, '801');
-          expect(message.rawPayload['content'], isA<List>());
-          final payload =
-              message.timelinePayload as ChatroomPhoneCharactersMovedPayload;
-          expect(payload.movements.single.oldLocationId, 'loc-1');
-          expect(payload.movements.single.toLocationId, 'loc-2');
-        }
-        expect(
-          await reopened.loadLatestMessages(
-            ownerUid: 'other-user',
+        try {
+          await restored.connect(worldId: 'world-1', identity: _identity());
+          await restored.hydrateLocalMessages(
             worldId: 'world-1',
             locationId: 'loc-2',
-            limit: 20,
-          ),
-          isEmpty,
-        );
-      } finally {
-        await restored.dispose();
-        await reopened.close();
-        await directory.delete(recursive: true);
-      }
-    },
-  );
+          );
+          final messages = restored.state.messagesByLocation['loc-2']!;
+          expect(messages.map((m) => m.locationMessageId), [25, 26]);
+          for (final message in messages) {
+            expect(message.senderType, 'phone_characters_moved');
+            expect(message.businessType, 'phone_characters_moved');
+            expect(message.conversationRoundNumber, roundId ?? 0);
+            expect(message.rawPayload['content'], isA<List>());
+            final payload =
+                message.timelinePayload as ChatroomPhoneCharactersMovedPayload;
+            expect(payload.movements.single.oldLocationId, 'loc-1');
+            expect(payload.movements.single.toLocationId, 'loc-2');
+          }
+          expect(
+            await reopened.loadLatestMessages(
+              ownerUid: 'other-user',
+              worldId: 'world-1',
+              locationId: 'loc-2',
+              limit: 20,
+            ),
+            isEmpty,
+          );
+        } finally {
+          await restored.dispose();
+          await reopened.close();
+          await directory.delete(recursive: true);
+        }
+      },
+    );
+  }
 
   test(
     'History hints cover unjoined locations and completed streams only',

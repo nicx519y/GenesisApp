@@ -3,10 +3,14 @@ part of 'chatroom_models.dart';
 /// Private candidate events never enter the formal message/LLM stream types.
 class ChatroomLlmCardStream extends ChatroomEvent {
   ChatroomLlmCardStream.fromV2Message(ChatroomV2Message message)
-    : worldId = message.worldId,
+    : gatewayRequestId = message.gatewayRequestId,
+      attemptNo = message.attemptNo,
+      worldId = message.worldId,
       locationId = message.locationId,
       userId = message.userId,
-      triggerUid = message.triggerUid,
+      triggerUid = message.triggerUid.isEmpty && message.attemptNo != null
+          ? message.userId
+          : message.triggerUid,
       conversationRoundId = llmCardInt(message.conversationRoundId),
       globalMessageId = llmCardInt(message.globalMessageId),
       cardId = llmCardInt(message.payload['card_id']),
@@ -32,6 +36,8 @@ class ChatroomLlmCardStream extends ChatroomEvent {
       throw const FormatException('Invalid candidate stream');
     }
   }
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId,
       locationId,
       userId,
@@ -84,7 +90,8 @@ class ChatroomLlmCardGenerationEnd extends ChatroomEvent {
 void _validateCardEnvelope(ChatroomV2Message message) {
   if (message.worldId.trim().isEmpty ||
       message.locationId.trim().isEmpty ||
-      message.triggerUid.isEmpty) {
+      (message.triggerUid.isEmpty &&
+          (message.attemptNo == null || message.userId.isEmpty))) {
     throw const FormatException('Missing private candidate identity');
   }
   if ((message.messageId ?? 0) != 0 || (message.locationMessageId ?? 0) != 0) {

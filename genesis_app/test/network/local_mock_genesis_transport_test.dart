@@ -17,34 +17,39 @@ import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
-  test(
-    'canonical phone movement mock preserves structured V2 history',
-    () async {
-      final transport = LocalMockGenesisTransport.isolated();
-      transport.seedChatroomPhoneMovementMessage(
-        worldId: 'world-move',
-        locationId: 'loc-b',
-        characterId: 'char-1',
-        oldLocationId: 'loc-a',
-        toLocationId: 'loc-b',
-      );
-      final api = GenesisApi(transport: transport, useMock: false);
-      final page = await api.chatroomHttp.getMessages(
-        worldId: 'world-move',
-        locationId: 'loc-b',
-        since: 0,
-      );
-      final message = page.messages.singleWhere(
-        (m) => m.businessType == 'phone_characters_moved',
-      );
-      expect(message.locationMessageId, greaterThan(0));
-      expect(message.conversationType, 'phone_characters_moved');
-      final payload =
-          message.timelinePayload as ChatroomPhoneCharactersMovedPayload;
-      expect(payload.movements.single.oldLocationId, 'loc-a');
-      expect(message.rawPayload['content'], isA<List>());
-    },
-  );
+  for (final withRound in [false, true]) {
+    test(
+      'canonical phone movement mock preserves structured V2 history round=$withRound',
+      () async {
+        final transport = LocalMockGenesisTransport.isolated();
+        transport.seedChatroomPhoneMovementMessage(
+          worldId: 'world-move',
+          locationId: 'loc-b',
+          characterId: 'char-1',
+          oldLocationId: 'loc-a',
+          toLocationId: 'loc-b',
+          withConversationRound: withRound,
+        );
+        final api = GenesisApi(transport: transport, useMock: false);
+        final page = await api.chatroomHttp.getMessages(
+          worldId: 'world-move',
+          locationId: 'loc-b',
+          since: 0,
+        );
+        final message = page.messages.singleWhere(
+          (m) => m.businessType == 'phone_characters_moved',
+        );
+        expect(message.locationMessageId, greaterThan(0));
+        expect(message.conversationRoundId, withRound ? greaterThan(0) : 0);
+        expect(message.rawJson.containsKey('conversation_round_id'), withRound);
+        expect(message.conversationType, 'phone_characters_moved');
+        final payload =
+            message.timelinePayload as ChatroomPhoneCharactersMovedPayload;
+        expect(payload.movements.single.oldLocationId, 'loc-a');
+        expect(message.rawPayload['content'], isA<List>());
+      },
+    );
+  }
 
   setUp(LocalMockGenesisTransport.instance.resetFeatureQuotaUsage);
   test(

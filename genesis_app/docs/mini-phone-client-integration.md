@@ -21,6 +21,10 @@ The existing V2 connection parses the three phone event types without a
 location join. These three phone events never enter LocationChat's visible timeline.
 The separate `phone_characters_moved` type is now a canonical location message:
 it uses the ordinary location queue, positive location cursor and SQLite storage.
+`conversation_round_id` is optional (omitted or null); when supplied it must be a
+positive integer. A roundless movement still updates live character positions and
+renders normally, without creating a reply round or a Send-blocking arrival reveal.
+It does not release any existing Tick, send or reply lock.
 It does not depend on opening or returning from MiniPhone. History uses its
 normal HTTP invalidation flow rather than copying WSS rows into the archive.
 Closing the phone keeps the world session alive; leaving the world disposes it.
@@ -674,7 +678,7 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 
 | 下行事件 | 当前使用场景及处理 |
 | --- | --- |
-| `phone_characters_moved` | 地点正式消息；带 world/location、global/message/location_message ID、conversation_round_id，conversation_type/sender_type 同名；payload.content[] 为 char_id/old_loc_id/to_loc_id。按顶层地点入普通队列与 SQLite，用地点游标排序/去重，HTTP 回填与本地恢复使用相同格式；无需私聊访问或返回观察期；实时消息同时按每项 char_id/to_loc_id 更新地图角色位置，历史回填不重放移动。详见 WebSocket 契约的私聊角色移动正式消息章节 |
+| `phone_characters_moved` | 地点正式消息；带 world/location、global/message/location_message ID；conversation_round_id 可省略或为 null，非空时必须为正整数；缺省仍入队展示且不新增 Send 等待锁，不解除其他锁；conversation_type/sender_type 同名；payload.content[] 为 char_id/old_loc_id/to_loc_id。按顶层地点入普通队列与 SQLite，用地点游标排序/去重，HTTP 回填与本地恢复使用相同格式；无需私聊访问或返回观察期；实时消息同时按每项 char_id/to_loc_id 更新地图角色位置，历史回填不重放移动。详见 WebSocket 契约的私聊角色移动正式消息章节 |
 | `phone.messages.delivered` | 批量合并私聊、绑定会话 ID、关联 AI 终态；当前前台会话按需提交已读；推送本身不重查聚合，已读成功后校准 |
 | `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；不触发聚合或应用列表请求 |
 | `phone.post.notification.created` | 仅查询帖子未读通知并更新帖子聚合；不涉及私聊，也不刷新 Feed、作者或详情 |

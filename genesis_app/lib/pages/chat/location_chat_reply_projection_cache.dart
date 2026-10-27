@@ -237,6 +237,7 @@ class _LocationChatReplyProjectionCache {
           ?.parse(message, _parseContext!);
       if (parsed == null) continue;
       var vm = ChatMessageVm(
+        llmAttempt: message.llmAttempt,
         localId:
             'reply:${_owner.widget.worldId}:${_owner.widget.locationId}:${parsed.roundId}:${cardId ?? 0}:${parsed.globalMessageId}',
         globalMessageId: parsed.globalMessageId,

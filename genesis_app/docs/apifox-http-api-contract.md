@@ -427,7 +427,7 @@ location 时间线 payload：
 - `err_no*`: integer，业务错误码；成功为 `0`
 - `err_msg*`: string，业务错误信息
 
-`type=phone_characters_moved` 是正式地点消息，`conversation_type`、`sender_type` 同为 `phone_characters_moved`，要求正数 `global_message_id/message_id/location_message_id/conversation_round_id` 和非空 `world_id/location_id`。`payload.content` 为 `[{char_id, old_loc_id, to_loc_id}]`，不是字符串；`ts/stream_type/trigger_uid` 可省略。V2 HTTP 回填和 WSS 共用解析，保留原始 payload，按 location_message_id 入队、排序、去重和落库；恢复时复用角色移动卡片。一个数组对应一条正式消息，不为每个角色拆出缓存行。它替代此前无消息 ID 的 `phone_characters_moved` 临时事件，详见 WebSocket 契约。
+`type=phone_characters_moved` 是正式地点消息，`conversation_type`、`sender_type` 同为 `phone_characters_moved`，要求正数 `global_message_id/message_id/location_message_id` 和非空 `world_id/location_id`。`conversation_round_id` 可省略或为 `null`，提供非空值时必须是正整数（不接受 0、负数、字符串或小数）；缺省不生成替代轮次、不加入回复轮次管理，仍入队、展示和持久化，不建立 Send 轮次锁或自身入场揭露等待，也不解除已有 Tick/发送/回复锁。`payload.content` 为 `[{char_id, old_loc_id, to_loc_id}]`，不是字符串；`ts/stream_type/trigger_uid` 可省略。V2 HTTP 回填和 WSS 共用解析，保留原始 payload，按 location_message_id 入队、排序、去重和落库；恢复时复用角色移动卡片。一个数组对应一条正式消息，不为每个角色拆出缓存行。它替代此前无消息 ID 的 `phone_characters_moved` 临时事件，详见 WebSocket 契约。
 
 `type=tick` 的合法 `payload` 使用 `{ current_time, tick_no, sub_tick_no, global, story_events, characters_moved }`。`story_events[]` 使用 `{ location_id, timestamp, visibility, visible_to, text, clue }`，`characters_moved[]` 使用 `{ char_id, old_loc_id, to_loc_id }`。历史纯文本或服务端无法结构化的 Tick 回退为 `{ content }`。客户端完整保留原始 `payload`，同时解析 typed Tick payload；一个 canonical Tick 只占用自己正数 `location_message_id` 对应的缓存/分页行，派生的 global、story 和 movement 气泡不再各自写入 SQLite 或推进游标。
 

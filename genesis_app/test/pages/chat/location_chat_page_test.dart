@@ -270,6 +270,155 @@ void main() {
     });
   }
 
+  for (final prepared in [false, true]) {
+    testWidgets('roundless phone movement never locks Send prepared=$prepared', (
+      tester,
+    ) async {
+      final backend = _LocationChatReplyHttpTransport()..seedReplyRound();
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: backend,
+      );
+      harness.service.applyWorldSnapshot(
+        WorldDetail.fromJson({
+          'world_id': 'world-current',
+          'characters': [
+            {'char_id': 'char-1', 'name': 'Alice'},
+          ],
+          'locations': [
+            {'location_id': 'location-current', 'name': 'Room'},
+            {'location_id': 'garden', 'name': 'Garden'},
+          ],
+          'character_positions': [
+            {'char_id': 'char-1', 'location_id': 'location-current'},
+          ],
+        }),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      });
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              usePreparedEntry: prepared,
+              messageQueueInitializationCovered: true,
+              networkAvailabilityCheck: () async => true,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Original reply.').evaluate().isNotEmpty,
+      );
+      await tester.pumpAndSettle();
+      final composer = find.byType(ChatComposer);
+      tester.widget<ChatComposer>(composer).controller.text = 'After movement';
+      await tester.pumpAndSettle();
+      bool canSend() => tester.widget<ChatComposer>(composer).sendEnabled;
+      expect(canSend(), isTrue);
+      var cursor = 303;
+      void movement({int? round}) {
+        cursor++;
+        harness.socket._serverFrame('phone_characters_moved', {
+          'world_id': 'world-current',
+          'location_id': 'location-current',
+          'global_message_id': 90000 + cursor,
+          'message_id': cursor,
+          'location_message_id': cursor,
+          if (round != null) 'conversation_round_id': round,
+          'conversation_type': 'phone_characters_moved',
+          'sender_type': 'phone_characters_moved',
+          'payload': {
+            'content': [
+              {
+                'char_id': 'char-1',
+                'old_loc_id': 'location-current',
+                'to_loc_id': 'garden',
+              },
+            ],
+          },
+        });
+      }
+
+      void roundEvent(String type, int round) {
+        harness.socket._serverFrame(type, {
+          'world_id': 'world-current',
+          'location_id': 'location-current',
+          'conversation_round_id': round,
+          'payload': <String, Object?>{},
+          'err_no': 0,
+        });
+      }
+
+      movement();
+      // Check every frame, including arrival, rather than only after animations settle.
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(canSend(), isTrue, reason: 'roundless arrival frame $i');
+      }
+      expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
+      expect(
+        harness.service.replyActions!.stateFor('location-current')!.roundId,
+        301,
+      );
+      expect(harness.service.state.conversationRoundStatesByLocation, isEmpty);
+
+      // A roundless movement must not clear an unrelated conversation wait.
+      roundEvent('waiting_conversation_round', 901);
+      await tester.pumpAndSettle();
+      expect(canSend(), isFalse);
+      movement();
+      await tester.pumpAndSettle();
+      expect(canSend(), isFalse);
+      roundEvent('end_conversation_round', 901);
+      await tester.pumpAndSettle();
+      expect(canSend(), isTrue);
+
+      // Round-bearing movements retain the existing end-of-round barrier.
+      movement(round: 902);
+      await tester.pumpAndSettle();
+      expect(canSend(), isFalse);
+      roundEvent('end_conversation_round', 902);
+      await tester.pumpAndSettle();
+      expect(canSend(), isTrue);
+
+      harness.socket._serverFrame('tick_start', {
+        'world_id': 'world-current',
+        'payload': <String, Object?>{},
+      });
+      await tester.pumpAndSettle();
+      movement();
+      await tester.pumpAndSettle();
+      expect(canSend(), isFalse);
+      harness.socket._serverFrame('tick_done', {
+        'world_id': 'world-current',
+        'payload': <String, Object?>{},
+      });
+      await tester.pumpAndSettle();
+      expect(canSend(), isTrue);
+
+      unawaited(tester.widget<ChatComposer>(composer).onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 1,
+      );
+      harness.socket.serverV2AckForLatestSend(errNo: 0);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 6));
+    });
+  }
+
   for (final timing in [
     'snapshot only',
     'without phone',
@@ -448,7 +597,8 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       session.dispose();
       unawaited(harness.service.dispose());
-      await tester.pump();
+      // Model-load failure Toasts may arrive while the phone is closing.
+      await tester.pump(const Duration(seconds: 3));
       debugDefaultTargetPlatformOverride = null;
     });
   }

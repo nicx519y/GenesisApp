@@ -36,6 +36,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     required String characterId,
     required String oldLocationId,
     required String toLocationId,
+    bool withConversationRound = true,
   }) {
     final payload = ChatroomPhoneCharactersMovedPayload.fromJson({
       'content': [
@@ -50,7 +51,9 @@ class LocalMockGenesisTransport implements HttpTransport {
       _state._newChatroomMessage(
         worldId: _state._resolveChatroomWorldId(worldId),
         locationId: locationId,
-        conversationRoundId: ++_state._chatroomRoundSeq,
+        conversationRoundId: withConversationRound
+            ? ++_state._chatroomRoundSeq
+            : 0,
         roundOrder: 0,
         senderType: chatroomPhoneCharactersMovedSenderType,
         senderId: '',
@@ -5875,7 +5878,9 @@ class _MockState {
       'global_message_id': asInt(message['global_message_id']),
       'message_id': asInt(message['message_id']),
       'location_message_id': asInt(message['location_message_id']),
-      'conversation_round_id': asInt(message['conversation_round_id']),
+      if (senderType != chatroomPhoneCharactersMovedSenderType ||
+          asInt(message['conversation_round_id']) > 0)
+        'conversation_round_id': asInt(message['conversation_round_id']),
       if (asString(message['conversation_type']).isNotEmpty)
         'conversation_type': asString(message['conversation_type']),
       'trigger_uid': message['trigger_uid'] is String

@@ -266,6 +266,7 @@ class WorldChatroomMessage {
     this.timelinePayload,
     this.v2TickPayload,
     this.minAppVersion = 0,
+    this.llmAttempt,
     this.rawPayload = const <String, dynamic>{},
   }) : locationMessageId = locationMessageId ?? 0,
        _businessType = businessType;
@@ -296,6 +297,7 @@ class WorldChatroomMessage {
   final ChatroomTimelinePayload? timelinePayload;
   final ChatroomV2TickPayload? v2TickPayload;
   final int minAppVersion;
+  final LlmAttempt? llmAttempt;
   final Map<String, dynamic> rawPayload;
 
   String get businessType {
@@ -371,7 +373,20 @@ class WorldChatroomMessage {
     final businessType = json.containsKey('type')
         ? asString(json['type']).trim().toLowerCase()
         : '';
+    final source = json['llm_attempt_source'];
+    final attempt = source is Map
+        ? LlmAttempt(
+            LlmGenerationId(
+              asString(source['world']),
+              asString(source['location']),
+              asString(source['round']),
+              asString(source['request']),
+            ),
+            asInt(source['number']),
+          )
+        : null;
     return WorldChatroomMessage(
+      llmAttempt: attempt,
       globalMessageId: asInt(
         json['global_message_id'],
         fallback: asInt(json['global_msg_id']),
@@ -690,6 +705,7 @@ class WorldChatroomMessage {
     ChatroomTimelinePayload? timelinePayload,
     ChatroomV2TickPayload? v2TickPayload,
     int? minAppVersion,
+    LlmAttempt? llmAttempt,
     Map<String, dynamic>? rawPayload,
   }) {
     return WorldChatroomMessage(
@@ -719,6 +735,7 @@ class WorldChatroomMessage {
       timelinePayload: timelinePayload ?? this.timelinePayload,
       v2TickPayload: v2TickPayload ?? this.v2TickPayload,
       minAppVersion: minAppVersion ?? this.minAppVersion,
+      llmAttempt: llmAttempt ?? this.llmAttempt,
       rawPayload: rawPayload ?? this.rawPayload,
     );
   }

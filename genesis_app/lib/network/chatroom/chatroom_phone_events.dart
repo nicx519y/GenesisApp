@@ -76,7 +76,7 @@ class ChatroomPhoneCharactersMoved extends ChatroomMessageEvent {
         globalMessageId: message.globalMessageId!,
         messageId: message.messageId!,
         locationMessageId: message.locationMessageId!,
-        conversationRoundId: '${message.conversationRoundId}',
+        conversationRoundId: _stringId(message.conversationRoundId),
         roundOrder: asInt(message.payload['round_order']),
         senderType: chatroomPhoneCharactersMovedSenderType,
         senderId: message.senderId,
@@ -99,7 +99,8 @@ class ChatroomPhoneCharactersMoved extends ChatroomMessageEvent {
         (message.globalMessageId ?? 0) <= 0 ||
         (message.messageId ?? 0) <= 0 ||
         (message.locationMessageId ?? 0) <= 0 ||
-        (message.conversationRoundId ?? 0) <= 0 ||
+        (message.conversationRoundId != null &&
+            message.conversationRoundId! <= 0) ||
         message.conversationType != chatroomPhoneCharactersMovedSenderType ||
         message.senderType != chatroomPhoneCharactersMovedSenderType) {
       throw const FormatException('Invalid canonical phone movement message');

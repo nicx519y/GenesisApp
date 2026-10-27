@@ -62,14 +62,18 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
         _replyRegenerationDispatchRevision,
         _replyCardTransitionBusy,
         Object.hashAll(
-          messages.map(
-            (message) => (
-              _locationChatMessageLayoutId(message),
-              message.status,
-              message.text,
-              message.imageUrl,
-            ),
-          ),
+          // Standalone movement arrivals must not invalidate the Send barrier,
+          // even for the single frame before layout confirms no reveal work.
+          messages
+              .where((message) => !message.isRoundlessPhoneMovement)
+              .map(
+                (message) => (
+                  _locationChatMessageLayoutId(message),
+                  message.status,
+                  message.text,
+                  message.imageUrl,
+                ),
+              ),
         ),
       ),
       child: child,

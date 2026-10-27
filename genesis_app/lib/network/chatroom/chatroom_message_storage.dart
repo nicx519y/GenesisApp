@@ -896,3 +896,37 @@ List<Map<String, dynamic>> _replacementMessages(
       ? sorted.sublist(sorted.length - limit)
       : sorted;
 }
+
+/// Runs inside the service's location write queue. Preserve unrelated rows and
+/// server-confirmed rows, including ones reusing the same global message ID.
+extension ChatroomAttemptCache on ChatroomMessageStorage {
+  Future<void> removeGenerationAttempts({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required String generationKey,
+    required bool Function(int) shouldRemove,
+    required bool Function() isCurrent,
+  }) async {
+    final rows = await loadLatestMessages(
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      limit: 0x7fffffff,
+    );
+    final retained = rows.where((row) {
+      final source = row['llm_attempt_source'];
+      return source is! Map ||
+          source['key'] != generationKey ||
+          !shouldRemove(asInt(source['number']));
+    }).toList();
+    if (retained.length == rows.length || !isCurrent()) return;
+    await replaceMessages(
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      messages: retained,
+      isCurrent: isCurrent,
+    );
+  }
+}

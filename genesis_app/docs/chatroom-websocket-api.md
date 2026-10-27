@@ -243,7 +243,7 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 
 #### MiniPhone 私聊角色移动正式消息（2026-10-21）
 
-`phone_characters_moved` 是地点正式消息，替代此前无消息 ID 的临时控制事件：
+`phone_characters_moved` 是地点正式消息，替代此前无消息 ID 的临时控制事件。`conversation_round_id` 可选；以下为不关联对话轮次的消息：
 
 ```json
 {
@@ -253,7 +253,6 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
   "global_message_id": 1001,
   "message_id": 1001,
   "location_message_id": 25,
-  "conversation_round_id": 801,
   "conversation_type": "phone_characters_moved",
   "sender_type": "phone_characters_moved",
   "payload": {
@@ -262,7 +261,9 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 }
 ```
 
-- 四个 ID（含 round）必须是正整数，world/location 为非空字符串，`conversation_type` 与 `sender_type` 使用上述值。`stream_type` 可省略或为空；`ts`、`trigger_uid`、发送者名称/ID 可省略，`err_no` 省略时按 0 处理，非零业务错误不入队。旧的无正式 ID 的通知形态不再接受，不再用时间戳和内容生成临时去重键。
+- `global_message_id/message_id/location_message_id` 三个消息 ID 必须是正整数，world/location 为非空字符串，`conversation_type` 与 `sender_type` 使用上述值。`stream_type` 可省略或为空；`ts`、`trigger_uid`、发送者名称/ID 可省略，`err_no` 省略时按 0 处理，非零业务错误不入队。旧的无正式 ID 的通知形态不再接受，不再用时间戳和内容生成临时去重键。
+- `conversation_round_id` 可省略或为 `null`；提供非空值时必须是正整数，`0`、负数、字符串和小数均无效。缺省表示该消息不关联对话轮次，不生成临时/替代轮次号；仍正常入地点队列、排序、去重、持久化、展示并更新实时角色位置，HTTP 回填和本地恢复遵循相同语义。缺省消息不建立轮次等待锁、不等待 `end_conversation_round`，也不通过自身入场揭露动画阻塞 Send。已有的 Tick、发送、其他轮次和回复动画等待仍生效，不因收到该消息而解除。
+- 携带正数 `conversation_round_id` 时保留原有轮次处理；独立的新移动轮次可由同世界、同地点、同轮次的成功 `end_conversation_round` 结束。不通过省略轮次字段解除其他消息的等待状态。
 - `payload.content` 为数组，每项 `char_id/old_loc_id/to_loc_id` 为非空字符串。保留原始 payload 和 old_loc_id；一个消息只占用一个地点游标/缓存行。展示时与 Tick 共用聚合规则：单条消息内按去除首尾空白后的 `to_loc_id` 分组，不区分出发地，目的地按首次出现顺序排列，姓名按原顺序拼接且不去重。聚合不改写原始记录，也不跨消息合并。空数组可保留正式消息和游标，但不生成卡片。
 - 收到后按顶层 `location_id` 通过普通消息 upsert 写入地点队列和 SQLite，使用 `location_message_id` 排序、分页和去重。不会按移动数组额外广播或复制到出发/目的地点，不合并不同正式消息中的同一角色。HTTP V2 messages 回填同样解析，和 WSS/SQLite 恢复共用 ID 语义。
 - 实时收到合法消息时，同时按每项 `char_id → to_loc_id` 更新世界角色位置及地点实体索引，地图通过已有世界状态订阅刷新。每个角色记录最近应用的私聊移动 `global_message_id`，重复/较旧的同类事件只入消息队列、不回退位置；切换账号或世界清空此记录。HTTP 历史回填与 SQLite 恢复不重放位置变化。没有世界快照或缺少角色资料时走已有世界详情刷新。
@@ -1119,3 +1120,19 @@ replay guarantee. Player peers do not emit AI reply-state events.
 - ext_data：connect_attempts（本轮连接尝试总数，含成功一次）、duration_unit=ms、duration_scope=foreground_recovery、success_stage=ws_connected。
 
 前后台切换保留本轮恢复计数、暂停/恢复耗时累计；主动取消、切换账号/世界或释放清理恢复状态。打点异常不影响连接流程。
+
+### AI 自动重试的 attempt 隔离与本地撤回
+
+普通 P3／Go On 的 `llm_stream_start/chunk/end` 与候选 `llm_card_stream` 可在外层携带 `gateway_request_id`、正整数 `attempt_no`。两个字段同时缺省保留旧协议；部分缺失或非法值不推算。生成范围为世界、地点、轮次、候选 card_id（若有）及 gateway_request_id；单条流再按 attempt 和 global_message_id 隔离，不能用角色代替消息身份。
+
+新增控制事件 `type=llm_generation_state`，`stream_type=""`。payload 包含 `state=retrying/failed`、`retract_attempt_no`、`reason_code`，retrying 另有更大的 `next_attempt_no`，候选另有 `card_id`。外层 `err_no=0` 不表示生成成功。控制类型先于正文流路由。候选控制使用认证连接和世界／地点／轮次／候选身份，不额外要求此事件携带 trigger_uid。
+
+收到更大的 attempt 的任意正文帧时，先撤回该生成全部较小 attempt 的输出，包括已经收到单条 end 的气泡，再从空正文处理新帧。支持首帧为 chunk 或 end、跳号、同一角色多条消息和消息身份复用。已撤回尝试、单条 end 后的 chunk/start，以及明确终态后的正文不会重新创建消息。重复通知不得推进等待状态；next_attempt_no 与实际已接收 attempt 分开记录。
+
+业务撤回立即清理正文、分片、地点消息索引及带本次来源的本地缓存，不调用删除接口。缓存保存本地生成来源，异步写入前重新检查是否失效；只读权威历史不携带临时来源，不按复用 ID 一并删除。候选流仍不进入正式历史缓存。
+
+展示层可保留独立退场快照：旧气泡从下到上依次以正向两倍速度收起文字，随后将整行高度收至零；新 attempt 在退场期间只拼装，不提前展示。退场结束后，有正文则从零按正常速度播放（即使已经收到完整 end），否则显示现有三点等待气泡。具体动画见 `location-chat-bubble-design.md`。
+
+普通流退场期间暂停 5 秒本地空闲计时，退场完成且仍需内容时重新计时。已本地超时的轮次不重新锁住发送。无展示消费者时不等待动画回执；候选继续使用原专用恢复入口。自动重试不发送新的生成、计费或取消请求。
+
+本次不接入 generation-status HTTP 查询，也不因 `end_conversation_round` 新增历史刷新。该事件继续沿用现有轮次结束职责，不用作本次生成成功判据。服务端新字段和事件的实际启用仍需联调确认。

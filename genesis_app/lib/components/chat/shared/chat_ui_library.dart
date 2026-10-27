@@ -1,3 +1,4 @@
+import '../../../utils/llm_generation.dart';
 import '../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:ui' as ui;

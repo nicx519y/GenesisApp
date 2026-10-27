@@ -482,56 +482,72 @@ class _ChatComposerBackdropFilter extends StatelessWidget {
   }
 }
 
-class _ChatComposerHeightObserver extends StatefulWidget {
+class _ChatComposerHeightObserver extends SingleChildRenderObjectWidget {
   const _ChatComposerHeightObserver({
-    required this.child,
+    required super.child,
     required this.onHeightChanged,
   });
 
-  final Widget child;
   final ValueChanged<double>? onHeightChanged;
 
   @override
-  State<_ChatComposerHeightObserver> createState() =>
-      _ChatComposerHeightObserverState();
+  _RenderChatComposerHeightObserver createRenderObject(BuildContext context) =>
+      _RenderChatComposerHeightObserver(onHeightChanged: onHeightChanged);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderChatComposerHeightObserver renderObject,
+  ) {
+    renderObject.onHeightChanged = onHeightChanged;
+  }
 }
 
-class _ChatComposerHeightObserverState
-    extends State<_ChatComposerHeightObserver> {
-  double? _lastHeight;
+class _RenderChatComposerHeightObserver extends RenderProxyBox {
+  _RenderChatComposerHeightObserver({
+    required ValueChanged<double>? onHeightChanged,
+  }) : _onHeightChanged = onHeightChanged;
 
-  @override
-  void initState() {
-    super.initState();
-    _scheduleReportHeight();
+  ValueChanged<double>? _onHeightChanged;
+  double? _lastReportedHeight;
+  double? _pendingHeight;
+  bool _reportScheduled = false;
+
+  set onHeightChanged(ValueChanged<double>? value) {
+    if (_onHeightChanged == value) return;
+    _onHeightChanged = value;
+    _lastReportedHeight = null;
+    if (value != null) markNeedsLayout();
   }
 
   @override
-  void didUpdateWidget(covariant _ChatComposerHeightObserver oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _scheduleReportHeight();
-  }
+  void performLayout() {
+    super.performLayout();
+    if (_onHeightChanged == null) return;
 
-  void _scheduleReportHeight() {
+    // Hidden retained routes may build without ever laying out. Read only
+    // after real layout, including the first layout when they become visible.
+    _pendingHeight = size.height;
+    if (_reportScheduled || _pendingHeight == _lastReportedHeight) return;
+    _reportScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final height = context.size?.height;
-      if (height == null || height == _lastHeight) return;
-      _lastHeight = height;
-      widget.onHeightChanged?.call(height);
+      _reportScheduled = false;
+      final height = _pendingHeight;
+      _pendingHeight = null;
+      final callback = _onHeightChanged;
+      if (!attached || callback == null || height == null) return;
+      if (height == _lastReportedHeight) return;
+      _lastReportedHeight = height;
+      // Keep parent setState/scroll work outside layout, and coalesce multiple
+      // layouts within one frame to their final height.
+      callback(height);
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    _scheduleReportHeight();
-    return NotificationListener<SizeChangedLayoutNotification>(
-      onNotification: (_) {
-        _scheduleReportHeight();
-        return false;
-      },
-      child: SizeChangedLayoutNotifier(child: widget.child),
-    );
+  void detach() {
+    _pendingHeight = null;
+    super.detach();
   }
 }
 

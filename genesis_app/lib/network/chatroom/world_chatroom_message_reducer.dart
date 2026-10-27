@@ -734,14 +734,28 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     final resolvedMessages = <WorldChatroomMessage>[];
     var lastMessageId = _state.lastMessageId;
     for (final rawIncoming in messages) {
+      if (!_isAttemptCurrent(rawIncoming.llmAttempt)) continue;
+      var attached = rawIncoming;
+      if (rawIncoming.llmAttempt case final token?) {
+        final generation = _llmGenerations.putIfAbsent(
+          token.generation,
+          () => LlmGenerationState(token.generation),
+        );
+        final shared = generation.attempts.putIfAbsent(
+          token.number,
+          () => token,
+        );
+        _observeAttempt(shared);
+        attached = rawIncoming.copyWith(llmAttempt: shared);
+      }
       final incoming =
-          rawIncoming.streaming &&
+          attached.streaming &&
               _streamLocallyEnded(
-                rawIncoming.locationId,
-                rawIncoming.conversationRoundId,
+                attached.locationId,
+                attached.conversationRoundId,
               )
-          ? rawIncoming.copyWith(streaming: false)
-          : rawIncoming;
+          ? attached.copyWith(streaming: false)
+          : attached;
       if (_deletedMessageIds[incoming.locationId]?.contains(
             incoming.globalMessageId,
           ) ==
@@ -764,11 +778,13 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           message,
         );
       }
-      final key = _streamKey(
-        message.locationId,
-        message.conversationRoundId,
-        message.senderId,
-      );
+      final key = message.llmAttempt == null
+          ? _streamKey(
+              message.locationId,
+              message.conversationRoundId,
+              message.senderId,
+            )
+          : '${message.llmAttempt!.generation.key}:${message.llmAttempt!.number}:${message.globalMessageId}';
       if (message.streaming && key.isNotEmpty) {
         streamKeys[key] = message;
       } else {
@@ -835,7 +851,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         );
       }
     }
-    if (persist) {
+    if (persist && resolvedMessages.any((m) => m.llmAttempt == null)) {
       for (final locationId in changedLocationIds) {
         _restartPendingHistory(locationId);
       }
@@ -888,6 +904,9 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     WorldChatroomMessage existing,
     WorldChatroomMessage incoming,
   ) {
+    if (incoming.llmAttempt != null || existing.llmAttempt != null) {
+      return incoming;
+    }
     if (existing.rawPayload['status'] == 20 && incoming.isLlmStreamMessage) {
       return existing;
     }
@@ -961,6 +980,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         left.locationId == right.locationId &&
         left.senderType == right.senderType &&
         left.businessType == right.businessType &&
+        left.llmAttempt == right.llmAttempt &&
         left.streamType == right.streamType &&
         left.userId == right.userId &&
         left.senderId == right.senderId &&

@@ -50,6 +50,19 @@ String? chatroomFailureOccurrenceKey(
   final kind = isChatroomBalanceFailureCode(failure.code)
       ? 'balance'
       : failure.code.trim();
+  if (cause is ChatroomLlmGenerationState) {
+    final id = cause.generation;
+    return id.card == null
+        ? jsonEncode(['generation', id.key])
+        : jsonEncode([
+            'card',
+            id.world,
+            id.location,
+            int.tryParse(id.round),
+            id.card,
+            kind,
+          ]);
+  }
   if (cause is ChatroomAck && (cause.regeneration?.cardId ?? 0) > 0) {
     final receipt = cause.regeneration!;
     return jsonEncode([

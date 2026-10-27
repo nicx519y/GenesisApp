@@ -23,6 +23,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
   }
 
   Future<void> _handleEvent(ChatroomEvent event) async {
+    if (_handleAttemptStream(event)) return;
     switch (event) {
       case ChatroomPhoneCharactersMoved e:
         if (e.worldId == _worldId) {
@@ -33,6 +34,8 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         }
       case ChatroomPhoneEvent e:
         if (e.worldId == _worldId) _phoneEvents.add(e);
+      case ChatroomLlmGenerationState e:
+        _handleGenerationState(e);
       case ChatroomLlmCardStream():
       case ChatroomLlmCardGenerationEnd():
         // Candidate protocol events are exposed by the session only.

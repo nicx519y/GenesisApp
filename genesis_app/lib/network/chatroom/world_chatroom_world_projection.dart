@@ -195,6 +195,17 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     int socketTickNo = 0,
   }) {
     if (_disposed) return;
+    final cause = failure.cause;
+    if (cause is ChatroomLlmCardGenerationEnd &&
+        !isChatroomBalanceFailureCode(failure.code) &&
+        (_replyActionsController?.failedGenerationForCard(
+              cause.locationId,
+              cause.conversationRoundId,
+              cause.cardId,
+            ) ??
+            false)) {
+      return;
+    }
     final occurrence =
         chatroomFailureOccurrenceKey(failure, worldId: _worldId) ??
         (failure.cause is ChatroomEvent ? failure.cause! : failure);
@@ -236,7 +247,8 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     }
     final ticket = _historyTicket(locationId);
     await _withLocationWrite(locationId, () async {
-      if (!_historyIsCurrent(locationId, ticket) ||
+      if (!_isAttemptCurrent(message.llmAttempt) ||
+          !_historyIsCurrent(locationId, ticket) ||
           _deletedMessageIds[locationId]?.contains(message.globalMessageId) ==
               true) {
         return;
@@ -326,6 +338,15 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       'err_no': 0,
       'err_msg': '',
       'is_llm_stream': message.isLlmStreamMessage,
+      if (message.llmAttempt case final attempt?)
+        'llm_attempt_source': {
+          'world': attempt.generation.world,
+          'location': attempt.generation.location,
+          'round': attempt.generation.round,
+          'request': attempt.generation.request,
+          'number': attempt.number,
+          'key': attempt.generation.key,
+        },
       'created_at': message.createdAt?.toIso8601String(),
       'ts': message.createdAt?.millisecondsSinceEpoch,
     };

@@ -1,3 +1,4 @@
+import '../../utils/llm_generation.dart';
 import '../mini_phone/mini_phone_models.dart';
 import 'dart:convert';
 
@@ -68,6 +69,8 @@ class ChatroomV2Message {
     this.streamType = '',
     this.ts,
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     this.locationId = '',
     this.sessionId = '',
     this.globalMessageId,
@@ -95,6 +98,8 @@ class ChatroomV2Message {
   final String type;
   final String streamType;
   final int? ts;
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId;
   final String locationId;
   final String sessionId;
@@ -164,12 +169,37 @@ class ChatroomV2Message {
         'global_message_id',
         'message_id',
         'location_message_id',
-        'conversation_round_id',
+        if (type == 'llm_message_updated' ||
+            json['conversation_round_id'] != null)
+          'conversation_round_id',
       ]) {
         _mutationId(json[key]);
       }
     }
+    final request = json['gateway_request_id'];
+    final attempt = json['attempt_no'];
+    if (request != null || attempt != null) {
+      if (request is! String ||
+          request.trim().isEmpty ||
+          (type != 'llm_generation_state' &&
+              (attempt is! int || attempt <= 0))) {
+        throw const ChatroomProtocolException('Invalid generation identity');
+      }
+    }
+    if (attempt != null && type != 'llm_generation_state') {
+      llmCardInt(json['global_message_id']);
+      llmCardInt(json['conversation_round_id']);
+      if (asString(json['world_id']).trim().isEmpty ||
+          asString(json['location_id']).trim().isEmpty) {
+        throw const ChatroomProtocolException('Missing generation scope');
+      }
+      if (streamType == 'llm_chunk' || streamType == 'chunk') {
+        llmCardInt(_optionalJsonMap(json['payload'])['seq']);
+      }
+    }
     return ChatroomV2Message(
+      gatewayRequestId: request is String ? request : '',
+      attemptNo: attempt is int ? attempt : null,
       type: type,
       streamType: streamType,
       ts: json['ts'] == null ? null : asInt(json['ts']),
@@ -232,6 +262,8 @@ class ChatroomV2Message {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'type': type,
+      if (gatewayRequestId.isNotEmpty) 'gateway_request_id': gatewayRequestId,
+      if (attemptNo != null) 'attempt_no': attemptNo,
       'stream_type': streamType,
       if (ts != null) 'ts': ts,
       if (worldId.isNotEmpty) 'world_id': worldId,
@@ -599,6 +631,8 @@ class ChatroomEnvelope {
     this.ts,
     this.payload = const <String, dynamic>{},
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     this.sessionId = '',
     this.locationId = '',
     this.userId = '',
@@ -630,6 +664,8 @@ class ChatroomEnvelope {
   final String eventId;
   final int? ts;
   final Map<String, dynamic> payload;
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId;
   final String sessionId;
   final String locationId;
@@ -717,6 +753,8 @@ class ChatroomEnvelope {
       ts: message.ts,
       payload: message.payload,
       worldId: message.worldId,
+      gatewayRequestId: message.gatewayRequestId,
+      attemptNo: message.attemptNo,
       sessionId: message.sessionId,
       locationId: message.locationId,
       userId: message.userId,
@@ -799,6 +837,8 @@ class ChatroomEnvelope {
       streamType: streamType,
       ts: ts,
       worldId: worldId,
+      gatewayRequestId: gatewayRequestId,
+      attemptNo: attemptNo,
       locationId: locationId,
       sessionId: sessionId,
       globalMessageId: globalMsgId,
@@ -1814,17 +1854,23 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
 class ChatroomStreamIdentity {
   const ChatroomStreamIdentity({
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     this.locationId = '',
     this.sessionId = '',
     this.messageId = 0,
+    this.globalMessageId = 0,
     this.conversationRoundId = '',
     this.senderId = '',
   });
 
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId;
   final String locationId;
   final String sessionId;
   final int messageId;
+  final int globalMessageId;
   final String conversationRoundId;
   final String senderId;
 
@@ -1835,6 +1881,9 @@ class ChatroomStreamIdentity {
   /// Returns a collision-resistant key when the server supplied a stable id.
   /// Cursorless stream frames must use unique-candidate matching instead.
   String? get stableKey {
+    if (attemptNo != null) {
+      return '$worldId|$locationId|$conversationRoundId|$gatewayRequestId|$attemptNo|$globalMessageId';
+    }
     if (!hasStableDiscriminator) return null;
     final discriminator = hasStableRoundId
         ? 'round:$conversationRoundId'
@@ -1846,6 +1895,8 @@ class ChatroomStreamIdentity {
 class ChatroomAiStreamStart extends ChatroomEvent {
   const ChatroomAiStreamStart({
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     required this.sessionId,
     required this.locationId,
     this.globalMessageId = 0,
@@ -1866,6 +1917,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
     this.rawPayload = const <String, dynamic>{},
   });
 
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId;
   final String sessionId;
   final String locationId;
@@ -1888,6 +1941,9 @@ class ChatroomAiStreamStart extends ChatroomEvent {
 
   ChatroomStreamIdentity get identity => ChatroomStreamIdentity(
     worldId: worldId,
+    gatewayRequestId: gatewayRequestId,
+    attemptNo: attemptNo,
+    globalMessageId: globalMessageId,
     locationId: locationId,
     sessionId: sessionId,
     messageId: messageId,
@@ -1918,6 +1974,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   factory ChatroomAiStreamStart.fromV2Message(ChatroomV2Message message) {
     return ChatroomAiStreamStart(
       worldId: message.worldId,
+      gatewayRequestId: message.gatewayRequestId,
+      attemptNo: message.attemptNo,
       sessionId: message.sessionId,
       locationId: message.locationId,
       globalMessageId: message.globalMessageId ?? 0,
@@ -1945,6 +2003,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
 class ChatroomAiStreamChunk extends ChatroomEvent {
   const ChatroomAiStreamChunk({
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     required this.sessionId,
     required this.locationId,
     this.globalMessageId = 0,
@@ -1953,6 +2013,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     required this.conversationRoundId,
     this.conversationType = '',
     this.triggerUid = '',
+    this.senderType = '',
+    this.senderName = '',
     required this.senderId,
     required this.seq,
     required this.chunk,
@@ -1965,6 +2027,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     this.rawPayload = const <String, dynamic>{},
   });
 
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId;
   final String sessionId;
   final String locationId;
@@ -1974,6 +2038,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   final String conversationRoundId;
   final String conversationType;
   final String triggerUid;
+  final String senderType, senderName;
   final String senderId;
   final int seq;
   final String chunk;
@@ -1987,6 +2052,9 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
 
   ChatroomStreamIdentity get identity => ChatroomStreamIdentity(
     worldId: worldId,
+    gatewayRequestId: gatewayRequestId,
+    attemptNo: attemptNo,
+    globalMessageId: globalMessageId,
     locationId: locationId,
     sessionId: sessionId,
     messageId: messageId,
@@ -2016,6 +2084,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   factory ChatroomAiStreamChunk.fromV2Message(ChatroomV2Message message) {
     return ChatroomAiStreamChunk(
       worldId: message.worldId,
+      gatewayRequestId: message.gatewayRequestId,
+      attemptNo: message.attemptNo,
       sessionId: message.sessionId,
       locationId: message.locationId,
       globalMessageId: message.globalMessageId ?? 0,
@@ -2024,6 +2094,10 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
       conversationRoundId: _stringId(message.conversationRoundId),
       conversationType: message.conversationType,
       triggerUid: message.triggerUid,
+      senderType: message.senderType.isEmpty
+          ? message.type
+          : message.senderType,
+      senderName: message.senderName,
       senderId: message.senderId,
       seq: asInt(message.payload['seq']),
       chunk: asString(message.payload['content']),
@@ -2043,6 +2117,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
 class ChatroomAiStreamEnd extends ChatroomEvent {
   const ChatroomAiStreamEnd({
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     required this.sessionId,
     required this.locationId,
     this.globalMessageId = 0,
@@ -2051,6 +2127,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
     required this.conversationRoundId,
     this.conversationType = '',
     this.triggerUid = '',
+    this.senderType = '',
+    this.senderName = '',
     required this.senderId,
     required this.content,
     required this.createdAt,
@@ -2062,6 +2140,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
     this.rawPayload = const <String, dynamic>{},
   });
 
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String worldId;
   final String sessionId;
   final String locationId;
@@ -2071,6 +2151,7 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   final String conversationRoundId;
   final String conversationType;
   final String triggerUid;
+  final String senderType, senderName;
   final String senderId;
   final String content;
   final DateTime? createdAt;
@@ -2083,6 +2164,9 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
 
   ChatroomStreamIdentity get identity => ChatroomStreamIdentity(
     worldId: worldId,
+    gatewayRequestId: gatewayRequestId,
+    attemptNo: attemptNo,
+    globalMessageId: globalMessageId,
     locationId: locationId,
     sessionId: sessionId,
     messageId: messageId,
@@ -2111,6 +2195,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   factory ChatroomAiStreamEnd.fromV2Message(ChatroomV2Message message) {
     return ChatroomAiStreamEnd(
       worldId: message.worldId,
+      gatewayRequestId: message.gatewayRequestId,
+      attemptNo: message.attemptNo,
       sessionId: message.sessionId,
       locationId: message.locationId,
       globalMessageId: message.globalMessageId ?? 0,
@@ -2119,6 +2205,10 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
       conversationRoundId: _stringId(message.conversationRoundId),
       conversationType: message.conversationType,
       triggerUid: message.triggerUid,
+      senderType: message.senderType.isEmpty
+          ? message.type
+          : message.senderType,
+      senderName: message.senderName,
       senderId: message.senderId,
       content: asString(message.payload['content']),
       createdAt: asDateTime(
@@ -2591,6 +2681,8 @@ class ChatroomMessageHandlers {
   void handle(ChatroomEvent event) {
     onEvent?.call(event);
     switch (event) {
+      case ChatroomLlmGenerationState():
+        break;
       case ChatroomPhoneCharactersMoved():
       case ChatroomPhoneEvent():
         break;
@@ -2695,6 +2787,9 @@ ChatroomEvent chatroomLegacyEventFromEnvelope(ChatroomEnvelope envelope) {
 /// `type`. This prevents character/narrator stream frames from being mistaken
 /// for complete canonical messages.
 ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
+  if (message.type == 'llm_generation_state') {
+    return ChatroomLlmGenerationState.fromV2Message(message);
+  }
   if (message.type == 'llm_card_stream') {
     return ChatroomLlmCardStream.fromV2Message(message);
   }
@@ -2788,6 +2883,8 @@ ChatroomEvent chatroomEventFromEnvelope(
 
 String chatroomEventType(ChatroomEvent event) {
   switch (event) {
+    case ChatroomLlmGenerationState():
+      return 'llm_generation_state';
     case ChatroomPhoneCharactersMoved():
       return 'phone_characters_moved';
     case ChatroomPhoneEvent e:
@@ -2906,4 +3003,39 @@ int _wsCode(Map<String, dynamic> payload) {
   final raw = payload['err_no'];
   if (raw == null || asString(raw).isEmpty) return 0;
   return asInt(raw);
+}
+
+class ChatroomLlmGenerationState extends ChatroomEvent {
+  ChatroomLlmGenerationState.fromV2Message(ChatroomV2Message message)
+    : generation = LlmGenerationId(
+        message.worldId,
+        message.locationId,
+        '${llmCardInt(message.conversationRoundId)}',
+        message.gatewayRequestId,
+        message.payload['card_id'] == null
+            ? null
+            : llmCardInt(message.payload['card_id']),
+      ),
+      state = asString(message.payload['state']),
+      retractAttemptNo = llmCardInt(message.payload['retract_attempt_no']),
+      nextAttemptNo = message.payload['next_attempt_no'] == null
+          ? null
+          : llmCardInt(message.payload['next_attempt_no']),
+      reasonCode = asString(message.payload['reason_code']) {
+    if (message.streamType.isNotEmpty ||
+        generation.world.isEmpty ||
+        generation.location.isEmpty ||
+        generation.request.isEmpty ||
+        reasonCode.isEmpty ||
+        !const {'retrying', 'failed'}.contains(state) ||
+        (state == 'retrying' &&
+            (nextAttemptNo == null || nextAttemptNo! <= retractAttemptNo)) ||
+        (state == 'failed' && nextAttemptNo != null)) {
+      throw const FormatException('Invalid generation state');
+    }
+  }
+  final LlmGenerationId generation;
+  final String state, reasonCode;
+  final int retractAttemptNo;
+  final int? nextAttemptNo;
 }

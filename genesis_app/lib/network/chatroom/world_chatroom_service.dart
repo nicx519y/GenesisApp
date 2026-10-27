@@ -1,3 +1,4 @@
+import '../../utils/llm_generation.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
@@ -34,6 +35,7 @@ part 'world_chatroom_event_projection.dart';
 part 'world_chatroom_message_reducer.dart';
 part 'world_chatroom_world_projection.dart';
 part 'world_chatroom_models.dart';
+part 'world_chatroom_generation_recovery.dart';
 part 'world_chatroom_retention.dart';
 part 'world_chatroom_stream_watchdog.dart';
 
@@ -485,6 +487,7 @@ class WorldChatroomService {
   final _locationWrites = <String, Future<void>>{};
   final _deletedMessageIds = <String, Set<int>>{};
 
+  final _llmGenerations = <LlmGenerationId, LlmGenerationState>{};
   final Map<String, _ChatroomStreamAccumulator> _streamAccumulators =
       <String, _ChatroomStreamAccumulator>{};
   final _retentionLeases =
@@ -962,6 +965,14 @@ class WorldChatroomService {
       _seenSummaryUpdates.clear();
       _phoneMovementGlobalIdsByCharacter.clear();
       _reportedFailureOccurrences.clear();
+    }
+    if (_worldId != nextWorldId || _identity?.userId != identity.userId) {
+      for (final generation in _llmGenerations.values) {
+        for (final attempt in generation.attempts.values) {
+          attempt.onPresentationChanged = null;
+        }
+      }
+      _llmGenerations.clear();
     }
     _worldId = nextWorldId;
     if (_worldId.isEmpty) {
@@ -1677,6 +1688,12 @@ class WorldChatroomService {
     _cacheEvictedRanges.clear();
     _clearAllConversationRounds();
     _disposed = true;
+    for (final generation in _llmGenerations.values) {
+      for (final attempt in generation.attempts.values) {
+        attempt.onPresentationChanged = null;
+      }
+    }
+    _llmGenerations.clear();
     _disconnectMonitor?.dispose();
     _replyActionsController?.dispose();
     _replyActionsController = null;

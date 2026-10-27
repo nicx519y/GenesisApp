@@ -82,6 +82,63 @@ class ChatStreamingEffects extends StatefulWidget {
         .declareTasks(tasks);
   }
 
+  /// Captures the current reveal, without advancing to received-but-unseen text.
+  @visibleForTesting
+  static List<
+    ({
+      Object identity,
+      double revealed,
+      bool textDone,
+      bool removed,
+      double height,
+      bool active,
+    })
+  >
+  debugRetractionsOf(BuildContext context) {
+    final owner = context.getInheritedWidgetOfExactType<_EffectsScope>()?.owner;
+    return [
+      for (final entry
+          in owner?._records.entries ?? <MapEntry<Object, _StreamRecord>>[])
+        if (entry.value.retracting)
+          (
+            identity: entry.key,
+            revealed: entry.value.revealed,
+            textDone: entry.value.retractionTextDone,
+            removed: entry.value.retracted,
+            height: entry.value.rowExtent,
+            active: owner?._firstTask == entry.key,
+          ),
+    ];
+  }
+
+  static bool retract(
+    BuildContext context,
+    Object identity,
+    VoidCallback onDone,
+  ) {
+    final owner = context.getInheritedWidgetOfExactType<_EffectsScope>()?.owner;
+    final record = owner?._records[identity];
+    if (owner == null ||
+        record == null ||
+        !record.seen ||
+        record.hidden ||
+        record.rowHeight <= 0) {
+      return false;
+    }
+    if (record.retracting) return false;
+    record.retracting = true;
+    record.cancelled = false;
+    record.restored = false;
+    record.finishing = true;
+    record.onRetracted = onDone;
+    for (final body in owner._bodies) {
+      body.markNeedsLayout();
+    }
+    owner.refreshQueue();
+    owner._refreshPresentation();
+    return true;
+  }
+
   static bool needsLayoutOf(BuildContext context, Object identity) {
     final owner = context
         .dependOnInheritedWidgetOfExactType<_EffectsScope>()
@@ -218,6 +275,16 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     }
   }
 
+  void _refreshPresentation() {
+    if (_queueUpdateScheduled) return;
+    _queueUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _queueUpdateScheduled = false;
+      if (mounted) setState(() => _queueRevision++);
+    });
+    refreshQueue();
+  }
+
   void _scheduleSettlement() {
     if (_settlementScheduled) return;
     _settlementScheduled = true;
@@ -253,7 +320,16 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
   void refreshQueue() {
     _scheduleSettlement();
     Object? firstTask;
+    for (final task in (_tasks ?? const <ChatStreamingTask>[]).reversed) {
+      final record = _records[task.identity];
+      if (record?.retracting == true && !record!.retracted) {
+        firstTask = task.identity;
+        break;
+      }
+    }
+    final retracting = firstTask != null;
     for (final task in _tasks ?? const <ChatStreamingTask>[]) {
+      if (retracting) break;
       if (_deferredTasks.contains(task.identity)) continue;
       final record = _records[task.identity];
       if (record != null &&
@@ -335,7 +411,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     // Entry restoration is distinct from an end frame on an open page:
     // discard the old visual backlog only when this message has completed.
     // This also covers a retained owner whose body was hidden while it ended.
-    result.restored = restoredContent && !streaming;
+    result.restored = !result.retracting && restoredContent && !streaming;
     if (result.restored) result.finishing = false;
     // Remember receipt even if streaming and terminal builds share a frame.
     if (!result.cancelled &&
@@ -500,7 +576,12 @@ class ChatStreamingMessage extends StatelessWidget {
       settings: effects.settings,
       record: record,
       streaming: streaming,
-      child: _StreamingMessageRow(record: record, child: child),
+      child: _StreamingMessageRow(
+        record: record,
+        owner: effects.owner,
+        settings: effects.settings,
+        child: child,
+      ),
     );
   }
 }
@@ -625,6 +706,9 @@ class _StreamingBodyRenderWidget extends SingleChildRenderObjectWidget {
 }
 
 class _StreamRecord {
+  bool retracting = false, retracted = false, retractionTextDone = false;
+  double rowHeight = 0, rowExtent = 0;
+  VoidCallback? onRetracted;
   List<String> text = const [];
   double revealed = 0;
   double height = 0;
@@ -638,21 +722,118 @@ class _StreamRecord {
 
 /// Keep queued bodies mounted for measurement/timing, but expose none of the
 /// row (surface, avatar, name, date or spacing) before visible text exists.
-class _StreamingMessageRow extends SingleChildRenderObjectWidget {
-  const _StreamingMessageRow({required this.record, required super.child});
+class _StreamingMessageRow extends StatefulWidget {
+  const _StreamingMessageRow({
+    required this.record,
+    required this.owner,
+    required this.settings,
+    required this.child,
+  });
   final _StreamRecord record;
+  final _ChatStreamingEffectsState owner;
+  final LocationChatBubbleLayoutSettings settings;
+  final Widget child;
+  @override
+  State<_StreamingMessageRow> createState() => _StreamingMessageRowState();
+}
+
+class _StreamingMessageRowState extends State<_StreamingMessageRow>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _collapse = AnimationController(vsync: this)
+    ..addStatusListener((status) {
+      if (status != AnimationStatus.completed) return;
+      final record = widget.record;
+      record.retracted = true;
+      record.finishing = false;
+      widget.owner._refreshPresentation();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) record.onRetracted?.call();
+      });
+    });
+  bool _background = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderStreamingMessageRow(record);
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    setState(() => _background = state != AppLifecycleState.resumed);
+  }
 
+  @override
+  void didUpdateWidget(_StreamingMessageRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.record != widget.record) _collapse.reset();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _collapse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
+    final active = widget.owner._records[widget.owner._firstTask] == record;
+    final paused = _background || !TickerMode.valuesOf(context).enabled;
+    final collapse =
+        record.retracting &&
+        active &&
+        (record.retractionTextDone ||
+            record.text.isEmpty ||
+            !widget.settings.streamingTextReveal);
+    if (collapse && !paused && !_collapse.isAnimating && !record.retracted) {
+      _collapse.duration = Duration(
+        milliseconds: widget.settings.animateStreamingHeight
+            ? widget.settings.streamingHeightDurationMs
+            : 0,
+      );
+      _collapse.forward();
+    } else if (paused || !active) {
+      _collapse.stop();
+    }
+    return AnimatedBuilder(
+      animation: _collapse,
+      child: widget.child,
+      builder: (context, child) => _StreamingRowRenderWidget(
+        record: record,
+        collapsing: collapse,
+        fraction: 1 - Curves.easeOutCubic.transform(_collapse.value),
+        child: child!,
+      ),
+    );
+  }
+}
+
+class _StreamingRowRenderWidget extends SingleChildRenderObjectWidget {
+  const _StreamingRowRenderWidget({
+    required this.record,
+    required this.collapsing,
+    required this.fraction,
+    required super.child,
+  });
+  final _StreamRecord record;
+  final bool collapsing;
+  final double fraction;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderStreamingMessageRow(record)
+        ..collapsing = collapsing
+        ..fraction = fraction;
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderStreamingMessageRow renderObject,
   ) {
-    renderObject.record = record;
-    renderObject.markNeedsLayout();
+    renderObject
+      ..record = record
+      ..collapsing = collapsing
+      ..fraction = fraction
+      ..markNeedsLayout();
   }
 }
 
@@ -660,6 +841,8 @@ class _RenderStreamingMessageRow extends RenderProxyBox {
   _RenderStreamingMessageRow(this.record);
   _StreamRecord record;
   bool _hidden = false;
+  bool collapsing = false;
+  double fraction = 1;
 
   @override
   void performLayout() {
@@ -668,23 +851,35 @@ class _RenderStreamingMessageRow extends RenderProxyBox {
       _hidden = record.hidden;
       markNeedsSemanticsUpdate();
     }
+    if (!record.retracting) record.rowHeight = _hidden ? 0 : child!.size.height;
+    if (record.rowHeight > 0 && record.text.isEmpty) record.seen = true;
     size = constraints.constrain(
-      Size(child!.size.width, _hidden ? 0 : child!.size.height),
+      Size(
+        child!.size.width,
+        record.retracting
+            ? record.rowHeight * fraction
+            : (_hidden ? 0 : child!.size.height),
+      ),
     );
+    record.rowExtent = size.height;
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    if (!_hidden) super.paint(context, offset);
+    if (!_hidden && !collapsing) super.paint(context, offset);
   }
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) =>
-      !_hidden && super.hitTest(result, position: position);
+      !_hidden &&
+      !record.retracting &&
+      super.hitTest(result, position: position);
 
   @override
   void visitChildrenForSemantics(RenderObjectVisitor visitor) {
-    if (!_hidden) super.visitChildrenForSemantics(visitor);
+    if (!_hidden && !record.retracting) {
+      super.visitChildrenForSemantics(visitor);
+    }
   }
 }
 
@@ -750,7 +945,7 @@ class _RenderStreamingBody extends RenderProxyBox {
   bool get _needsRevealTurn =>
       attached &&
       !_paused &&
-      _scope.settings.streamingTextReveal &&
+      (_scope.settings.streamingTextReveal || _scope.record.retracting) &&
       !_scope.record.cancelled &&
       !_scope.record.restored &&
       (_scope.streaming || _scope.record.finishing);
@@ -758,6 +953,7 @@ class _RenderStreamingBody extends RenderProxyBox {
   void _setQueueBlocked(bool value) {
     if (_queueBlocked == value) return;
     _queueBlocked = value;
+    if (_scope.record.retracting) markNeedsLayout();
     _ticker.stop();
     _lastTick = Duration.zero;
     _updateTicker();
@@ -870,7 +1066,26 @@ class _RenderStreamingBody extends RenderProxyBox {
     final animate = active && !editing && texts.isNotEmpty;
     final revealEnabled = animate && settings.streamingTextReveal;
     final end = next.length.toDouble() + (next.isEmpty ? 0 : 1);
-    if (!record.seen) {
+    if (record.retracting) {
+      if (!_queueBlocked && !record.retractionTextDone) {
+        if (!settings.streamingTextReveal) {
+          _reveal.snap(0);
+        } else if (_reveal.to != 0) {
+          _reveal.snap(record.revealed);
+          _reveal.target(
+            0,
+            _clock,
+            (record.revealed * settings.effectiveStreamingTextDurationMs / 2)
+                .ceil(),
+            Curves.linear,
+          );
+        }
+        if (!_reveal.running(_clock)) {
+          record.retractionTextDone = true;
+          _scope.owner._refreshPresentation();
+        }
+      }
+    } else if (!record.seen) {
       _reveal.snap(revealEnabled ? 0 : end);
     } else if (changed) {
       var common = 0;
@@ -882,12 +1097,15 @@ class _RenderStreamingBody extends RenderProxyBox {
       // A parser correction must not re-hide the unchanged prefix.
       _reveal.snap(math.min(_reveal.value(_clock), common.toDouble()));
     }
-    if (!revealEnabled || (!_textWasEnabled && settings.streamingTextReveal)) {
+    if (!record.retracting &&
+        (!revealEnabled ||
+            (!_textWasEnabled && settings.streamingTextReveal))) {
       _reveal.snap(end);
-    } else if (changed ||
-        !record.seen ||
-        _reveal.to != end ||
-        _revealDurationMs != settings.streamingTextDurationMs) {
+    } else if (!record.retracting &&
+        (changed ||
+            !record.seen ||
+            _reveal.to != end ||
+            _revealDurationMs != settings.streamingTextDurationMs)) {
       // Duration scales with remaining graphemes, never with chunk count.
       // The extra terminal unit drains the existing soft mask at the same rate.
       final remaining = math.max(0.0, end - _reveal.value(_clock));
@@ -923,7 +1141,9 @@ class _RenderStreamingBody extends RenderProxyBox {
     if (revealEnabled && record.revealed < end && texts.isNotEmpty) {
       targetHeight = visibleBottom.clamp(0.0, child!.size.height);
     }
-    if (!_laidOut || !animate || !settings.animateStreamingHeight) {
+    if (record.retracting) {
+      _height.snap(record.height);
+    } else if (!_laidOut || !animate || !settings.animateStreamingHeight) {
       _height.snap(targetHeight);
     } else if (_height.to != targetHeight) {
       _height.target(
@@ -939,11 +1159,13 @@ class _RenderStreamingBody extends RenderProxyBox {
     if (_laidOut && record.height != size.height) onSizeChanged();
     record.height = size.height;
     record.hidden =
+        !record.retracting &&
         revealEnabled &&
         next.isNotEmpty &&
         (record.revealed <= 0 || record.height <= 0);
     _laidOut = true;
-    if (record.finishing &&
+    if (!record.retracting &&
+        record.finishing &&
         !_scope.streaming &&
         !_scope.owner.recordIsStreaming(record) &&
         !_height.running(_clock) &&

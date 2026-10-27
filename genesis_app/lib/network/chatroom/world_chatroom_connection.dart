@@ -238,12 +238,18 @@ extension _WorldChatroomConnection on WorldChatroomService {
   }
 
   void _enqueueEvent(ChatroomEvent event) {
-    _notifyHistoryChange(event);
+    final attemptStream = switch (event) {
+      ChatroomAiStreamStart e => e.attemptNo != null,
+      ChatroomAiStreamChunk e => e.attemptNo != null,
+      ChatroomAiStreamEnd e => e.attemptNo != null,
+      _ => false,
+    };
+    if (!attemptStream) _notifyHistoryChange(event);
     _logChatroomSocketEvent(
       'event received type=${chatroomEventType(event)} '
       'world=$_worldId joined=${_state.joinedLocationId}',
     );
-    _replyActionsController?.receiveEvent(event);
+    if (!attemptStream) _replyActionsController?.receiveEvent(event);
     if (event is ChatroomWaitingConversationRound &&
         event.worldId == _worldId) {
       final round = int.tryParse(event.conversationRoundId);

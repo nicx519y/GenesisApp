@@ -1,3 +1,5 @@
+import '../../utils/llm_generation.dart';
+import 'dart:math' as math;
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:collection';
@@ -29,6 +31,8 @@ import 'location_chat_reply_layout_bridge.dart';
 import 'location_chat_reply_render_snapshot.dart';
 import 'location_chat_geometry_cache.dart';
 import 'location_chat_virtual_slivers.dart';
+
+part 'location_chat_stream_retraction.dart';
 
 enum LocationChatViewportMode { initializing, followingLatest, detached }
 
@@ -997,6 +1001,54 @@ class _TrackedMessageRowState extends State<_TrackedMessageRow> {
 class _LocationChatAnchoredMessageListState
     extends State<LocationChatAnchoredMessageList>
     with SingleTickerProviderStateMixin {
+  final _attemptListeners = <LlmAttempt, VoidCallback>{};
+  final _outgoingAttempts = <LlmAttempt, _OutgoingAttempt>{};
+  int _retractionRevision = 0;
+  final _retrySources = <LlmGenerationId, LlmAttempt>{};
+  bool get _retryWaiting =>
+      _outgoingAttempts.isEmpty &&
+      _retrySources.values.any(
+        (a) =>
+            !a.terminal &&
+            !a.waitingExpired &&
+            !widget.messages.any(
+              (m) =>
+                  m.llmAttempt?.generation == a.generation &&
+                  m.llmAttempt?.invalidated == false &&
+                  (m.text.isNotEmpty || m.isImage),
+            ) &&
+            !(widget.replyCards
+                    .where((c) => c.id == widget.replyCurrentCardId)
+                    .firstOrNull
+                    ?.messages
+                    .any(
+                      (m) =>
+                          m.llmAttempt?.generation == a.generation &&
+                          m.llmAttempt?.invalidated == false &&
+                          (m.text.isNotEmpty || m.isImage),
+                    ) ??
+                false),
+      );
+  List<ChatMessageVm> get _inputMessages =>
+      _projectRetractions(widget.messages);
+  List<LocationChatReplyCard> get _inputCards => _outgoingAttempts.isEmpty
+      ? widget.replyCards
+      : [
+          for (final card in widget.replyCards)
+            LocationChatReplyCard(
+              id: card.id,
+              messages: _projectRetractions(card.messages, cardId: card.id),
+              status:
+                  _outgoingAttempts.values.any(
+                    (o) =>
+                        o.attempt.generation.card == card.id ||
+                        (card.id == 0 && o.attempt.generation.card == null),
+                  )
+                  ? null
+                  : card.status,
+              contentIdentity: (card.contentIdentity, _retractionRevision),
+            ),
+        ];
   final GlobalKey _messageContentKey = GlobalKey();
   final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
   final Map<String, GlobalKey> _messageVisibilityKeys = <String, GlobalKey>{};
@@ -1245,6 +1297,9 @@ class _LocationChatAnchoredMessageListState
   // Presentation IDs change when a selected card becomes formal history.
   // Arrival/reveal identity must follow the business message, not that wrapper.
   Object _receiptIdentity(ChatMessageVm message) {
+    if (message.llmAttempt case final attempt?) {
+      return (attempt.identity, message.globalMessageId);
+    }
     if (message.globalMessageId > 0) return ('global', message.globalMessageId);
     if ((message.messageId ?? 0) > 0) return ('message', message.messageId);
     if (message.clientMsgId.isNotEmpty) return ('client', message.clientMsgId);
@@ -1264,13 +1319,18 @@ class _LocationChatAnchoredMessageListState
       : ('timeline', _receiptIdentity(message));
 
   Object _streamContinuationNamespace(ChatMessageVm message, {int? cardId}) {
+    if (message.llmAttempt != null) {
+      return (message.llmAttempt!.identity, message.globalMessageId);
+    }
     // Candidate-only streams remain isolated per card. Once the server gives
     // a message its location cursor, the selected card and canonical timeline
     // are two presentations of the same reveal and must share continuity.
     if (cardId != null && message.locationMessageId <= 0) {
       return (widget.replyCardBindingIdentity, cardId);
     }
-    return 'timeline';
+    return message.llmAttempt == null
+        ? 'timeline'
+        : (message.llmAttempt!.identity, message.globalMessageId);
   }
 
   Object? _streamContinuityIdentity(ChatMessageVm message, {int? cardId}) {
@@ -1296,7 +1356,7 @@ class _LocationChatAnchoredMessageListState
       return;
     }
     if (reentering) _restoredEntryContent.clear();
-    for (final message in widget.messages) {
+    for (final message in _inputMessages) {
       if (message.status == 'sent') {
         _restoredEntryContent[_streamIdentity(message)] = message.text;
       }
@@ -1544,7 +1604,7 @@ class _LocationChatAnchoredMessageListState
           !coordinator.controller.hasClients) {
         return;
       }
-      final message = widget.messages
+      final message = _inputMessages
           .where((message) => message.localId == conversation.messageLocalId)
           .firstOrNull;
       if (message == null) return;
@@ -1591,7 +1651,7 @@ class _LocationChatAnchoredMessageListState
                 widget.replyRegenerationDispatchRevision);
     final source = regenerating
         ? null
-        : widget.messages
+        : _inputMessages
                   .where(
                     (message) =>
                         message.localId == _waitingAfterMessageLocalId ||
@@ -1603,7 +1663,7 @@ class _LocationChatAnchoredMessageListState
               (widget.waitingPositionIdentity != null
                   ? previous?.messages.lastOrNull
                   : null) ??
-              widget.messages.lastOrNull;
+              _inputMessages.lastOrNull;
     if (regenerating) {
       final sourceCard =
           _cardSwitcherKey.currentState?.regenerateSourceCard ??
@@ -1664,7 +1724,7 @@ class _LocationChatAnchoredMessageListState
       final canonicalSend =
           regenerating || widget.waitingPositionClientMsgId == null
           ? null
-          : widget.messages
+          : _inputMessages
                 .where(
                   (message) =>
                       message.clientMsgId == widget.waitingPositionClientMsgId,
@@ -1716,7 +1776,7 @@ class _LocationChatAnchoredMessageListState
           details: {
             'operation': identity,
             'clientMsgId': widget.waitingPositionClientMsgId,
-            'messageCount': widget.messages.length,
+            'messageCount': _inputMessages.length,
             'anchor': _waitingAnchorLayoutId,
             'pixels': coordinator.controller.position.pixels,
             'target': _waitingPositionTargetOffset,
@@ -1799,7 +1859,7 @@ class _LocationChatAnchoredMessageListState
   String? get _replyIdentity =>
       widget.replyActionsIdentity ?? widget.replyActionsMessageId;
 
-  LocationChatReplyCard? get _currentReplyCard => widget.replyCards
+  LocationChatReplyCard? get _currentReplyCard => _inputCards
       .where((card) => card.id == widget.replyCurrentCardId)
       .firstOrNull;
 
@@ -1842,6 +1902,7 @@ class _LocationChatAnchoredMessageListState
                       ?.localId));
 
   bool get _immediateSendWaitingActive =>
+      _outgoingAttempts.isEmpty &&
       widget.replyWaitingPositioningEnabled &&
       widget.preAckWaitingAfterMessageLocalId != null &&
       widget.preAckWaitingIdentity != null;
@@ -1859,10 +1920,13 @@ class _LocationChatAnchoredMessageListState
   }
 
   bool get _waitingIndicatorVisible =>
-      !widget.replyWaitingPositioningEnabled ||
-      (!_waitingPositionPending && !_waitingSpaceDeferred);
+      _outgoingAttempts.isEmpty &&
+      (!widget.replyWaitingPositioningEnabled ||
+          (!_waitingPositionPending && !_waitingSpaceDeferred));
 
-  String? get _waitingAfterMessageLocalId => _immediateSendWaitingActive
+  String? get _waitingAfterMessageLocalId => _outgoingAttempts.isNotEmpty
+      ? null
+      : _immediateSendWaitingActive
       ? widget.preAckWaitingAfterMessageLocalId
       : widget.loadingAfterMessageLocalId;
 
@@ -1888,9 +1952,14 @@ class _LocationChatAnchoredMessageListState
       _immediateSendWaitingActive && _waitingInReplyActionSlot;
 
   bool get _showLoadingInReplyActionSlot =>
-      _loadingInReplyActionSlot || widget.goOnAwaitingContentIdentity != null;
+      _outgoingAttempts.isEmpty &&
+      (_retryWaiting ||
+          _loadingInReplyActionSlot ||
+          widget.goOnAwaitingContentIdentity != null);
 
-  Object? get _replyActionSlotLoadingIdentity => _loadingInReplyActionSlot
+  Object? get _replyActionSlotLoadingIdentity => _retryWaiting
+      ? ('retry', _retrySources.keys.last.key)
+      : _loadingInReplyActionSlot
       ? _waitingIndicatorIdentity
       : widget.goOnAwaitingContentIdentity;
 
@@ -2088,7 +2157,7 @@ class _LocationChatAnchoredMessageListState
       LocationChatReplyCardSwitcher(
         key: _cardSwitcherKey,
         identity: widget.replyCardBindingIdentity ?? _replyIdentity!,
-        cards: widget.replyCards,
+        cards: _inputCards,
         currentCardId: widget.replyCurrentCardId,
         regenerationInProgress: widget.replyRegenerationInProgress,
         enabled:
@@ -2222,7 +2291,7 @@ class _LocationChatAnchoredMessageListState
           cardId: card.id,
         ),
         streamOrder: () {
-          final currentCard = widget.replyCards
+          final currentCard = _inputCards
               .where((candidate) => candidate.id == card.id)
               .firstOrNull;
           final currentIndex =
@@ -2283,11 +2352,12 @@ class _LocationChatAnchoredMessageListState
   @override
   void initState() {
     super.initState();
-    _renderedMessages = widget.messages;
+    _renderedMessages = _inputMessages;
+    _observeRetractionAttempts();
     _messageLocalIds = _currentMessageLocalIds(_renderedMessages);
     _previousReceiptIds = widget.readOnlyArchive
         ? const {}
-        : widget.messages.map(_receiptIdentity).toSet();
+        : _inputMessages.map(_receiptIdentity).toSet();
     _captureRestoredEntryContent();
     _rebuildMessageIndex();
     _resumeCachedViewport();
@@ -2315,6 +2385,11 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.coordinator != widget.coordinator ||
+        oldWidget.replyCurrentCardId != widget.replyCurrentCardId) {
+      _releaseRetractions();
+    }
+    _observeRetractionAttempts();
     if (!oldWidget.active && widget.active ||
         oldWidget.coordinator != widget.coordinator) {
       _lastEnterHoldIdentity = null;
@@ -2359,7 +2434,7 @@ class _LocationChatAnchoredMessageListState
     final openingHandoff =
         !oldWidget.waitingPositionReady && widget.waitingPositionReady;
     if (openingHandoff && widget.coordinator.canPositionWaitingReply) {
-      final outgoing = widget.messages
+      final outgoing = _inputMessages
           .where(
             (message) =>
                 message.clientMsgId == widget.waitingPositionClientMsgId,
@@ -2380,7 +2455,7 @@ class _LocationChatAnchoredMessageListState
       );
     }
     if (!widget.readOnlyArchive) {
-      final receipts = widget.messages.map(_streamIdentity).toSet();
+      final receipts = _inputMessages.map(_streamIdentity).toSet();
       _restoredEntryContent.removeWhere((id, _) => !receipts.contains(id));
     }
     if (_waitingIdentity(oldWidget) != _waitingIdentity(widget) &&
@@ -2486,7 +2561,7 @@ class _LocationChatAnchoredMessageListState
       // Use our prior layout snapshot: incoming frames may mutate the VM list
       // before didUpdateWidget. This also works with positioning disabled.
       final previousIds = _previousReceiptIds;
-      final lastRetained = widget.messages.lastIndexWhere(
+      final lastRetained = _inputMessages.lastIndexWhere(
         (message) => previousIds.contains(_receiptIdentity(message)),
       );
       final cardChanged =
@@ -2503,13 +2578,16 @@ class _LocationChatAnchoredMessageListState
           ? _currentReplyCard?.messages.map(_receiptIdentity).toSet() ??
                 <Object>{}
           : <Object>{};
-      for (var index = 0; index < widget.messages.length; index++) {
-        final message = widget.messages[index];
+      for (var index = 0; index < _inputMessages.length; index++) {
+        final message = _inputMessages[index];
         final id = _receiptIdentity(message);
         final reusesVisibleTickProgressLayout =
             message.isTick &&
             previousLayoutIds.contains(_messageLayoutId(message));
+        // A roundless phone movement is a complete notification, not a reply.
+        // Show it without adding a reveal task that would disable Send.
         if (!browsingExistingCard &&
+            !message.isRoundlessPhoneMovement &&
             !message.isMe &&
             !message.isImage &&
             !message.isAiContentDisclaimer &&
@@ -2528,17 +2606,17 @@ class _LocationChatAnchoredMessageListState
     }
     _previousReceiptIds = widget.readOnlyArchive
         ? const {}
-        : widget.messages.map(_receiptIdentity).toSet();
+        : _inputMessages.map(_receiptIdentity).toSet();
     final oldReplyIdentity =
         oldWidget.replyActionsIdentity ?? oldWidget.replyActionsMessageId;
     final presentationChanged =
         oldWidget.replyPresentationRevision != widget.replyPresentationRevision;
     final appendedSelfMessage =
-        !identical(oldWidget.messages, widget.messages) &&
-        widget.messages.isNotEmpty &&
-        widget.messages.last.isMe &&
+        !identical(oldWidget.messages, _inputMessages) &&
+        _inputMessages.isNotEmpty &&
+        _inputMessages.last.isMe &&
         !oldWidget.messages.any(
-          (message) => message.localId == widget.messages.last.localId,
+          (message) => message.localId == _inputMessages.last.localId,
         );
     final replacingReplyActionsWithContent =
         oldWidget.replyActionsVisible &&
@@ -2652,15 +2730,15 @@ class _LocationChatAnchoredMessageListState
 
     if (_replyLayoutBridge.isActive &&
         !presentationChanged &&
-        !identical(oldWidget.messages, widget.messages) &&
+        !identical(oldWidget.messages, _inputMessages) &&
         !listEquals(
           _currentMessageLocalIds(oldWidget.messages),
-          _currentMessageLocalIds(widget.messages),
+          _currentMessageLocalIds(_inputMessages),
         )) {
       _replyLayoutBridge.cancel(clearMeasurements: true);
     }
     if (widget.oldestEdgeLoading || _loadingCollapsePending) {
-      _pendingMessages = widget.messages;
+      _pendingMessages = _inputMessages;
       // Hold only prepended history for the loader collapse. Live tail rows,
       // including optimistic sends, must remain visible in every round.
       final firstId = _renderedMessages.isEmpty
@@ -2668,7 +2746,7 @@ class _LocationChatAnchoredMessageListState
           : _messageLayoutId(_renderedMessages.first);
       final firstIndex = firstId == null
           ? 0
-          : widget.messages.indexWhere(
+          : _inputMessages.indexWhere(
               (message) => _messageLayoutId(message) == firstId,
             );
       _deferredHistoryPrefixCount = presentationChanged || firstIndex < 0
@@ -2676,13 +2754,13 @@ class _LocationChatAnchoredMessageListState
           : firstIndex;
       _replaceRenderedMessages(
         widget.readOnlyArchive && _deferredHistoryPrefixCount == 0
-            ? widget.messages
-            : widget.messages.sublist(_deferredHistoryPrefixCount),
+            ? _inputMessages
+            : _inputMessages.sublist(_deferredHistoryPrefixCount),
         rebuild: false,
       );
     } else {
       _deferredHistoryPrefixCount = 0;
-      _replaceRenderedMessages(widget.messages, rebuild: false);
+      _replaceRenderedMessages(_inputMessages, rebuild: false);
     }
 
     if (widget.coordinator.mode == LocationChatViewportMode.initializing) {
@@ -2724,7 +2802,7 @@ class _LocationChatAnchoredMessageListState
         return;
       }
 
-      final nextMessages = _pendingMessages ?? widget.messages;
+      final nextMessages = _pendingMessages ?? _inputMessages;
       _pendingMessages = null;
       _deferredHistoryPrefixCount = 0;
       _loadingCollapsePending = false;
@@ -3100,6 +3178,7 @@ class _LocationChatAnchoredMessageListState
 
   @override
   void dispose() {
+    _releaseRetractions();
     widget.coordinator.removeListener(_handleCoordinatorChanged);
     if (identical(widget.coordinator._messageListOwner, this)) {
       widget.coordinator._cancelPendingCommands();
@@ -3125,6 +3204,7 @@ class _LocationChatAnchoredMessageListState
 
   @override
   Widget build(BuildContext context) {
+    _observeRetractionAttempts();
     _scheduleInitialViewportReveal();
     _scheduleContentVisibility();
     _scheduleDetachedAnchorSnapshot();
@@ -3161,14 +3241,16 @@ class _LocationChatAnchoredMessageListState
                       message.senderId,
                       message.senderType,
                     ),
-              streaming: message.status == 'streaming',
+              streaming: message.status == 'streaming' && !message.isImage,
               restoredContent:
                   message.localId == widget.entrySectionMessageId ||
                   _restoredEntryContent[_streamIdentity(message)] ==
                       message.text,
-              animateArrival: _liveRevealMessageIds.contains(
-                _receiptIdentity(message),
-              ),
+              animateArrival:
+                  message.llmAttempt != null &&
+                      !message.llmAttempt!.invalidated &&
+                      !message.isImage ||
+                  _liveRevealMessageIds.contains(_receiptIdentity(message)),
             ),
       ]);
     }
@@ -4071,16 +4153,22 @@ class _LocationChatAnchoredMessageListState
     continuationIdentity: message.roundId.isEmpty
         ? null
         : (
-            streamContinuationNamespace,
+            message.llmAttempt == null
+                ? streamContinuationNamespace
+                : (message.llmAttempt!.identity, message.globalMessageId),
             message.roundId,
             message.senderId,
             message.senderType,
           ),
-    streaming: message.status == 'streaming',
+    streaming: message.status == 'streaming' && !message.isImage,
     restoredContent:
         widget.readOnlyArchive ||
         _restoredEntryContent[streamIdentity] == message.text,
-    animateArrival: _liveRevealMessageIds.contains(_receiptIdentity(message)),
+    animateArrival:
+        message.llmAttempt != null &&
+            !message.llmAttempt!.invalidated &&
+            !message.isImage ||
+        _liveRevealMessageIds.contains(_receiptIdentity(message)),
     child: ChatMessageRow(
       key: key,
       visibilityKey: visibilityKey,
