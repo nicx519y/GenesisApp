@@ -454,6 +454,7 @@ extension _LocationChatEditActions on _LocationChatPanelState {
       args.onOpenFailed?.call();
       return;
     }
+    _replyPreparationWait?.finish(); // Waiting for the user is not async work.
     _replyEditorOpen = true;
     _composerFocusNode.unfocus();
     try {

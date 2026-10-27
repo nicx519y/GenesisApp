@@ -314,6 +314,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       api: services.api,
       client: services.chatroom,
       messageStorage: services.chatroomMessages,
+      sendGate: services.chatSendGate,
     );
     _service = service;
     _ownsService = true;

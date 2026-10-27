@@ -18,6 +18,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       api: services.api,
       client: services.chatroom,
       messageStorage: services.chatroomMessages,
+      sendGate: services.chatSendGate,
       refreshInitialSnapshotOnConnect: false,
     );
     final world = _world;

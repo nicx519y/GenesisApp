@@ -1,7 +1,5 @@
 part of 'location_chat_page.dart';
 
-const Duration _locationChatAckLoadingTimeout = Duration(seconds: 10);
-
 @visibleForTesting
 bool locationChatAckLoadingShouldResetWaitingPosition({
   required bool immediateWaitingAccepted,
@@ -61,10 +59,6 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     _ackLoadingMessageLocalId = sentMessage.localId;
     _preAckWaitingAccepted = continuesImmediateWaiting;
     if (_dismissAckLoadingIfVisible()) return;
-    _ackLoadingTimeout = Timer(_locationChatAckLoadingTimeout, () {
-      if (!mounted || _ackLoadingClientMsgId != clientMsgId) return;
-      _setLocationChatState(_clearAckLoading);
-    });
     if (_scrollCoordinator.shouldFollowLatest &&
         _scrollCoordinator.isAtBottom) {
       _scrollCoordinator.requestBottom(
@@ -78,8 +72,6 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     bool preservePreAckWaiting = false,
     bool visibleReply = false,
   }) {
-    _ackLoadingTimeout?.cancel();
-    _ackLoadingTimeout = null;
     _ackLoadingClientMsgId = null;
     _ackLoadingMessageLocalId = null;
     if (!preservePreAckWaiting) {

@@ -370,7 +370,6 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   }
 
   void _startStream(ChatroomAiStreamStart event) {
-    _noteStreamActivity(event.locationId, event.conversationRoundId);
     final key = _streamKey(
       event.locationId,
       event.conversationRoundId,
@@ -384,6 +383,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         : incoming;
     final existing = _streamAccumulators[key];
     if (existing == null) {
+      _noteStreamActivity(
+        event.locationId,
+        event.conversationRoundId,
+        streamId: key,
+        frameId: 'start',
+      );
       _streamAccumulators[key] = _ChatroomStreamAccumulator(message: message);
       _upsertMessage(
         message,
@@ -401,7 +406,6 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   }
 
   void _appendStreamChunk(ChatroomAiStreamChunk event) {
-    _noteStreamActivity(event.locationId, event.conversationRoundId);
     final key = _streamKey(
       event.locationId,
       event.conversationRoundId,
@@ -446,7 +450,19 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       _streamAccumulators[key] = accumulator;
       createdAccumulator = true;
     }
+    final newFrame =
+        event.seq >= accumulator.nextSequence &&
+        !accumulator.chunks.containsKey(event.seq) &&
+        event.chunk.isNotEmpty;
     final changed = accumulator.addChunk(event.seq, event.chunk);
+    if (newFrame) {
+      _noteStreamActivity(
+        event.locationId,
+        event.conversationRoundId,
+        streamId: key,
+        frameId: event.seq,
+      );
+    }
     _recordServiceQueueDebug(
       action: changed ? 'streamChunkApplied' : 'streamChunkBuffered',
       locationId: event.locationId,
@@ -493,7 +509,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     );
     if (key.isEmpty) return;
     final accumulator = _streamAccumulators.remove(key);
-    _noteStreamEnd(event.locationId, event.conversationRoundId);
+    _noteStreamEnd(event.locationId, event.conversationRoundId, streamId: key);
     final existing =
         accumulator?.message ??
         _state.streamMessagesByKey[key] ??

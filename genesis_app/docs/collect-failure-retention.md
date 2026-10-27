@@ -82,3 +82,7 @@ flutter build apk --release --flavor production --target-platform android-arm64 
 如果数据库持续完全无法写入，备用数据只能留在进程内存，内存占用会随积压增加；在重新落库或上传成功前，进程被系统终止仍可能丢失这些内存记录。本轮没有新增独立磁盘备份文件，不能声称在存储不可用、磁盘满或进程异常终止的组合故障下也能绝对不丢。已经被旧版本清理的历史数据也不能凭此恢复。
 
 服务端已处理但客户端未收到确认时，保留重试可能再次发送相同 ID，仍需要接收端幂等。服务端是否先持久化再返回成功，以及真机弱网/进程终止场景，未在本地测试中证明。
+
+## LocationChat 超时事件
+
+LocationChat 统一超时通过同一 collect 队列上报，`action_type=chat_timeout`、`action=location_chat_send_lock_timeout`。上报失败不影响本地释放，不新增专用上传计时器。场景、`object1` 至 `object4`、`ext_data` 与去重口径见 [统一超时机制与埋点表](location-chat-send-gate.md#collect-埋点表)。

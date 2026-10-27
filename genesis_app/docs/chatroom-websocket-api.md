@@ -121,7 +121,7 @@ V2 `send_message` 顶层显式发送 `message_type: "text" | "narration"`，正�
 
 展示版本使用 `major * 1000000 + minor * 1000 + patch`，与原生 build number 无关；当前版本达到 `min_app_version` 才展示，0 不限制。版本过滤只在展示层执行。完整消息仍落入地点队列、缓存、去重和连续序号判断，不能把隐藏消息视为漏收。历史初始 `since=0`，后续使用完整响应批次最小的正数 `location_message_id`；整页隐藏且 `has_more=true` 时继续加载。服务端 `newest_message_id` 保持整个地点最大序号，轮次范围刷新不变。
 
-输入默认角色口吻，以 icon 切换为旁白，占位文案不变；每条提交后恢复 text。待发送气泡、自动传输重试、手动失败重试和正式回显均保留该条类型。用户旁白复用 AI 旁白的整宽斜体、无头像昵称样式，前置 icon 颜色也与 AI 旁白一致，多人房也不显示昵称。错误仍走既有 Toast/失败状态，不写入正文。旁白沿用普通发言的 AI 回复、轮次、计价、Go On 和灵感流程。
+输入默认角色口吻，以 icon 切换为旁白，占位文案不变；每条提交后恢复 text。待发送气泡、手动失败重试和正式回显均保留该条类型；普通 Send 不再因 ACK 超时自动重发。用户旁白复用 AI 旁白的整宽斜体、无头像昵称样式，前置 icon 颜色也与 AI 旁白一致，多人房也不显示昵称。错误仍走既有 Toast/失败状态，不写入正文。旁白沿用普通发言的 AI 回复、轮次、计价、Go On 和灵感流程。
 
 此为目标契约，不能据此判断后端已上线。开放前需确认 API 实例、P3 模板、Chat 消费/生成、Chat 发送依次发布；首次生成、备用模型重试、重新生成保留类型以及 Prompt 只包装一次，须跨服务联调验收。
 
@@ -287,7 +287,7 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 
 成功返回 `ChatroomGoOnReceipt`，包含世界、地点、来源轮次、新轮次、请求 ID 和可选 `ChatroomRoundBilling`。匹配世界/地点并验证新轮次后，ACK 即完成 Future；不等待用户消息回显或三层正式消息 ID。`receiptConversationRoundId` 与历史消息元数据分开，不改变 `hasCanonicalMessageMetadata`。billing 不要求候选专用 status；缺失价格不补造，精确费用取 price_cent（示例 1.20 Gem），接口不刷新或增减钱包。Location Chat 的 Go On 在 ACK、结束或不确定结果前后都不主动拉取正式历史；正式历史只由 `conversation_range_updated` 更新，连接初始化/重连的系统级同步除外。
 
-**Go On 的 client_msg_id 不提供业务幂等。** ACK 超时、发送异常、断线均返回异常且绝不自动重发/重连补发；超时代表结果不明，不能据此判断服务器未受理。迟到 ACK 仍通过 events 暴露。后续业务恢复须按新轮次查询历史，无 ACK 时没有按请求 ID 查询受理结果的接口。本次不加入自动查询或恢复记录。
+**Go On 的 client_msg_id 不提供业务幂等。** ACK 超时、发送异常、断线均返回异常且绝不自动重发/重连补发；超时代表结果不明，不能据此判断服务器未受理。迟到 ACK 仍通过 events 暴露。后续业务恢复须按新轮次查询历史，无 ACK 时没有按请求 ID 查询受理结果的接口。未知请求关联与迟到结果恢复由客户端统一 Send 管理器及回复控制器维护，不新增服务端查询接口。
 
 正式 waiting/character/narrator/end 事件按世界、地点、新轮次正常分发，可能先于 ACK 到达。`llm_stream_end` 只结束一条消息，`end_conversation_round.err_no=0` 也不保证整轮已成功持久化。接口不创建 Go On 用户气泡，不拼装候选到正式历史。
 
@@ -380,7 +380,7 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 }
 ```
 
-客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存。用户主动发送从调用 `send_message` 时立即锁定并启动 30 秒兜底；服务端主动 P3 从收到 waiting 时锁定并启动兜底。同一轮重复 waiting 不重置截止时间。
+客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存。用户主动发送从调用 `send_message` 时立即建立统一操作；服务端主动 P3 从收到 waiting 时建立操作。普通等待连续无有效进展 30 秒上报、45 秒释放；同一轮重复 waiting 不刷新进展。
 
 ### `end_conversation_round`
 
@@ -400,13 +400,15 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 }
 ```
 
-只有 `err_no=0`、同地点且同 `conversation_round_id` 的 end 可以正常解锁并取消兜底。Character、Narrator、Tick 和 `llm_stream_end` 都不再结束 V2 conversation round。其他地点、旧 round、重复或错误 end 均幂等忽略。30 秒仍未收到匹配 end 时客户端异常兜底解锁；旧 Timer 必须通过 generation 校验，不能清除后续新 round。自动重连保留原绝对截止时间，显式断开或销毁 Service 时清除。
+只有 `err_no=0`、同地点且同 `conversation_round_id` 的 end 可以正常结束该轮等待。Character、Narrator、Tick 和单条 `llm_stream_end` 不伪造 V2 整轮完成。旧轮次、其他地点、重复或错误 end 不能清理新操作。
 
-普通 `llm_stream_*` 另有独立的客户端 5 秒空闲兜底：`send_message` 首次实际写入 WebSocket 成功后立即启动，不等待 receipt/ACK；每条当前地点/轮次的 start/chunk 都重置，迟到 ACK 和同一次发送的底层重试不重置。所有在途普通流正常 end 后取消。连续 5 秒无流消息时，结束本地流式展示及对应本地发送/回复阻塞，保留已收内容，不伪造服务端成功、正式消息 ID 或计费结果。30 秒整轮计时本身保留：未断线且回执成功的轮次仍可留在服务层等待正式 end 或原截止时间清理，但不得继续拦截已超时的本地发送；用户再次发送时，以新代次替换该旧等待，旧 Timer 不得清除新轮次。断线或回执丢失时，5 秒到期还会清理对应异常轮次；回执仍未到达的，停止该旧发送的 ACK 等待与后续自动重试，超时后不自动重发用户消息。自动重连不取消、重置或重算空闲截止时间；若先超时再断线，同样立即解除对应异常等待。迟到 chunk 可继续补齐内容但不重新进入 streaming，迟到真实 end 仍以服务端完整正文为准，旧 waiting/用户回显不能重新阻塞超时发送，也不能清除新发送。超时后才到达的轮次标识继承原发送的本地超时结果。状态变化必须进入回复控制 revision，确保输入内容和消息列表均不变化时按钮也会刷新。显式断开/销毁清理计时器。候选 `llm_card_*` 的专用生成恢复机制保持不变。
+所有本地 Send 超时统一由账号会话级 `LocationChatSendGate` 调度：普通等待停滞 30 秒上报、45 秒释放；首条有效 start／chunk 后使用 5 秒流式停滞规则，同时上报和释放；World Tick 按本次锁定总时长 60 秒处理，仅解除其对 Send 的本地阻塞。所有已开始的流结束后，若仍需整轮或候选终态，转回普通等待。重复帧、旧尝试、无变化查询、重试提示和展示动画不能延长流式期限。
 
-正式 Location Chat 的 prepared entry 会复制回复状态用于页面展示。`snapshotForActions`、`snapshotForPresentation` 与保留卡片快照必须同步复制 `_locallyStalledStream`，不能让服务层已超时、页面快照仍未结束；回归必须覆盖 `usePreparedEntry=true`、断网超时后销毁页面再进入，并实际发送下一条消息。
+普通 Send、Regenerate、Go On 均不因 ACK 超时自动重发。保留 ACK／HTTP 通信超时、正常重连和历史同步；删除旧普通整轮、普通流、候选／Go On 生成计时器及 ACK 展示／正式回显业务超时。超时释放不以查历史或查卡成功为前提，不把未知结果转换成成功或明确失败。
 
-聊天页重新绑定、重新激活或回到前台时，主动校验普通流原有的绝对空闲截止时间：已到期立即执行本地超时收尾，未到期仅恢复剩余等待，不重新计算 5 秒。正常流结束后不重新启动空闲计时。历史回复没有有效流等待、没有活动整轮且没有候选生成、提交或 Go On 操作时，可解除残留的本地展示等待；不修改候选恢复流程，也不修改整轮 30 秒规则。
+后台、断线、页面重建及同会话服务重建不重置已记录的截止时间；回到前台或重新进入时校验当前状态并处理到期记录。迟到真实结果可恢复内容，但旧回调、finally 和回显不能清除新锁或重新加上旧锁。`snapshotForActions`、`snapshotForPresentation` 及 prepared entry 同步 `sendReleased`／本地展示收尾状态。
+
+场景代码、阶段、释放动作与 `action_type=chat_timeout` 的完整字段定义见 [统一超时机制与埋点表](location-chat-send-gate.md)。
 
 Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done → end_conversation_round → world_change`。同一世界各地点接收同一条通知，复用 Tick 的真实 int64 `conversation_round_id`，不逐地点重复发送：
 
@@ -1133,6 +1135,6 @@ replay guarantee. Player peers do not emit AI reply-state events.
 
 展示层可保留独立退场快照：旧气泡从下到上依次以正向两倍速度收起文字，随后将整行高度收至零；新 attempt 在退场期间只拼装，不提前展示。退场结束后，有正文则从零按正常速度播放（即使已经收到完整 end），否则显示现有三点等待气泡。具体动画见 `location-chat-bubble-design.md`。
 
-普通流退场期间暂停 5 秒本地空闲计时，退场完成且仍需内容时重新计时。已本地超时的轮次不重新锁住发送。无展示消费者时不等待动画回执；候选继续使用原专用恢复入口。自动重试不发送新的生成、计费或取消请求。
+普通流退场动画不暂停、不重置统一管理器的 5 秒流式期限；只有当前生成尝试的新有效 start／chunk 才刷新流活动。已本地超时的轮次不重新锁住发送。无展示消费者时不等待动画回执；候选同样使用统一超时释放，正常只读恢复仍保留。服务端生成重试通知不会让客户端发送新的生成、计费或取消请求。
 
 本次不接入 generation-status HTTP 查询，也不因 `end_conversation_round` 新增历史刷新。该事件继续沿用现有轮次结束职责，不用作本次生成成功判据。服务端新字段和事件的实际启用仍需联调确认。

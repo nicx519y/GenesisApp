@@ -1,3 +1,4 @@
+import 'location_chat_send_gate.dart';
 import '../../utils/llm_generation.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
@@ -107,13 +108,13 @@ class ChatroomReplyRoundState {
   final _streamMessages = <int, Map<int, _CandidateMessage>>{};
   final _authoritativeCards = <int>{};
   final _cardTerminals = <int, ChatroomLlmCardGenerationEnd>{};
-  Timer? _regenerationStreamStartTimer;
-  Timer? _regenerationStreamEndTimer;
+  ChatSendOperation? _regenerationOperation;
+  ChatSendOperation? _goOnOperation;
+  bool _sendReleased = false;
+  bool get sendReleased => _sendReleased;
+  bool get generatingBlocksSend => generating && !_sendReleased;
+  bool get goOnBlocksSend => goOnPending && !_sendReleased;
   int? _watchedRegenerationCardId;
-  bool _regenerationStreamStarted = false;
-  Timer? _goOnStreamStartTimer;
-  Timer? _goOnStreamEndTimer;
-  bool _goOnStreamStarted = false;
   _PendingGoOn? _goOn;
   int _goOnDispatchGeneration = 0;
 
@@ -406,10 +407,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     ChatroomReplyActionStorage? storage,
     ChatroomMessageStorage? snapshotStorage,
     DateTime Function()? now,
-    Duration regenerationStreamStartTimeout = const Duration(seconds: 30),
-    Duration regenerationStreamEndTimeout = const Duration(seconds: 120),
-    Duration goOnStreamStartTimeout = const Duration(seconds: 30),
-    Duration goOnStreamEndTimeout = const Duration(seconds: 120),
+    LocationChatSendGate? sendGate,
   }) : _worldCreatorUid = worldCreatorUid,
        _http = httpApi,
        _session = session,
@@ -422,17 +420,14 @@ class ChatroomReplyActionsController extends ChangeNotifier {
        _storage = storage ?? SqfliteChatroomReplyActionStorage(),
        _snapshotStorage = snapshotStorage,
        _now = now ?? DateTime.now,
-       _regenerationStreamStartTimeout = regenerationStreamStartTimeout,
-       _regenerationStreamEndTimeout = regenerationStreamEndTimeout,
-       _goOnStreamStartTimeout = goOnStreamStartTimeout,
-       _goOnStreamEndTimeout = goOnStreamEndTimeout;
+       sendGate = sendGate ?? LocationChatSendGate(),
+       _ownsSendGate = sendGate == null;
 
   final _llmGenerations = <LlmGenerationId, LlmGenerationState>{};
   final DateTime Function() _now;
-  final Duration _regenerationStreamStartTimeout;
-  final Duration _regenerationStreamEndTimeout;
-  final Duration _goOnStreamStartTimeout;
-  final Duration _goOnStreamEndTimeout;
+  final LocationChatSendGate sendGate;
+  final bool _ownsSendGate;
+  final _finalizationWaits = <String, ChatSendOperation>{};
   final ChatroomMessageStorage? _snapshotStorage;
 
   final String worldId, ownerUid;
@@ -1014,7 +1009,6 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   void invalidateCardsOnDisconnect() {
     for (final location in locationIds.toList()) {
       for (final state in statesFor(location)) {
-        _cancelRegenerationWatchdog(state);
         _invalidateCardsCache(state);
       }
     }
@@ -1169,7 +1163,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       state._cardsNeedRefresh = false;
       state._regenerationRequestId = null;
       _cancelRegenerationWatchdog(state);
-    } else if (state._regenerationRequestId != null) {
+    } else {
       final activeCardId = result.activeCardId > 0
           ? result.activeCardId
           : state._watchedRegenerationCardId;
@@ -1210,6 +1204,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   Future<void> finalizeBeforeSend(
     String locationId, {
     ChatroomInspirationSource? expectedSource,
+    ChatSendOperation? wait,
   }) async {
     void verify() {
       if (expectedSource != null &&
@@ -1220,7 +1215,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
 
     verify();
     final existing = _finalizations[locationId];
-    if (existing != null) {
+    if (existing != null && (_finalizationWaits[locationId]?.blocks ?? false)) {
       await existing;
       verify();
       return;
@@ -1232,9 +1227,19 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         sourceState._frozen = true;
       }
     }
-    final task = _finalizeLocation(locationId);
+    final operation =
+        wait ??
+        sendGate.begin(
+          worldId: worldId,
+          locationId: locationId,
+          operationId: _request('finalize'),
+          scene: 'send_finalize',
+        );
+    _finalizationWaits[locationId] = operation;
+    final task = _finalizeLocation(locationId, operation);
     _finalizations[locationId] = task;
     await task.whenComplete(() {
+      if (wait == null) operation.finish();
       if (identical(_finalizations[locationId], task)) {
         _finalizations.remove(locationId);
       }
@@ -1242,19 +1247,34 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     verify();
   }
 
-  Future<void> _finalizeLocation(String locationId) async {
+  Future<void> _finalizeLocation(
+    String locationId,
+    ChatSendOperation operation,
+  ) async {
     _checkCurrent();
     final targets =
         statesFor(locationId)
             .where(
               (state) =>
-                  state.showCandidates ||
-                  (state.frozen) ||
-                  state._drafts.isNotEmpty,
+                  !state.sendReleased &&
+                  (state.showCandidates ||
+                      (state.frozen) ||
+                      state._drafts.isNotEmpty),
             )
             .toList()
           ..sort((a, b) => a.roundId.compareTo(b.roundId));
+    operation.onRelease(() {
+      if (_disposed) return;
+      for (final state in targets) {
+        state._sendReleased = true;
+        state._generation++;
+        _invalidateCardsCache(state);
+        state._busy = false;
+      }
+      _notify(locationId);
+    });
     for (final state in targets) {
+      operation.check();
       if (!state._supportsReplyActions) continue;
       if (state.busy) throw StateError('A reply is currently being saved');
       state._fixedCardId ??= _completeCard(state.viewedCard)
@@ -1265,8 +1285,10 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       state._error = null;
       _notify(state.locationId);
       try {
-        await _persist(state);
-        await _loadCards(state, force: true);
+        await operation.guard(_persist(state));
+        operation.check();
+        await operation.guard(_loadCards(state, force: true));
+        operation.check();
         if (state.confirmed &&
             state._selectionRequestId != null &&
             state.selectedCardId == state._fixedCardId) {
@@ -1284,23 +1306,32 @@ class ChatroomReplyActionsController extends ChangeNotifier {
           if (!_completeCard(card)) {
             throw StateError('No complete candidate is available to confirm');
           }
-          await _saveDraft(state, _editor(state, cardId: id));
+          await operation.guard(
+            _saveDraft(state, _editor(state, cardId: id), operation: operation),
+          );
+          operation.check();
           _invalidateCardsCache(state);
           final createdSelectionRequest = state._selectionRequestId == null;
           state._selectionRequestId ??= _request('select');
           try {
-            await _persist(state);
+            await operation.guard(_persist(state));
+            operation.check();
           } catch (_) {
             if (createdSelectionRequest) state._selectionRequestId = null;
             rethrow;
           }
-          final result = await _http.selectLlmCard(
-            worldId: worldId,
-            locationId: locationId,
-            conversationRoundId: state.roundId,
-            cardId: id,
-            clientMsgId: state._selectionRequestId!,
+          operation.check();
+          final result = await operation.guard(
+            _http.selectLlmCard(
+              worldId: worldId,
+              locationId: locationId,
+              conversationRoundId: state.roundId,
+              cardId: id,
+              clientMsgId: state._selectionRequestId!,
+            ),
           );
+          operation.check();
+          operation.progress(('selected', state.roundId));
           _checkCurrent();
           state._selectedCardId = result.selectedCardId;
           state._confirmed = true;
@@ -1311,7 +1342,10 @@ class ChatroomReplyActionsController extends ChangeNotifier {
           _retireAlternativeDrafts(state, result.selectedCardId);
         } else if (!state.hasCardGroup &&
             state._drafts[0]?.isNotEmpty == true) {
-          await _saveDraft(state, _editor(state));
+          await operation.guard(
+            _saveDraft(state, _editor(state), operation: operation),
+          );
+          operation.check();
         } else if (state.confirmed) {
           if (state._drafts.entries.any(
             (entry) => entry.key > 0 && entry.value.isNotEmpty,
@@ -1321,7 +1355,10 @@ class ChatroomReplyActionsController extends ChangeNotifier {
             );
           }
           if (state._drafts[0]?.isNotEmpty == true) {
-            await _saveDraft(state, _editor(state));
+            await operation.guard(
+              _saveDraft(state, _editor(state), operation: operation),
+            );
+            operation.check();
           }
           // A select ACK may have been lost; GET confirmed proves selection.
           // Formal history is reconciled only by conversation_range_updated.
@@ -1331,16 +1368,22 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         state._frozen = false;
         state._completionRevision++;
         state._presentationRevision++;
-        await _persist(state);
+        await operation.guard(_persist(state));
+        operation.check();
       } catch (error) {
+        if (operation.released) rethrow;
         if (_disposed) rethrow;
         if (_definiteRejection(error)) {
           state._error = error;
           _releaseFailedFinalization(state);
-          await _persist(state);
+          await operation.guard(_persist(state));
+          operation.check();
           rethrow;
         }
-        final recovered = await _recoverUncertainFinalization(state);
+        final recovered = await operation.guard(
+          _recoverUncertainFinalization(state, operation: operation),
+        );
+        operation.check();
         if (recovered) {
           state._error = null;
         } else {
@@ -1348,11 +1391,12 @@ class ChatroomReplyActionsController extends ChangeNotifier {
           if (!_finalizationIsUncertain(state)) {
             _releaseFailedFinalization(state);
           }
-          await _persist(state);
+          await operation.guard(_persist(state));
+          operation.check();
           rethrow;
         }
       } finally {
-        state._busy = false;
+        if (!operation.released) state._busy = false;
         _notify(state.locationId);
       }
     }
@@ -1370,11 +1414,14 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   /// Reconciles a dispatched batch/select through read-only authoritative data.
   /// Returns true only when the whole confirmation is proven complete.
   Future<bool> _recoverUncertainFinalization(
-    ChatroomReplyRoundState state,
-  ) async {
+    ChatroomReplyRoundState state, {
+    ChatSendOperation? operation,
+  }) async {
     if (!_finalizationIsUncertain(state)) return false;
     try {
+      operation?.check();
       await _loadCards(state, force: true);
+      operation?.check();
       _checkCurrent();
       for (final key in state._uncertainBatches.toList()) {
         final operations = state._drafts[key] ?? const [];
@@ -1439,6 +1486,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     if (round == null || round <= 0) return;
     final state = _state(locationId, round);
     state._locallyStalledStream = true;
+    state._sendReleased = true;
     _notify(locationId);
   }
 
@@ -1472,9 +1520,62 @@ class ChatroomReplyActionsController extends ChangeNotifier {
 
   void _receiveEvent(ChatroomEvent event) {
     if (_disposed) return;
+    if (event is ChatroomAiStreamStart ||
+        event is ChatroomAiStreamChunk ||
+        event is ChatroomAiStreamEnd) {
+      final identity = switch (event) {
+        ChatroomAiStreamStart e => e.identity,
+        ChatroomAiStreamChunk e => e.identity,
+        ChatroomAiStreamEnd e => e.identity,
+        _ => null,
+      };
+      if (identity != null && identity.worldId == worldId) {
+        final id = LlmGenerationId(
+          worldId,
+          identity.locationId,
+          identity.conversationRoundId,
+          identity.gatewayRequestId,
+        );
+        if (identity.attemptNo != null) {
+          final generation = _llmGenerations.putIfAbsent(
+            id,
+            () => LlmGenerationState(id),
+          );
+          if (generation.accept(
+                identity.attemptNo!,
+                identity.globalMessageId,
+                end: event is ChatroomAiStreamEnd,
+              ) ==
+              null) {
+            return;
+          }
+        }
+        final operation = sendOperationForRound(
+          identity.locationId,
+          identity.conversationRoundId,
+        );
+        final frame = switch (event) {
+          ChatroomAiStreamChunk e => e.seq,
+          ChatroomAiStreamEnd _ => 'end',
+          _ => 'start',
+        };
+        if (event is! ChatroomAiStreamChunk || event.chunk.isNotEmpty) {
+          operation?.stream(
+            identity.attemptNo == null
+                ? '$worldId|${identity.locationId}|${identity.conversationRoundId}|${identity.senderId}'
+                : identity.stableKey!,
+            frame,
+            end: event is ChatroomAiStreamEnd,
+            generationKey: id.key,
+            attemptNo: identity.attemptNo,
+          );
+        }
+      }
+    }
     if (event is ChatroomAck) {
       if (event.ok) {
         _receiveLateRegenerationAck(event);
+        _receiveLateGoOnAck(event);
       } else {
         _receiveRejectedReplyAck(event);
       }
@@ -1589,9 +1690,25 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         event.globalMessageId,
         () => _CandidateMessage(event, attempt: attempt),
       );
+      state._regenerationOperation?.diagnostics.addAll({
+        'gateway_request_id': event.gatewayRequestId,
+        'global_message_id': event.globalMessageId,
+      });
       final receivedChunk = message._receivedChunk;
       final contentChanged = message.apply(event);
       _noteRegenerationStream(state, event.cardId);
+      if ((event.streamType != 'chunk' || event.content.isNotEmpty) &&
+          (isNewMessage ||
+              contentChanged ||
+              receivedChunk != message._receivedChunk)) {
+        state._regenerationOperation?.stream(
+          '${event.cardId}:${event.globalMessageId}:${event.attemptNo ?? 0}',
+          (event.streamType, event.seq),
+          end: event.streamType == 'end',
+          generationKey: attempt?.generation.key,
+          attemptNo: event.attemptNo,
+        );
+      }
       if (isNewMessage) {
         state._streamStructureRevisions.update(
           event.cardId,
@@ -2109,210 +2226,132 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     );
   }
 
+  void _receiveLateGoOnAck(ChatroomAck ack) {
+    final round = ack.receiptConversationRoundId;
+    if (ack.worldId != worldId || round == null || round <= 0) return;
+    for (final state in statesFor(ack.locationId).toList()) {
+      final pending = state._goOn;
+      if (pending == null ||
+          pending.clientMsgId != ack.clientMsgId ||
+          pending.roundId != null ||
+          (!pending.uncertain && !state.sendReleased)) {
+        continue;
+      }
+      pending.roundId = round;
+      pending.uncertain = false;
+      final next = _state(ack.locationId, round);
+      next._sendReleased = state.sendReleased;
+      next._locallyStalledStream = state.sendReleased;
+      if (!state.sendReleased && !next._ended) {
+        next._active = true;
+        _onGoOnAccepted?.call(ack.locationId, round);
+      }
+      if (round > (_latest[ack.locationId] ?? 0)) {
+        _latest[ack.locationId] = round;
+      }
+      state._goOnOperation?.progress('ack', phase: 'awaiting_stream');
+      _notify(ack.locationId);
+    }
+  }
+
+  ChatSendOperation _beginReplyWait(
+    ChatroomReplyRoundState state,
+    String id,
+    String scene,
+  ) {
+    final operation = sendGate.begin(
+      worldId: worldId,
+      locationId: state.locationId,
+      operationId: id,
+      scene: scene,
+    );
+    state._sendReleased = operation.released;
+    operation.diagnostics['round_id'] = state.roundId;
+    if (scene == 'go_on') {
+      operation.diagnostics['source_round_id'] = state.roundId;
+    }
+    operation.diagnostics['client_msg_id'] = id.substring(id.indexOf(':') + 1);
+    operation.onRelease(() {
+      if (_disposed) return;
+      state._sendReleased = true;
+      if (scene == 'go_on' && state._goOn?.roundId == null) {
+        state._goOn?.uncertain = true;
+      }
+      if (scene == 'regenerate' && state._viewedCardId == -1) {
+        state._regenerationRequestUncertain = true;
+      }
+      state._locallyStalledStream = true;
+      final next = state.goOnRoundId;
+      if (next != null) {
+        _state(state.locationId, next)._locallyStalledStream = true;
+        _state(state.locationId, next)._sendReleased = true;
+      }
+      state._regenerateDispatching = false;
+      state._busy = false;
+      for (final generation in _llmGenerations.values) {
+        if (generation.id.location == state.locationId &&
+            generation.id.round == '${state.roundId}') {
+          for (final attempt in generation.attempts.values) {
+            attempt.waitingExpired = true;
+          }
+        }
+      }
+      _notify(state.locationId);
+    });
+    return operation;
+  }
+
+  ChatSendOperation? sendOperationForRound(String location, String round) {
+    for (final state in statesFor(location)) {
+      if ('${state.goOnRoundId}' == round) return state._goOnOperation;
+    }
+    return null;
+  }
+
   void _watchRegeneration(
     ChatroomReplyRoundState state,
     int cardId, {
     bool streamStarted = false,
   }) {
-    _cancelRegenerationWatchdog(state);
-    final card = state._card(cardId);
-    if (_disposed || card == null || _terminal(card.generationState)) return;
+    final request =
+        state._regenerationRequestId ?? 'restored:${state.roundId}:$cardId';
+    state._regenerationOperation ??= _beginReplyWait(
+      state,
+      'regenerate:$request',
+      'regenerate',
+    );
     state._watchedRegenerationCardId = cardId;
-    state._regenerationStreamStarted =
-        streamStarted || (state._streamMessages[cardId]?.isNotEmpty ?? false);
-    if (state._regenerationStreamStarted) {
-      state._regenerationStreamEndTimer = Timer(
-        _regenerationStreamEndTimeout,
-        () => _recoverTimedOutRegeneration(state, cardId),
-      );
-    } else {
-      state._regenerationStreamStartTimer = Timer(
-        _regenerationStreamStartTimeout,
-        () => _recoverTimedOutRegeneration(state, cardId),
-      );
-    }
+    state._regenerationOperation!.diagnostics['card_id'] = cardId;
+    // A query still saying generating is not progress and never rearms time.
   }
 
   void _noteRegenerationStream(ChatroomReplyRoundState state, int cardId) {
-    if (state._regenerationRequestId == null ||
-        (state._watchedRegenerationCardId != null &&
-            state._watchedRegenerationCardId != cardId)) {
-      return;
-    }
-    if (state._regenerationStreamStarted &&
-        state._watchedRegenerationCardId == cardId) {
-      return;
-    }
-    state._regenerationStreamStartTimer?.cancel();
-    state._regenerationStreamStartTimer = null;
-    state._watchedRegenerationCardId = cardId;
-    state._regenerationStreamStarted = true;
-    state._regenerationStreamEndTimer?.cancel();
-    state._regenerationStreamEndTimer = Timer(
-      _regenerationStreamEndTimeout,
-      () => _recoverTimedOutRegeneration(state, cardId),
-    );
-  }
-
-  void _recoverTimedOutRegeneration(ChatroomReplyRoundState state, int cardId) {
-    final card = state._card(cardId);
-    if (_disposed ||
-        state._regenerationRequestId == null ||
-        state._watchedRegenerationCardId != cardId ||
-        card == null ||
-        _terminal(card.generationState)) {
-      _cancelRegenerationWatchdog(state);
-      return;
-    }
-    state._regenerationStreamStartTimer = null;
-    state._regenerationStreamEndTimer = null;
-    // A stream event racing the recovery GET must be able to arm a fresh
-    // end watchdog even if the stale HTTP response is discarded.
-    state._regenerationStreamStarted = false;
-    final requestId = state._regenerationRequestId!;
-    unawaited(_recoverTimedOutRegenerationFromCards(state, cardId, requestId));
-  }
-
-  Future<void> _recoverTimedOutRegenerationFromCards(
-    ChatroomReplyRoundState state,
-    int cardId,
-    String requestId,
-  ) async {
-    try {
-      await _loadCards(state, force: true);
-    } catch (error) {
-      if (_disposed || state._regenerationRequestId != requestId) return;
-      await _failRegenerationLocally(state, cardId, error);
-    }
-  }
-
-  Future<void> _failRegenerationLocally(
-    ChatroomReplyRoundState state,
-    int cardId,
-    Object error,
-  ) async {
-    _cancelRegenerationWatchdog(state);
-    final card = state._card(cardId);
-    if (cardId <= 0) {
-      state._cards.removeWhere((item) => item.cardId <= 0);
-      state._viewedCardId = state._lastCompleteCardId;
-    } else if (card != null && !_terminal(card.generationState)) {
-      state._cards.remove(card);
-      state._lastCompleteCardId = _lastCompleteCardId(state._cards);
-      if (state._viewedCardId == cardId) {
-        state._viewedCardId = state._lastCompleteCardId;
-      }
-      state._presentationRevision++;
-    }
-    state._regenerationRequestId = null;
-    state._regenerateDispatching = false;
-    state._generating = state._cards.any(
-      (item) => !_terminal(item.generationState),
-    );
-    state._error = error;
-    try {
-      await _persist(state);
-    } catch (_) {
-      // A local terminal state must still release the action controls.
-    }
-    _notify(state.locationId);
+    _watchRegeneration(state, cardId);
   }
 
   void _cancelRegenerationWatchdog(ChatroomReplyRoundState state) {
-    state._regenerationStreamStartTimer?.cancel();
-    state._regenerationStreamEndTimer?.cancel();
-    state._regenerationStreamStartTimer = null;
-    state._regenerationStreamEndTimer = null;
+    state._regenerationOperation?.finish();
     state._watchedRegenerationCardId = null;
-    state._regenerationStreamStarted = false;
   }
 
   void _watchGoOn(
     ChatroomReplyRoundState source, {
     bool streamStarted = false,
   }) {
-    _cancelGoOnWatchdog(source);
     final pending = source._goOn;
-    if (_disposed ||
-        pending == null ||
-        pending.finished ||
-        pending.roundId == null) {
-      return;
-    }
-    source._goOnStreamStarted = streamStarted;
-    if (streamStarted) {
-      source._goOnStreamEndTimer = Timer(
-        _goOnStreamEndTimeout,
-        () => _recoverTimedOutGoOn(source, pending),
-      );
-    } else {
-      source._goOnStreamStartTimer = Timer(
-        _goOnStreamStartTimeout,
-        () => _recoverTimedOutGoOn(source, pending),
-      );
-    }
+    if (pending == null || pending.finished) return;
+    source._goOnOperation ??= _beginReplyWait(
+      source,
+      'go_on:${pending.clientMsgId}',
+      'go_on',
+    );
   }
 
-  void _noteGoOnStreamStarted(ChatroomReplyRoundState source) {
-    final pending = source._goOn;
-    if (pending == null || pending.finished || pending.roundId == null) return;
-    if (source._goOnStreamStarted && source._goOnStreamEndTimer != null) {
-      return;
-    }
-    _watchGoOn(source, streamStarted: true);
-  }
+  void _noteGoOnStreamStarted(ChatroomReplyRoundState source) =>
+      _watchGoOn(source);
 
-  void _recoverTimedOutGoOn(
-    ChatroomReplyRoundState source,
-    _PendingGoOn pending,
-  ) {
-    if (_disposed || !identical(source._goOn, pending) || pending.finished) {
-      _cancelGoOnWatchdog(source);
-      return;
-    }
-    final message = source._goOnStreamStarted
-        ? 'Go on did not finish. Please try again.'
-        : 'Go on did not start. Please try again.';
-    _cancelGoOnWatchdog(source);
-    unawaited(_recoverOrFinishTimedOutGoOn(source, pending, message));
-  }
-
-  Future<void> _recoverOrFinishTimedOutGoOn(
-    ChatroomReplyRoundState source,
-    _PendingGoOn pending,
-    String message,
-  ) async {
-    try {
-      await _recoverGoOn(
-        source,
-        finishIfIncomplete: true,
-        incompleteError: StateError(message),
-      );
-    } catch (_) {
-      if (_disposed || !identical(source._goOn, pending) || pending.finished) {
-        return;
-      }
-      pending.finished = true;
-      source._error = StateError(message);
-      _rollbackGoOnRound(source);
-      final round = pending.roundId;
-      if (round != null) _onGoOnFinished?.call(source.locationId, round);
-      try {
-        await _persist(source);
-      } catch (_) {
-        // The in-memory terminal state must still unlock the UI.
-      }
-      _notify(source.locationId);
-    }
-  }
-
-  void _cancelGoOnWatchdog(ChatroomReplyRoundState source) {
-    source._goOnStreamStartTimer?.cancel();
-    source._goOnStreamEndTimer?.cancel();
-    source._goOnStreamStartTimer = null;
-    source._goOnStreamEndTimer = null;
-    source._goOnStreamStarted = false;
-  }
+  void _cancelGoOnWatchdog(ChatroomReplyRoundState source) =>
+      source._goOnOperation?.finish();
 
   void _rollbackGoOnRound(ChatroomReplyRoundState source) {
     final round = source._goOn?.roundId;
@@ -2412,12 +2451,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    for (final location in _states.keys.toList()) {
-      for (final state in statesFor(location)) {
-        _cancelRegenerationWatchdog(state);
-        _cancelGoOnWatchdog(state);
-      }
-    }
+    if (_ownsSendGate) sendGate.dispose();
     for (final channel in _locationChanges.values) {
       channel.dispose();
     }

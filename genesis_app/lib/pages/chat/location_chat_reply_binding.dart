@@ -161,13 +161,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
                 (regenerating
                     ? _LocationChatReplyConnectionAction.regenerate
                     : _LocationChatReplyConnectionAction.goOn))) {
-      onError(
-        StateError(
-          GenesisL10n
-              .current
-              .chatReplyActionUnavailable,
-        ),
-      );
+      onError(StateError(GenesisL10n.current.chatReplyActionUnavailable));
       return;
     }
     final location = widget.locationId;
@@ -215,6 +209,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     try {
       await action(controller);
     } catch (error) {
+      if (error is ChatSendWaitReleased) return;
       onError(error);
       if (mounted && operation.canApplyToReply) {
         _setReplyControlsState(() => _waitingPositionResetRevision++);

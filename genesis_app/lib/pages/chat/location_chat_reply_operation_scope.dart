@@ -4,13 +4,15 @@ part of 'location_chat_page.dart';
 /// round/source is usable and which of its own loading flags may be cleared.
 class _LocationChatReplyOperationScope {
   _LocationChatReplyOperationScope(this._owner)
-    : _binding = _owner._replyBindingGeneration,
+    : _operation = _owner._replyOperationGeneration,
+      _binding = _owner._replyBindingGeneration,
       _location = _owner.widget.locationId,
       _controller = _owner._replyController,
       _services = _owner._quotaServices,
       _session = _owner._quotaServices?.sessionRevision.value;
 
   final _LocationChatPanelState _owner;
+  final int _operation;
   final int _binding;
   final String _location;
   final ChatroomReplyActionsController? _controller;
@@ -18,7 +20,9 @@ class _LocationChatReplyOperationScope {
   final int? _session;
 
   bool get ownsBinding =>
-      _owner.mounted && _binding == _owner._replyBindingGeneration;
+      _owner.mounted &&
+      _operation == _owner._replyOperationGeneration &&
+      _binding == _owner._replyBindingGeneration;
 
   bool get ownsReplyTarget =>
       ownsBinding &&

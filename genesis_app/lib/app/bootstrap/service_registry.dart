@@ -1,3 +1,4 @@
+import '../../network/chatroom/location_chat_send_gate.dart';
 import '../gems/gem_store_catalog.dart';
 import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
 import '../../platform/billing/membership_product_store.dart';
@@ -57,6 +58,7 @@ import '../attribution/adjust_attribution_runtime.dart';
 import '../attribution/adjust_local_adid_store.dart';
 
 class AppServices {
+  final chatSendGate = LocationChatSendGate();
   AppServices({
     required this.config,
     required this.platformConfig,
@@ -271,6 +273,7 @@ class AppServices {
   }
 
   void _membershipSessionChanged() {
+    chatSendGate.reset();
     StoreQueryCache.reset();
     personalization.resetForSession();
     _quotaMembershipSignature = null;
@@ -311,6 +314,7 @@ class AppServices {
   }
 
   void dispose() {
+    chatSendGate.dispose();
     StoreQueryCache.reset();
     _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(

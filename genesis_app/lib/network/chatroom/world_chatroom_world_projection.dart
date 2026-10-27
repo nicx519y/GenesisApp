@@ -413,6 +413,12 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     if (_disposed) return;
     final previousState = _state;
     _state = state;
+    sendGate.updateConnection(
+      _worldId,
+      connected: state.connected,
+      joining: state.joining,
+      joinedLocation: state.joinedLocationId,
+    );
     _inspirationReplacementLocation = inspirationReplacementLocation;
     try {
       _observeReplyHistory();

@@ -13,6 +13,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   Future<bool> _prepareSendConnection(WorldChatroomService service) async {
     final generation = ++_sendConnectionGeneration;
     final serviceGeneration = _serviceGeneration;
+    final connectionGeneration = service.connectionWaitGeneration;
     final locationId = widget.locationId;
     bool isCurrent() =>
         mounted &&
@@ -26,9 +27,28 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     _setLocationChatState(() => _sendConnectionPending = true);
     try {
       if (!isCurrent()) return false;
-      await _openChatConnectionGate(service: service, isCurrent: isCurrent);
+      await _guardPageWait('send_connect', (operation) async {
+        operation.onRelease(() {
+          service.abandonConnectionWait(
+            expectedGeneration: connectionGeneration,
+          );
+          if (!mounted ||
+              generation != _sendConnectionGeneration ||
+              serviceGeneration != _serviceGeneration) {
+            return;
+          }
+          _sendConnectionGeneration++;
+          _setLocationChatState(() => _sendConnectionPending = false);
+        });
+        await _openChatConnectionGate(
+          service: service,
+          isCurrent: () => isCurrent() && !operation.released,
+        );
+        operation.check();
+      });
       return isCurrent() && service.state.joinedLocationId == locationId;
     } catch (error) {
+      if (error is ChatSendWaitReleased) return false;
       if (mounted && isCurrent() && !isChatroomErrorPresentedGlobally(error)) {
         showGenesisToast(context, chatroomOperationErrorMessage(error));
       }
@@ -45,7 +65,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     if (!widget.active ||
         _service == null ||
         _chatroomState.joinedLocationId != widget.locationId ||
-        _chatroomState.inputBlocked ||
+        _tickBlocksSend ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _sending ||
@@ -60,7 +80,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           !widget.active ||
           _service == null ||
           _chatroomState.joinedLocationId != widget.locationId ||
-          _chatroomState.inputBlocked ||
+          _tickBlocksSend ||
           _sendAwaitingResponse ||
           _replyGenerationInProgress ||
           _sending ||
@@ -68,6 +88,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         return;
       }
       _initialMessageSendPending = false;
+      _initialSendWait?.finish();
       await _send(
         outgoingMessage: _initialOutgoingMessage,
         positionWaitingImmediately: true,
@@ -89,7 +110,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     final service = _service;
     if (service == null ||
         !widget.isLeafLocation ||
-        _chatroomState.inputBlocked ||
+        _tickBlocksSend ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _preparingReplyAction ||
@@ -104,6 +125,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       );
       return;
     }
+    if (_pageSendGate?.blocks(widget.worldId, widget.locationId) ?? false) {
+      return;
+    }
+    final sendAttempt = ++_sendAttemptGeneration;
     final draftAtSubmit = _textController.serializedText;
     final messageTypeAtSubmit =
         outgoingMessage?.messageType ??
@@ -124,10 +149,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       return;
     }
     if (!mounted ||
+        sendAttempt != _sendAttemptGeneration ||
         !widget.active ||
         !identical(service, _service) ||
         (hasNetwork && service.state.joinedLocationId != widget.locationId) ||
-        _chatroomState.inputBlocked ||
+        _tickBlocksSend ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _preparingReplyAction ||
@@ -280,6 +306,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         localMessage: localMessage,
         clientMsgId: clientMsgId,
         isInitialSend: true,
+        scene: inspirationSource != null
+            ? 'inspiration_send'
+            : outgoingMessage != null
+            ? 'initial_send'
+            : 'send',
         replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
         failBeforeTransport: true,
         onCanonicalMessage: onCanonicalMessage,
@@ -292,10 +323,23 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       final location = widget.locationId;
       final bindingGeneration = _replyBindingGeneration;
       try {
-        await controller.finalizeBeforeSend(
-          location,
-          expectedSource: inspirationSource,
-        );
+        await _guardPageWait('send_finalize', (operation) async {
+          operation.onRelease(() {
+            if (!mounted || sendAttempt != _sendAttemptGeneration) return;
+            _sendAttemptGeneration++;
+            _setLocationChatState(() {
+              _sending = false;
+              localMessage.status = 'failed'; // No send was dispatched.
+              cancelImmediateWaiting();
+            });
+          });
+          await controller.finalizeBeforeSend(
+            location,
+            expectedSource: inspirationSource,
+            wait: operation,
+          );
+          operation.check();
+        });
         if (inspirationSource != null &&
             !(_inspirationController?.isCurrent(
                   inspirationSource,
@@ -305,6 +349,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           throw StateError(GenesisL10n.current.chatReplyChangedSelect);
         }
       } catch (error) {
+        if (error is ChatSendWaitReleased ||
+            sendAttempt != _sendAttemptGeneration) {
+          return;
+        }
         onFailure?.call(error, false);
         if (mounted &&
             bindingGeneration == _replyBindingGeneration &&
@@ -338,6 +386,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         return;
       }
       if (!mounted ||
+          sendAttempt != _sendAttemptGeneration ||
           bindingGeneration != _replyBindingGeneration ||
           !widget.active ||
           location != widget.locationId ||
@@ -360,9 +409,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         return;
       }
       if (_chatroomState.joinedLocationId != location ||
-          _chatroomState.inputBlocked ||
-          _sendAwaitingResponse ||
-          widget.worldTickInProgress) {
+          _tickBlocksSend ||
+          _sendAwaitingResponse) {
         onFailure?.call(
           StateError(GenesisL10n.current.chatMessageCannotSend),
           false,
@@ -387,6 +435,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       localMessage: localMessage,
       clientMsgId: clientMsgId,
       isInitialSend: true,
+      scene: inspirationSource != null
+          ? 'inspiration_send'
+          : outgoingMessage != null
+          ? 'initial_send'
+          : 'send',
       replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
       onCanonicalMessage: onCanonicalMessage,
       onFailure: onFailure,
@@ -400,7 +453,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         message.status != 'failed' ||
         service == null ||
         !widget.isLeafLocation ||
-        _chatroomState.inputBlocked ||
+        _tickBlocksSend ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _preparingReplyAction ||
@@ -409,13 +462,18 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _sending) {
       return;
     }
+    if (_pageSendGate?.blocks(widget.worldId, widget.locationId) ?? false) {
+      return;
+    }
+    final sendAttempt = ++_sendAttemptGeneration;
     if (!await _hasNetworkForSend()) return;
     if (!await _prepareSendConnection(service)) return;
     if (!mounted ||
+        sendAttempt != _sendAttemptGeneration ||
         !widget.active ||
         !identical(service, _service) ||
         service.state.joinedLocationId != widget.locationId ||
-        _chatroomState.inputBlocked ||
+        _tickBlocksSend ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _preparingReplyAction ||
@@ -430,8 +488,20 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       final bindingGeneration = _replyBindingGeneration;
       _setLocationChatState(() => _sending = true);
       try {
-        await controller.finalizeBeforeSend(location);
+        await _guardPageWait('send_finalize', (operation) async {
+          operation.onRelease(() {
+            if (!mounted || sendAttempt != _sendAttemptGeneration) return;
+            _sendAttemptGeneration++;
+            _setLocationChatState(() => _sending = false);
+          });
+          await controller.finalizeBeforeSend(location, wait: operation);
+          operation.check();
+        });
       } catch (error) {
+        if (error is ChatSendWaitReleased ||
+            sendAttempt != _sendAttemptGeneration) {
+          return;
+        }
         if (mounted &&
             bindingGeneration == _replyBindingGeneration &&
             widget.locationId == location &&
@@ -444,6 +514,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         return;
       }
       if (!mounted ||
+          sendAttempt != _sendAttemptGeneration ||
           bindingGeneration != _replyBindingGeneration ||
           !widget.active ||
           location != widget.locationId ||
@@ -451,9 +522,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         return;
       }
       if (_chatroomState.joinedLocationId != location ||
-          _chatroomState.inputBlocked ||
-          _sendAwaitingResponse ||
-          widget.worldTickInProgress) {
+          _tickBlocksSend ||
+          _sendAwaitingResponse) {
         _setLocationChatState(() => _sending = false);
         return;
       }
@@ -477,6 +547,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       localMessage: message,
       clientMsgId: clientMsgId,
       isInitialSend: false,
+      scene: 'retry_send',
     );
   }
 
@@ -485,11 +556,17 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required ChatMessageVm localMessage,
     required String clientMsgId,
     required bool isInitialSend,
+    required String scene,
     String? replyActionsSuppressionIdentity,
     bool failBeforeTransport = false,
     void Function(WorldChatroomMessage message)? onCanonicalMessage,
     void Function(Object error, bool receiptReceived)? onFailure,
   }) async {
+    final sendAttempt = _sendAttemptGeneration;
+    bool ownsSend() =>
+        mounted &&
+        sendAttempt == _sendAttemptGeneration &&
+        identical(service, _service);
     final ratingServices = AppServicesScope.read(context);
     final ratingThreshold =
         RatingPromptDebugSettings.resolve(
@@ -521,8 +598,27 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         localMessage.text,
         clientMsgId: clientMsgId,
         messageType: localMessage.messageType,
+        scene: scene,
       );
-      final receipt = await handle.receipt;
+      final wait = service.sendGate.find(
+        sentWorldId,
+        sentLocationId,
+        'send:$clientMsgId',
+      )!;
+      wait.onRelease(() {
+        if (!ownsSend()) return;
+        service.cancelCanonicalMessageWait(clientMsgId);
+        _sendAttemptGeneration++;
+        _setLocationChatState(() {
+          _sending = false;
+          if (!receiptReceived) localMessage.status = 'unknown';
+          if (_ackLoadingClientMsgId == clientMsgId) _clearAckLoading();
+          if (_preAckWaitingClientMsgId == clientMsgId) {
+            _clearPreAckWaiting(resetPosition: true);
+          }
+        });
+      });
+      final receipt = await wait.guard(handle.receipt);
       receiptReceived = true;
       unawaited(
         ratingThreshold
@@ -546,7 +642,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             })
             .catchError((Object _) {}),
       );
-      if (!mounted) {
+      if (!ownsSend()) {
         service.cancelCanonicalMessageWait(clientMsgId);
         onFailure?.call(
           StateError(GenesisL10n.current.chatSendConfirmFailed),
@@ -575,23 +671,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         },
       );
 
-      WorldChatroomMessage canonicalMessage;
-      try {
-        canonicalMessage = await handle.canonicalMessage.timeout(
-          const Duration(seconds: 5),
-        );
-      } on TimeoutException {
-        await service.refreshLatestMessages(
-          locationId: widget.locationId,
-          limit: 20,
-          emitLatestFetched: false,
-        );
-        canonicalMessage = await handle.canonicalMessage.timeout(
-          const Duration(seconds: 2),
-        );
-      }
+      final canonicalMessage = await wait.guard(handle.canonicalMessage);
+      if (!ownsSend()) return;
       onCanonicalMessage?.call(canonicalMessage);
-      if (!mounted) return;
       GenesisTelemetry.collectLog(
         actionType: 'event',
         action: 'location_chat_send_message',
@@ -625,6 +707,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         },
       );
     } catch (e) {
+      if (!ownsSend()) return;
       onFailure?.call(e, receiptReceived);
       if (receiptReceived) {
         service.cancelCanonicalMessageWait(clientMsgId, reason: e);
@@ -637,9 +720,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         if (!receiptReceived && _ackLoadingClientMsgId == clientMsgId) {
           _clearAckLoading();
         }
-        if (!receiptReceived) {
-          // ACK rejection, timeout, and transport failure share the same retry
-          // affordance for composer and Inspiration sends.
+        if (!receiptReceived && service.isSendAcceptanceUnknown(clientMsgId)) {
+          localMessage.status = 'unknown';
+          localMessage.error = null;
+        } else if (!receiptReceived) {
+          // A definite local/pre-transport or server rejection permits retry.
           localMessage.status = 'failed';
           localMessage.error = null;
         } else {

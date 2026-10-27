@@ -889,13 +889,13 @@ void main() {
       socket
           .sentFrames('send_message')
           .where((frame) => frame['client_msg_id'] == 'client-timeout'),
-      hasLength(3),
+      hasLength(1),
     );
 
     await session.close();
   });
 
-  test('sendMessage completes when retry receives matching ack', () async {
+  test('late ACK remains observable after timeout without resending', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(
       _FakeChatroomTransport(socket),
@@ -904,12 +904,15 @@ void main() {
     final session = await _connectedSession(client, socket);
 
     final future = session.sendMessage('hello', clientMsgId: 'client-retry');
-    await Future<void>.delayed(const Duration(milliseconds: 25));
+    await expectLater(future, throwsA(isA<ChatroomFailureEvent>()));
+    final lateAck = session.events.firstWhere(
+      (event) => event is ChatroomAck && event.clientMsgId == 'client-retry',
+    );
     expect(
       socket
           .sentFrames('send_message')
           .where((frame) => frame['client_msg_id'] == 'client-retry'),
-      hasLength(2),
+      hasLength(1),
     );
     socket.serverFrame('ack', {
       'world_id': 'world-1',
@@ -921,7 +924,7 @@ void main() {
       'payload': {'client_msg_id': 'client-retry'},
     });
 
-    await future;
+    expect(await lateAck, isA<ChatroomAck>());
     await session.close();
   });
 
@@ -1606,7 +1609,7 @@ void main() {
 
   group('V2 WebSocket contract', () {
     test(
-      'narration uses top-level type and retries the unchanged raw content',
+      'narration preserves its type and does not resend after ACK timeout',
       () async {
         final socket = _FakeChatroomSocket();
         final client = await _client(
@@ -1623,9 +1626,9 @@ void main() {
           clientMsgId: 'narration-retry',
           messageType: 'narration',
         );
-        await Future<void>.delayed(const Duration(milliseconds: 40));
+        await expectLater(future, throwsA(isA<ChatroomFailureEvent>()));
         final frames = socket.sentFrames('send_message');
-        expect(frames.length, greaterThanOrEqualTo(2));
+        expect(frames, hasLength(1));
         for (final frame in frames) {
           expect(frame['message_type'], 'narration');
           expect(frame['client_msg_id'], 'narration-retry');
@@ -1634,7 +1637,8 @@ void main() {
           expect(frame.containsKey('sender_type'), isFalse);
         }
         socket.serverV2Ack('narration-retry');
-        await future;
+        await _tick();
+        expect(socket.sentFrames('send_message'), hasLength(1));
       },
     );
 

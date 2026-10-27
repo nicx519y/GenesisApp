@@ -38,14 +38,33 @@ class ChatStreamingEffects extends StatefulWidget {
     required this.settings,
     this.presentationRevision,
     this.operationIdentity,
+    this.onProgress,
     this.deferIncomingMessages = false,
     required this.child,
   });
   final LocationChatBubbleLayoutSettings settings;
   final Object? presentationRevision;
   final Object? operationIdentity;
+  final void Function(Object progress)? onProgress;
   final bool deferIncomingMessages;
   final Widget child;
+
+  /// Finishes local animation only; never emits a server completion.
+  static void releaseLocalWait(BuildContext context) {
+    final owner = context.getInheritedWidgetOfExactType<_EffectsScope>()?.owner;
+    if (owner == null) return;
+    for (final record in owner._records.values) {
+      record.cancelled = true;
+      record.finishing = false;
+      record.revealed = record.text.length.toDouble();
+    }
+    owner._deferredTasks.clear();
+    for (final body in owner._bodies) {
+      body.markNeedsLayout();
+    }
+    owner.refreshQueue();
+    owner._refreshPresentation();
+  }
 
   static Object? activeTaskOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_EffectsScope>()
@@ -1120,7 +1139,11 @@ class _RenderStreamingBody extends RenderProxyBox {
     _textWasEnabled = settings.streamingTextReveal;
     record.seen = true;
     record.text = next;
+    final previousReveal = record.revealed;
     record.revealed = _reveal.value(_clock);
+    if (previousReveal != record.revealed) {
+      _scope.owner.widget.onProgress?.call((record, record.revealed));
+    }
 
     var targetHeight = child!.size.height;
     var start = 0;

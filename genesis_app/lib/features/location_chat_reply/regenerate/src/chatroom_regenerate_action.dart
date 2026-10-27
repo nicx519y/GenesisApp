@@ -3,13 +3,17 @@ part of '../../../../network/chatroom/chatroom_reply_actions_controller.dart';
 /// Internal implementation. Callers only see the regenerate feature contract.
 extension ChatroomRegenerateFeatureImplementation
     on ChatroomReplyActionsController {
-  Future<void> regenerate(String locationId) async {
-    await restore(locationId);
-    final state = await _target(locationId);
+  Future<void> regenerate(
+    String locationId, {
+    ChatSendOperation? preparation,
+  }) async {
+    await (preparation?.guard(restore(locationId)) ?? restore(locationId));
+    preparation?.check();
+    final state =
+        await (preparation?.guard(_target(locationId)) ?? _target(locationId));
+    preparation?.check();
     if (!state.canRegenerate) {
-      throw StateError(
-        GenesisL10n.current.chatRegenerateUnavailable,
-      );
+      throw StateError(GenesisL10n.current.chatRegenerateUnavailable);
     }
     _invalidateCardsCache(state);
     final dispatchGeneration = ++state._regenerationDispatchGeneration;
@@ -31,16 +35,10 @@ extension ChatroomRegenerateFeatureImplementation
           state._cards.any(
             (card) => card.cardId > 0 && !_terminal(card.generationState),
           )) {
-        throw StateError(
-          GenesisL10n
-              .current
-              .chatRegenerateUnavailable,
-        );
+        throw StateError(GenesisL10n.current.chatRegenerateUnavailable);
       }
       if (!state._eligible || state.frozen) {
-        throw StateError(
-          GenesisL10n.current.chatSourceRoundChanged,
-        );
+        throw StateError(GenesisL10n.current.chatSourceRoundChanged);
       }
       final pendingIndex = state._cards.isEmpty
           ? 2
@@ -65,27 +63,40 @@ extension ChatroomRegenerateFeatureImplementation
       candidatePrepared = true;
       state._generating = true;
       state._regenerationRequestId = requestId = _request('regenerate');
-      await _persist(state);
+      state._regenerationOperation = _beginReplyWait(
+        state,
+        'regenerate:$requestId',
+        'regenerate',
+      );
+      preparation?.handoffTo(state._regenerationOperation!);
+      await state._regenerationOperation!.guard(_persist(state));
+      state._regenerationOperation!.check();
       _notify(state.locationId);
       final session = _requireSession();
       dispatched = true;
-      final receipt = await session.regenerateLlmCard(
-        locationId: locationId,
-        conversationRoundId: state.roundId,
-        clientMsgId: state._regenerationRequestId!,
+      final receipt = await state._regenerationOperation!.guard(
+        session.regenerateLlmCard(
+          locationId: locationId,
+          conversationRoundId: state.roundId,
+          clientMsgId: state._regenerationRequestId!,
+        ),
       );
       _checkCurrent();
       if (dispatchGeneration != state._regenerationDispatchGeneration) return;
       receiptReceived = true;
-      await _applyRegenerationReceipt(
-        state,
-        receipt,
-        oldView: oldView,
-        originalMessages: originalMessages,
-        pendingIndex: pendingIndex,
-        dispatchGeneration: dispatchGeneration,
+      state._regenerationOperation!.progress('ack', phase: 'awaiting_stream');
+      await state._regenerationOperation!.guard(
+        _applyRegenerationReceipt(
+          state,
+          receipt,
+          oldView: oldView,
+          originalMessages: originalMessages,
+          pendingIndex: pendingIndex,
+          dispatchGeneration: dispatchGeneration,
+        ),
       );
     } catch (error) {
+      if (error is ChatSendWaitReleased) rethrow;
       if (!_disposed &&
           dispatchGeneration == state._regenerationDispatchGeneration) {
         state._error = error;
@@ -95,6 +106,7 @@ extension ChatroomRegenerateFeatureImplementation
           if (!dispatched || _definiteRejection(error)) {
             state._cards.removeWhere((card) => card.cardId <= 0);
             state._regenerationRequestId = null;
+            state._regenerationOperation?.finish();
             state._viewedCardId = state._lastCompleteCardId;
           } else {
             state._regenerationRequestUncertain = true;

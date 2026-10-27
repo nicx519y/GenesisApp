@@ -17,17 +17,13 @@ final class _LocationChatReplyActionTransaction {
 extension on _LocationChatReplyConnectionAction {
   String get failureMessage => switch (this) {
     _LocationChatReplyConnectionAction.regenerate =>
-      GenesisL10n
-          .current
-          .chatRegenerateFailure,
+      GenesisL10n.current.chatRegenerateFailure,
     _LocationChatReplyConnectionAction.goOn =>
       GenesisL10n.current.chatGoFailure,
     _LocationChatReplyConnectionAction.edit =>
       GenesisL10n.current.chatEditFailure,
     _LocationChatReplyConnectionAction.inspiration =>
-      GenesisL10n
-          .current
-          .chatInspirationFailure,
+      GenesisL10n.current.chatInspirationFailure,
   };
 }
 
@@ -57,11 +53,7 @@ final class _LocationChatConnectionGate {
     // coalesces an active connect and an active join internally. The page-level
     // join future additionally shares this request with lifecycle auto-join.
     if (!await join() || service.state.joinedLocationId != locationId) {
-      throw StateError(
-        GenesisL10n
-            .current
-            .chatJoinLocationFailed,
-      );
+      throw StateError(GenesisL10n.current.chatJoinLocationFailed);
     }
     _checkCurrent();
     onJoined();
@@ -69,11 +61,7 @@ final class _LocationChatConnectionGate {
 
   void _checkCurrent() {
     if (!isCurrent() || service.isDisposed) {
-      throw StateError(
-        GenesisL10n
-            .current
-            .chatInactive,
-      );
+      throw StateError(GenesisL10n.current.chatInactive);
     }
   }
 }
@@ -118,32 +106,60 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
       _replyConnectionAction = transaction.action;
       _replyConnectionActionRoundId = sourceRoundId;
     });
+    final wait = _beginPageWait(
+      transaction.action == _LocationChatReplyConnectionAction.inspiration
+          ? 'inspiration'
+          : 'reply_prepare',
+    );
+    wait.phase = 'connecting';
+    _replyPreparationWait = wait;
+    wait.diagnostics['reply_action'] = transaction.action.name;
+    final connectionService = _service;
+    final connectionGeneration = connectionService?.connectionWaitGeneration;
+    wait.onRelease(() {
+      if (wait.phase == 'connecting') {
+        connectionService?.abandonConnectionWait(
+          expectedGeneration: connectionGeneration,
+        );
+      }
+      if (!mounted || generation != _replyConnectionActionGeneration) return;
+      if (transaction.action ==
+          _LocationChatReplyConnectionAction.inspiration) {
+        _resetInspiration();
+      }
+      _replyOperationGeneration++;
+      _replyConnectionActionGeneration++;
+      _setReplyControlsState(() {
+        _replyConnectionAction = null;
+        _replyConnectionActionRoundId = null;
+        _preparingReplyAction = false;
+        _replyRequestLoading = false;
+        _inspirationLoading = false;
+      });
+    });
     try {
       final service = _service;
       if (service == null || !widget.isLeafLocation) {
-        throw StateError(
-          GenesisL10n
-              .current
-              .chatChatroomUnavailable,
-        );
+        throw StateError(GenesisL10n.current.chatChatroomUnavailable);
       }
-      await _openChatConnectionGate(
-        service: service,
-        isCurrent: () => operation.canApplyToReply,
+      await wait.guard(
+        _openChatConnectionGate(
+          service: service,
+          isCurrent: () => operation.canApplyToReply,
+        ),
       );
+      wait.check();
+      wait.progress('joined', phase: 'preparing');
       if (!operation.canApplyToReply ||
           generation != _replyConnectionActionGeneration) {
         transaction.onFailure?.call(
-          StateError(
-            GenesisL10n
-                .current
-                .chatFailedConfirmReplyAction,
-          ),
+          StateError(GenesisL10n.current.chatFailedConfirmReplyAction),
         );
         return;
       }
-      await transaction.commit();
+      await wait.guard(transaction.commit());
     } catch (error) {
+      if (error is ChatSendWaitReleased) return;
       transaction.onFailure?.call(error);
       if (mounted &&
           operation.canApplyToReply &&
@@ -151,6 +167,8 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
         _showReplyActionFailure(error, transaction.action);
       }
     } finally {
+      wait.finish();
+      if (identical(_replyPreparationWait, wait)) _replyPreparationWait = null;
       if (operation.ownsReplyTarget &&
           generation == _replyConnectionActionGeneration) {
         _setReplyControlsState(() {

@@ -125,6 +125,52 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  testWidgets(
+    'unknown Send releases at 45 seconds and next manual send is independent',
+    (tester) async {
+      final harness = await _mountEnterConversationPanel(tester);
+      ChatComposer composer() =>
+          tester.widget<ChatComposer>(find.byType(ChatComposer));
+      composer().controller.text = 'Unknown first request';
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      unawaited(composer().onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 1,
+      );
+      await tester.pump(const Duration(seconds: 44));
+      expect(harness.socket.sendMessageCount, 1);
+      composer().controller.text = 'New manual request';
+      await tester.pump();
+      expect(composer().sendEnabled, isFalse);
+      expect(
+        tester
+            .widgetList<ChatSelfMessageBubble>(
+              find.byType(ChatSelfMessageBubble),
+            )
+            .any((bubble) => bubble.message.status == 'unknown'),
+        isTrue,
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      unawaited(composer().onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 2,
+      );
+      expect(
+        harness.service.sendGate.blocks('world-current', 'location-current'),
+        isTrue,
+      );
+      harness.socket.serverV2AckForLatestSend(errNo: 9001);
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final stage in [
     'before receipt',
     'after receipt',
@@ -132,7 +178,7 @@ void main() {
     'silent stall',
     'offline beyond deadline',
   ]) {
-    testWidgets('send recovers after disconnect and 5s idle: $stage', (
+    testWidgets('send recovers after its unified idle deadline: $stage', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -225,22 +271,14 @@ void main() {
       }
       composer().controller.text = 'Second message';
       await tester.pump();
-      if (stage != 'offline beyond deadline') {
-        await tester.pump(const Duration(seconds: 5));
-      }
+      await tester.pump(Duration(seconds: stage == 'during stream' ? 5 : 45));
       await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
-      expect(
-        harness.service.state.conversationRoundStatesByLocation,
-        silent ? contains('location-current') : isEmpty,
-      );
+      expect(harness.service.state.conversationRoundStatesByLocation, isEmpty);
       // A late waiting event for the interrupted round must not lock it again.
       peer.serverWaitingConversationRound(roundId: 301);
       await tester.pump();
       await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
-      expect(
-        harness.service.state.conversationRoundStatesByLocation,
-        silent ? contains('location-current') : isEmpty,
-      );
+      expect(harness.service.state.conversationRoundStatesByLocation, isEmpty);
       // Production opens from a prepared snapshot, including after returning
       // to the same location. Recreate the actual panel, not just its input.
       await tester.pumpWidget(
@@ -476,6 +514,7 @@ void main() {
               session: session,
               worldDetailReady: true,
               child: LocationChatPanel(
+                networkAvailabilityCheck: _locationChatNetworkAvailable,
                 worldId: 'world-current',
                 locationId: 'location-current',
                 service: harness.service,
@@ -685,6 +724,7 @@ void main() {
                 session: session,
                 worldDetailReady: true,
                 child: LocationChatPanel(
+                  networkAvailabilityCheck: _locationChatNetworkAvailable,
                   worldId: 'world-current',
                   locationId: 'location-current',
                   service: harness.service,
@@ -932,6 +972,7 @@ void main() {
           services: harness.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -993,6 +1034,7 @@ void main() {
           services: harness.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -1336,6 +1378,7 @@ void main() {
               home: !show
                   ? const SizedBox.shrink()
                   : LocationChatPanel(
+                      networkAvailabilityCheck: _locationChatNetworkAvailable,
                       worldId: 'world-current',
                       locationId: 'location-current',
                       service: harness.service,
@@ -1512,6 +1555,7 @@ void main() {
           services: harness.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -2340,6 +2384,7 @@ void main() {
             services: harness.services,
             child: MaterialApp(
               home: LocationChatPanel(
+                networkAvailabilityCheck: _locationChatNetworkAvailable,
                 worldId: 'world-current',
                 locationId: 'location-current',
                 service: harness.service,
@@ -2475,6 +2520,7 @@ void main() {
           services: second.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: second.service,
@@ -3470,6 +3516,7 @@ void main() {
                 builder: (context, setState) {
                   changeActive = setState;
                   return LocationChatPanel(
+                    networkAvailabilityCheck: _locationChatNetworkAvailable,
                     active: active,
                     worldId: 'world-current',
                     locationId: 'location-current',
@@ -4036,6 +4083,7 @@ void main() {
           services: harness.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -4111,6 +4159,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -4474,6 +4523,7 @@ void main() {
         child: MaterialApp(
           theme: ThemeData(platform: TargetPlatform.android),
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -4756,6 +4806,7 @@ void main() {
             home: PagePresentationScope(
               controller: presentation,
               child: LocationChatPanel(
+                networkAvailabilityCheck: _locationChatNetworkAvailable,
                 worldId: 'world-current',
                 locationId: 'location-current',
                 service: harness.service,
@@ -4877,6 +4928,7 @@ void main() {
         services: services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: service,
@@ -5030,6 +5082,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: service,
@@ -5223,6 +5276,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: service,
@@ -5430,6 +5484,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: service,
@@ -5555,6 +5610,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: service,
@@ -5684,6 +5740,7 @@ void main() {
                   scrollBehavior: const GenesisScrollBehavior(),
                   onGenerateRoute: AppRouter.onGenerateRoute,
                   home: LocationChatPanel(
+                    networkAvailabilityCheck: _locationChatNetworkAvailable,
                     worldId: 'world-current',
                     locationId: 'location-current',
                     service: harness.service,
@@ -5830,6 +5887,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: service,
@@ -5909,6 +5967,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: service,
@@ -5950,6 +6009,7 @@ void main() {
         services: services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: service,
@@ -5995,6 +6055,7 @@ void main() {
           services: services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               key: const ValueKey<String>('cached-location-panel'),
               worldId: 'world-current',
               locationId: 'location-current',
@@ -6053,6 +6114,7 @@ void main() {
         child: MaterialApp(
           theme: ThemeData(platform: platform),
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -6138,6 +6200,7 @@ void main() {
           child: MaterialApp(
             theme: ThemeData(platform: TargetPlatform.iOS),
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -6223,6 +6286,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'background-world',
           locationId: 'background-location',
           active: false,
@@ -6940,6 +7004,7 @@ void main() {
               pages: [
                 MaterialPage<void>(
                   child: LocationChatPanel(
+                    networkAvailabilityCheck: _locationChatNetworkAvailable,
                     worldId: 'world-current',
                     locationId: 'location-current',
                     service: harness.service,
@@ -9196,6 +9261,7 @@ void main() {
           services: harness.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -10328,7 +10394,7 @@ void main() {
     },
   );
 
-  testWidgets('ACK timeout keeps one failed bubble across transport retries', (
+  testWidgets('ACK timeout retains unknown bubble without automatic resend', (
     WidgetTester tester,
   ) async {
     final analytics = _enableLocationChatAnalyticsForTesting(
@@ -10345,6 +10411,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: service,
@@ -10394,16 +10461,15 @@ void main() {
       ),
     ]);
 
-    // The chatroom client retries a missing ACK internally. Those transport
-    // attempts must not create additional business-level Analytics events.
+    // Missing ACK is unknown acceptance. Never resend automatically.
     await tester.pump(const Duration(milliseconds: 35));
-    expect(socket.sendMessageCount, 3);
+    expect(socket.sendMessageCount, 1);
     expect(analytics.events, hasLength(3));
     final failedTimeoutBubble = find.byWidgetPredicate(
       (widget) =>
           widget is ChatSelfMessageBubble &&
           widget.message.text == 'hello from location chat' &&
-          widget.message.status == 'failed',
+          widget.message.status == 'unknown',
     );
     await _pumpUntilLocationChatTest(
       tester,
@@ -10441,6 +10507,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: service,
@@ -10494,7 +10561,7 @@ void main() {
     unawaited(service.dispose());
   });
 
-  testWidgets('ACK starts loading dots and the ten-second deadline', (
+  testWidgets('ACK loading is released by the unified ordinary deadline', (
     WidgetTester tester,
   ) async {
     final harness = await _connectedLocationChatTestService();
@@ -10503,6 +10570,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -10569,7 +10637,7 @@ void main() {
       tester.getTopLeft(find.byKey(dots)).dy,
       greaterThan(tester.getBottomLeft(find.text('waiting for Alice')).dy),
     );
-    await tester.pump(const Duration(seconds: 9));
+    await tester.pump(const Duration(seconds: 44));
     expect(find.byKey(dots), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(find.byKey(dots), findsNothing);
@@ -10769,6 +10837,7 @@ void main() {
           child: MaterialApp(
             theme: ThemeData(platform: TargetPlatform.iOS),
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -10844,6 +10913,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -10931,6 +11001,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -11039,6 +11110,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: service,
@@ -11097,6 +11169,7 @@ void main() {
         services: services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-sync-failure',
             locationId: 'location-sync-failure',
             service: service,
@@ -11251,6 +11324,7 @@ void main() {
         services: services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: service,
@@ -11703,6 +11777,7 @@ void main() {
             services: harness.services,
             child: MaterialApp(
               home: LocationChatPanel(
+                networkAvailabilityCheck: _locationChatNetworkAvailable,
                 worldId: 'world-current',
                 locationId: 'location-current',
                 service: service,
@@ -11906,6 +11981,7 @@ void main() {
           pages: [
             MaterialPage<void>(
               child: LocationChatPanel(
+                networkAvailabilityCheck: _locationChatNetworkAvailable,
                 worldId: 'world-current',
                 modelWorldId: 'world-current',
                 memoryModelPageCache: pageCache,
@@ -11935,6 +12011,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'worldo-preview',
           locationId: 'location-current',
           active: true,
@@ -11958,6 +12035,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
           locationId: 'loc-1',
           active: false,
@@ -11995,6 +12073,7 @@ void main() {
         services: services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             active: active,
@@ -12068,6 +12147,7 @@ void main() {
       Widget panel({required bool active}) {
         return MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             key: const ValueKey<String>('retained-model-entry-panel'),
             worldId: 'world-current',
             modelWorldId: 'world-current',
@@ -12111,6 +12191,7 @@ void main() {
           services: connected.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               key: const ValueKey<String>('optimistic-occupant-panel'),
               worldId: 'world-current',
               locationId: 'location-current',
@@ -12151,6 +12232,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'roster-scroll',
           locationId: 'loc-1',
           active: false,
@@ -12273,6 +12355,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
           locationId: 'location-current',
           active: false,
@@ -12410,6 +12493,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             active: false,
@@ -12546,6 +12630,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             active: false,
@@ -12666,6 +12751,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
           locationId: 'location-current',
           active: false,
@@ -12769,6 +12855,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'loc-1',
             active: false,
@@ -12824,6 +12911,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
           locationId: 'location-current',
           active: false,
@@ -12863,6 +12951,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             active: false,
@@ -12938,6 +13027,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'w_LV7MN3',
             locationId: 'loc_1_1_1',
             active: false,
@@ -13003,6 +13093,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
           locationId: 'location-current',
           active: false,
@@ -13081,6 +13172,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             modelWorldId: 'world-current',
             memoryModelPageCache: cache,
@@ -13146,6 +13238,7 @@ void main() {
         services: harness.services,
         child: MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             modelWorldId: 'world-current',
             locationId: 'location-current',
@@ -13205,6 +13298,7 @@ void main() {
         services: services,
         child: const MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             modelWorldId: 'world-current',
             locationId: 'location-current',
@@ -13236,6 +13330,7 @@ void main() {
         services: services,
         child: const MaterialApp(
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             modelWorldId: 'world-current',
             locationId: 'location-current',
@@ -13478,6 +13573,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'origin-preview',
           locationId: 'loc-1',
           active: false,
@@ -14430,6 +14526,7 @@ void main() {
           services: harness.services,
           child: MaterialApp(
             home: LocationChatPanel(
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
               worldId: 'world-current',
               locationId: 'location-current',
               service: harness.service,
@@ -14482,6 +14579,7 @@ void main() {
             pages: [
               MaterialPage<void>(
                 child: LocationChatPanel(
+                  networkAvailabilityCheck: _locationChatNetworkAvailable,
                   worldId: 'world-current',
                   locationId: 'location-current',
                   service: harness.service,
@@ -14577,6 +14675,7 @@ void main() {
         child: MaterialApp(
           theme: ThemeData(platform: TargetPlatform.iOS),
           home: LocationChatPanel(
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
             worldId: 'world-current',
             locationId: 'location-current',
             service: harness.service,
@@ -14980,6 +15079,7 @@ _mountEnterConversationPanel(
       child: MaterialApp(
         scrollBehavior: const GenesisScrollBehavior(),
         home: LocationChatPanel(
+          networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
           locationId: 'location-current',
           service: harness.service,
@@ -15100,6 +15200,7 @@ _connectedLocationChatTestService({
     refreshInitialSnapshotOnConnect: false,
     conversationRoundTimeout: conversationRoundTimeout,
     streamIdleTimeout: streamIdleTimeout,
+    sendGateClock: () => TestWidgetsFlutterBinding.instance.clock.now(),
     reconnectInterval: reconnectInterval,
   );
   await service.connect(
@@ -15235,6 +15336,7 @@ class _ThrowingLocationChatService extends WorldChatroomService {
     String text, {
     String? clientMsgId,
     String messageType = 'text',
+    String scene = 'send',
   }) {
     sendAttempts += 1;
     throw StateError('synchronous send failure');

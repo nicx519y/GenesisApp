@@ -358,6 +358,14 @@ class LocationChatReplyCardSwitcherState
     _setBusy(false, deferred: deferred);
   }
 
+  void releaseSendWait() {
+    if (!mounted) return;
+    setState(() {
+      _cancelRegenerateCollapse(deferred: true);
+      _reset(deferred: true);
+    });
+  }
+
   void switchBy(int delta) {
     if (!widget.enabled || _busy || _neighbor(delta) == null) return;
     widget.onWillChangeLayout();

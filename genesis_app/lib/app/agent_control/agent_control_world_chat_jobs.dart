@@ -88,6 +88,7 @@ Future<Map<String, Object?>> _agentWorldChatOpen(
     api: services.api,
     client: services.chatroom,
     messageStorage: services.chatroomMessages,
+    sendGate: services.chatSendGate,
     refreshInitialSnapshotOnConnect: false,
   );
 
@@ -154,6 +155,7 @@ Future<Map<String, Object?>> _agentWorldChatSend(
     api: services.api,
     client: services.chatroom,
     messageStorage: services.chatroomMessages,
+    sendGate: services.chatSendGate,
     refreshInitialSnapshotOnConnect: false,
   );
 
@@ -372,6 +374,7 @@ Future<Map<String, Object?>> _runAgentWorldChat(
     api: services.api,
     client: services.chatroom,
     messageStorage: services.chatroomMessages,
+    sendGate: services.chatSendGate,
     refreshInitialSnapshotOnConnect: false,
   );
 
@@ -591,6 +594,7 @@ Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
     api: services.api,
     client: services.chatroom,
     messageStorage: services.chatroomMessages,
+    sendGate: services.chatSendGate,
     refreshInitialSnapshotOnConnect: false,
   );
 

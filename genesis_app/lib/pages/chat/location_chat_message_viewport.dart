@@ -27,8 +27,10 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
           _sending ||
           _sendAwaitingResponse ||
           _replyGenerationInProgress ||
-          controls.regenerationInProgress ||
-          replyState?.complete == false,
+          (controls.regenerationInProgress &&
+              !(replyState?.sendReleased ?? false)) ||
+          (replyState?.complete == false &&
+              !(replyState?.sendReleased ?? false)),
       presentationSettled:
           ChatStreamingEffects.isSettledOf(context, listen: listen) &&
           !_replyCardTransitionBusy,
@@ -38,8 +40,16 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
 
   bool _replyReadyToSend(BuildContext context, {bool listen = true}) {
     final status = _replyRenderStatus(context, listen: listen);
+    if (status.discardPending) {
+      _presentationSendWait?.finish();
+      return true;
+    }
+    final released = _presentationWaitReleased(
+      context,
+      settled: status.presentationSettled,
+    );
     return status.discardPending ||
-        (!status.backendPending && status.presentationSettled);
+        (!status.backendPending && (status.presentationSettled || released));
   }
 
   bool get _replyPresentationBlocksSend {
@@ -55,6 +65,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
       deferIncomingMessages: true,
       settings: locationChatBubbleLayoutSettings.value,
       operationIdentity: (_replyBindingGeneration, _waitingPositionOperation),
+      onProgress: (progress) => _presentationSendWait?.progress(progress),
       presentationRevision: (
         presentation?.roundId,
         presentation?.viewedCardId,

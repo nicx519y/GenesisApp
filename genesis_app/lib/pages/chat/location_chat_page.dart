@@ -1,3 +1,4 @@
+import '../../network/chatroom/location_chat_send_gate.dart';
 import '../world/history/world_history_controller.dart';
 import '../world/history/world_history_projection.dart';
 import '../../app/debug/rating_prompt_debug_settings.dart';
@@ -94,6 +95,7 @@ import '../world/world_map_data.dart'
 part 'location_chat_panel_connection.dart';
 part 'location_chat_message_reconciler.dart';
 part 'location_chat_send_actions.dart';
+part 'location_chat_send_gate.dart';
 part 'location_chat_ack_loading.dart';
 part '../../features/location_chat_reply/regenerate/src/location_chat_regenerate_binding.dart';
 part '../../features/location_chat_reply/go_on/src/location_chat_go_on_binding.dart';
@@ -717,6 +719,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _loadPastHiddenInitialHistoryIfNeeded();
   }
 
+  LocationChatSendGate? _pageSendGate;
+  ChatSendOperation? _initialSendWait;
+  ChatSendOperation? _replyPreparationWait;
+  ChatSendOperation? _presentationSendWait;
+  int _pageWaitSequence = 0;
+  int _sendAttemptGeneration = 0;
+  int _replyOperationGeneration = 0;
   bool _sendConnectionPending = false;
   int _sendConnectionGeneration = 0;
   String? _preAckWaitingClientMsgId;
@@ -727,7 +736,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String? _waitingPositionClientMsgId;
   String? _ackLoadingClientMsgId;
   String? _ackLoadingMessageLocalId;
-  Timer? _ackLoadingTimeout;
   String? _suppressedReplyActionsIdentity;
   bool _rosterOpen = false;
   bool _mentionSheetOpen = false;
@@ -890,7 +898,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool get _replyGoOnPending =>
       _replyController
           ?.statesFor(widget.locationId)
-          .any((state) => state.goOnPending) ??
+          .any((state) => state.goOnBlocksSend) ??
       false;
 
   bool _replyActionsBlockedFor({required bool goOnPending}) {
@@ -956,7 +964,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool get _replyGenerationInProgress {
     final replyState = _replyController?.stateFor(widget.locationId);
     return _replyRequestLoading ||
-        (replyState?.generating ?? false) ||
+        (replyState?.generatingBlocksSend ?? false) ||
         _replyGoOnPending ||
         _inspirationLoading;
   }
@@ -1157,6 +1165,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _pageSendGate?.removeListener(_onSendGateChanged);
     WidgetsBinding.instance.removeObserver(this);
     _presentation?.removeListener(_handlePresentationChanged);
     _initialComposerAvatarImage?.dispose();
@@ -1197,6 +1206,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && widget.active) {
+      _pageSendGate?.reconcile();
       _service?.reconcileLocationStreamWait(widget.locationId);
     }
   }
@@ -1284,6 +1294,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _scrollCoordinator.deactivate();
     }
     if (worldTickProgressChanged) {
+      if (!widget.worldTickInProgress && !_chatroomState.inputBlocked) {
+        (_service?.sendGate ?? _pageSendGate)?.finishTick(widget.worldId);
+      }
       final source =
           _chatroomState.messagesByLocation[widget.locationId] ??
           const <WorldChatroomMessage>[];
@@ -1391,7 +1404,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.reconnecting ||
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
-    final inputBlocked = _chatroomState.inputBlocked;
+    _syncPageSendWaits();
+    final inputBlocked = _tickBlocksSend;
     final styleKey = (widget.style, locationChatHeaderEffectSettings.value);
     if (_resolvedMessageStyleKey != styleKey || _resolvedMessageStyle == null) {
       _resolvedMessageStyleKey = styleKey;
@@ -1460,6 +1474,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                   !_initialMessageSendPending &&
                   !_sendAwaitingResponse &&
                   _replyReadyToSend(context) &&
+                  !(_pageSendGate?.blocks(widget.worldId, widget.locationId) ??
+                      false) &&
                   !inputBlocked,
               sending: false,
               onSend: () {

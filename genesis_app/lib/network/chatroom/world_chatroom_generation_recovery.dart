@@ -10,27 +10,8 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
         attempt.number >= (state?.latest ?? 0);
   }
 
-  bool _generationPresentationPending(String location, String round) =>
-      _llmGenerations.values.any(
-        (state) =>
-            state.id.location == location &&
-            state.id.round == round &&
-            state.attempts.values.any((a) => a.presentationPending),
-      );
-
   void _observeAttempt(LlmAttempt attempt) {
-    attempt.onPresentationChanged ??= () {
-      if (_disposed) return;
-      final id = attempt.generation;
-      final watch = _streamWatches[id.location];
-      if (watch == null || watch.roundId != id.round || watch.timedOut) return;
-      if (_generationPresentationPending(id.location, id.round)) {
-        watch.timer?.cancel();
-        watch.timer = null;
-      } else if (!watch.ended) {
-        _armStreamWatch(id.location, watch);
-      }
-    };
+    // Presentation is not a network frame; never pause or extend stream time.
   }
 
   void _removeRetractedOutputs(LlmGenerationState generation) {
@@ -111,12 +92,12 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
     _removeRetractedOutputs(state);
     if (!changed) return;
     if (event.state == 'retrying') {
-      _noteStreamActivity(id.location, id.round);
+      // Retrying is not a new stream frame.
     } else {
       final watch = _streamWatches[id.location];
       if (watch?.roundId == id.round) {
         watch!.ended = true;
-        watch.timer?.cancel();
+        watch.operation.finish();
       }
       _completeConversationRound(
         locationId: id.location,
@@ -224,11 +205,24 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
     }
     if (event is ChatroomAiStreamEnd) {
       _streamAccumulators.remove(key);
-      _noteStreamEnd(i.locationId, i.conversationRoundId);
+      _noteStreamEnd(i.locationId, i.conversationRoundId, streamId: key);
     } else {
       _streamAccumulators[key] = accumulator;
-      _noteStreamActivity(i.locationId, i.conversationRoundId);
+      if (event is! ChatroomAiStreamChunk || event.chunk.isNotEmpty) {
+        _noteStreamActivity(
+          i.locationId,
+          i.conversationRoundId,
+          streamId: key,
+          frameId: event is ChatroomAiStreamChunk ? event.seq : 'start',
+          generationKey: id.key,
+          attemptNo: i.attemptNo,
+        );
+      }
     }
+    _streamWatches[i.locationId]?.operation.diagnostics.addAll({
+      'gateway_request_id': i.gatewayRequestId,
+      'global_message_id': i.globalMessageId,
+    });
     _upsertMessage(
       accumulator.message,
       persist: event is ChatroomAiStreamEnd,

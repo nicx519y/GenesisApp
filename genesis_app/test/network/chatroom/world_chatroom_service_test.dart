@@ -24,7 +24,36 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 
 void main() {
   test(
-    'attempt recovery removes ended siblings and resumes watchdog after visual retirement',
+    'Tick expiry releases Send locally but preserves true Tick lock',
+    () async {
+      var now = DateTime(2026);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        refreshInitialSnapshotOnConnect: false,
+        sendGateClock: () => now,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      service.setInputBlocked(true);
+      now = now.add(const Duration(seconds: 59));
+      service.sendGate.reconcile();
+      expect(service.tickBlocksSend, isTrue);
+      now = now.add(const Duration(seconds: 1));
+      service.sendGate.reconcile();
+      expect(service.tickBlocksSend, isFalse);
+      expect(service.state.inputBlocked, isTrue);
+      service.setInputBlocked(true); // Repeated polling cannot relock locally.
+      expect(service.tickBlocksSend, isFalse);
+      service.setInputBlocked(false);
+      service.setInputBlocked(
+        true,
+      ); // A genuinely new Tick starts a fresh wait.
+      expect(service.tickBlocksSend, isTrue);
+    },
+  );
+
+  test(
+    'attempt recovery removes ended siblings and presentation cannot extend stream timeout',
     () async {
       final socket = _FakeChatroomSocket();
       final storage = MemoryChatroomMessageStorage();
@@ -82,7 +111,7 @@ void main() {
         'Attempt 3',
       );
       await Future<void>.delayed(const Duration(milliseconds: 110));
-      expect(service.isLocationSendIdleTimedOut('loc-1'), isFalse);
+      expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
       release!();
       await _waitFor(() => service.isLocationSendIdleTimedOut('loc-1'));
       frame(1, 802, 'llm_stream_end', 'Stale B');
@@ -159,7 +188,7 @@ void main() {
     service.reconcileLocationStreamWait('loc-1');
     expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
     expect(replies.stateFor('loc-1')!.complete, isTrue);
-    expect(service.state.conversationRoundStatesByLocation, contains('loc-1'));
+    expect(service.state.conversationRoundStatesByLocation, isEmpty);
     service.reconcileLocationStreamWait('loc-1');
     expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
   });
@@ -277,6 +306,7 @@ void main() {
         refreshInitialSnapshotOnConnect: false,
         ackTimeout: const Duration(seconds: 2),
         streamIdleTimeout: const Duration(milliseconds: 80),
+        conversationRoundTimeout: const Duration(milliseconds: 80),
       );
       addTearDown(service.dispose);
       await service.connect(worldId: 'world-1', identity: _identity());
@@ -408,7 +438,7 @@ void main() {
   );
 
   test(
-    'stream idle watchdog resets on chunks without releasing round',
+    'unified stream deadline refreshes on chunks and releases the round',
     () async {
       final socket = _FakeChatroomSocket();
       final service = await _service(
@@ -450,10 +480,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 60));
       expect(service.state.streamMessagesByKey, isNotEmpty);
       await _waitFor(() => service.state.streamMessagesByKey.isEmpty);
-      expect(
-        service.state.conversationRoundStatesByLocation,
-        contains('loc-1'),
-      );
+      expect(service.state.conversationRoundStatesByLocation, isEmpty);
       expect(replies.stateFor('loc-1')!.complete, isTrue);
       expect(
         service.state.messagesByLocation['loc-1']!.single.content,
@@ -553,10 +580,7 @@ void main() {
       await handle.receipt;
       await Future<void>.delayed(const Duration(milliseconds: 60));
       expect(service.state.streamMessagesByKey, isEmpty);
-      expect(
-        service.state.conversationRoundStatesByLocation,
-        contains('loc-1'),
-      );
+      expect(service.state.conversationRoundStatesByLocation, isEmpty);
     },
   );
 
@@ -612,7 +636,7 @@ void main() {
     'stream idle watchdog receipt starts first-byte timeout and late binding stays ended',
     () async {
       expect(chatroomStreamIdleTimeout, const Duration(seconds: 5));
-      expect(conversationRoundFallbackTimeout, const Duration(seconds: 30));
+      expect(conversationRoundFallbackTimeout, const Duration(seconds: 45));
       final socket = _FakeChatroomSocket();
       final service = await _service(
         socketTransport: _FakeChatroomTransport(socket),
@@ -620,6 +644,7 @@ void main() {
         refreshInitialSnapshotOnConnect: false,
         ackTimeout: const Duration(seconds: 2),
         streamIdleTimeout: const Duration(milliseconds: 60),
+        conversationRoundTimeout: const Duration(milliseconds: 60),
       );
       addTearDown(service.dispose);
       await service.connect(worldId: 'world-1', identity: _identity());
@@ -646,8 +671,6 @@ void main() {
       await _waitFor(() => socket.sentTypes.contains('send_message'));
       socket.serverV2Ack(clientMsgId: handle.clientMsgId);
       await handle.receipt;
-      final deadline =
-          service.state.conversationRoundStatesByLocation['loc-1']!.deadlineAt;
       await Future<void>.delayed(const Duration(milliseconds: 90));
       socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 805);
       socket.serverV2StreamFrame(
@@ -667,10 +690,7 @@ void main() {
             true,
       );
       expect(service.state.streamMessagesByKey, isEmpty);
-      expect(
-        service.state.conversationRoundStatesByLocation['loc-1']!.deadlineAt,
-        deadline,
-      );
+      expect(service.state.conversationRoundStatesByLocation, isEmpty);
       socket.serverEndConversationRound(locationId: 'loc-1', roundId: 805);
       await _waitFor(
         () => service.state.conversationRoundStatesByLocation.isEmpty,
@@ -6512,6 +6532,7 @@ Future<WorldChatroomService> _service({
   bool refreshInitialSnapshotOnConnect = true,
   bool useV2Protocol = false,
   ChatroomDisconnectMonitor? disconnectMonitor,
+  DateTime Function()? sendGateClock,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('user-1');
@@ -6544,6 +6565,7 @@ Future<WorldChatroomService> _service({
     heartbeatInterval: heartbeatInterval,
     reconnectInterval: reconnectInterval,
     conversationRoundTimeout: conversationRoundTimeout,
+    sendGateClock: sendGateClock,
     streamIdleTimeout: streamIdleTimeout,
     refreshInitialSnapshotOnConnect: refreshInitialSnapshotOnConnect,
   );

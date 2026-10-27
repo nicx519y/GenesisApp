@@ -8,15 +8,13 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
   Future<ChatroomReplyEditorTarget> prepareEditor(String locationId) async {
     await restore(locationId);
     final state = await _target(locationId);
-    if (!state.canEdit)
-      throw StateError(
-        GenesisL10n.current.chatReplyNotEditable,
-      );
+    if (!state.canEdit) {
+      throw StateError(GenesisL10n.current.chatReplyNotEditable);
+    }
     _checkCurrent();
-    if (state.frozen)
-      throw StateError(
-        GenesisL10n.current.chatReplyAlreadyFixed,
-      );
+    if (state.frozen) {
+      throw StateError(GenesisL10n.current.chatReplyAlreadyFixed);
+    }
     ++state._generation;
     return _editor(state);
   }
@@ -46,14 +44,11 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     List<ChatroomLlmMessageOperation> operations,
   ) async {
     final state = _validateTarget(target);
-    if (state.frozen || state.busy)
-      throw StateError(
-        GenesisL10n.current.chatReplyEditorFrozen,
-      );
+    if (state.frozen || state.busy) {
+      throw StateError(GenesisL10n.current.chatReplyEditorFrozen);
+    }
     if (state._uncertainBatches.contains(target.cardId ?? 0)) {
-      throw StateError(
-        GenesisL10n.current.chatResolvePreviousSaveBefore,
-      );
+      throw StateError(GenesisL10n.current.chatResolvePreviousSaveBefore);
     }
     _validateOperations(target, operations, allowBlankDraft: true);
     _storeDraft(state, target, operations);
@@ -107,20 +102,43 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     }
     _validateOperations(target, operations);
     _storeDraft(state, target, operations);
+    final wait = sendGate.begin(
+      worldId: worldId,
+      locationId: state.locationId,
+      operationId: _request('save'),
+      scene: 'save_confirmation',
+    );
+    wait.diagnostics.addAll({
+      'round_id': state.roundId,
+      'card_id': target.cardId,
+    });
+    wait.phase = 'saving';
+    wait.onRelease(() {
+      if (_disposed) return;
+      state._sendReleased = true;
+      state._busy = false;
+      ++state._generation;
+      _invalidateCardsCache(state);
+      _notify(state.locationId);
+    });
+    state._sendReleased = false;
     state._busy = true;
     state._error = null;
     _notify(state.locationId);
     try {
-      await _persist(state);
-      await _saveDraft(state, target);
+      await wait.guard(_persist(state));
+      wait.check();
+      await wait.guard(_saveDraft(state, target, operation: wait));
+      wait.check();
       state._completionRevision++;
     } catch (error) {
-      if (!_disposed) state._error = error;
+      if (!_disposed && !wait.released) state._error = error;
       rethrow;
     } finally {
-      state._busy = false;
+      if (!wait.released) state._busy = false;
+      wait.finish();
       _notify(state.locationId);
-      if (state.frozen && !_disposed && state.error == null) {
+      if (!wait.released && state.frozen && !_disposed && state.error == null) {
         _background(state, () => finalizeBeforeSend(state.locationId));
       }
     }
@@ -133,9 +151,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     List<ChatroomLlmMessageOperation> operations,
   ) async {
     if (target.worldId != worldId || target._state._controller != this) {
-      throw StateError(
-        GenesisL10n.current.chatStaleReplyEditor,
-      );
+      throw StateError(GenesisL10n.current.chatStaleReplyEditor);
     }
     _validateOperations(target, operations);
     if (operations.isEmpty) return;
@@ -184,8 +200,10 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
 
   Future<void> _saveDraft(
     ChatroomReplyRoundState state,
-    ChatroomReplyEditorTarget target,
-  ) async {
+    ChatroomReplyEditorTarget target, {
+    ChatSendOperation? operation,
+  }) async {
+    operation?.check();
     final key = target.cardId ?? 0;
     final operations = state._drafts[key] ?? const [];
     if (operations.isEmpty) return;
@@ -193,6 +211,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       final current = target.cardId == null
           ? List<WorldChatroomMessage>.of(state._formal)
           : await _reloadCardMessages(state, target.cardId!);
+      operation?.check();
       if (_operationsApplied(operations, current)) {
         state._drafts.remove(key);
         state._draftBaselines.remove(key);
@@ -207,9 +226,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         state._draftBaselines[key] ?? {},
         current,
       )) {
-        throw StateError(
-          GenesisL10n.current.chatPreviousSaveResultUncertain,
-        );
+        throw StateError(GenesisL10n.current.chatPreviousSaveResultUncertain);
       }
       state._uncertainBatches.remove(key);
     }
@@ -221,6 +238,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     state._uncertainBatches.add(key);
     try {
       await _persist(state);
+      operation?.check();
     } catch (_) {
       // The mutating request was never dispatched, so this failure is known
       // and must not leave the reply frozen behind a recovery receipt.
@@ -228,6 +246,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       rethrow;
     }
     try {
+      operation?.check();
       if (target.cardId != null) {
         final result = await _http.batchMutateLlmCardMessages(
           worldId: worldId,
@@ -237,6 +256,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
           operations: operations,
         );
         _checkCurrent();
+        operation?.check();
         state._cards.removeWhere((card) => card.cardId == target.cardId);
         state._cards.add(result.card);
         state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
@@ -251,6 +271,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
           operations: operations,
         );
         _checkCurrent();
+        operation?.check();
         _onFormalEditCommitted?.call(
           state.locationId,
           state.roundId,
@@ -258,12 +279,15 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         );
       }
       _checkCurrent();
+      operation?.progress(('saved', state.roundId, key), phase: 'confirming');
       ++state._generation;
       state._drafts.remove(key);
       state._draftBaselines.remove(key);
       state._uncertainBatches.remove(key);
       await _persist(state);
+      operation?.check();
     } catch (error) {
+      if (operation?.released ?? false) rethrow;
       if (_definiteRejection(error)) state._uncertainBatches.remove(key);
       if (!_disposed) await _persist(state);
       rethrow;
@@ -276,12 +300,9 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
   ) async {
     await _loadCards(state, force: true);
     final card = state._card(cardId);
-    if (card == null)
-      throw StateError(
-        GenesisL10n
-            .current
-            .chatCandidateMissing,
-      );
+    if (card == null) {
+      throw StateError(GenesisL10n.current.chatCandidateMissing);
+    }
     return card.messages.map(_candidateToWorld).toList();
   }
 
@@ -299,11 +320,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     bool allowBlankDraft = false,
   }) {
     if (operations.length > 100) {
-      throw ArgumentError(
-        GenesisL10n
-            .current
-            .chatBatchSupportsMost100Changes,
-      );
+      throw ArgumentError(GenesisL10n.current.chatBatchSupportsMost100Changes);
     }
     final ids = <int>{};
     final messages = {
@@ -314,27 +331,17 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       if (!allowBlankDraft) operation.toJson();
       if (operation.globalMessageId <= 0) {
         throw ArgumentError(
-          GenesisL10n
-              .current
-              .chatMissingStableMessageIdentity,
+          GenesisL10n.current.chatMissingStableMessageIdentity,
         );
       }
       if (!ids.add(operation.globalMessageId) ||
           !messages.containsKey(operation.globalMessageId)) {
-        throw ArgumentError(
-          GenesisL10n
-              .current
-              .chatEditTargetHasChanged,
-        );
+        throw ArgumentError(GenesisL10n.current.chatEditTargetHasChanged);
       }
       if (operation.action == ChatroomLlmMessageAction.delete) {
         deletes++;
       } else if (messages[operation.globalMessageId]!.messageType == 'image') {
-        throw StateError(
-          GenesisL10n
-              .current
-              .chatMessageNotEditable,
-        );
+        throw StateError(GenesisL10n.current.chatMessageNotEditable);
       }
     }
     if (messages.isNotEmpty && deletes == messages.length) {

@@ -11,9 +11,7 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
               _recordRegenerateLimit();
               showGenesisToast(
                 context,
-                GenesisL10n
-                    .current
-                    .chatGenerate10Replies,
+                GenesisL10n.current.chatGenerate10Replies,
               );
             }
           : null,
@@ -24,7 +22,10 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
             _LocationChatReplyActionTransaction(
               action: _LocationChatReplyConnectionAction.regenerate,
               commit: () => _runReplyGeneration(
-                (controller) => controller.regenerate(widget.locationId),
+                (controller) => controller.regenerate(
+                  widget.locationId,
+                  preparation: _replyPreparationWait,
+                ),
                 regenerating: true,
                 failureAction: _LocationChatReplyConnectionAction.regenerate,
                 onError: (error) =>

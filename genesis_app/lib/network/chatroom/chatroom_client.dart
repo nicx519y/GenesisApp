@@ -437,6 +437,7 @@ class ChatroomSession {
       },
       clientMsgId: clientMsgId,
       requestType: 'send_message',
+      maxAttempts: 1,
       onSent: onSent,
     );
   }

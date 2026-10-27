@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/chatroom/location_chat_send_gate.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -285,11 +286,15 @@ class _Harness {
     String conversationType = 'user_message',
     String? triggerUid,
     DateTime Function()? now,
-    Duration regenerationStreamStartTimeout = const Duration(seconds: 30),
-    Duration regenerationStreamEndTimeout = const Duration(seconds: 120),
-    Duration goOnStreamStartTimeout = const Duration(seconds: 30),
-    Duration goOnStreamEndTimeout = const Duration(seconds: 120),
+    Duration waitTimeout = const Duration(seconds: 45),
+    Duration streamTimeout = const Duration(seconds: 5),
   }) {
+    final gate = LocationChatSendGate(
+      waitAfter: waitTimeout,
+      streamAfter: streamTimeout,
+      report: (_) {},
+    );
+    addTearDown(gate.dispose);
     controller = ChatroomReplyActionsController(
       worldId: 'w',
       ownerUid: owner,
@@ -304,10 +309,7 @@ class _Harness {
       storage: storage ?? MemoryChatroomReplyActionStorage(),
       snapshotStorage: snapshotStorage,
       now: now,
-      regenerationStreamStartTimeout: regenerationStreamStartTimeout,
-      regenerationStreamEndTimeout: regenerationStreamEndTimeout,
-      goOnStreamStartTimeout: goOnStreamStartTimeout,
-      goOnStreamEndTimeout: goOnStreamEndTimeout,
+      sendGate: gate,
     );
     controller.observeMessages('l', [
       _formal(
@@ -386,6 +388,67 @@ ChatroomLlmCardGenerationEnd _terminal(
 );
 
 void main() {
+  test(
+    'finalization timeout retains draft and a late read cannot select or submit',
+    () async {
+      final h = _Harness(waitTimeout: const Duration(milliseconds: 30));
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101), _card(102, index: 2)]);
+      final target = await h.prepareEditor();
+      await h.controller.setDraft(target, const [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'Keep draft',
+        ),
+      ]);
+      final pending = Completer<ChatroomLlmCardsResponse>();
+      h.api.cardsBarrier = pending;
+      await expectLater(
+        h.controller.finalizeBeforeSend('l'),
+        throwsA(isA<ChatSendWaitReleased>()),
+      );
+      expect(h.state.sendReleased, isTrue);
+      expect(h.state.busy, isFalse);
+      expect(target.draft.single.content, 'Keep draft');
+      final before = List<String>.of(h.api.calls);
+      await h.controller.finalizeBeforeSend(
+        'l',
+      ); // Does not reuse the hung future.
+      pending.complete(h.api.cards);
+      await _settle();
+      expect(h.api.calls, before);
+      expect(h.state.confirmed, isFalse);
+      expect(target.draft.single.content, 'Keep draft');
+    },
+  );
+
+  test(
+    'save timeout keeps draft and late response cannot apply an unconfirmed edit',
+    () async {
+      final h = _Harness(waitTimeout: const Duration(milliseconds: 30));
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101), _card(102, index: 2)]);
+      final target = await h.prepareEditor();
+      final pending = Completer<void>();
+      h.api.saveBarrier = pending;
+      await expectLater(
+        h.controller.save(target, const [
+          ChatroomLlmMessageOperation.edit(
+            globalMessageId: _messageId,
+            content: 'Keep draft',
+          ),
+        ]),
+        throwsA(isA<ChatSendWaitReleased>()),
+      );
+      expect(h.state.busy, isFalse);
+      expect(h.state.sendReleased, isTrue);
+      pending.complete();
+      await _settle();
+      expect(target.draft.single.content, 'Keep draft');
+      expect(h.state.displayedMessages.first.content, 'Original');
+    },
+  );
+
   test(
     'candidate retry replaces every old message and isolates other candidates',
     () {
@@ -2063,11 +2126,9 @@ void main() {
   );
 
   test(
-    'regeneration without a stream start recovers from authoritative cards',
+    'regeneration without a stream start releases Send without a recovery GET',
     () async {
-      final h = _Harness(
-        regenerationStreamStartTimeout: const Duration(milliseconds: 10),
-      );
+      final h = _Harness(waitTimeout: const Duration(milliseconds: 10));
       addTearDown(h.controller.dispose);
       h.api.cards = _cards([_card(101)]);
       await h.controller.restoreLocationCards('l');
@@ -2090,19 +2151,19 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
 
-      expect(h.api.calls, ['cards:$_round']);
-      expect(h.state.generating, isFalse);
-      expect(h.state.displayedMessages.first.content, 'Recovered candidate');
+      expect(h.api.calls, isEmpty);
+      expect(h.state.sendReleased, isTrue);
+      expect(h.state.generatingBlocksSend, isFalse);
+      expect(h.state.generating, isTrue); // Server state remains unknown.
+      expect(h.state.displayedMessages, isEmpty);
       expect(h.session.requests, hasLength(1));
     },
   );
 
   test(
-    'regeneration without a message stream end recovers after the end timeout',
+    'regeneration missing a stream end releases Send and retains partial content',
     () async {
-      final h = _Harness(
-        regenerationStreamEndTimeout: const Duration(milliseconds: 10),
-      );
+      final h = _Harness(streamTimeout: const Duration(milliseconds: 10));
       addTearDown(h.controller.dispose);
       h.api.cards = _cards([_card(101)]);
       await h.controller.restoreLocationCards('l');
@@ -2128,22 +2189,19 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
 
-      expect(h.api.calls, ['cards:$_round']);
-      expect(h.state.generating, isFalse);
-      expect(
-        h.state.displayedMessages.first.content,
-        'Recovered after lost end',
-      );
+      expect(h.api.calls, isEmpty);
+      expect(h.state.sendReleased, isTrue);
+      expect(h.state.generatingBlocksSend, isFalse);
+      expect(h.state.generating, isTrue); // Server state remains unknown.
+      expect(h.state.displayedMessages.first.content, 'Partial');
       expect(h.session.requests, hasLength(1));
     },
   );
 
   test(
-    'regeneration recovery failure marks the candidate failed and unlocks retry',
+    'regeneration timeout preserves unknown candidate without a recovery GET',
     () async {
-      final h = _Harness(
-        regenerationStreamStartTimeout: const Duration(milliseconds: 10),
-      );
+      final h = _Harness(waitTimeout: const Duration(milliseconds: 10));
       addTearDown(h.controller.dispose);
       h.api.cards = _cards([_card(101)]);
       await h.controller.restoreLocationCards('l');
@@ -2166,14 +2224,14 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
 
-      expect(h.api.calls, ['cards:$_round']);
+      expect(h.api.calls, isEmpty);
+      expect(h.state.sendReleased, isTrue);
+      expect(h.state.generatingBlocksSend, isFalse);
       expect(h.session.requests, hasLength(1));
-      expect(h.state.generating, isFalse);
-      expect(h.state.canRegenerate, isTrue);
-      expect(h.state.cardCount, 1);
-      expect(h.state.viewedCardId, 101);
-      expect(h.state.displayedMessages.first.content, 'Original');
-      expect(h.state.error, isA<ApiException>());
+      expect(h.state.generating, isTrue); // Server state remains unknown.
+      expect(h.state.cardCount, 2);
+      expect(h.state.viewedCardId, 102);
+      expect(h.state.error, isNull);
     },
   );
 
@@ -2884,9 +2942,7 @@ void main() {
   test(
     'accepted Go On without a stream start times out without a history read',
     () async {
-      final h = _Harness(
-        goOnStreamStartTimeout: const Duration(milliseconds: 10),
-      );
+      final h = _Harness(waitTimeout: const Duration(milliseconds: 10));
       addTearDown(h.controller.dispose);
       h.session.goOnHandler = (request) async => ChatroomGoOnReceipt(
         worldId: 'w',
@@ -2902,10 +2958,10 @@ void main() {
 
       expect(h.api.calls, isNot(contains('history:${_round + 1}')));
       expect(h.session.requests, hasLength(1));
-      expect(h.state.goOnPending, isFalse);
-      expect(h.controller.stateFor('l')!.roundId, _round);
-      expect(h.state.canGoOn, isTrue);
-      expect(h.state.error.toString(), contains('did not start'));
+      expect(h.state.goOnPending, isTrue);
+      expect(h.state.goOnBlocksSend, isFalse);
+      expect(h.controller.stateFor('l')!.roundId, _round + 1);
+      expect(h.state.sendReleased, isTrue);
     },
   );
 
@@ -2913,8 +2969,8 @@ void main() {
     'accepted Go On stream without an end times out without a history read',
     () async {
       final h = _Harness(
-        goOnStreamStartTimeout: const Duration(seconds: 1),
-        goOnStreamEndTimeout: const Duration(milliseconds: 10),
+        waitTimeout: const Duration(seconds: 1),
+        streamTimeout: const Duration(milliseconds: 10),
       );
       addTearDown(h.controller.dispose);
       h.session.goOnHandler = (request) async => ChatroomGoOnReceipt(
@@ -2946,10 +3002,10 @@ void main() {
 
       expect(h.api.calls, isNot(contains('history:${_round + 1}')));
       expect(h.session.requests, hasLength(1));
-      expect(h.state.goOnPending, isFalse);
-      expect(h.controller.stateFor('l')!.roundId, _round);
-      expect(h.state.canGoOn, isTrue);
-      expect(h.state.error.toString(), contains('did not finish'));
+      expect(h.state.goOnPending, isTrue);
+      expect(h.state.goOnBlocksSend, isFalse);
+      expect(h.controller.stateFor('l')!.roundId, _round + 1);
+      expect(h.state.sendReleased, isTrue);
     },
   );
 
@@ -2957,8 +3013,8 @@ void main() {
     'completed Go On without range content waits then times out and unlocks',
     () async {
       final h = _Harness(
-        goOnStreamStartTimeout: const Duration(seconds: 1),
-        goOnStreamEndTimeout: const Duration(milliseconds: 10),
+        waitTimeout: const Duration(seconds: 1),
+        streamTimeout: const Duration(milliseconds: 10),
       );
       addTearDown(h.controller.dispose);
       h.session.goOnHandler = (request) async => ChatroomGoOnReceipt(
@@ -2974,6 +3030,7 @@ void main() {
         [_formal(), _formal(round: _round + 1).copyWith(streaming: true)],
         activeRoundIds: {_round + 1},
       );
+      h.controller.sendOperationForRound('l', '${_round + 1}')!.stream('m', 1);
       h.controller.receiveEvent(
         ChatroomEndConversationRound.fromV2Message(
           _v2('end_conversation_round', round: _round + 1),
@@ -2981,11 +3038,11 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
-      expect(h.controller.stateFor('l')!.roundId, _round);
+      expect(h.controller.stateFor('l')!.roundId, _round + 1);
       expect(h.controller.stateFor('l')!.displayedMessages, isNotEmpty);
-      expect(h.state.goOnPending, isFalse);
-      expect(h.state.canGoOn, isTrue);
-      expect(h.state.error, isNotNull);
+      expect(h.state.goOnPending, isTrue);
+      expect(h.state.goOnBlocksSend, isFalse);
+      expect(h.state.sendReleased, isTrue);
     },
   );
 

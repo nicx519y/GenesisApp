@@ -116,6 +116,13 @@ class LocationChatKeyboardInsetScope extends InheritedWidget {
 
 /// Owns every programmatic scroll-position change for location chat.
 class LocationChatScrollCoordinator extends ChangeNotifier {
+  void releasePresentationWait() {
+    final owner = _messageListOwner;
+    if (owner is _LocationChatAnchoredMessageListState && owner.mounted) {
+      owner._cardSwitcherKey.currentState?.releaseSendWait();
+    }
+  }
+
   LocationChatScrollCoordinator({ScrollController? controller})
     : _ownsController = controller == null {
     this.controller =

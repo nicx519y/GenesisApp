@@ -137,6 +137,7 @@ class _ReplyRoundPerformance {
       state._active,
       state._ended,
       state._locallyStalledStream,
+      state._sendReleased,
       state._roundFailed,
       state._regenerateDispatching,
       state._generating,

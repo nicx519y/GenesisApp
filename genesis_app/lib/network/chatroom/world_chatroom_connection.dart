@@ -13,6 +13,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
     if (identity == null) {
       throw const ChatroomProtocolException('chatroom identity is required');
     }
+    final attemptGeneration = _connectionAttemptGeneration;
     final completer = Completer<void>();
     _connectCompleter = completer;
     unawaited(completer.future.catchError((Object _) {}));
@@ -23,6 +24,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
     var handshakeSucceeded = false;
     try {
       await _detachSession(disconnect: true);
+      if (attemptGeneration != _connectionAttemptGeneration) return;
       monitorAttempt = _disconnectMonitor?.beginAttempt();
       final session = await _client.connect(
         worldId: _worldId,
@@ -31,8 +33,10 @@ extension _WorldChatroomConnection on WorldChatroomService {
         senderName: identity.senderName,
         autoHeartbeat: false,
       );
-      if (_userDisconnected || _disposed) {
-        await session.disconnect();
+      if (_userDisconnected ||
+          _disposed ||
+          attemptGeneration != _connectionAttemptGeneration) {
+        unawaited(session.disconnect());
         return;
       }
       handshakeSucceeded = true;
@@ -47,14 +51,17 @@ extension _WorldChatroomConnection on WorldChatroomService {
       if (_refreshInitialSnapshotOnConnect) {
         await _refreshInitialSnapshot();
       }
+      if (attemptGeneration != _connectionAttemptGeneration) return;
       final desiredLocationId = _desiredLocationId;
       if (desiredLocationId.isNotEmpty && _joinCompleter == null) {
         await _joinSession(session, desiredLocationId);
       }
+      if (attemptGeneration != _connectionAttemptGeneration) return;
       _startHeartbeat();
       _setState(_state.copyWith(connected: true, reconnecting: false));
-      completer.complete();
+      if (!completer.isCompleted) completer.complete();
     } catch (e, stack) {
+      if (attemptGeneration != _connectionAttemptGeneration) return;
       if (!handshakeSucceeded && monitorAttempt != null) {
         _disconnectMonitor?.connectFailed(
           monitorAttempt,
@@ -73,7 +80,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
             );
       _recordFailure(failure);
       _scheduleReconnect();
-      completer.completeError(failure);
+      if (!completer.isCompleted) completer.completeError(failure);
       rethrow;
     } finally {
       if (identical(_connectCompleter, completer)) {
@@ -99,8 +106,10 @@ extension _WorldChatroomConnection on WorldChatroomService {
   }
 
   Future<void> _joinDesiredLocation(Completer<ChatroomJoined> completer) async {
+    final generation = _connectionAttemptGeneration;
     try {
       await _connectOnce();
+      if (generation != _connectionAttemptGeneration) return;
       final session = _session;
       final locationId = _desiredLocationId;
       if (session == null || locationId.isEmpty) {
@@ -155,9 +164,13 @@ extension _WorldChatroomConnection on WorldChatroomService {
     ChatroomSession session,
     String locationId,
   ) async {
+    final generation = _connectionAttemptGeneration;
     _setState(_state.copyWith(joining: true));
     try {
       final joined = await session.join(locationId: locationId);
+      if (generation != _connectionAttemptGeneration) {
+        throw const ChatSendWaitReleased('join');
+      }
       if (_desiredLocationId == locationId) {
         final joinedLocationId = joined.locationId.isEmpty
             ? locationId
@@ -175,7 +188,9 @@ extension _WorldChatroomConnection on WorldChatroomService {
       }
       return joined;
     } catch (_) {
-      _setState(_state.copyWith(joining: false, joinedLocationId: ''));
+      if (generation == _connectionAttemptGeneration) {
+        _setState(_state.copyWith(joining: false, joinedLocationId: ''));
+      }
       rethrow;
     }
   }

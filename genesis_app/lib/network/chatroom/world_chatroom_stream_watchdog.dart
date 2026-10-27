@@ -1,38 +1,56 @@
 part of 'world_chatroom_service.dart';
 
+/// Correlation/presentation state only. All deadlines belong to sendGate.
 class _ChatroomStreamWatch {
-  _ChatroomStreamWatch({this.clientMsgId = '', this.roundId = ''});
-
+  _ChatroomStreamWatch({
+    required this.operation,
+    this.clientMsgId = '',
+    this.roundId = '',
+  });
+  final ChatSendOperation operation;
   final String clientMsgId;
   String roundId;
-  Timer? timer;
   bool started = false;
   bool ended = false;
   bool timedOut = false;
   bool accepted = false;
   bool interrupted = false;
-  DateTime? deadlineAt;
 }
 
 extension _WorldChatroomStreamWatchdog on WorldChatroomService {
   void _bindStreamWatch(String location, String round) {
-    final watch = _streamWatches[location];
-    if (watch == null ||
-        round.isEmpty ||
-        (watch.roundId.isNotEmpty && watch.roundId != round)) {
-      return;
+    if (round.isEmpty) return;
+    var watch = _streamWatches[location];
+    if (watch == null || (watch.roundId.isNotEmpty && watch.roundId != round)) {
+      if (_streamLocallyEnded(location, round)) return;
+      final previous = int.tryParse(watch?.roundId ?? '') ?? 0;
+      if (previous > 0 && (int.tryParse(round) ?? 0) <= previous) return;
+      final operation =
+          _replyActionsController?.sendOperationForRound(location, round) ??
+          sendGate.forRound(_worldId, location, round) ??
+          beginSendWait(location, 'round:$round', 'conversation_wait');
+      watch = _ChatroomStreamWatch(operation: operation, roundId: round);
+      _streamWatches[location] = watch;
+      final captured = watch;
+      operation.onRelease(() => _expireStreamWatch(location, captured));
     }
     watch.roundId = round;
-    if (watch.timedOut) {
+    watch.operation.diagnostics['round_id'] = round;
+    watch.operation.progress(('round', round), phase: 'awaiting_stream');
+    if (watch.timedOut || watch.operation.released) {
       _locallyEndedStreamRounds[(location, round)] = DateTime.now().add(
         _closedConversationRoundRetention,
       );
       _replyActionsController?.finishLocallyStalledStream(location, round);
-      if (watch.interrupted) _releaseInterruptedStreamWatch(location, watch);
     }
   }
 
   bool _streamLocallyEnded(String location, String round) {
+    final watch = _streamWatches[location];
+    if (watch?.roundId == round && watch!.operation.released) return true;
+    if (sendGate.find(_worldId, location, 'round:$round')?.released ?? false) {
+      return true;
+    }
     final now = DateTime.now();
     _locallyEndedStreamRounds.removeWhere((_, expiry) => !expiry.isAfter(now));
     return _locallyEndedStreamRounds.containsKey((location, round));
@@ -44,179 +62,119 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
         _streamLocallyEnded(location, round)) {
       return null;
     }
-    final current = _streamWatches[location];
-    if (current != null && current.roundId.isEmpty) {
-      final active = _state.conversationRoundStatesByLocation[location];
-      if (active?.conversationRoundId.isNotEmpty == true &&
-          active!.conversationRoundId != round) {
-        return null;
-      }
-      _bindStreamWatch(location, round);
-      return current.timedOut ? null : current;
-    }
-    if (current?.roundId == round) return current;
-    // Delayed frames from an older round must not replace the new send's watch.
     final active = _state.conversationRoundStatesByLocation[location];
     if (active != null &&
         active.conversationRoundId.isNotEmpty &&
         active.conversationRoundId != round) {
       return null;
     }
-    if (current != null &&
-        (int.tryParse(round) ?? 0) <= (int.tryParse(current.roundId) ?? 0)) {
-      return null;
-    }
-    current?.timer?.cancel();
-    final next = _ChatroomStreamWatch(roundId: round);
-    _streamWatches[location] = next;
-    return next;
+    _bindStreamWatch(location, round);
+    final watch = _streamWatches[location];
+    return watch?.roundId == round && !watch!.operation.released ? watch : null;
   }
 
-  void _noteStreamActivity(String location, String round) {
-    final watch = _watchForStream(location, round);
-    if (watch == null) return;
-    watch.ended = false;
-    _armStreamWatch(location, watch);
-  }
-
-  void _noteStreamEnd(String location, String round) {
-    final watch = _watchForStream(location, round);
-    if (watch == null) return;
-    if (_streamAccumulators.values.any(
-      (a) =>
-          a.message.locationId == location &&
-          a.message.conversationRoundId == round,
-    )) {
-      return;
-    }
-    watch.ended = true;
-    watch.timer?.cancel();
-    watch.timer = null;
-  }
-
-  void _armStreamWatch(
+  void _noteStreamActivity(
     String location,
-    _ChatroomStreamWatch watch, {
-    bool preserveDeadline = false,
+    String round, {
+    required String streamId,
+    required Object frameId,
+    String? generationKey,
+    int? attemptNo,
   }) {
+    final watch = _watchForStream(location, round);
+    if (watch == null) return;
     watch.started = true;
-    if (_generationPresentationPending(location, watch.roundId)) {
-      watch.timer?.cancel();
-      watch.timer = null;
-      return;
+    watch.ended = false;
+    watch.operation.stream(
+      streamId,
+      frameId,
+      generationKey: generationKey,
+      attemptNo: attemptNo,
+    );
+  }
+
+  void _noteStreamEnd(
+    String location,
+    String round, {
+    required String streamId,
+  }) {
+    final watch = _watchForStream(location, round);
+    if (watch == null) return;
+    watch.operation.stream(streamId, 'end', end: true);
+    watch.ended = !watch.operation.streaming;
+    if (watch.ended &&
+        !_state.conversationRoundStatesByLocation.containsKey(location) &&
+        _replyActionsController?.sendOperationForRound(location, round) ==
+            null) {
+      watch.operation.finish();
     }
-    if (!preserveDeadline || watch.deadlineAt == null) {
-      watch.deadlineAt = DateTime.now().add(_streamIdleTimeout);
+  }
+
+  void _expireStreamWatch(String location, _ChatroomStreamWatch watch) {
+    if (_disposed) return;
+    watch.ended = true;
+    watch.timedOut = true;
+    if (watch.clientMsgId.isNotEmpty && !watch.accepted) {
+      _session?.cancelSendMessageWait(watch.clientMsgId);
     }
-    watch.timer?.cancel();
-    final remaining = watch.deadlineAt!.difference(DateTime.now());
-    void expire() {
-      if (_disposed || !identical(_streamWatches[location], watch)) return;
-      watch.timer = null;
-      watch.ended = true;
-      watch.timedOut = true;
-      for (final generation in _llmGenerations.values) {
-        if (generation.id.location == location &&
-            generation.id.round == watch.roundId) {
-          for (final attempt in generation.attempts.values) {
-            attempt.waitingExpired = true;
-          }
+    final round = watch.roundId;
+    if (round.isNotEmpty) {
+      _locallyEndedStreamRounds[(location, round)] = DateTime.now().add(
+        _closedConversationRoundRetention,
+      );
+    }
+    for (final generation in _llmGenerations.values) {
+      if (generation.id.location == location && generation.id.round == round) {
+        for (final attempt in generation.attempts.values) {
+          attempt.waitingExpired = true;
         }
       }
-      if (watch.clientMsgId.isNotEmpty && !watch.accepted) {
-        watch.interrupted = true;
-        _session?.cancelSendMessageWait(watch.clientMsgId);
-      }
-      final round = watch.roundId.isNotEmpty
-          ? watch.roundId
-          : _state
-                    .conversationRoundStatesByLocation[location]
-                    ?.conversationRoundId ??
-                '';
-      watch.roundId = round;
-      if (round.isNotEmpty) {
-        _locallyEndedStreamRounds[(location, round)] = DateTime.now().add(
-          _closedConversationRoundRetention,
-        );
-      }
-      final messages = <WorldChatroomMessage>[
-        for (final message
-            in _state.messagesByLocation[location] ??
-                const <WorldChatroomMessage>[])
-          if (round.isNotEmpty &&
-              message.conversationRoundId == round &&
-              message.streaming)
-            message.copyWith(streaming: false),
-      ];
-      for (final accumulator in _streamAccumulators.values) {
-        final message = accumulator.message;
-        if (round.isEmpty ||
-            message.locationId != location ||
-            message.conversationRoundId != round) {
-          continue;
-        }
+    }
+    final messages = <WorldChatroomMessage>[
+      for (final message
+          in _state.messagesByLocation[location] ??
+              const <WorldChatroomMessage>[])
+        if (round.isNotEmpty &&
+            message.conversationRoundId == round &&
+            message.streaming)
+          message.copyWith(streaming: false),
+    ];
+    for (final accumulator in _streamAccumulators.values) {
+      final message = accumulator.message;
+      if (round.isNotEmpty &&
+          message.locationId == location &&
+          message.conversationRoundId == round) {
         accumulator.message = message.copyWith(streaming: false);
         messages.add(accumulator.message);
       }
-      // Presentation-only completion: no fake server end, IDs, billing or
-      // successful generation state. A healthy round retains its 30s cleanup
-      // deadline, but its timed-out local presentation no longer blocks sends.
-      if (messages.isNotEmpty) _upsertMessages(messages, persist: false);
-      _replyActionsController?.finishLocallyStalledStream(location, round);
-      if (watch.interrupted) _releaseInterruptedStreamWatch(location, watch);
-      _setState(_state);
-      _recordServiceQueueDebug(
-        action: 'streamIdleTimedOut',
-        locationId: location,
-        details: {'conversationRoundId': round},
-      );
     }
-
-    if (remaining <= Duration.zero) {
-      expire();
-    } else {
-      watch.timer = Timer(remaining, expire);
-    }
-  }
-
-  void _releaseInterruptedStreamWatch(
-    String location,
-    _ChatroomStreamWatch watch,
-  ) {
-    final round = watch.roundId;
-    if (round.isNotEmpty) {
-      _rememberClosedConversationRound(location, round);
-      _replyActionsController?.finishLocallyStalledStream(location, round);
-    }
+    if (messages.isNotEmpty) _upsertMessages(messages, persist: false);
+    _replyActionsController?.finishLocallyStalledStream(location, round);
     final current = _state.conversationRoundStatesByLocation[location];
-    if (current == null) return;
-    if ((watch.clientMsgId.isNotEmpty &&
-            current.clientMsgId == watch.clientMsgId) ||
-        (round.isNotEmpty && current.conversationRoundId == round)) {
+    if (current != null &&
+        ((watch.clientMsgId.isNotEmpty &&
+                current.clientMsgId == watch.clientMsgId) ||
+            (round.isNotEmpty && current.conversationRoundId == round))) {
       _clearConversationRound(
         location,
         expectedGeneration: current.generation,
-        action: 'conversationRoundInterruptedStreamTimedOut',
+        action: 'sendGateReleased',
       );
     }
+    _setState(_state);
   }
 
   void _interruptStreamWatches() {
-    for (final entry in _streamWatches.entries.toList()) {
-      final watch = entry.value;
+    // Disconnect is not progress and cannot extend an existing deadline.
+    for (final watch in _streamWatches.values) {
       watch.interrupted = true;
-      if (watch.timedOut) {
-        _releaseInterruptedStreamWatch(entry.key, watch);
-      } else if (watch.started && !watch.ended && watch.timer == null) {
-        _armStreamWatch(entry.key, watch, preserveDeadline: true);
-      }
     }
+    sendGate.reconcile();
   }
 
   void _clearStreamWatches() {
-    for (final watch in _streamWatches.values) {
-      watch.timer?.cancel();
-    }
+    // Session-owned operations survive page/service reconstruction. The next
+    // owner attaches to the same request identity instead of restarting time.
     _streamWatches.clear();
     _locallyEndedStreamRounds.clear();
   }

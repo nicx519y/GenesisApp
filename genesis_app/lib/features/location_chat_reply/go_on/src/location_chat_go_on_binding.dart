@@ -11,7 +11,10 @@ extension _LocationChatGoOnBinding on _LocationChatPanelState {
               _LocationChatReplyActionTransaction(
                 action: _LocationChatReplyConnectionAction.goOn,
                 commit: () => _runReplyGeneration(
-                  (controller) => controller.goOn(widget.locationId),
+                  (controller) => controller.goOn(
+                    widget.locationId,
+                    preparation: _replyPreparationWait,
+                  ),
                   regenerating: false,
                   failureAction: _LocationChatReplyConnectionAction.goOn,
                   onError: (error) =>
