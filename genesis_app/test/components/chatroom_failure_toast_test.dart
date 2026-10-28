@@ -151,12 +151,12 @@ void main() {
       },
     );
 
-    test('shows server balance errors for user actions', () {
+    test('delegates balance error feedback to the root host', () {
       expect(
         shouldShowChatroomFailureToast(
           _serverAckFailure(code: 3001, errMsg: 'Insufficient balance'),
         ),
-        isTrue,
+        isFalse,
       );
     });
   });
@@ -229,7 +229,7 @@ void main() {
           ),
           requestType: type,
         );
-        expect(shouldShowChatroomFailureToast(failure), isTrue);
+        expect(shouldShowChatroomFailureToast(failure), code != '3001');
         expect(chatroomFailureToastMessage(failure), '服务端 llm 错误 $code');
       }
     }

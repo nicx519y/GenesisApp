@@ -1,3 +1,4 @@
+import '../../../network/gem_balance_alert.dart';
 import '../../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -80,6 +81,24 @@ class MiniPhoneMessagesController {
       },
     );
     final snapshot = cache.toJson();
+    // AI source messages remain provisional until the asynchronous result.
+    // The request journal is recovery state, not committed chat history.
+    bool committed(PhoneMessage m) =>
+        m.senderType != 'user' ||
+        m.senderId != uid ||
+        m.replyStatus == null ||
+        m.replyStatus == 'completed';
+    snapshot['messages'] = cache.messages.values
+        .where(committed)
+        .map((m) => m.toJson())
+        .toList();
+    snapshot['sessions'] = sessions.map((session) {
+      final json = session.toJson();
+      if (session.lastMessage != null && !committed(session.lastMessage!)) {
+        json['last_message'] = null;
+      }
+      return json;
+    }).toList();
     final result = (cacheWrites[scope.key] ?? Future<void>.value())
         .catchError((Object _) {})
         .then((_) async {
@@ -121,6 +140,7 @@ class MiniPhoneMessagesController {
       cache.sessionCounts[sessionFor(session.person.id) ?? session.id] ??
       session.unreadCount;
   final drafts = <String, String>{};
+  final restoredBalanceDrafts = <String, String>{};
   List<PhoneSession> sessions = [];
 
   /// Only server-listed sessions create rows; cached deliveries update recency.
@@ -171,7 +191,8 @@ class MiniPhoneMessagesController {
   final sessionByChar = <String, int>{};
   final peerByChar = <String, String>{};
   final knownSessionChars = <String>{};
-  final replyStates = <String, ({String status, String? failure})>{};
+  final replyStates =
+      <String, ({String status, String? failure, String? failureCode})>{};
   final appliedReplyTerminals = <String>{};
   bool isPlayerChat(String charId) => (peerByChar[charId] ?? '').isNotEmpty;
   PhonePerson personForMessage(PhoneMessage message) {
@@ -193,11 +214,50 @@ class MiniPhoneMessagesController {
     return null;
   }
 
+  String bubbleRequestId(String requestId) =>
+      cache.retryRoots[requestId] ?? requestId;
+
+  List<PhoneMessage> displayHistory(String charId) {
+    final rows = <String, PhoneMessage>{};
+    for (final message in history(charId)) {
+      final request = message.requestId;
+      final own =
+          message.senderType == 'user' &&
+          message.senderId == uid &&
+          request != null;
+      final key = own
+          ? 'request:${bubbleRequestId(request)}'
+          : 'message:${message.id}';
+      final previous = rows[key];
+      // Keep the first insertion position, while using the newest attempt's state.
+      if (previous == null || message.id > previous.id) rows[key] = message;
+    }
+    return rows.values
+        .where(
+          (m) =>
+              !(m.senderType == 'user' &&
+                  m.senderId == uid &&
+                  m.replyStatus == 'failed' &&
+                  isGemBalanceFailureCode(m.failureCode)),
+        )
+        .toList();
+  }
+
   final messages = <int, List<PhoneMessage>>{};
   // Presentation only: never insert temporary IDs into server history/counts.
   final outgoing = <String, PhoneWrite>{};
-  Iterable<PhoneWrite> outgoingDm(String charId) =>
-      outgoing.values.where((w) => w.target == charId);
+  Iterable<PhoneWrite> outgoingDm(String charId) => outgoing.values.where(
+    (w) =>
+        w.target == charId &&
+        !(w.rejected &&
+            cache.messages.values.any(
+              (m) =>
+                  m.requestId != null &&
+                  bubbleRequestId(m.requestId!) == bubbleRequestId(w.id) &&
+                  m.replyStatus == 'failed' &&
+                  isGemBalanceFailureCode(m.failureCode),
+            )),
+  );
   final replyFailures = <String, String>{};
   // One-shot presentation, separate from the retained message failure state.
   // Terminal request deduplication prevents history refreshes from requeueing it.
@@ -243,8 +303,9 @@ class MiniPhoneMessagesController {
     String requestId,
     String status,
     String? failure,
-    int sessionId,
-  ) {
+    int sessionId, {
+    String? failureCode,
+  }) {
     final previous = replyStates[requestId];
     if (_terminal(previous?.status) &&
         appliedReplyTerminals.contains(requestId)) {
@@ -254,7 +315,7 @@ class MiniPhoneMessagesController {
         _terminal(previous?.status) ||
             previous?.status == 'generating' && status == 'pending'
         ? previous!
-        : (status: status, failure: failure);
+        : (status: status, failure: failure, failureCode: failureCode);
     replyStates[requestId] = state;
     String? charId;
     for (final entry in sessionByChar.entries) {
@@ -269,8 +330,17 @@ class MiniPhoneMessagesController {
     final write = pending[key];
     if (_terminal(state.status)) {
       appliedReplyTerminals.add(requestId);
+      if (state.status == 'failed' &&
+          isGemBalanceFailureCode(state.failureCode)) {
+        outgoing.remove(requestId);
+        if (write?.id == requestId && (drafts[charId]?.isEmpty ?? true)) {
+          drafts[charId] = write!.content;
+          restoredBalanceDrafts[charId] = write.content;
+        }
+      }
       if (write?.id == requestId) pending.remove(key);
       if (state.status == 'failed' &&
+          !isGemBalanceFailureCode(state.failureCode) &&
           (write == null || write.id == requestId)) {
         replyFailures[charId] =
             state.failure ?? GenesisL10n.current.miniPhoneReplyFailed;
@@ -300,6 +370,39 @@ class MiniPhoneMessagesController {
     }
   }
 
+  void rejectBalanceWrite(PhoneWrite write) {
+    outgoing.remove(write.id);
+    final root = bubbleRequestId(write.id);
+    // A retry may still be displaying its previous canonical source bubble.
+    PhoneMessage update(PhoneMessage m) {
+      if (m.senderType != 'user' ||
+          m.senderId != uid ||
+          m.requestId == null ||
+          bubbleRequestId(m.requestId!) != root) {
+        return m;
+      }
+      replyStates[m.requestId!] = (
+        status: 'failed',
+        failure: m.failure,
+        failureCode: 'insufficient_balance',
+      );
+      return PhoneMessage.withReplyState(
+        m,
+        'failed',
+        m.failure,
+        failureCode: 'insufficient_balance',
+      );
+    }
+
+    cache.messages.updateAll((_, m) => update(m));
+    messages.updateAll((_, rows) => rows.map(update).toList());
+    if (drafts[write.target]?.isEmpty ?? true) {
+      drafts[write.target] = write.content;
+      restoredBalanceDrafts[write.target] = write.content;
+    }
+    unawaited(persistCache());
+  }
+
   void mergeMessages(int id, List<PhoneMessage> incoming) {
     final all = <int, PhoneMessage>{
       for (final m in messages[id] ?? <PhoneMessage>[]) m.id: m,
@@ -310,11 +413,20 @@ class MiniPhoneMessagesController {
       final preserve = _terminal(state?.status)
           ? state
           : _terminal(old?.replyStatus)
-          ? (status: old!.replyStatus!, failure: old.failure)
+          ? (
+              status: old!.replyStatus!,
+              failure: old.failure,
+              failureCode: old.failureCode,
+            )
           : null;
       all[m.id] =
           preserve != null && m.senderType == 'user' && m.senderId == uid
-          ? PhoneMessage.withReplyState(m, preserve.status, preserve.failure)
+          ? PhoneMessage.withReplyState(
+              m,
+              preserve.status,
+              preserve.failure,
+              failureCode: preserve.failureCode,
+            )
           : m;
       if (m.senderType == 'char') sessionByChar[m.senderId] = id;
       if (m.senderType == 'user' && m.senderId == uid && m.requestId != null) {
@@ -337,7 +449,13 @@ class MiniPhoneMessagesController {
           m.senderId == uid &&
           m.requestId != null &&
           m.replyStatus != null) {
-        applyReplyState(m.requestId!, m.replyStatus!, m.failure, id);
+        applyReplyState(
+          m.requestId!,
+          m.replyStatus!,
+          m.failure,
+          id,
+          failureCode: m.failureCode,
+        );
       }
     }
     cache.merge(messages[id]!);

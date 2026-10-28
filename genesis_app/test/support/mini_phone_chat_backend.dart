@@ -86,6 +86,7 @@ ChatroomPhoneEvent phoneEvent(
   List<Map<String, dynamic>> messages, {
   String? requestId,
   String? failure,
+  String? failureCode,
   String world = 'w',
   int session = 9,
 }) =>
@@ -108,7 +109,10 @@ ChatroomPhoneEvent phoneEvent(
               if (failure != null) ...{
                 'message_id': 1,
                 'job_status': 'failed',
-                'failure': {'message': failure},
+                'failure': {
+                  'message': failure,
+                  if (failureCode != null) 'code': failureCode,
+                },
               },
             },
           }),

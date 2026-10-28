@@ -269,7 +269,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         for (final value in jsonDecode(raw) as List) {
           final write = PhoneWrite.fromJson(phoneMap(value));
           pending[write.key] = write;
-          if (write.kind == 'dm' && !write.rejected) {
+          if (write.retryRootId != null) {
+            messagesController.cache.retryRoots[write.id] = write.retryRootId!;
+          }
+          if (write.kind == 'dm' &&
+              (!write.rejected || write.retryRootId != null)) {
             messagesController.outgoing[write.id] = write;
           }
         }
@@ -298,6 +302,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           m.replyStatus!,
           m.failure,
           m.sessionId,
+          failureCode: m.failureCode,
         );
       }
     }
@@ -374,6 +379,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     postAuthorIds = [];
     playerCharIds.clear();
     drafts.clear();
+    messagesController.restoredBalanceDrafts.clear();
     messages.clear();
     details.clear();
     comments.clear();
@@ -690,6 +696,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     String? image,
     int? replyTo,
     bool retry = false,
+    String? retryRootId,
     MiniPhoneAnalyticsAttempt? analyticsAttempt,
   }) async {
     await localReady;
@@ -717,6 +724,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           content,
           image: image,
           replyTo: replyTo,
+          retryRootId: retryRootId,
         );
     final attempt =
         analyticsAttempt ??
@@ -750,6 +758,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     attempt.data['client_request_id'] = w.id;
     var sent = false;
     pending[key] = w;
+    if (w.retryRootId != null) {
+      messagesController.cache.retryRoots[w.id] = w.retryRootId!;
+    }
     if (kind == 'comment') {
       postsController.trackComment(w, person(uid!, type: 1));
     }
@@ -776,6 +787,15 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         return false;
       }
       if (!_current(g)) return false;
+      if (w.retryRootId != null) {
+        if (!await messagesController.persistCache()) {
+          throw ApiException(
+            message: GenesisL10n.current.miniPhoneSaveMessagesFailed,
+            kind: ApiExceptionKind.business,
+          );
+        }
+        if (!_current(g)) return false;
+      }
       sent = true;
       switch (kind) {
         case 'dm':
@@ -833,8 +853,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         } else {
           w.uncertain = true;
         }
-        if (kind == 'dm' && w.rejected) {
+        if (kind == 'dm' && w.rejected && w.retryRootId == null) {
           messagesController.outgoing.remove(w.id);
+        }
+        if (kind == 'dm' && w.rejected && _balanceFailures.contains(target)) {
+          messagesController.rejectBalanceWrite(w);
         }
         if (kind == 'comment') postsController.updateComment(w);
         await _save();
@@ -960,12 +983,18 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         event.jobStatus!,
         event.failure,
         event.sessionId!,
+        failureCode: event.failureCode,
       );
       final source = messagesController.cache.messages[event.sourceMessageId];
       final reply = messagesController.replyStates[event.requestId];
       if (source != null && reply != null && source.senderId == uid) {
         messagesController.cache.merge([
-          PhoneMessage.withReplyState(source, reply.status, reply.failure),
+          PhoneMessage.withReplyState(
+            source,
+            reply.status,
+            reply.failure,
+            failureCode: reply.failureCode,
+          ),
         ]);
       }
       final history = messages[event.sessionId];
@@ -974,7 +1003,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         messages[event.sessionId!] = [
           for (final m in history)
             if (m.id == event.sourceMessageId && m.senderId == uid)
-              PhoneMessage.withReplyState(m, state.status, state.failure)
+              PhoneMessage.withReplyState(
+                m,
+                state.status,
+                state.failure,
+                failureCode: state.failureCode,
+              )
             else
               m,
         ];

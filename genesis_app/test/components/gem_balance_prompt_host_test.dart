@@ -6,10 +6,39 @@ import 'package:genesis_flutter_android/components/gems/gem_balance_prompt_host.
 import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
-const insufficient = GemBalanceAlert(kind: GemBalanceAlertKind.insufficient);
+const insufficient = GemBalanceAlert(
+  kind: GemBalanceAlertKind.insufficient,
+  message: 'Server balance error',
+);
 const low = GemBalanceAlert(kind: GemBalanceAlertKind.low);
 
 void main() {
+  test(
+    'same asynchronous failure is consumed across socket and recovery reports',
+    () async {
+      final store = MemoryUserSessionStore();
+      await store.saveUid('u');
+      await store.saveAuthToken('token');
+      final controller = GemBalancePromptController(sessionStore: store);
+      addTearDown(controller.dispose);
+      const alert = GemBalanceAlert(
+        kind: GemBalanceAlertKind.insufficient,
+        occurrenceKey: 'phone:w:r',
+      );
+      controller.report(alert, 'token');
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.beginPresentation(), alert);
+      controller.endPresentation();
+      controller.report(alert, 'token');
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.pending, isNull);
+      controller.reset();
+      controller.report(alert, 'token');
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.pending, alert);
+    },
+  );
+
   test(
     'controller rejects anonymous, stale-account and reset in-flight events',
     () async {
@@ -75,6 +104,7 @@ void main() {
       controller.report(low, 'token');
       await tester.pumpAndSettle();
       expect(find.text('Recharge'), findsOneWidget);
+      expect(find.text('Server balance error'), findsOneWidget);
       expect(presentations, 1);
       controller.report(insufficient, 'token');
       await tester.pumpAndSettle();
@@ -87,6 +117,7 @@ void main() {
       expect(presentations, 2);
       key.currentState!.pop();
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
@@ -147,6 +178,7 @@ void main() {
       foreground();
       await tester.pumpAndSettle();
       expect(presentations, 1);
+      await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

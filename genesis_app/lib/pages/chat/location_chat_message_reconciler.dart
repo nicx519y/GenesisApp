@@ -698,6 +698,11 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
   }
 
   void _handleFailure(ChatroomFailureEvent failure) {
+    if (mounted && isChatroomBalanceFailureCode(failure.code)) {
+      _setLocationChatState(
+        () => _restoreBalanceRejectedMessage(failure.clientMsgId),
+      );
+    }
     // History fetches report failures here and complete their Future normally.
     // Conservatively abandon the pending launch position after a history error;
     // a later successful refresh must not unexpectedly reclaim the viewport.

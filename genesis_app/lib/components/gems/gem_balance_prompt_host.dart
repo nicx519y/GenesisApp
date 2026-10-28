@@ -1,3 +1,4 @@
+import '../common/genesis_center_toast.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../app/gems/gem_balance_prompt_controller.dart';
@@ -77,7 +78,27 @@ class _GemBalancePromptHostState extends State<GemBalancePromptHost>
     GemBalancePromptController controller,
   ) async {
     try {
-      await (widget.present ?? showGemBalancePrompt)(context, alert);
+      final presentation = (widget.present ?? showGemBalancePrompt)(
+        context,
+        alert,
+      );
+      if (alert.kind == GemBalanceAlertKind.insufficient &&
+          alert.message.trim().isNotEmpty) {
+        // Insert after the purchase route so the same server error stays visible
+        // above it, regardless of which chat received the failure.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !identical(controller, widget.controller)) return;
+          final overlay = widget.navigatorKey.currentState?.overlay;
+          if (overlay != null) {
+            showGenesisToastInOverlay(
+              overlay,
+              alert.message,
+              brightness: Brightness.dark,
+            );
+          }
+        });
+      }
+      await presentation;
     } catch (error, stack) {
       FlutterError.reportError(
         FlutterErrorDetails(

@@ -23,6 +23,11 @@ class ChatroomPhoneEvent extends ChatroomEvent {
       sourceMessageId = message.type == 'phone.reply.updated'
           ? phoneId(message.payload['message_id'])
           : null,
+      failureCode =
+          message.type == 'phone.reply.updated' &&
+              message.payload['failure'] != null
+          ? phoneText(phoneMap(message.payload['failure'])['code'])
+          : null,
       failure =
           message.type == 'phone.reply.updated' &&
               message.payload['failure'] != null
@@ -50,7 +55,7 @@ class ChatroomPhoneEvent extends ChatroomEvent {
     }
   }
   final String type, worldId, eventId;
-  final String? requestId, failure, jobStatus;
+  final String? requestId, failure, failureCode, jobStatus;
   final int? sessionId, sourceMessageId;
   final List<PhoneMessage> messages;
   final PhoneNotification? notification;

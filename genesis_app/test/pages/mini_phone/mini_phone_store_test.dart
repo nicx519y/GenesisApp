@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
 import '../../support/mini_phone_memory_cache.dart';
@@ -16,6 +17,164 @@ Future<void> flush() async {
 }
 
 void main() {
+  test(
+    'AI source enters local history only after asynchronous completion',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final backend = PhoneBackend();
+      final storage = MemoryMiniPhoneCacheStorage();
+      final store = backend.store(
+        namespace: 'commit-after-reply',
+        cacheStorage: storage,
+      );
+      await store.ready;
+      await store.write('dm', 'c', 'draft body');
+      final request = store.pending['dm:c']!.id;
+      store.receive(
+        phoneEvent('pending-source', [
+          {
+            ...phoneMessage(1, sender: 'user', requestId: request),
+            'reply_status': 'pending',
+          },
+        ], requestId: request),
+      );
+      await store.messagesController.cacheSaved;
+      final scope = store.messagesController.cacheScope!;
+      expect((await storage.load(scope)).messages, isEmpty);
+      store.receive(
+        phoneEvent(
+          'failed-source',
+          [],
+          requestId: request,
+          failure: 'Insufficient balance',
+          failureCode: 'insufficient_balance',
+        ),
+      );
+      await store.messagesController.cacheSaved;
+      expect((await storage.load(scope)).messages, isEmpty);
+      expect(store.messagesController.displayHistory('c'), isEmpty);
+      expect(store.drafts['c'], 'draft body');
+      await store.write('dm', 'c', 'draft body');
+      final next = store.pending['dm:c']!.id;
+      store.receive(
+        phoneEvent('completed-source', [
+          {
+            ...phoneMessage(2, sender: 'user', requestId: next),
+            'reply_status': 'completed',
+          },
+        ], requestId: next),
+      );
+      await store.messagesController.cacheSaved;
+      expect((await storage.load(scope)).messages.keys, [2]);
+      store.dispose();
+    },
+  );
+
+  test(
+    'retry bubble identity survives store recreation and stays account scoped',
+    () async {
+      final backend = PhoneBackend();
+      final cache = MemoryMiniPhoneCacheStorage();
+      final first = backend.store(
+        namespace: 'stable-retry',
+        cacheStorage: cache,
+      );
+      await first.ready;
+      first.receive(
+        phoneEvent('original-source', [
+          {
+            ...phoneMessage(1, sender: 'user', requestId: 'original'),
+            'reply_status': 'failed',
+            'failure': {'code': 'insufficient_balance', 'message': 'failed'},
+          },
+        ], requestId: 'original'),
+      );
+      await first.write('dm', 'c', 'Message 1', retryRootId: 'original');
+      final attempt = first.pending['dm:c']!.id;
+      first.receive(
+        phoneEvent('retry-source', [
+          {
+            ...phoneMessage(2, sender: 'user', requestId: attempt),
+            'content': 'Message 1',
+            'reply_status': 'completed',
+          },
+        ], requestId: attempt),
+      );
+      await first.messagesController.cacheSaved;
+      await first.writesSaved;
+      first.dispose();
+      final restored = backend.store(
+        namespace: 'stable-retry',
+        cacheStorage: cache,
+      );
+      await restored.ready;
+      expect(restored.messagesController.displayHistory('c'), hasLength(1));
+      expect(
+        restored.messagesController.displayHistory('c').single.replyStatus,
+        'completed',
+      );
+      expect(restored.messagesController.bubbleRequestId(attempt), 'original');
+      await restored.writesSaved;
+      restored.dispose();
+      backend.uid = 'another-user';
+      final other = backend.store(
+        namespace: 'stable-retry',
+        cacheStorage: cache,
+      );
+      await other.ready;
+      expect(other.messagesController.cache.retryRoots, isEmpty);
+      other.dispose();
+    },
+  );
+
+  test(
+    'structured async balance failure retains code and suppresses ordinary toast',
+    () async {
+      final backend = PhoneBackend();
+      final store = backend.store(namespace: 'async-balance-code');
+      addTearDown(store.dispose);
+      await store.ready;
+      await store.write('dm', 'c', 'hello');
+      final request = store.pending['dm:c']!.id;
+      store.receive(
+        phoneEvent('delivered', [
+          phoneMessage(1, sender: 'user', requestId: request),
+        ], requestId: request),
+      );
+      store.receive(
+        phoneEvent(
+          'failed',
+          [],
+          requestId: request,
+          failure: 'Balance unavailable',
+          failureCode: 'insufficient_balance',
+        ),
+      );
+      expect(store.waiting('c'), isNull);
+      expect(store.replyFailureNotice('c'), isNull);
+      final message = store.messagesController.cache.messages[1]!;
+      expect(message.replyStatus, 'failed');
+      expect(message.failureCode, 'insufficient_balance');
+      expect(
+        PhoneMessage.fromJson(message.toJson()).failureCode,
+        'insufficient_balance',
+      );
+      store.receive(
+        phoneEvent('old-pending', [
+          {
+            ...phoneMessage(1, sender: 'user', requestId: request),
+            'reply_status': 'pending',
+          },
+        ], requestId: request),
+      );
+      expect(
+        store.messagesController.cache.messages[1]!.failureCode,
+        'insufficient_balance',
+      );
+      expect(store.replyFailureNotice('c'), isNull);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test('late balance failure cannot leak into a new account session', () async {

@@ -94,7 +94,7 @@ Gateway 接入规则：
 - Gateway 自身接口走 `/apix/...`；`time/challenge/register/heartbeat/signature/verify` 等诊断和注册接口不要误迁移到 `/api/...`。
 - 公共 header 不再发送 `app-platform`、`device-id`、`app-id`、`app-version`；公共 `user-agent` 为系统名 + 系统版本。签名内部的 `X-App-Version` 来自原生包版本，改 `pubspec.yaml` 后必须重新 build/install。
 
-余额弹窗统一由 `GenesisApi` 响应入口和 `ChatroomClient` 接收入口上报到 `AppServices.balancePrompts`，`GenesisApp` 根部的 `GemBalancePromptHost` 展示。新业务使用这两个公共网络入口即可自动接入，无需页面绑定；业务层仍负责失败状态与草稿回滚。控制器验证请求／连接凭证，合并同时触发，后台延迟到前台，账号／环境切换丢弃旧提示。仅结构化 `3001`／`21001` 与 `balance_low` 触发，不匹配错误文案；Tick 保留 `tick_no_balance` 埋点。
+余额弹窗统一由 `GenesisApi` 响应入口和 `ChatroomClient` 接收入口上报到 `AppServices.balancePrompts`，`GenesisApp` 根部的 `GemBalancePromptHost` 展示。新业务使用这两个公共网络入口即可自动接入，无需页面绑定；业务层仍负责失败状态与草稿回滚。控制器验证请求／连接凭证，合并同时触发，后台延迟到前台，账号／环境切换丢弃旧提示。仅结构化 `3001`／`21001`、异步 `failure.code=insufficient_balance` 与 `balance_low` 触发，不匹配错误文案；Tick 保留 `tick_no_balance` 埋点。
 
 Chatroom WebSocket/HTTP 另有独立契约：
 
@@ -499,3 +499,5 @@ HTTP 映射层的图片规则：
 - 证据保存在 `build/release-evidence/<UTC时间>/`：APK、最终 Manifest、实际解析的 Android 依赖、Git SHA、工作区差异及未跟踪源文件、Flutter 版本、原生 mapping、Dart symbols 和哈希。Crashlytics 同步记录构建 SHA、Flutter 版本和工作区差异哈希。
 - 不传版本参数时沿用工程版本；`9.9.9+999` 仅用于本地构建验证，记录会标为占位版本。脚本不安装、不上传、不发布；正式发布需使用正式版本与干净的已提交代码，并保存对应证据目录。
 - Manifest 存在不代表原生启动异常已修复。Samsung Android 13 冷启动、后台启动和覆盖安装，以及 Android 15 输入法仍需单独真机验证。上线后按新版本使用量核对 24 小时和 7 天事件，不能把旧包事件或新包暂未上报当作结论。
+
+- Chat 与 MiniPhone 收到关联发送请求的余额不足失败后，移除本人气泡并将正文恢复到空输入框，不显示失败感叹号，不覆盖新草稿；公共 Toast 与充值面板继续统一展示。MiniPhone AI 源消息仅异步 completed 后写本地聊天库，pending/generating/failed 不写；恢复请求日志与聊天库分离。服务端是否保留源消息仍由正式服务端契约决定。

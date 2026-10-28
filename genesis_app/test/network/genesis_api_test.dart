@@ -118,6 +118,60 @@ GenesisApi _apiWith(
 
 void main() {
   test(
+    'phone recovery balance failure reports only the requested pending operation',
+    () async {
+      final store = MemoryUserSessionStore();
+      await store.saveUid('u');
+      await store.saveAuthToken('token');
+      final api = GenesisApi(
+        sessionStore: store,
+        appHeaderProvider: () async => {},
+        transport: _FakeTransport(
+          handler: (_) => TransportResponse(
+            statusCode: 200,
+            headers: {},
+            body: jsonEncode({
+              'err_no': 0,
+              'data': {
+                'list': [
+                  {
+                    'message_id': 1,
+                    'dm_session_id': 9,
+                    'world_id': 'w',
+                    'sender_type': 'user',
+                    'sender_id': 'u',
+                    'type': 'text',
+                    'content': 'hello',
+                    'current_time': '',
+                    'delivered_at': '',
+                    'client_request_id': 'r',
+                    'reply_status': 'failed',
+                    'failure': {
+                      'code': 'insufficient_balance',
+                      'message': 'failed',
+                    },
+                  },
+                ],
+                'pn': 1,
+                'rn': 10,
+                'total': 1,
+              },
+            }),
+          ),
+        ),
+      );
+      final alerts = <GemBalanceAlert>[];
+      api.onGemBalanceAlert = (alert, _) => alerts.add(alert);
+      await api.miniPhone.messages('w', 9);
+      await api.miniPhone.messages('w', 9, clientRequestId: 'other');
+      expect(alerts, isEmpty);
+      final page = await api.miniPhone.messages('w', 9, clientRequestId: 'r');
+      expect(alerts.single.occurrenceKey, phoneBalanceOccurrenceKey('w', 'r'));
+      expect(page.list.single.failureCode, 'insufficient_balance');
+    },
+  );
+
+  test(
     'all HTTP domains report balance errors before preserving rejection',
     () async {
       final store = MemoryUserSessionStore();

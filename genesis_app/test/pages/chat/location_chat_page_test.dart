@@ -889,7 +889,7 @@ void main() {
         tester.widget<ChatComposer>(composer).hintText,
         isNot('Message as the Narrator'),
       );
-      harness.socket.serverV2AckForLatestSend(errNo: 3001);
+      harness.socket.serverV2AckForLatestSend(errNo: 9001);
       await _pumpUntilLocationChatTest(
         tester,
         () => find.byType(ChatFailedBadge).evaluate().isNotEmpty,
@@ -946,7 +946,7 @@ void main() {
         harness.socket.replyActionFrames('send_message').last['message_type'],
         'text',
       );
-      harness.socket.serverV2AckForLatestSend(errNo: 3001);
+      harness.socket.serverV2AckForLatestSend(errNo: 9001);
       await tester.pump();
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox.shrink());
@@ -11757,9 +11757,11 @@ void main() {
     expect(reconciled, [sent]);
   });
 
-  for (final fromOpening in [true, false]) {
+  for (final scenario in [(true, false), (false, false), (false, true)]) {
+    final fromOpening = scenario.$1;
+    final newerDraft = scenario.$2;
     testWidgets(
-      '${fromOpening ? 'Opening' : 'Regular'} balance rejection keeps a failed bubble',
+      '${fromOpening ? 'Opening' : 'Regular'} balance rejection removes bubble and restores input (new draft: $newerDraft)',
       (tester) async {
         final harness = await _connectedLocationChatTestService();
         final service = harness.service;
@@ -11812,115 +11814,25 @@ void main() {
           expect(identical(bubble.message, outgoing), isTrue);
         }
 
-        socket.serverV2AckForLatestSend(errNo: 3001);
-        final failedBalanceBubble = find.byWidgetPredicate(
-          (widget) =>
-              widget is ChatSelfMessageBubble &&
-              widget.message.text == 'little' &&
-              widget.message.status == 'failed',
-        );
-        await _pumpUntilLocationChatTest(
-          tester,
-          () => failedBalanceBubble.evaluate().isNotEmpty,
-        );
-        await tester.pump();
-        expect(find.byType(ChatSendingBadge), findsNothing);
-        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
-        expect(failedBalanceBubble, findsOneWidget);
-        expect(
-          tester
-              .widget<ChatSelfMessageBubble>(failedBalanceBubble)
-              .message
-              .error,
-          isNull,
-        );
-        expect(
-          find.descendant(
-            of: failedBalanceBubble,
-            matching: find.textContaining('rejected'),
-          ),
-          findsNothing,
-        );
-        expect(find.text('rejected'), findsOneWidget);
-        expect(
-          tester.widget<ChatComposer>(composerFinder).controller.text,
-          isEmpty,
-        );
-        expect(
-          tester.widget<ChatComposer>(composerFinder).sendEnabled,
-          isFalse,
-        );
-
-        // Later server/state updates must preserve the failed local row even
-        // though it never received a canonical message id.
-        socket.serverV2Tick(
-          messageId: 1,
-          locationMessageId: 1,
-          globalText: 'New server content',
-        );
-        socket.serverWaitingConversationRound(roundId: 301);
-        await _pumpUntilLocationChatTest(
-          tester,
-          () => service.state.waitingConversationRoundIdsByLocation.isNotEmpty,
-        );
-        await tester.pump();
-        expect(find.byType(ChatSendingBadge), findsNothing);
-        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
-        expect(find.byType(ChatFailedBadge), findsOneWidget);
-        expect(
-          tester.widget<ChatComposer>(composerFinder).controller.text,
-          isEmpty,
-        );
-        expect(socket.sendMessageCount, 1);
-
-        void expectFailedBeforeLaterTick() {
-          final displayed = tester
-              .widget<LocationChatAnchoredMessageList>(
-                find.byType(LocationChatAnchoredMessageList),
-              )
-              .messages;
-          final failedIndex = displayed.indexWhere((m) => m.text == 'little');
-          final tickIndex = displayed.indexWhere(
-            (m) => m.locationMessageId == 1,
-          );
-          expect(failedIndex, greaterThanOrEqualTo(0));
-          expect(tickIndex, greaterThan(failedIndex));
+        if (newerDraft) {
+          tester.widget<ChatComposer>(composerFinder).controller.text =
+              'new draft';
+          await tester.pump();
         }
-
-        expectFailedBeforeLaterTick();
-
-        socket.serverEndConversationRound(roundId: 301);
-        await _pumpUntilLocationChatTest(
-          tester,
-          () => service.state.waitingConversationRoundIdsByLocation.isEmpty,
-        );
-        final failedBubble = tester.widget<ChatSelfMessageBubble>(
-          failedBalanceBubble,
-        );
-        failedBubble.onFailedMessageTap!(failedBubble.message);
-        await _pumpUntilLocationChatTest(
-          tester,
-          () => socket.sendMessageCount == 2,
-        );
-        await tester.pump();
-        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
-        expect(
-          tester
-              .widget<ChatSelfMessageBubble>(find.byType(ChatSelfMessageBubble))
-              .message
-              .text,
-          'little',
-        );
         socket.serverV2AckForLatestSend(errNo: 3001);
         await _pumpUntilLocationChatTest(
           tester,
-          () => find.byType(ChatFailedBadge).evaluate().isNotEmpty,
+          () => find.byType(ChatSelfMessageBubble).evaluate().isEmpty,
         );
         await tester.pump();
-        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
+        expect(
+          tester.widget<ChatComposer>(composerFinder).controller.text,
+          newerDraft ? 'new draft' : 'little',
+        );
+        expect(find.byType(ChatSelfMessageBubble), findsNothing);
+        expect(find.byType(ChatFailedBadge), findsNothing);
         expect(find.byType(ChatSendingBadge), findsNothing);
-
-        expectFailedBeforeLaterTick();
+        expect(socket.sendMessageCount, 1);
 
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();

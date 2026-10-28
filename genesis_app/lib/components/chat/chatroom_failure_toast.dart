@@ -84,9 +84,10 @@ bool isChatroomUnauthorizedFailure(ChatroomFailureEvent failure) {
 }
 
 bool shouldShowChatroomFailureToast(ChatroomFailureEvent failure) {
+  // Balance feedback (Toast + purchase sheet) is owned by the root host.
+  if (isChatroomBalanceFailureCode(failure.code)) return false;
   if (chatroomFailureToastMessage(failure).isEmpty) return false;
   if (_isReplyActionBusinessFailure(failure)) return true;
-  if (failure.code.trim() == '3001') return false;
 
   final requestType = failure.requestType.trim();
   if (_userInitiatedChatroomRequestTypes.contains(requestType)) return true;

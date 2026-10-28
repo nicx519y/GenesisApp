@@ -74,6 +74,203 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(
+    'async balance failure removes the bubble and restores draft across reentry',
+    (tester) async {
+      final backend = PhoneBackend();
+      final store = await openChat(tester, backend);
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.runAsync(() => composer(tester).onSend());
+      final request = store.pending['dm:c']!.id;
+      store.receive(
+        phoneEvent('source', [
+          phoneMessage(1, sender: 'user', requestId: request),
+        ], requestId: request),
+      );
+      store.receive(
+        phoneEvent(
+          'balance-failed',
+          [],
+          requestId: request,
+          failure: 'Server balance error',
+          failureCode: 'insufficient_balance',
+        ),
+      );
+      await flush(tester);
+      expect(deliveryRows(tester), isEmpty);
+      expect(find.byType(ChatFailedBadge), findsNothing);
+      expect(composer(tester).controller.text, 'hello');
+      expect(
+        find.text('Server balance error'),
+        findsNothing,
+      ); // Root host owns Toast.
+      expect(store.waiting('c'), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await mountChat(tester, store);
+      expect(deliveryRows(tester), isEmpty);
+      expect(find.byType(ChatFailedBadge), findsNothing);
+      expect(composer(tester).controller.text, 'hello');
+      await closeChat(tester, store);
+    },
+  );
+
+  for (final closeBeforeFailure in [false, true]) {
+    testWidgets(
+      'balance failure preserves newer draft, closed=$closeBeforeFailure',
+      (tester) async {
+        final backend = PhoneBackend();
+        final store = await openChat(tester, backend);
+        await tester.enterText(find.byType(TextField), 'original');
+        await tester.runAsync(() => composer(tester).onSend());
+        final request = store.pending['dm:c']!.id;
+        await tester.enterText(find.byType(TextField), 'new draft');
+        if (closeBeforeFailure) {
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+        store.receive(
+          phoneEvent(
+            'balance-before-source',
+            [],
+            requestId: request,
+            failure: 'Balance unavailable',
+            failureCode: 'insufficient_balance',
+          ),
+        );
+        store.receive(
+          phoneEvent('late-source', [
+            phoneMessage(1, sender: 'user', requestId: request),
+          ], requestId: request),
+        );
+        if (closeBeforeFailure) await mountChat(tester, store);
+        await flush(tester);
+        expect(deliveryRows(tester), isEmpty);
+        expect(composer(tester).controller.text, 'new draft');
+        await tester.enterText(find.byType(TextField), '');
+        store.receive(
+          phoneEvent(
+            'balance-duplicate',
+            [],
+            requestId: request,
+            failure: 'Balance unavailable',
+            failureCode: 'insufficient_balance',
+          ),
+        );
+        await flush(tester);
+        expect(composer(tester).controller.text, isEmpty);
+        await closeChat(tester, store);
+      },
+    );
+  }
+
+  testWidgets(
+    'failed badge retries one stable bubble through sending, delivery and reentry',
+    (tester) async {
+      final backend = PhoneBackend();
+      final failed = {
+        ...phoneMessage(1, sender: 'user', requestId: 'failed-original'),
+        'reply_status': 'failed',
+        'failure': {
+          'code': 'generation_failed',
+          'message': 'Balance unavailable',
+        },
+      };
+      backend.respond = (r) =>
+          r.uri.path.endsWith('/messages') ? ok(page([failed])) : null;
+      final store = await openChat(tester, backend);
+      await tester.enterText(find.byType(TextField), 'Keep my newer draft');
+      final response = Completer<Object?>();
+      backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+          ? response.future
+          : r.uri.path.endsWith('/messages')
+          ? ok(page([failed]))
+          : null;
+      final badge = find.byKey(
+        const ValueKey('chat-message-retry-phone:request:failed-original'),
+      );
+      await tester.tap(badge);
+      await tester.tap(badge);
+      await flush(tester);
+      expect(backend.calls('dm/send'), hasLength(1));
+      final pending = store.pending['dm:c']!;
+      expect(pending.id, isNot('failed-original'));
+      expect(pending.content, 'Message 1');
+      expect(deliveryRows(tester), hasLength(1));
+      expect(
+        deliveryRows(tester).single.localId,
+        'phone:request:failed-original',
+      );
+      expect(deliveryRows(tester).single.status, 'sending');
+      expect(find.byType(ChatFailedBadge), findsNothing);
+      expect(composer(tester).controller.text, 'Keep my newer draft');
+      response.complete(ok({}));
+      await flush(tester);
+      expect(deliveryRows(tester), hasLength(1));
+      expect(deliveryRows(tester).single.status, 'sent');
+      final completed = {
+        ...phoneMessage(2, sender: 'user', requestId: pending.id),
+        'content': 'Message 1',
+        'reply_status': 'completed',
+      };
+      store.receive(
+        phoneEvent('retry-delivered', [completed], requestId: pending.id),
+      );
+      backend.respond = (r) => r.uri.path.endsWith('/messages')
+          ? ok(page([failed, completed]))
+          : null;
+      await flush(tester);
+      expect(deliveryRows(tester), hasLength(1));
+      expect(
+        deliveryRows(tester).single.localId,
+        'phone:request:failed-original',
+      );
+      expect(deliveryRows(tester).single.status, 'sent');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await mountChat(tester, store);
+      expect(deliveryRows(tester), hasLength(1));
+      expect(
+        deliveryRows(tester).single.localId,
+        'phone:request:failed-original',
+      );
+      expect(find.byType(ChatFailedBadge), findsNothing);
+      await closeChat(tester, store);
+    },
+  );
+
+  testWidgets(
+    'rejected resend returns the same bubble to failed and can retry again',
+    (tester) async {
+      final backend = PhoneBackend();
+      final failed = {
+        ...phoneMessage(1, sender: 'user', requestId: 'original'),
+        'reply_status': 'failed',
+        'failure': {
+          'code': 'generation_failed',
+          'message': 'Balance unavailable',
+        },
+      };
+      backend.respond = (r) => r.uri.path.endsWith('/messages')
+          ? ok(page([failed]))
+          : r.uri.path.endsWith('/dm/send')
+          ? {'err_no': 2061, 'err_msg': 'Send rejected', 'data': {}}
+          : null;
+      final store = await openChat(tester, backend);
+      final badge = find.byKey(
+        const ValueKey('chat-message-retry-phone:request:original'),
+      );
+      await tester.tap(badge);
+      await flush(tester);
+      expect(deliveryRows(tester), hasLength(1));
+      expect(deliveryRows(tester).single.status, 'failed');
+      expect(deliveryRows(tester).single.localId, 'phone:request:original');
+      await tester.tap(badge);
+      await flush(tester);
+      expect(backend.calls('dm/send'), hasLength(2));
+      expect(deliveryRows(tester), hasLength(1));
+      expect(find.byType(ChatFailedBadge), findsOneWidget);
+      await closeChat(tester, store);
+    },
+  );
+
+  testWidgets(
     'late balance rejection restores draft after the chat was closed',
     (tester) async {
       final backend = PhoneBackend();

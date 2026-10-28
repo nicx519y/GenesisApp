@@ -1054,6 +1054,19 @@ class ChatroomSession {
     }
 
     if (!_events.isClosed) {
+      if (event is ChatroomPhoneEvent &&
+          event.type == 'phone.reply.updated' &&
+          event.worldId == worldId &&
+          event.jobStatus == 'failed' &&
+          isGemBalanceFailureCode(event.failureCode)) {
+        _onBalanceAlert(
+          GemBalanceAlert(
+            kind: GemBalanceAlertKind.insufficient,
+            message: event.failure ?? '',
+            occurrenceKey: phoneBalanceOccurrenceKey(worldId, event.requestId!),
+          ),
+        );
+      }
       if (event is ChatroomBalanceLow) {
         _onBalanceAlert(
           GemBalanceAlert(

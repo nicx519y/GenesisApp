@@ -6,6 +6,7 @@ class PhoneWrite {
     this.content, {
     this.image,
     this.replyTo,
+    this.retryRootId,
   });
   factory PhoneWrite.fromJson(Map<String, dynamic> j) =>
       PhoneWrite(
@@ -15,12 +16,13 @@ class PhoneWrite {
           j['content'] as String,
           image: j['image'] as String?,
           replyTo: j['replyTo'] as int?,
+          retryRootId: j['retryRootId'] as String?,
         )
         ..accepted = j['accepted'] == true
         ..rejected = j['rejected'] == true
         ..uncertain = true;
   final String id, kind, target, content;
-  final String? image;
+  final String? image, retryRootId;
   final int? replyTo;
   bool accepted = false, uncertain = false, rejected = false;
   String get key => '$kind:$target';
@@ -31,6 +33,7 @@ class PhoneWrite {
     'content': content,
     'image': image,
     'replyTo': replyTo,
+    if (retryRootId != null) 'retryRootId': retryRootId,
     'accepted': accepted,
     'rejected': rejected,
   };

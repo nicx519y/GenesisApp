@@ -12,9 +12,10 @@ class GemBalancePromptController extends ChangeNotifier {
   bool _presenting = false;
   bool _disposed = false;
   int _generation = 0;
+  final _seenOccurrences = <String>{};
 
   void report(GemBalanceAlert alert, String? requestAuthorization) {
-    if (_disposed || _presenting) return;
+    if (_disposed) return;
     final generation = _generation;
     unawaited(_accept(alert, requestAuthorization, generation));
   }
@@ -30,11 +31,18 @@ class GemBalancePromptController extends ChangeNotifier {
       final session = await sessionStore.readCompleteSession();
       if (_disposed ||
           generation != _generation ||
-          _presenting ||
           session == null ||
           _token(session.authToken) != token) {
         return;
       }
+      final occurrence = alert.occurrenceKey;
+      if (occurrence != null) {
+        if (!_seenOccurrences.add(occurrence)) return;
+        if (_seenOccurrences.length > 512) {
+          _seenOccurrences.remove(_seenOccurrences.first);
+        }
+      }
+      if (_presenting) return;
       // An insufficient-balance error takes priority over a low-balance hint.
       if (_pending?.kind == GemBalanceAlertKind.insufficient) return;
       _pending = alert;
@@ -59,6 +67,7 @@ class GemBalancePromptController extends ChangeNotifier {
 
   void reset() {
     _generation++;
+    _seenOccurrences.clear();
     _pending = null;
     if (!_disposed) notifyListeners();
   }

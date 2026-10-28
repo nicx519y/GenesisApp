@@ -34,6 +34,8 @@ class MiniPhoneCache {
   final seenEvents = <String>{};
   final deliveredIds = <int>{};
   final bindings = <String, int>{};
+  // Transport attempts share one stable local bubble identity.
+  final retryRoots = <String, String>{};
   List<PhoneSession> sessions = [];
   int revision = 0, unknownUnread = 0;
   bool hasHomeBaseline = false;
@@ -65,6 +67,7 @@ class MiniPhoneCache {
               m,
               previous.replyStatus,
               previous.failure,
+              failureCode: previous.failureCode,
             )
           : m;
     }
@@ -252,6 +255,7 @@ class MiniPhoneCache {
       for (final e in sessionRevisions.entries) '${e.key}': e.value,
     },
     'bindings': Map<String, int>.of(bindings),
+    'retry_roots': Map<String, String>.of(retryRoots),
     'events': seenEvents.toList(),
     'delivered_ids': deliveredIds.toList(),
     'revision': revision,
@@ -263,6 +267,9 @@ class MiniPhoneCache {
   factory MiniPhoneCache.fromJson(Map<String, dynamic> json) {
     final cache = MiniPhoneCache();
     cache.merge(phoneList(json['messages'] ?? [], PhoneMessage.fromJson));
+    for (final e in phoneMap(json['retry_roots'] ?? {}).entries) {
+      cache.retryRoots[e.key] = e.value as String;
+    }
     cache.sessions = phoneList(
       json['sessions'] ?? [],
       PhoneSession.fromJson,

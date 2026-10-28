@@ -15,6 +15,41 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('phone async failure code reaches global balance handler', () async {
+    final socket = _FakeChatroomSocket();
+    final client = await _client(
+      _FakeChatroomTransport(socket),
+      autoHeartbeat: false,
+      handshakeHeaderSigner: _v2HandshakeSigner,
+    );
+    final alerts = <GemBalanceAlert>[];
+    client.onGemBalanceAlert = (alert, _) => alerts.add(alert);
+    final session = await client.connect(worldId: 'world-1');
+    addTearDown(session.close);
+    for (final code in [null, 'generation_failed', 'insufficient_balance']) {
+      socket.serverFrame('phone.reply.updated', {
+        'stream_type': '',
+        'ts': 1,
+        'world_id': 'world-1',
+        'err_no': 0,
+        'payload': {
+          'event_id': 'reply:$code',
+          'dm_session_id': 451,
+          'message_id': 1253,
+          'client_request_id': 'request',
+          'job_status': 'failed',
+          'failure': {'message': '餘額不足，請儲值', if (code != null) 'code': code},
+        },
+      });
+    }
+    await _tick();
+    expect(alerts, hasLength(1));
+    expect(
+      alerts.single.occurrenceKey,
+      phoneBalanceOccurrenceKey('world-1', 'request'),
+    );
+  });
+
   test(
     'socket balance alerts reach global handler without a page or world service',
     () async {
