@@ -81,11 +81,18 @@ void main() {
       await tester.enterText(find.byType(TextField), 'hello');
       await tester.runAsync(() => composer(tester).onSend());
       final request = store.pending['dm:c']!.id;
+      await flush(tester);
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
       store.receive(
         phoneEvent('source', [
-          phoneMessage(1, sender: 'user', requestId: request),
+          {
+            ...phoneMessage(1, sender: 'user', requestId: request),
+            'reply_status': 'pending',
+          },
         ], requestId: request),
       );
+      await flush(tester);
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
       store.receive(
         phoneEvent(
           'balance-failed',
@@ -204,7 +211,7 @@ void main() {
       response.complete(ok({}));
       await flush(tester);
       expect(deliveryRows(tester), hasLength(1));
-      expect(deliveryRows(tester).single.status, 'sent');
+      expect(deliveryRows(tester).single.status, 'sending');
       final completed = {
         ...phoneMessage(2, sender: 'user', requestId: pending.id),
         'content': 'Message 1',

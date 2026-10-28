@@ -375,6 +375,11 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
                     m.senderId == store.uid &&
                     m.replyStatus == 'failed'
                 ? 'failed'
+                : m.senderType == 'user' &&
+                      m.senderId == store.uid &&
+                      (m.replyStatus == 'pending' ||
+                          m.replyStatus == 'generating')
+                ? 'sending'
                 : 'sent',
           ),
         )
@@ -392,7 +397,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
         status: outgoing.rejected
             ? 'failed'
             : outgoing.accepted
-            ? 'sent'
+            ? (store.messagesController.isPlayerChat(person.id)
+                  ? 'sent'
+                  : 'sending')
             : outgoing.uncertain
             ? context.l10n.miniPhoneAwaitingConfirmation
             : 'sending',

@@ -51,6 +51,54 @@ void main() {
   });
 
   test(
+    'phone balance failure with outer 3001 remains a typed event and opens global alert',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final alerts = <GemBalanceAlert>[];
+      client.onGemBalanceAlert = (alert, token) {
+        expect(token, 'token-1');
+        alerts.add(alert);
+      };
+      final session = await client.connect(worldId: 'world-1');
+      addTearDown(session.close);
+      final events = <ChatroomEvent>[];
+      final subscription = session.events.listen(events.add);
+      addTearDown(subscription.cancel);
+      socket.serverFrame('phone.reply.updated', {
+        'stream_type': '',
+        'ts': 1,
+        'world_id': 'world-1',
+        'err_no': 3001,
+        'err_msg': '餘額不足，請儲值',
+        'payload': {
+          'event_id': 'phone:reply:1253:failed',
+          'dm_session_id': 451,
+          'message_id': 1253,
+          'client_request_id': 'request',
+          'job_status': 'failed',
+          'failure': {'code': 'insufficient_balance', 'message': '餘額不足，請儲值'},
+        },
+      });
+      await _tick();
+      expect(
+        events.whereType<ChatroomPhoneEvent>().single.failureCode,
+        'insufficient_balance',
+      );
+      expect(events.whereType<ChatroomFailureEvent>(), isEmpty);
+      expect(alerts.single.kind, GemBalanceAlertKind.insufficient);
+      expect(
+        alerts.single.occurrenceKey,
+        phoneBalanceOccurrenceKey('world-1', 'request'),
+      );
+    },
+  );
+
+  test(
     'socket balance alerts reach global handler without a page or world service',
     () async {
       final socket = _FakeChatroomSocket();
