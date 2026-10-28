@@ -28,6 +28,24 @@
 - 已存在的发送、流式、Regenerate／Go On 或 Tick 操作继续沿用原阶段与时间，不按最后消息覆盖它们，不额外叠加计时器。重新进入不重置计时；正常完成提前结束恢复等待；旧恢复回调不能清除后来发起的回复操作。
 - 空输入、未激活、非叶子地点等资格条件不触发恢复计时。原来进入页面即刻结束孤立历史回复等待的行为，已改为上述统一计时。
 
+## 身份历史、活动集合与资源所有权
+
+管理器保留两层状态：
+
+- **身份索引**保留 `begin/find/forRound` 所需的稳定句柄、请求／轮次关联、`finished/released`、时间与标量诊断字段。同身份重绑仍返回原句柄，不能重新计时或重新锁住 Send。历史句柄到账号会话 `reset()` 才清理，本方案不设置数量上限或过期淘汰。
+- **活动集合**仅包含仍承担截止时间的操作。阻塞查询、最近截止时间调度、连接进展和超时诊断的阻塞列表只遍历此集合；正常结束、超时释放或准备阶段交接立即退出。`forRound` 仍保留原历史查找行为，不宣称所有查询均与历史数量无关。
+- **可释放运行时状态**承载进度去重键、打开的流、生成尝试关联、取消等待与回调。终态断开这些状态的引用，不给每个历史句柄留下空集合或永久取消 Future。诊断字段不得存放页面、正文、气泡对象或业务回调。
+
+`guard()` 在原任务成功／失败后移除注册。正常 `finish()` 只解除本地管理，不向未返回的 ACK／正式回显抛取消异常；它们仍返回原结果。只有释放等待才返回 `ChatSendWaitReleased`，且继续接住原 Future 的迟到错误。`handoffTo()` 由实际请求接管取消传播；准备阶段即使先执行 `finally/finish()`，仍在返回的等待也能接到实际请求的释放。实际请求正常结束或失败后，不保留准备阶段回调。
+
+`onRelease()` 返回可重复调用的取消订阅函数，已释放操作仍立即通知。页面、服务和回复控制器各自使用 `ChatSendReleaseScope` 管理所属监听，销毁或更换绑定时清除；仅隐藏页面继续保留业务等待。连接代次失效及正式回显等待的清理归服务持有，不依赖页面 Toast／状态监听。正式回显等待结束不阻止迟到消息继续进入原地点队列。
+
+共享流式动画的 `onProgress()` 只在实际揭示量变化时发出无参数通知；页面调用展示操作的 `presentationProgress()`。它仅更新时间，不记录气泡或逐帧键，也不能刷新网络流的 5 秒期限。网络重复帧、乱序和 attempt 过滤保留原行为。
+
+释放采用快照和身份检查，允许回调结束其他操作、取消其他订阅或重置账号；重置期间不登记新活动操作，旧一轮通知不能继续触发新会话中的页面回调。同一次 Tick 超时后仍复用释放标记，只有真实完成后下一次 Tick 才创建新身份。
+
+**边界：本次消除已结束操作的重资源引用及调度对历史数量的依赖，不将全部历史记录数量变为有界。** 原网络 Future、当前活动操作和仍显示在页面上的内容各自保留正常生命周期；不能通过提前取消正常 ACK 或丢弃内容来降低内存。
+
 ## 正常完成、未知结果和迟到回调
 
 正常匹配的完成或明确失败立即结束阻塞。超时只表示本地等待停止：保留正文、请求／轮次／候选关联及未确认草稿，不合成成功、失败、正式 ID 或计费结果。
@@ -161,3 +179,66 @@
 - 真机检查仅证明断网／后台返回的页面恢复冒烟结果；没有向生产聊天室发送测试消息，也未在设备上强制制造丢 ACK、流中断或 Tick 停滞。5／30／45／60 秒阈值和迟到回调隔离由受控自动化验证，真实服务端故障注入与恢复联调尚未验收。
 
 同日追加“进入页面渲染后残留锁恢复”：350 项服务相关测试、10 项相关页面测试及修改范围静态检查通过。新增覆盖普通／Tick 分支、重建保留截止时间、真实完成提前结束、独立 Tick 不被展示完成清除、已有流式 5 秒计时不被覆盖、collect 字段及释放后实际手动发送。本次追加改动未另做真机验收。
+
+
+### 2026-10-28 等待记录资源修复验证
+
+- 实施前本地检查点：`b557a79a3712c127e65cc7716a19092fbdbb58e4`。包含当时已有代码、文档、测试及相关新增源文件；未推送。资源修复形成后续独立提交，回退只需撤销修复提交，保留此检查点，不执行工作区硬重置。
+- 主范围修复前为 **748 通过、31 失败**。流式组件另在检查点源码的临时副本补跑，结果 **36 通过、2 失败**。合并基线共 **784 通过、33 失败**。
+- 最终相同合并范围为 **809 通过、33 失败**，新增 **25** 项用例均通过；失败名称逐项一致，原断言未放宽。相关修改的 18 个 Dart 源码／测试文件静态检查通过。
+- 资源测试连续结束 10,000 次操作：活动数、进度状态、去重键、回调、取消等待及截止计时器均为零，保留 10,000 个身份句柄；新增一个活动操作时调度只扫描一个。100,000 次展示进度通知不积累进度键，也不延长网络流期限。
+- 异步测试覆盖正常结束先于 ACK、迟到成功／失败、超时后原 Future 报错、同步 Future、准备交接及提前 finally、重复结束、释放中取消订阅、重置／销毁／创建操作、Tick 重置隔离。服务及页面测试覆盖页面隐藏／销毁、ACK 前后销毁、独立连接清理、无页面监听时的回显等待清理及迟到入队、控制器销毁后的迟到保存失败。
+- Flutter 测试 VM 堆快照：10,000 个历史句柄保留时，活动快照含 1 个真实共享动画 `_StreamRecord`、1 个进度状态、1 个取消状态、1 个回调注册，以及各 1 个模拟页面／进度对象。操作结束并卸载动画组件、GC 后，上述实例及 guard／guard 结果对象均为 0，`ChatSendOperation` 仍为 10,000。此为受控组件与模拟回调对象验证，不是生产真机整体内存验收。快照和临时实验代码未纳入提交。
+- **待验收：** 本次未运行真机测试环境的连续聊天、地点切换、前后台及断网恢复，也未执行真实后端故障注入。不能沿用 10 月 27 日的真机结果作为本修复验收。
+
+回归范围（从 `genesis_app/` 执行）：
+
+```sh
+flutter test --no-pub test/network/chatroom \
+  test/components/chat_streaming_effects_test.dart \
+  test/components/chat_stream_retraction_test.dart \
+  test/components/location_chat_candidate_promotion_test.dart \
+  test/components/location_chat_http_backfill_test.dart \
+  test/components/location_chat_send_promotion_test.dart \
+  test/pages/chat/location_chat_page_test.dart --reporter json
+```
+
+#### 检查点既有失败清单
+
+以下记录失败断言／现象，不将未定位的问题归因为本次修复。主范围前后均有 31 项，补充流式组件范围前后均有 2 项。
+
+| 用例名称 | 检查点失败表现 |
+| --- | --- |
+| only feature 2030 bypasses global reply-action toast; auth remains global | 全局 Toast 预期 3 次，实际 0 次。 |
+| card HTTP keeps global login and server error toast rules including unknown codes | 全局 Toast 预期 1 次，实际 0 次。 |
+| character avatar opens World MiniPhone chat (card: false) | Widget 销毁后仍有待执行 Timer。 |
+| character avatar opens World MiniPhone chat (card: true) | Widget 销毁后仍有待执行 Timer。 |
+| regenerate marks a bubble read when it starts entering viewport prepared=false | 已读集合缺少末条候选消息 90503。 |
+| regenerate marks a bubble read when it starts entering viewport prepared=true | 已读集合缺少末条候选消息 90503。 |
+| reopened database renders last browsed card in the first frame | 首帧找不到选卡计数 `2 / 3`。 |
+| a Tick waits for in-flight Regenerate while retiring its controls | Tick 期间仍能找到 Regenerate 渐变控件。 |
+| a Tick waits for in-flight Go on while retiring its controls | 回复动作状态预期 idle，实际 none。 |
+| prepared entry first frame includes ordinary and supported idle toolbar before join | 首帧动作状态预期 idle，实际 disabled。 |
+| prepared entry first frame includes candidates and supported idle toolbar before join | 首帧动作状态预期 idle，实际 disabled。 |
+| prepared entry first frame includes confirmed and supported idle toolbar before join | 首帧动作状态预期 idle，实际 disabled。 |
+| join failure releases reply recovery busy state | 无法找到可点击的 Go on 控件。 |
+| prepared entry preserves live candidate chunk rendering | 找不到预期的 Live prepared candidate 正文。 |
+| location chat keeps programmatic positioning in its coordinator | 源码结构断言仍要求页面内含 `_LocationChatKeyboardInsetLayoutState`。 |
+| feature quota zero edit still opens and submits after repeated clicks | `pumpAndSettle` 超时。 |
+| feature quota save rejection retains draft and presents one toast | `pumpAndSettle` 超时。 |
+| Go on keeps the selected card through ACK and formal history | 找不到轮次 301／卡片 401 的 Go on 控件。 |
+| regenerated card send keeps live rows during successful range refresh | 等待页面状态达到预期超时，候选展示仍未完成。 |
+| regenerated card send keeps live rows during failed range refresh | 等待页面状态达到预期超时，候选展示仍未完成。 |
+| regenerated card send keeps live rows during successful range refresh started mid-stream | 等待页面状态达到预期超时，候选展示仍未完成。 |
+| inspiration result and loading reuse the message projection | 消息投影复用断言预期 true，实际 false。 |
+| composer send hides buttons immediately while their height collapses | 找不到预期的 ACK loading dots。 |
+| ACK timeout retains unknown bubble without automatic resend | 等待页面状态达到预期超时。 |
+| ACK loading is released by the unified ordinary deadline | 布局尺寸预期 206.0，实际约 167.7。 |
+| a synchronous send failure is still recorded once | 预期 2 条分析事件，实际 1 条。 |
+| Opening balance rejection keeps a failed bubble | 找不到预期的用户失败气泡。 |
+| Regular balance rejection keeps a failed bubble | 找不到预期的用户失败气泡。 |
+| location chat renders structured and plain enter timeline events | 找不到预期的 Alice 文本。 |
+| location chat projects one V2 tick into one composite card | Tick 卡片中仍能找到不应出现的 location-current 文本。 |
+| location chat renders a positive-cursor tick without a typed payload | 找不到 `Tick 0 · Recovered fallback Tick` 文本。 |
+| characters_moved routes streaming prose through the common animation | 流式高度预期大于 92.0，实际 92.0。 |
+| streaming layout preserves scroll intent (reading history: false) | 滚动位置预期 1250.0，实际 1130.0。 |

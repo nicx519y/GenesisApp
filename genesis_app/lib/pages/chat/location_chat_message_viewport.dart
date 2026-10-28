@@ -65,7 +65,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
       deferIncomingMessages: true,
       settings: locationChatBubbleLayoutSettings.value,
       operationIdentity: (_replyBindingGeneration, _waitingPositionOperation),
-      onProgress: (progress) => _presentationSendWait?.progress(progress),
+      onProgress: () => _presentationSendWait?.presentationProgress(),
       presentationRevision: (
         presentation?.roundId,
         presentation?.viewedCardId,

@@ -54,6 +54,8 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
     final next =
         _service?.sendGate ?? AppServicesScope.read(context).chatSendGate;
     if (identical(next, _pageSendGate)) return;
+    _pageSendReleases.clear();
+    _replySendReleases.clear();
     _pageSendGate?.removeListener(_onSendGateChanged);
     _pageSendGate = next;
     next.addListener(_onSendGateChanged);
@@ -111,7 +113,7 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
       if (operation.released) {
         scheduleMicrotask(_releaseInitialSendWait);
       } else {
-        operation.onRelease(_releaseInitialSendWait);
+        _pageSendReleases.listen(operation, _releaseInitialSendWait);
       }
     } else {
       _initialSendWait?.finish();
@@ -139,7 +141,7 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
       'reply_presentation',
       id: id,
     );
-    operation.onRelease(() {
+    _replySendReleases.listen(operation, () {
       if (!mounted || !identical(_presentationSendWait, operation)) return;
       final presentationContext = _replyPresentationContextKey.currentContext;
       if (presentationContext != null) {

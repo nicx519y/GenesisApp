@@ -429,6 +429,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   final _llmGenerations = <LlmGenerationId, LlmGenerationState>{};
   final DateTime Function() _now;
   final LocationChatSendGate sendGate;
+  final _sendReleases = ChatSendReleaseScope();
   final bool _ownsSendGate;
   final _finalizationWaits = <String, ChatSendOperation>{};
   final ChatroomMessageStorage? _snapshotStorage;
@@ -1282,7 +1283,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
             )
             .toList()
           ..sort((a, b) => a.roundId.compareTo(b.roundId));
-    operation.onRelease(() {
+    _sendReleases.listen(operation, () {
       if (_disposed) return;
       for (final state in targets) {
         state._sendReleased = true;
@@ -2313,7 +2314,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       operation.diagnostics['source_round_id'] = state.roundId;
     }
     operation.diagnostics['client_msg_id'] = id.substring(id.indexOf(':') + 1);
-    operation.onRelease(() {
+    _sendReleases.listen(operation, () {
       if (_disposed) return;
       state._sendReleased = true;
       if (scene == 'go_on' && state._goOn?.roundId == null) {
@@ -2492,6 +2493,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _sendReleases.clear();
     _disposed = true;
     if (_ownsSendGate) sendGate.dispose();
     for (final channel in _locationChanges.values) {

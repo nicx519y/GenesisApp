@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _closeChatroom() async {
+    _pageSendReleases.clear();
     _clearAckLoading();
     _detachReplyActions();
     final service = _service;

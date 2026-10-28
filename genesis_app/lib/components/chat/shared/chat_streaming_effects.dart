@@ -45,7 +45,7 @@ class ChatStreamingEffects extends StatefulWidget {
   final LocationChatBubbleLayoutSettings settings;
   final Object? presentationRevision;
   final Object? operationIdentity;
-  final void Function(Object progress)? onProgress;
+  final VoidCallback? onProgress;
   final bool deferIncomingMessages;
   final Widget child;
 
@@ -1147,7 +1147,7 @@ class _RenderStreamingBody extends RenderProxyBox {
     final previousReveal = record.revealed;
     record.revealed = _reveal.value(_clock);
     if (previousReveal != record.revealed) {
-      _scope.owner.widget.onProgress?.call((record, record.revealed));
+      _scope.owner.widget.onProgress?.call();
     }
 
     var targetHeight = child!.size.height;

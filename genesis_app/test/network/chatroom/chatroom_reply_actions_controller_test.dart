@@ -399,6 +399,34 @@ ChatroomLlmCardGenerationEnd _terminal(
 );
 
 void main() {
+  test(
+    'disposed reply controller drops shared gate listeners before late save failure',
+    () async {
+      final h = _Harness();
+      h.api.cards = _cards([_card(101)]);
+      final target = await h.prepareEditor();
+      final barrier = Completer<void>();
+      h.api.saveBarrier = barrier;
+      final save = h.controller.save(target, const [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'Draft',
+        ),
+      ]);
+      final failure = expectLater(save, throwsA(anything));
+      await _settle();
+      final gate = h.controller.sendGate;
+      expect(gate.debugResources.listeners, greaterThan(0));
+      h.controller.dispose();
+      expect(gate.debugResources.listeners, 0);
+      gate.reset();
+      barrier.completeError(StateError('late transport failure'));
+      await failure;
+      await _settle();
+      expect(gate.debugResources.history, 0);
+    },
+  );
+
   for (final savedAttempt in <int?>[null, 1, 2]) {
     testWidgets(
       'candidate backfill preserves reveal only for the same attempt ($savedAttempt)',

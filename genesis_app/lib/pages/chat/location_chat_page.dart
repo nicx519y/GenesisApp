@@ -709,6 +709,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _loadPastHiddenInitialHistoryIfNeeded();
   }
 
+  final _pageSendReleases = ChatSendReleaseScope();
+  final _replySendReleases = ChatSendReleaseScope();
   LocationChatSendGate? _pageSendGate;
   ChatSendOperation? _initialSendWait;
   ChatSendOperation? _replyPreparationWait;
@@ -1158,6 +1160,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _pageSendReleases.clear();
+    _replySendReleases.clear();
     _pageSendGate?.removeListener(_onSendGateChanged);
     WidgetsBinding.instance.removeObserver(this);
     _presentation?.removeListener(_handlePresentationChanged);
@@ -1241,6 +1245,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _entrySendWaitCheckGeneration++;
     }
     if (changedChatTarget) {
+      _pageSendReleases.clear();
       _localMessageOrder.clear();
       _detachReplyActions();
     }

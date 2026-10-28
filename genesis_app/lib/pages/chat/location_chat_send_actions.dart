@@ -39,10 +39,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     try {
       if (!isCurrent()) return false;
       await _guardPageWait('send_connect', (operation) async {
-        operation.onRelease(() {
-          service.abandonConnectionWait(
-            expectedGeneration: connectionGeneration,
-          );
+        service.watchConnectionWait(
+          operation,
+          expectedGeneration: connectionGeneration,
+        );
+        _pageSendReleases.listen(operation, () {
           if (!mounted ||
               generation != _sendConnectionGeneration ||
               serviceGeneration != _serviceGeneration) {
@@ -334,7 +335,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       final bindingGeneration = _replyBindingGeneration;
       try {
         await _guardPageWait('send_finalize', (operation) async {
-          operation.onRelease(() {
+          _pageSendReleases.listen(operation, () {
             if (!mounted || sendAttempt != _sendAttemptGeneration) return;
             _sendAttemptGeneration++;
             _setLocationChatState(() {
@@ -514,7 +515,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       _setLocationChatState(() => _sending = true);
       try {
         await _guardPageWait('send_finalize', (operation) async {
-          operation.onRelease(() {
+          _pageSendReleases.listen(operation, () {
             if (!mounted || sendAttempt != _sendAttemptGeneration) return;
             _sendAttemptGeneration++;
             _setLocationChatState(() => _sending = false);
@@ -630,9 +631,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         sentLocationId,
         'send:$clientMsgId',
       )!;
-      wait.onRelease(() {
+      _pageSendReleases.listen(wait, () {
         if (!ownsSend()) return;
-        service.cancelCanonicalMessageWait(clientMsgId);
         _sendAttemptGeneration++;
         _setLocationChatState(() {
           _sending = false;

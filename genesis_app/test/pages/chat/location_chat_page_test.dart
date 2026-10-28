@@ -125,6 +125,70 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  for (final accepted in [false, true]) {
+    testWidgets(
+      'hidden panel retains wait; destroyed panel releases subscriptions accepted=$accepted',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        final harness = await _connectedLocationChatTestService();
+        Widget panel({bool active = true}) => AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              key: const ValueKey('retained-panel'),
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              active: active,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+              usePreparedEntry: true,
+              networkAvailabilityCheck: _locationChatNetworkAvailable,
+            ),
+          ),
+        );
+        await tester.pumpWidget(panel());
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.service.state.joinedLocationId == 'location-current',
+        );
+        ChatComposer composer() =>
+            tester.widget<ChatComposer>(find.byType(ChatComposer));
+        composer().controller.text = 'Pending while hidden';
+        await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+        unawaited(composer().onSend());
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.sendMessageCount == 1,
+        );
+        if (accepted) {
+          harness.socket.serverV2AckForLatestSend(errNo: 0);
+          await tester.pump();
+        }
+        final gate = harness.service.sendGate;
+        final listeners = gate.debugResources.listeners;
+        expect(listeners, greaterThanOrEqualTo(2));
+        await tester.pumpWidget(panel(active: false));
+        expect(gate.debugResources.listeners, listeners);
+        expect(gate.blocks('world-current', 'location-current'), true);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        expect(gate.debugResources.listeners, lessThan(listeners));
+        expect(gate.debugResources.listeners, greaterThan(0));
+        expect(gate.blocks('world-current', 'location-current'), true);
+        await tester.pump(const Duration(seconds: 45));
+        expect(gate.debugResources.listeners, 0);
+        expect(gate.debugResources.guards, 0);
+        expect(gate.debugResources.progressStates, 0);
+        expect(gate.blocks('world-current', 'location-current'), false);
+        debugDefaultTargetPlatformOverride = null;
+        await _disposeEnterConversationPanel(tester, harness.service);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final timeout in [false, true]) {
     testWidgets(
       'background join ${timeout ? "timeout" : "rejection"} stays silent and Send uses the public toast',

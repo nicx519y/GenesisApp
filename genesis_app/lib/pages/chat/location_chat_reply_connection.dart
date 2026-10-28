@@ -142,12 +142,14 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
     wait.diagnostics['reply_action'] = transaction.action.name;
     final connectionService = _service;
     final connectionGeneration = connectionService?.connectionWaitGeneration;
-    wait.onRelease(() {
-      if (wait.phase == 'connecting') {
-        connectionService?.abandonConnectionWait(
-          expectedGeneration: connectionGeneration,
-        );
-      }
+    if (connectionService != null && connectionGeneration != null) {
+      connectionService.watchConnectionWait(
+        wait,
+        expectedGeneration: connectionGeneration,
+        onlyWhileConnecting: true,
+      );
+    }
+    _replySendReleases.listen(wait, () {
       if (!mounted || generation != _replyConnectionActionGeneration) return;
       if (wait.phase == 'connecting' && widget.active) {
         showGenesisToast(context, context.l10n.chatConnectionFailed);

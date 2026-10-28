@@ -32,7 +32,10 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
       watch = _ChatroomStreamWatch(operation: operation, roundId: round);
       _streamWatches[location] = watch;
       final captured = watch;
-      operation.onRelease(() => _expireStreamWatch(location, captured));
+      _sendReleases.listen(
+        operation,
+        () => _expireStreamWatch(location, captured),
+      );
     }
     watch.roundId = round;
     watch.operation.diagnostics['round_id'] = round;
@@ -116,6 +119,9 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
     watch.timedOut = true;
     if (watch.clientMsgId.isNotEmpty && !watch.accepted) {
       _session?.cancelSendMessageWait(watch.clientMsgId);
+    }
+    if (watch.clientMsgId.isNotEmpty) {
+      cancelCanonicalMessageWait(watch.clientMsgId);
     }
     final round = watch.roundId;
     if (round.isNotEmpty) {

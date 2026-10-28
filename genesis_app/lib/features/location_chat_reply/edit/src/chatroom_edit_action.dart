@@ -113,7 +113,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       'card_id': target.cardId,
     });
     wait.phase = 'saving';
-    wait.onRelease(() {
+    _sendReleases.listen(wait, () {
       if (_disposed) return;
       state._sendReleased = true;
       state._busy = false;

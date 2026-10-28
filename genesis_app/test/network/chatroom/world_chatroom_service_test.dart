@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/chatroom/location_chat_send_gate.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -23,6 +24,120 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'service disposal removes subscriptions while shared identity keeps its deadline',
+    () async {
+      var now = DateTime(2026);
+      final gate = LocationChatSendGate(now: () => now, report: (_) {});
+      addTearDown(gate.dispose);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        refreshInitialSnapshotOnConnect: false,
+        sendGate: gate,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      service.setInputBlocked(true);
+      final tick = gate.beginTick('world-1');
+      final wait = service.beginSendWait('loc-1', 'connection', 'send_connect');
+      service.watchConnectionWait(
+        wait,
+        expectedGeneration: service.connectionWaitGeneration,
+      );
+      expect(gate.debugResources.listeners, greaterThan(0));
+      await service.dispose();
+      expect(gate.debugResources.listeners, 0);
+      expect(gate.beginTick('world-1'), same(tick));
+      expect(tick.blocks, true);
+      now = now.add(const Duration(seconds: 60));
+      gate.reconcile();
+      expect(tick.released, true);
+      expect(wait.released, true);
+    },
+  );
+
+  test(
+    'connection cleanup survives removal of page release subscriptions',
+    () async {
+      var now = DateTime(2026);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        refreshInitialSnapshotOnConnect: false,
+        sendGateClock: () => now,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final wait = service.beginSendWait('loc-1', 'connect', 'send_connect');
+      final generation = service.connectionWaitGeneration;
+      final page = ChatSendReleaseScope();
+      var pageCalls = 0;
+      page.listen(wait, () => pageCalls++);
+      service.watchConnectionWait(wait, expectedGeneration: generation);
+      page.clear();
+      now = now.add(const Duration(seconds: 45));
+      service.sendGate.reconcile();
+      expect(pageCalls, 0);
+      expect(service.connectionWaitGeneration, greaterThan(generation));
+      expect(service.sendGate.debugResources.listeners, 0);
+    },
+  );
+
+  test(
+    'service releases canonical wait without page listener and still ingests late echo',
+    () async {
+      var now = DateTime(2026);
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        ackTimeout: const Duration(seconds: 5),
+        useV2Protocol: true,
+        sendGateClock: () => now,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final joining = service.join(locationId: 'loc-1');
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      final joinFrame = socket.sent
+          .map((raw) => jsonDecode(raw) as Map<String, dynamic>)
+          .lastWhere((frame) => frame['type'] == 'join');
+      socket.serverV2Ack(clientMsgId: joinFrame['client_msg_id'] as String);
+      await joining;
+      final handle = service.sendMessage(
+        'late echo',
+        clientMsgId: 'ownerless-echo',
+      );
+      await _waitFor(() => socket.sentTypes.contains('send_message'));
+      socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+      await handle.receipt;
+      final canceled = expectLater(
+        handle.canonicalMessage,
+        throwsA(isA<ChatroomFailureEvent>()),
+      );
+      now = now.add(const Duration(seconds: 45));
+      service.sendGate.reconcile();
+      await canceled;
+      expect(service.cancelCanonicalMessageWait(handle.clientMsgId), false);
+      expect(service.sendGate.debugResources.listeners, 0);
+      socket.serverV2Message(
+        type: 'user',
+        senderId: 'user-1',
+        senderName: 'Player One',
+        messageId: 72,
+        locationMessageId: 9,
+        roundId: 702,
+        content: 'late echo',
+        clientMsgId: handle.clientMsgId,
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (m) => m.messageId == 72,
+            ) ==
+            true,
+      );
+      expect(service.sendGate.blocks('world-1', 'loc-1'), false);
+    },
+  );
+
   for (final ended in [false, true]) {
     test(
       'HTTP attempt backfill preserves live identity ended=$ended',
@@ -6828,6 +6943,7 @@ Future<WorldChatroomService> _service({
   bool useV2Protocol = false,
   ChatroomDisconnectMonitor? disconnectMonitor,
   DateTime Function()? sendGateClock,
+  LocationChatSendGate? sendGate,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('user-1');
@@ -6861,6 +6977,7 @@ Future<WorldChatroomService> _service({
     reconnectInterval: reconnectInterval,
     conversationRoundTimeout: conversationRoundTimeout,
     sendGateClock: sendGateClock,
+    sendGate: sendGate,
     streamIdleTimeout: streamIdleTimeout,
     refreshInitialSnapshotOnConnect: refreshInitialSnapshotOnConnect,
   );
