@@ -1,11 +1,23 @@
 part of 'location_chat_scroll_coordinator.dart';
 
 class _OutgoingAttempt {
-  _OutgoingAttempt(this.attempt, this.messages, this.index, this.release);
+  _OutgoingAttempt(
+    this.attempt,
+    this.messages,
+    this.index,
+    this.release, {
+    this.cardId,
+    this.cardBindingIdentity,
+  });
   final LlmAttempt attempt;
   final List<ChatMessageVm> messages;
   final int index;
   final VoidCallback release;
+  final int? cardId;
+  final Object? cardBindingIdentity;
+
+  bool belongsToCard(int id, Object? binding) =>
+      cardId == id && cardBindingIdentity == binding;
 }
 
 extension _LocationChatStreamRetraction
@@ -43,7 +55,13 @@ extension _LocationChatStreamRetraction
       return;
     }
     _retrySources[attempt.generation] = attempt;
+    if (attempt.generation.card != null) {
+      _regenerateWaitingOperation =
+          _LocationChatAnchoredMessageListState._replyWaitingOperation(widget);
+    }
     final source = _renderedMessages;
+    final card = _currentReplyCard;
+    final cardReceipts = card?.messages.map(_receiptIdentity).toSet() ?? {};
     final snapshots = <ChatMessageVm>[];
     final seen = <Object>{};
     for (final message in [...source, ...?_currentReplyCard?.messages]) {
@@ -67,6 +85,12 @@ extension _LocationChatStreamRetraction
       snapshots,
       math.max(0, index),
       attempt.retainPresentation(),
+      // Go On replies can follow the previous round's original (card 0)
+      // deck. Ordinary generation provenance does not make them part of it.
+      cardId: snapshots.any((m) => cardReceipts.contains(_receiptIdentity(m)))
+          ? card?.id
+          : null,
+      cardBindingIdentity: widget.replyCardBindingIdentity,
     );
     _retractionRevision++;
     _replaceRenderedMessages(_inputMessages, rebuild: true);
@@ -101,8 +125,7 @@ extension _LocationChatStreamRetraction
         .where(
           (o) =>
               cardId == null ||
-              o.attempt.generation.card == cardId ||
-              (cardId == 0 && o.attempt.generation.card == null),
+              o.belongsToCard(cardId, widget.replyCardBindingIdentity),
         )
         .toList();
     if (relevant.isEmpty) return incoming;
@@ -122,15 +145,17 @@ extension _LocationChatStreamRetraction
     return result;
   }
 
-  void _releaseRetractions() {
-    for (final entry in _attemptListeners.entries) {
-      entry.key.removeListener(entry.value);
+  void _releaseRetractions({bool candidatesOnly = false}) {
+    bool shouldRelease(LlmAttempt attempt) =>
+        !candidatesOnly || attempt.generation.card != null;
+    for (final attempt
+        in _attemptListeners.keys.where(shouldRelease).toList()) {
+      attempt.removeListener(_attemptListeners.remove(attempt)!);
     }
-    _attemptListeners.clear();
-    _retrySources.clear();
-    for (final outgoing in _outgoingAttempts.values) {
-      outgoing.release();
+    _retrySources.removeWhere((_, attempt) => shouldRelease(attempt));
+    for (final attempt
+        in _outgoingAttempts.keys.where(shouldRelease).toList()) {
+      _outgoingAttempts.remove(attempt)!.release();
     }
-    _outgoingAttempts.clear();
   }
 }

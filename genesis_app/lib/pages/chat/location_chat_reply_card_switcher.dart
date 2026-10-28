@@ -9,7 +9,7 @@ import 'location_chat_reply_layout_bridge.dart';
 import 'location_chat_reply_render_snapshot.dart';
 
 const replyCardSwitchDuration = Duration(milliseconds: 500);
-const _replyCardRegenerateCollapseDuration = Duration(milliseconds: 800);
+const _replyCardRegenerateCollapseDuration = Duration(milliseconds: 600);
 const _replyCardRegenerateFadeRampFraction = 60 / 800;
 const _replyCardRegenerateFadeExtent = 48.0;
 

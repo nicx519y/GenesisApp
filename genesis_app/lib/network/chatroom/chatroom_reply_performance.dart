@@ -199,6 +199,9 @@ class _ReplyCardPerformance {
     if (identical(_source, card.messages) &&
         identical(_streams, streams) &&
         _streamRevision == streamRevision &&
+        // A retry removes old outputs without receiving a new content frame.
+        // Invalidate their cached presentation before the next attempt arrives.
+        _streamOrderRevision == orderRevision &&
         _failed == failed) {
       return;
     }

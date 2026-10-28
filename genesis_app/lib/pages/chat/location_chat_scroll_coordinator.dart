@@ -1016,6 +1016,9 @@ class _LocationChatAnchoredMessageListState
       _outgoingAttempts.isEmpty &&
       _retrySources.values.any(
         (a) =>
+            // Regenerate stays empty between attempts; only ordinary replies
+            // use the retry waiting bubble after their outgoing rows finish.
+            a.generation.card == null &&
             !a.terminal &&
             !a.waitingExpired &&
             !widget.messages.any(
@@ -1047,9 +1050,10 @@ class _LocationChatAnchoredMessageListState
               messages: _projectRetractions(card.messages, cardId: card.id),
               status:
                   _outgoingAttempts.values.any(
-                    (o) =>
-                        o.attempt.generation.card == card.id ||
-                        (card.id == 0 && o.attempt.generation.card == null),
+                    (o) => o.belongsToCard(
+                      card.id,
+                      widget.replyCardBindingIdentity,
+                    ),
                   )
                   ? null
                   : card.status,
@@ -1991,8 +1995,22 @@ class _LocationChatAnchoredMessageListState
                       .lastOrNull
                       ?.localId));
 
+  Object? _regenerateWaitingOperation;
+
+  // The operation identity survives backend completion and presentation drain.
+  // Do not resurrect an earlier wait when regenerationInProgress becomes false.
+  static Object _replyWaitingOperation(LocationChatAnchoredMessageList list) =>
+      list.waitingPositionIdentity ??
+      (list.replyCardBindingIdentity, list.replyRegenerationDispatchRevision);
+
+  bool get _suppressReplyWaiting =>
+      _outgoingAttempts.isNotEmpty ||
+      _regenerateLayoutPending ||
+      widget.replyRegenerationInProgress ||
+      _regenerateWaitingOperation == _replyWaitingOperation(widget);
+
   bool get _immediateSendWaitingActive =>
-      _outgoingAttempts.isEmpty &&
+      !_suppressReplyWaiting &&
       widget.replyWaitingPositioningEnabled &&
       widget.preAckWaitingAfterMessageLocalId != null &&
       widget.preAckWaitingIdentity != null;
@@ -2010,11 +2028,11 @@ class _LocationChatAnchoredMessageListState
   }
 
   bool get _waitingIndicatorVisible =>
-      _outgoingAttempts.isEmpty &&
+      !_suppressReplyWaiting &&
       (!widget.replyWaitingPositioningEnabled ||
           (!_waitingPositionPending && !_waitingSpaceDeferred));
 
-  String? get _waitingAfterMessageLocalId => _outgoingAttempts.isNotEmpty
+  String? get _waitingAfterMessageLocalId => _suppressReplyWaiting
       ? null
       : _immediateSendWaitingActive
       ? widget.preAckWaitingAfterMessageLocalId
@@ -2042,7 +2060,7 @@ class _LocationChatAnchoredMessageListState
       _immediateSendWaitingActive && _waitingInReplyActionSlot;
 
   bool get _showLoadingInReplyActionSlot =>
-      _outgoingAttempts.isEmpty &&
+      !_suppressReplyWaiting &&
       (_retryWaiting ||
           _loadingInReplyActionSlot ||
           widget.goOnAwaitingContentIdentity != null);
@@ -2096,6 +2114,7 @@ class _LocationChatAnchoredMessageListState
       widget.loadingAfterMessageLocalId != null,
       widget.enterWaitingAfterMessageLocalId,
       widget.enterWaitingIdentity,
+      _suppressReplyWaiting,
       Object.hashAllUnordered(widget.hiddenMessageIds),
     );
     if (_timelineIdentity == identity) return _cachedTimelineEntries;
@@ -2115,6 +2134,7 @@ class _LocationChatAnchoredMessageListState
             !(cardMessageIds?.contains(_visibilityRows[i].localId) ?? false))
           -3,
         if (i < count &&
+            !_suppressReplyWaiting &&
             widget.enterWaitingIdentity != null &&
             _visibilityRows[i].localId ==
                 widget.enterWaitingAfterMessageLocalId &&
@@ -2442,6 +2462,9 @@ class _LocationChatAnchoredMessageListState
   @override
   void initState() {
     super.initState();
+    if (widget.replyRegenerationInProgress) {
+      _regenerateWaitingOperation = _replyWaitingOperation(widget);
+    }
     _captureConfirmedCandidateContinuity();
     _renderedMessages = _inputMessages;
     _observeRetractionAttempts();
@@ -2476,6 +2499,21 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.coordinator != widget.coordinator ||
+        (widget.waitingPositionIdentity != null &&
+            oldWidget.waitingPositionIdentity !=
+                widget.waitingPositionIdentity) ||
+        oldWidget.replyRegenerationDispatchRevision !=
+            widget.replyRegenerationDispatchRevision) {
+      _regenerateWaitingOperation = null;
+      // A user-started operation supersedes previous automatic retry waits.
+      _retrySources.clear();
+    }
+    if (widget.replyRegenerationInProgress ||
+        oldWidget.replyRegenerationDispatchRevision !=
+            widget.replyRegenerationDispatchRevision) {
+      _regenerateWaitingOperation = _replyWaitingOperation(widget);
+    }
     if (oldWidget.coordinator != widget.coordinator) {
       _promotedReceiptIdentities.clear();
       _confirmedCandidateContinuities.clear();
@@ -2483,9 +2521,12 @@ class _LocationChatAnchoredMessageListState
     _captureConfirmedCandidateContinuity(
       previous: oldWidget.coordinator == widget.coordinator ? oldWidget : null,
     );
-    if (oldWidget.coordinator != widget.coordinator ||
-        oldWidget.replyCurrentCardId != widget.replyCurrentCardId) {
+    if (oldWidget.coordinator != widget.coordinator) {
       _releaseRetractions();
+    } else if (oldWidget.replyCurrentCardId != widget.replyCurrentCardId) {
+      // The source deck can change while Go On's ordinary replies retract.
+      // Only candidate attempts belong to that deck's presentation lifetime.
+      _releaseRetractions(candidatesOnly: true);
     }
     _observeRetractionAttempts();
     if (!oldWidget.active && widget.active ||

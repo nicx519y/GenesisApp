@@ -8,6 +8,9 @@ import 'package:flutter/scheduler.dart';
 import '../../../app/debug/location_chat_bubble_layout_settings.dart';
 import 'chat_scene_plate_tokens.dart';
 
+// Retraction runs 4/3 as fast as the original reverse animation.
+const _retractionDurationFactor = 0.75;
+
 /// A presentation task is declared before its bubble is mounted. This keeps
 /// offscreen/queued replies in the completion barrier without building history.
 class ChatStreamingTask {
@@ -813,7 +816,9 @@ class _StreamingMessageRowState extends State<_StreamingMessageRow>
     if (collapse && !paused && !_collapse.isAnimating && !record.retracted) {
       _collapse.duration = Duration(
         milliseconds: widget.settings.animateStreamingHeight
-            ? widget.settings.streamingHeightDurationMs
+            ? (widget.settings.streamingHeightDurationMs *
+                      _retractionDurationFactor)
+                  .round()
             : 0,
       );
       _collapse.forward();
@@ -1099,7 +1104,10 @@ class _RenderStreamingBody extends RenderProxyBox {
           _reveal.target(
             0,
             _clock,
-            (record.revealed * settings.effectiveStreamingTextDurationMs / 2)
+            (record.revealed *
+                    settings.effectiveStreamingTextDurationMs /
+                    2 *
+                    _retractionDurationFactor)
                 .ceil(),
             Curves.linear,
           );

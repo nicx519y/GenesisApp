@@ -652,6 +652,101 @@ void main() {
     },
   );
 
+  testWidgets(
+    'candidate retry never restores old text while waiting for the next attempt',
+    (tester) async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final oldA = 'Old character reply ' * 5;
+      final oldB = 'Old second reply ' * 5;
+      h.controller.receiveEvent(_stream('end', content: oldA, attemptNo: 1));
+      h.controller.receiveEvent(
+        _stream('end', id: _messageId + 1, content: oldB, attemptNo: 1),
+      );
+      final oldAttempt = h.state.messagesForCard(102).first.llmAttempt!;
+      Widget view() {
+        final messages = [
+          for (final source in h.state.messagesForCard(102))
+            ChatMessageVm(
+              localId: 'candidate-${source.globalMessageId}',
+              globalMessageId: source.globalMessageId,
+              roundId: source.conversationRoundId,
+              llmAttempt: source.llmAttempt,
+              senderId: source.senderId,
+              senderName: 'Character',
+              senderType: source.senderType,
+              text: source.content,
+              isMe: false,
+              status: source.streaming ? 'streaming' : 'sent',
+            ),
+        ];
+        return MaterialApp(
+          home: Scaffold(
+            body: ChatStreamingEffects(
+              settings: LocationChatBubbleLayoutSettings.defaults,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                topTitle: '',
+                messages: messages,
+                showDateDividers: false,
+                replyCurrentCardId: 102,
+                replyCardBindingIdentity: 'round',
+                replyActionsIdentity: 'round',
+                replyCards: [
+                  LocationChatReplyCard(id: 102, messages: messages),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(view());
+      await tester.pumpAndSettle(const Duration(milliseconds: 20));
+      h.controller.receiveEvent(
+        ChatroomLlmGenerationState.fromV2Message(
+          ChatroomV2Message(
+            type: 'llm_generation_state',
+            worldId: 'w',
+            locationId: 'l',
+            conversationRoundId: _round,
+            gatewayRequestId: 'candidate-request',
+            payload: {
+              'card_id': 102,
+              'state': 'retrying',
+              'retract_attempt_no': 1,
+              'next_attempt_no': 2,
+              'reason_code': 'retry',
+            },
+          ),
+        ),
+      );
+      await tester.pumpWidget(view());
+      expect(oldAttempt.presentationPending, isTrue);
+      for (var frame = 0; frame < 100; frame++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(oldAttempt.presentationPending, isFalse);
+      expect(find.text(oldA), findsNothing);
+      expect(find.text(oldB), findsNothing);
+      expect(h.state.messagesForCard(102), isEmpty);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      h.controller.receiveEvent(
+        _stream('end', content: 'New reply', attemptNo: 2),
+      );
+      await tester.pumpWidget(view());
+      await tester.pumpAndSettle(const Duration(milliseconds: 20));
+      expect(find.text('New reply'), findsOneWidget);
+      expect(find.text(oldA), findsNothing);
+      expect(find.text(oldB), findsNothing);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      h.controller.sendGate.reset();
+    },
+  );
+
   test(
     'candidate retry replaces every old message and isolates other candidates',
     () {
