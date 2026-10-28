@@ -18,6 +18,63 @@ Future<void> flush() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('late balance failure cannot leak into a new account session', () async {
+    final backend = PhoneBackend();
+    final store = backend.store(namespace: 'balance-account');
+    addTearDown(store.dispose);
+    await store.ready;
+    final response = Completer<Object?>();
+    backend.respond = (r) =>
+        r.uri.path.endsWith('/dm/send') ? response.future : null;
+    final sending = store.write('dm', 'c', 'old account draft');
+    while (backend.calls('dm/send').isEmpty) {
+      await flush();
+    }
+    backend.revision.value++;
+    await store.ready;
+    response.complete({
+      'err_no': 3001,
+      'err_msg': 'Balance unavailable',
+      'data': {},
+    });
+    await sending;
+    expect(store.dmBalanceNotice('c'), isNull);
+    expect(store.hasDmBalanceFailure('c'), isFalse);
+    expect(store.drafts['c'], isNull);
+  });
+
+  for (final code in [3001, 21001]) {
+    test(
+      'DM balance error $code is consumed once and clears on retry',
+      () async {
+        final backend = PhoneBackend();
+        final store = backend.store(namespace: 'balance-$code');
+        addTearDown(store.dispose);
+        await store.ready;
+        backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+            ? {'err_no': code, 'err_msg': 'Balance unavailable', 'data': {}}
+            : null;
+        expect(await store.write('dm', 'c', 'hello'), isFalse);
+        final notice = store.dmBalanceNotice('c')!;
+        expect(store.hasDmBalanceFailure('c'), isTrue);
+        expect(store.pending['dm:c']!.rejected, isTrue);
+        expect(store.outgoingDm('c'), isEmpty);
+        store.acknowledgeDmBalanceNotice('c', 'stale-request');
+        expect(store.dmBalanceNotice('c'), notice);
+        store.acknowledgeDmBalanceNotice('c', notice.requestId);
+        expect(store.dmBalanceNotice('c'), isNull);
+        expect(store.hasDmBalanceFailure('c'), isTrue);
+        backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+            ? {'err_no': 2061, 'err_msg': 'Denied', 'data': {}}
+            : null;
+        expect(await store.write('dm', 'c', 'hello again'), isFalse);
+        expect(store.hasDmBalanceFailure('c'), isFalse);
+        expect(store.dmBalanceNotice('c'), isNull);
+        expect(store.errors['dm:c'], 'Denied');
+      },
+    );
+  }
+
   test(
     'map style follows existing world refresh and clears for historical worlds',
     () async {

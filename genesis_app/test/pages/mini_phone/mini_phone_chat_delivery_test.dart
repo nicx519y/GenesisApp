@@ -13,6 +13,16 @@ int _storeSequence = 0;
 
 LocationChatAnchoredMessageList timeline(WidgetTester tester) =>
     tester.widget(find.byType(LocationChatAnchoredMessageList));
+// Opening rows are display-only and persist above the delivery timeline.
+List<ChatMessageVm> deliveryRows(WidgetTester tester) => timeline(tester)
+    .messages
+    .where(
+      (m) =>
+          !m.localId.startsWith('phone:empty-contact:') &&
+          !m.localId.startsWith('phone:empty-introduction:'),
+    )
+    .toList();
+
 ChatComposer composer(WidgetTester tester) =>
     tester.widget(find.byType(ChatComposer));
 
@@ -62,6 +72,84 @@ Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('balance rejection while covered is presented after returning', (
+    tester,
+  ) async {
+    final backend = PhoneBackend();
+    final store = await openChat(tester, backend);
+    final navigator = Navigator.of(
+      tester.element(find.byType(MiniPhoneLiveChat)),
+    );
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Settings')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+        ? {'err_no': 3001, 'err_msg': 'Balance unavailable', 'data': {}}
+        : null;
+    await tester.runAsync(() => store.write('dm', 'c', 'hello'));
+    await tester.pump();
+    expect(store.dmBalanceNotice('c'), isNotNull);
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(store.dmBalanceNotice('c'), isNull);
+    await closeChat(tester, store);
+  });
+
+  testWidgets('background balance rejection waits for foreground', (
+    tester,
+  ) async {
+    final backend = PhoneBackend();
+    final store = await openChat(tester, backend);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+        ? {'err_no': 3001, 'err_msg': 'Balance unavailable', 'data': {}}
+        : null;
+    await tester.runAsync(() => store.write('dm', 'c', 'hello'));
+    await tester.pump();
+    expect(store.dmBalanceNotice('c'), isNotNull);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await flush(tester);
+    await tester.pump();
+    expect(store.dmBalanceNotice('c'), isNull);
+    await closeChat(tester, store);
+  });
+
+  testWidgets(
+    'late balance rejection restores draft after the chat was closed',
+    (tester) async {
+      final backend = PhoneBackend();
+      final response = Completer<Object?>();
+      backend.respond = (r) =>
+          r.uri.path.endsWith('/dm/send') ? response.future : null;
+      final store = await openChat(tester, backend);
+      await tester.enterText(find.byType(TextField), 'Keep this draft');
+      final sending = composer(tester).onSend();
+      await flush(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.runAsync(() async {
+        response.complete({
+          'err_no': 21001,
+          'err_msg': 'Balance unavailable',
+          'data': {},
+        });
+        await sending;
+      });
+      expect(store.drafts['c'], 'Keep this draft');
+      await mountChat(tester, store);
+      expect(composer(tester).controller.text, 'Keep this draft');
+      await closeChat(tester, store);
+    },
+  );
 
   testWidgets(
     'shown reply failure does not replay on reentry or history refresh; a new failure still shows',
@@ -171,14 +259,14 @@ void main() {
         await sending;
       });
       await tester.pump();
-      expect(timeline(tester).messages.single.text, 'Original');
+      expect(deliveryRows(tester).single.text, 'Original');
       expect(store.waiting('c')!.uncertain, isTrue);
       expect(composer(tester).controller.text, 'Original');
       await tester.enterText(find.byType(TextField), 'Newer draft');
       backend.respond = null;
       await tester.runAsync(composer(tester).onSend);
       await tester.pump();
-      expect(timeline(tester).messages.single.text, 'Original');
+      expect(deliveryRows(tester).single.text, 'Original');
       expect(composer(tester).controller.text, 'Newer draft');
       final calls = backend.calls('dm/send');
       expect(calls, hasLength(2));
@@ -212,7 +300,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 30));
       });
       await tester.pump();
-      final localId = timeline(tester).messages.single.localId;
+      final localId = deliveryRows(tester).single.localId;
       final request = store.waiting('c')!.id;
       await tester.runAsync(() async {
         store.receive(
@@ -225,7 +313,7 @@ void main() {
       });
       await tester.pump();
       expect(store.waiting('c'), isNull);
-      expect(timeline(tester).messages.map((m) => m.text), [
+      expect(deliveryRows(tester).map((m) => m.text), [
         'First hello',
         'Message 2',
       ]);
@@ -241,8 +329,8 @@ void main() {
         await store.writesSaved;
       });
       await tester.pump();
-      expect(timeline(tester).messages.first.localId, localId);
-      expect(timeline(tester).messages, hasLength(2));
+      expect(deliveryRows(tester).first.localId, localId);
+      expect(deliveryRows(tester), hasLength(2));
       expect(store.outgoingDm('c'), isEmpty);
       await closeChat(tester, store);
     },
@@ -263,8 +351,14 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 30));
       });
       await tester.pump();
-      final localId = timeline(tester).messages.single.localId;
-      expect(timeline(tester).messages.single.text, 'Hello now');
+      final localId = deliveryRows(tester).single.localId;
+      expect(deliveryRows(tester).single.text, 'Hello now');
+      expect(
+        timeline(
+          tester,
+        ).messages.where((m) => m.localId.startsWith('phone:empty-')),
+        hasLength(2),
+      );
       expect(composer(tester).controller.text, isEmpty);
       expect(composer(tester).sending, isFalse);
       expect(composer(tester).sendEnabled, isFalse);
@@ -282,7 +376,7 @@ void main() {
         await store.writesSaved;
       });
       await tester.pump();
-      expect(timeline(tester).messages.single.localId, localId);
+      expect(deliveryRows(tester).single.localId, localId);
       expect(store.outgoingDm('c'), isEmpty);
       await tester.runAsync(() async {
         // An HTTP error arriving after committed delivery cannot undo the bubble.
@@ -294,7 +388,7 @@ void main() {
         await sending;
       });
       await tester.pump();
-      expect(timeline(tester).messages.single.text, 'Hello now');
+      expect(deliveryRows(tester).single.text, 'Hello now');
       expect(composer(tester).controller.text, isEmpty);
       expect(find.text('Late error'), findsNothing);
       await closeChat(tester, store);
@@ -313,7 +407,7 @@ void main() {
         await tester.enterText(find.byType(TextField), text);
         unawaited(composer(tester).onSend());
         await flush(tester);
-        expect(timeline(tester).messages.single.text, text);
+        expect(deliveryRows(tester).single.text, text);
       }
 
       Future<void> reject() async {
@@ -331,14 +425,14 @@ void main() {
 
       await start('Restore me');
       await reject();
-      expect(timeline(tester).messages, isEmpty);
+      expect(deliveryRows(tester), isEmpty);
       expect(composer(tester).controller.text, 'Restore me');
       expect(find.text('Original rejection'), findsOneWidget);
       response = Completer<Object?>();
       await start('Second send');
       await tester.enterText(find.byType(TextField), 'Newer draft');
       await reject();
-      expect(timeline(tester).messages, isEmpty);
+      expect(deliveryRows(tester), isEmpty);
       expect(composer(tester).controller.text, 'Newer draft');
       await closeChat(tester, store);
     },
@@ -353,22 +447,22 @@ void main() {
       store.receive(phoneEvent('batch', batch));
       store.receive(phoneEvent('batch-duplicate', batch));
       await tester.pump();
-      expect(timeline(tester).messages.map((m) => m.text), ['Message 1']);
+      expect(deliveryRows(tester).map((m) => m.text), ['Message 1']);
       expect(find.text('Character is typing…'), findsOneWidget);
       backend.respond = (r) =>
           r.uri.path.endsWith('/messages') ? ok(page(batch)) : null;
       await tester.runAsync(() => store.refreshMessages('c'));
       await tester.pump();
-      expect(timeline(tester).messages, hasLength(1));
+      expect(deliveryRows(tester), hasLength(1));
       await tester.pump(const Duration(milliseconds: 999));
-      expect(timeline(tester).messages, hasLength(1));
+      expect(deliveryRows(tester), hasLength(1));
       await tester.pump(const Duration(milliseconds: 1));
-      expect(timeline(tester).messages.map((m) => m.text), [
+      expect(deliveryRows(tester).map((m) => m.text), [
         'Message 1',
         'Message 2',
       ]);
       await tester.pump(const Duration(seconds: 1));
-      expect(timeline(tester).messages.map((m) => m.text), [
+      expect(deliveryRows(tester).map((m) => m.text), [
         'Message 1',
         'Message 2',
         'Message 3',
@@ -387,7 +481,7 @@ void main() {
           : null;
       final store = await openChat(tester, backend);
       await tester.pumpAndSettle();
-      expect(timeline(tester).messages, hasLength(3));
+      expect(deliveryRows(tester), hasLength(3));
       final before = tester.getTopLeft(find.text('Message 1'));
       final response = Completer<Object?>();
       backend.respond = (r) =>
@@ -413,7 +507,7 @@ void main() {
     final store = await openChat(tester, PhoneBackend());
     store.receive(phoneEvent('batch', [phoneMessage(1), phoneMessage(2)]));
     await tester.pump();
-    expect(timeline(tester).messages, hasLength(1));
+    expect(deliveryRows(tester), hasLength(1));
     await closeChat(tester, store);
     await tester.pump(const Duration(seconds: 2));
     expect(tester.takeException(), isNull);

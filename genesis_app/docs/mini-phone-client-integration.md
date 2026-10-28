@@ -856,3 +856,7 @@ to the end of page one. Closing the keyboard does not jump to the top; route,
 post and account changes invalidate pending callbacks. No artificial tail is
 added. Android/iOS native keyboard and live-backend acceptance remain separate
 from controlled Flutter verification.
+
+- 私聊发送 HTTP 业务错误 `3001`／`21001` 复用公共 Gems 购买面板，打开时刷新钱包；不按本地余额预拦截、不将余额设为零、不自动重发。提示按请求在会话内消费一次，仅当前前台私聊页面展示；普通错误仍使用 Toast。发送被拒绝时撤回临时气泡并恢复草稿，账号切换清除待提示。当前异步 `reply_status/failure` 只有 message，没有余额错误码，仍按普通失败处理；完整异步余额引导待后端提供结构化错误码后接入，不匹配错误文案。
+
+- 余额提示在私聊路由恢复可见或 App 回到前台时再次检查；公共余额面板按根 Navigator 合并 World／Chat／MiniPhone 的同时触发。私聊明确拒绝即使晚于页面关闭，也在会话中保留原稿，不覆盖已有非空草稿。

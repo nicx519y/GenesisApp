@@ -19,6 +19,44 @@ import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
 
+  testWidgets('world and phone balance alerts share one root purchase sheet', (
+    tester,
+  ) async {
+    final fixture = _PromptFixture();
+    addTearDown(fixture.dispose);
+    await _pumpPrompt(
+      tester,
+      const GemBalanceAlert(kind: GemBalanceAlertKind.low),
+      fixture,
+    );
+    final context = tester.element(
+      find.text('Show prompt', skipOffstage: false),
+    );
+    Future<void> showAgain() => showGemBalancePrompt(
+      context,
+      const GemBalanceAlert(kind: GemBalanceAlertKind.insufficient),
+      productsLoader: () async => fixture.products,
+      walletStore: fixture.walletStore,
+      billingService: fixture.billing,
+    );
+    final second = showAgain();
+    final third = showAgain();
+    expect(identical(second, third), isTrue);
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(GemPurchaseCatalogSection, skipOffstage: false),
+      findsOneWidget,
+    );
+    Navigator.of(context, rootNavigator: true).pop();
+    await tester.pumpAndSettle();
+    await second;
+    unawaited(showAgain());
+    await tester.pumpAndSettle();
+    expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
+    Navigator.of(context, rootNavigator: true).pop();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('insufficient balance opens the purchase bottom sheet', (
     tester,
   ) async {

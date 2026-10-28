@@ -32,6 +32,8 @@ StreamSubscription<GemBalanceAlert> bindGemBalancePrompt(
   });
 }
 
+final _balancePrompts = Expando<Future<void>>();
+
 Future<void> showGemBalancePrompt(
   BuildContext context,
   GemBalanceAlert alert, {
@@ -40,13 +42,33 @@ Future<void> showGemBalancePrompt(
   GemWalletStore? walletStore,
   BillingService? billingService,
 }) {
-  return showGemPurchaseBottomSheet(
-    context,
-    analyticsTrigger: _resolvedGemPurchaseSheetTrigger(alert, analyticsTrigger),
-    productsLoader: productsLoader,
-    walletStore: walletStore,
-    billingService: billingService,
-  );
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final existing = _balancePrompts[navigator];
+  if (existing != null) return existing;
+  final completion = Completer<void>();
+  _balancePrompts[navigator] = completion.future;
+  Future<void> present() async {
+    try {
+      await showGemPurchaseBottomSheet(
+        context,
+        analyticsTrigger: _resolvedGemPurchaseSheetTrigger(
+          alert,
+          analyticsTrigger,
+        ),
+        productsLoader: productsLoader,
+        walletStore: walletStore,
+        billingService: billingService,
+      );
+      completion.complete();
+    } catch (error, stack) {
+      completion.completeError(error, stack);
+    } finally {
+      _balancePrompts[navigator] = null;
+    }
+  }
+
+  unawaited(present());
+  return completion.future;
 }
 
 String _resolvedGemPurchaseSheetTrigger(

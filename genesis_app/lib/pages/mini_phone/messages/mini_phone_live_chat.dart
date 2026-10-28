@@ -2,6 +2,8 @@ import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../components/common/genesis_center_toast.dart';
+import '../../../components/gems/gem_balance_prompt.dart';
+import '../../../network/chatroom/world_chatroom_service.dart';
 import '../../../components/chat/shared/chat_keyboard_inset_layout.dart';
 import '../../../components/chat/shared/chat_ui.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
@@ -25,7 +27,8 @@ class MiniPhoneLiveChat extends StatefulWidget {
   State<MiniPhoneLiveChat> createState() => _MiniPhoneLiveChatState();
 }
 
-class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
+class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
+    with WidgetsBindingObserver {
   final coordinator = LocationChatScrollCoordinator();
   final input = TextEditingController();
   final focus = FocusNode();
@@ -38,6 +41,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   String? owner;
   ({String message, String? replyRequestId})? _shownError;
   bool _loadingHistory = false;
+  bool _balancePromptVisible = false;
   int _accountGeneration = 0;
   int _latestMessageId = 0;
   final _seenMessages = <int>{};
@@ -47,6 +51,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     owner = store.uid;
     _accountGeneration = store.accountGeneration;
     coordinator.enter();
@@ -64,6 +69,19 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       }),
     );
     unawaited(_loadInitialMessages(_accountGeneration));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Register for route visibility changes, including returning from settings.
+    ModalRoute.isCurrentOf(context);
+    _presentBalanceNotice();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) _changed();
   }
 
   Future<void> _loadInitialMessages(int generation) async {
@@ -118,6 +136,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       input.clear();
     }
     if (mounted) {
+      _presentBalanceNotice();
       final error = _errorNotice;
       if (error != _shownError) {
         if (error == null) {
@@ -141,6 +160,34 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       }
       setState(() {});
     }
+  }
+
+  void _presentBalanceNotice() {
+    final notice = store.dmBalanceNotice(widget.person.id);
+    if (notice == null || _balancePromptVisible) return;
+    final generation = store.accountGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != store.accountGeneration ||
+          store.dmBalanceNotice(widget.person.id) != notice ||
+          _balancePromptVisible ||
+          !store.phoneVisible ||
+          !store.foreground ||
+          ModalRoute.of(context)?.isCurrent == false) {
+        return;
+      }
+      _balancePromptVisible = true;
+      store.acknowledgeDmBalanceNotice(widget.person.id, notice.requestId);
+      unawaited(
+        showGemBalancePrompt(
+          context,
+          GemBalanceAlert(
+            kind: GemBalanceAlertKind.insufficient,
+            message: notice.message,
+          ),
+        ).whenComplete(() => _balancePromptVisible = false),
+      );
+    });
   }
 
   void _syncReplies() {
@@ -182,7 +229,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
         store.errors['messages:${store.sessionFor(id)}'] ??
         store.errors['request:${store.waiting(id)?.id}'] ??
         store.errors['session:$id'] ??
-        store.errors['dm:$id'];
+        (store.hasDmBalanceFailure(id) ? null : store.errors['dm:$id']);
     if (error != null) return (message: error, replyRequestId: null);
     final failure = store.replyFailureNotice(id);
     return failure == null
@@ -259,6 +306,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _revealTimer?.cancel();
     store.removeListener(_changed);
     coordinator.removeListener(_changed);

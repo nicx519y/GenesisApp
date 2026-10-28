@@ -18,6 +18,7 @@ import '../../../network/mini_phone/mini_phone_api.dart';
 import '../../../network/mini_phone/mini_phone_cache.dart';
 import '../../../network/mini_phone/mini_phone_cache_storage.dart';
 import '../../../network/chatroom/chatroom_models.dart';
+import '../../../network/chatroom/chatroom_failure_identity.dart';
 import '../../../network/chatroom/world_chatroom_service.dart';
 import '../../../network/models/world.dart';
 import '../../../network/models/user.dart';
@@ -187,6 +188,29 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get busy => requests.busy;
   Map<String, int> get _versions => requests.versions;
   final pending = <String, PhoneWrite>{};
+  final _balanceFailures =
+      <String, ({String requestId, String message, bool shown})>{};
+
+  bool hasDmBalanceFailure(String charId) =>
+      _balanceFailures.containsKey(charId);
+
+  ({String requestId, String message})? dmBalanceNotice(String charId) {
+    final failure = _balanceFailures[charId];
+    return failure == null || failure.shown
+        ? null
+        : (requestId: failure.requestId, message: failure.message);
+  }
+
+  void acknowledgeDmBalanceNotice(String charId, String requestId) {
+    final failure = _balanceFailures[charId];
+    if (failure == null || failure.requestId != requestId) return;
+    _balanceFailures[charId] = (
+      requestId: requestId,
+      message: failure.message,
+      shown: true,
+    );
+  }
+
   StreamSubscription<ChatroomPhoneEvent>? _events;
   StreamSubscription<WorldChatroomState>? _states;
   Timer? _refreshTimer;
@@ -387,6 +411,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     pages.clear();
     hasMore.clear();
     errors.clear();
+    _balanceFailures.clear();
     busy.clear();
     _versions.clear();
     messagesController.reads.clear();
@@ -759,6 +784,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     w.rejected = false;
     busy.add(key);
     errors.remove(key);
+    if (kind == 'dm') _balanceFailures.remove(target);
     replyFailures.remove(target);
     messagesController.replyFailureNotices.remove(target);
     _notify();
@@ -808,6 +834,16 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       // A delivery can precede an HTTP failure. Committed evidence wins.
       if (!w.accepted) {
         errors[key] = errorText(e);
+        if (kind == 'dm' &&
+            e is ApiException &&
+            e.kind == ApiExceptionKind.business &&
+            isChatroomBalanceFailureCode('${e.code}')) {
+          _balanceFailures[target] = (
+            requestId: w.id,
+            message: e.message,
+            shown: false,
+          );
+        }
         if (e is ArgumentError || e is FormatException) {
           w.rejected = true;
         } else if (e is ApiException && e.kind == ApiExceptionKind.business) {
@@ -825,6 +861,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         }
         if (kind == 'comment') postsController.updateComment(w);
         await _save();
+        // A rejection can arrive after the chat page was closed.
+        if (_current(g) &&
+            kind == 'dm' &&
+            w.rejected &&
+            (drafts[target]?.isEmpty ?? true)) {
+          drafts[target] = w.content;
+        }
       }
       return w.accepted;
     } finally {
