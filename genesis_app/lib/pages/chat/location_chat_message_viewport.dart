@@ -167,6 +167,9 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             goOnRoundId: controls.goOnAwaitingRoundId,
           );
           final renderStatus = _replyRenderStatus(context);
+          _scheduleEntrySendWaitCheck(
+            presentationSettled: renderStatus.presentationSettled,
+          );
           final renderedControls = _replyRenderGate.resolve(
             (
               actions: controls.actions,

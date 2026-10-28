@@ -175,6 +175,7 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
   void _clearStreamWatches() {
     // Session-owned operations survive page/service reconstruction. The next
     // owner attaches to the same request identity instead of restarting time.
+    _entrySendWaits.clear();
     _streamWatches.clear();
     _locallyEndedStreamRounds.clear();
   }

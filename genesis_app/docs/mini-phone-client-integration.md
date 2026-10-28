@@ -35,6 +35,33 @@ that projection. The unrepresented remainder of the server count is retained
 separately from the at-most-20 returned rows. Posts notifications retain their
 existing HTTP behavior. The phone entry combines local DM and current Post counts.
 
+Messages send and manual retry first check the device network interfaces, then
+the attached World WebSocket. A device with no network uses the localized
+`chatNoNetworkConnection` Toast (`Network unavailable. Check network.`).
+A device with a network but no connected World socket uses
+`chatConnectionFailed` (`Could not connect to this chat`). A failed preflight
+does not dispatch `/dm/send`, create a new write journal entry or outgoing bubble;
+the composer keeps the submitted draft throughout preflight without clearing it
+and preserves any newer input. Only successful preflight clears the unchanged
+submitted draft before creating its local outgoing row.
+MiniPhone routes all Toasts through `shared/mini_phone_toast.dart`. The generic
+`Request failed` text is suppressed at presentation only, including direct model
+loading, chat reads/writes, wallpaper and music-like feedback. Error records,
+uncertain writes, retries and read-only recovery remain unchanged. Explicit
+network/connection hints and other business messages still display; combined
+errors filter only the generic item.
+
+Send preflight errors take precedence over earlier history/session/recovery
+errors. Starting another send clears that attempt's displayed-error latch while
+preflight is pending, so every failed user attempt can show its Toast even when
+an older read error remains. AI reply-failure consumption by request ID is
+unchanged.
+Existing uncertain requests keep their original request ID, body and bubble.
+MiniPhone does not join a location and does not require a LocationChat join.
+The World owns reconnection; MiniPhone does not create a separate socket.
+HTTP transport errors after dispatch retain the existing uncertain-result
+recovery and business-error handling.
+
 Write journals persist request IDs and original content in account/environment/
 world-scoped preferences. Retries preserve the complete operation, including
 image URL and reply target. Requests are not automatically resent. DM submission
@@ -680,10 +707,11 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 | --- | --- |
 | `phone_characters_moved` | 地点正式消息；带 world/location、global/message/location_message ID；conversation_round_id 可省略或为 null，非空时必须为正整数；缺省仍入队展示且不新增 Send 等待锁，不解除其他锁；conversation_type/sender_type 同名；payload.content[] 为 char_id/old_loc_id/to_loc_id。按顶层地点入普通队列与 SQLite，用地点游标排序/去重，HTTP 回填与本地恢复使用相同格式；无需私聊访问或返回观察期；实时消息同时按每项 char_id/to_loc_id 更新地图角色位置，历史回填不重放移动。详见 WebSocket 契约的私聊角色移动正式消息章节 |
 | `phone.messages.delivered` | 批量合并私聊、绑定会话 ID、关联 AI 终态；当前前台会话按需提交已读；推送本身不重查聚合，已读成功后校准 |
-| `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；不触发聚合或应用列表请求 |
+| `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；匹配失败立即解除回复等待和本地 HTTP 提交锁，允许新请求，不等待旧 HTTP 返回；不触发聚合或应用列表请求 |
 | `phone.post.notification.created` | 仅查询帖子未读通知并更新帖子聚合；不涉及私聊，也不刷新 Feed、作者或详情 |
 
 - 原有三类点号命名的手机事件均按 `event_id` 去重；Posts 与 DM 请求范围独立。初始化、重连及前台恢复执行聚合校准和必要 DM 恢复；Home 入口只校准聚合。推送不刷新应用列表。
+- DM 回复失败使用手机专用 `phone.reply.updated` 的 `job_status=failed`，历史查询返回 `reply_status=failed` 时沿用相同终态处理。只结束匹配 `client_request_id` 的请求；完成终态和玩家本人正式送达也释放对应提交锁。旧 HTTP 的成功、业务拒绝或超时均不能覆盖终态、恢复原输入或解除后来请求的锁；重新发送使用新请求 ID，不自动重发。普通 LocationChat 的错误不能按当前打开的手机角色推断关联。
 - DM 未读采用 Home 基准加本地唯一消息／阅读变化，保留未返回明细的数量差额；不按事件次数累加。Home 请求期间的消息与阅读不可被响应覆盖；Posts 聚合继续由 HTTP 校准。
 - 手机关闭后继续处理当前世界事件；退出世界释放订阅。首次初始化、Socket 重连和返回前台恢复查询。
 - Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。入口图标、Home 和设置预览共用会话世界时间；仅入口 icon 在时间为空或无法解析时显示 `18:05`，Home 和设置预览留空，日期缺失仍留空。

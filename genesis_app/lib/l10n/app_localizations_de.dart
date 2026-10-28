@@ -994,7 +994,8 @@ class AppLocalizationsDe extends AppLocalizations {
       'Nachrichtenversand konnte nicht bestätigt werden';
 
   @override
-  String get chatNoNetworkConnection => 'Keine Netzwerkverbindung';
+  String get chatNoNetworkConnection =>
+      'Netzwerk nicht verfügbar. Überprüfe deine Netzwerkverbindung.';
 
   @override
   String get chatRoundCannotContinue =>

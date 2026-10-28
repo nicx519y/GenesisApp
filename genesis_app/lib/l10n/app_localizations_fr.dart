@@ -998,7 +998,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de confirmer l’envoi du message';
 
   @override
-  String get chatNoNetworkConnection => 'Aucune connexion réseau';
+  String get chatNoNetworkConnection =>
+      'Réseau indisponible. Vérifiez votre connexion réseau.';
 
   @override
   String get chatRoundCannotContinue => 'Ce tour ne peut pas continuer';

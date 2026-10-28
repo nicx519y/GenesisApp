@@ -95,6 +95,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         _finishStream(e);
       case ChatroomErrorEvent e:
         _discardErroredProvisionalStreams(e);
+        _endErroredConversation(e);
         _recordFailure(ChatroomFailureEvent.fromError(e));
       case ChatroomFailureEvent e:
         _recordFailure(e);
@@ -194,6 +195,36 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       locationId: event.locationId,
       conversationRoundId: event.conversationRoundId,
     );
+  }
+
+  void _endErroredConversation(ChatroomErrorEvent event) {
+    // Transport errors also use ChatroomErrorEvent. Only a server's explicit
+    // error ends a conversation; a disconnect still has an unknown outcome.
+    if (event.sourceType != 'error' ||
+        (event.worldId.isNotEmpty && event.worldId != _worldId)) {
+      return;
+    }
+    final location = event.locationId.trim();
+    final round = event.conversationRoundId.trim();
+    final request = event.clientMsgId.trim();
+    // Never apply an uncorrelated/late error to whichever send is now active.
+    if (round.isEmpty && request.isEmpty) return;
+    for (final entry in _streamWatches.entries.toList()) {
+      final watch = entry.value;
+      if (!watch.operation.blocks) continue;
+      if (location.isNotEmpty && location != entry.key) continue;
+      if (request.isNotEmpty && request != watch.clientMsgId) continue;
+      if (round.isNotEmpty && round != watch.roundId) {
+        if (watch.roundId.isNotEmpty || request.isEmpty) continue;
+        // A request-specific error may be the first event carrying its round.
+        watch.roundId = round;
+        watch.operation.diagnostics['round_id'] = round;
+      }
+      watch.operation.releaseLocalWait();
+      if (watch.roundId.isNotEmpty) {
+        _replyActionsController?.failGeneration(entry.key, watch.roundId);
+      }
+    }
   }
 
   void _handleEndConversationRound(ChatroomEndConversationRound event) {

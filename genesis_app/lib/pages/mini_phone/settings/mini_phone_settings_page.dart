@@ -2,7 +2,7 @@ import '../../../l10n/genesis_localizations.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../../components/auth/login_guard.dart';
-import '../../../components/common/genesis_center_toast.dart';
+import '../shared/mini_phone_toast.dart';
 import '../../../components/common/genesis_upload_progress_overlay.dart';
 import '../../../components/common/local_image_crop_page.dart';
 import '../../../platform/native_image_picker.dart';
@@ -353,11 +353,11 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
       });
     } on UnsupportedGifImageException {
       if (mounted && isCurrent()) {
-        showGenesisToast(context, unsupportedGifImageMessage);
+        showMiniPhoneToast(context, unsupportedGifImageMessage);
       }
     } catch (_) {
       if (mounted && isCurrent()) {
-        showGenesisToast(context, context.l10n.miniPhonePhotoOpenFailed);
+        showMiniPhoneToast(context, context.l10n.miniPhonePhotoOpenFailed);
       }
     }
   }
@@ -396,7 +396,7 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
       if (!mounted) return;
       final success = await wallpaper.apply();
       if (mounted && wallpaper.feedback != null) {
-        showGenesisToast(
+        showMiniPhoneToast(
           context,
           wallpaper.feedback!,
           brightness: Brightness.dark,
@@ -408,7 +408,7 @@ class _MiniPhoneSettingsPageState extends State<MiniPhoneSettingsPage> {
       }
     } catch (error) {
       if (mounted) {
-        showGenesisToast(context, MiniPhoneStore.errorText(error));
+        showMiniPhoneToast(context, MiniPhoneStore.errorText(error));
       }
     } finally {
       if (mounted) setState(() => _authorizingWallpaper = false);

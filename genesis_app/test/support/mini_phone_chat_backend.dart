@@ -126,7 +126,11 @@ class PhoneBackend implements HttpTransport {
   MiniPhoneStore store({
     String namespace = 'test',
     MiniPhoneCacheStorage? cacheStorage,
+    Future<bool> Function()? networkAvailabilityCheck,
+    bool Function()? chatConnectionReady,
   }) => MiniPhoneStore(
+    networkAvailabilityCheck: networkAvailabilityCheck ?? () async => true,
+    chatConnectionReady: chatConnectionReady ?? () => true,
     cacheStorage: cacheStorage ?? MemoryMiniPhoneCacheStorage(),
     api: api,
     worldId: 'w',

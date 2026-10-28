@@ -232,6 +232,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       if (task.streaming ||
           task.animateArrival ||
           _records.containsKey(task.identity) ||
+          _continuityRecords.containsKey(task.continuityIdentity) ||
           _pending.containsKey(task.continuation)) {
         record(
           task.identity,
@@ -246,6 +247,8 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       if (widget.deferIncomingMessages &&
           !previousIds.contains(task.identity) &&
           !task.restoredContent &&
+          current?.seen != true &&
+          current?.cancelled != true &&
           predecessor != null &&
           !identical(current, predecessor)) {
         _deferredTasks.add(task.identity);
@@ -279,7 +282,9 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       }
       _pending.clear();
       _deferredTasks.clear();
-      _continuityRecords.clear();
+      // A previous reply can move from its card to the timeline after this
+      // operation starts. Retain its retired record under the business ID so
+      // that promotion cannot create a fresh reveal or hide the outgoing row.
       for (final body in _bodies) {
         body.markNeedsLayout();
       }
@@ -418,7 +423,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     var result = _records[identity];
     if (result == null && continuityIdentity != null) {
       final continuous = _continuityRecords[continuityIdentity];
-      if (continuous != null && !continuous.cancelled) result = continuous;
+      if (continuous != null) result = continuous;
     }
     final candidates = _pending[continuation];
     // Final IDs can replace temporary stream IDs. Only migrate an unambiguous

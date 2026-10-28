@@ -28,6 +28,30 @@ void main() {
       jsonDecode(event['ext_data']! as String) as Map<String, dynamic>;
 
   test(
+    'explicit terminal release cleans up once without timeout telemetry',
+    () {
+      fakeAsync((clock) {
+        final events = <Map<String, Object?>>[];
+        final manager = gate(clock, events);
+        final op = start(manager);
+        var cleaned = 0;
+        var notified = 0;
+        op.onRelease(() => cleaned++);
+        manager.addListener(() => notified++);
+        op.releaseLocalWait();
+        op.releaseLocalWait();
+        op.stream('late', 1);
+        clock.elapse(const Duration(minutes: 1));
+        expect(manager.blocks('w', 'l'), isFalse);
+        expect(cleaned, 1);
+        expect(notified, 1);
+        expect(events, isEmpty);
+        manager.dispose();
+      });
+    },
+  );
+
+  test(
     'waiting warns once at 30s and releases at 45s without another report',
     () {
       fakeAsync((clock) {

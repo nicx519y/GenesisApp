@@ -356,7 +356,17 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     ChatroomHttpMessage message, {
     String fallbackLocationId = '',
   }) {
+    final attempt = WorldChatroomMessage.fromHttpMessage(message).llmAttempt;
     return {
+      if (attempt != null)
+        'llm_attempt_source': {
+          'world': attempt.generation.world,
+          'location': attempt.generation.location,
+          'round': attempt.generation.round,
+          'request': attempt.generation.request,
+          'number': attempt.number,
+          'key': attempt.generation.key,
+        },
       if (message.businessType.trim().isNotEmpty) 'type': message.businessType,
       'stream_type': message.streamType,
       'world_id': message.worldId,

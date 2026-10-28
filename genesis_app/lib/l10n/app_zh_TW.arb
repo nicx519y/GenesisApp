@@ -1398,7 +1398,7 @@
   },
   "chatConnectionFailed": "無法連線至這個聊天室",
   "@chatConnectionFailed": {
-    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+    "description": "Location Chat: connection preflight failure toast for Send/retry, Regenerate, Go On, opening Edit, saving edits, and loading/sending Inspiration replies when the device has a network but WebSocket connection or location join fails. Keep drafts and existing replies; do not dispatch the action or add a message. MiniPhone Messages Send/retry checks the shared World WebSocket without joining a location. Also used for the Location Chat send failure callback."
   },
   "chatReplyChangedSelect": "回覆內容已變更，請重新選擇靈感。",
   "@chatReplyChangedSelect": {
@@ -1408,9 +1408,9 @@
   "@chatSendConfirmFailed": {
     "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
   },
-  "chatNoNetworkConnection": "沒有網路連線",
+  "chatNoNetworkConnection": "網路無法使用，請檢查網路連線。",
   "@chatNoNetworkConnection": {
-    "description": "首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字"
+    "description": "Location Chat: device-network preflight failure toast for Send/retry, Regenerate, Go On, opening Edit, saving edits, and loading/sending Inspiration replies. MiniPhone Messages Send/retry uses the same toast. Ask the user to check their network; retain input and existing replies without dispatching the action or adding a message."
   },
   "chatRoundCannotContinue": "無法繼續這一回合",
   "@chatRoundCannotContinue": {

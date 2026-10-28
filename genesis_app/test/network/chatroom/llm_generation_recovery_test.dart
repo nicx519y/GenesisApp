@@ -3,8 +3,57 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storag
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/utils/llm_generation.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 
 void main() {
+  test('HTTP V2 history carries generation identity into the live model', () {
+    final row = <String, dynamic>{
+      'type': 'character',
+      'stream_type': '',
+      'world_id': 'w',
+      'location_id': 'l',
+      'conversation_round_id': 1,
+      'global_message_id': 10,
+      'message_id': 2,
+      'location_message_id': 2,
+      'gateway_request_id': 'r',
+      'attempt_no': 3,
+      'payload': {'content': 'Final reply'},
+    };
+    final http = ChatroomHttpMessage.fromV2Json(row);
+    expect(http.gatewayRequestId, 'r');
+    expect(http.attemptNo, 3);
+    final message = WorldChatroomMessage.fromHttpMessage(http);
+    expect(
+      message.llmAttempt!.generation,
+      const LlmGenerationId('w', 'l', '1', 'r'),
+    );
+    expect(message.llmAttempt!.number, 3);
+    expect(message.streaming, isFalse);
+    expect(message.content, 'Final reply');
+
+    final legacy = {...row}
+      ..remove('gateway_request_id')
+      ..remove('attempt_no');
+    expect(
+      WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromV2Json(legacy),
+      ).llmAttempt,
+      isNull,
+    );
+    for (final invalid in [
+      {...row}..remove('attempt_no'),
+      {...row}..remove('gateway_request_id'),
+      {...row, 'attempt_no': 0},
+    ]) {
+      expect(
+        () => ChatroomHttpMessage.fromV2Json(invalid),
+        throwsA(isA<ChatroomProtocolException>()),
+      );
+    }
+  });
+
   for (final sqlite in [false, true]) {
     test(
       'attempt cache deletion preserves reused IDs and authoritative rows sqlite=$sqlite',

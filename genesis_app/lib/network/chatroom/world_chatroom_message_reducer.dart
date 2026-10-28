@@ -302,13 +302,20 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     _beginEntryRead(locationId);
     Object? entryError;
     try {
-      final worldMessages = messages
+      final fetched = messages
           .map(
-            (message) => _worldMessageFromHttpMessage(
-              message,
-              fallbackLocationId: locationId,
+            (message) => (
+              http: message,
+              world: _worldMessageFromHttpMessage(
+                message,
+                fallbackLocationId: locationId,
+              ),
             ),
           )
+          .where((entry) => _isAttemptCurrent(entry.world.llmAttempt))
+          .toList(growable: false);
+      final worldMessages = fetched
+          .map((entry) => entry.world)
           .toList(growable: false);
       await _withLocationWrite(locationId, () async {
         if (!_historyIsCurrent(locationId, ticket)) return;
@@ -317,10 +324,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
             ownerUid: ticket.owner,
             worldId: ticket.world,
             locationId: locationId,
-            messages: messages
+            messages: fetched
+                // A retry can arrive while this cache write is queued.
+                .where((entry) => _isAttemptCurrent(entry.world.llmAttempt))
                 .map(
                   (m) => _storageJsonFromHttpMessage(
-                    m,
+                    m.http,
                     fallbackLocationId: locationId,
                   ),
                 )

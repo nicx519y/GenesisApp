@@ -106,6 +106,9 @@ class ChatroomReplyRoundState {
   final _draftBaselines = <int, Map<int, String>>{};
   final _uncertainBatches = <int>{};
   final _streamMessages = <int, Map<int, _CandidateMessage>>{};
+  // Presentation-only continuity when saved cards omit generation metadata.
+  // Never infer provenance for formal history or persist it as server data.
+  final _candidatePresentationAttempts = <(int, int), LlmAttempt>{};
   final _authoritativeCards = <int>{};
   final _cardTerminals = <int, ChatroomLlmCardGenerationEnd>{};
   ChatSendOperation? _regenerationOperation;
@@ -1093,6 +1096,22 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     final retainedResultCardIds = retainedResultCards
         .map((card) => card.cardId)
         .toSet();
+    final presentationAttempts = <(int, int), LlmAttempt>{};
+    for (final card in retainedResultCards) {
+      for (final message in card.messages) {
+        final key = (card.cardId, message.globalMessageId);
+        final previous =
+            state
+                ._streamMessages[card.cardId]?[message.globalMessageId]
+                ?.attempt ??
+            state._candidatePresentationAttempts[key];
+        final attempt = _candidateAttempt(message, previous);
+        if (attempt != null) presentationAttempts[key] = attempt;
+      }
+    }
+    state._candidatePresentationAttempts
+      ..clear()
+      ..addAll(presentationAttempts);
     final unresolved = state._card(-1);
     if (unresolved != null &&
         result.activeCardId > 0 &&
@@ -1960,6 +1979,23 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         (streams != null &&
             streams.isNotEmpty &&
             streams.every((message) => message._ended));
+    if (transferComplete) {
+      state._candidatePresentationAttempts.removeWhere(
+        (key, _) => key.$1 == event.cardId,
+      );
+    }
+    if (complete) {
+      for (final message in completedMessages) {
+        final attempt = message.llmAttempt;
+        if (attempt != null && !attempt.invalidated) {
+          state._candidatePresentationAttempts[(
+                event.cardId,
+                message.globalMessageId,
+              )] =
+              attempt;
+        }
+      }
+    }
     state._cards.removeWhere(
       (card) => card.cardId == event.cardId || card.cardId == -1,
     );
@@ -2143,6 +2179,12 @@ class ChatroomReplyActionsController extends ChangeNotifier {
           message: ChatroomV2Message(
             type: message.businessType,
             worldId: worldId,
+            gatewayRequestId: message.llmAttempt?.generation.card == id
+                ? message.llmAttempt!.generation.request
+                : '',
+            attemptNo: message.llmAttempt?.generation.card == id
+                ? message.llmAttempt!.number
+                : null,
             locationId: state.locationId,
             conversationRoundId: state.roundId,
             conversationType: message.conversationType,
@@ -2620,10 +2662,48 @@ bool _completeCard(ChatroomLlmCard? card) =>
     card != null &&
     card.generationState == ChatroomCardGenerationState.succeeded &&
     card.messages.any((message) => message.content.trim().isNotEmpty);
-WorldChatroomMessage _candidateToWorld(ChatroomLlmCardMessage message) =>
+LlmAttempt? _candidateAttempt(
+  ChatroomLlmCardMessage message,
+  LlmAttempt? previous,
+) {
+  final source = message.message;
+  final number = source.attemptNo;
+  if (number != null && source.gatewayRequestId.isNotEmpty) {
+    final generation = LlmGenerationId(
+      source.worldId,
+      source.locationId,
+      '${message.conversationRoundId}',
+      source.gatewayRequestId,
+      message.cardId,
+    );
+    if (previous?.generation == generation && previous?.number == number) {
+      return previous;
+    }
+    return LlmAttempt(generation, number);
+  }
+  // Only bridge the exact candidate message looked up by the caller. Explicit
+  // server attempts above always win; missing metadata never revives a retry.
+  if (previous != null &&
+      !previous.invalidated &&
+      previous.generation.world == source.worldId &&
+      previous.generation.location == source.locationId &&
+      previous.generation.round == '${message.conversationRoundId}' &&
+      previous.generation.card == message.cardId) {
+    return previous;
+  }
+  return null;
+}
+
+WorldChatroomMessage _candidateToWorld(
+  ChatroomLlmCardMessage message, [
+  LlmAttempt? presentationAttempt,
+]) =>
     WorldChatroomMessage.fromHttpMessage(
       ChatroomHttpMessage.fromV2Message(message.message),
-    ).copyWith(isLlmStreamMessage: message.isLlmStreamMessage);
+    ).copyWith(
+      llmAttempt: _candidateAttempt(message, presentationAttempt),
+      isLlmStreamMessage: message.isLlmStreamMessage,
+    );
 ChatroomLlmCard _placeholder(
   int id,
   int index, {

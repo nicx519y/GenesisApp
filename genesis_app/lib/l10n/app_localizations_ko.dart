@@ -968,7 +968,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get chatSendConfirmFailed => '메시지 전송을 확인할 수 없습니다';
 
   @override
-  String get chatNoNetworkConnection => '네트워크에 연결되어 있지 않습니다';
+  String get chatNoNetworkConnection => '네트워크를 사용할 수 없습니다. 네트워크 연결을 확인해 주세요.';
 
   @override
   String get chatRoundCannotContinue => '이 라운드를 계속할 수 없습니다';

@@ -1,6 +1,46 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatSendGateBinding on _LocationChatPanelState {
+  void _scheduleEntrySendWaitCheck({required bool presentationSettled}) {
+    if (_entrySendWaitChecked ||
+        _entrySendWaitCheckScheduled ||
+        !_initialContentReadyNotified ||
+        !widget.active ||
+        !widget.isLeafLocation ||
+        _service == null ||
+        !presentationSettled) {
+      return;
+    }
+    _entrySendWaitCheckScheduled = true;
+    final generation = _entrySendWaitCheckGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _entrySendWaitCheckGeneration) return;
+      _entrySendWaitCheckScheduled = false;
+      final presentationContext = _replyPresentationContextKey.currentContext;
+      if (!widget.active || presentationContext == null) return;
+      final status = _replyRenderStatus(presentationContext, listen: false);
+      if (!status.presentationSettled) return;
+      // Draft/permission eligibility is separate from asynchronous Send locks.
+      // An empty composer alone must not create a wait.
+      if (!status.backendPending && !_tickBlocksSend) return;
+      final last = _replyProjection
+          .presentation(_renderedReplyState)
+          .messages
+          .where((message) => !message.isAiContentDisclaimer)
+          .lastOrNull;
+      if (last == null) return;
+      _entrySendWaitChecked = true;
+      _service?.reconcileRenderedLocationSendWait(
+        widget.locationId,
+        lastMessageIsTick: last.isTick,
+        lastMessageId: last.localId,
+        worldTickInProgress: widget.worldTickInProgress,
+      );
+      _pageSendGate?.reconcile();
+      if (mounted) _setLocationChatState(() {});
+    });
+  }
+
   bool get _tickBlocksSend {
     if (_service?.tickBlocksSend ?? _chatroomState.inputBlocked) return true;
     if (!widget.worldTickInProgress) return false;

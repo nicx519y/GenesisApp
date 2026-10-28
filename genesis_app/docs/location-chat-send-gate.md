@@ -19,9 +19,20 @@
 - Regenerate／Go On 的准备阶段交给实际请求后，准备记录停止独立计时，清理责任随实际请求转移，不会在持续正常流式输出时额外触发准备阶段的 45 秒释放。
 - 后台、重连及页面重建不重新起算；重新绑定、激活和恢复前台时核对当前状态并处理绝对时间已到期的记录。同进程复用操作关联与超时标记；进程重启没有原始计时记录时，从首次识别开始。
 
+### 进入页面后的残留锁检查
+
+进入或重新激活 LocationChat 后，等初始消息就绪、文字揭示及布局收尾完成，在帧结束时再次读取当前状态。如果 Send 仍因回复等待或 Tick 被锁住，取最后一条实际展示的消息（排除 AI 内容说明行）：
+
+- **普通消息**：没有已有操作记录的残留回复等待，登记为 `conversation_wait`，从首次识别时按无进展 30 秒预警、45 秒释放。渲染历史消息不等于收到流 start／chunk，不启动 5 秒计时。
+- **Tick 消息**：残留等待接入同 World 的 `tick` 操作，60 秒上报并释放本地 Send 等待；保留真实 Tick 推进状态。
+- 已存在的发送、流式、Regenerate／Go On 或 Tick 操作继续沿用原阶段与时间，不按最后消息覆盖它们，不额外叠加计时器。重新进入不重置计时；正常完成提前结束恢复等待；旧恢复回调不能清除后来发起的回复操作。
+- 空输入、未激活、非叶子地点等资格条件不触发恢复计时。原来进入页面即刻结束孤立历史回复等待的行为，已改为上述统一计时。
+
 ## 正常完成、未知结果和迟到回调
 
 正常匹配的完成或明确失败立即结束阻塞。超时只表示本地等待停止：保留正文、请求／轮次／候选关联及未确认草稿，不合成成功、失败、正式 ID 或计费结果。
+
+普通会话收到服务端 `type: error` 时，按 World、地点及请求／轮次关联立即结束该会话的本地等待：释放 Send、清理 ACK／回复 loading，并将已知回复轮次标记为失败，不再等待 5／45 秒兜底，也不记录超时事件。用户消息保留，未收到 ACK 的受理状态仍为未知，不自动重发；已有临时 AI 流内容沿用错误清理逻辑。只有能关联的会话被释放，缺少请求和轮次标识的错误、其他地点／World 及旧会话错误不会解除当前新会话的锁，独立 Tick 锁不受影响。断线等客户端传输错误不视为此终态。
 
 | 类型 | 超时后的处理 |
 | --- | --- |
@@ -67,13 +78,13 @@
 | `send` | 普通手动 Send；同一记录覆盖 ACK、整轮及普通回复流 | `waiting`、`awaiting_ack`、`awaiting_round`、`awaiting_stream`、`streaming`、`awaiting_terminal` | `client_msg_id` 为本次发送请求；`round_id` 为关联回复轮次 |
 | `retry_send` | 用户主动重试明确失败的消息 | 同 `send` | 新的 `client_msg_id`；不是 ACK 超时自动重发 |
 | `inspiration_send` | 用户选择灵感后，实际发送消息及等待回复 | 同 `send` | 发送请求与轮次关联同 `send`；不记录灵感正文 |
-| `conversation_wait` | 服务端主动轮次／收到的普通流，没有匹配的本地 Send 请求 | `awaiting_stream`、`streaming`、`awaiting_terminal` | `round_id`；没有本地请求时不填 `client_msg_id` |
+| `conversation_wait` | 服务端主动轮次／收到的普通流，或进入页面渲染后补登记的普通回复残留等待，没有匹配的本地 Send 请求 | `awaiting_stream`、`streaming`、`awaiting_terminal` | `round_id`；没有本地请求时不填 `client_msg_id`；入口恢复另有 `recovered_on_entry` 等字段 |
 | `regenerate` | Regenerate 请求和候选流／终态等待 | `waiting`、`awaiting_stream`、`streaming`、`awaiting_terminal` | `client_msg_id` 为重新生成请求；`round_id` 为来源轮次；`card_id` 为已知候选 ID |
 | `go_on` | Go On 请求及新轮次输出 | `waiting`、`awaiting_stream`、`streaming`、`awaiting_terminal` | `client_msg_id` 为 Go On 请求；`source_round_id` 为来源轮次；新轮次绑定后 `round_id` 指向新轮次 |
 | `inspiration` | 打开灵感所需连接、来源确认、额度检查、缓存／生成请求 | `preparing` | `reply_action=inspiration`；不记录返回的建议文本 |
 | `reply_prepare` | Regenerate／Go On／Edit 的连接与前置准备 | `preparing` | `reply_action=regenerate/goOn/edit`，指出具体入口；交接后不再独立阻塞 |
 | `reply_presentation` | 剩余文字揭示、切卡及等待效果尚未结束 | `displaying` | `operation_id` 含展示轮次／卡片／等待位置操作身份；不含正文 |
-| `tick` | 首次识别 World 推进锁 | `waiting` | `object2=''`；同 World 页面共享操作 ID，不按地点重复上报 |
+| `tick` | 首次识别 World 推进锁，或渲染后补登记末条 Tick 对应的残留等待 | `waiting` | `object2=''`；同 World 页面共享操作 ID，不按地点重复上报；入口恢复带 `recovered_on_entry=true`、`last_message_type=tick` |
 
 关联字段仅在实际获取后出现，不用 0 或虚构 ID 补齐。操作 ID 是客户端诊断身份，不是服务端幂等键。
 
@@ -104,6 +115,9 @@
 | `generation_key` | string，可缺省 | 客户端生成尝试分组键，用于区分轮次、请求及候选 |
 | `attempt_no` | int，可缺省 | 当前有效生成尝试编号 |
 | `reply_action` | string，可缺省 | 操作准备／灵感请求对应的入口名称 |
+| `recovered_on_entry` | bool，可缺省 | `true` 表示该操作包含页面渲染完成后补登记的残留等待 |
+| `last_message_type` | string，可缺省 | 入口恢复时最后实际消息的分类：`ordinary` 或 `tick`；与流式阶段无关 |
+| `last_message_id` | string，可缺省 | 普通入口恢复等待对应的最后消息本地稳定 ID，不含正文；World 级 Tick 不填地点消息 ID，避免跨地点覆盖 |
 
 | phase | 含义 |
 | --- | --- |
@@ -145,3 +159,5 @@
 - 本次修改相关的服务、控制器、页面、共享组件和测试静态检查通过。
 - Pixel 6 安装并运行本次 production release，进入 LocationChat 后关闭 Wi-Fi 与移动数据、退到后台超过 45 秒，再返回并恢复两种网络；应用仍位于聊天室，输入框可用。设备网络已恢复到验收前状态。
 - 真机检查仅证明断网／后台返回的页面恢复冒烟结果；没有向生产聊天室发送测试消息，也未在设备上强制制造丢 ACK、流中断或 Tick 停滞。5／30／45／60 秒阈值和迟到回调隔离由受控自动化验证，真实服务端故障注入与恢复联调尚未验收。
+
+同日追加“进入页面渲染后残留锁恢复”：350 项服务相关测试、10 项相关页面测试及修改范围静态检查通过。新增覆盖普通／Tick 分支、重建保留截止时间、真实完成提前结束、独立 Tick 不被展示完成清除、已有流式 5 秒计时不被覆盖、collect 字段及释放后实际手动发送。本次追加改动未另做真机验收。

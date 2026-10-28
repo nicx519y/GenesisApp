@@ -509,6 +509,97 @@ void main() {
       store.dispose();
     },
   );
+  for (final lateResult in ['success', 'rejection', 'timeout']) {
+    test('reply failure releases send before late HTTP $lateResult', () async {
+      final backend = PhoneBackend();
+      final firstResponse = Completer<Object?>();
+      final secondResponse = Completer<Object?>();
+      var sends = 0;
+      backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+          ? (++sends == 1 ? firstResponse.future : secondResponse.future)
+          : null;
+      final store = backend.store();
+      addTearDown(store.dispose);
+      await store.ready;
+      final first = store.write('dm', 'c', 'First');
+      await flush();
+      final firstRequest = store.waiting('c')!.id;
+      expect(store.busy, contains('dm:c'));
+      store.receive(
+        phoneEvent(
+          'failed',
+          [],
+          requestId: firstRequest,
+          failure: 'Reply failed',
+        ),
+      );
+      expect(store.waiting('c'), isNull);
+      expect(store.busy, isNot(contains('dm:c')));
+      expect(store.outgoingDm('c').single.content, 'First');
+      expect(store.outgoingDm('c').single.accepted, isTrue);
+      expect(sends, 1);
+
+      final second = store.write('dm', 'c', 'Second');
+      await flush();
+      final secondRequest = store.waiting('c')!.id;
+      expect(secondRequest, isNot(firstRequest));
+      expect(sends, 2);
+      store.receive(
+        phoneEvent(
+          'old-failure',
+          [],
+          requestId: firstRequest,
+          failure: 'Old failure',
+        ),
+      );
+      store.messagesController.applyReplyState(
+        firstRequest,
+        'generating',
+        null,
+        9,
+      );
+      if (lateResult == 'success') {
+        firstResponse.complete(ok({}));
+      } else if (lateResult == 'rejection') {
+        firstResponse.complete({
+          'err_no': 4004,
+          'err_msg': 'Late rejection',
+          'data': {},
+        });
+      } else {
+        firstResponse.completeError(
+          ApiException(message: 'Late timeout', kind: ApiExceptionKind.timeout),
+        );
+      }
+      expect(
+        await first,
+        isTrue,
+        reason: 'A server reply failure proves the original send was accepted.',
+      );
+      expect(store.waiting('c')!.id, secondRequest);
+      expect(store.busy, contains('dm:c'));
+      expect(store.errors['dm:c'], isNull);
+      expect(store.replyFailureNotice('c'), isNull);
+      expect(
+        store.messagesController.replyStates[firstRequest]?.status,
+        'failed',
+      );
+      secondResponse.complete(ok({}));
+      expect(await second, isTrue);
+      expect(store.busy, isNot(contains('dm:c')));
+      store.receive(
+        phoneEvent(
+          'second-failed',
+          [],
+          requestId: secondRequest,
+          failure: 'Reply failed',
+        ),
+      );
+      expect(store.waiting('c'), isNull);
+      expect(store.replyFailureNotice('c')?.requestId, secondRequest);
+    });
+  }
+
   test(
     'uncertain retries retain exact request across store recreation',
     () async {

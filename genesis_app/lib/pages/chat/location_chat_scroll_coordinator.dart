@@ -1303,14 +1303,86 @@ class _LocationChatAnchoredMessageListState
 
   // Presentation IDs change when a selected card becomes formal history.
   // Arrival/reveal identity must follow the business message, not that wrapper.
-  Object _receiptIdentity(ChatMessageVm message) {
+  final _promotedReceiptIdentities = <Object, Object>{};
+  final _confirmedCandidateContinuities = <Object, Object>{};
+
+  Object _rawReceiptIdentity(ChatMessageVm message, {bool formal = false}) {
     if (message.llmAttempt case final attempt?) {
-      return (attempt.identity, message.globalMessageId);
+      final generation = attempt.generation;
+      final identity = formal
+          ? (
+              LlmGenerationId(
+                generation.world,
+                generation.location,
+                generation.round,
+                generation.request,
+              ).key,
+              attempt.number,
+            )
+          : attempt.identity;
+      return (identity, message.globalMessageId);
     }
     if (message.globalMessageId > 0) return ('global', message.globalMessageId);
     if ((message.messageId ?? 0) > 0) return ('message', message.messageId);
     if (message.clientMsgId.isNotEmpty) return ('client', message.clientMsgId);
     return ('local', _messageLayoutId(message));
+  }
+
+  Object _candidateContinuity(Object? binding, int cardId, Object receipt) =>
+      ('location-chat-candidate', binding, cardId, receipt);
+
+  void _captureConfirmedCandidateContinuity({
+    LocationChatAnchoredMessageList? previous,
+  }) {
+    if (!widget.replyCardsConfirmed || widget.replyCurrentCardId <= 0) return;
+    // A confirmation and history backfill may share one frame. The previous
+    // widget still holds the candidate provenance that the formal DTO lacks.
+    final cardId = widget.replyCurrentCardId;
+    final sameDeck =
+        previous != null &&
+        previous.replyCardBindingIdentity == widget.replyCardBindingIdentity &&
+        previous.replyCurrentCardId == cardId;
+    final messages = <ChatMessageVm>[
+      if (sameDeck)
+        // Lazy card models may already resolve against the formal data.
+        // The rendered snapshot still holds the old candidate provenance.
+        ..._renderedMessages.where(
+          (m) => m.llmAttempt?.generation.card == cardId,
+        ),
+      if (sameDeck)
+        ...?previous.replyCards
+            .where((c) => c.id == cardId)
+            .firstOrNull
+            ?.messages,
+      ...?widget.replyCards.where((c) => c.id == cardId).firstOrNull?.messages,
+    ];
+    for (final message in messages) {
+      if (message.globalMessageId <= 0 ||
+          message.llmAttempt?.invalidated == true ||
+          (message.llmAttempt != null &&
+              message.llmAttempt!.generation.card != cardId)) {
+        continue;
+      }
+      final receipt = _rawReceiptIdentity(message);
+      _promotedReceiptIdentities[_rawReceiptIdentity(message, formal: true)] =
+          receipt;
+      _confirmedCandidateContinuities[receipt] = _candidateContinuity(
+        widget.replyCardBindingIdentity,
+        cardId,
+        receipt,
+      );
+    }
+    while (_promotedReceiptIdentities.length > 2048) {
+      final receipt = _promotedReceiptIdentities.remove(
+        _promotedReceiptIdentities.keys.first,
+      );
+      _confirmedCandidateContinuities.remove(receipt);
+    }
+  }
+
+  Object _receiptIdentity(ChatMessageVm message) {
+    final receipt = _rawReceiptIdentity(message);
+    return _promotedReceiptIdentities[receipt] ?? receipt;
   }
 
   final _restoredEntryContent = <Object, String>{};
@@ -1327,7 +1399,7 @@ class _LocationChatAnchoredMessageListState
 
   Object _streamContinuationNamespace(ChatMessageVm message, {int? cardId}) {
     if (message.llmAttempt != null) {
-      return (message.llmAttempt!.identity, message.globalMessageId);
+      return _receiptIdentity(message);
     }
     // Candidate-only streams remain isolated per card. Once the server gives
     // a message its location cursor, the selected card and canonical timeline
@@ -1341,13 +1413,24 @@ class _LocationChatAnchoredMessageListState
   }
 
   Object? _streamContinuityIdentity(ChatMessageVm message, {int? cardId}) {
+    // The ACK adds a server ID to an already visible optimistic bubble. Keep
+    // its presentation across that change, even while an AI reply is queued.
+    if (message.isMe && message.clientMsgId.isNotEmpty) {
+      return ('location-chat-outgoing', message.clientMsgId);
+    }
     // Unconfirmed candidate cards can reuse message IDs and must animate
     // independently. Formal/card-0 content and confirmed selections are the
     // same business message when they move into the canonical timeline.
-    if (cardId != null && cardId > 0 && !widget.replyCardsConfirmed) {
-      return null;
+    final receipt = _receiptIdentity(message);
+    if (cardId != null && cardId > 0) {
+      return _candidateContinuity(
+        widget.replyCardBindingIdentity,
+        cardId,
+        receipt,
+      );
     }
-    return ('location-chat-message', _receiptIdentity(message));
+    return _confirmedCandidateContinuities[receipt] ??
+        ('location-chat-message', receipt);
   }
 
   void _captureRestoredEntryContent({
@@ -2359,6 +2442,7 @@ class _LocationChatAnchoredMessageListState
   @override
   void initState() {
     super.initState();
+    _captureConfirmedCandidateContinuity();
     _renderedMessages = _inputMessages;
     _observeRetractionAttempts();
     _messageLocalIds = _currentMessageLocalIds(_renderedMessages);
@@ -2392,6 +2476,13 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.coordinator != widget.coordinator) {
+      _promotedReceiptIdentities.clear();
+      _confirmedCandidateContinuities.clear();
+    }
+    _captureConfirmedCandidateContinuity(
+      previous: oldWidget.coordinator == widget.coordinator ? oldWidget : null,
+    );
     if (oldWidget.coordinator != widget.coordinator ||
         oldWidget.replyCurrentCardId != widget.replyCurrentCardId) {
       _releaseRetractions();

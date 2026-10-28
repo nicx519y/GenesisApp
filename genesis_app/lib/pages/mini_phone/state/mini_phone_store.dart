@@ -22,6 +22,7 @@ import '../../../network/chatroom/world_chatroom_service.dart';
 import '../../../network/models/world.dart';
 import '../../../network/models/user.dart';
 import '../../../utils/genesis_image_resource.dart';
+import '../../../utils/network_availability.dart';
 
 /// One world/account's phone, backed by a durable local inbox and server data.
 class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
@@ -33,6 +34,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     required this.loadWorld,
     required this.accountRevision,
     this.loadUser,
+    this.networkAvailabilityCheck = hasDeviceNetworkConnection,
+    this.chatConnectionReady,
     MiniPhoneCacheStorage? cacheStorage,
   }) : cacheStorage = cacheStorage ?? SqliteMiniPhoneCacheStorage.instance {
     accountRevision.addListener(_accountChanged);
@@ -72,6 +75,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     requests: requests,
   );
   final MiniPhoneApi api;
+  final Future<bool> Function() networkAvailabilityCheck;
+  final bool Function()? chatConnectionReady;
+  WorldChatroomService? _chatroomService;
+  final _dmSendPreparations = <String, Object>{};
   final MiniPhoneCacheStorage cacheStorage;
   Completer<void> _localReady = Completer<void>();
   Future<void> get localReady => _localReady.future;
@@ -285,7 +292,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         if (w.kind != 'dm' || w.id != m.requestId) continue;
         messagesController.sessionByChar[w.target] = m.sessionId;
         w.accepted = true;
-        if (isPlayerChat(w.target)) pending.remove(w.key);
+        if (isPlayerChat(w.target)) messagesController.finishPendingDm(w);
       }
       if (m.replyStatus != null) {
         messagesController.applyReplyState(
@@ -332,6 +339,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   void _accountChanged() {
     requests.reset();
+    _dmSendPreparations.clear();
+    _chatroomService = null;
     if (!_localReady.isCompleted) _localReady.complete();
     _localReady = Completer<void>();
     _hydrated = messagesController.cacheCanSave = false;
@@ -677,6 +686,55 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> refreshAlbum({bool next = false}) =>
       photosController.refresh(next: next);
 
+  Future<bool> _prepareDmSend(
+    String key,
+    int generation,
+    PhoneWrite? existing,
+    Object preparation,
+  ) async {
+    var prepared = false;
+    busy.add(key);
+    errors.remove(key);
+    _notify();
+    try {
+      final hasNetwork = await networkAvailabilityCheck();
+      if (!_current(generation) ||
+          !identical(_dmSendPreparations[key], preparation) ||
+          !identical(pending[key], existing) ||
+          existing?.accepted == true) {
+        return false;
+      }
+      if (!hasNetwork) {
+        errors[key] = GenesisL10n.current.chatNoNetworkConnection;
+        return false;
+      }
+      final service = _chatroomService;
+      final connected =
+          chatConnectionReady?.call() ??
+          (service != null && !service.isDisposed && service.state.connected);
+      if (!connected) {
+        errors[key] = GenesisL10n.current.chatConnectionFailed;
+        return false;
+      }
+      prepared = true;
+      return true;
+    } catch (_) {
+      if (_current(generation) &&
+          identical(_dmSendPreparations[key], preparation)) {
+        errors[key] = GenesisL10n.current.chatConnectionFailed;
+      }
+      return false;
+    } finally {
+      if (!prepared &&
+          _current(generation) &&
+          identical(_dmSendPreparations[key], preparation)) {
+        _dmSendPreparations.remove(key);
+        busy.remove(key);
+        _notify();
+      }
+    }
+  }
+
   Future<bool> write(
     String kind,
     String target,
@@ -685,6 +743,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     int? replyTo,
     bool retry = false,
     MiniPhoneAnalyticsAttempt? analyticsAttempt,
+    VoidCallback? onPrepared,
   }) async {
     await localReady;
     if (_disposed || uid == null || content.trim().isEmpty) return false;
@@ -696,6 +755,21 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       _notify();
       return false;
     }
+    if (kind == 'dm') {
+      final preparation = Object();
+      _dmSendPreparations[key] = preparation;
+      final prepared = await _prepareDmSend(key, g, existing, preparation);
+      if (!_current(g)) return false;
+      if (!prepared) return existing?.accepted ?? false;
+      if (!identical(_dmSendPreparations[key], preparation)) return false;
+      _dmSendPreparations.remove(key);
+      if (!identical(pending[key], existing) || existing?.accepted == true) {
+        busy.remove(key);
+        _notify();
+        return existing?.accepted ?? false;
+      }
+    }
+    onPrepared?.call();
     final reuse =
         existing != null &&
         (retry ||
@@ -742,6 +816,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           },
         );
     attempt.data['client_request_id'] = w.id;
+    bool ownsWrite() =>
+        _current(g) && (kind != 'dm' || identical(pending[key], w));
     var sent = false;
     pending[key] = w;
     if (kind == 'comment') {
@@ -764,11 +840,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     _notify();
     try {
       if (!await _save()) {
+        if (_current(g) && !ownsWrite()) return w.accepted;
         if (_current(g)) w.uncertain = true;
         attempt.fail(StateError('journal'), sent: false, errorStage: 'journal');
         return false;
       }
       if (!_current(g)) return false;
+      if (!ownsWrite()) return w.accepted;
       sent = true;
       switch (kind) {
         case 'dm':
@@ -788,11 +866,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       }
       if (!_current(g)) return false;
       attempt.finish('accepted');
+      if (!ownsWrite()) return w.accepted;
       w.accepted = true;
       if (kind == 'comment') postsController.updateComment(w);
       if (kind != 'dm') pending.remove(key);
       await _save();
       if (!_current(g)) return false;
+      if (!ownsWrite()) return w.accepted;
       if (kind == 'dm') scheduleRefresh(refreshHome: false);
       if (kind == 'post') await refreshPostSummary(afterWrite: true);
       if (kind == 'comment') {
@@ -805,6 +885,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     } catch (e) {
       if (!_current(g)) return false;
       attempt.fail(e, sent: sent, errorStage: sent ? 'request' : 'journal');
+      if (!ownsWrite()) return w.accepted;
       // A delivery can precede an HTTP failure. Committed evidence wins.
       if (!w.accepted) {
         errors[key] = errorText(e);
@@ -828,7 +909,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       }
       return w.accepted;
     } finally {
-      if (_current(g)) {
+      if (ownsWrite()) {
         busy.remove(key);
         if (kind == 'dm' && !w.rejected) {
           scheduleRefresh(refreshHome: false);
@@ -852,6 +933,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void attach(WorldChatroomService service) {
+    _chatroomService = service;
     _events?.cancel();
     _states?.cancel();
     final generation = _generation;
@@ -906,7 +988,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
                     m.senderId == uid &&
                     m.requestId == w.id,
               )) {
-            pending.remove(w.key);
+            messagesController.finishPendingDm(w);
           } else if (event.requestId == w.id &&
               event.messages.any((m) => m.senderType == 'char')) {
             messagesController.applyReplyState(
@@ -1184,6 +1266,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _disposed = true;
+    _dmSendPreparations.clear();
+    _chatroomService = null;
     _generation++;
     if (!_localReady.isCompleted) _localReady.complete();
     accountRevision.removeListener(_accountChanged);

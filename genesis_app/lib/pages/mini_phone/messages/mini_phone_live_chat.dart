@@ -1,7 +1,7 @@
 import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../../components/common/genesis_center_toast.dart';
+import '../shared/mini_phone_toast.dart';
 import '../../../components/chat/shared/chat_keyboard_inset_layout.dart';
 import '../../../components/chat/shared/chat_ui.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
@@ -130,7 +130,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                 store.phoneVisible &&
                 store.foreground &&
                 ModalRoute.of(context)?.isCurrent != false) {
-              showGenesisToast(context, error.message);
+              showMiniPhoneToast(context, error.message);
               _shownError = error;
               if (error.replyRequestId case final requestId?) {
                 store.acknowledgeReplyFailure(widget.person.id, requestId);
@@ -178,11 +178,17 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
 
   ({String message, String? replyRequestId})? get _errorNotice {
     final id = widget.person.id;
+    final sendError = store.errors['dm:$id'];
+    if (sendError != null) {
+      return (message: sendError, replyRequestId: null);
+    }
+    // A new send owns its feedback. Do not let an old history/recovery error
+    // mask it or keep the previous attempt's toast marked as already shown.
+    if (store.busy.contains('dm:$id')) return null;
     final error =
         store.errors['messages:${store.sessionFor(id)}'] ??
         store.errors['request:${store.waiting(id)?.id}'] ??
-        store.errors['session:$id'] ??
-        store.errors['dm:$id'];
+        store.errors['session:$id'];
     if (error != null) return (message: error, replyRequestId: null);
     final failure = store.replyFailureNotice(id);
     return failure == null
@@ -236,20 +242,28 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       return;
     }
     final generation = store.accountGeneration;
-    _follow();
     final pending = store.pending['dm:${widget.person.id}'];
     final retry = pending != null && !pending.accepted && !pending.rejected;
     final submitted = retry ? pending.content : text;
-    // Show the outgoing row at submission time, preserving a newer retry draft.
-    if (input.text == submitted) input.clear();
+    var clearedDraft = false;
     final result = await store.write(
       'dm',
       widget.person.id,
       submitted,
       retry: retry,
+      onPrepared: () {
+        if (!mounted || generation != store.accountGeneration) return;
+        _follow();
+        // Keep the draft throughout preflight; clear only when dispatch starts.
+        if (input.text == submitted) {
+          input.clear();
+          clearedDraft = true;
+        }
+      },
     );
     if (mounted &&
         generation == store.accountGeneration &&
+        clearedDraft &&
         !result &&
         input.text.isEmpty) {
       input.text = submitted;

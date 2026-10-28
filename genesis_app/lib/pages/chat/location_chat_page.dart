@@ -14,6 +14,7 @@ import '../../components/common/page_presentation_scope.dart';
 import '../mini_phone/mini_phone.dart';
 import 'dart:ui' as ui;
 import 'dart:io';
+import '../../utils/network_availability.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -141,21 +142,10 @@ const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 typedef LocationChatNetworkAvailabilityCheck = Future<bool> Function();
 
-/// A local connectivity check used by Send to choose the failed-bubble path
+/// Rejects chat actions before clearing drafts or creating outgoing bubbles
 /// when the device has no usable network interface. Unknown platform failures
 /// deliberately fail open so a temporary probe problem never blocks WSS.
-Future<bool> locationChatHasNetworkConnection() async {
-  try {
-    final interfaces = await NetworkInterface.list(includeLoopback: false);
-    return interfaces.any(
-      (interface) => interface.addresses.any(
-        (address) => !address.isLoopback && !address.isLinkLocal,
-      ),
-    );
-  } catch (_) {
-    return true;
-  }
-}
+Future<bool> locationChatHasNetworkConnection() => hasDeviceNetworkConnection();
 
 @visibleForTesting
 int debugLocationChatReplyProjectionCount = 0;
@@ -724,6 +714,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ChatSendOperation? _replyPreparationWait;
   ChatSendOperation? _presentationSendWait;
   int _pageWaitSequence = 0;
+  bool _entrySendWaitChecked = false;
+  bool _entrySendWaitCheckScheduled = false;
+  int _entrySendWaitCheckGeneration = 0;
   int _sendAttemptGeneration = 0;
   int _replyOperationGeneration = 0;
   bool _sendConnectionPending = false;
@@ -1242,6 +1235,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
+    if (changedChatTarget || (!oldWidget.active && widget.active)) {
+      _entrySendWaitChecked = false;
+      _entrySendWaitCheckScheduled = false;
+      _entrySendWaitCheckGeneration++;
+    }
     if (changedChatTarget) {
       _localMessageOrder.clear();
       _detachReplyActions();

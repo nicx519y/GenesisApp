@@ -184,6 +184,13 @@ class LocationChatSendGate extends ChangeNotifier with WidgetsBindingObserver {
     if (changed && !_disposed) notifyListeners();
   }
 
+  void _releaseOperation(ChatSendOperation operation) {
+    if (_disposed || !operation.blocks) return;
+    operation._release();
+    _schedule();
+    notifyListeners();
+  }
+
   void _schedule() {
     if (_disposed || _checking) return;
     _timer?.cancel();
@@ -428,6 +435,10 @@ class ChatSendOperation {
     finished = true;
     _gate._schedule();
   }
+
+  /// Ends local waiting on an explicit terminal event, including owner cleanup.
+  /// Unlike a deadline expiry, this does not report a timeout.
+  void releaseLocalWait() => _gate._releaseOperation(this);
 
   void _release() {
     if (!blocks) return;

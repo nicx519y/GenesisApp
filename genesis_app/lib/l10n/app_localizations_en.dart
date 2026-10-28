@@ -985,7 +985,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatSendConfirmFailed => 'Could not confirm the message send';
 
   @override
-  String get chatNoNetworkConnection => 'No network connection';
+  String get chatNoNetworkConnection => 'Network unavailable. Check network.';
 
   @override
   String get chatRoundCannotContinue => 'This round cannot continue';

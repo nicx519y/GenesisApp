@@ -239,6 +239,18 @@ class MiniPhoneMessagesController {
       unresolved('dm:$charId') ? pending['dm:$charId'] : null;
   bool _terminal(String? state) => state == 'completed' || state == 'failed';
 
+  /// Server delivery/terminal evidence can arrive before the send HTTP returns.
+  /// Retire only this request, so its late HTTP cleanup cannot own the next send.
+  void finishPendingDm(PhoneWrite write) {
+    if (!identical(pending[write.key], write)) return;
+    write
+      ..accepted = true
+      ..uncertain = false
+      ..rejected = false;
+    pending.remove(write.key);
+    busy.remove(write.key);
+  }
+
   void applyReplyState(
     String requestId,
     String status,
@@ -269,7 +281,7 @@ class MiniPhoneMessagesController {
     final write = pending[key];
     if (_terminal(state.status)) {
       appliedReplyTerminals.add(requestId);
-      if (write?.id == requestId) pending.remove(key);
+      if (write?.id == requestId) finishPendingDm(write!);
       if (state.status == 'failed' &&
           (write == null || write.id == requestId)) {
         replyFailures[charId] =
@@ -324,7 +336,7 @@ class MiniPhoneMessagesController {
             sessionByChar[w.target] = id;
             w.accepted = true;
             w.rejected = false;
-            if (isPlayerChat(w.target)) pending.remove(w.key);
+            if (isPlayerChat(w.target)) finishPendingDm(w);
           }
         }
       }

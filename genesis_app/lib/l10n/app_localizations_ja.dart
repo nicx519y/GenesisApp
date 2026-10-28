@@ -969,7 +969,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get chatSendConfirmFailed => 'メッセージの送信を確認できません';
 
   @override
-  String get chatNoNetworkConnection => 'ネットワーク接続がありません';
+  String get chatNoNetworkConnection => 'ネットワークを利用できません。ネットワーク接続を確認してください。';
 
   @override
   String get chatRoundCannotContinue => 'このラウンドは続行できません';

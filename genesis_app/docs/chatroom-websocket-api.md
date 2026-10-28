@@ -293,6 +293,8 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 
 V2 `type=error` 解析为 `ChatroomErrorEvent`，保留 world/location/round/user/client 请求上下文、数值 `errNo` 及兼容字符串 `code`。入队前失败为错误 ACK；ACK 后的 error 可能没有 client_msg_id，依靠新轮次关联。保留所有服务端错误码，不用英文提示文本作为枚举；仅 end 或流中断也不代表可自动重试。
 
+普通 Send 的 `type=error` 同样按请求／轮次结束对应会话：立即释放本地发送锁和回复等待，已知回复轮次标记失败，保留用户消息并沿用错误 Toast；不自动重发、不等待超时兜底。请求与轮次标识均缺失、World／地点不匹配或明确属于旧会话时，不解除新会话的锁；独立 World Tick 等待不受影响。释放本地等待不等于证明未受理或未扣费。
+
 ### LLM 轮次卡片命令与私有事件
 
 2026-09-08：依据 `llm-round-cards-client-guide.md` 1.1 版。本次只接入协议能力，不加入重生成按钮、自动选卡、候选拼装、轮询或本地待提交记录；服务端部署状态需另行联调确认。
@@ -409,6 +411,8 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 后台、断线、页面重建及同会话服务重建不重置已记录的截止时间；回到前台或重新进入时校验当前状态并处理到期记录。迟到真实结果可恢复内容，但旧回调、finally 和回显不能清除新锁或重新加上旧锁。`snapshotForActions`、`snapshotForPresentation` 及 prepared entry 同步 `sendReleased`／本地展示收尾状态。
 
 场景代码、阶段、释放动作与 `action_type=chat_timeout` 的完整字段定义见 [统一超时机制与埋点表](location-chat-send-gate.md)。
+
+进入 LocationChat 后，初始消息渲染收尾时检查残留 Send 等待。没有已有计时记录的残留锁，按最后一条实际消息分类：普通消息补登记普通 30／45 秒等待，Tick 消息接入 World 级 60 秒计时。已有操作沿用原阶段和截止时间，历史渲染不作为实时流活动；重新进入不重置期限。
 
 Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done → end_conversation_round → world_change`。同一世界各地点接收同一条通知，复用 Tick 的真实 int64 `conversation_round_id`，不逐地点重复发送：
 
@@ -1131,7 +1135,11 @@ replay guarantee. Player peers do not emit AI reply-state events.
 
 收到更大的 attempt 的任意正文帧时，先撤回该生成全部较小 attempt 的输出，包括已经收到单条 end 的气泡，再从空正文处理新帧。支持首帧为 chunk 或 end、跳号、同一角色多条消息和消息身份复用。已撤回尝试、单条 end 后的 chunk/start，以及明确终态后的正文不会重新创建消息。重复通知不得推进等待状态；next_attempt_no 与实际已接收 attempt 分开记录。
 
-业务撤回立即清理正文、分片、地点消息索引及带本次来源的本地缓存，不调用删除接口。缓存保存本地生成来源，异步写入前重新检查是否失效；只读权威历史不携带临时来源，不按复用 ID 一并删除。候选流仍不进入正式历史缓存。
+业务撤回立即清理正文、分片、地点消息索引及带本次来源的本地缓存，不调用删除接口。缓存保存生成来源，异步写入前重新检查是否失效；没有显式生成身份的权威历史不推断临时来源，不按复用 ID 一并删除。候选流仍不进入正式历史缓存。
+
+HTTP V2 messages 历史项同样可携带 `gateway_request_id`、`attempt_no`。HTTP DTO、实时消息模型及本地缓存必须传递这组身份；回填进入地点队列时复用服务持有的同一 `LlmAttempt`，不能因 `stream_type` 变为空或流式结束而丢失身份。同一生成、attempt 和消息 ID 的回填保留已有文字揭露进度，完成后重复刷新不重播；真正的新 attempt 仍使用独立身份。两字段均缺省保持旧协议，部分缺失或非法值沿用 V2 校验。已撤回或落后于当前 attempt 的 HTTP 行不得重新进入实时队列或缓存。
+
+候选卡片的本地完成组装必须保留流中已明确提供的请求与 attempt 字段，候选转展示消息时还必须包含 `card_id`，不能使用普通历史消息缺省的无卡片生成身份。候选接口两字段缺省时，可在当前轮次内按 card 与 global message ID 复用有效流的本地展示身份，以衔接已播放进度；此兜底仅用于展示，不给权威 HTTP 数据补写推断的生成字段。显式不同的生成身份不得被该兜底覆盖。
 
 展示层可保留独立退场快照：旧气泡从下到上依次以正向两倍速度收起文字，随后将整行高度收至零；新 attempt 在退场期间只拼装，不提前展示。退场结束后，有正文则从零按正常速度播放（即使已经收到完整 end），否则显示现有三点等待气泡。具体动画见 `location-chat-bubble-design.md`。
 

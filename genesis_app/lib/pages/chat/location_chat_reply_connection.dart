@@ -44,7 +44,8 @@ final class _LocationChatConnectionGate {
 
   Future<void> open() async {
     _checkCurrent();
-    if (service.state.joinedLocationId == locationId) {
+    if (service.state.connected &&
+        service.state.joinedLocationId == locationId) {
       onJoined();
       return;
     }
@@ -52,8 +53,12 @@ final class _LocationChatConnectionGate {
     // WorldChatroomService.join is the single connection/join primitive: it
     // coalesces an active connect and an active join internally. The page-level
     // join future additionally shares this request with lifecycle auto-join.
-    if (!await join() || service.state.joinedLocationId != locationId) {
-      throw StateError(GenesisL10n.current.chatJoinLocationFailed);
+    if (!await join() ||
+        !service.state.connected ||
+        service.state.joinedLocationId != locationId) {
+      throw ChatroomPreflightException(
+        GenesisL10n.current.chatConnectionFailed,
+      );
     }
     _checkCurrent();
     onJoined();
@@ -90,6 +95,27 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
     onJoined: () => _joinedLocation = true,
   ).open();
 
+  Future<void> _checkReplyActionConnection({
+    required WorldChatroomService service,
+    required bool Function() isCurrent,
+  }) async {
+    final hasNetwork = await _hasNetworkForSend();
+    if (!isCurrent()) throw StateError(GenesisL10n.current.chatInactive);
+    if (!hasNetwork) {
+      throw ChatroomPreflightException(
+        GenesisL10n.current.chatNoNetworkConnection,
+      );
+    }
+    try {
+      await _openChatConnectionGate(service: service, isCurrent: isCurrent);
+    } catch (_) {
+      if (!isCurrent()) rethrow;
+      throw ChatroomPreflightException(
+        GenesisL10n.current.chatConnectionFailed,
+      );
+    }
+  }
+
   Future<void> _submitReplyAction(
     _LocationChatReplyActionTransaction transaction,
   ) async {
@@ -123,6 +149,9 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
         );
       }
       if (!mounted || generation != _replyConnectionActionGeneration) return;
+      if (wait.phase == 'connecting' && widget.active) {
+        showGenesisToast(context, context.l10n.chatConnectionFailed);
+      }
       if (transaction.action ==
           _LocationChatReplyConnectionAction.inspiration) {
         _resetInspiration();
@@ -143,7 +172,7 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
         throw StateError(GenesisL10n.current.chatChatroomUnavailable);
       }
       await wait.guard(
-        _openChatConnectionGate(
+        _checkReplyActionConnection(
           service: service,
           isCurrent: () => operation.canApplyToReply,
         ),
