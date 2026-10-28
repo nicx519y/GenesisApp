@@ -33,6 +33,33 @@ void main() {
           null,
         );
   });
+  test('native Adjust failures stay inside the attribution boundary', () async {
+    await privacyConsent.initialize(systemLocale: const Locale('de', 'DE'));
+    await privacyConsent.save(accepted);
+    privacyConsent.resolveStartup();
+    final calls = <String>[];
+    final escaped = <Object>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('com.adjust.sdk/api'), (
+          call,
+        ) async {
+          calls.add(call.method);
+          throw PlatformException(code: 'native_failure');
+        });
+
+    await runZonedGuarded<Future<void>>(() async {
+      AdjustAttributionRuntime.initialize(debugMode: false);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }, (error, _) => escaped.add(error));
+
+    expect(calls, [
+      'trackThirdPartySharing',
+      'initSdk',
+      'endFirstSessionDelay',
+    ]);
+    expect(escaped, isEmpty);
+  });
+
   test('settings denial sends Adjust zeros after restart', () async {
     final calls = <MethodCall>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
