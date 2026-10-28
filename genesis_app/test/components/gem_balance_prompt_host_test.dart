@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_balance_prompt_controller.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/gems/gem_balance_prompt_host.dart';
 import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -13,6 +16,56 @@ const insufficient = GemBalanceAlert(
 const low = GemBalanceAlert(kind: GemBalanceAlertKind.low);
 
 void main() {
+  testWidgets(
+    'root prompt follows services replaced after environment switch',
+    (tester) async {
+      final session = MemoryUserSessionStore();
+      await session.saveUid('u');
+      await session.saveAuthToken('token');
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: session,
+      );
+      final navigatorKey = GlobalKey<NavigatorState>();
+      late BuildContext builderContext;
+      var presentations = 0;
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder: (context, child) {
+              builderContext = context;
+              return GemBalancePromptHost(
+                controller: AppServicesScope.of(context).balancePrompts,
+                navigatorKey: navigatorKey,
+                present: (_, _) async {
+                  presentations++;
+                },
+                child: child!,
+              );
+            },
+            home: const Scaffold(),
+          ),
+        ),
+      );
+      final updated = (await tester.runAsync(
+        () async => AppServicesScope.replaceWithConfig(
+          builderContext,
+          const AppConfig(
+            useMock: true,
+            apiBaseUrl: 'https://changed.test/api/',
+          ),
+        ),
+      ))!;
+      await tester.pumpAndSettle();
+      updated.balancePrompts.report(insufficient, 'token');
+      await tester.pumpAndSettle();
+      expect(presentations, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   test(
     'same asynchronous failure is consumed across socket and recovery reports',
     () async {

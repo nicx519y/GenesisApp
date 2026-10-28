@@ -75,7 +75,7 @@ class GenesisApp extends StatelessWidget {
             },
             builder: (context, child) {
               GenesisL10n.bind(context.l10n);
-              final services = AppServicesScope.read(context);
+              final services = AppServicesScope.of(context);
               // Root overlays and builder decorations sit outside page Material
               // widgets, so they also need the application's default font.
               return RatingPromptHost(
