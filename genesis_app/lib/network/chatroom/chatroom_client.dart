@@ -1,3 +1,4 @@
+import '../gem_balance_alert.dart';
 import '../../utils/llm_generation.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -41,6 +42,8 @@ class ChatroomClient {
        _autoHeartbeat = autoHeartbeat,
        _requestHeaderProvider = requestHeaderProvider,
        _handshakeHeaderSigner = handshakeHeaderSigner;
+
+  GemBalanceAlertHandler? onGemBalanceAlert;
 
   final Uri _wsBaseUri;
   final UserSessionStore _sessionStore;
@@ -124,6 +127,7 @@ class ChatroomClient {
       rethrow;
     }
     final session = ChatroomSession._(
+      onBalanceAlert: (alert) => onGemBalanceAlert?.call(alert, authToken),
       socket: socket,
       worldId: resolvedWorldId,
       locationId: locationId?.trim() ?? '',
@@ -204,6 +208,7 @@ class ChatroomClient {
 class ChatroomSession {
   ChatroomSession._({
     required ChatroomSocket socket,
+    required void Function(GemBalanceAlert) onBalanceAlert,
     required this.worldId,
     required this.locationId,
     required this.userId,
@@ -213,7 +218,8 @@ class ChatroomSession {
     required Duration heartbeatInterval,
     required Duration ackTimeout,
     required bool autoHeartbeat,
-  }) : _socket = socket,
+  }) : _onBalanceAlert = onBalanceAlert,
+       _socket = socket,
        _heartbeatInterval = heartbeatInterval,
        _ackTimeout = ackTimeout,
        _autoHeartbeat = autoHeartbeat {
@@ -226,6 +232,7 @@ class ChatroomSession {
     if (_autoHeartbeat) _startHeartbeat();
   }
 
+  final void Function(GemBalanceAlert) _onBalanceAlert;
   final ChatroomSocket _socket;
   final Duration _heartbeatInterval;
   final Duration _ackTimeout;
@@ -1047,6 +1054,28 @@ class ChatroomSession {
     }
 
     if (!_events.isClosed) {
+      if (event is ChatroomPhoneEvent &&
+          event.type == 'phone.reply.updated' &&
+          event.worldId == worldId &&
+          event.jobStatus == 'failed' &&
+          isGemBalanceFailureCode(event.failureCode)) {
+        _onBalanceAlert(
+          GemBalanceAlert(
+            kind: GemBalanceAlertKind.insufficient,
+            message: event.failure ?? '',
+            occurrenceKey: phoneBalanceOccurrenceKey(worldId, event.requestId!),
+          ),
+        );
+      }
+      if (event is ChatroomBalanceLow) {
+        _onBalanceAlert(
+          GemBalanceAlert(
+            kind: GemBalanceAlertKind.low,
+            balanceCent: event.balanceCent,
+            message: event.message,
+          ),
+        );
+      }
       _events.add(event);
     }
   }
@@ -1170,6 +1199,14 @@ class ChatroomSession {
       }
     }
     if (!_failures.isClosed) {
+      if (isGemBalanceFailureCode(failure.code)) {
+        _onBalanceAlert(
+          GemBalanceAlert(
+            kind: GemBalanceAlertKind.insufficient,
+            message: failure.message,
+          ),
+        );
+      }
       _failures.add(failure);
     }
     if (!_events.isClosed) {

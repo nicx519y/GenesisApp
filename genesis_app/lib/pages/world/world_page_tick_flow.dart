@@ -76,16 +76,6 @@ extension _WorldPageTickFlow on _WorldPageState {
         _setWorldTickWaitOverlayRequested(false);
         _markWorldTickFailed();
         if (_isWorldProgressInsufficientGems(error)) {
-          unawaited(
-            showGemBalancePrompt(
-              context,
-              GemBalanceAlert(
-                kind: GemBalanceAlertKind.insufficient,
-                message: error is ApiException ? error.message : '',
-              ),
-              analyticsTrigger: gemPurchaseSheetTriggerTick,
-            ),
-          );
           return;
         }
       }
@@ -104,7 +94,9 @@ extension _WorldPageTickFlow on _WorldPageState {
   }
 
   bool _isWorldProgressInsufficientGems(Object error) {
-    return error is ApiException && error.code == 21001;
+    return error is ApiException &&
+        error.kind == ApiExceptionKind.business &&
+        isGemBalanceFailureCode(error.code);
   }
 
   void _startWorldTickTracking({bool openEventsAfterDone = false}) {

@@ -3,6 +3,8 @@ part of 'genesis_api.dart';
 abstract class _GenesisApiContext {
   Future<String> _ensureUid();
 
+  GemBalanceAlertHandler? onGemBalanceAlert;
+
   _GenesisApiContext({
     ApiClient? apiClient,
     ApiClient? gatewayApiClient,
@@ -151,6 +153,22 @@ abstract class _GenesisApiContext {
   Object? _processGenesisResponse(ApiResponse response) {
     final data = _defaultGenesisProcessor(response);
     _throwIfSessionExpired(response);
+    final envelope = response.data;
+    if (envelope is Map && isGemBalanceFailureCode(envelope['err_no'])) {
+      onGemBalanceAlert?.call(
+        GemBalanceAlert(
+          kind: GemBalanceAlertKind.insufficient,
+          message: asString(envelope['err_msg']),
+          analyticsTrigger: response.uri.path == '/api/v1/world/tick'
+              ? 'tick_no_balance'
+              : null,
+        ),
+        response.requestAuthorization,
+      );
+      // Preserve the envelope: callers still handle rejection and drafts.
+      return data;
+    }
+    _reportPhoneReplyBalance(response);
     if (_isChatroomReplyActionResponse(response.uri)) {
       final envelope = response.data;
       if (envelope is Map &&
@@ -170,6 +188,40 @@ abstract class _GenesisApiContext {
       return data;
     }
     return data;
+  }
+
+  // Only recovery for a specific pending request may prompt. Browsing old
+  // history must not reopen payment sheets for historical failures.
+  void _reportPhoneReplyBalance(ApiResponse response) {
+    if (response.uri.path != '/aitown-chat/api/v1/phone/messages') return;
+    final requestId = response.uri.queryParameters['client_request_id'];
+    final worldId = response.uri.queryParameters['world_id'];
+    if (requestId == null || requestId.isEmpty || worldId == null) return;
+    final envelope = response.data;
+    if (envelope is! Map || envelope['err_no'] != 0) return;
+    final data = envelope['data'];
+    final rows = data is Map ? data['list'] : null;
+    if (rows is! List) return;
+    for (final row in rows) {
+      if (row is! Map ||
+          row['world_id'] != worldId ||
+          row['client_request_id'] != requestId ||
+          row['reply_status'] != 'failed') {
+        continue;
+      }
+      final failure = row['failure'];
+      if (failure is! Map || !isGemBalanceFailureCode(failure['code'])) {
+        continue;
+      }
+      onGemBalanceAlert?.call(
+        GemBalanceAlert(
+          kind: GemBalanceAlertKind.insufficient,
+          message: asString(failure['message']),
+          occurrenceKey: phoneBalanceOccurrenceKey(worldId, requestId),
+        ),
+        response.requestAuthorization,
+      );
+    }
   }
 
   bool _isChatroomReplyActionResponse(Uri uri) {

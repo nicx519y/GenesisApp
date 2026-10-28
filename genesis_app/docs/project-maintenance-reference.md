@@ -94,6 +94,8 @@ Gateway 接入规则：
 - Gateway 自身接口走 `/apix/...`；`time/challenge/register/heartbeat/signature/verify` 等诊断和注册接口不要误迁移到 `/api/...`。
 - 公共 header 不再发送 `app-platform`、`device-id`、`app-id`、`app-version`；公共 `user-agent` 为系统名 + 系统版本。签名内部的 `X-App-Version` 来自原生包版本，改 `pubspec.yaml` 后必须重新 build/install。
 
+余额弹窗统一由 `GenesisApi` 响应入口和 `ChatroomClient` 接收入口上报到 `AppServices.balancePrompts`，`GenesisApp` 根部的 `GemBalancePromptHost` 展示。新业务使用这两个公共网络入口即可自动接入，无需页面绑定；业务层仍负责失败状态与草稿回滚。控制器验证请求／连接凭证，合并同时触发，后台延迟到前台，账号／环境切换丢弃旧提示。仅结构化 `3001`／`21001`、异步 `failure.code=insufficient_balance` 与 `balance_low` 触发，不匹配错误文案；Tick 保留 `tick_no_balance` 埋点。
+
 Chatroom WebSocket/HTTP 另有独立契约：
 
 - WebSocket 文档：`docs/chatroom-websocket-api.md`
@@ -127,7 +129,7 @@ WebSocket 当前协议规则：
 - `HomePage`：首页 feed 和我的 world 卡片入口，默认 App 首屏。列表/卡片展示字段来自 `GenesisApi` 对 v1/home 和 world/origin 数据的映射。
 - `OriginPage`：Origin 模板列表和模板卡片入口。卡片组件在 `lib/components/origin/origin_item_card.dart`，列表组合在 `lib/pages/origin/origin_page.dart`。
 - `OriginWorldPage`：Origin 详情/预览页，不等同于已加入 world。复用 `WorldDetailsPageScaffold`、`WorldDetailsShell`、`WorldMap`、`WorldTickEventItem`；Launch 通过 `showOriginRoleLaunchSheet` 选择角色后创建/进入 world。Origin inline chat 是 launch-only 预览，不应显示真实连接状态。
-- `WorldPage`：已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
+- `WorldPage`：监听账号会话变更，登录后重新读取当前 UID 和 World Detail，以服务端 `relation_status` 更新底部操作；交互登录不自动申请或 Tick。旧账号详情响应不得覆盖新会话，进行中的详情请求结束后补做会话刷新；同时释放旧聊天室和小手机会话，重新获取当前账号的音乐租约，避免引用已释放的播放器。已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
 - `LocationChatPage`：地点聊天室页。页面可以从 world drill-down 打开，但只有 leaf location 才允许 `join`/`leave`。非 leaf 只展示页面/地图层级，不产生聊天室副作用。
 - LocationChat 模型入口在页面激活且有真实 `modelWorldId` 时读取用户模型缓存；编码或名称缺失时先复用当前 World 的模型目录，没有目录再查询 `/api/v1/gem/model/list`。编码缺失时使用响应的 `selected_model_code`，同步保存编码及名称；有完整用户模型缓存时不额外请求，未激活或无完整登录会话时不查询，迟到响应不覆盖后续选择或其他账号。
 - `ChatPage`：私信会话页。会话列表和消息缓存由 `DirectMessageConversationStore`、`DirectMessageMessageStore` 以及 `lib/network/direct_message_database.dart` 管理。
@@ -497,3 +499,5 @@ HTTP 映射层的图片规则：
 - 证据保存在 `build/release-evidence/<UTC时间>/`：APK、最终 Manifest、实际解析的 Android 依赖、Git SHA、工作区差异及未跟踪源文件、Flutter 版本、原生 mapping、Dart symbols 和哈希。Crashlytics 同步记录构建 SHA、Flutter 版本和工作区差异哈希。
 - 不传版本参数时沿用工程版本；`9.9.9+999` 仅用于本地构建验证，记录会标为占位版本。脚本不安装、不上传、不发布；正式发布需使用正式版本与干净的已提交代码，并保存对应证据目录。
 - Manifest 存在不代表原生启动异常已修复。Samsung Android 13 冷启动、后台启动和覆盖安装，以及 Android 15 输入法仍需单独真机验证。上线后按新版本使用量核对 24 小时和 7 天事件，不能把旧包事件或新包暂未上报当作结论。
+
+- Chat 与 MiniPhone 收到关联发送请求的余额不足失败后，移除本人气泡并将正文恢复到空输入框，不显示失败感叹号，不覆盖新草稿；公共 Toast 与充值面板继续统一展示。MiniPhone AI 源消息仅异步 completed 后写本地聊天库，pending/generating/failed 不写；恢复请求日志与聊天库分离。服务端是否保留源消息仍由正式服务端契约决定。

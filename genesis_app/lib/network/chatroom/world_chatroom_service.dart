@@ -1,3 +1,5 @@
+import '../gem_balance_alert.dart';
+export '../gem_balance_alert.dart';
 import 'location_chat_send_gate.dart';
 import '../../utils/llm_generation.dart';
 import 'dart:async';
@@ -141,20 +143,6 @@ class ChatroomSendHandle {
   final String clientMsgId;
   final Future<ChatroomSendReceipt> receipt;
   final Future<WorldChatroomMessage> canonicalMessage;
-}
-
-enum GemBalanceAlertKind { insufficient, low }
-
-class GemBalanceAlert {
-  const GemBalanceAlert({
-    required this.kind,
-    this.balanceCent = 0,
-    this.message = '',
-  });
-
-  final GemBalanceAlertKind kind;
-  final int balanceCent;
-  final String message;
 }
 
 class _LocationMessageGap {

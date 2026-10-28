@@ -25,7 +25,8 @@ class MiniPhoneLiveChat extends StatefulWidget {
   State<MiniPhoneLiveChat> createState() => _MiniPhoneLiveChatState();
 }
 
-class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
+class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
+    with WidgetsBindingObserver {
   final coordinator = LocationChatScrollCoordinator();
   final input = TextEditingController();
   final focus = FocusNode();
@@ -38,6 +39,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   String? owner;
   ({String message, String? replyRequestId})? _shownError;
   bool _loadingHistory = false;
+  bool _resendingFailedMessage = false;
   int _accountGeneration = 0;
   int _latestMessageId = 0;
   final _seenMessages = <int>{};
@@ -47,15 +49,17 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     owner = store.uid;
     _accountGeneration = store.accountGeneration;
     coordinator.enter();
     store.addListener(_changed);
     coordinator.addListener(_changed);
     coordinator.controller.addListener(_scroll);
-    input.addListener(_changed);
+    input.addListener(_inputChanged);
     focus.addListener(_focus);
     input.text = store.drafts[widget.person.id] ?? '';
+    store.messagesController.restoredBalanceDrafts.remove(widget.person.id);
     final draft = store.waiting(widget.person.id);
     if (draft != null && !draft.accepted) input.text = draft.content;
     unawaited(
@@ -64,6 +68,18 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       }),
     );
     unawaited(_loadInitialMessages(_accountGeneration));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Register for route visibility changes, including returning from settings.
+    ModalRoute.isCurrentOf(context);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) _changed();
   }
 
   Future<void> _loadInitialMessages(int generation) async {
@@ -94,6 +110,11 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     }
   }
 
+  void _inputChanged() {
+    store.drafts[widget.person.id] = input.text;
+    _changed();
+  }
+
   void _changed() {
     if (_accountGeneration != store.accountGeneration) {
       _accountGeneration = store.accountGeneration;
@@ -111,6 +132,15 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
       scheduleMicrotask(() {
         if (mounted) unawaited(_loadInitialMessages(generation));
       });
+    }
+    final restored = store.messagesController.restoredBalanceDrafts.remove(
+      widget.person.id,
+    );
+    if (restored != null && input.text.isEmpty) {
+      input.value = TextEditingValue(
+        text: restored,
+        selection: TextSelection.collapsed(offset: restored.length),
+      );
     }
     _syncReplies();
     if (store.uid != owner) {
@@ -179,7 +209,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   ({String message, String? replyRequestId})? get _errorNotice {
     final id = widget.person.id;
     final sendError = store.errors['dm:$id'];
-    if (sendError != null) {
+    if (sendError != null && !store.hasDmBalanceFailure(id)) {
       return (message: sendError, replyRequestId: null);
     }
     // A new send owns its feedback. Do not let an old history/recovery error
@@ -235,6 +265,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     final text = input.text;
     final waiting = store.waiting(widget.person.id);
     if (!ready ||
+        _resendingFailedMessage ||
         text.trim().isEmpty ||
         _revealQueue.isNotEmpty ||
         store.busy.contains('dm:${widget.person.id}') ||
@@ -271,8 +302,50 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
     // Keep focus and the existing keyboard, including while waiting for a reply.
   }
 
+  Future<void> _resendFailedMessage(ChatMessageVm message) async {
+    final charId = widget.person.id;
+    if (!ready ||
+        _resendingFailedMessage ||
+        _revealQueue.isNotEmpty ||
+        store.busy.contains('dm:$charId') ||
+        store.waiting(charId) != null) {
+      return;
+    }
+    final source = store
+        .history(charId)
+        .where(
+          (m) =>
+              m.requestId == message.clientMsgId &&
+              m.senderType == 'user' &&
+              m.senderId == store.uid &&
+              m.replyStatus == 'failed',
+        )
+        .firstOrNull;
+    final rejected = store.pending['dm:$charId'];
+    final failedAttempt =
+        rejected?.id == message.clientMsgId && rejected!.rejected
+        ? rejected
+        : null;
+    if (source == null && failedAttempt == null) return;
+    _resendingFailedMessage = true;
+    try {
+      _follow();
+      await store.write(
+        'dm',
+        charId,
+        source?.content ?? failedAttempt!.content,
+        retryRootId: store.messagesController.bubbleRequestId(
+          message.clientMsgId,
+        ),
+      );
+    } finally {
+      _resendingFailedMessage = false;
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _revealTimer?.cancel();
     store.removeListener(_changed);
     coordinator.removeListener(_changed);
@@ -287,55 +360,80 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
   @override
   Widget build(BuildContext context) {
     final person = widget.person, waiting = store.waiting(person.id);
-    final visibleMessages = store
-        .history(person.id)
+    final visibleMessages = store.messagesController
+        .displayHistory(person.id)
         .where((m) => !_revealQueue.contains(m.id))
         .toList();
-    final rows = visibleMessages
-        .map(
-          (m) => ChatMessageVm(
-            localId:
-                m.senderType == 'user' &&
-                    m.senderId == store.uid &&
-                    m.requestId != null
-                ? 'phone:request:${m.requestId}'
-                : 'phone:${m.id}',
-            senderId: m.senderId,
-            senderName: m.senderId == store.uid
-                ? context.l10n.miniPhoneYou
-                : person.name,
-            avatarUrl: m.senderId == store.uid
-                ? store.person(m.senderId, type: 1).avatar
-                : person.avatar,
-            text: m.content,
-            currentTime: m.currentTime,
-            isMe: m.senderType == 'user' && m.senderId == store.uid,
-            status: 'sent',
-          ),
-        )
-        .toList();
+    final rows = visibleMessages.map((m) {
+      final replyStatus = store.messagesController.replyStatusFor(
+        m.requestId,
+        m.replyStatus,
+      );
+      return ChatMessageVm(
+        localId:
+            m.senderType == 'user' &&
+                m.senderId == store.uid &&
+                m.requestId != null
+            ? 'phone:request:${store.messagesController.bubbleRequestId(m.requestId!)}'
+            : 'phone:${m.id}',
+        clientMsgId: m.requestId ?? '',
+        senderId: m.senderId,
+        senderName: m.senderId == store.uid
+            ? context.l10n.miniPhoneYou
+            : person.name,
+        avatarUrl: m.senderId == store.uid
+            ? store.person(m.senderId, type: 1).avatar
+            : person.avatar,
+        text: m.content,
+        currentTime: m.currentTime,
+        isMe: m.senderType == 'user' && m.senderId == store.uid,
+        status:
+            m.senderType == 'user' &&
+                m.senderId == store.uid &&
+                replyStatus == 'failed'
+            ? 'failed'
+            : m.senderType == 'user' &&
+                  m.senderId == store.uid &&
+                  (replyStatus == 'pending' || replyStatus == 'generating')
+            ? 'sending'
+            : 'sent',
+      );
+    }).toList();
     for (final outgoing in store.outgoingDm(person.id)) {
       final row = ChatMessageVm(
-        localId: 'phone:request:${outgoing.id}',
+        localId:
+            'phone:request:${store.messagesController.bubbleRequestId(outgoing.id)}',
         clientMsgId: outgoing.id,
         senderId: store.uid ?? '',
         senderName: context.l10n.miniPhoneYou,
         avatarUrl: store.person(store.uid ?? '', type: 1).avatar,
         text: outgoing.content,
         isMe: true,
-        status: outgoing.accepted
+        status: outgoing.rejected
+            ? 'failed'
+            : store.messagesController.replyStatusFor(outgoing.id, null) ==
+                  'completed'
             ? 'sent'
+            : outgoing.accepted
+            ? (store.messagesController.isPlayerChat(person.id)
+                  ? 'sent'
+                  : 'sending')
             : outgoing.uncertain
             ? context.l10n.miniPhoneAwaitingConfirmation
             : 'sending',
       );
-      final reply = visibleMessages
-          .where((m) => m.requestId == outgoing.id)
-          .firstOrNull;
-      final replyIndex = reply == null
-          ? -1
-          : rows.indexWhere((m) => m.localId == 'phone:${reply.id}');
-      rows.insert(replyIndex < 0 ? rows.length : replyIndex, row);
+      final existingIndex = rows.indexWhere((m) => m.localId == row.localId);
+      if (existingIndex >= 0) {
+        rows[existingIndex] = row;
+      } else {
+        final reply = visibleMessages
+            .where((m) => m.requestId == outgoing.id)
+            .firstOrNull;
+        final replyIndex = reply == null
+            ? -1
+            : rows.indexWhere((m) => m.localId == 'phone:${reply.id}');
+        rows.insert(replyIndex < 0 ? rows.length : replyIndex, row);
+      }
     }
     // These opening rows stay above subsequent messages for this open chat.
     // They never enter message storage, unread counts or World History.
@@ -388,6 +486,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat> {
                   child: LocationChatAnchoredMessageList(
                     coordinator: coordinator,
                     messages: rows,
+                    onFailedMessageTap: _resendFailedMessage,
                     messageDecorator: (message, previous, child) {
                       if (message.localId !=
                           'phone:empty-contact:${person.id}') {

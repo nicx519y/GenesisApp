@@ -62,6 +62,9 @@ class PhoneMessage {
       deliveredAt = phoneText(j['delivered_at']),
       requestId = j['client_request_id'] as String?,
       replyStatus = j['reply_status'] as String?,
+      failureCode = j['failure'] == null
+          ? null
+          : phoneText(phoneMap(j['failure'])['code']),
       failure = j['failure'] == null
           ? null
           : phoneText(phoneMap(j['failure'])['message']) {
@@ -81,19 +84,20 @@ class PhoneMessage {
   PhoneMessage.withReplyState(
     PhoneMessage source,
     this.replyStatus,
-    this.failure,
-  ) : id = source.id,
-      sessionId = source.sessionId,
-      worldId = source.worldId,
-      senderType = source.senderType,
-      senderId = source.senderId,
-      content = source.content,
-      currentTime = source.currentTime,
-      deliveredAt = source.deliveredAt,
-      requestId = source.requestId;
+    this.failure, {
+    this.failureCode,
+  }) : id = source.id,
+       sessionId = source.sessionId,
+       worldId = source.worldId,
+       senderType = source.senderType,
+       senderId = source.senderId,
+       content = source.content,
+       currentTime = source.currentTime,
+       deliveredAt = source.deliveredAt,
+       requestId = source.requestId;
   final int id, sessionId;
   final String worldId, senderType, senderId, content, currentTime, deliveredAt;
-  final String? requestId, replyStatus, failure;
+  final String? requestId, replyStatus, failure, failureCode;
 
   Map<String, dynamic> toJson() => {
     'message_id': id,
@@ -107,7 +111,9 @@ class PhoneMessage {
     'delivered_at': deliveredAt,
     'client_request_id': requestId,
     'reply_status': replyStatus,
-    'failure': failure == null ? null : {'message': failure},
+    'failure': failure == null
+        ? null
+        : {'message': failure, if (failureCode != null) 'code': failureCode},
   };
 }
 

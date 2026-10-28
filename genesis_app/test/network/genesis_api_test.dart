@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'dart:async';
@@ -116,6 +117,105 @@ GenesisApi _apiWith(
 }
 
 void main() {
+  test(
+    'phone recovery balance failure reports only the requested pending operation',
+    () async {
+      final store = MemoryUserSessionStore();
+      await store.saveUid('u');
+      await store.saveAuthToken('token');
+      final api = GenesisApi(
+        sessionStore: store,
+        appHeaderProvider: () async => {},
+        transport: _FakeTransport(
+          handler: (_) => TransportResponse(
+            statusCode: 200,
+            headers: {},
+            body: jsonEncode({
+              'err_no': 0,
+              'data': {
+                'list': [
+                  {
+                    'message_id': 1,
+                    'dm_session_id': 9,
+                    'world_id': 'w',
+                    'sender_type': 'user',
+                    'sender_id': 'u',
+                    'type': 'text',
+                    'content': 'hello',
+                    'current_time': '',
+                    'delivered_at': '',
+                    'client_request_id': 'r',
+                    'reply_status': 'failed',
+                    'failure': {
+                      'code': 'insufficient_balance',
+                      'message': 'failed',
+                    },
+                  },
+                ],
+                'pn': 1,
+                'rn': 10,
+                'total': 1,
+              },
+            }),
+          ),
+        ),
+      );
+      final alerts = <GemBalanceAlert>[];
+      api.onGemBalanceAlert = (alert, _) => alerts.add(alert);
+      await api.miniPhone.messages('w', 9);
+      await api.miniPhone.messages('w', 9, clientRequestId: 'other');
+      expect(alerts, isEmpty);
+      final page = await api.miniPhone.messages('w', 9, clientRequestId: 'r');
+      expect(alerts.single.occurrenceKey, phoneBalanceOccurrenceKey('w', 'r'));
+      expect(page.list.single.failureCode, 'insufficient_balance');
+    },
+  );
+
+  test(
+    'all HTTP domains report balance errors before preserving rejection',
+    () async {
+      final store = MemoryUserSessionStore();
+      await store.saveUid('u');
+      await store.saveAuthToken('token');
+      var code = 3001;
+      final alerts = <GemBalanceAlert>[];
+      final credentials = <String?>[];
+      final api = GenesisApi(
+        sessionStore: store,
+        appHeaderProvider: () async => {},
+        transport: _FakeTransport(
+          handler: (_) => TransportResponse(
+            statusCode: 200,
+            headers: {},
+            body: jsonEncode({'err_no': code, 'err_msg': 'failed', 'data': {}}),
+          ),
+        ),
+      );
+      api.onGemBalanceAlert = (alert, token) {
+        alerts.add(alert);
+        credentials.add(token);
+      };
+      for (final value in [3001, 21001, 2061]) {
+        code = value;
+        for (final request in <Future<Object?> Function()>[
+          () => api.miniPhone.send('w', 'c', 'request', 'hello'),
+          () => api.v1.world.tick(worldId: 'w'),
+          () => api.v1.gem.wallet(),
+        ]) {
+          await expectLater(request(), throwsA(isA<ApiException>()));
+        }
+      }
+      expect(alerts, hasLength(6));
+      expect(credentials, everyElement('Bearer token'));
+      expect(alerts[1].analyticsTrigger, 'tick_no_balance');
+      expect(alerts[4].analyticsTrigger, 'tick_no_balance');
+      expect(
+        alerts.map((a) => a.kind),
+        everyElement(GemBalanceAlertKind.insufficient),
+      );
+    },
+  );
+
   test('AppConfig switches production and mock network environments', () {
     expect(const AppConfig().useMock, false);
     expect(const AppConfig(apiEnvironment: 'mock').useMock, true);

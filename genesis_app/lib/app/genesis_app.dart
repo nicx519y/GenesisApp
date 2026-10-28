@@ -1,3 +1,4 @@
+import '../components/gems/gem_balance_prompt_host.dart';
 import '../components/privacy/privacy_choices_dialog.dart';
 import '../components/common/rating_prompt_host.dart';
 import '../components/common/pending_rating_reward_host.dart';
@@ -74,7 +75,7 @@ class GenesisApp extends StatelessWidget {
             },
             builder: (context, child) {
               GenesisL10n.bind(context.l10n);
-              final services = AppServicesScope.read(context);
+              final services = AppServicesScope.of(context);
               // Root overlays and builder decorations sit outside page Material
               // widgets, so they also need the application's default font.
               return RatingPromptHost(
@@ -111,7 +112,11 @@ class GenesisApp extends StatelessWidget {
                                         .personalization
                                         .blocksOtherPrompts,
                                     navigatorKey: genesisNavigatorKey,
-                                    child: child ?? const SizedBox.shrink(),
+                                    child: GemBalancePromptHost(
+                                      controller: services.balancePrompts,
+                                      navigatorKey: genesisNavigatorKey,
+                                      child: child ?? const SizedBox.shrink(),
+                                    ),
                                   ),
                                 ),
                               ),

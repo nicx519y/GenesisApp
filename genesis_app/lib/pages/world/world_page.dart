@@ -23,7 +23,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/page_presentation_scope.dart';
-import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
@@ -151,7 +150,6 @@ class _WorldPageState extends State<WorldPage>
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
-  StreamSubscription<GemBalanceAlert>? _worldChatroomBalanceSub;
   StreamSubscription<ChatroomWorldSummaryUpdated>? _worldSummaryUpdateSub;
   Future<void>? _worldChatroomAuthRecovery;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
@@ -176,6 +174,8 @@ class _WorldPageState extends State<WorldPage>
   Object? _tilemapDisplayError;
   bool _coverTilemapAfterInitialChat = false;
   bool _pollInFlight = false;
+  AppServices? _worldSessionServices;
+  bool _worldSessionRefreshPending = false;
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
   int _worldTickProgressFailureRevision = 0;
@@ -543,6 +543,16 @@ class _WorldPageState extends State<WorldPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final services = AppServicesScope.read(context);
+    if (!identical(_worldSessionServices, services)) {
+      final replacing = _worldSessionServices != null;
+      _worldSessionServices?.sessionRevision.removeListener(
+        _onWorldSessionChanged,
+      );
+      _worldSessionServices = services;
+      services.sessionRevision.addListener(_onWorldSessionChanged);
+      if (replacing) _onWorldSessionChanged();
+    }
     if (!_currentUidRequested) {
       _currentUidRequested = true;
       final currentUidLoad = _loadCurrentUid();
@@ -551,8 +561,31 @@ class _WorldPageState extends State<WorldPage>
     }
   }
 
+  void _onWorldSessionChanged() {
+    if (!mounted) return;
+    // Account-scoped music and transport have been reset by the services.
+    // Replace the World lease so its entry cannot reuse the disposed player.
+    _stopWorldChatroom();
+    _miniPhoneSession.dispose();
+    _setWorldPageState(() {
+      _miniPhoneSession = MiniPhoneSession.forWorld(context, widget.wid);
+    });
+    _currentUidLoad = _loadCurrentUid();
+    unawaited(_currentUidLoad);
+    if (widget.wid.isEmpty) return;
+    // Do not lose the authenticated refresh behind an anonymous in-flight read.
+    _worldSessionRefreshPending = true;
+    if (!_pollInFlight) {
+      _worldSessionRefreshPending = false;
+      unawaited(_fetchWorld(isInitial: _world == null));
+    }
+  }
+
   @override
   void dispose() {
+    _worldSessionServices?.sessionRevision.removeListener(
+      _onWorldSessionChanged,
+    );
     _presentation.dispose();
     _miniPhoneDockController.dispose();
     _miniPhoneSession.dispose();
@@ -573,7 +606,6 @@ class _WorldPageState extends State<WorldPage>
     WorldDetailsStatusBarOverride.clearStyle();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
-    unawaited(_worldChatroomBalanceSub?.cancel());
     unawaited(_worldSummaryUpdateSub?.cancel());
     final chatroom = _worldChatroom;
     _worldChatroom = null;

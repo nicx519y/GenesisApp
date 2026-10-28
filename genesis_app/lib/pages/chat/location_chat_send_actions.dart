@@ -745,7 +745,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         if (!receiptReceived && _ackLoadingClientMsgId == clientMsgId) {
           _clearAckLoading();
         }
-        if (!receiptReceived && service.isSendAcceptanceUnknown(clientMsgId)) {
+        if (e is ChatroomFailureEvent && isChatroomBalanceFailureCode(e.code)) {
+          _restoreBalanceRejectedMessage(clientMsgId);
+        } else if (!receiptReceived &&
+            service.isSendAcceptanceUnknown(clientMsgId)) {
           localMessage.status = 'unknown';
           localMessage.error = null;
         } else if (!receiptReceived) {
@@ -775,6 +778,28 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         details: {'clientMsgId': clientMsgId, 'error': '$e'},
       );
     }
+  }
+
+  void _restoreBalanceRejectedMessage(String clientMsgId) {
+    if (clientMsgId.isEmpty) return;
+    final rejected = _messages
+        .where((m) => m.isMe && m.clientMsgId == clientMsgId)
+        .toList();
+    if (rejected.isEmpty) return;
+    final source = rejected.first;
+    _messages.removeWhere((m) => rejected.contains(m));
+    for (final message in rejected) {
+      _localMessageOrder.remove(message.localId);
+    }
+    if (isGenesisUgcTextBlank(_textController.serializedText)) {
+      _composerMessageType = source.messageType;
+      _textController.setSerializedText(source.text);
+      _hasDraftText = true;
+    }
+    if (_preAckWaitingClientMsgId == clientMsgId) {
+      _clearPreAckWaiting(resetPosition: true);
+    }
+    if (_ackLoadingClientMsgId == clientMsgId) _clearAckLoading();
   }
 
   Future<void> _markRecentWorldChatLocation() async {

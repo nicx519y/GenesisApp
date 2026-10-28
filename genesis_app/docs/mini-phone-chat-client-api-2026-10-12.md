@@ -44,7 +44,7 @@ Chat 手机接口前缀：
 | `2061` | 世界访问或角色权限不足 |
 | `2062` | 请求冲突；可能是同请求 ID 内容不同，也可能是 AI 会话仍在处理或历史快照发生变化。先刷新会话/原请求状态，不盲目换 ID 重发 |
 
-API、网关或上游权限错误也可能透出，表格不是全部错误码白名单。AI 私聊在接受后才进行预占/生成，接受成功不代表余额已扣除或 AI 必定回复；后续失败见 `reply_status/failure`。当前手机失败对象固定为 `{"message":"Reply generation failed."}`，不含内部原因。
+API、网关或上游权限错误也可能透出，表格不是全部错误码白名单。AI 私聊在接受后才进行预占/生成，接受成功不代表余额已扣除或 AI 必定回复；后续失败见 `reply_status/failure`。2026-10-28 真机运行链路修订：`phone.reply.updated` 的余额失败对象已包含 `{"code":"insufficient_balance","message":"服务端本地化错误信息"}`，外层 `err_no` 既观察到 `0`，也观察到 `3001`；旧版仅 message 的失败仍需兼容。客户端保留可选 code，不通过 message 推断失败原因。此修订由真实 WS 响应确认；HTTP 历史中的同结构解析已兼容，尚需真实断线恢复验收。
 
 ### 1.3 ID、时间、分页
 
@@ -118,7 +118,7 @@ JavaScript 等客户端须在 JSON 解析、存储、排序和回传全过程保
 | `delivered_at` | string | 消息送达时间，RFC3339 UTC |
 | `client_request_id` | string/null | 本人请求或对应 A 回复的原请求键；自动私聊和玩家互发的接收副本为 null |
 | `reply_status` | string/null | 仅本人发给 AI 的玩家消息有 `pending/generating/completed/failed`；AI 气泡和玩家互发均为 null |
-| `failure` | object/null | 仅 `reply_status=failed` 时为固定 `message` 对象 |
+| `failure` | object/null | 仅 `reply_status=failed` 时包含 `message`，客户端兼容可选 `code`（异步余额通知已观察到 `insufficient_balance`） |
 
 **消息方向必须比较 `sender_id` 与当前登录 UID。** `sender_type=user` 可能是其他玩家发来的消息，不能全部画在本人侧。
 
@@ -609,3 +609,7 @@ Post 通知 payload 示例（event_id 按不透明字符串处理，不拼接/�
 - Chat [会话列表](/Users/cun/work/aitown-chat/service/svc_phone_query/sessions.go)、[消息投影与状态](/Users/cun/work/aitown-chat/service/svc_phone_query/mapper.go)、[时间格式](/Users/cun/work/aitown-chat/components/utils/phone_query.go)、[私聊发送](/Users/cun/work/aitown-chat/service/svc_phone_dm/send.go)。
 - Chat [玩家互发增量](/Users/cun/work/aitown-chat/docs/phone-player-dm-client-delta.md)、[自动反应增量](/Users/cun/work/aitown-chat/docs/miniphone-auto-reactions-client-delta.md)、[通知与相册增量](/Users/cun/work/aitown-chat/docs/phone-post-notifications-album-client.md)。
 - API [图片上传](/Users/cun/work/aitown-api/docs/openapi/upload_image.yaml)、[读取背景](/Users/cun/work/aitown-api/docs/openapi/world_miniphoneinfo.yaml)、[设置背景](/Users/cun/work/aitown-api/docs/openapi/world_setminiphonebackground.yaml)。
+
+### 2026-10-28 客户端余额失败回滚与服务端待调整项
+
+客户端 AI 源消息在 pending/generating 阶段仅保留内存投影及请求恢复日志，completed 后才保存本地聊天历史。余额不足失败撤掉气泡并将正文恢复到空输入框，不保留红色感叹号；普通失败仍保留会话内失败反馈。该客户端行为不改变上文现行服务端契约：服务端仍先保存玩家消息，failed 时保留。产品要求余额不足时服务端也不保存源消息，此项尚未实现/验证；需服务端调整预占与消息提交顺序，并保留请求关联的失败回执及断线查询能力。

@@ -1,4 +1,5 @@
 import '../../utils/llm_generation.dart';
+import '../gem_balance_alert.dart';
 import '../mini_phone/mini_phone_models.dart';
 import 'dart:convert';
 

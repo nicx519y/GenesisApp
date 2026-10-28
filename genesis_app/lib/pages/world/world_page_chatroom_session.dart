@@ -40,10 +40,6 @@ extension _WorldPageChatroomSession on _WorldPageState {
       shouldShow: (failure) => failure.code != 'snapshot_failed',
       onFailure: _handleWorldChatroomFailure,
     );
-    _worldChatroomBalanceSub = bindGemBalancePrompt(
-      context,
-      service.balanceAlerts,
-    );
     _worldSummaryUpdateSub = service.summaryUpdates.listen((event) {
       if (!mounted ||
           !identical(_worldChatroom, service) ||
@@ -172,11 +168,9 @@ extension _WorldPageChatroomSession on _WorldPageState {
     _historyViewCache.detachSource();
     await _worldChatroomSub?.cancel();
     await _worldChatroomFailureSub?.cancel();
-    await _worldChatroomBalanceSub?.cancel();
     await _worldSummaryUpdateSub?.cancel();
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
-    _worldChatroomBalanceSub = null;
     _worldSummaryUpdateSub = null;
     if (service != null) await service.dispose();
   }
@@ -475,11 +469,9 @@ extension _WorldPageChatroomSession on _WorldPageState {
     if (chatroom == null) return;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
-    unawaited(_worldChatroomBalanceSub?.cancel());
     unawaited(_worldSummaryUpdateSub?.cancel());
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
-    _worldChatroomBalanceSub = null;
     _worldSummaryUpdateSub = null;
     _worldChatroom = null;
     _deferredBottomSheetMapChatroomState = null;

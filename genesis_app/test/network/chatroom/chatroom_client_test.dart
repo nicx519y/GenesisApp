@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -14,6 +15,137 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('phone async failure code reaches global balance handler', () async {
+    final socket = _FakeChatroomSocket();
+    final client = await _client(
+      _FakeChatroomTransport(socket),
+      autoHeartbeat: false,
+      handshakeHeaderSigner: _v2HandshakeSigner,
+    );
+    final alerts = <GemBalanceAlert>[];
+    client.onGemBalanceAlert = (alert, _) => alerts.add(alert);
+    final session = await client.connect(worldId: 'world-1');
+    addTearDown(session.close);
+    for (final code in [null, 'generation_failed', 'insufficient_balance']) {
+      socket.serverFrame('phone.reply.updated', {
+        'stream_type': '',
+        'ts': 1,
+        'world_id': 'world-1',
+        'err_no': 0,
+        'payload': {
+          'event_id': 'reply:$code',
+          'dm_session_id': 451,
+          'message_id': 1253,
+          'client_request_id': 'request',
+          'job_status': 'failed',
+          'failure': {'message': '餘額不足，請儲值', if (code != null) 'code': code},
+        },
+      });
+    }
+    await _tick();
+    expect(alerts, hasLength(1));
+    expect(
+      alerts.single.occurrenceKey,
+      phoneBalanceOccurrenceKey('world-1', 'request'),
+    );
+  });
+
+  test(
+    'phone balance failure with outer 3001 remains a typed event and opens global alert',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final alerts = <GemBalanceAlert>[];
+      client.onGemBalanceAlert = (alert, token) {
+        expect(token, 'token-1');
+        alerts.add(alert);
+      };
+      final session = await client.connect(worldId: 'world-1');
+      addTearDown(session.close);
+      final events = <ChatroomEvent>[];
+      final subscription = session.events.listen(events.add);
+      addTearDown(subscription.cancel);
+      socket.serverFrame('phone.reply.updated', {
+        'stream_type': '',
+        'ts': 1,
+        'world_id': 'world-1',
+        'err_no': 3001,
+        'err_msg': '餘額不足，請儲值',
+        'payload': {
+          'event_id': 'phone:reply:1253:failed',
+          'dm_session_id': 451,
+          'message_id': 1253,
+          'client_request_id': 'request',
+          'job_status': 'failed',
+          'failure': {'code': 'insufficient_balance', 'message': '餘額不足，請儲值'},
+        },
+      });
+      await _tick();
+      expect(
+        events.whereType<ChatroomPhoneEvent>().single.failureCode,
+        'insufficient_balance',
+      );
+      expect(events.whereType<ChatroomFailureEvent>(), isEmpty);
+      expect(alerts.single.kind, GemBalanceAlertKind.insufficient);
+      expect(
+        alerts.single.occurrenceKey,
+        phoneBalanceOccurrenceKey('world-1', 'request'),
+      );
+    },
+  );
+
+  test(
+    'socket balance alerts reach global handler without a page or world service',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final alerts = <GemBalanceAlert>[];
+      client.onGemBalanceAlert = (alert, token) {
+        expect(token, 'token-1');
+        alerts.add(alert);
+      };
+      final session = await client.connect(worldId: 'world-1');
+      addTearDown(() => session.close());
+      socket.serverV2Ack(
+        'balance-request',
+        extra: {'err_no': 3001, 'err_msg': 'failed'},
+      );
+      socket.serverV2Ack(
+        'balance-request',
+        extra: {'err_no': 3001, 'err_msg': 'failed'},
+      );
+      await _tick();
+      expect(alerts, hasLength(1));
+      socket.serverV2Ack(
+        'another-request',
+        extra: {'err_no': 21001, 'err_msg': 'failed'},
+      );
+      socket.serverV2Ack(
+        'unrelated',
+        extra: {'err_no': 2061, 'err_msg': 'failed'},
+      );
+      socket.serverFrame('balance_low', {
+        'world_id': 'world-1',
+        'payload': {'balance_cent': 12, 'message': 'low'},
+      });
+      await _tick();
+      expect(alerts.map((a) => a.kind), [
+        GemBalanceAlertKind.insufficient,
+        GemBalanceAlertKind.insufficient,
+        GemBalanceAlertKind.low,
+      ]);
+      expect(alerts.last.balanceCent, 12);
+    },
+  );
+
   test('envelope retains schema version and event id', () {
     final envelope = ChatroomEnvelope.fromJson({
       'type': 'map_updated',

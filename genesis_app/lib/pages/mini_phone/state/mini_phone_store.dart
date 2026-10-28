@@ -18,6 +18,7 @@ import '../../../network/mini_phone/mini_phone_api.dart';
 import '../../../network/mini_phone/mini_phone_cache.dart';
 import '../../../network/mini_phone/mini_phone_cache_storage.dart';
 import '../../../network/chatroom/chatroom_models.dart';
+import '../../../network/chatroom/chatroom_failure_identity.dart';
 import '../../../network/chatroom/world_chatroom_service.dart';
 import '../../../network/models/world.dart';
 import '../../../network/models/user.dart';
@@ -194,6 +195,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get busy => requests.busy;
   Map<String, int> get _versions => requests.versions;
   final pending = <String, PhoneWrite>{};
+  final _balanceFailures = <String>{};
+
+  bool hasDmBalanceFailure(String charId) => _balanceFailures.contains(charId);
+
   StreamSubscription<ChatroomPhoneEvent>? _events;
   StreamSubscription<WorldChatroomState>? _states;
   Timer? _refreshTimer;
@@ -271,7 +276,11 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         for (final value in jsonDecode(raw) as List) {
           final write = PhoneWrite.fromJson(phoneMap(value));
           pending[write.key] = write;
-          if (write.kind == 'dm' && !write.rejected) {
+          if (write.retryRootId != null) {
+            messagesController.cache.retryRoots[write.id] = write.retryRootId!;
+          }
+          if (write.kind == 'dm' &&
+              (!write.rejected || write.retryRootId != null)) {
             messagesController.outgoing[write.id] = write;
           }
         }
@@ -300,6 +309,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           m.replyStatus!,
           m.failure,
           m.sessionId,
+          failureCode: m.failureCode,
         );
       }
     }
@@ -378,6 +388,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     postAuthorIds = [];
     playerCharIds.clear();
     drafts.clear();
+    messagesController.restoredBalanceDrafts.clear();
     messages.clear();
     details.clear();
     comments.clear();
@@ -396,6 +407,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     pages.clear();
     hasMore.clear();
     errors.clear();
+    _balanceFailures.clear();
     busy.clear();
     _versions.clear();
     messagesController.reads.clear();
@@ -742,6 +754,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     String? image,
     int? replyTo,
     bool retry = false,
+    String? retryRootId,
     MiniPhoneAnalyticsAttempt? analyticsAttempt,
     VoidCallback? onPrepared,
   }) async {
@@ -785,6 +798,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
           content,
           image: image,
           replyTo: replyTo,
+          retryRootId: retryRootId,
         );
     final attempt =
         analyticsAttempt ??
@@ -820,6 +834,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         _current(g) && (kind != 'dm' || identical(pending[key], w));
     var sent = false;
     pending[key] = w;
+    if (w.retryRootId != null) {
+      messagesController.cache.retryRoots[w.id] = w.retryRootId!;
+    }
     if (kind == 'comment') {
       postsController.trackComment(w, person(uid!, type: 1));
     }
@@ -835,6 +852,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     w.rejected = false;
     busy.add(key);
     errors.remove(key);
+    if (kind == 'dm') _balanceFailures.remove(target);
     replyFailures.remove(target);
     messagesController.replyFailureNotices.remove(target);
     _notify();
@@ -847,6 +865,16 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       }
       if (!_current(g)) return false;
       if (!ownsWrite()) return w.accepted;
+      if (w.retryRootId != null) {
+        if (!await messagesController.persistCache()) {
+          throw ApiException(
+            message: GenesisL10n.current.miniPhoneSaveMessagesFailed,
+            kind: ApiExceptionKind.business,
+          );
+        }
+        if (!_current(g)) return false;
+        if (!ownsWrite()) return w.accepted;
+      }
       sent = true;
       switch (kind) {
         case 'dm':
@@ -889,6 +917,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       // A delivery can precede an HTTP failure. Committed evidence wins.
       if (!w.accepted) {
         errors[key] = errorText(e);
+        if (kind == 'dm' &&
+            e is ApiException &&
+            e.kind == ApiExceptionKind.business &&
+            isChatroomBalanceFailureCode('${e.code}')) {
+          _balanceFailures.add(target);
+        }
         if (e is ArgumentError || e is FormatException) {
           w.rejected = true;
         } else if (e is ApiException && e.kind == ApiExceptionKind.business) {
@@ -901,11 +935,21 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         } else {
           w.uncertain = true;
         }
-        if (kind == 'dm' && w.rejected) {
+        if (kind == 'dm' && w.rejected && w.retryRootId == null) {
           messagesController.outgoing.remove(w.id);
+        }
+        if (kind == 'dm' && w.rejected && _balanceFailures.contains(target)) {
+          messagesController.rejectBalanceWrite(w);
         }
         if (kind == 'comment') postsController.updateComment(w);
         await _save();
+        // A rejection can arrive after the chat page was closed.
+        if (_current(g) &&
+            kind == 'dm' &&
+            w.rejected &&
+            (drafts[target]?.isEmpty ?? true)) {
+          drafts[target] = w.content;
+        }
       }
       return w.accepted;
     } finally {
@@ -1022,12 +1066,18 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         event.jobStatus!,
         event.failure,
         event.sessionId!,
+        failureCode: event.failureCode,
       );
       final source = messagesController.cache.messages[event.sourceMessageId];
       final reply = messagesController.replyStates[event.requestId];
       if (source != null && reply != null && source.senderId == uid) {
         messagesController.cache.merge([
-          PhoneMessage.withReplyState(source, reply.status, reply.failure),
+          PhoneMessage.withReplyState(
+            source,
+            reply.status,
+            reply.failure,
+            failureCode: reply.failureCode,
+          ),
         ]);
       }
       final history = messages[event.sessionId];
@@ -1036,7 +1086,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         messages[event.sessionId!] = [
           for (final m in history)
             if (m.id == event.sourceMessageId && m.senderId == uid)
-              PhoneMessage.withReplyState(m, state.status, state.failure)
+              PhoneMessage.withReplyState(
+                m,
+                state.status,
+                state.failure,
+                failureCode: state.failureCode,
+              )
             else
               m,
         ];

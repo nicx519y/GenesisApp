@@ -43,7 +43,6 @@ import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
-import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
 import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';
@@ -651,7 +650,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   StreamSubscription<WorldChatroomState>? _stateSubscription;
   ValueListenable<WorldChatroomLocationMessagesChange>? _locationMessageChanges;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
-  StreamSubscription<GemBalanceAlert>? _balanceAlertSubscription;
   WorldChatroomState _chatroomState = const WorldChatroomState();
   String? _deferredTickLocalId;
   int? _deferredTickPresentationRoundId;

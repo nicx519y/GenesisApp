@@ -23,6 +23,14 @@ class ChatroomPhoneEvent extends ChatroomEvent {
       sourceMessageId = message.type == 'phone.reply.updated'
           ? phoneId(message.payload['message_id'])
           : null,
+      failureCode =
+          message.type == 'phone.reply.updated' &&
+              message.payload['failure'] != null
+          ? phoneText(phoneMap(message.payload['failure'])['code'])
+          : message.type == 'phone.reply.updated' &&
+                isGemBalanceFailureCode(message.errNo)
+          ? message.errNo.toString()
+          : null,
       failure =
           message.type == 'phone.reply.updated' &&
               message.payload['failure'] != null
@@ -31,7 +39,10 @@ class ChatroomPhoneEvent extends ChatroomEvent {
     if (message.streamType.isNotEmpty ||
         worldId.isEmpty ||
         eventId.isEmpty ||
-        message.errNo != 0) {
+        (message.errNo != 0 &&
+            !(type == 'phone.reply.updated' &&
+                jobStatus == 'failed' &&
+                isGemBalanceFailureCode(message.errNo)))) {
       throw const FormatException('Invalid phone event envelope');
     }
     if (type == 'phone.reply.updated' &&
@@ -50,7 +61,7 @@ class ChatroomPhoneEvent extends ChatroomEvent {
     }
   }
   final String type, worldId, eventId;
-  final String? requestId, failure, jobStatus;
+  final String? requestId, failure, failureCode, jobStatus;
   final int? sessionId, sourceMessageId;
   final List<PhoneMessage> messages;
   final PhoneNotification? notification;
