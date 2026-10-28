@@ -4,6 +4,14 @@ extension _WorldPageDetailSync on _WorldPageState {
   Future<void> _fetchWorld({bool isInitial = false}) async {
     if (_pollInFlight) return;
     _pollInFlight = true;
+    final services = AppServicesScope.read(context);
+    final sessionRevision = services.sessionRevision.value;
+    final worldId = widget.wid;
+    bool current() =>
+        mounted &&
+        identical(services, _worldSessionServices) &&
+        services.sessionRevision.value == sessionRevision &&
+        widget.wid == worldId;
     _lastWorldFetchSucceeded = false;
     FirebasePerformanceOperation? requestOperation;
     if (isInitial && !_initialContentRenderCompleted) {
@@ -21,10 +29,8 @@ extension _WorldPageDetailSync on _WorldPageState {
       _initialRequestPerformanceOperation = requestOperation;
     }
     try {
-      final world = await AppServicesScope.read(
-        context,
-      ).api.getWorld(widget.wid);
-      if (!mounted ||
+      final world = await services.api.getWorld(worldId);
+      if (!current() ||
           !identical(_initialRequestPerformanceOperation, requestOperation) &&
               requestOperation != null) {
         unawaited(requestOperation?.cancel());
@@ -46,7 +52,7 @@ extension _WorldPageDetailSync on _WorldPageState {
       unawaited(
         requestOperation?.fail(errorType: firebasePerformanceErrorType(e)),
       );
-      if (!mounted) return;
+      if (!current()) return;
       debugPrint('[WorldPage] load failed wid="${widget.wid}": $e');
       if (isInitial) {
         _setWorldPageState(() {
@@ -55,7 +61,12 @@ extension _WorldPageDetailSync on _WorldPageState {
       }
     } finally {
       _pollInFlight = false;
-      checkLanguageData();
+      if (mounted && _worldSessionRefreshPending) {
+        _worldSessionRefreshPending = false;
+        unawaited(_fetchWorld(isInitial: _world == null));
+      } else {
+        checkLanguageData();
+      }
     }
   }
 

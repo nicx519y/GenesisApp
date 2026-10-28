@@ -1,3 +1,4 @@
+import 'gem_balance_alert.dart';
 import '../l10n/genesis_l10n.dart';
 import 'dart:async';
 

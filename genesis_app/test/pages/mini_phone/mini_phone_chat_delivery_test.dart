@@ -73,57 +73,6 @@ Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('balance rejection while covered is presented after returning', (
-    tester,
-  ) async {
-    final backend = PhoneBackend();
-    final store = await openChat(tester, backend);
-    final navigator = Navigator.of(
-      tester.element(find.byType(MiniPhoneLiveChat)),
-    );
-    unawaited(
-      navigator.push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('Settings')),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    backend.respond = (r) => r.uri.path.endsWith('/dm/send')
-        ? {'err_no': 3001, 'err_msg': 'Balance unavailable', 'data': {}}
-        : null;
-    await tester.runAsync(() => store.write('dm', 'c', 'hello'));
-    await tester.pump();
-    expect(store.dmBalanceNotice('c'), isNotNull);
-    navigator.pop();
-    await tester.pumpAndSettle();
-    expect(store.dmBalanceNotice('c'), isNull);
-    await closeChat(tester, store);
-  });
-
-  testWidgets('background balance rejection waits for foreground', (
-    tester,
-  ) async {
-    final backend = PhoneBackend();
-    final store = await openChat(tester, backend);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    backend.respond = (r) => r.uri.path.endsWith('/dm/send')
-        ? {'err_no': 3001, 'err_msg': 'Balance unavailable', 'data': {}}
-        : null;
-    await tester.runAsync(() => store.write('dm', 'c', 'hello'));
-    await tester.pump();
-    expect(store.dmBalanceNotice('c'), isNotNull);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await flush(tester);
-    await tester.pump();
-    expect(store.dmBalanceNotice('c'), isNull);
-    await closeChat(tester, store);
-  });
-
   testWidgets(
     'late balance rejection restores draft after the chat was closed',
     (tester) async {

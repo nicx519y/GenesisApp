@@ -808,7 +808,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? originMapCompleter;
   final Completer<TransportResponse>? originLaunchCompleter;
   final List<Completer<TransportResponse>>? originLaunchCompleters;
-  final Completer<TransportResponse>? worldDetailCompleter;
+  Completer<TransportResponse>? worldDetailCompleter;
   final Completer<TransportResponse>? worldMapCompleter;
   final Completer<TransportResponse>? chatroomMessagesCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
@@ -36046,6 +36046,105 @@ void main() {
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
   });
 
+  for (final relation in ['owner', 'none']) {
+    testWidgets(
+      'world page refreshes anonymous relation after login to $relation',
+      (tester) async {
+        final transport = _RecordingV1ListTransport(
+          worldRelationStatus: 'anonymous',
+        );
+        final chatroom = _FakeChatroomClient();
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: null,
+          chatroom: chatroom,
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(FilledButton, 'Request'), findsOneWidget);
+        final before = transport.requestsFor('/api/v1/world/detail').length;
+        transport.worldRelationStatus = relation;
+        await services.sessionStore.saveUid('u_test');
+        services.notifySessionChanged();
+        await tester.pumpAndSettle();
+        expect(
+          transport.requestsFor('/api/v1/world/detail').length,
+          greaterThan(before),
+        );
+        expect(
+          find.widgetWithText(
+            FilledButton,
+            relation == 'owner' ? 'Tick now' : 'Request',
+          ),
+          findsOneWidget,
+        );
+        expect(chatroom.connectCount, relation == 'owner' ? 1 : 0);
+        expect(
+          transport.requests.where(
+            (r) =>
+                r.method == 'POST' &&
+                (r.uri.path.endsWith('/world/apply') ||
+                    r.uri.path.endsWith('/world/tick')),
+          ),
+          isEmpty,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets(
+    'world page retries login refresh after an old anonymous request',
+    (tester) async {
+      final pending = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDetailCompleter: pending,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: null,
+        chatroom: _FakeChatroomClient(),
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final oldDetail = transport._worldDetail('w_test_1');
+      transport.worldRelationStatus = 'owner';
+      transport.worldDetailCompleter = null;
+      await services.sessionStore.saveUid('u_test');
+      services.notifySessionChanged();
+      pending.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': oldDetail,
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/detail').length,
+        greaterThanOrEqualTo(2),
+      );
+      expect(find.widgetWithText(FilledButton, 'Tick now'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Request'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets('world page does not poll world detail after entry', (
     WidgetTester tester,
   ) async {
@@ -39800,6 +39899,9 @@ class _RecordingFollowsTransport implements HttpTransport {
 
 class _FailingChatroomClient implements ChatroomClient {
   @override
+  GemBalanceAlertHandler? onGemBalanceAlert;
+
+  @override
   Future<ChatroomSession> connect({
     required String worldId,
     String? locationId,
@@ -39878,6 +39980,9 @@ class _ThrowingChatroomMessageStorage extends MemoryChatroomMessageStorage {
 }
 
 class _FakeChatroomClient implements ChatroomClient {
+  @override
+  GemBalanceAlertHandler? onGemBalanceAlert;
+
   _FakeChatroomClient({this.connectCompleter});
 
   final Completer<void>? connectCompleter;
@@ -39941,6 +40046,17 @@ class _FakeChatroomClient implements ChatroomClient {
 }
 
 class _FakeChatroomSession implements ChatroomSession {
+  @override
+  int? get closeCode => null;
+  @override
+  Map<String, Object?> get closeDiagnostics => const {};
+  @override
+  void cancelSendMessageWait(String clientMsgId) {
+    pendingSendAcks
+        .remove(clientMsgId)
+        ?.completeError(const ChatroomProtocolException('Send wait cancelled'));
+  }
+
   _FakeChatroomSession({
     required this.worldId,
     required this.locationId,
@@ -40093,8 +40209,10 @@ class _FakeChatroomSession implements ChatroomSession {
     String text, {
     String? clientMsgId,
     String messageType = 'text',
+    void Function()? onSent,
   }) async {
     sentMessages.add(text);
+    onSent?.call();
     final resolvedClientMsgId = clientMsgId ?? 'client-1';
     sentClientMsgIds.add(resolvedClientMsgId);
     final ack = ChatroomAck(

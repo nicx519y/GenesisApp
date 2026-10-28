@@ -19,10 +19,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
-    await _balanceAlertSubscription?.cancel();
     _stateSubscription = null;
     _failuresSubscription = null;
-    _balanceAlertSubscription = null;
 
     if (service == null) return;
     final shouldLeave =
@@ -334,10 +332,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _unbindLocationMessageChanges();
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
-    await _balanceAlertSubscription?.cancel();
     _stateSubscription = null;
     _failuresSubscription = null;
-    _balanceAlertSubscription = null;
     final service = _service;
     final shouldLeave =
         wasJoinedLocation ||
@@ -461,12 +457,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   void _attachService(WorldChatroomService service) {
-    if (_ownsService && _balanceAlertSubscription == null) {
-      _balanceAlertSubscription = bindGemBalancePrompt(
-        context,
-        service.balanceAlerts,
-      );
-    }
     if (_stateSubscription != null || _failuresSubscription != null) {
       _bindLocationMessageChanges(service);
       _syncFromServiceState(service, forceMessageReconcile: true);

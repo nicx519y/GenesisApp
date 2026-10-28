@@ -38,14 +38,13 @@ void main() {
       'data': {},
     });
     await sending;
-    expect(store.dmBalanceNotice('c'), isNull);
     expect(store.hasDmBalanceFailure('c'), isFalse);
     expect(store.drafts['c'], isNull);
   });
 
   for (final code in [3001, 21001]) {
     test(
-      'DM balance error $code is consumed once and clears on retry',
+      'DM balance error $code suppresses local toast and clears on retry',
       () async {
         final backend = PhoneBackend();
         final store = backend.store(namespace: 'balance-$code');
@@ -55,21 +54,14 @@ void main() {
             ? {'err_no': code, 'err_msg': 'Balance unavailable', 'data': {}}
             : null;
         expect(await store.write('dm', 'c', 'hello'), isFalse);
-        final notice = store.dmBalanceNotice('c')!;
         expect(store.hasDmBalanceFailure('c'), isTrue);
         expect(store.pending['dm:c']!.rejected, isTrue);
         expect(store.outgoingDm('c'), isEmpty);
-        store.acknowledgeDmBalanceNotice('c', 'stale-request');
-        expect(store.dmBalanceNotice('c'), notice);
-        store.acknowledgeDmBalanceNotice('c', notice.requestId);
-        expect(store.dmBalanceNotice('c'), isNull);
-        expect(store.hasDmBalanceFailure('c'), isTrue);
         backend.respond = (r) => r.uri.path.endsWith('/dm/send')
             ? {'err_no': 2061, 'err_msg': 'Denied', 'data': {}}
             : null;
         expect(await store.write('dm', 'c', 'hello again'), isFalse);
         expect(store.hasDmBalanceFailure('c'), isFalse);
-        expect(store.dmBalanceNotice('c'), isNull);
         expect(store.errors['dm:c'], 'Denied');
       },
     );

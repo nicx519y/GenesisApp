@@ -1,9 +1,9 @@
+import '../gem_balance_alert.dart';
 import 'dart:convert';
 
 import 'chatroom_models.dart';
 
-bool isChatroomBalanceFailureCode(String code) =>
-    const {'3001', '21001'}.contains(code.trim());
+bool isChatroomBalanceFailureCode(String code) => isGemBalanceFailureCode(code);
 
 int chatroomCardFailureCode(Object? error, {int fallback = 2004}) {
   if (error is Map) {

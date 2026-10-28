@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -14,6 +15,54 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'socket balance alerts reach global handler without a page or world service',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final alerts = <GemBalanceAlert>[];
+      client.onGemBalanceAlert = (alert, token) {
+        expect(token, 'token-1');
+        alerts.add(alert);
+      };
+      final session = await client.connect(worldId: 'world-1');
+      addTearDown(() => session.close());
+      socket.serverV2Ack(
+        'balance-request',
+        extra: {'err_no': 3001, 'err_msg': 'failed'},
+      );
+      socket.serverV2Ack(
+        'balance-request',
+        extra: {'err_no': 3001, 'err_msg': 'failed'},
+      );
+      await _tick();
+      expect(alerts, hasLength(1));
+      socket.serverV2Ack(
+        'another-request',
+        extra: {'err_no': 21001, 'err_msg': 'failed'},
+      );
+      socket.serverV2Ack(
+        'unrelated',
+        extra: {'err_no': 2061, 'err_msg': 'failed'},
+      );
+      socket.serverFrame('balance_low', {
+        'world_id': 'world-1',
+        'payload': {'balance_cent': 12, 'message': 'low'},
+      });
+      await _tick();
+      expect(alerts.map((a) => a.kind), [
+        GemBalanceAlertKind.insufficient,
+        GemBalanceAlertKind.insufficient,
+        GemBalanceAlertKind.low,
+      ]);
+      expect(alerts.last.balanceCent, 12);
+    },
+  );
+
   test('envelope retains schema version and event id', () {
     final envelope = ChatroomEnvelope.fromJson({
       'type': 'map_updated',

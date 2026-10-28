@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/gems/gem_wallet_store.dart';
-import '../../network/chatroom/world_chatroom_service.dart';
+import '../../network/gem_balance_alert.dart';
 import '../../platform/billing/billing_service.dart';
 import 'gem_purchase_bottom_sheet.dart';
 
@@ -75,7 +75,7 @@ String _resolvedGemPurchaseSheetTrigger(
   GemBalanceAlert alert,
   String? analyticsTrigger,
 ) {
-  final trigger = analyticsTrigger?.trim() ?? '';
+  final trigger = (analyticsTrigger ?? alert.analyticsTrigger)?.trim() ?? '';
   if (trigger.isNotEmpty) return trigger;
   return switch (alert.kind) {
     GemBalanceAlertKind.low => gemPurchaseSheetTriggerMessageLowBalance,

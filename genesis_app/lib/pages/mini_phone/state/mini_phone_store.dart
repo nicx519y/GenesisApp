@@ -188,28 +188,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get busy => requests.busy;
   Map<String, int> get _versions => requests.versions;
   final pending = <String, PhoneWrite>{};
-  final _balanceFailures =
-      <String, ({String requestId, String message, bool shown})>{};
+  final _balanceFailures = <String>{};
 
-  bool hasDmBalanceFailure(String charId) =>
-      _balanceFailures.containsKey(charId);
-
-  ({String requestId, String message})? dmBalanceNotice(String charId) {
-    final failure = _balanceFailures[charId];
-    return failure == null || failure.shown
-        ? null
-        : (requestId: failure.requestId, message: failure.message);
-  }
-
-  void acknowledgeDmBalanceNotice(String charId, String requestId) {
-    final failure = _balanceFailures[charId];
-    if (failure == null || failure.requestId != requestId) return;
-    _balanceFailures[charId] = (
-      requestId: requestId,
-      message: failure.message,
-      shown: true,
-    );
-  }
+  bool hasDmBalanceFailure(String charId) => _balanceFailures.contains(charId);
 
   StreamSubscription<ChatroomPhoneEvent>? _events;
   StreamSubscription<WorldChatroomState>? _states;
@@ -838,11 +819,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
             e is ApiException &&
             e.kind == ApiExceptionKind.business &&
             isChatroomBalanceFailureCode('${e.code}')) {
-          _balanceFailures[target] = (
-            requestId: w.id,
-            message: e.message,
-            shown: false,
-          );
+          _balanceFailures.add(target);
         }
         if (e is ArgumentError || e is FormatException) {
           w.rejected = true;

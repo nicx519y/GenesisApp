@@ -160,10 +160,14 @@ extension _WorldPageTabs on _WorldPageState {
   }
 
   Future<void> _loadCurrentUid() async {
-    final uid =
-        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
-        '';
-    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    final revision = services.sessionRevision.value;
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (!mounted ||
+        !identical(services, _worldSessionServices) ||
+        revision != services.sessionRevision.value) {
+      return;
+    }
     final uidChanged = uid != _currentUid;
     if (uidChanged) {
       if (_renderStage == _WorldPageRenderStage.content) {

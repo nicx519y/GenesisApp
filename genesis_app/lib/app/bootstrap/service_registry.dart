@@ -1,3 +1,4 @@
+import '../gems/gem_balance_prompt_controller.dart';
 import '../../network/chatroom/location_chat_send_gate.dart';
 import '../gems/gem_store_catalog.dart';
 import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
@@ -58,6 +59,7 @@ import '../attribution/adjust_attribution_runtime.dart';
 import '../attribution/adjust_local_adid_store.dart';
 
 class AppServices {
+  late final GemBalancePromptController balancePrompts;
   final chatSendGate = LocationChatSendGate();
   AppServices({
     required this.config,
@@ -115,6 +117,10 @@ class AppServices {
            appGlobalConfig ??
            AppGlobalConfigStore(loadConfig: api.v1.app.config),
        sessionRevision = sessionRevision ?? ValueNotifier<int>(0) {
+    balancePrompts = GemBalancePromptController(sessionStore: sessionStore);
+    api.onGemBalanceAlert = balancePrompts.report;
+    chatroom.onGemBalanceAlert = balancePrompts.report;
+    this.sessionRevision.addListener(balancePrompts.reset);
     this.personalization =
         personalization ??
         PersonalizationStore(
@@ -314,6 +320,10 @@ class AppServices {
   }
 
   void dispose() {
+    api.onGemBalanceAlert = null;
+    chatroom.onGemBalanceAlert = null;
+    sessionRevision.removeListener(balancePrompts.reset);
+    balancePrompts.dispose();
     chatSendGate.dispose();
     StoreQueryCache.reset();
     _miniPhoneMusic?.dispose();

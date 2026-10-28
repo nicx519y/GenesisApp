@@ -3,6 +3,8 @@ part of 'genesis_api.dart';
 abstract class _GenesisApiContext {
   Future<String> _ensureUid();
 
+  GemBalanceAlertHandler? onGemBalanceAlert;
+
   _GenesisApiContext({
     ApiClient? apiClient,
     ApiClient? gatewayApiClient,
@@ -151,6 +153,21 @@ abstract class _GenesisApiContext {
   Object? _processGenesisResponse(ApiResponse response) {
     final data = _defaultGenesisProcessor(response);
     _throwIfSessionExpired(response);
+    final envelope = response.data;
+    if (envelope is Map && isGemBalanceFailureCode(envelope['err_no'])) {
+      onGemBalanceAlert?.call(
+        GemBalanceAlert(
+          kind: GemBalanceAlertKind.insufficient,
+          message: asString(envelope['err_msg']),
+          analyticsTrigger: response.uri.path == '/api/v1/world/tick'
+              ? 'tick_no_balance'
+              : null,
+        ),
+        response.requestAuthorization,
+      );
+      // Preserve the envelope: callers still handle rejection and drafts.
+      return data;
+    }
     if (_isChatroomReplyActionResponse(response.uri)) {
       final envelope = response.data;
       if (envelope is Map &&
