@@ -299,6 +299,11 @@ class MiniPhoneMessagesController {
       unresolved('dm:$charId') ? pending['dm:$charId'] : null;
   bool _terminal(String? state) => state == 'completed' || state == 'failed';
 
+  String? replyStatusFor(String? requestId, String? messageStatus) {
+    final state = replyStates[requestId];
+    return state?.status ?? messageStatus;
+  }
+
   void applyReplyState(
     String requestId,
     String status,
@@ -330,6 +335,28 @@ class MiniPhoneMessagesController {
     final write = pending[key];
     if (_terminal(state.status)) {
       appliedReplyTerminals.add(requestId);
+      final history = messages[sessionId];
+      if (history != null) {
+        final updated = <PhoneMessage>[];
+        for (final message in history) {
+          if (message.senderType == 'user' &&
+              message.senderId == uid &&
+              message.requestId == requestId) {
+            updated.add(
+              PhoneMessage.withReplyState(
+                message,
+                state.status,
+                state.failure,
+                failureCode: state.failureCode,
+              ),
+            );
+          } else {
+            updated.add(message);
+          }
+        }
+        messages[sessionId] = updated;
+        cache.merge(updated);
+      }
       if (state.status == 'failed' &&
           isGemBalanceFailureCode(state.failureCode)) {
         outgoing.remove(requestId);

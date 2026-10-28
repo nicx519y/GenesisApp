@@ -429,6 +429,37 @@ void main() {
   );
 
   testWidgets(
+    'AI reply clears loading when the source echo still says pending',
+    (tester) async {
+      final backend = PhoneBackend();
+      final store = await openChat(tester, backend);
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await tester.runAsync(() => composer(tester).onSend());
+      final request = store.pending['dm:c']!.id;
+      store.receive(
+        phoneEvent('source-pending', [
+          {
+            ...phoneMessage(1, sender: 'user', requestId: request),
+            'reply_status': 'pending',
+          },
+        ], requestId: request),
+      );
+      await flush(tester);
+      expect(deliveryRows(tester).first.status, 'sending');
+      store.receive(
+        phoneEvent('reply-completed', [
+          phoneMessage(2, requestId: request),
+        ], requestId: request),
+      );
+      await flush(tester);
+      expect(deliveryRows(tester).first.status, 'sent');
+      expect(find.byType(ChatSendingBadge), findsNothing);
+      expect(store.history('c').first.replyStatus, 'completed');
+      await closeChat(tester, store);
+    },
+  );
+
+  testWidgets(
     'first virtual chat retains its user bubble when AI arrives before the source echo',
     (tester) async {
       final backend = PhoneBackend();
@@ -470,6 +501,7 @@ void main() {
         'First hello',
         'Message 2',
       ]);
+      expect(deliveryRows(tester).first.status, 'sent');
       await tester.runAsync(() async {
         store.receive(
           phoneEvent('source-later', [
@@ -483,6 +515,7 @@ void main() {
       });
       await tester.pump();
       expect(deliveryRows(tester).first.localId, localId);
+      expect(deliveryRows(tester).first.status, 'sent');
       expect(deliveryRows(tester), hasLength(2));
       expect(store.outgoingDm('c'), isEmpty);
       await closeChat(tester, store);

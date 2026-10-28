@@ -350,40 +350,41 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
         .displayHistory(person.id)
         .where((m) => !_revealQueue.contains(m.id))
         .toList();
-    final rows = visibleMessages
-        .map(
-          (m) => ChatMessageVm(
-            localId:
-                m.senderType == 'user' &&
-                    m.senderId == store.uid &&
-                    m.requestId != null
-                ? 'phone:request:${store.messagesController.bubbleRequestId(m.requestId!)}'
-                : 'phone:${m.id}',
-            clientMsgId: m.requestId ?? '',
-            senderId: m.senderId,
-            senderName: m.senderId == store.uid
-                ? context.l10n.miniPhoneYou
-                : person.name,
-            avatarUrl: m.senderId == store.uid
-                ? store.person(m.senderId, type: 1).avatar
-                : person.avatar,
-            text: m.content,
-            currentTime: m.currentTime,
-            isMe: m.senderType == 'user' && m.senderId == store.uid,
-            status:
-                m.senderType == 'user' &&
-                    m.senderId == store.uid &&
-                    m.replyStatus == 'failed'
-                ? 'failed'
-                : m.senderType == 'user' &&
-                      m.senderId == store.uid &&
-                      (m.replyStatus == 'pending' ||
-                          m.replyStatus == 'generating')
-                ? 'sending'
-                : 'sent',
-          ),
-        )
-        .toList();
+    final rows = visibleMessages.map((m) {
+      final replyStatus = store.messagesController.replyStatusFor(
+        m.requestId,
+        m.replyStatus,
+      );
+      return ChatMessageVm(
+        localId:
+            m.senderType == 'user' &&
+                m.senderId == store.uid &&
+                m.requestId != null
+            ? 'phone:request:${store.messagesController.bubbleRequestId(m.requestId!)}'
+            : 'phone:${m.id}',
+        clientMsgId: m.requestId ?? '',
+        senderId: m.senderId,
+        senderName: m.senderId == store.uid
+            ? context.l10n.miniPhoneYou
+            : person.name,
+        avatarUrl: m.senderId == store.uid
+            ? store.person(m.senderId, type: 1).avatar
+            : person.avatar,
+        text: m.content,
+        currentTime: m.currentTime,
+        isMe: m.senderType == 'user' && m.senderId == store.uid,
+        status:
+            m.senderType == 'user' &&
+                m.senderId == store.uid &&
+                replyStatus == 'failed'
+            ? 'failed'
+            : m.senderType == 'user' &&
+                  m.senderId == store.uid &&
+                  (replyStatus == 'pending' || replyStatus == 'generating')
+            ? 'sending'
+            : 'sent',
+      );
+    }).toList();
     for (final outgoing in store.outgoingDm(person.id)) {
       final row = ChatMessageVm(
         localId:
@@ -396,6 +397,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
         isMe: true,
         status: outgoing.rejected
             ? 'failed'
+            : store.messagesController.replyStatusFor(outgoing.id, null) ==
+                  'completed'
+            ? 'sent'
             : outgoing.accepted
             ? (store.messagesController.isPlayerChat(person.id)
                   ? 'sent'
