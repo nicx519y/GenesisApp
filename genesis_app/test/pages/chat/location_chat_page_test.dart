@@ -177,7 +177,7 @@ void main() {
         expect(gate.debugResources.listeners, lessThan(listeners));
         expect(gate.debugResources.listeners, greaterThan(0));
         expect(gate.blocks('world-current', 'location-current'), true);
-        await tester.pump(const Duration(seconds: 45));
+        await tester.pump(const Duration(seconds: 20));
         expect(gate.debugResources.listeners, 0);
         expect(gate.debugResources.guards, 0);
         expect(gate.debugResources.progressStates, 0);
@@ -368,10 +368,10 @@ void main() {
         composer().controller.text = 'Next manual message';
         await tester.pump();
         expect(composer().sendEnabled, isFalse);
-        await tester.pump(const Duration(seconds: 20));
+        await tester.pump(Duration(seconds: tick ? 20 : 10));
         await tester.pumpWidget(panel(const ValueKey('reentered')));
         composer().controller.text = 'Next manual message';
-        await tester.pump(const Duration(seconds: 24));
+        await tester.pump(Duration(seconds: tick ? 24 : 8));
         expect(composer().sendEnabled, isFalse);
         if (tick) {
           await tester.pump(const Duration(seconds: 14));
@@ -412,7 +412,7 @@ void main() {
   }
 
   testWidgets(
-    'unknown Send releases at 45 seconds and next manual send is independent',
+    'unknown Send releases at 20 seconds and next manual send is independent',
     (tester) async {
       final harness = await _mountEnterConversationPanel(tester);
       ChatComposer composer() =>
@@ -424,7 +424,7 @@ void main() {
         tester,
         () => harness.socket.sendMessageCount == 1,
       );
-      await tester.pump(const Duration(seconds: 44));
+      await tester.pump(const Duration(seconds: 19));
       expect(harness.socket.sendMessageCount, 1);
       composer().controller.text = 'New manual request';
       await tester.pump();
@@ -453,6 +453,158 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump(const Duration(seconds: 3));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final action in [
+    ('Go on', 'go_on'),
+    ('Regenerate', 'regenerate_llm_card'),
+  ]) {
+    testWidgets('${action.$1} timeout clears waiting UI with the Send lock', (
+      tester,
+    ) async {
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+      );
+      ChatComposer composer() => tester.widget(find.byType(ChatComposer));
+      LocationChatAnchoredMessageList list() =>
+          tester.widget(find.byType(LocationChatAnchoredMessageList));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel(action.$1));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.replyActionFrames(action.$2).isNotEmpty,
+      );
+      if (action.$2 == 'go_on') {
+        harness.socket.serverReplyActionAck('go_on', roundId: 401);
+      } else {
+        backend.beginCandidate();
+        harness.socket.serverReplyActionAck(
+          'regenerate_llm_card',
+          roundId: 301,
+          payload: const {
+            'regeneration': {
+              'conversation_round_id': 301,
+              'original_card_id': 501,
+              'card_id': 502,
+              'generation_state': 'generating',
+              'billing': {'status': 'reserved'},
+            },
+          },
+        );
+      }
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(composer().sendEnabled, isFalse);
+      if (action.$2 == 'go_on') {
+        expect(list().goOnAwaitingContentIdentity, isNotNull);
+      }
+      await tester.pump(const Duration(seconds: 20));
+      await tester.pump();
+      await tester.pump();
+      expect(composer().controller.text, isEmpty);
+      expect(
+        harness.service.sendGate.blocks('world-current', 'location-current'),
+        isFalse,
+      );
+      expect(list().goOnAwaitingContentIdentity, isNull);
+      expect(list().replyRegenerationInProgress, isFalse);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      expect(_replyActionLoading(action.$1), findsNothing);
+      // Recovery retains the real unfinished request; only local waiting ends.
+      final old = harness.service.replyActions!.stateForRound(
+        'location-current',
+        301,
+      )!;
+      expect(old.sendReleased, isTrue);
+      expect(action.$2 == 'go_on' ? old.goOnPending : old.generating, isTrue);
+      composer().controller.text = 'Next message';
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      unawaited(composer().onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 1,
+      );
+      await tester.pump();
+      expect(
+        harness.service.sendGate.blocks('world-current', 'location-current'),
+        isTrue,
+      );
+      expect(list().preAckWaitingIdentity, isNotNull);
+      harness.socket.serverV2AckForLatestSend(errNo: 9001);
+      await tester.pump();
+      await _disposeEnterConversationPanel(tester, harness.service);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'Tick timeout clears its waiting row without ending the World Tick',
+    (tester) async {
+      final harness = await _mountEnterConversationPanel(tester);
+      ChatComposer composer() => tester.widget(find.byType(ChatComposer));
+      composer().controller.text = 'Next message';
+      harness.socket._serverFrame('tick_start', {
+        'world_id': 'world-current',
+        'stream_type': '',
+        'payload': <String, Object?>{},
+        'err_no': 0,
+        'err_msg': '',
+      });
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.inputBlocked,
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('chat-tick-progress-content')),
+        findsOneWidget,
+      );
+      expect(composer().sendEnabled, isFalse);
+      await tester.pump(const Duration(seconds: 60));
+      await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      expect(
+        find.byKey(const ValueKey('chat-tick-progress-content')),
+        findsNothing,
+      );
+      expect(harness.service.state.inputBlocked, isTrue);
+      harness.socket.serverV2UserMessage(
+        messageId: 301,
+        content: 'Unrelated update',
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('chat-tick-progress-content')),
+        findsNothing,
+      );
+      // The real Tick result still appears after local release.
+      harness.socket.serverV2Tick(
+        messageId: 302,
+        locationMessageId: 302,
+        globalText: 'Late Tick result',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('Late Tick result'), findsWidgets);
+      for (final event in ['tick_done', 'tick_start']) {
+        harness.socket._serverFrame(event, {
+          'world_id': 'world-current',
+          'stream_type': '',
+          'payload': <String, Object?>{},
+          'err_no': 0,
+          'err_msg': '',
+        });
+        await tester.pump();
+      }
+      expect(
+        find.byKey(const ValueKey('chat-tick-progress-content')),
+        findsOneWidget,
+      );
+      expect(composer().sendEnabled, isFalse);
+      await _disposeEnterConversationPanel(tester, harness.service);
       expect(tester.takeException(), isNull);
     },
   );
@@ -557,13 +709,15 @@ void main() {
       }
       composer().controller.text = 'Second message';
       await tester.pump();
-      await tester.pump(Duration(seconds: stage == 'during stream' ? 5 : 45));
+      await tester.pump(Duration(seconds: stage == 'during stream' ? 5 : 20));
       await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
       expect(harness.service.state.conversationRoundStatesByLocation, isEmpty);
       // A late waiting event for the interrupted round must not lock it again.
       peer.serverWaitingConversationRound(roundId: 301);
       await tester.pump();
       await _pumpUntilLocationChatTest(tester, () => composer().sendEnabled);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
       expect(harness.service.state.conversationRoundStatesByLocation, isEmpty);
       // Production opens from a prepared snapshot, including after returning
       // to the same location. Recreate the actual panel, not just its input.
@@ -11248,7 +11402,7 @@ void main() {
       tester.getTopLeft(find.byKey(dots)).dy,
       greaterThan(tester.getBottomLeft(find.text('waiting for Alice')).dy),
     );
-    await tester.pump(const Duration(seconds: 44));
+    await tester.pump(const Duration(seconds: 19));
     expect(find.byKey(dots), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     expect(find.byKey(dots), findsNothing);

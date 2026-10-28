@@ -1,3 +1,4 @@
+import '../../../network/chat_send_gate.dart';
 import '../../../l10n/genesis_l10n.dart';
 import '../messages/mini_phone_messages_controller.dart';
 export '../messages/mini_phone_messages_controller.dart'
@@ -37,8 +38,19 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     this.loadUser,
     this.networkAvailabilityCheck = hasDeviceNetworkConnection,
     this.chatConnectionReady,
+    DateTime Function()? sendWaitClock,
+    ChatSendTimeoutReporter? sendWaitReporter,
     MiniPhoneCacheStorage? cacheStorage,
-  }) : cacheStorage = cacheStorage ?? SqliteMiniPhoneCacheStorage.instance {
+  }) : dmSendGate = ChatSendGate(
+         now: sendWaitClock,
+         report: sendWaitReporter,
+         timeoutAction: 'mini_phone_send_lock_timeout',
+         sceneConfigs: const {
+           'phone_dm': ChatSendTimeoutConfig.standard,
+           'phone_dm_prepare': ChatSendTimeoutConfig.standard,
+         },
+       ),
+       cacheStorage = cacheStorage ?? SqliteMiniPhoneCacheStorage.instance {
     accountRevision.addListener(_accountChanged);
     WidgetsBinding.instance.addObserver(this);
     ready = _initialize();
@@ -80,6 +92,81 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   final bool Function()? chatConnectionReady;
   WorldChatroomService? _chatroomService;
   final _dmSendPreparations = <String, Object>{};
+  final ChatSendGate dmSendGate;
+  final _dmSendWaits = <String, ChatSendOperation>{};
+  final _dmSendReleases = ChatSendReleaseScope();
+  int _dmPreparationSequence = 0;
+  int _dmWaitSequence = 0;
+
+  void _lateDmFailure(PhoneWrite write, Object error, int generation) {
+    if (!_current(generation) ||
+        !write.sendReleased ||
+        write.accepted ||
+        !pending.containsValue(write)) {
+      return;
+    }
+    final rejected =
+        error is ArgumentError ||
+        error is FormatException ||
+        error is ApiException &&
+            error.kind == ApiExceptionKind.business &&
+            error.code != 2062;
+    if (!rejected) return;
+    write.rejected = true;
+    if (write.retryRootId == null) messagesController.outgoing.remove(write.id);
+    final current = pending[write.key];
+    if (current == null || identical(current, write)) {
+      errors[write.key] = errorText(error);
+      if (error is ApiException &&
+          isChatroomBalanceFailureCode('${error.code}')) {
+        _balanceFailures.add(write.target);
+        messagesController.rejectBalanceWrite(write);
+      }
+      if (drafts[write.target]?.isEmpty ?? true) {
+        drafts[write.target] = write.content;
+      }
+    }
+    unawaited(_save());
+    _notify();
+  }
+
+  void _syncDmSendWaits() {
+    if (!_hydrated || _disposed) return;
+    final live = {
+      for (final w in pending.values)
+        if (w.kind == 'dm' && !w.rejected) w.id: w,
+    };
+    for (final id in _dmSendWaits.keys.toList()) {
+      if (!live.containsKey(id)) _dmSendWaits.remove(id)?.finish();
+    }
+    for (final w in live.values) {
+      if (w.sendReleased) continue;
+      final operation = _dmSendWaits.putIfAbsent(w.id, () {
+        final wait = dmSendGate.begin(
+          worldId: worldId,
+          locationId: w.target,
+          operationId: 'dm:${w.id}:${++_dmWaitSequence}',
+          scene: 'phone_dm',
+        );
+        wait.diagnostics['client_request_id'] = w.id;
+        final generation = _generation;
+        _dmSendReleases.listen(wait, () {
+          if (!_current(generation) || !pending.containsValue(w)) return;
+          w.sendReleased = true;
+          w.uncertain = true;
+          if (identical(pending[w.key], w)) busy.remove(w.key);
+          unawaited(_save());
+          scheduleRefresh(refreshHome: false);
+          _notify();
+        });
+        return wait;
+      });
+      if (w.accepted) operation.progress('accepted', phase: 'awaiting_reply');
+      final status = messagesController.replyStates[w.id]?.status;
+      if (status != null) operation.progress(('reply', status), phase: status);
+    }
+  }
+
   final MiniPhoneCacheStorage cacheStorage;
   Completer<void> _localReady = Completer<void>();
   Future<void> get localReady => _localReady.future;
@@ -220,7 +307,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   String get _storageKey =>
       'phone-writes:${Uri.encodeComponent(namespace)}:$uid:$worldId';
   void _notify() {
-    if (!_disposed) notifyListeners();
+    if (!_disposed) {
+      _syncDmSendWaits();
+      notifyListeners();
+    }
   }
 
   bool _current(int generation) => !_disposed && generation == _generation;
@@ -275,7 +365,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (raw != null) {
         for (final value in jsonDecode(raw) as List) {
           final write = PhoneWrite.fromJson(phoneMap(value));
-          pending[write.key] = write;
+          pending[write.storageKey] = write;
           if (write.retryRootId != null) {
             messagesController.cache.retryRoots[write.id] = write.retryRootId!;
           }
@@ -349,6 +439,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
 
   void _accountChanged() {
     requests.reset();
+    _dmSendReleases.clear();
+    _dmSendWaits.clear();
+    dmSendGate.reset();
     _dmSendPreparations.clear();
     _chatroomService = null;
     if (!_localReady.isCompleted) _localReady.complete();
@@ -705,13 +798,28 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     Object preparation,
   ) async {
     var prepared = false;
+    final wait = dmSendGate.begin(
+      worldId: worldId,
+      locationId: key.substring(3),
+      operationId: 'prepare:${++_dmPreparationSequence}',
+      scene: 'phone_dm_prepare',
+    );
+    _dmSendReleases.listen(wait, () {
+      if (!_current(generation) ||
+          !identical(_dmSendPreparations[key], preparation)) {
+        return;
+      }
+      _dmSendPreparations.remove(key);
+      busy.remove(key);
+      _notify();
+    });
     busy.add(key);
     errors.remove(key);
     _notify();
     try {
       final bool hasNetwork;
       try {
-        hasNetwork = await networkAvailabilityCheck();
+        hasNetwork = await wait.guard(networkAvailabilityCheck());
       } catch (_) {
         if (_current(generation) &&
             identical(_dmSendPreparations[key], preparation)) {
@@ -722,7 +830,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (!_current(generation) ||
           !identical(_dmSendPreparations[key], preparation) ||
           !identical(pending[key], existing) ||
-          existing?.accepted == true) {
+          existing?.accepted == true && !existing!.sendReleased) {
         return false;
       }
       if (!hasNetwork) {
@@ -746,6 +854,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       }
       return false;
     } finally {
+      wait.finish();
       if (!prepared &&
           _current(generation) &&
           identical(_dmSendPreparations[key], preparation)) {
@@ -772,7 +881,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     final key = '$kind:$target', g = _generation;
     if (busy.contains(key)) return false;
     final existing = pending[key];
-    if (existing != null && !existing.rejected && !retry) {
+    if (existing != null &&
+        !existing.rejected &&
+        !existing.sendReleased &&
+        !retry) {
       errors[key] = GenesisL10n.current.miniPhonePreviousRequestPending;
       _notify();
       return false;
@@ -785,7 +897,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (!prepared) return existing?.accepted ?? false;
       if (!identical(_dmSendPreparations[key], preparation)) return false;
       _dmSendPreparations.remove(key);
-      if (!identical(pending[key], existing) || existing?.accepted == true) {
+      if (!identical(pending[key], existing) ||
+          existing?.accepted == true && !existing!.sendReleased) {
         busy.remove(key);
         _notify();
         return existing?.accepted ?? false;
@@ -794,6 +907,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     onPrepared?.call();
     final reuse =
         existing != null &&
+        !existing.sendReleased &&
         (retry ||
             existing.content == content &&
                 existing.image == image &&
@@ -840,8 +954,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         );
     attempt.data['client_request_id'] = w.id;
     bool ownsWrite() =>
-        _current(g) && (kind != 'dm' || identical(pending[key], w));
+        _current(g) &&
+        (kind != 'dm' || identical(pending[key], w) && !w.sendReleased);
     var sent = false;
+    if (kind == 'dm' && existing != null && existing.sendReleased) {
+      pending[existing.recoveryKey] = existing;
+    }
     pending[key] = w;
     if (w.retryRootId != null) {
       messagesController.cache.retryRoots[w.id] = w.retryRootId!;
@@ -865,8 +983,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     replyFailures.remove(target);
     messagesController.replyFailureNotices.remove(target);
     _notify();
+    final sendWait = kind == 'dm' ? _dmSendWaits[w.id] : null;
     try {
-      if (!await _save()) {
+      final saved = await (sendWait?.guard(_save()) ?? _save());
+      if (!saved) {
         if (_current(g) && !ownsWrite()) return w.accepted;
         if (_current(g)) w.uncertain = true;
         attempt.fail(StateError('journal'), sent: false, errorStage: 'journal');
@@ -875,7 +995,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (!_current(g)) return false;
       if (!ownsWrite()) return w.accepted;
       if (w.retryRootId != null) {
-        if (!await messagesController.persistCache()) {
+        if (!await (sendWait?.guard(messagesController.persistCache()) ??
+            messagesController.persistCache())) {
           throw ApiException(
             message: GenesisL10n.current.miniPhoneSaveMessagesFailed,
             kind: ApiExceptionKind.business,
@@ -887,7 +1008,24 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       sent = true;
       switch (kind) {
         case 'dm':
-          await api.send(worldId, target, w.id, w.content);
+          final response = api
+              .send(worldId, target, w.id, w.content)
+              .then(
+                (_) {
+                  // Late acceptance belongs to this retained request, never the new
+                  // composer owner. It cannot re-lock a locally released request.
+                  if (_current(g) && pending.containsValue(w)) {
+                    w.accepted = true;
+                    if (w.sendReleased) unawaited(_save());
+                    _notify();
+                  }
+                },
+                onError: (Object error, StackTrace stack) {
+                  _lateDmFailure(w, error, g);
+                  Error.throwWithStackTrace(error, stack);
+                },
+              );
+          await (sendWait?.guard(response) ?? response);
         case 'post':
           await api.createPost(worldId, w.id, w.content, image: w.image);
         case 'comment':
@@ -921,6 +1059,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       return true;
     } catch (e) {
       if (!_current(g)) return false;
+      if (e is ChatSendWaitReleased) return sent;
       attempt.fail(e, sent: sent, errorStage: sent ? 'request' : 'journal');
       if (!ownsWrite()) return w.accepted;
       // A delivery can precede an HTTP failure. Committed evidence wins.
@@ -1288,7 +1427,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     final id = sessionFor(write.target);
     if (id == null ||
         !foreground ||
-        pending[write.key]?.id != write.id ||
+        !pending.containsValue(write) ||
         write.rejected) {
       return;
     }
@@ -1314,6 +1453,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
+      dmSendGate.reconcile();
       scheduleRefresh();
       if (_postDirty) _schedulePostRefresh();
       unawaited(postsController.retryDeferredReads());
@@ -1330,6 +1470,9 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _disposed = true;
+    _dmSendReleases.clear();
+    _dmSendWaits.clear();
+    dmSendGate.dispose();
     _dmSendPreparations.clear();
     _chatroomService = null;
     _generation++;

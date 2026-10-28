@@ -388,7 +388,7 @@ void main() {
         );
         rendered();
         expect(service.sendGate.blocks('world-1', 'loc-1'), isTrue);
-        final threshold = tick ? 60 : 45;
+        final threshold = tick ? 60 : 20;
         now = now.add(Duration(seconds: threshold - 1));
         rendered(); // Page recreation must reuse the original deadline.
         expect(replies.stateFor('loc-1')!.sendReleased, isFalse);
@@ -963,7 +963,7 @@ void main() {
     'stream idle watchdog receipt starts first-byte timeout and late binding stays ended',
     () async {
       expect(chatroomStreamIdleTimeout, const Duration(seconds: 5));
-      expect(conversationRoundFallbackTimeout, const Duration(seconds: 45));
+      expect(conversationRoundFallbackTimeout, const Duration(seconds: 20));
       final socket = _FakeChatroomSocket();
       final service = await _service(
         socketTransport: _FakeChatroomTransport(socket),

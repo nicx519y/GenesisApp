@@ -216,9 +216,15 @@ void main() {
     );
   }
 
-  for (final startsInCard in [false, true]) {
+  for (final scenario in [
+    (startsInCard: false, targetCard: 502, reuseId: true),
+    (startsInCard: true, targetCard: 502, reuseId: true),
+    (startsInCard: false, targetCard: 0, reuseId: true),
+    (startsInCard: false, targetCard: 0, reuseId: false),
+  ]) {
+    final startsInCard = scenario.startsInCard;
     testWidgets(
-      'Go On retracts sequentially across source card changes startsInCard=$startsInCard',
+      'Go On retracts sequentially across source card changes $scenario',
       (tester) async {
         final coordinator = LocationChatScrollCoordinator();
         addTearDown(coordinator.dispose);
@@ -279,8 +285,10 @@ void main() {
 
         generation.retract(1, retrying: true, next: 2);
         final second = generation.accept(2, 1, end: true)!;
-        replies = [message(1, 'Buffered replacement', second)];
-        cardId = 502;
+        replies = [
+          message(scenario.reuseId ? 1 : 3, 'Buffered replacement', second),
+        ];
+        cardId = scenario.targetCard;
         await tester.pumpWidget(view());
         expect(first.presentationPending, isTrue);
         expect(find.text(oldA), findsOneWidget);

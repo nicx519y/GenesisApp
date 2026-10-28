@@ -22,7 +22,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
       presentation,
       _replyProjection.presentation(presentation).messages,
     );
-    return (
+    final status = (
       backendPending:
           _sending ||
           _sendAwaitingResponse ||
@@ -36,6 +36,16 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
           !_replyCardTransitionBusy,
       discardPending: controls.tickSupersededReply || replyState?.error != null,
     );
+    // The viewport owns cleanup even when an empty draft short-circuits the
+    // composer's Send eligibility check.
+    if (presentation?.sendReleased ?? false) {
+      _scheduleReleasedReplyPresentationCleanup(
+        backendPending: status.backendPending,
+      );
+    } else {
+      _releasedReplyPresentationIdentity = null;
+    }
+    return status;
   }
 
   bool _replyReadyToSend(BuildContext context, {bool listen = true}) {

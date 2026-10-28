@@ -274,7 +274,11 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
     }
     final generation = store.accountGeneration;
     final pending = store.pending['dm:${widget.person.id}'];
-    final retry = pending != null && !pending.accepted && !pending.rejected;
+    final retry =
+        pending != null &&
+        !pending.sendReleased &&
+        !pending.accepted &&
+        !pending.rejected;
     final submitted = retry ? pending.content : text;
     var clearedDraft = false;
     final result = await store.write(
@@ -321,7 +325,15 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
               m.replyStatus == 'failed',
         )
         .firstOrNull;
-    final rejected = store.pending['dm:$charId'];
+    final rejected = store.pending.values
+        .where(
+          (w) =>
+              w.kind == 'dm' &&
+              w.target == charId &&
+              w.id == message.clientMsgId &&
+              w.rejected,
+        )
+        .firstOrNull;
     final failedAttempt =
         rejected?.id == message.clientMsgId && rejected!.rejected
         ? rejected
@@ -395,7 +407,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
             : m.senderType == 'user' &&
                   m.senderId == store.uid &&
                   (replyStatus == 'pending' || replyStatus == 'generating')
-            ? 'sending'
+            ? (store.messagesController.sendReleasedFor(m.requestId)
+                  ? context.l10n.miniPhoneAwaitingConfirmation
+                  : 'sending')
             : 'sent',
       );
     }).toList();
@@ -414,6 +428,8 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
             : store.messagesController.replyStatusFor(outgoing.id, null) ==
                   'completed'
             ? 'sent'
+            : outgoing.sendReleased
+            ? context.l10n.miniPhoneAwaitingConfirmation
             : outgoing.accepted
             ? (store.messagesController.isPlayerChat(person.id)
                   ? 'sent'

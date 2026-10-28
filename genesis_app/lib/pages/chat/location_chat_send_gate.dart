@@ -63,7 +63,60 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
 
   void _onSendGateChanged() {
     if (!mounted) return;
-    _setLocationChatState(() {});
+    _setLocationChatState(() {
+      _syncTickProgressState(
+        progressing:
+            widget.worldTickInProgress ||
+            (_service?.state ?? _chatroomState).inputBlocked,
+        nextSource:
+            (_service?.state ?? _chatroomState).messagesByLocation[widget
+                .locationId] ??
+            const [],
+      );
+    });
+  }
+
+  void _releaseReplyPresentationWait() {
+    final presentationContext = _replyPresentationContextKey.currentContext;
+    if (presentationContext != null) {
+      ChatStreamingEffects.releaseLocalWait(presentationContext);
+    }
+    _scrollCoordinator.releasePresentationWait();
+    _setReplyControlsState(() => _replyCardTransitionBusy = false);
+  }
+
+  void _scheduleReleasedReplyPresentationCleanup({
+    required bool backendPending,
+  }) {
+    if (backendPending) return;
+    final identity = (
+      _replyBindingGeneration,
+      _renderedReplyState?.roundId,
+      _waitingPositionOperation,
+    );
+    if (_releasedReplyPresentationIdentity == identity) return;
+    _releasedReplyPresentationIdentity = identity;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          identity !=
+              (
+                _replyBindingGeneration,
+                _renderedReplyState?.roundId,
+                _waitingPositionOperation,
+              )) {
+        return;
+      }
+      final currentContext = _replyPresentationContextKey.currentContext;
+      if (currentContext == null ||
+          !(_renderedReplyState?.sendReleased ?? false) ||
+          _replyRenderStatus(currentContext, listen: false).backendPending) {
+        _releasedReplyPresentationIdentity = null;
+        return;
+      }
+      _presentationSendWait?.finish();
+      _releaseReplyPresentationWait();
+      _scheduleDeferredTickReleaseIfReady();
+    });
   }
 
   ChatSendOperation _beginPageWait(String scene, {String? id}) {
@@ -143,11 +196,7 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
     );
     _replySendReleases.listen(operation, () {
       if (!mounted || !identical(_presentationSendWait, operation)) return;
-      final presentationContext = _replyPresentationContextKey.currentContext;
-      if (presentationContext != null) {
-        ChatStreamingEffects.releaseLocalWait(presentationContext);
-      }
-      _scrollCoordinator.releasePresentationWait();
+      _releaseReplyPresentationWait();
       final round = _renderedReplyState;
       if (round != null) {
         _replyController?.finishLocallyStalledStream(
@@ -155,7 +204,6 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
           '${round.roundId}',
         );
       }
-      _setReplyControlsState(() => _replyCardTransitionBusy = false);
     });
     return operation;
   }

@@ -84,7 +84,7 @@ import '../../ui/components/genesis_delete_button.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'location_chat_reply_presentation.dart';
 import 'location_chat_local_message_order.dart';
-import 'location_chat_reply_card_switcher.dart';
+import 'location_chat_reply_card.dart';
 import 'location_chat_reply_render_snapshot.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
 import '../gems/memory_model_page_cache.dart';
@@ -713,6 +713,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ChatSendOperation? _initialSendWait;
   ChatSendOperation? _replyPreparationWait;
   ChatSendOperation? _presentationSendWait;
+  Object? _releasedReplyPresentationIdentity;
   int _pageWaitSequence = 0;
   bool _entrySendWaitChecked = false;
   bool _entrySendWaitCheckScheduled = false;
@@ -974,7 +975,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _editQuotaLoading ||
         _inspirationQuotaChecking ||
         _inspirationLoading ||
-        rounds.any((round) => round.generating || round.goOnPending);
+        rounds.any(
+          (round) => round.generatingBlocksSend || round.goOnBlocksSend,
+        );
   }
 
   bool get _shouldShowAiContentDisclaimer =>

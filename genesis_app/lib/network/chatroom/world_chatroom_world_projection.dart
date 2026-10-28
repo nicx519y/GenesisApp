@@ -423,6 +423,17 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     if (_disposed) return;
     final previousState = _state;
     _state = state;
+    // Socket Tick events and World-page updates must own the same local wait.
+    if (state.inputBlocked != previousState.inputBlocked) {
+      if (state.inputBlocked) {
+        _tickSendOperation = sendGate.beginTick(_worldId);
+        _sendReleases.listen(_tickSendOperation!, () {
+          if (!_disposed) _setState(_state);
+        });
+      } else {
+        _tickSendOperation?.finish();
+      }
+    }
     sendGate.updateConnection(
       _worldId,
       connected: state.connected,

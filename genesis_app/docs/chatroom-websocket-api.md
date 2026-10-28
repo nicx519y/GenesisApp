@@ -382,7 +382,7 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 }
 ```
 
-客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存。用户主动发送从调用 `send_message` 时立即建立统一操作；服务端主动 P3 从收到 waiting 时建立操作。普通等待连续无有效进展 30 秒上报、45 秒释放；同一轮重复 waiting 不刷新进展。
+客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存。用户主动发送从调用 `send_message` 时立即建立统一操作；服务端主动 P3 从收到 waiting 时建立操作。普通等待连续无有效进展 15 秒上报、20 秒释放；同一轮重复 waiting 不刷新进展。
 
 ### `end_conversation_round`
 
@@ -404,7 +404,7 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 
 只有 `err_no=0`、同地点且同 `conversation_round_id` 的 end 可以正常结束该轮等待。Character、Narrator、Tick 和单条 `llm_stream_end` 不伪造 V2 整轮完成。旧轮次、其他地点、重复或错误 end 不能清理新操作。
 
-所有本地 Send 超时统一由账号会话级 `LocationChatSendGate` 调度：普通等待停滞 30 秒上报、45 秒释放；首条有效 start／chunk 后使用 5 秒流式停滞规则，同时上报和释放；World Tick 按本次锁定总时长 60 秒处理，仅解除其对 Send 的本地阻塞。所有已开始的流结束后，若仍需整轮或候选终态，转回普通等待。重复帧、旧尝试、无变化查询、重试提示和展示动画不能延长流式期限。
+所有本地 Send 超时统一由账号会话级 `LocationChatSendGate` 调度：普通等待停滞 15 秒上报、20 秒释放；首条有效 start／chunk 后使用 5 秒流式停滞规则，同时上报和释放；World Tick 按本次锁定总时长 60 秒处理，仅解除其对 Send 的本地阻塞。所有已开始的流结束后，若仍需整轮或候选终态，转回普通等待。重复帧、旧尝试、无变化查询、重试提示和展示动画不能延长流式期限。
 
 普通 Send、Regenerate、Go On 均不因 ACK 超时自动重发。保留 ACK／HTTP 通信超时、正常重连和历史同步；删除旧普通整轮、普通流、候选／Go On 生成计时器及 ACK 展示／正式回显业务超时。超时释放不以查历史或查卡成功为前提，不把未知结果转换成成功或明确失败。
 
@@ -412,7 +412,7 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 
 场景代码、阶段、释放动作与 `action_type=chat_timeout` 的完整字段定义见 [统一超时机制与埋点表](location-chat-send-gate.md)。
 
-进入 LocationChat 后，初始消息渲染收尾时检查残留 Send 等待。没有已有计时记录的残留锁，按最后一条实际消息分类：普通消息补登记普通 30／45 秒等待，Tick 消息接入 World 级 60 秒计时。已有操作沿用原阶段和截止时间，历史渲染不作为实时流活动；重新进入不重置期限。
+进入 LocationChat 后，初始消息渲染收尾时检查残留 Send 等待。没有已有计时记录的残留锁，按最后一条实际消息分类：普通消息补登记普通 15／20 秒等待，Tick 消息接入 World 级 60 秒计时。已有操作沿用原阶段和截止时间，历史渲染不作为实时流活动；重新进入不重置期限。
 
 Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done → end_conversation_round → world_change`。同一世界各地点接收同一条通知，复用 Tick 的真实 int64 `conversation_round_id`，不逐地点重复发送：
 

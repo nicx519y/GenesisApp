@@ -468,6 +468,15 @@ quality 85 without resizing. The local mock transport returns explicit
 empty reads and refuses unsupported writes instead of simulating successful
 AI replies.
 
+## Messages Send 本地超时释放（2026-10-29）
+
+- 与 LocationChat 共用 `lib/network/chat_send_gate.dart`，手机会话持有独立实例，避免 World Tick／地点等待影响私聊。前置网络检查为 `phone_dm_prepare`，日志保存／HTTP 提交／回复等待为 `phone_dm`，通过 `ChatSendTimeoutConfig` 配置。
+- 普通等待连续 15 秒无有效进展上报 `wait_stalled`，连续 20 秒释放本地 Send；上报 action 为 `mini_phone_send_lock_timeout`，object1=world_id、object2=char_id、object3=scene、object4=累计毫秒，ext_data 记录 client_request_id（准备阶段无此字段）、原因和阈值。上报失败不阻止释放。
+- 首次 HTTP／正式源消息受理及 pending→generating 的真实推进刷新等待；重复状态、无变化恢复查询、断线重连不刷新。返回前台核对原截止时间。
+- 释放独立于 accepted／rejected／reply_status：保留原请求键、正文及未知结果，停止该请求的本地 loading，允许新 Send 创建新请求，不自动重发旧请求。尚未超时且未受理的普通通信错误仍可按原请求手动重试。
+- 超时旧请求以独立恢复键保留在请求日志中；同一角色允许多条已释放恢复记录和一条当前发送记录。2→4→8→16→30 秒只读恢复继续查询所有未终态记录，后台暂停。释放标记持久化，重开不重锁；已开始的会话等待不因页面重开重计时。
+- 终态推送／历史以及迟到 HTTP 只更新对应请求，不清除新请求 busy、不覆盖新草稿。账号切换清除旧操作和监听。`type:error` 仍不映射为手机失败终态；手机使用关联的 `phone.reply.updated`／送达批次／HTTP 结果。
+
 ## Local DM cache and unread reconciliation
 
 - Phone dismissal is idempotent and verifies the original route before a deferred

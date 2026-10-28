@@ -51,7 +51,7 @@ void main() {
         active.progress('ack');
         expect(manager.debugResources.scheduleScans, 1);
         manager.updateConnection('w', connected: true, joining: false);
-        clock.elapse(const Duration(seconds: 45));
+        clock.elapse(const Duration(seconds: 20));
         expect(active.released, true);
         expect(manager.debugResources.progressStates, 0);
         manager.dispose();
@@ -78,9 +78,9 @@ void main() {
         clock.elapse(const Duration(seconds: 1));
         expect(network.released, true);
         expect(visual.blocks, true);
-        clock.elapse(const Duration(seconds: 39));
+        clock.elapse(const Duration(seconds: 18));
         expect(visual.blocks, true);
-        clock.elapse(const Duration(seconds: 5));
+        clock.elapse(const Duration(seconds: 1));
         expect(visual.released, true);
         expect(manager.debugResources.progressKeys, 0);
         manager.dispose();
@@ -167,7 +167,7 @@ void main() {
               error = e;
             },
           );
-      clock.elapse(const Duration(seconds: 45));
+      clock.elapse(const Duration(seconds: 20));
       expect(error, isA<ChatSendWaitReleased>());
       expect(manager.debugResources.guards, 0);
       ack.completeError(StateError('late'));
@@ -299,7 +299,7 @@ void main() {
       var oldCalls = 0;
       var newCalls = 0;
       first.listen(op, () => oldCalls++);
-      clock.elapse(const Duration(seconds: 40));
+      clock.elapse(const Duration(seconds: 15));
       first.clear();
       second.listen(start(manager, 'same'), () => newCalls++);
       clock.elapse(const Duration(seconds: 5));

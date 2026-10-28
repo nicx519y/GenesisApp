@@ -49,8 +49,8 @@ const _defaultLocationQueueInitConcurrency = 4;
 const _transientCharactersMovedMessageIdBase = 0x10000000000000;
 const _transientCharactersMovedRoundPrefix = 'ws-event:';
 const _closedConversationRoundRetention = Duration(minutes: 5);
-const conversationRoundFallbackTimeout = Duration(seconds: 45);
-const chatroomStreamIdleTimeout = Duration(seconds: 5);
+const conversationRoundFallbackTimeout = ChatSendTimeoutConfig.defaultWaitAfter;
+const chatroomStreamIdleTimeout = ChatSendTimeoutConfig.defaultStreamAfter;
 
 bool get _chatroomHydrateMetricsEnabled => kDebugMode || kProfileMode;
 
@@ -607,14 +607,6 @@ class WorldChatroomService {
   void setInputBlocked(bool blocked) {
     _throwIfDisposed();
     if (_state.inputBlocked == blocked) return;
-    if (blocked) {
-      _tickSendOperation = sendGate.beginTick(_worldId);
-      _sendReleases.listen(_tickSendOperation!, () {
-        if (!_disposed) _setState(_state);
-      });
-    } else {
-      _tickSendOperation?.finish();
-    }
     _setState(_state.copyWith(inputBlocked: blocked));
   }
 
