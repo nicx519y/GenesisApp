@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
+import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
@@ -31,6 +33,71 @@ class _WorldSocketSnapshot implements WorldChatroomService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final hasNetwork in [false, true]) {
+    for (final connected in [false, true]) {
+      test(
+        'DM reads system network before socket network=$hasNetwork connected=$connected',
+        () async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.android;
+          final messenger =
+              TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+          addTearDown(() {
+            debugDefaultTargetPlatformOverride = null;
+            messenger.setMockMethodCallHandler(
+              GenesisMethodChannels.device,
+              null,
+            );
+          });
+          final checks = <String>[];
+          messenger.setMockMethodCallHandler(GenesisMethodChannels.device, (
+            call,
+          ) async {
+            expect(call.method, GenesisMethodChannels.getNetworkAvailability);
+            checks.add('network');
+            return hasNetwork;
+          });
+          final backend = PhoneBackend();
+          final store = MiniPhoneStore(
+            api: backend.api,
+            worldId: 'w',
+            namespace: 'native-order-$hasNetwork-$connected',
+            cacheStorage: MemoryMiniPhoneCacheStorage(),
+            readUid: () async => 'u',
+            loadWorld: () async => WorldDetail.fromJson({'world_id': 'w'}),
+            accountRevision: backend.revision,
+            chatConnectionReady: () {
+              checks.add('socket');
+              return connected;
+            },
+          );
+          addTearDown(store.dispose);
+          await store.ready;
+          expect(
+            await store.write('dm', 'c', 'Keep original draft'),
+            hasNetwork && connected,
+          );
+          expect(checks, hasNetwork ? ['network', 'socket'] : ['network']);
+          expect(
+            store.errors['dm:c'],
+            !hasNetwork
+                ? 'Network unavailable. Check network.'
+                : !connected
+                ? 'Could not connect to this chat'
+                : null,
+          );
+          expect(
+            backend.calls('dm/send'),
+            hasLength(hasNetwork && connected ? 1 : 0),
+          );
+          if (!hasNetwork || !connected) {
+            expect(store.pending, isEmpty);
+            expect(store.outgoingDm('c'), isEmpty);
+          }
+        },
+      );
+    }
+  }
 
   for (final connected in [false, true]) {
     test(

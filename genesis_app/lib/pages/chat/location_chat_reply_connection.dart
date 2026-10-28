@@ -44,8 +44,14 @@ final class _LocationChatConnectionGate {
 
   Future<void> open() async {
     _checkCurrent();
-    if (service.state.connected &&
-        service.state.joinedLocationId == locationId) {
+    // Device network preflight has already completed. Do not let an automatic
+    // reconnect attempt replace feedback about the current socket state.
+    if (!service.state.connected) {
+      throw ChatroomPreflightException(
+        GenesisL10n.current.chatConnectionFailed,
+      );
+    }
+    if (service.state.joinedLocationId == locationId) {
       onJoined();
       return;
     }

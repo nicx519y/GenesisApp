@@ -4158,7 +4158,23 @@ void main() {
   testWidgets(
     'Send without network keeps the draft without a bubble and shows a toast',
     (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       var networkChecks = 0;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(GenesisMethodChannels.device, (
+        call,
+      ) async {
+        if (call.method == GenesisMethodChannels.getNetworkAvailability) {
+          networkChecks++;
+          return false;
+        }
+        return null;
+      });
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        messenger.setMockMethodCallHandler(GenesisMethodChannels.device, null);
+      });
       final harness = await _connectedLocationChatTestService();
       addTearDown(() async {
         await tester.pumpWidget(const SizedBox.shrink());
@@ -4176,10 +4192,6 @@ void main() {
               service: harness.service,
               leaveOnInactive: false,
               messageQueueInitializationCovered: true,
-              networkAvailabilityCheck: () async {
-                networkChecks += 1;
-                return false;
-              },
             ),
           ),
         ),
@@ -4229,6 +4241,7 @@ void main() {
         'keep me',
       );
       expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+      debugDefaultTargetPlatformOverride = null;
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump(const Duration(seconds: 3));

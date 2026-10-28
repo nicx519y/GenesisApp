@@ -709,7 +709,16 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     errors.remove(key);
     _notify();
     try {
-      final hasNetwork = await networkAvailabilityCheck();
+      final bool hasNetwork;
+      try {
+        hasNetwork = await networkAvailabilityCheck();
+      } catch (_) {
+        if (_current(generation) &&
+            identical(_dmSendPreparations[key], preparation)) {
+          errors[key] = GenesisL10n.current.chatNoNetworkConnection;
+        }
+        return false;
+      }
       if (!_current(generation) ||
           !identical(_dmSendPreparations[key], preparation) ||
           !identical(pending[key], existing) ||

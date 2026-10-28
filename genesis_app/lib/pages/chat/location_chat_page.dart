@@ -142,8 +142,8 @@ const String _locationChatDefaultBackgroundAsset =
 typedef LocationChatNetworkAvailabilityCheck = Future<bool> Function();
 
 /// Rejects chat actions before clearing drafts or creating outgoing bubbles
-/// when the device has no usable network interface. Unknown platform failures
-/// deliberately fail open so a temporary probe problem never blocks WSS.
+/// when the system cannot confirm device network availability. The device
+/// network check must succeed before the World WebSocket is inspected.
 Future<bool> locationChatHasNetworkConnection() => hasDeviceNetworkConnection();
 
 @visibleForTesting

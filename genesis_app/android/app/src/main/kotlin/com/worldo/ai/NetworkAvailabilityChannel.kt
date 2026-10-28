@@ -9,6 +9,19 @@ import android.os.Looper
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 
+/** Fresh preflight status; residual local/VPN interfaces do not establish Internet access. */
+internal fun readNetworkAvailability(context: Context): Boolean? {
+    return try {
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val active = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(active) ?: return false
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    } catch (_: Exception) {
+        null
+    }
+}
+
 /** Emits changes to the process's active network; the request itself proves reachability. */
 internal class NetworkAvailabilityChannel(
     context: Context,

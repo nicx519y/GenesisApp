@@ -4,10 +4,14 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   String get _initialMessageText =>
       _initialOutgoingMessage?.text ?? _textController.serializedText;
 
-  Future<bool> _hasNetworkForSend() {
+  Future<bool> _hasNetworkForSend() async {
     final check =
         widget.networkAvailabilityCheck ?? locationChatHasNetworkConnection;
-    return check();
+    try {
+      return await check();
+    } catch (_) {
+      return false;
+    }
   }
 
   void _showSendFailure(Object error, {bool noNetwork = false}) {

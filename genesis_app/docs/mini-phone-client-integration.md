@@ -35,8 +35,13 @@ that projection. The unrepresented remainder of the server count is retained
 separately from the at-most-20 returned rows. Posts notifications retain their
 existing HTTP behavior. The phone entry combines local DM and current Post counts.
 
-Messages send and manual retry first check the device network interfaces, then
-the attached World WebSocket. A device with no network uses the localized
+Messages send and manual retry first read a fresh system network snapshot, then
+inspect the attached World WebSocket only when availability is confirmed.
+Android checks the active network for Internet and validated capabilities; iOS
+checks a fresh NWPathMonitor path. Local IP/VPN interfaces alone do not grant
+network availability on either mobile platform. A missing, failed or timed-out
+probe stops preflight with the network hint; it does not proceed to the socket
+check. These snapshots do not prove chat-server reachability. A device with no network uses the localized
 `chatNoNetworkConnection` Toast (`Network unavailable. Check network.`).
 A device with a network but no connected World socket uses
 `chatConnectionFailed` (`Could not connect to this chat`). A failed preflight
