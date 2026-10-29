@@ -17,6 +17,8 @@ analyzer:
     - third_party/in_app_purchase_android/**
     # Pigeon inputs belong to the vendored plugin generator, not the app package.
     - third_party/in_app_purchase_storekit/pigeons/**
+    - android/**
+    - ios/**
 
 linter:
   # The lint rules applied to this project can be customized in the
