@@ -104,6 +104,7 @@ class _AppServicesScopeState extends State<AppServicesScope> {
   }
 
   void _disposeReplacedServicesAfterDependentsUpdate(AppServices services) {
+    services.retireAuthentication();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (identical(_services, services)) return;
       services.dispose();

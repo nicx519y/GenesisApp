@@ -11218,6 +11218,7 @@ void main() {
     'after ACK timeout',
     'after ACK',
     'after echo',
+    'after generation failure',
     'after timeout',
   ]) {
     testWidgets('server conversation error unlocks Send $stage', (
@@ -11260,7 +11261,9 @@ void main() {
       if (stage == 'after ACK timeout') {
         await tester.pump(const Duration(seconds: 13));
       }
-      if (stage == 'after echo' || stage == 'after timeout') {
+      if (stage == 'after echo' ||
+          stage == 'after generation failure' ||
+          stage == 'after timeout') {
         harness.socket.serverV2UserMessage(
           messageId: 301,
           clientMsgId: first['client_msg_id'] as String,
@@ -11272,13 +11275,37 @@ void main() {
       if (stage == 'after timeout') {
         await tester.pump(const Duration(seconds: 46));
       }
+      void generationFailure() =>
+          harness.socket._serverFrame('llm_generation_state', {
+            'world_id': 'world-current',
+            'location_id': 'location-current',
+            'conversation_round_id': 301,
+            'gateway_request_id': 'failed-generation-request',
+            'payload': {
+              'state': 'failed',
+              'retract_attempt_no': 1,
+              'reason_code': 'stream_failed',
+            },
+            'err_no': 0,
+            'err_msg': '',
+          });
+      if (stage == 'after generation failure') {
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byType(ChatReplyWaitingBubble), findsOneWidget);
+        generationFailure();
+        await tester.pump();
+        expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      }
       void error() => harness.socket._serverFrame('error', {
         'world_id': 'world-current',
         'location_id': 'location-current',
-        'client_msg_id': first['client_msg_id'],
-        if (stage == 'after echo' || stage == 'after timeout')
+        if (stage != 'after generation failure')
+          'client_msg_id': first['client_msg_id'],
+        if (stage == 'after echo' ||
+            stage == 'after generation failure' ||
+            stage == 'after timeout')
           'conversation_round_id': 301,
-        'err_no': 2025,
+        'err_no': 2007,
         'err_msg': 'Generation failed',
         'payload': <String, Object?>{},
       });
@@ -11311,8 +11338,16 @@ void main() {
         tester,
         () => harness.socket.sendMessageCount == 2,
       );
+      if (stage == 'after generation failure') {
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byType(ChatReplyWaitingBubble), findsOneWidget);
+        generationFailure();
+      }
       error();
       await tester.pump();
+      if (stage == 'after generation failure') {
+        expect(find.byType(ChatReplyWaitingBubble), findsOneWidget);
+      }
       expect(
         harness.service.sendGate.blocks('world-current', 'location-current'),
         isTrue,

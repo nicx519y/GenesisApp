@@ -1,6 +1,28 @@
 part of 'genesis_api.dart';
 
 mixin _GenesisApiAuthOperations on _GenesisApiContext {
+  bool _authenticationActive = true;
+  int _authenticationGeneration = 0;
+  bool get authenticationActive => _authenticationActive;
+
+  void invalidateAuthentication() => _authenticationActive = false;
+
+  void cancelPendingAuthentication() => _authenticationGeneration++;
+
+  VoidCallback captureAuthenticationCheck() {
+    final generation = _authenticationGeneration;
+    return () {
+      checkAuthenticationActive();
+      if (generation != _authenticationGeneration) {
+        throw const AuthCancelledException();
+      }
+    };
+  }
+
+  void checkAuthenticationActive() {
+    if (!_authenticationActive) throw const AuthCancelledException();
+  }
+
   Future<String> ensureUid() => _ensureUid();
 
   @override
@@ -136,6 +158,8 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
   }
 
   Future<User> loginWithIdentity(AuthSession session) async {
+    final checkCurrent = captureAuthenticationCheck();
+    checkCurrent();
     final user = switch (session.provider) {
       IdentityProvider.google => await _loginWithGoogle(
         idToken: session.providerIdToken,
@@ -149,10 +173,12 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       ),
     };
     final cachedUserInfo = await _sessionStore.readUserInfo();
+    checkCurrent();
     await _sessionStore.saveUserInfo({
       if (cachedUserInfo != null) ...cachedUserInfo,
       'login_provider': session.provider.name,
     });
+    checkCurrent();
     return user;
   }
 
@@ -162,14 +188,16 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     String? name,
     String? avatar,
   }) async {
+    final checkCurrent = captureAuthenticationCheck();
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/oauth/google start');
+    checkCurrent();
     final json = await v1.user.googleAuth(
       idToken: idToken,
       nonce: nonce,
       name: name,
       avatar: avatar,
     );
-    final user = await _persistLoginResponse(json);
+    final user = await _persistLoginResponse(json, checkCurrent: checkCurrent);
     debugPrint(
       '[Auth][GenesisApi] POST /api/v1/user/oauth/google success uid=${user.uid}',
     );
@@ -181,13 +209,15 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     String? name,
     String? avatar,
   }) async {
+    final checkCurrent = captureAuthenticationCheck();
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/oauth/apple start');
+    checkCurrent();
     final json = await v1.user.appleAuth(
       idToken: identityToken.trim(),
       name: name,
       avatar: avatar,
     );
-    final user = await _persistLoginResponse(json);
+    final user = await _persistLoginResponse(json, checkCurrent: checkCurrent);
     debugPrint(
       '[Auth][GenesisApi] POST /api/v1/user/oauth/apple success uid=${user.uid}',
     );
@@ -206,7 +236,11 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/delete success');
   }
 
-  Future<User> _persistLoginResponse(Object? json) async {
+  Future<User> _persistLoginResponse(
+    Object? json, {
+    required VoidCallback checkCurrent,
+  }) async {
+    checkCurrent();
     final map = asJsonMap(json);
     final userRaw = map['user'];
     final userMap = userRaw is Map ? asJsonMap(userRaw) : map;
@@ -247,8 +281,11 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       cachedUserInfo.putIfAbsent('avatar', () => user.avatar);
     }
     await _sessionStore.saveUid(user.uid);
+    checkCurrent();
     await _sessionStore.saveAuthToken(authToken);
+    checkCurrent();
     await _sessionStore.saveUserInfo(cachedUserInfo);
+    checkCurrent();
     if (_languageController != null) {
       try {
         await v1.user.info();
@@ -256,11 +293,15 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
         debugPrint('[Language] Could not load signed-in user language: $error');
       }
     }
+    checkCurrent();
     return user;
   }
 
   Future<bool> _restoreBackendToken() async {
+    final checkCurrent = captureAuthenticationCheck();
+    checkCurrent();
     final session = await _identityAuthService.refreshSilently();
+    checkCurrent();
     if (session == null || !session.hasProviderToken) {
       debugPrint(
         '[Auth][GenesisApi] silent refresh unavailable; preserving local UID',

@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
 import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
@@ -4352,6 +4353,132 @@ void main() {
       apiTransport.lastRequest!.headers['authorization'],
       'Bearer backend-token',
     );
+  });
+
+  for (final retired in [false, true]) {
+    for (final provider in IdentityProvider.values) {
+      for (final rejected in [false, true]) {
+        test(
+          'retired login ignores late response ${provider.name} rejected=$rejected retired=$retired',
+          () async {
+            final requested = Completer<void>();
+            final pending = Completer<TransportResponse>();
+            final transport = _FakeTransport(
+              handler: (_) {
+                if (!requested.isCompleted) requested.complete();
+                return pending.future;
+              },
+            );
+            final store = MemoryUserSessionStore();
+            final identity = _FakeIdentityAuthService();
+            final api = GenesisApi(
+              transport: transport,
+              useMock: false,
+              deviceIdService: const _TestDeviceIdService(),
+              sessionStore: store,
+            );
+            final coordinator = GenesisBackendAuthCoordinator(
+              api: api,
+              identityAuth: identity,
+              sessionStore: store,
+            );
+            final result = expectLater(
+              coordinator.loginWithIdentity(
+                AuthSession(
+                  provider: provider,
+                  providerIdToken: 'old-token',
+                  displayName: 'Old',
+                  photoUrl: '',
+                ),
+              ),
+              throwsA(isA<AuthCancelledException>()),
+            );
+            await requested.future;
+            if (retired) {
+              api.invalidateAuthentication();
+            } else {
+              api.cancelPendingAuthentication();
+            }
+            await store.saveUid('current-account');
+            await store.saveAuthToken('current-token');
+            await store.saveUserInfo({
+              'uid': 'current-account',
+              'name': 'Current',
+            });
+            pending.complete(
+              TransportResponse(
+                statusCode: 200,
+                headers: const {'content-type': 'application/json'},
+                body: jsonEncode(
+                  rejected
+                      ? {'err_no': 10013, 'err_msg': 'user banned', 'data': {}}
+                      : {
+                          'err_no': 0,
+                          'err_msg': '',
+                          'data': {
+                            'token': 'stale-token',
+                            'user': {'uid': 'stale-user', 'name': 'Old'},
+                          },
+                        },
+                ),
+              ),
+            );
+            await result;
+            expect(await store.readUid(), 'current-account');
+            expect(await store.readAuthToken(), 'current-token');
+            expect(await store.readUserInfo(), {
+              'uid': 'current-account',
+              'name': 'Current',
+            });
+            expect(identity.signOutCount, 0);
+            expect(api.authenticationActive, !retired);
+            if (!retired) api.captureAuthenticationCheck()();
+          },
+        );
+      }
+    }
+  }
+
+  test('retirement during backend preparation never sends login', () async {
+    final preparing = Completer<void>();
+    final release = Completer<void>();
+    final transport = _FakeTransport(
+      handler: (_) => throw StateError('must not send'),
+    );
+    final store = MemoryUserSessionStore();
+    final identity = _FakeIdentityAuthService();
+    final api = GenesisApi(
+      transport: transport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: store,
+    );
+    final coordinator = GenesisBackendAuthCoordinator(
+      api: api,
+      identityAuth: identity,
+      sessionStore: store,
+      prepareBackendRequest: () async {
+        preparing.complete();
+        await release.future;
+      },
+    );
+    final result = expectLater(
+      coordinator.loginWithIdentity(
+        const AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'old-token',
+          displayName: '',
+          photoUrl: '',
+        ),
+      ),
+      throwsA(isA<AuthCancelledException>()),
+    );
+    await preparing.future;
+    api.invalidateAuthentication();
+    release.complete();
+    await result;
+    expect(transport.requests, isEmpty);
+    expect(identity.signOutCount, 0);
   });
 
   test(

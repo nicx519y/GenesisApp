@@ -8,6 +8,7 @@ import '../../network/genesis_api.dart';
 import '../../network/models/user.dart';
 import '../session/user_session_store.dart';
 import 'auth_session.dart';
+import 'auth_cancelled_exception.dart';
 import 'identity_auth_service.dart';
 import 'login_source.dart';
 
@@ -55,6 +56,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
     AuthSession session, {
     LoginSource source = LoginSource.unknown,
   }) async {
+    final checkCurrent = _api.captureAuthenticationCheck();
     final stopwatch = Stopwatch()..start();
     GenesisTelemetry.event(
       'login_start',
@@ -62,8 +64,11 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
       data: <String, Object?>{'provider': session.provider.name},
     );
     try {
+      checkCurrent();
       await _prepareBackendRequest?.call();
+      checkCurrent();
       final user = await _api.loginWithIdentity(session);
+      checkCurrent();
       stopwatch.stop();
       GenesisTelemetry.setUserId(user.uid);
       GenesisTelemetry.collectLog(
@@ -88,6 +93,10 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
       );
       return user;
     } catch (error) {
+      // A retired environment must not sign out the provider now shared by the
+      // replacement environment, nor report its stale result as a new failure.
+      checkCurrent();
+      if (error is AuthCancelledException) rethrow;
       stopwatch.stop();
       GenesisTelemetry.event(
         'login_failure',

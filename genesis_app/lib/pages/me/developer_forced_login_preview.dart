@@ -34,6 +34,7 @@ Future<bool?> showDeveloperForcedLoginPreview(BuildContext context) =>
               ),
             ),
             LoginSheet(
+              useSharedLoginSubmission: false,
               isDismissible: false,
               linkPurchasedMembership: true,
               onLogin: (_) async {

@@ -40,3 +40,11 @@
 ## 公共控件调用
 
 `GenesisPrimaryButton(isLoading: submitting)` 保留既有圆环；原先只有进度文字的按钮使用 `isLoading: submitting, showLoadingIndicator: false`。加载时保留正常底色；`disabledBackgroundColor` 只用于非加载的普通禁用状态。保留调用方原有的禁用提示回调。
+
+Home、Me、普通／强制登录 Sheet 和新用户登录步骤通过 `LoginSubmissionState` 绑定当前 `AppServices.loginSubmission`，共享正在登录的 Google／Apple 状态。同一时间只执行一次登录提交；已有页面和后来打开的登录界面同步显示对应方式的圆环，并禁止重复提交。成功、失败或取消后统一恢复；关闭发起登录的界面不提前释放仍在执行的登录。Sheet 关闭／返回控件沿用提交期间的禁用规则。独立组件预览没有应用服务时使用自身状态。
+
+登录成功在会话保存和刷新通知之后共享发布，其他入口打开的普通／强制登录 Sheet 同样以成功结果结束；注销等会话变化清除旧成功结果。收尾只完成登录界面自己的路由；上方打开条款等页面时移除被覆盖的登录路由，保留上方页面。Developer 模拟登录通过 `useSharedLoginSubmission: false` 使用独立状态，不能发布真实应用的成功结果。
+
+注销、登录过期等直接改变会话版本的路径也会清除共享成功结果并取消旧认证请求；当前环境仍可发起新的登录，旧请求的成功／失败均不能覆盖新会话或退出新的第三方身份。
+
+替换应用配置时立即使旧登录控制器和 API 认证链路失效，再延后销毁服务。授权返回、后端请求准备完成、响应保存 UID／Token／用户资料前后均检查所属环境，迟到结果按取消收尾，不发布成功、不覆盖新会话，也不退出新环境共用的第三方身份。Home／Me 与登录 Sheet 共用 `loginGenesisWithProvider` 完成授权、后端登录和会话提交。

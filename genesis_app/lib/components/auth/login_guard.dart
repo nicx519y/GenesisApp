@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/login_source.dart';
 import '../../platform/session/user_session_store.dart';
 import '../login_sheet.dart';
@@ -51,15 +52,28 @@ Future<bool> loginGenesisWithProvider(
   LoginSource source = LoginSource.unknown,
 }) async {
   final services = AppServicesScope.read(context);
+  final revision = services.sessionRevision.value;
+  void checkCurrent() {
+    if (!services.loginSubmission.isActive ||
+        services.sessionRevision.value != revision) {
+      throw const AuthCancelledException();
+    }
+  }
+
+  checkCurrent();
   final session = await services.identityAuth.signIn(provider);
+  checkCurrent();
   final user = await services.backendAuth.loginWithIdentity(
     session,
     source: source,
   );
+  checkCurrent();
   if (user.uid.trim().isNotEmpty) {
     await services.sessionStore.saveUid(user.uid);
   }
+  checkCurrent();
   final cachedUserInfo = await services.sessionStore.readUserInfo();
+  checkCurrent();
   final loginUserInfo = <String, dynamic>{
     if (cachedUserInfo != null) ...cachedUserInfo,
     'uid': user.uid,
@@ -75,6 +89,8 @@ Future<bool> loginGenesisWithProvider(
     loginUserInfo['avatar'] = user.avatar;
   }
   await services.sessionStore.saveUserInfo(loginUserInfo);
+  checkCurrent();
   services.notifySessionChanged();
+  services.loginSubmission.markSucceeded();
   return true;
 }

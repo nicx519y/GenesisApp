@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/components/login_provider_button.dart';
+import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/entry/mini_phone_entry_artwork.dart';
 import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
@@ -679,6 +681,17 @@ class _FakeIdentityAuthService implements IdentityAuthService {
 
   @override
   Future<void> signOutIdentity() async {}
+}
+
+class _PendingLoginIdentityAuth extends _FakeIdentityAuthService {
+  final pending = Completer<AuthSession>();
+  int signInCalls = 0;
+
+  @override
+  Future<AuthSession> signIn(IdentityProvider provider) {
+    signInCalls++;
+    return pending.future;
+  }
 }
 
 class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
@@ -23038,6 +23051,163 @@ void main() {
       },
     );
   }
+
+  for (final succeeds in [false, true]) {
+    testWidgets(
+      'Home Me and a newly opened login sheet share pending login success=$succeeds',
+      (tester) async {
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        final identity = _PendingLoginIdentityAuth();
+        final services = await _testServices(
+          initialUid: null,
+          identityAuth: identity,
+        );
+        await tester.pumpWidget(GenesisApp(services: services));
+        await tester.tap(find.text('Home'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Continue with Google'));
+        await tester.tap(find.text('Continue with Google'));
+        await tester.pump();
+        expect(identity.signInCalls, 1);
+        expect(services.loginSubmission.value, IdentityProvider.google);
+
+        void expectButtons(bool busy) {
+          final buttons = tester.widgetList<LoginProviderButton>(
+            find.byType(LoginProviderButton),
+          );
+          expect(buttons, isNotEmpty);
+          for (final button in buttons) {
+            expect(button.onPressed == null, busy);
+            expect(
+              button.isLoading,
+              busy && button.provider == IdentityProvider.google,
+            );
+          }
+        }
+
+        expectButtons(true);
+        await tester.tap(find.text('Me'));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
+        expectButtons(true);
+        await tester.tap(find.text('Inbox'));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
+        expect(find.byType(LoginSheet), findsOneWidget);
+        expectButtons(true);
+        final buttons = tester.widget<LoginProviderButtons>(
+          find.descendant(
+            of: find.byType(LoginSheet),
+            matching: find.byType(LoginProviderButtons),
+          ),
+        );
+        await Future<void>.sync(() => buttons.onLogin(IdentityProvider.apple));
+        expect(identity.signInCalls, 1);
+
+        if (succeeds) {
+          identity.pending.complete(
+            const AuthSession(
+              provider: IdentityProvider.google,
+              providerIdToken: 'google-token',
+              displayName: 'User',
+              photoUrl: '',
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(await services.sessionStore.readLoginUid(), isNotNull);
+          expect(find.byType(LoginSheet), findsNothing);
+          expect(services.loginSubmission.succeeded, isTrue);
+        } else {
+          identity.pending.completeError(const AuthCancelledException());
+          await tester.pump();
+          await tester.pump();
+          expectButtons(false);
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(find.byType(LoginSheet), findsNothing);
+          expectButtons(false);
+        }
+        expect(services.loginSubmission.value, isNull);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox.shrink());
+        AppStartupCoordinator.resetForTesting();
+      },
+    );
+  }
+
+  testWidgets('session revisions reset shared login completion', (
+    tester,
+  ) async {
+    final services = await _testServices(initialUid: null);
+    addTearDown(services.dispose);
+    final oldCheck = services.api.captureAuthenticationCheck();
+    services.loginSubmission.markSucceeded();
+    expect(services.loginSubmission.succeeded, isTrue);
+    services.sessionRevision.value++;
+    expect(services.loginSubmission.succeeded, isFalse);
+    expect(oldCheck, throwsA(isA<AuthCancelledException>()));
+    services.api.captureAuthenticationCheck()();
+  });
+
+  testWidgets('replaced services reject a late identity login', (tester) async {
+    final sessionStore = MemoryUserSessionStore();
+    final identity = _PendingLoginIdentityAuth();
+    final oldBackend = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+    );
+    final oldServices = await _testServices(
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+      identityAuth: identity,
+      backendAuth: oldBackend,
+    );
+    final newServices = await _testServices(
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+    );
+    Widget tree(AppServices services) => AppServicesScope(
+      services: services,
+      child: MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: LoginSheet(
+              onLogin: (provider) =>
+                  loginGenesisWithProvider(context, provider),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(tree(oldServices));
+    final buttons = tester.widget<LoginProviderButtons>(
+      find.byType(LoginProviderButtons),
+    );
+    unawaited(
+      Future<void>.sync(() => buttons.onLogin(IdentityProvider.google)),
+    );
+    await tester.pump();
+    await tester.pumpWidget(tree(newServices));
+    await tester.pump();
+    identity.pending.complete(
+      const AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'old-provider-token',
+        displayName: 'Old',
+        photoUrl: '',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(oldBackend.loginCount, 0);
+    expect(await sessionStore.readLoginUid(), isNull);
+    expect(newServices.loginSubmission.succeeded, isFalse);
+    expect(find.byType(LoginSheet), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('signed-out Home opens worlds after Google login succeeds', (
     WidgetTester tester,

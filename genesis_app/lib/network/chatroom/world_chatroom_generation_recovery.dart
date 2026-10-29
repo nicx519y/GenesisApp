@@ -97,7 +97,10 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
       final watch = _streamWatches[id.location];
       if (watch?.roundId == id.round) {
         watch!.ended = true;
-        watch.operation.finish();
+        // A failed generation also cancels its ACK/reply placeholder. Normal
+        // completion skips release listeners and can leave that bubble visible
+        // when the following error frame arrives after this watch has ended.
+        watch.operation.releaseLocalWait();
       }
       _completeConversationRound(
         locationId: id.location,
