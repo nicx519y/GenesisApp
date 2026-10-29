@@ -3674,4 +3674,138 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Unable to save privacy choices. Please try again.';
+
+  @override
+  String get miniPhoneCameraInThePhoto => 'In the photo';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count selected',
+      one: '1 selected',
+      zero: 'No one selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => 'Style';
+
+  @override
+  String get miniPhoneCameraCastHint =>
+      'Tap the people below to bring them into the frame.';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => 'Describe the moment';
+
+  @override
+  String get miniPhoneCameraPromptHint => 'Where are you? What’s the mood?';
+
+  @override
+  String get miniPhoneCameraTryTemplate => 'Try a template';
+
+  @override
+  String get miniPhoneCameraTemplateHint => 'Tap to fill the prompt';
+
+  @override
+  String get miniPhoneCameraPovSelfie => 'POV selfie';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => 'Mirror selfie';
+
+  @override
+  String get miniPhoneCameraByFriend => 'By a friend';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      'An arm’s-length selfie featuring only the selected characters, taken by one of them. Keep every selected character fully in frame, looking into the lens with relaxed, natural expressions. Slight wide-angle perspective, soft light, and a gently blurred setting from their world. Keep their appearance and outfits. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      'A casual mirror selfie featuring only the selected characters. One holds the camera, and all selected characters are visible in the reflection. Show a clear mirror edge, natural poses, and soft indoor light in a setting from their world. Keep their appearance and outfits. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      'An eye-level photo of only the selected characters, taken by someone outside the frame. Keep every selected character visible, with relaxed poses and natural expressions in a setting from their world. The photographer and camera stay off-screen: no mirror and no outstretched selfie arm. Keep their appearance and outfits. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraTakePhoto => 'Take photo';
+
+  @override
+  String get miniPhoneCameraTryAgain => 'Try again';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '$priceString Gems / photo';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => 'Creating your photo';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => 'A moment in the making.';
+
+  @override
+  String get miniPhoneCameraCreatingBody =>
+      'Bringing your characters and scene together.';
+
+  @override
+  String get miniPhoneCameraGenerationFailed => 'Couldn’t create this photo.';
+
+  @override
+  String get miniPhoneCameraDraftPreserved =>
+      'Your characters and prompt are still here. Please try again.';
+
+  @override
+  String get miniPhoneCameraTakeAnother => 'Take another';
+
+  @override
+  String get miniPhoneCameraUseInPost => 'Use in a post';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => 'Open full photo';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => 'Image unavailable';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => 'Saved to Photos';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => 'Syncing with Photos…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed =>
+      'Couldn’t sync with Photos. Please try again.';
+
+  @override
+  String get worldoLaunchSetting => 'Setting';
+
+  @override
+  String get miniPhoneCameraMomentTitle => 'Capture this moment';
+
+  @override
+  String get miniPhoneCameraMomentBody =>
+      'Turn this scene into a photo with your characters.';
+
+  @override
+  String get miniPhoneCameraDontAskAgain =>
+      'Don’t ask next time. Tap the camera to generate a photo directly.';
+
+  @override
+  String get miniPhoneCameraFreeTrial => 'Free trial';
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '$originalPrice $price Gems / photo';
+  }
 }

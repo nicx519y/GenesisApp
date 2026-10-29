@@ -3549,4 +3549,133 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get privacyChoicesSaveError => '개인정보 설정을 저장할 수 없습니다. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneCameraInThePhoto => '사진에 나올 인물';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count명 선택됨',
+      one: '1명 선택됨',
+      zero: '선택된 인물 없음',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => '스타일';
+
+  @override
+  String get miniPhoneCameraCastHint => '아래 인물을 눌러 사진에 담아 보세요.';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => '순간을 묘사해 주세요';
+
+  @override
+  String get miniPhoneCameraPromptHint => '어디에 있나요? 어떤 분위기인가요?';
+
+  @override
+  String get miniPhoneCameraTryTemplate => '템플릿 사용해 보기';
+
+  @override
+  String get miniPhoneCameraTemplateHint => '탭하여 설명 입력';
+
+  @override
+  String get miniPhoneCameraPovSelfie => '팔을 뻗어 찍는 셀카';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => '거울 셀카';
+
+  @override
+  String get miniPhoneCameraByFriend => '친구가 찍어 준 사진';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      '선택한 캐릭터 중 한 명이 팔을 뻗어 찍은 셀카로, 선택한 캐릭터만 등장하게 해 주세요. 선택한 모든 캐릭터가 프레임 안에 온전히 들어오고, 편안하고 자연스러운 표정으로 렌즈를 바라보게 해 주세요. 약한 광각 구도와 부드러운 빛을 사용하고, 캐릭터들이 속한 월드의 배경을 살짝 흐리게 표현해 주세요. 외모와 의상은 그대로 유지해 주세요. 다른 인물을 추가하지 마세요.';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      '선택한 캐릭터만 등장하는 편안한 분위기의 거울 셀카입니다. 한 명이 카메라를 들고, 선택한 모든 캐릭터가 거울에 비치게 해 주세요. 거울 테두리를 선명하게 보여 주고, 캐릭터들이 속한 월드의 공간에서 자연스러운 포즈와 부드러운 실내 조명을 표현해 주세요. 외모와 의상은 그대로 유지해 주세요. 다른 인물을 추가하지 마세요.';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      '프레임 밖에 있는 사람이 눈높이에서 찍은 사진으로, 선택한 캐릭터만 등장하게 해 주세요. 캐릭터들이 속한 월드의 배경에서 선택한 모든 캐릭터가 편안한 포즈와 자연스러운 표정으로 보이게 해 주세요. 촬영자와 카메라는 화면 밖에 두고, 거울이나 셀카를 찍으려고 뻗은 팔은 나오지 않게 해 주세요. 외모와 의상은 그대로 유지해 주세요. 다른 인물을 추가하지 마세요.';
+
+  @override
+  String get miniPhoneCameraTakePhoto => '사진 찍기';
+
+  @override
+  String get miniPhoneCameraTryAgain => '다시 시도';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '사진 1장당 $priceString젬';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => '사진을 만드는 중';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => '하나의 순간이 완성되고 있어요.';
+
+  @override
+  String get miniPhoneCameraCreatingBody => '캐릭터와 장면을 하나로 담고 있어요.';
+
+  @override
+  String get miniPhoneCameraGenerationFailed => '사진을 만들지 못했어요.';
+
+  @override
+  String get miniPhoneCameraDraftPreserved =>
+      '선택한 캐릭터와 설명은 그대로 남아 있어요. 다시 시도해 주세요.';
+
+  @override
+  String get miniPhoneCameraTakeAnother => '한 장 더 찍기';
+
+  @override
+  String get miniPhoneCameraUseInPost => '게시물에 사용';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => '전체 사진 열기';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => '이미지를 표시할 수 없어요';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => '사진에 저장됨';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => '사진과 동기화 중…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed => '사진과 동기화하지 못했어요. 다시 시도해 주세요.';
+
+  @override
+  String get worldoLaunchSetting => '설정';
+
+  @override
+  String get miniPhoneCameraMomentTitle => '이 순간을 사진으로';
+
+  @override
+  String get miniPhoneCameraMomentBody => '이 장면을 캐릭터들과 함께하는 사진으로 만들어 보세요.';
+
+  @override
+  String get miniPhoneCameraDontAskAgain => '다음부터 묻지 않고 카메라를 누르면 바로 사진을 생성합니다.';
+
+  @override
+  String get miniPhoneCameraFreeTrial => '무료 체험';
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '사진 1장당 $originalPrice $price젬';
+  }
 }

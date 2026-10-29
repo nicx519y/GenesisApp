@@ -203,6 +203,7 @@ List<OriginCharacter> _originCharactersFromV5(Object? raw, int originId) {
           avatar: _resolveImageAssetUrl(c['image']),
           tags: asString(c['identity']),
           tagline: asString(c['brief']),
+          description: asString(c['description'], fallback: asString(c['bio'])),
           goal: asString(c['goal']),
           currentLocationId: _extractTrailingInt(asString(c['Ochar_point'])),
           initialLocationId: _extractTrailingInt(asString(c['Ochar_point'])),

@@ -248,18 +248,21 @@ void main() {
       );
       addTearDown(store.dispose);
       expect(store.worldDetailLoaded, isFalse);
+      expect(store.cameraWorldDetail, isNull);
       await store.ready;
       expect(store.worldDetailLoaded, isFalse);
       failWorld = false;
       await store.refreshPeople();
       expect(store.worldDetailLoaded, isTrue);
       expect(store.mapStyle!.era, 'steampunk');
+      expect(store.cameraWorldDetail?.worldId, 'w');
       final before = reads;
       style = null;
       await store.refreshPeople();
       expect(reads, before + 1);
       expect(store.mapStyle, isNull);
       expect(store.worldDetailLoaded, isTrue);
+      expect(store.cameraWorldDetail?.mapStyle, isNull);
     },
   );
 

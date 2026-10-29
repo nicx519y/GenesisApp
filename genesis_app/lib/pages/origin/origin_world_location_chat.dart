@@ -236,6 +236,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   }
 
   Widget _buildInlineLocationRoles(OriginDetail origin) {
+    final profileRoleRevision = _profileRoleRevision;
     return _OriginSetupRoleSection(
       title: GenesisL10n.current.originStartBySelectingRole,
       bottomPadding: 4,
@@ -246,22 +247,40 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       roleAvatarSnapshots: _roleAvatarSnapshots,
       launchBusy: _launching,
       profileRole: _openingProfileRole,
+      profileRoleRevision: profileRoleRevision,
+      mergedCharacter: _recommendedRole?.character,
       selectedRoleId: _effectiveLocationChatRoleId(origin),
       onSelectedRoleChanged: _selectLocationChatRole,
-      onSaveProfileRole: _saveProfileRoleLocally,
-      profileCardPositionKey: GlobalKey(),
-      profileRoleEditing: false,
+      onSaveProfileRole: (role) {
+        if (profileRoleRevision != _profileRoleRevision) return;
+        _saveProfileRoleLocally(role, profileRevision: profileRoleRevision);
+        _setPreviewRoleEditing(false);
+      },
+      profileCardPositionKey: _previewRoleCardPositionKey,
+      profileRoleEditing: _previewRoleEditing,
       onBeginProfileRoleEditing: _editPreviewLocationRole,
-      onCancelProfileRoleEditing: () {},
+      onCancelProfileRoleEditing: () {
+        _setPreviewRoleEditing(false);
+      },
       onProfileRoleFocusChanged: (_) {},
       onProfileRoleInternalInteractionChanged: (_) {},
-      onResumeProfileRoleInternalInteraction: (_) {},
+      onResumeProfileRoleInternalInteraction: (resume) {
+        // Use the role card's normal next-frame focus/scroll recovery after
+        // the picker returns, including cancellation without a new avatar.
+        WidgetsBinding.instance.addPostFrameCallback((_) => resume());
+        WidgetsBinding.instance.ensureVisualUpdate();
+      },
     );
   }
 
   Future<void> _editPreviewLocationRole() async {
+    final profileRoleRevision = _profileRoleRevision;
     final origin = _origin;
     if (origin == null || _launching) return;
+    if (_recommendedRole != null) {
+      _setPreviewRoleEditing(true);
+      return;
+    }
     final selection = await showOriginRoleLaunchSheet(
       context: context,
       characters: origin.characters,
@@ -269,8 +288,15 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       onFillFromProfile: _customRoleFromProfile,
       resolveAvatarUrl: _resolveAssetUrl,
     );
-    if (!mounted || selection?.customRole == null) return;
-    _saveProfileRoleLocally(selection!.customRole!);
+    if (!mounted ||
+        profileRoleRevision != _profileRoleRevision ||
+        selection?.customRole == null) {
+      return;
+    }
+    _saveProfileRoleLocally(
+      selection!.customRole!,
+      profileRevision: profileRoleRevision,
+    );
     _selectLocationChatRole(_OriginWorldPageState._profileLocationChatRoleId);
   }
 
@@ -355,6 +381,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         _originInitialDialoguePreviewFromMessages(
           _origin!,
           descriptor.openingPreviewMessages,
+          recommendedRole: _recommendedRole?.role,
         )?.messages ??
         const <ChatMessageVm>[];
     return CustomScrollView(
@@ -421,7 +448,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                             final keyboardOpen =
                                 MediaQuery.viewInsetsOf(context).bottom > 0;
                             return IgnorePointer(
-                              ignoring: inputFocused || keyboardOpen,
+                              ignoring:
+                                  !_previewRoleEditing &&
+                                  (inputFocused || keyboardOpen),
                               child: AnimatedOpacity(
                                 key: const ValueKey<String>(
                                   'origin-location-role-cards-visibility',
@@ -429,7 +458,12 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                                 // Like Opening Sheet, reveal the cards as soon
                                 // as the composer loses focus, while keeping
                                 // them inactive until the keyboard closes.
-                                opacity: inputFocused && keyboardOpen ? 0 : 1,
+                                opacity:
+                                    !_previewRoleEditing &&
+                                        inputFocused &&
+                                        keyboardOpen
+                                    ? 0
+                                    : 1,
                                 duration: const Duration(milliseconds: 250),
                                 curve: Curves.easeOutCubic,
                                 child: child,
@@ -622,6 +656,8 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   String _effectiveLocationChatRoleId(OriginDetail origin) {
     final selectedId = _selectedLocationChatRoleId;
     if (selectedId == _OriginWorldPageState._profileLocationChatRoleId) {
+      final recommendedRole = _recommendedRole;
+      if (recommendedRole != null) return recommendedRole.characterId;
       if (_openingProfileRole != null) return selectedId;
     } else {
       for (final character in origin.characters) {
@@ -646,13 +682,19 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     if (selectedId != _OriginWorldPageState._profileLocationChatRoleId) {
       for (final character in origin.characters) {
         if (_characterStableId(character) == selectedId) {
+          final merged = _recommendedRole;
+          final draft = merged?.characterId == selectedId ? merged?.role : null;
           return _OriginLocationChatRoleOption(
             id: selectedId,
-            name: character.name.trim().isEmpty
-                ? selectedId
-                : character.name.trim(),
-            subtitle: character.identity.trim(),
-            avatarSnapshotSourceKey: _resolveAssetUrl(character.avatar).trim(),
+            name:
+                draft?.name ??
+                (character.name.trim().isEmpty
+                    ? selectedId
+                    : character.name.trim()),
+            subtitle: draft?.identity ?? character.identity.trim(),
+            avatarSnapshotSourceKey: _resolveAssetUrl(
+              draft?.avatarUrl ?? character.avatar,
+            ).trim(),
           );
         }
       }
@@ -727,7 +769,19 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         return _OriginLocationChatSendResult.notLaunched;
       }
       final characterId = _characterStableId(character);
-      roleSelection = OriginRoleLaunchSelection.preset(characterId);
+      final recommendedRole = _recommendedRole;
+      if (recommendedRole?.characterId == characterId &&
+          recommendedRole!.role.name.trim().isEmpty) {
+        showGenesisToast(
+          context,
+          GenesisL10n.current.enterNameValidation,
+          brightness: Brightness.dark,
+        );
+        return _OriginLocationChatSendResult.notLaunched;
+      }
+      roleSelection = recommendedRole?.characterId == characterId
+          ? recommendedRole!.toLaunchSelection()
+          : OriginRoleLaunchSelection.preset(characterId);
       telemetryRoleId = characterId;
     }
 
@@ -773,7 +827,8 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
             senderName: role.name,
             avatarUrl: role.avatarSnapshotSourceKey,
             avatarSnapshot: _roleAvatarSnapshots
-                .imageFor(role.avatarSnapshotSourceKey)?.clone(),
+                .imageFor(role.avatarSnapshotSourceKey)
+                ?.clone(),
             isPlayerControlledRole: true,
             text: message,
             isMe: true,
@@ -781,11 +836,25 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
           ),
           mentionCatalog: mentionCatalog,
           openingPreviewMessages: openingMessages,
-          openingPreviewEntities: _originLocationOpeningPreviewEntities(
-            origin.characters,
-            openingMessages,
-            locationId,
-          ),
+          openingPreviewEntities:
+              _originLocationOpeningPreviewEntities(
+                    origin.characters,
+                    openingMessages,
+                    locationId,
+                  )
+                  .map(
+                    (entity) => entity.id == selectedRoleId
+                        ? WorldChatroomEntity(
+                            id: entity.id,
+                            name: role.name,
+                            avatarUrl: role.avatarSnapshotSourceKey,
+                            type: entity.type,
+                            locationId: entity.locationId,
+                            isAi: false,
+                          )
+                        : entity,
+                  )
+                  .toList(growable: false),
         ),
       },
     );
@@ -1230,8 +1299,9 @@ class _OriginInitialDialoguePreview {
 }
 
 _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
-  OriginDetail origin,
-) {
+  OriginDetail origin, {
+  OriginCustomRoleDraft? recommendedRole,
+}) {
   final locationIds = <String>{
     for (final location in origin.allLocations)
       if (location.locationId.trim().isNotEmpty) location.locationId.trim(),
@@ -1242,13 +1312,18 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
     origin,
     locationIds,
   );
-  return _originInitialDialoguePreviewFromMessages(origin, sourceMessages);
+  return _originInitialDialoguePreviewFromMessages(
+    origin,
+    sourceMessages,
+    recommendedRole: recommendedRole,
+  );
 }
 
 _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
   OriginDetail origin,
-  List<WorldChatroomMessage> sourceMessages,
-) {
+  List<WorldChatroomMessage> sourceMessages, {
+  OriginCustomRoleDraft? recommendedRole,
+}) {
   if (!sourceMessages.any((message) => message.senderType != 'tick')) {
     return null;
   }
@@ -1267,6 +1342,8 @@ _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
   final entitiesById = <String, WorldChatroomEntity>{
     for (final entity in entities) entity.id.trim().toLowerCase(): entity,
   };
+  final recommended = OriginRecommendedRole.resolve(origin.characters);
+  final draft = recommendedRole ?? recommended?.role;
   final messages = sourceMessages.indexed
       .map((entry) {
         final index = entry.$1;
@@ -1278,6 +1355,10 @@ _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
           _ => rawSenderType,
         };
         final entity = entitiesById[source.senderId.trim().toLowerCase()];
+        final isRecommendedSpeaker =
+            recommended != null &&
+            source.senderId.trim() == recommended.characterId &&
+            (senderType == 'character' || senderType == 'user');
         final senderName = entity?.name.trim().isNotEmpty == true
             ? entity!.name.trim()
             : source.senderName.trim();
@@ -1295,12 +1376,15 @@ _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
           roundId: source.conversationRoundId,
           tickNo: source.tickNo,
           senderId: source.senderId,
-          senderName: senderName,
-          avatarUrl: entity?.avatarUrl ?? '',
+          senderName: isRecommendedSpeaker ? draft!.name : senderName,
+          avatarUrl: isRecommendedSpeaker
+              ? _resolveAssetUrl(draft!.avatarUrl)
+              : entity?.avatarUrl ?? '',
           imageUrl: senderType == 'image' ? source.content : '',
           text: source.content,
           currentTime: currentTime,
-          isMe: false,
+          isMe: isRecommendedSpeaker,
+          isPlayerControlledRole: isRecommendedSpeaker,
           status: 'sent',
           senderType: senderType,
           createdAt: source.createdAt,
@@ -1335,6 +1419,17 @@ List<WorldChatroomMessage> _originLocationOpeningPreviewMessages(
     locationIds,
   );
 }
+
+@visibleForTesting
+List<ChatMessageVm> originInitialDialoguePreviewForTesting(
+  OriginDetail origin, {
+  OriginCustomRoleDraft? recommendedRole,
+}) =>
+    _originFirstInitialDialoguePreview(
+      origin,
+      recommendedRole: recommendedRole,
+    )?.messages ??
+    const [];
 
 @visibleForTesting
 List<WorldChatroomMessage> originOpeningPreviewMessagesForTesting(

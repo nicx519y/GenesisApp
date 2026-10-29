@@ -6,6 +6,7 @@ enum MiniPhoneScreen {
   comments,
   create,
   photos,
+  camera,
   settings,
   music,
   models,

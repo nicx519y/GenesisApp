@@ -3727,4 +3727,139 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Não foi possível salvar as opções de privacidade. Tente novamente.';
+
+  @override
+  String get miniPhoneCameraInThePhoto => 'Na foto';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pessoas selecionadas',
+      one: '1 pessoa selecionada',
+      zero: 'Ninguém selecionado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => 'Estilo';
+
+  @override
+  String get miniPhoneCameraCastHint =>
+      'Toque nas pessoas abaixo para incluí-las na foto.';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => 'Descreva o momento';
+
+  @override
+  String get miniPhoneCameraPromptHint => 'Onde você está? Qual é o clima?';
+
+  @override
+  String get miniPhoneCameraTryTemplate => 'Experimente um modelo';
+
+  @override
+  String get miniPhoneCameraTemplateHint => 'Toque para preencher a descrição';
+
+  @override
+  String get miniPhoneCameraPovSelfie => 'Selfie com o braço estendido';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => 'Selfie no espelho';
+
+  @override
+  String get miniPhoneCameraByFriend => 'Tirada por um amigo';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      'Uma selfie com o braço estendido em que apareçam apenas os personagens selecionados, tirada por um deles. Mantenha todos os personagens selecionados inteiramente no enquadramento, olhando para a lente com expressões relaxadas e naturais. Use uma perspectiva levemente grande-angular, luz suave e um cenário do mundo deles suavemente desfocado. Preserve a aparência e as roupas dos personagens. Não adicione outras pessoas.';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      'Uma selfie casual no espelho em que apareçam apenas os personagens selecionados. Um deles segura a câmera, e todos os personagens selecionados estão visíveis no reflexo. Mostre uma borda de espelho bem definida, poses naturais e luz suave de ambiente interno em um cenário do mundo deles. Preserve a aparência e as roupas dos personagens. Não adicione outras pessoas.';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      'Uma foto na altura dos olhos em que apareçam apenas os personagens selecionados, tirada por alguém fora do enquadramento. Mantenha todos os personagens selecionados visíveis, com poses relaxadas e expressões naturais em um cenário do mundo deles. Quem tira a foto e a câmera ficam fora do enquadramento: sem espelho e sem braço estendido para selfie. Preserve a aparência e as roupas dos personagens. Não adicione outras pessoas.';
+
+  @override
+  String get miniPhoneCameraTakePhoto => 'Tirar foto';
+
+  @override
+  String get miniPhoneCameraTryAgain => 'Tentar novamente';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '$priceString Gemas / foto';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => 'Criando sua foto';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => 'Um momento está ganhando forma.';
+
+  @override
+  String get miniPhoneCameraCreatingBody =>
+      'Reunindo seus personagens e a cena.';
+
+  @override
+  String get miniPhoneCameraGenerationFailed =>
+      'Não foi possível criar esta foto.';
+
+  @override
+  String get miniPhoneCameraDraftPreserved =>
+      'Seus personagens e sua descrição continuam aqui. Tente novamente.';
+
+  @override
+  String get miniPhoneCameraTakeAnother => 'Tirar outra';
+
+  @override
+  String get miniPhoneCameraUseInPost => 'Usar em uma publicação';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => 'Abrir foto completa';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => 'Imagem indisponível';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => 'Salva em Fotos';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => 'Sincronizando com Fotos…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed =>
+      'Não foi possível sincronizar com Fotos. Tente novamente.';
+
+  @override
+  String get worldoLaunchSetting => 'Contexto';
+
+  @override
+  String get miniPhoneCameraMomentTitle => 'Capture este momento';
+
+  @override
+  String get miniPhoneCameraMomentBody =>
+      'Transforme esta cena em uma foto com seus personagens.';
+
+  @override
+  String get miniPhoneCameraDontAskAgain =>
+      'Não perguntar novamente. Toque na câmera para gerar uma foto diretamente.';
+
+  @override
+  String get miniPhoneCameraFreeTrial => 'Teste grátis';
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '$originalPrice $price Gemas / foto';
+  }
 }

@@ -14,6 +14,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.roleAvatarSnapshots,
     required this.launchBusy,
     required this.profileRole,
+    required this.profileRoleRevision,
+    this.mergedCharacter,
     required this.selectedRoleId,
     required this.onSelectedRoleChanged,
     required this.onSaveProfileRole,
@@ -39,6 +41,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
   final OriginCustomRoleDraft? profileRole;
+  final int profileRoleRevision;
+  final OriginCharacter? mergedCharacter;
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
@@ -111,11 +115,21 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
 
   List<String> get _roleIds => <String>[
     if (widget.profileRole != null)
-      _OriginWorldPageState._profileLocationChatRoleId,
-    for (final character in originCharactersRecommendedFirst(widget.characters))
+      widget.mergedCharacter?.characterId.trim() ??
+          _OriginWorldPageState._profileLocationChatRoleId,
+    for (final character in _remainingCharacters)
       if (_characterStableId(character).isNotEmpty)
         _characterStableId(character),
   ];
+
+  Iterable<OriginCharacter> get _remainingCharacters =>
+      widget.mergedCharacter == null
+      ? originCharactersRecommendedFirst(widget.characters)
+      : widget.characters.where(
+          (character) =>
+              _characterStableId(character) !=
+              widget.mergedCharacter!.characterId.trim(),
+        );
 
   int get _cardCount => _roleIds.length;
 
@@ -170,7 +184,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   bool _handleCardsScrollStart(ScrollStartNotification notification) {
-    if (widget.profileRoleEditing && notification.dragDetails != null) {
+    if (widget.profileRoleEditing &&
+        notification.metrics.axis == Axis.horizontal &&
+        notification.dragDetails != null) {
       widget.onCancelProfileRoleEditing();
     }
     return false;
@@ -181,7 +197,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final avatarSourceKeys = <String>[
       if (widget.profileRole case final profileRole?)
         _resolveAssetUrl(profileRole.avatarUrl).trim(),
-      ...originCharactersRecommendedFirst(widget.characters)
+      ..._remainingCharacters
           .where((character) => _characterStableId(character).isNotEmpty)
           .map((character) => _resolveAssetUrl(character.avatar).trim()),
     ];
@@ -233,10 +249,11 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   @override
   Widget build(BuildContext context) {
     const cardWidth = _OriginSetupRoleSection._cardWidth;
-    final characters = originCharactersRecommendedFirst(widget.characters)
+    final characters = _remainingCharacters
         .where((character) => _characterStableId(character).isNotEmpty)
         .toList(growable: false);
     final profileRole = widget.profileRole;
+    final profileRoleRevision = widget.profileRoleRevision;
     final profileCardCount = profileRole == null ? 0 : 1;
     final cardCount = _cardCount;
     if (cardCount == 0) return const SizedBox.shrink();
@@ -293,16 +310,20 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                       child: SizedBox(
                         width: cardWidth,
                         child: GestureDetector(
-                          key: const ValueKey<String>(
-                            'origin-setup-role-page-current-user',
+                          key: ValueKey<String>(
+                            'origin-setup-role-page-${widget.mergedCharacter?.characterId.trim() ?? 'current-user'}',
                           ),
                           behavior: HitTestBehavior.opaque,
                           onTap: selected ? null : () => _centerCard(index),
                           child: IgnorePointer(
                             ignoring: !selected,
                             child: _OriginSetupRoleCard(
+                              key: ValueKey<String>(
+                                '${widget.mergedCharacter?.characterId.trim() ?? 'current-user'}-$profileRoleRevision',
+                              ),
                               content: _OriginSetupRoleCardContent.fromProfile(
                                 profileRole,
+                                character: widget.mergedCharacter,
                               ),
                               roleAvatarSnapshots: widget.roleAvatarSnapshots,
                               selected: selected,
@@ -319,7 +340,16 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                                   .onProfileRoleInternalInteractionChanged,
                               onResumeInternalInteraction:
                                   widget.onResumeProfileRoleInternalInteraction,
-                              onEditedRoleChanged: widget.onSaveProfileRole,
+                              onEditedRoleChanged: (draft) {
+                                // Discard delayed saves from an old account's
+                                // form even if the new account is editing now.
+                                if (!mounted ||
+                                    profileRoleRevision !=
+                                        widget.profileRoleRevision) {
+                                  return;
+                                }
+                                widget.onSaveProfileRole(draft);
+                              },
                             ),
                           ),
                         ),
@@ -341,6 +371,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                         child: IgnorePointer(
                           ignoring: !selected,
                           child: _OriginSetupRoleCard(
+                            key: ValueKey<String>(stableId),
                             content: _OriginSetupRoleCardContent.fromCharacter(
                               character,
                             ),
@@ -366,12 +397,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
       ),
     );
   }
-}
-
-String _limitOriginProfileRoleField(String value, int maxLength) {
-  final characters = value.characters;
-  if (characters.length <= maxLength) return value;
-  return characters.take(maxLength).toString();
 }
 
 class _OriginRoleCardsIndicator extends StatelessWidget {
@@ -426,6 +451,7 @@ class _OriginSetupRoleCardContent {
     required this.avatar,
     required this.identity,
     required this.personality,
+    required this.bio,
     required this.goal,
     required this.isRecommended,
     required this.isProfile,
@@ -438,6 +464,7 @@ class _OriginSetupRoleCardContent {
       avatar: character.avatar,
       identity: character.tags,
       personality: character.tagline,
+      bio: character.description,
       goal: character.goal,
       isRecommended: character.isRecommended,
       isProfile: false,
@@ -445,19 +472,19 @@ class _OriginSetupRoleCardContent {
   }
 
   factory _OriginSetupRoleCardContent.fromProfile(
-    OriginCustomRoleDraft profileRole,
-  ) {
+    OriginCustomRoleDraft profileRole, {
+    OriginCharacter? character,
+  }) {
     return _OriginSetupRoleCardContent(
-      stableId: 'current-user',
+      stableId: character?.characterId.trim() ?? 'current-user',
       name: profileRole.name,
       avatar: profileRole.avatarUrl,
       identity: profileRole.identity,
-      personality: profileRole.personality.trim().isNotEmpty
-          ? profileRole.personality
-          : profileRole.bio,
-      goal: '',
-      isRecommended: false,
-      isProfile: true,
+      personality: profileRole.personality,
+      bio: profileRole.bio,
+      goal: character?.goal ?? profileRole.goal,
+      isRecommended: character != null,
+      isProfile: character == null,
     );
   }
 
@@ -466,6 +493,7 @@ class _OriginSetupRoleCardContent {
   final String avatar;
   final String identity;
   final String personality;
+  final String bio;
   final String goal;
   final bool isRecommended;
   final bool isProfile;
@@ -473,6 +501,7 @@ class _OriginSetupRoleCardContent {
 
 class _OriginSetupRoleCard extends StatefulWidget {
   const _OriginSetupRoleCard({
+    super.key,
     required this.content,
     required this.roleAvatarSnapshots,
     required this.selected,
@@ -550,6 +579,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
     yield focusNodes.name;
     yield focusNodes.identity;
     yield focusNodes.personality;
+    yield focusNodes.bio;
   }
 
   FocusNode? get _focusedEditField =>
@@ -748,31 +778,16 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
     final role = widget.editableRole;
     if (form == null || role == null) return;
     _setEditFieldText(form.avatarUrl, role.avatarUrl.trim());
-    _setEditFieldText(
-      form.name,
-      _limitOriginProfileRoleField(
-        role.name.trim(),
-        originCharacterNameMaxLength,
-      ),
-    );
-    _setEditFieldText(
-      form.identity,
-      _limitOriginProfileRoleField(
-        role.identity.trim(),
-        originCharacterIdentityMaxLength,
-      ),
-      showFromStart: true,
-    );
+    _setEditFieldText(form.name, role.name.trim());
+    _setEditFieldText(form.identity, role.identity.trim(), showFromStart: true);
     _setEditFieldText(
       form.personality,
-      _limitOriginProfileRoleField(
-        role.personality.trim().isNotEmpty
-            ? role.personality.trim()
-            : role.bio.trim(),
-        originCharacterPersonalityMaxLength,
-      ),
+      role.personality.trim(),
       showFromStart: true,
     );
+    // Keep the complete setting and goal even though goal has no editor here.
+    _setEditFieldText(form.bio, role.bio, showFromStart: true);
+    _setEditFieldText(form.goal, role.goal, showFromStart: true);
   }
 
   void _toggleEditing() {
@@ -807,6 +822,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
         name: form.name.text,
         identity: form.identity.text,
         personality: form.personality.text,
+        bio: form.bio.text,
+        goal: form.goal.text,
       ),
     );
     FocusScope.of(context).unfocus();
@@ -893,6 +910,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
                       ),
                       form: _editForm,
                       stableId: stableId,
+                      isPreset: content.isRecommended,
                       busy: widget.busy,
                       scrollController: _inlineEditorController,
                       interactionLayoutFrozen: _avatarInteractionLayoutFrozen,
@@ -998,6 +1016,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
     super.key,
     required this.form,
     required this.stableId,
+    required this.isPreset,
     required this.busy,
     required this.scrollController,
     required this.interactionLayoutFrozen,
@@ -1009,6 +1028,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
 
   final OriginCharacterForm form;
   final String stableId;
+  final bool isPreset;
   final bool busy;
   final ScrollController scrollController;
   final bool interactionLayoutFrozen;
@@ -1028,7 +1048,9 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
             'origin-setup-role-inline-editor-scroll-$stableId',
           ),
           controller: scrollController,
-          physics: const NeverScrollableScrollPhysics(),
+          physics: interactionLayoutFrozen
+              ? const NeverScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: AnimatedBuilder(
             animation: scrollController,
@@ -1085,7 +1107,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   controller: form.name,
                   focusNode: form.focusNodes.name,
                   nextFocusNode: form.focusNodes.identity,
-                  maxLength: originCharacterNameMaxLength,
+                  maxLength: isPreset ? 128 : originCharacterNameMaxLength,
                   showLabel: false,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1104,7 +1126,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   controller: form.identity,
                   focusNode: form.focusNodes.identity,
                   nextFocusNode: form.focusNodes.personality,
-                  maxLength: originCharacterIdentityMaxLength,
+                  maxLength: isPreset ? 255 : originCharacterIdentityMaxLength,
                   maxLines: 2,
                   onChanged: onChanged,
                 ),
@@ -1119,8 +1141,29 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   label: GenesisL10n.current.worldoLaunchPersonality,
                   controller: form.personality,
                   focusNode: form.focusNodes.personality,
-                  maxLength: originCharacterPersonalityMaxLength,
+                  nextFocusNode: form.focusNodes.bio,
+                  maxLength: isPreset
+                      ? 512
+                      : originCharacterPersonalityMaxLength,
                   maxLines: 2,
+                  onChanged: onChanged,
+                ),
+                const SizedBox(height: 8),
+                _OriginSetupRoleInlineField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-setting-$stableId',
+                  ),
+                  tapTargetKey: ValueKey<String>(
+                    'origin-setup-role-inline-setting-tap-$stableId',
+                  ),
+                  label: GenesisL10n.current.worldoLaunchSetting,
+                  controller: form.bio,
+                  focusNode: form.focusNodes.bio,
+                  maxLength: math.max(
+                    originCharacterBioMaxLength,
+                    form.bio.text.characters.length,
+                  ),
+                  maxLines: 3,
                   onChanged: onChanged,
                   onSubmitted: onSubmitted,
                 ),
@@ -1199,7 +1242,7 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
                 focusNode: focusNode,
                 maxLength: maxLength,
                 minLines: maxLines,
-                maxLines: maxLines,
+                maxLines: maxLines > 1 ? null : 1,
                 scrollPhysics: const NeverScrollableScrollPhysics(),
                 keyboardType: maxLines > 1
                     ? TextInputType.multiline
@@ -1472,6 +1515,10 @@ class _OriginSetupRoleDetails extends StatelessWidget {
               _OriginSetupRoleDetailField(
                 label: GenesisL10n.current.worldoLaunchPersonality,
                 value: content.personality,
+              ),
+              _OriginSetupRoleDetailField(
+                label: GenesisL10n.current.worldoLaunchSetting,
+                value: content.bio,
                 addBottomGap: !content.isProfile,
               ),
               if (!content.isProfile) ...[

@@ -144,7 +144,7 @@ without that unrelated title assumption. No physical-device run was performed.
 
 ## Locked home apps
 
-Locked Camera, Maps, and Calendar home icons retain their lock styling. Tapping
+Locked Maps and Calendar home icons retain their lock styling. Tapping
 either an icon or its label shows the shared dark Toast (`miniPhoneComingSoon`,
 English: `Coming soon.`) without launching an app.
 
@@ -908,3 +908,13 @@ from controlled Flutter verification.
 - AI 私聊源消息在 pending/generating 时仅作为内存中的待确认气泡，异步 completed 后才写入本地聊天消息库；failed 不写入该库，余额不足撤回正文到空输入框。发送请求日志仅用于断线恢复，不作为成功消息。玩家互发仍按正式送达保存。服务端当前契约仍先保存玩家源消息；“余额不足不写服务端消息库”尚需服务端调整，不能以客户端过滤替代。
 
 - AI 私聊本人气泡左侧 loading 仅表示消息提交中；HTTP 成功受理或收到正式源消息后立即消失，不等待 AI 回复完成，pending/generating 不再显示发送 loading。AI 回复等待、Send 限制及超时释放继续独立运行；余额不足终态撤回气泡并恢复草稿，其他失败保留失败态。发送结果未确认时仍保留原有待确认／超时处理，玩家互发不等待 AI 终态。
+
+## Camera frontend (2026-10-30)
+
+Camera is an unlocked home app. The LocationChat reply toolbar places Camera on the right using the shared action primitive; visibility and availability follow Regenerate. It opens the explanation in place, not a Camera route. Both entry points currently force the explanation while no backend adapter exists; confirming reports Coming soon. The crossed-out 30 / 0 Gems and Free trial are UI previews, not server entitlements.
+
+The fixed 2:3 viewfinder uses the World cover with strong image blur and a dark scrim. Selection is via the horizontal cast strip; focused portraits are circular, 48px like the strip, with thin white corners. The in-frame count pill and borderless prompt use glass surfaces. Bottom controls are Style, a white shutter and Photos; the style sheet uses standard sheet colors and centered image captions. Keyboard opening hides the cast and controls while retaining geometry. No location selector or All-character popup remains.
+
+The World MiniPhone session owns the draft. Account/environment/World changes invalidate old context and results; closing cancels in-flight delivery. Camera uses the actual character directory, World cover and album projection without message-derived fallback characters. Generation, status/recovery and authoritative image-message/album contracts remain pending: no transport is injected, no photo is fabricated, and no billing/History/album write occurs. Future adapters must own real request identities and synchronization.
+
+Origin detail's read-only MiniPhone entry remains a proposal with no entry implementation. Current release notes: [Camera and role-card changes](changes/2026-10-30-camera-role-release.md). Historical visual iterations: [camera-viewfinder](changes/2026-10-30-camera-viewfinder.md).

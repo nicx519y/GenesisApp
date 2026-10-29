@@ -11,6 +11,7 @@ import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../features/location_chat_reply/shared/reply_action_state.dart';
+import '../../features/location_chat_reply/shared/reply_feature_button.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -51,6 +52,7 @@ class LocationChatReplyActions extends StatefulWidget {
     this.reservedLoadingIndicator,
     this.actionsExpanded = true,
     this.paginationExpanded,
+    this.onTakePhoto,
     this.actionToolbarKey,
     this.paginationKey,
   });
@@ -77,6 +79,7 @@ class LocationChatReplyActions extends StatefulWidget {
   final Widget? reservedLoadingIndicator;
   final bool actionsExpanded;
   final bool? paginationExpanded;
+  final VoidCallback? onTakePhoto;
   final Key? actionToolbarKey;
   final Key? paginationKey;
   final ChatUiStyleConfig style;
@@ -204,6 +207,17 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             onBeforeInvoke: () => _setEditPromptExpanded(false),
             onToggle: _invokeInspiration,
           ),
+        if (widget.onTakePhoto != null &&
+            _regenerate.state != LocationChatReplyActionState.none) ...[
+          const Spacer(),
+          LocationChatReplyFeatureButton(
+            key: const ValueKey('location-chat-take-photo'),
+            label: context.l10n.miniPhoneCamera,
+            iconAsset: cameraIconAsset,
+            state: _regenerate.state,
+            onTap: _regenerate.invocation == null ? null : widget.onTakePhoto,
+          ),
+        ],
       ],
     ];
 
@@ -323,9 +337,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           IconButton(
             key: const ValueKey('location-chat-reply-previous-card'),
             style: paginationButtonStyle,
-            tooltip: GenesisL10n
-                .current
-                .chatPreviousReply,
+            tooltip: GenesisL10n.current.chatPreviousReply,
             onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
                 ? widget.onPreviousCard
                 : null,
@@ -349,9 +361,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           IconButton(
             key: const ValueKey('location-chat-reply-next-card'),
             style: paginationButtonStyle,
-            tooltip: GenesisL10n
-                .current
-                .chatNextReply,
+            tooltip: GenesisL10n.current.chatNextReply,
             onPressed:
                 widget.cardSwitchEnabled &&
                     widget.cardIndex < widget.cardCount - 1
@@ -698,6 +708,7 @@ class _LocationChatReplyActionToolbarState
                   padding: EdgeInsets.only(
                     left:
                         widget.style.avatarSize + widget.style.avatarBubbleGap,
+                    right: GenesisSpacing.page,
                   ),
                   child: SizedBox(
                     height: LocationChatReplyActions.buttonSize,
@@ -705,7 +716,7 @@ class _LocationChatReplyActionToolbarState
                       key: const ValueKey(
                         'location-chat-reply-actions-four-icons',
                       ),
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         for (
@@ -713,7 +724,9 @@ class _LocationChatReplyActionToolbarState
                           index < _displayedActions.length;
                           index++
                         ) ...[
-                          if (index > 0)
+                          if (index > 0 &&
+                              _displayedActions[index] is! Spacer &&
+                              _displayedActions[index - 1] is! Spacer)
                             const SizedBox(
                               width:
                                   LocationChatReplyActions.centerSpacing -

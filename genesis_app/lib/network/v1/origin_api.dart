@@ -335,6 +335,7 @@ class OriginV1Api extends V1ApiResource {
     String? originId,
     String? oid,
     String? presetCharacterId,
+    Map<String, dynamic>? presetCharacterOverride,
     Map<String, dynamic>? customRole,
   }) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
@@ -362,6 +363,7 @@ class OriginV1Api extends V1ApiResource {
     return _launchValidated(
       originId: resolvedOriginId,
       presetCharacterId: presetCharacterId,
+      presetCharacterOverride: hasPreset ? presetCharacterOverride : null,
       customRole: customRole,
       roleType: roleType,
     );
@@ -370,6 +372,7 @@ class OriginV1Api extends V1ApiResource {
   Future<Map<String, dynamic>> _launchValidated({
     required String originId,
     required String? presetCharacterId,
+    required Map<String, dynamic>? presetCharacterOverride,
     required Map<String, dynamic>? customRole,
     required String roleType,
   }) async {
@@ -378,6 +381,7 @@ class OriginV1Api extends V1ApiResource {
       body: v1Body({
         'origin_id': originId,
         'preset_character_id': presetCharacterId,
+        'preset_character_override': presetCharacterOverride,
         'custom_role': customRole,
       }),
     );

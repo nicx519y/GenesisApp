@@ -757,7 +757,9 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
             surfaceColor: const Color(0xFF232228),
             preview: Center(
               child: MiniIcon(
-                icon.startsWith('music-') ? icon : 'flat-$icon',
+                icon.startsWith('music-') || icon == 'camera'
+                    ? icon
+                    : 'flat-$icon',
                 size: 33,
                 color: miniWhite,
               ),
@@ -771,7 +773,9 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
               ),
               child: Center(
                 child: MiniIcon(
-                  icon.startsWith('music-') ? icon : 'flat-$icon',
+                  icon.startsWith('music-') || icon == 'camera'
+                      ? icon
+                      : 'flat-$icon',
                   size: 33,
                   color: miniWhite,
                 ),
@@ -791,10 +795,18 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _lockedApp(
-          context.l10n.miniPhoneCamera,
-          Icons.camera_alt_rounded,
-          size,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _homeApp(
+              'camera',
+              context.l10n.miniPhoneCamera,
+              MiniPhoneScreen.camera,
+              size: size,
+            ),
+            const SizedBox(height: 7),
+            _homeAppLabel(context.l10n.miniPhoneCamera, size),
+          ],
         ),
         Column(
           mainAxisSize: MainAxisSize.min,

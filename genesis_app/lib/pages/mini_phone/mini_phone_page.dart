@@ -29,6 +29,10 @@ import 'music/mini_phone_music.dart';
 import 'settings/mini_phone_model_settings_page.dart';
 import 'session/mini_phone_session.dart';
 import 'session/mini_phone_screen.dart';
+import 'camera/mini_phone_camera.dart';
+import 'camera_l10n.dart';
+import 'camera_moment_confirmation.dart';
+import 'photos/mini_phone_photo_projection.dart';
 
 /// Opens the MiniPhone attached to a live World session.
 Future<void> showMiniPhone(
@@ -37,6 +41,7 @@ Future<void> showMiniPhone(
   PhonePerson? initialContact,
   String worldId = '',
   String entrySource = 'unknown',
+  String initialCameraPrompt = '',
   MemoryModelPageCache? modelCache,
   MiniPhoneSession? session,
 }) async {
@@ -81,6 +86,7 @@ Future<void> showMiniPhone(
           initialScreen: initialScreen ?? phone.resume.screen,
           initialContact: initialContact,
           entrySource: entrySource,
+          initialCameraPrompt: initialCameraPrompt,
           isRestored:
               initialScreen == null &&
               initialContact == null &&
@@ -148,6 +154,7 @@ class MiniPhonePage extends StatefulWidget {
     super.key,
     this.initialScreen = MiniPhoneScreen.home,
     this.initialContact,
+    this.initialCameraPrompt = '',
     this.entrySource = 'unknown',
     this.isRestored = false,
     this.worldId = '',
@@ -159,6 +166,7 @@ class MiniPhonePage extends StatefulWidget {
   /// Route-local observation only; no private messages enter the World stream.
   final MiniPhoneScreen initialScreen;
   final PhonePerson? initialContact;
+  final String initialCameraPrompt;
   final String entrySource;
   final bool isRestored;
   final String worldId;
@@ -175,6 +183,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   int? livePostId;
   MiniPhonePostDraft get postDraft => _session.postDraft!;
   String? _phoneOwner;
+  bool _cameraSeedApplied = false;
+  final _cameraAlbumProjection = MiniPhonePhotoProjection();
 
   MiniPhoneMusicService get _music => _session.music;
   MiniPhoneResume get _miniResume => _session.resume;
@@ -401,6 +411,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _miniResume.livePostId = livePostId;
     phone?.removeListener(_changed);
     _session.postDraft?.removeListener(_changed);
+    _session.camera?.close();
     if (phone != null) {
       phone!.phoneVisible = false;
       phone!.activeCharId = null;
@@ -579,7 +590,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         child: Scaffold(
           backgroundColor: miniBackground,
           resizeToAvoidBottomInset:
-              !(phone != null && screen == MiniPhoneScreen.chat),
+              !(screen == MiniPhoneScreen.camera ||
+                  (phone != null && screen == MiniPhoneScreen.chat)),
           body: Stack(
             children: [
               Positioned.fill(
@@ -717,6 +729,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
               store: phone!,
               header: _navigation(context.l10n.miniPhonePhotos),
             ),
+    MiniPhoneScreen.camera => _cameraPage(),
     MiniPhoneScreen.settings => MiniPhoneSettingsPage(
       session: _session,
       wallpaper: wallpaper,
@@ -742,6 +755,85 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       onBack: _back,
     ),
   };
+
+  Widget _cameraPage() {
+    final data = phone;
+    final controller = _session.camera;
+    if (data == null || controller == null) {
+      return _panel(context.l10n.miniPhoneCamera, const SizedBox.shrink());
+    }
+    // Refresh camera inputs without rebuilding the phone's Navigator or routes.
+    return ListenableBuilder(
+      listenable: data,
+      builder: (_, _) => _cameraSnapshot(data, controller),
+    );
+  }
+
+  Widget _cameraSnapshot(
+    MiniPhoneStore data,
+    MiniPhoneCameraController controller,
+  ) {
+    controller.bindScope(
+      MiniPhoneCameraScope(
+        environment: data.namespace,
+        accountId: data.uid ?? '',
+        worldId: widget.worldId,
+      ),
+      // The rebuilt page receives the new scope; do not notify during build.
+      notify: false,
+    );
+    final initialPrompt = !_cameraSeedApplied && data.uid != null
+        ? widget.initialCameraPrompt
+        : '';
+    if (data.uid != null) _cameraSeedApplied = true;
+    final album = _cameraAlbumProjection.resolve(
+      data.album,
+      data.worldCoverImageKeys,
+    );
+    return MiniPhoneCameraPage(
+      key: ValueKey(('camera', data.accountGeneration)),
+      header: _navigation(context.l10n.miniPhoneCamera),
+      people: data.people.values.toList(growable: false),
+      strings: miniPhoneCameraStrings(context),
+      controller: controller,
+      coverImageUrl: GenesisImageResourceRegistry.resolve(
+        data.cameraWorldDetail?.cover ?? '',
+      ).displayUrl,
+      initialPrompt: initialPrompt,
+      onOpenAlbum: () => _go(MiniPhoneScreen.photos, source: 'camera'),
+      albumLabel: context.l10n.miniPhonePhotos,
+      albumThumbnailUrl: album.firstOrNull?.thumbnail.trim().isNotEmpty == true
+          ? album.first.thumbnail
+          : album.firstOrNull?.image,
+      onCaptureRequested: () async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        final revision = data.accountGeneration;
+        final uid = data.uid;
+        if (uid == null) return;
+        final confirmed = await confirmCameraMoment(
+          context,
+          preferenceScope:
+              '${Uri.encodeComponent(data.namespace)}:${Uri.encodeComponent(uid)}',
+          // While generation is not wired, this action previews its explanation
+          // even if it was remembered from the chat entry.
+          forceShow: true,
+        );
+        if (!mounted ||
+            _closing ||
+            _session.isDisposed ||
+            screen != MiniPhoneScreen.camera ||
+            revision != data.accountGeneration ||
+            !confirmed) {
+          return;
+        }
+        showMiniPhoneToast(context, context.l10n.miniPhoneComingSoon);
+      },
+      selfPersonKey: data.people.values
+          .where((person) => data.playerCharIds.contains(person.id))
+          .firstOrNull
+          ?.key,
+    );
+  }
 
   Widget _emptyApp(MiniPhoneScreen destination) => _panel(switch (destination) {
     MiniPhoneScreen.messages ||

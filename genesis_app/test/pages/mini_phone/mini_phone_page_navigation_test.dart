@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,11 +12,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
+import 'package:genesis_flutter_android/network/models/world.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_widgets.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/home/mini_phone_home.dart';
 import 'package:genesis_flutter_android/ui/navigation/genesis_dark_page_route.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import '../../support/mini_phone_chat_backend.dart';
 import '../../support/mini_phone_collect_probe.dart';
+import '../../support/mini_phone_memory_cache.dart';
 
 Future<void> settle(WidgetTester tester) async {
   await tester.runAsync(
@@ -35,6 +42,7 @@ void main() {
     String entrySource = 'unknown',
     MiniPhoneScreen initialScreen = MiniPhoneScreen.messages,
     Future<bool> Function()? networkAvailabilityCheck,
+    MiniPhoneStore? store,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -55,7 +63,8 @@ void main() {
           )
         : null;
     final s = (await tester.runAsync(() async {
-      final s = b.store(networkAvailabilityCheck: networkAvailabilityCheck);
+      final s =
+          store ?? b.store(networkAvailabilityCheck: networkAvailabilityCheck);
       await s.ready;
       return s;
     }))!;
@@ -110,6 +119,135 @@ void main() {
     }
     await settle(tester);
     return session;
+  }
+
+  for (final resource in ['people', 'album']) {
+    testWidgets(
+      'open camera applies late $resource refresh without losing its draft or rebuilding navigation',
+      (tester) async {
+        final backend = PhoneBackend();
+        Completer<WorldDetail>? worldResponse;
+        final store = (await tester.runAsync(() async {
+          final store = MiniPhoneStore(
+            api: backend.api,
+            worldId: 'w',
+            namespace: 'camera-navigation-$resource',
+            readUid: () async => 'u',
+            accountRevision: backend.revision,
+            cacheStorage: MemoryMiniPhoneCacheStorage(),
+            loadWorld: () async =>
+                worldResponse?.future ??
+                WorldDetail.fromJson({
+                  'world_id': 'w',
+                  'characters': [
+                    {'char_id': 'c', 'name': 'Character'},
+                  ],
+                }),
+          );
+          await store.ready;
+          return store;
+        }))!;
+        final session = await mount(
+          tester,
+          TargetPlatform.android,
+          initialScreen: MiniPhoneScreen.camera,
+          store: store,
+        );
+        final camera = find.byType(MiniPhoneCameraPage);
+        final cameraState = tester.state(camera);
+        final navigator = find.descendant(
+          of: find.byType(MiniPhonePage),
+          matching: find.byType(Navigator),
+        );
+        final navigatorBefore = tester.widget<Navigator>(navigator);
+        await tester.tap(find.text('Character'));
+        await tester.enterText(find.byType(TextField), 'Keep my camera draft');
+        FocusManager.instance.primaryFocus?.unfocus();
+        await settle(tester);
+        expect(session.camera!.selectedPeople.single.id, 'c');
+
+        final albumResponse = Completer<Object?>();
+        worldResponse = Completer<WorldDetail>();
+        backend.respond = (request) =>
+            request.uri.path.endsWith('/album') ? albumResponse.future : null;
+        final refresh = resource == 'people'
+            ? store.refreshPeople()
+            : store.refreshAlbum();
+        await tester.pump();
+        expect(store.busy, contains(resource));
+        expect(find.text('Late character'), findsNothing);
+        expect(
+          tester.widget<MiniPhoneCameraPage>(camera).albumThumbnailUrl,
+          isNull,
+        );
+        const cover = 'https://camera.test/late-cover.webp';
+        const photo = 'https://camera.test/late-photo.webp';
+        const thumbnail = 'https://camera.test/late-thumbnail.webp';
+        if (resource == 'people') {
+          worldResponse.complete(
+            WorldDetail.fromJson({
+              'world_id': 'w',
+              'cover': cover,
+              'characters': [
+                {'char_id': 'c', 'name': 'Character updated'},
+                {'char_id': 'late', 'name': 'Late character'},
+              ],
+            }),
+          );
+        } else {
+          albumResponse.complete(
+            ok(
+              page([
+                {
+                  'asset_id': 42,
+                  'world_id': 'w',
+                  'image_url': photo,
+                  'thumbnail_url': thumbnail,
+                },
+              ]),
+            ),
+          );
+        }
+        await settle(tester);
+        expect(await refresh, isTrue);
+        expect(tester.takeException(), isNull);
+        if (resource == 'people') {
+          expect(find.text('Late character'), findsOneWidget);
+          expect(find.text('Character updated'), findsOneWidget);
+          expect(
+            tester
+                .widget<MiniPhoneCameraViewfinder>(
+                  find.byType(MiniPhoneCameraViewfinder),
+                )
+                .imageUrl,
+            cover,
+          );
+          expect(
+            session.camera!.selectedPeople.single.name,
+            'Character updated',
+          );
+        } else {
+          final image = find.descendant(
+            of: find.byKey(const ValueKey('mini-phone-camera-album')),
+            matching: find.byType(GenesisStaticNetworkImage),
+          );
+          expect(image, findsOneWidget);
+          expect(
+            tester.widget<GenesisStaticNetworkImage>(image).imageUrl,
+            thumbnail,
+          );
+        }
+        expect(tester.state(camera), same(cameraState));
+        expect(tester.widget<Navigator>(navigator), same(navigatorBefore));
+        expect(session.camera!.selectedPeople.single.id, 'c');
+        expect(session.camera!.prompt, 'Keep my camera draft');
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'Keep my camera draft',
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
 
   for (final directChat in [false, true]) {

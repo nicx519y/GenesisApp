@@ -3674,6 +3674,140 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Unable to save privacy choices. Please try again.';
+
+  @override
+  String get miniPhoneCameraInThePhoto => 'In the photo';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count selected',
+      one: '1 selected',
+      zero: 'No one selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => 'Style';
+
+  @override
+  String get miniPhoneCameraCastHint =>
+      'Tap the people below to bring them into the frame.';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => 'Describe the moment';
+
+  @override
+  String get miniPhoneCameraPromptHint => 'Where are you? What’s the mood?';
+
+  @override
+  String get miniPhoneCameraTryTemplate => 'Try a template';
+
+  @override
+  String get miniPhoneCameraTemplateHint => 'Tap to fill the prompt';
+
+  @override
+  String get miniPhoneCameraPovSelfie => 'POV selfie';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => 'Mirror selfie';
+
+  @override
+  String get miniPhoneCameraByFriend => 'By a friend';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      'An arm’s-length selfie featuring only the selected characters, taken by one of them. Keep every selected character fully in frame, looking into the lens with relaxed, natural expressions. Slight wide-angle perspective, soft light, and a gently blurred setting from their world. Keep their appearance and outfits. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      'A casual mirror selfie featuring only the selected characters. One holds the camera, and all selected characters are visible in the reflection. Show a clear mirror edge, natural poses, and soft indoor light in a setting from their world. Keep their appearance and outfits. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      'An eye-level photo of only the selected characters, taken by someone outside the frame. Keep every selected character visible, with relaxed poses and natural expressions in a setting from their world. The photographer and camera stay off-screen: no mirror and no outstretched selfie arm. Keep their appearance and outfits. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraTakePhoto => 'Take photo';
+
+  @override
+  String get miniPhoneCameraTryAgain => 'Try again';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '$priceString Gems / photo';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => 'Creating your photo';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => 'A moment in the making.';
+
+  @override
+  String get miniPhoneCameraCreatingBody =>
+      'Bringing your characters and scene together.';
+
+  @override
+  String get miniPhoneCameraGenerationFailed => 'Couldn’t create this photo.';
+
+  @override
+  String get miniPhoneCameraDraftPreserved =>
+      'Your characters and prompt are still here. Please try again.';
+
+  @override
+  String get miniPhoneCameraTakeAnother => 'Take another';
+
+  @override
+  String get miniPhoneCameraUseInPost => 'Use in a post';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => 'Open full photo';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => 'Image unavailable';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => 'Saved to Photos';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => 'Syncing with Photos…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed =>
+      'Couldn’t sync with Photos. Please try again.';
+
+  @override
+  String get worldoLaunchSetting => 'Setting';
+
+  @override
+  String get miniPhoneCameraMomentTitle => 'Capture this moment';
+
+  @override
+  String get miniPhoneCameraMomentBody =>
+      'Turn this scene into a photo with your characters.';
+
+  @override
+  String get miniPhoneCameraDontAskAgain =>
+      'Don’t ask next time. Tap the camera to generate a photo directly.';
+
+  @override
+  String get miniPhoneCameraFreeTrial => 'Free trial';
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '$originalPrice $price Gems / photo';
+  }
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -7157,4 +7291,132 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get privacyChoicesSaveError => '無法儲存隱私選擇，請再試一次。';
+
+  @override
+  String get miniPhoneCameraInThePhoto => '照片中的人物';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已選取 $count 人',
+      one: '已選取 1 人',
+      zero: '未選人物',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => '風格';
+
+  @override
+  String get miniPhoneCameraCastHint => '點選下方人物，讓他們入鏡';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => '描述這一刻';
+
+  @override
+  String get miniPhoneCameraPromptHint => '身在何處？氣氛如何？';
+
+  @override
+  String get miniPhoneCameraTryTemplate => '試試範本';
+
+  @override
+  String get miniPhoneCameraTemplateHint => '點選即可填入描述';
+
+  @override
+  String get miniPhoneCameraPovSelfie => '手持自拍';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => '鏡子自拍';
+
+  @override
+  String get miniPhoneCameraByFriend => '朋友幫拍';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      '一張將手臂伸至一臂長距離拍攝的自拍照，畫面中僅包含所選角色，由其中一位角色拍攝。讓每位所選角色都完整入鏡，以放鬆、自然的表情看向鏡頭。採用輕微廣角視角、柔和光線，以及來自角色所在世界、略帶模糊的背景。保留角色原有的外貌與服裝。不要加入其他人物。';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      '一張輕鬆自然的鏡子自拍照，畫面中僅包含所選角色。其中一位角色手持相機，所有所選角色都清楚出現在鏡中。呈現清晰的鏡子邊緣、自然的姿勢，以及角色所在世界場景中的柔和室內光線。保留角色原有的外貌與服裝。不要加入其他人物。';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      '一張以視線高度拍攝的照片，畫面中僅包含所選角色，由畫面外的人拍攝。讓每位所選角色都出現在畫面中，在角色所在世界的場景裡呈現放鬆的姿勢與自然的表情。攝影者與相機都不可入鏡：不要出現鏡子，也不要出現伸出去自拍的手臂。保留角色原有的外貌與服裝。不要加入其他人物。';
+
+  @override
+  String get miniPhoneCameraTakePhoto => '拍照';
+
+  @override
+  String get miniPhoneCameraTryAgain => '再試一次';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '$priceString 寶石／張';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => '正在製作照片';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => '美好時刻，正在成形。';
+
+  @override
+  String get miniPhoneCameraCreatingBody => '正在將角色與場景融合在一起。';
+
+  @override
+  String get miniPhoneCameraGenerationFailed => '無法製作這張照片。';
+
+  @override
+  String get miniPhoneCameraDraftPreserved => '選取的角色與描述都還在，請再試一次。';
+
+  @override
+  String get miniPhoneCameraTakeAnother => '再拍一張';
+
+  @override
+  String get miniPhoneCameraUseInPost => '用於貼文';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => '開啟完整照片';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => '無法顯示圖片';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => '已儲存至相簿';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => '正在與相簿同步…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed => '無法與相簿同步，請再試一次。';
+
+  @override
+  String get worldoLaunchSetting => '設定';
+
+  @override
+  String get miniPhoneCameraMomentTitle => '捕捉這一刻';
+
+  @override
+  String get miniPhoneCameraMomentBody => '將這個場景化為一張有角色們入鏡的照片。';
+
+  @override
+  String get miniPhoneCameraDontAskAgain => '下次不再詢問，點選相機即可直接產生照片。';
+
+  @override
+  String get miniPhoneCameraFreeTrial => '免費試用';
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '$originalPrice $price 寶石／張';
+  }
 }

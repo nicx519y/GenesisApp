@@ -226,6 +226,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   String worldName = '', currentTime = '';
   WorldMapStyle? mapStyle;
   bool worldDetailLoaded = false;
+  // Read-only input for Camera composition, populated by the existing refresh.
+  WorldDetail? cameraWorldDetail;
   final worldCoverImageKeys = <String>{};
   String get clockTime =>
       RegExp(
@@ -473,6 +475,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     worldCoverImageKeys.clear();
     mapStyle = null;
     worldDetailLoaded = false;
+    cameraWorldDetail = null;
     currentTime = '';
     notifications = null;
     people.clear();
@@ -558,6 +561,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     worldName = w.name;
     mapStyle = w.mapStyle;
     worldDetailLoaded = true;
+    cameraWorldDetail = w;
     worldCoverImageKeys
       ..clear()
       ..addAll(GenesisImageResourceRegistry.resolve(w.cover).keys);

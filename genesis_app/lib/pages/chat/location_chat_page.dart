@@ -12,6 +12,7 @@ import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 
 import '../../components/common/page_presentation_scope.dart';
 import '../mini_phone/mini_phone.dart';
+import '../mini_phone/camera_moment_confirmation.dart';
 import 'dart:ui' as ui;
 import 'dart:io';
 import '../../utils/network_availability.dart';
@@ -805,6 +806,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _edgeSwipeBackTriggered = false;
   bool _openingModelPage = false;
   bool _openingCharacterChat = false;
+  bool _takingScenePhoto = false;
 
   Future<void> _openCharacterChat(ChatMessageVm message) async {
     if (_openingCharacterChat || !widget.active || message.isMe) return;

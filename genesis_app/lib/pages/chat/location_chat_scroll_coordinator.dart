@@ -753,6 +753,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.replyActionsMessageId,
     this.replyActionsIdentity,
     this.replyActionsVisible = true,
+    this.onTakePhoto,
     this.replyPresentationRevision = 0,
     this.replyStatus,
     this.replyCards = const [],
@@ -896,6 +897,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
 
   /// Shows the controls inside the permanent bottom action slot.
   final bool replyActionsVisible;
+  final VoidCallback? onTakePhoto;
 
   /// Change only for explicit card switches, never for streaming text updates.
   final int replyPresentationRevision;
@@ -4327,6 +4329,7 @@ class _LocationChatAnchoredMessageListState
                         : null,
                     actionToolbarKey: _replyActionToolbarKey,
                     paginationKey: _replyPaginationKey,
+                    onTakePhoto: widget.onTakePhoto,
                     inspirationFeature: widget.inspirationFeature,
                     editFeature: widget.editFeature,
                     regenerateFeature: widget.regenerateFeature,

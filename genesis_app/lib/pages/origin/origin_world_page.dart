@@ -27,6 +27,7 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_recommendation.dart';
+import '../../components/origin/origin_recommended_role.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
@@ -208,8 +209,40 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   ValueListenable<int>? _userInfoRevisionListenable;
   OriginCustomRoleDraft? _cachedProfileRole;
   OriginCustomRoleDraft? _localProfileRoleOverride;
+  int _profileRoleRevision = 0;
+  OriginCustomRoleDraft? _localRecommendedRoleOverride;
+  String? _localRecommendedCharacterId;
+  List<OriginCharacter>? _resolvedRecommendedCharacters;
+  OriginCustomRoleDraft? _resolvedRecommendedProfile;
+  OriginCustomRoleDraft? _resolvedRecommendedEdit;
+  OriginRecommendedRole? _resolvedRecommendedRole;
+  OriginRecommendedRole? get _recommendedRole {
+    final characters = _origin?.characters;
+    if (identical(characters, _resolvedRecommendedCharacters) &&
+        identical(_cachedProfileRole, _resolvedRecommendedProfile) &&
+        identical(_localRecommendedRoleOverride, _resolvedRecommendedEdit)) {
+      return _resolvedRecommendedRole;
+    }
+    _resolvedRecommendedCharacters = characters;
+    _resolvedRecommendedProfile = _cachedProfileRole;
+    _resolvedRecommendedEdit = _localRecommendedRoleOverride;
+    return _resolvedRecommendedRole = OriginRecommendedRole.resolve(
+      characters ?? const [],
+      profile: _cachedProfileRole,
+      editedRole: _localRecommendedRoleOverride,
+      editedCharacterId: _localRecommendedCharacterId,
+    );
+  }
+
+  bool _previewRoleEditing = false;
+  final GlobalKey _previewRoleCardPositionKey = GlobalKey();
+  void _setPreviewRoleEditing(bool editing) {
+    if (!mounted || editing == _previewRoleEditing) return;
+    setState(() => _previewRoleEditing = editing);
+  }
+
   OriginCustomRoleDraft? get _openingProfileRole =>
-      _localProfileRoleOverride ?? _cachedProfileRole;
+      _recommendedRole?.role ?? _localProfileRoleOverride ?? _cachedProfileRole;
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
@@ -310,6 +343,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _activeChatLocation = null;
       _locationRoleFocusGeneration += 1;
       _localProfileRoleOverride = null;
+      _localRecommendedRoleOverride = null;
+      _localRecommendedCharacterId = null;
+      _previewRoleEditing = false;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
@@ -353,16 +389,26 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _handleCachedUserInfoChanged() {
-    unawaited(_refreshCachedProfileRole());
     if (!mounted) return;
     setState(() {
+      // Clear account-owned values before any asynchronous profile reload.
+      _profileRoleRevision += 1;
+      _cachedProfileRole = null;
       _localProfileRoleOverride = null;
+      _localRecommendedRoleOverride = null;
+      _localRecommendedCharacterId = null;
+      _resolvedRecommendedCharacters = null;
+      _resolvedRecommendedProfile = null;
+      _resolvedRecommendedEdit = null;
+      _resolvedRecommendedRole = null;
+      _previewRoleEditing = false;
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesData = null;
       _launchedPresetRolesCacheKey = '';
       _launchedPresetRolesPreloadScheduledForOriginId = '';
     });
+    unawaited(_refreshCachedProfileRole());
     _scheduleLaunchedPresetRolesPreload();
   }
 
@@ -455,10 +501,21 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  void _saveProfileRoleLocally(OriginCustomRoleDraft profileRole) {
-    if (!mounted) return;
+  void _saveProfileRoleLocally(
+    OriginCustomRoleDraft profileRole, {
+    required int profileRevision,
+  }) {
+    if (!mounted || profileRevision != _profileRoleRevision) return;
     _precacheProfileRoleAvatar(profileRole);
-    setState(() => _localProfileRoleOverride = profileRole);
+    final recommendedRole = _recommendedRole;
+    setState(() {
+      if (recommendedRole == null) {
+        _localProfileRoleOverride = profileRole;
+      } else {
+        _localRecommendedRoleOverride = profileRole;
+        _localRecommendedCharacterId = recommendedRole.characterId;
+      }
+    });
   }
 
   Color get _tilemapLoadingBackgroundColor =>
@@ -807,6 +864,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (_activeChatLocation == null || _launching) return;
     _locationRoleFocusGeneration += 1;
     _locationComposerFocused.value = false;
+    _previewRoleEditing = false;
     setState(() => _activeChatLocation = null);
   }
 
@@ -967,6 +1025,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   Widget _buildPageContent(double topPadding) {
+    final profileRoleRevision = _profileRoleRevision;
     final origin = _origin;
     if (origin == null) {
       if (_initialLoadError != null) {
@@ -1093,7 +1152,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           _enterLaunchedWorld(worldId);
         },
         profileRole: _openingProfileRole,
-        onSaveProfileRole: _saveProfileRoleLocally,
+        profileRoleRevision: profileRoleRevision,
+        onSaveProfileRole: (role) =>
+            _saveProfileRoleLocally(role, profileRevision: profileRoleRevision),
         locationChatRole: _locationChatRoleOption(origin),
         onSelectLocationChatRole: (roleId) => _selectLocationChatRole(roleId),
         onSendLocationChatMessage: (locationId, message, mentionCatalog) =>

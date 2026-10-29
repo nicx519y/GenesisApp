@@ -518,6 +518,7 @@ class OriginCharacter {
     this.avatarResource = const GenesisImageResource(),
     required this.tags,
     this.tagline = '',
+    this.description = '',
     this.goal = '',
     required this.currentLocationId,
     required this.initialLocationId,
@@ -544,6 +545,9 @@ class OriginCharacter {
   final GenesisImageResource avatarResource;
   final String tags;
   final String tagline;
+
+  /// Complete role setting; independent of the public personality/brief.
+  final String description;
   final String goal;
   final int currentLocationId;
   final int initialLocationId;
@@ -634,6 +638,9 @@ class OriginCharacter {
         asString(json['tags'], fallback: asString(json['identity'])),
       ),
       tagline: decodeGenesisUgcTextForDisplay(asString(json['brief'])),
+      description: decodeGenesisUgcTextForDisplay(
+        asString(json['description'], fallback: asString(json['bio'])),
+      ),
       goal: decodeGenesisUgcTextForDisplay(asString(json['goal'])),
       currentLocationId: currentLocationId,
       initialLocationId: initialLocationId,

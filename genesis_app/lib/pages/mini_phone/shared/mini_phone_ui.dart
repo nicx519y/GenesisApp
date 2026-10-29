@@ -65,11 +65,14 @@ class MiniGlass extends StatelessWidget {
     this.opacity = .42,
     this.light = false,
     this.outlined = true,
+    this.highlight = true,
+    this.tint,
     this.padding = EdgeInsets.zero,
   });
   final Widget child;
   final double radius, opacity;
-  final bool light, outlined;
+  final bool light, outlined, highlight;
+  final Color? tint;
   final EdgeInsetsGeometry padding;
   @override
   Widget build(BuildContext context) => ClipRRect(
@@ -82,7 +85,9 @@ class MiniGlass extends StatelessWidget {
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: (light ? Colors.white : miniRaised).withValues(alpha: opacity),
+          color: (tint ?? (light ? Colors.white : miniRaised)).withValues(
+            alpha: opacity,
+          ),
           borderRadius: BorderRadius.circular(radius),
           border: outlined
               ? Border.all(
@@ -91,7 +96,7 @@ class MiniGlass extends StatelessWidget {
                       : const Color(0x33F4F3F6),
                 )
               : null,
-          gradient: light
+          gradient: light || !highlight
               ? null
               : LinearGradient(
                   begin: Alignment.topLeft,

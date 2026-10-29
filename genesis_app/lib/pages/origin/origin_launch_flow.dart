@@ -36,6 +36,7 @@ Future<String?> startOriginLaunch({
     final result = await api.v1.origin.launch(
       oid: origin.oid,
       presetCharacterId: roleSelection.presetCharacterId,
+      presetCharacterOverride: roleSelection.presetCharacterOverride,
       customRole: roleSelection.customRole?.toPayload(),
     );
     if (!context.mounted || shouldHandleResult?.call() == false) return null;

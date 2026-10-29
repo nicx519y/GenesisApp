@@ -5268,10 +5268,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "2a7cb92da7f1439ff0fb1f2e0a7001ced8fe4b890c731fb8f828d1dd7a260eb7",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -5926,6 +5926,216 @@
           "text_hash": "99d06439bf55cfc791ac7078b768c2f2604a59a7e4004ba09e9066e37d070d48",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "65f16fa77edaa331e0612c17e88ddc76bfb9ca6f261ef4f7360f5dbf3c4391b1",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "2d56e476b17c4ea024682f80989704524a686417ea9c90994b124e5b27fa0c53",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "bcceb872a05b7dc479d5e8f3b9e8d7b1ae76941fe3dea2316893db7acce118c8",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "8ce47e233fea15aaf2591b4757a25d0dd2aff31473658ee284eff6c664801313",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "f583aaa2d56c650b63aba9089ba30b966f0225d647653bbd97abe7cc67aa4381",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "c1132a99b6d288fb513fe1cce60714ac26619ea567ab68373fe648062e8a9ea5",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "60f5c3d044e26cc65426f7c8ba6a3844456f46fba9ed5bec6e6b73971a35db10",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "7cedd34e84c055ca77ad1692393abd5954d7c43893027a030a2c425e630051d3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "6b2e68652fb4f2fc5aba739307a33e20d15be015095c9ccc4e2f3f6cff80c5aa",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "e0f4fc52fb47d11fbb73742c4af9ab1e066c198ecb1f50e44c68b2513e657101",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "d92bb1949da7ff7542a62068e65ba88dde1a5a325ae6c79e60266d09907270c4",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "92e2885c214afe1ce1f731428e46dcbe2c8476693e851409866d3538e42e1bae",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "05a68c9aa697b7ab907d8bac69d3a6a13991f2b48168841f73a1725589d851f5",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "8824296fa2402057b18f14ae43cead61f11911233b127000eaf193e44ae38c9a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "bf1a16c89af3e8af37b12e6a490a02a1344fe525da45fa2f29dec3aa10768c14",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "0a68942ad3b68e404a2aab46256deb0300dc1e697ff14143a693005dfe08d26a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "a46e72fdd14af5035e1df1558e6739c551af29efbfe33a5576f55cc30d125ad3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "464f72f9ab67dd1c60a6b9e8c8ee816feb68b7e2b09adee48ccfcce3ed44b7b6",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "1704edb5cdfaafcec151cd37ba9f746e770c377c04483e3cee31b67bc7594669",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "42d3fac7f0bb3b18164912eeb72b796113dfc7dc04ab5791629fafaa245923b9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "64a59f4f0f568d712ac009589f6018762ea05ad786a1baa8b6d4788830ef999f",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "b4a28da1d1640498e0cb46911d867e6ed43ab18299bb43109fb01ff1b59cb1c6",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "571a2395338421040a4f1c6613764b8eb5e89a7c7881e30311f6657fead6bce5",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "7c6c1fc3849f3961d5739a821a5cea7c8df98fffe75c054722a5994391ea88cb",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "d5246336a2007a92b5afa54f62fc514548be8b688869fc88da0b6c3836c9b375",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "5804476aba154b28c54e7735327966f50f47065bbec9e1f61e134e24b6a7cde6",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "31b90210d71f9fdce1d21575c1c99ea467670af57ef94fad2e03aec8679db68f",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "7b8982ef896c39ce4b251263dc23b6f25bb48fb82da32f93a2e2df6266228315",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "e5a1b9fab0f57bc3eb6222d161375d3c979e5ebd96ffcab1f89912e51536679d",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "f77e40763aae03a1c9fc559f650f07f0d327d328fe2129eb1b366d9a2218ff99",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "281108d20aec0231c6d1412b478d0e6d53ecf0a3680d34d86f7b91c0a9c594a7",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "192894e6d963634f0dc6ae0ad74582e96a486e1a4950e5809a3850972c1f8ff1",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "59725f435978938c3bb0a1088ff855fd57d042d6a70d450f92b3faec559f860d",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "8b799ca4c186f6ba99d9984a96ad0ca8e19ad453ac1e17b8ee8104bd5c1fd9d8",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "f9efda84c8b56e9113ec169713ab0dc46046d716c5e1eb58a606cf3670e7aa20",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -11195,10 +11405,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "dfd4e269c17214774871358ed22c83698202bd8f15b193f9415a2704d4cecf01",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -11853,6 +12063,216 @@
           "text_hash": "55c7b5b341bdb6e8aa920d1a7e71cfe31830424b106c5ef49a3340884374fdca",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "4a03b5c0bf92c8db6e34b95112b5b55d585788d0ff0dd9bad582f678bf23ce89",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "3fbaf7aa8e9a328012d0e4b199f4ca3b90ac061050761e8b56fc51e867e1c6d4",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "88fb2535f807ca3d62e28af76b9596a9becb17a554e5cdac419e641b2820c06e",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "ca1a8dc765d95b8ee3f2f6c24272438f13aac08b390a8b9f55ab9e8a8a0e1391",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "98f2bbaf8bf4887a36132ce6776be9f288af0f88654271fb1c3e078752907669",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "13b1dc92722fbab3a8683e7bf774b0f90adf96db276facc3617fab674ff7c015",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "6f5d0999219bbb8005e84423b7a25fceb07448216464932ecd0dcc8455a8e4fb",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "5d8f75e2b34e854bc4c1d819a1dfaccd657f0e0f020c8e93bb3f07979b9169c6",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "948686d8dbe6ad287b69cb2006368e95e3b9a6e74cf8196ccf0c85c8e9101291",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "4ae65692102091c1786c12061b0b3d663531523d195960f0f3bfc0fe0cda5e3e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "a6f18df153c7be7d47c099ca7b0819c73b51fdb9841e3500a5e883c47f04773e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "88f66b6685b2952855e3c519410fb7e4cc1bfd34a35a34aad2dc96c91fb24bd7",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "d764e04f0d2050d24b63cb6b7717f7456228a218afbb662068e2040e4e59f0de",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "8dff907b5577f351c29d7229a10e59c734afd94638ab6fcfcbd77125b88aa303",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "3001fce1888089c44b3ccaf2bbf46bd84dbf7f1c90eec96a35bf634982d92c9a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "d010b888f29ce0a10ae1365e425df9e89fd41278c0f2d09d4bc671c1421043ad",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "e88510ff0ca570b8fb0988b8898d554055c2992809829d43fec91dc166b77ee6",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "0ab0c51390b9b71bbd4083d94426faa18a231704b82ed4bc45f0f8a7e3e74cc3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "a856a58006446b04c8e43227ac4181871cef47ae585579027a86bb47f8cb3574",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "a828e73c90d0aa53ebe2b2731013eaff203a1f7b219409ba9899e4c0915924f9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "0b849acf4e80f5e7f9d63b90a658fd93b27c20e85fc919d064fa6afb28ebd0e9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "491ad2128aafba0fa3e1357bfb05792e3ef98092906ba3c631265754bd70c8d3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "a4c4481cd6fba6c9d92eb6d50c71a18bfd33e3b32a74852043a991bb0d69c5f7",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "e56659b563949ef0932a4576b52d1745b1ad0123c564caa35a65c5e1a5ad5ccf",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "2b9a0bb7081510bc7172a9dac31e59826851d35c498f976ebd56173135ef9327",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "9e6068cf5b7fdfd6ebe13d7f5085c4e2c238a24bc1ff3f977bc5c38d5f6bc143",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "fe997ab3603d5e963539ac35bae333eea1d6ee07a71d5c62988a79970e376bbb",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "75ac3b7056b6b5e611ec1ac0a62846dde64bf4291d19fbbfe7cb4a6e770bfd82",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "92c4c206fde9cf06778390db6119b0b3067deb6d3506295ed84ee8479dd3c2bb",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "d8b3128abdafcebf4a59f8d7636d17a46e443274499da2a489d5acbb5cfca306",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "86a9623dae0768e9b5378bf5c87059c713abb7ec3ef3295e3d170172739bdc11",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "59f1e669daad3a56eeb93bd7fefe672a90ffe193c748700683a1f652a63eed66",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "c075aa3d512bb811df487354503ef05b179056049a2c55415bc0cb4233364b09",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "08adf89a734740a3436e00846d0f40aaa40f4869761d08c965b41a97aebe7131",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "7b6af8dddd67b45ff4544787bce43c282e621e6ea52e1f447c3cf4b0ab3a1ee2",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -17122,10 +17542,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "6bc3c53308f93006c1ebeba1521da03163cf252c9690c6b7d6219ec123bfa585",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -17780,6 +18200,216 @@
           "text_hash": "f257fb8dec27643b689e473081bb3141c3c9799bc0139d756c40f7d477d33076",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "bb6a78e3e21f85b033ee21de54c2e1125d53c3935663c7650258fa2ff14cf45c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "6237226b970ff5c83a98abb0a9baea5f14a0f0a201d2181ee221baa4e99daf38",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "3f6109c1e8f0727f8a691267c79cd63897a21daf1e43adc74b2ce60b8b58116d",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "cb722a21b95f5fc292cc28610f8de52e889a0084d8c391b3b7502cbb93d44c86",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "b840933a1c6203a2a2fe606efcfc501626dc387ba5cddf4415af619b3233d668",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "180fd09c3d2030777ad06ebebb35e7e85a4a4600a492650af0fe3e82977ee67d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "ad29f067f2e9f5edad941218e1bd77eda6ab2b6dd0fb8b9dba4414dec0e1a822",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "8ef264ab26cec02fe45be36641e70a1ca67b8252912c5cda2e0901873b1eeec8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "28d49d142382069d63b5f3504506e9d02c4b27fe6b6807afb5cc600aaf55e93a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "6945eb633d11475e524eacfb090758b62f95a536e956190e0445ce3d3427ccb8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "275b62485a83efb3014a4181605bc4f3f74f6f42649ef6bfa31e6531c9f5dca2",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "a804aab1dc00ff06bd2d4c8ac6d968e4d079631a9d8f042bbb5896ce4af220df",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "0c3e73fae50ecb1df009bf94d4d360a33eff8ac937f2e3728d67d2b3719ce5b9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "f9fc6f518c8fc2c0fe98fe04e25ddecbfb5634b2a907aad4b0c4e0df2612aa80",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "e4c4057c03856c3ef86f7ed01e059589ed3a698bd17f2eb0b2ab4660713b6d50",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "d010b888f29ce0a10ae1365e425df9e89fd41278c0f2d09d4bc671c1421043ad",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "236070a63fbaa7d87a140321a0e5241acf51c9a4744157dba5d098846618c12d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "a8cfbeda6bf22f4a801dd09cdf708004d7b31ed103a3652bacf9f843dac708dc",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "3714c816fbf47f089668db50a6d9e1faaca29d2f5d6222fa45a41a70c02e47e0",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "703c2c06a88e4040f3950e8d2851fbab47be2efde8334ded687455cd8cfdbfc8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "149154a1d8bfb061e0f825fadb140760247a7d77e28b013df6bea66da329aa9c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "72895aa81e8a4cf8a5e2e76b0a50c9fc9d50093457d7b4f466c32be69e4d7257",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "469b4ffa258442ce007eaee00d3b3b9a2ed4c3777389d95fecd8ffbbbd1b78f7",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "e56659b563949ef0932a4576b52d1745b1ad0123c564caa35a65c5e1a5ad5ccf",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "5191f4de295e1e8c9a4215ca344b8a7413b9b0bdd2786532aa71d607ff4d531f",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "67756b932583a52da756faf5dfaae405af20ca96b50d48c8ffbea19a2d8ffff8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "9df347e2fc2fd6ccccb2145b9b7c742b6ea024d81e2396cd8eff73bb0a57f53b",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "24ef713c4ab18c6d96915b42456377d95b1c04945251d02862dd6eb38a249147",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "1af0daf72dedad84d634a4b53c0d10994f7558e0d39f88dfd196a9b012fcdf75",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "f2a4d0de642fb37adab305fd4d3e519c63bb93c0a7ed96ad2aaf4359a68aec4b",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "59347f2e30570be3af19151d241316ee1b4b3324373fec934502583448026d1b",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "627c080148a5442d343cc198f2e53b26d7308c1903b3a23e4dc52d76b8de776b",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "6612116cb79f3048b294c7ffb39ad512e2115f6e230a4e78d71bd83f078247be",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "08adf89a734740a3436e00846d0f40aaa40f4869761d08c965b41a97aebe7131",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "7b6af8dddd67b45ff4544787bce43c282e621e6ea52e1f447c3cf4b0ab3a1ee2",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -23049,10 +23679,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "db80f3f413113b8bbc42a34e49b3fdf59d53408126cd411fadbb19c7fa34fc5d",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -23707,6 +24337,216 @@
           "text_hash": "b93eaba5ea735de23c542e88bc2727560b2bae0095a766ded888ad535a14ce96",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "3b77b3d1d2694d4392691ca47ac12bc5c8681053853d0ff84280eac28e1a1eae",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "1acf0c0d933330f44f5d9628ff26f939e6398fd6b48dc166c3f33070697241be",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "325022c8b8b0f05a4cb13a345fd3aac1a89b091c8388c6d39da90d67df128160",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "84861c966b340f5b6cac004704160d8511edf28968184855df1a3f23eda10a18",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "c780bd12f29aacc73750df8048511132821a7906793c620072084c2de0c3bef7",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "9a8c044a57eadb3c8bad047caed5809e3ecb368faecbc69dc5259e8e220c9310",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "b1f516b84458dc01fc8af2ecb0887c72d8da5a1c3a9547f1d8b490561d4609ae",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "5e3808483af0cb7ac09cdf8cc5abbd4d5957179eb93f40d405fae7001d667c42",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "8d4d2c5031fd453245543f068b4e7dbaa59cc5dca15294c18983d98ad0801da6",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "a58992f9aa201587a66df29ca0ab9265885179ac6f7e5a2ae4a6e8d328fd5aaa",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "d6457fef25579606e69b86640395f2141f6abbab7c48ffcb0c8d97dbbad02ff5",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "b14493ae69c02ef94edcab8c9e08495d029049241d2d531ca4f7b27458bb0790",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "f077af0cf948a9e144673f851a3afb41c44edd3aefcec4dcf1e1621df31da6c1",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "b8c143472385d313fc17d088fde6a663d10b70c8a66c0d428fdb114990f7fa71",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "e17b2b111ef4442d975c9dfdb1e7cb07f294234ab790eadbac7ee088d697d082",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "489b4551d80e6472621a66d6ff93138cf2611b3b578030edd741e483a2c23b8c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "9267104c85eb20c1bc558671112c7437e4ade050456f72b43a2155faff344927",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "e2cacd66f2dcf66e42ac967c4396a9faaa966cab5395fe23cfe5584ab8d688c3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "0dec9e0af0e6f22a885d0444d133dc17f04631c5b186413225b9807e0dd28fea",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "53c02c05a1479d6bf4f18c18f8cafeda3e9dd5b8120cccde31827bddbfb135d8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "23880c4c9b05ad4a3e83aec33d5ceb1df6ea01198383b63e8081a22712421f0f",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "340cb8653538c70936222621ebc667e422939894f6568a318f54a8e50ec5f616",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "1fc1866bcb331ac9f76c9698e2144cc99226e79983762d82cdea720a6393df40",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "4cdd2dae418b038c7f8ce871370f6e03000a2df2fab43ebf01721e35489c08bb",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "0c4d0b9009461574563702409ae9440457fc8c5fb6016c85cf627591f3f317e7",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "40635f3df0331f1db8942f21049e7e06373103a5b519e6209b7c7765b5c94e0b",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "6dd6017067206176ae12948b5aad39a7b822ff249ba46680bcc86e219802bd2c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "c3360438e2484e7724ed005a85490f257e8b6979a49934649e87ad5f47151706",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "60da55471c86471a280c91af014fb5ebd69aca92589924b9c677e0b08ed85a43",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "672b3520f8a77a8d4ed0ae78579054783e04d4793ab8a8d42c2d5b921d872588",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "0504ef12402cda337f32f02fef7f9e82f823e4967b9499a4cc5bdc4f08c59834",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "9284fa84919c9493d66526669fd6eb1feaa9c4b359e4e8b0fd9723571d4fab30",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "83e0615a08b32885a66883255be3f52273d0b1f4a3158e090bec7606e1224363",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "b02614298d9ba28eac174087c302064f703d25eab140ad235769519db84f89cf",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "1a79a485d91f3f28f6515829e8af1ba99d73d3729f88c1e2dec47f9782bb874c",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -28976,10 +29816,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "f6fee271872e361fec2342f9bd792e2fec822cb43f7cff0c0c7f20c8da7b602b",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -29634,6 +30474,216 @@
           "text_hash": "48c4b71a647f1781e3cc9cb98cbda919306ba87a31c1aa3e46ee1464fac02c70",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "03f4638162fa30b2206f823f804e4a915b4686bab33ff02217a67070fb2c0cd4",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "579339cf29671a399094aa1496669fe8367eecaf4803a9d09f08374de75fc7e9",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "cd15399483c6e31b4343d24fac1f81e3de01e689d1b527093b2f3c439ccb1d37",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "dfd9319540e62edae600c331d446d68ce3dde5b1ee6371e9e835ba53814403af",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "2ba760ada3c771a5df0eeeb42b2be1e0a12049fac9cf18d23d2db3d34c954309",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "21fb143aa8aad0e9416b7d5b156cb1a520187a012358a3af2f5d6e2ee946c7f7",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "b28c3aa6135b37704e90497f7ec07a42faab705ca71f8715770406d25a4c7373",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "2cf8e735a0b09e90d01eaed3098ee2ae304070634debc13bae64208f7472af3d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "6a0d2dbb6a55c223251c26c289afe434895d31f6f5b67b75e9f9f8c71e49853c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "8b5c97e539156804bc137692af0a739729ebf8870e55083a90b53eb50218dbfd",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "3fda2bf5df9ea1f2302166630f6adc693023d70851d1d8b5c4402b9cfb9fd24c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "d2b89eae90c8cb7405292a6320a0c3b37e9a1af2730888fe4b62702f51f65563",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "72ee15fa2a8b6460a4e3d12080f5d958d80537920488ac039faf25478d1fef37",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "acf49fa8f126f133d9cbed74a478fe59d8fcbd056a357b17a7b4c4c800b20b93",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "6f817b78d98170251d9b4cb200de10b3fd3c3c2f806d74fc72b825e43c6aaf8c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "0583e8d5a50b57906f43862098c03eb8882f52131e9c2180be57d31a50053ba9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "035c29bd384cf5383bf0a22092a613db4148f551a52d27cca3f969aa67d6038a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "265188a13edd86ea720fe1cdb83e2329b4fe624836c6caa232c7c4c6cf7c1a89",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "5d8dceb09ecc3debbfe90ca523c78df836630dd14e948aad3eb673a33931226f",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "d2497f1a0e9d13433590c739f613e4c764e07427980c042e3e0030a598b41673",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "fbe3b09132f796fb909baf4d960123ceade9495efb61da8e9e16c4cb1054ba2d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "ab0597931fc9a3b3b0140f9e187974ed66781ed6639875329546249b7e38d7c3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "a0a797f747ed4e62e00dfcc08d5c7b882b5e415d32f20e3bfb1fb026b46491ff",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "a4644fd2e6e58448f032803dfcf3ad28eae6a738b77fb2d58378ad4dffff0900",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "09bb6500139bac9ecfb2ff9e045155a86d438710b5203c5b4b2ee2fc214d1447",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "fb6a87fbec9988eb213ef15c1d284fddf5ce6a1318cf3dbcf68c96974ad53b03",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "5fa771eed30c24b29b5edaa446403f8fbb9d141912a7e096ecf5e452f20e8be9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "d868ade2587631faf2036850e712f4d47055bb491c721cccdaa96294800019f0",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "2fcbc30a692e0f57db9b572a1615c71cfab7c8df849b7f645bd16b3c21a5747e",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "59900361a385523ca721f4729eb0d0f6ff850544a25395f5323adf7fe8b79326",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "061916c0f422bc5121147767be2ded76d15c1f86222bbe56642b2d4deba10593",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "16d9ccb07ada64556d2739828ed6ec130411a30e7c535b1c2b6641e5b8631824",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "aa0333b6f2ed682057bee8d671fb9adb4e42d3b1244d12226a2d102372c6c777",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "aceb7d7e659cf5656ff33b655c37805c80b1955730d81e66a41cf872a7fd3177",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "05048f30c7177fdc1e59719c2b0df9471df01a8df13d99a6bff60ee1f07e4c89",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -34903,10 +35953,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "2c010777533a7ef8de68f9ccb42d48aced2d410eabe632d15e801d6ea18ec943",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -35561,6 +36611,216 @@
           "text_hash": "e904ad33114f1e998fa7ece1899d0c0518d7657a97c6935e494d8b0192e28c5d",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "07a9022e336d9543bf11ba49f5c0a17faf2ce71b34128fc185636c9c4dfbf474",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "bd4503265dfe34bbb93a6598c6c016439cddd77efbab8e3d314c75edab40bc64",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "99e835466e4549575f9355c072632feb046ec6513b46a7b7f9983c52287e17b2",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "8b2e542ecb4dffa97c2ef1eec49218a478fc22bf3998a3528f32add6014eedad",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "4cce56f4bbc0643ebbe7d85c8333e44f4dfd4dd6fe5c4c5c43c488bffe794293",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "2e76c178c05af61a3824549e9d413a9d252b4419848a5c2882bb29a993881516",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "d039c826d31b0883ce318445061b7a38474ed6dd332f3a04d2fc3d56430f366c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "08780ee4144999fae244f5d252f7aab1215465a45bfc8746ea2df697fd203396",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "7b64448b3edab3419e1223329a54d97966e0542d2a6f319d7239eaa0bc2df52d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "fb5812b213fc95613a69c8684557f36ead73ef3e5459aa3796ba6a54fbe4a86d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "38668b80efcff22bf0f542dfcc67eb233ca933d31c7665648b8d8a7fa81ce43b",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "ff99f049d93106d10cac9a2e65dc775505caf99d9454a5744e14ae85b4086e83",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "d325614fe633debd1789bd7cdc710f9ab8347dd7a9ed06456d349f24f8dedeb1",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "e01902f9c83129680ff9d043076131a924ae106dc931ecb6def43891d5aac330",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "edf592e4ba52bab7b28c723c71d9c1c4ba3031b97e276dd084c2d255d6146e5a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "e511191c318cadff1edc31784526674eb71d7b498be675246d643f77357e5b92",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "97cecddf58f8a927fd28cd9579cf3da2c9fa1c122936e21645d1301d868a76c3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "257aa923f57882fc62ec01a20a19cfd2bfae32932fe4dbeb638714aeac1f7fba",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "84c503729fc918a1ecc674e7f1d3cadc09819793aa641ed163eebc2d49644be3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "53260d2645940bba7be4df9504d41204f156fc868e3a59d86858b76baf2a03ca",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "a1cb3815a7883bab8a43b2eafb9dcc15b39fb20eaf93211c3eb37254c7c6091e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "7a5a2468ddf9bfcfdc491655e0761f6eb69ca98cded22ed131a4b6ddc89397fe",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "c87fd7b4434c907af8038e5226d09d5db33eae99b15558070efe1534018e3f2c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "a4602123842a1b7ec07eb198bbf81754592e57bf74afc45b980e8b6c93da2056",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "b24d17bb31b17895ab376130bae725cbc5bdf0156b8fe6130e2e33b92a555d32",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "0051a0ff1697e4a456b972e49927d5c945f40e72bc278407a807ed27b3b14a4a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "e04acccdd25259c9fde243abd88c02d67ab3c8d2d8949422f2550a8753c63452",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "32ebc13e7770366c35c5e9ef94a00982ea9d079d9711aaf989ceef9f5ad03d5c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "2327e5cee5e84d9339041fed52d39404c332366797d4730be451dd83e3f26f01",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "a85d45e513ec20354e7bf60ee28c0964ccd6b407f44c4f6cf5062906f590ed51",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "fc49e7ba6453b53e79dd834270ecc7dc24d5c463569b1b549bdbcd50dcd8f002",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "452d61eddf8c8cec75ccde8e1ee1fa3fa6c3ad0356c9a76b22cee529493fdab8",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "c8d6df34ae5a6d8600bf02d381afaae0c411784cd67a4a58b4ba418c5e718447",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "edaf141914f9fe182120c7851d118fc68d9a2ff61b0e252dbaa48047544160cb",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "d01d1d6713c73f539a6d9c406d0455f7afa79fbae9ba1d3b01bb0b6c1acbfe89",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -40830,10 +42090,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "ae090b2a82b6bee76ca499dba370f8970a7eba0b95072b501783c826b540dbbe",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -41488,6 +42748,216 @@
           "text_hash": "b810243e6488ff4b18091a74e50a0e3f215f479ee529ae5730b2623146e58fb0",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "c9ae21b5664ba9bd448dbb7f4427d07a40b3182daafa4fb8f0fca2102f02390c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "9bd9bd70a21affee44c526e4663ac605387bcef1c942703f4fde814fbe964ea4",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "6af12a60d62929a683caba6b8a2618d179b7b901045e7bbe9f64c1eb1f6d0c78",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "4cc5aad34816a972490bc04c5ead87285a93c9dc1e615be30c66927bf2296c04",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "f1fb9a522040a3e60e182ab9925523595fc1d20d2a49cb308bdebab58965c46e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "abc6c94ffe4e91dd08961afb6629356b9637cb0d938b3d6a8b5ef5362b346214",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "24471428a1c391402b29cc63e55fd41fc22cdb71f1419b48e3d53e13a726372f",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "432bffc7d18ac34196ede3b2e2794a73428d918dfcdbf5c40d4632af966f6900",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "d3942d9c47bb8f5be6a6ad254e7a730dd0c5509d08902434ff2756c4bd6e43c8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "c5f8d6165e45de1e3015d3a962b0eba667a1b2e0463e81b3188af0eeb4802cf3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "0fc1c3e0367d7f523669fd6ff9605983238f74d4798504af4317b5d09e339beb",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "9f0d049694e77f099719140b7d3215a57d1f96522dc8dd0c0103bf4737da03ff",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "952a02a1876b1eea256de8ae0a81ac82c8f3f45825c3138f4096f4d0c36af053",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "40366ccefd435f577e71ec10aba1da0aef6074f73909fbb35041946bd7dd1f07",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "f4514bef01b53f71a18b1ef54dd7e223b807d30c3780dfead423c5b660283524",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "b084036427dfbebe92d0ab79514f77ecaddad40a0739548e5976e9d7a9132506",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "9aa1f10b1a1bf9fa0bceceaf78c1a5e90eb7d602500d1a7852a72f2d178ee40d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "1386a0874d8c0f54089d5fefa41bd4f90e4e7f8eb2b2f2b15e693438ec61b29e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "84e5b69d593b2aab3f726bebe17d43d1ee76f5a741359193725d45440341dc25",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "51ba0f9157e79c9070fd95f01abce5f6ea3fc13206e4beb44d199f14af55a05d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "acc04a7ff319846daea84da4dd525cd636daa6fff2ff655fa9a035a685ee045e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "e9eab708cc81618e210fb4c09f8bf80232684f5923de4664c9c85310f3d150a8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "a2b3a21bff7ea4bb0088e3876f67d46177eebefbf2b3101e6a79fd71a5ca090d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "2ffd0f5e5e14adcdcf8954c48e110bfbcbee913a7c8b088393dbe59a518eb882",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "bca81923def1db950250c7eca7539ac8183cd78fff4f90c723f4f2d40e58d1a3",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "a8d9fbbf7fa6d7987f5a776d2baece887237757eaca179d50e99b751c179c400",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "f66e72a923866c7f853341f863c338773aa9d50e68dd33a4a0a60f7735f11a17",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "67d185649c2057505203615ad76f56b342c2b17b1d0c831861dd0eb54bd18d6a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "e5a1b9fab0f57bc3eb6222d161375d3c979e5ebd96ffcab1f89912e51536679d",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "650cb7a492515f7a8a0ac481d6b488639f07bd049134f9ed47f1850a50108024",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "33d50142fa6d56534587e741b9f50d80fabcea1e82c241ca59fda5bb59a18416",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "c629064a801b41fc4818afb15d76bdcaa4f4237f5be47837631e9441820b6c18",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "92cf3154b36df02fd6cf7e6b8727b767b1b1d6eac9ab41de27d05d8b7afc2722",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "7bf534d23d512f4d684fbdceaf360f3e3c15559614851684eb60eb29b9e62bb6",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "f5946039b7c379f55c8eb51aafa51995139f2e883c19431eda7a6cc8dd17c4ed",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     },
@@ -46757,10 +48227,10 @@
           "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
         },
         "miniPhoneCamera": {
-          "source_hash": "6940ed6c9a9da7b2e87fd9c4b3be473f04e59c827575f6486140046792afda3b",
+          "source_hash": "d8587c8007729ec132440447f3bf7d9e68b8d3386f91a91d5a328f509cee9c45",
           "text_hash": "6988fbfa475f5506821b7cb23ea4c334c6b182e6847f0c39c6389f78d2174480",
           "status": "ai",
-          "note": "Translated for the documented MiniPhone UI context; dynamic placeholders and numeric branches preserved."
+          "note": "Kept existing Camera translation unchanged; confirmed broader title/home/accessibility context after description update."
         },
         "miniPhoneMaps": {
           "source_hash": "6e9276db232b10935cceed8d624235152780cdbe54a104a5e10d4db35f327899",
@@ -47415,6 +48885,216 @@
           "text_hash": "690ee32658a88a51e12a60e695ab5615b479cd586915a7174d485c66351f99da",
           "status": "ai",
           "note": "Signed-out account card; privacy choices do not require sign-in."
+        },
+        "miniPhoneCameraInThePhoto": {
+          "source_hash": "7d12b043c7f7a843c24debcb32ef6f4ab366dc013d6919fc8ecd28b9c235fa54",
+          "text_hash": "84a6ec321caf199a40b2d9e47e5f73b437afd6c110429a32dfd8db19596df156",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSelectedCount": {
+          "source_hash": "81f7670150ae8afe713636ceb4f736bf116056968ff039800ea60c116dd97e14",
+          "text_hash": "ae03a1c23c97c8ebb2d2157536eaf4f7488c78f773ab92647aeec15adc30d481",
+          "status": "ai",
+          "note": "Only the status pill location changed; the existing participant-count translation and plural forms remain accurate."
+        },
+        "miniPhoneCameraCastHint": {
+          "source_hash": "7b35d53a5ca64d16a35f84cda6b3249ecc42d6eeeb394f409b6c2cbb1c4c5cb0",
+          "text_hash": "e6a308dd747fc042699e8525d4e9076e01d79621693693f8eea6a6a59fbd7c68",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraDescribeMoment": {
+          "source_hash": "e689b903e1ba68e2fff12ad8e6aa17dfaee45ecba58b79c9cc5f4369fc686dc7",
+          "text_hash": "609bcd72faa7725b836123b2e13f7720a3b5ce16d6d39441c2d16088489aaa24",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPromptHint": {
+          "source_hash": "3ca9f405e0f75b2bbfd06e0b4139c7c02d77784b8ae5dd8e78783c45e5134da8",
+          "text_hash": "3a8d71ebf0d314bdfef28d4a1cce387a62d1eee1c01f60b297a0f1b7ce74c46d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryTemplate": {
+          "source_hash": "949b551b1981a8cf4cb5817c07df6898fa921fabb8a9703aa3c9501fa58d7ede",
+          "text_hash": "cc1896cb56e7fd001592800b95c40611034c3f3f5beed6d2c4d64aba440ced5c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTemplateHint": {
+          "source_hash": "b412aa0159093cb03e87c1a67106cc3321a424c3e9e5b81bc08637dc3678bb5e",
+          "text_hash": "f02e46de6e32d88ee2bf625ca5f647938841aae237967d6e07292467b2ccf557",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfie": {
+          "source_hash": "21f9264e85760e393a9e5aba6315694b22e30a33300185f3ad48086034ce7a10",
+          "text_hash": "a2d32cc80a042ede770cd9159dba4bac9ba22fc10ff1a07aa744e75822b39195",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfie": {
+          "source_hash": "e91936e7977009f9f6f1c5ce72babc012cd097d60eae467a1d5f2efa6bebc46e",
+          "text_hash": "290111b0531a2a190b5048fe3147c970f5c03767c77079ca34b7f8c83b61d9d8",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriend": {
+          "source_hash": "31a5831fb5ed7caaaa25a0eec450782ac2815188467132a4dc87f8098e49f09e",
+          "text_hash": "4f9a832de3fa6550a7082af38f081bbb1a2e8acdfd74b3bb8078a17a1bdd3d9d",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPovSelfiePrompt": {
+          "source_hash": "1620c596b3d511962a45f2b481eeba4014e61226e8882081109bcb948e40bced",
+          "text_hash": "0a4a5f331a0ae5c497b54f98ec8e9b0e24c9951ac235d75097ab6abaf3c11ef0",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraMirrorSelfiePrompt": {
+          "source_hash": "de38c186bd89266cc1bc3b0194643d9046f1b8797da7c49755412b47dadf2949",
+          "text_hash": "de9b837232d4788d8c9ad3a216b29ece7ed9150b546757e607b501b18e83c093",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraByFriendPrompt": {
+          "source_hash": "9d5459b0905d13b90ef8313941b3a25df2664c9925c390b38413b428717b8f9f",
+          "text_hash": "1a676e34a759c5c4261985ea7f6486ad86216ccb836f81d5611494a8e1f33ae5",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakePhoto": {
+          "source_hash": "1a5489453384a77fab25958d12bab830f59cd78ac1e11cddea0373fe316ca1fc",
+          "text_hash": "11b1e9dfac3b2a2dd2cce0cb520577d98d6f8a94704eef6f217814b07f143514",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTryAgain": {
+          "source_hash": "f606c1550b1ab7a182881b193ce1f4f09462d8463b2c6cdd997f6de1085b8202",
+          "text_hash": "af7b5a5589b109a6eff48e12c3ab62ccf04977741c8ab7a22d3acd39d80b064c",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPricePerPhoto": {
+          "source_hash": "bae8d031892b9b94f09c232a43b8196e4d2f5abab0f4491d8e370dcee740968d",
+          "text_hash": "1bf22ae91016bdef9cfa2a4971e81f971988b8635a6a4cdbc0f51df68ae344f0",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingPhoto": {
+          "source_hash": "07db75455a911d4a00e23821700d2cd65c69f47d188b13e0f3a9478eac93677b",
+          "text_hash": "469818e7fb869a89c90ef170c3123750fe04683ad1b9d1df4b974a8b0a57ce7b",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingTitle": {
+          "source_hash": "0c04e88893516c0805047e98ad5294035c786541a365abbca61fa6ea9fe57b02",
+          "text_hash": "38cf3dcd7252486061243432107f15d2cd3ae7f70fb18c2fd6ccde77d7604e00",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraCreatingBody": {
+          "source_hash": "d45ccf33d0ba756dea5fe6a241e742e9d80576860fa5372445d21b61c6c92b62",
+          "text_hash": "e7a0e23c9c7bcfc0064afa1c32c579ed0c6422a4c6e491b3f11ced3540443ef0",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraGenerationFailed": {
+          "source_hash": "89c1286a5ecfc5f90839b0acbe4d7ee75798efef791e854a504b9a990531dd6a",
+          "text_hash": "f9c3a409a64a95c34dbc4492fd52ec28520fee584a0a628e9e8e25d4f26c17d0",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraDraftPreserved": {
+          "source_hash": "396f66018e2c50cc1efdefdc1048f33442a92a388da51d3b29e16e1c0ef15eb8",
+          "text_hash": "90810225959f0775d4289d30cfaf8a74146f4cdd360d3df7e77d42356aec5eaa",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraTakeAnother": {
+          "source_hash": "037424eefc5f7c6f11f5a3d7bb149cdf85ccd889b11bf16adcd15ed38d20e9e1",
+          "text_hash": "72eda8e7664db7b5863cca85136e212516eda2fc145dc37e83cd6c9572a64c9e",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraUseInPost": {
+          "source_hash": "28ace31feb4c491f2effd802b1da7dc8ccd8dad1b8757de5dc8f6681424d411a",
+          "text_hash": "b6bc089ce439ffa4ccfe0a85e904aac94c84f85bb8d7f04c4fe3f11c9766c1b9",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraOpenPhoto": {
+          "source_hash": "568bd6441c79c8eb11b05fb5b16b3f17c93a90bfea4d920f6dd7b56a6ef6079e",
+          "text_hash": "f483ebce5d2e6a3d082ba724f24e4faf3d0f4e829fbacfb707d101647a5592de",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraImageUnavailable": {
+          "source_hash": "0b3c6932f5116c04a58bccaf46bba00708af3da42870532fea7b56400cc6541d",
+          "text_hash": "e6f760921c93c57f102fcafd21305035661c8b7af0c5a1198c5bc409c6789b29",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSavedToPhotos": {
+          "source_hash": "5268d8df47720c83bd4de62717aaddea925b4e1d49b9017b644a66b13ebfb202",
+          "text_hash": "d355e117c7c8eb97c3ad6d898bd48c23ce6fdfe1689ee9eb1ecc6fe92989ae77",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraSyncingPhotos": {
+          "source_hash": "01320430a0b0c05fa9c74cc49b68546ca0e7daa8929702eaf49eeb01402243cc",
+          "text_hash": "cdb7450aaaaa743d48cc766b73ccf7522302d2050dc773f63bf260c23637569a",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "miniPhoneCameraPhotoSyncFailed": {
+          "source_hash": "08b5a7dfd3356624d583c2e81efa4fd5c76849b5576ddf4ab9c7d1aba99ab1c1",
+          "text_hash": "4b09d397c1c747b7b6e12665f5a18c26e6e2eb17491666991d0d086a76ca5f73",
+          "status": "ai",
+          "note": "AI translation for the Camera page; complete prompt constraints, zero-selection state and numeric quote preserved."
+        },
+        "worldoLaunchSetting": {
+          "source_hash": "f369fb9ac632e202815ec158622c38d0448853134a3b8ae618f0fbe659183e44",
+          "text_hash": "1170d11e76d8c6bd13c0845a70e4f81155946b24536bf13b8bb228b8a7429b9c",
+          "status": "ai",
+          "note": "Character background and relationships editor label; no hidden/secret qualifier. Editable only in the newly launched World."
+        },
+        "miniPhoneCameraMomentTitle": {
+          "source_hash": "903fb8c28b31e7afb78a2aabe09ba15f3faccbc8a5ddb38a0fe02c701750abd8",
+          "text_hash": "a9a7ecdd8d9fe3183a62f7f7fad3b5301317f8258cb0a232977dd7477e9d32b0",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraMomentBody": {
+          "source_hash": "e8cce8b2a0f624183734b04f3eaa3567747c8da6ba41b782cbea82074c75e4df",
+          "text_hash": "64174aa224b14296cad725c38febd531fada2cb51ba9e589b78d8bfa0f962aff",
+          "status": "ai",
+          "note": "Existing translation retained unchanged: same photo explanation and environment/account preference now shared by the LocationChat action and MiniPhone Camera shutter; metadata-only context expansion."
+        },
+        "miniPhoneCameraDontAskAgain": {
+          "source_hash": "d3006cdbfa85dfc4fcdb8983a1b58fee227bdc780f974af3e211b7491808efb5",
+          "text_hash": "64dfb50773b0a4020abb2f60306e2b6d1dac42de12e9ce60a236d83371c514d4",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreeTrial": {
+          "source_hash": "e2a122e47d8cfb1ff5a86a7390e8c5441236d22ea7d72af0d5c16037d6e84390",
+          "text_hash": "008f4942e01254316757c962fcca9740d12d77a3ec46d76852ec6c2fb9ff9ac7",
+          "status": "ai",
+          "note": "AI translation of the user-requested frontend free-trial preview; no Settings promise or original price added."
+        },
+        "miniPhoneCameraFreePrice": {
+          "source_hash": "1cd7f8b1f3d5cf731aafe5c660f0b5f0f3ba6ed15f04a24e31f2abaca3173789",
+          "text_hash": "1dc8954a46b1abbd0457b4d389e7fc62fde0857eff65ba56093e7f836edd2543",
+          "status": "ai",
+          "note": "Preserve rich original/current price placeholders for the user-requested 30 struck through followed by 0 frontend preview."
+        },
+        "miniPhoneCameraStyle": {
+          "source_hash": "eef63000968f074d3929e745bb6ca13cdb3180be2eb56d4859722026b64f04b0",
+          "text_hash": "505bf5f6dd9ac177de07fe96c65b0ad96071fcb7edbe7d2bbcdc61cd6eebb18e",
+          "status": "ai",
+          "note": "Camera framing instruction and compact style/status captions; localized for this locale."
         }
       }
     }

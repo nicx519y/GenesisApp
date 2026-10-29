@@ -248,6 +248,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             replyActionsMessageId:
                 replyPresentation.replyMessages.lastOrNull?.localId,
             replyActionsVisible: renderedControls.visible,
+            onTakePhoto: _takeScenePhoto,
             replyPresentationRevision:
                 replyPresentationState?.presentationRevision ?? 0,
             replyCards: _replyProjection.cards(

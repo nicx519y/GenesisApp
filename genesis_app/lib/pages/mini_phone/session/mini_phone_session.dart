@@ -11,6 +11,7 @@ import '../posts/mini_phone_post_draft.dart';
 import '../settings/mini_phone_model_settings.dart';
 import '../state/mini_phone_store.dart';
 import 'mini_phone_screen.dart';
+import '../camera/mini_phone_camera.dart';
 
 /// Owned by a World route, shared by its map, location chats and MiniPhone route.
 class MiniPhoneSession {
@@ -58,6 +59,16 @@ class MiniPhoneSession {
       ? null
       : MiniPhonePostDraft(data!);
   final Future<MusicCatalog> Function()? _musicLoader;
+  late final MiniPhoneCameraController? camera = data == null
+      ? null
+      : MiniPhoneCameraController(
+          requests: data!.requests,
+          scope: MiniPhoneCameraScope(
+            environment: data!.namespace,
+            accountId: data!.uid ?? '',
+            worldId: worldId,
+          ),
+        );
   final resume = MiniPhoneResume();
   final _routes = <Route<dynamic>, NavigatorState>{};
   bool _disposed = false;
@@ -91,6 +102,7 @@ class MiniPhoneSession {
     } else {
       music.dispose();
     }
+    camera?.dispose();
     postDraft?.dispose();
     data?.dispose();
     final routes = _routes.entries.toList().reversed.toList();

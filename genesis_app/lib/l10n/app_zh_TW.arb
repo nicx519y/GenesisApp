@@ -4383,7 +4383,7 @@
   },
   "miniPhoneCamera": "相機",
   "@miniPhoneCamera": {
-    "description": "MiniPhone home: locked camera app label."
+    "description": "MiniPhone camera app title/home label and LocationChat photo-action accessibility label"
   },
   "miniPhoneMaps": "地圖",
   "@miniPhoneMaps": {
@@ -4920,5 +4920,164 @@
   "settingsAccountSignInDescription": "登入後可管理帳號",
   "@settingsAccountSignInDescription": {
     "description": "Settings > Account: short explanatory subtitle beneath the signed-out status, next to a Sign in button; refers only to account management, not access to privacy choices."
+  },
+  "miniPhoneCameraInThePhoto": "照片中的人物",
+  "@miniPhoneCameraInThePhoto": {
+    "description": "MiniPhone Camera compose page: heading above the selectable characters who will appear in the generated photo."
+  },
+  "miniPhoneCameraSelectedCount": "{count, plural, =0{未選人物} =1{已選取 1 人} other{已選取 {count} 人}}",
+  "@miniPhoneCameraSelectedCount": {
+    "description": "MiniPhone Camera compose page: white glass status pill with a dot at the top inside the viewfinder, showing the number of selected participants; zero explicitly means no one is selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneCameraCastHint": "點選下方人物，讓他們入鏡",
+  "@miniPhoneCameraCastHint": {
+    "description": "MiniPhone Camera compose page: centered instruction under the dashed plus box inside the empty viewfinder, inviting the user to select characters from the strip below."
+  },
+  "miniPhoneCameraDescribeMoment": "描述這一刻",
+  "@miniPhoneCameraDescribeMoment": {
+    "description": "MiniPhone Camera compose page: label above the editable photo-generation prompt describing the scene and mood."
+  },
+  "miniPhoneCameraPromptHint": "身在何處？氣氛如何？",
+  "@miniPhoneCameraPromptHint": {
+    "description": "MiniPhone Camera compose page: placeholder in the empty scene prompt, inviting a setting and mood for the selected characters."
+  },
+  "miniPhoneCameraTryTemplate": "試試範本",
+  "@miniPhoneCameraTryTemplate": {
+    "description": "MiniPhone Camera compose page: heading above the three photo prompt templates; selecting one fills the editable prompt."
+  },
+  "miniPhoneCameraTemplateHint": "點選即可填入描述",
+  "@miniPhoneCameraTemplateHint": {
+    "description": "MiniPhone Camera compose page: helper text explaining that tapping a template inserts its full description into the editable photo prompt."
+  },
+  "miniPhoneCameraPovSelfie": "手持自拍",
+  "@miniPhoneCameraPovSelfie": {
+    "description": "MiniPhone Camera template card: short name for an arm’s-length selfie taken by one of the selected characters, with all selected characters in frame."
+  },
+  "miniPhoneCameraMirrorSelfie": "鏡子自拍",
+  "@miniPhoneCameraMirrorSelfie": {
+    "description": "MiniPhone Camera template card: short name for a photo of the selected characters reflected in a mirror."
+  },
+  "miniPhoneCameraByFriend": "朋友幫拍",
+  "@miniPhoneCameraByFriend": {
+    "description": "MiniPhone Camera template card: short name for a photo taken by someone outside the frame, rather than a selfie."
+  },
+  "miniPhoneCameraPovSelfiePrompt": "一張將手臂伸至一臂長距離拍攝的自拍照，畫面中僅包含所選角色，由其中一位角色拍攝。讓每位所選角色都完整入鏡，以放鬆、自然的表情看向鏡頭。採用輕微廣角視角、柔和光線，以及來自角色所在世界、略帶模糊的背景。保留角色原有的外貌與服裝。不要加入其他人物。",
+  "@miniPhoneCameraPovSelfiePrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted by the POV selfie template. Preserve all constraints: only selected characters, one takes the selfie, everyone fully visible and looking into the lens, relaxed natural expressions, slight wide angle, soft light, gently blurred world setting, unchanged appearance/outfits, no extra people."
+  },
+  "miniPhoneCameraMirrorSelfiePrompt": "一張輕鬆自然的鏡子自拍照，畫面中僅包含所選角色。其中一位角色手持相機，所有所選角色都清楚出現在鏡中。呈現清晰的鏡子邊緣、自然的姿勢，以及角色所在世界場景中的柔和室內光線。保留角色原有的外貌與服裝。不要加入其他人物。",
+  "@miniPhoneCameraMirrorSelfiePrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted by the mirror selfie template. Preserve all constraints: only selected characters, one holds the camera, everyone visible in the reflection, clear mirror edge, natural poses, soft indoor light, world setting, unchanged appearance/outfits, no extra people."
+  },
+  "miniPhoneCameraByFriendPrompt": "一張以視線高度拍攝的照片，畫面中僅包含所選角色，由畫面外的人拍攝。讓每位所選角色都出現在畫面中，在角色所在世界的場景裡呈現放鬆的姿勢與自然的表情。攝影者與相機都不可入鏡：不要出現鏡子，也不要出現伸出去自拍的手臂。保留角色原有的外貌與服裝。不要加入其他人物。",
+  "@miniPhoneCameraByFriendPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted by the By a friend template. Preserve all constraints: eye-level photo, only selected characters, photographer outside the frame, everyone visible with relaxed poses/natural expressions, world setting, photographer/camera off-screen, no mirror/selfie arm, unchanged appearance/outfits, no extra people."
+  },
+  "miniPhoneCameraTakePhoto": "拍照",
+  "@miniPhoneCameraTakePhoto": {
+    "description": "MiniPhone Camera compose page: primary action to request a photo using the selected participants and entered prompt; not the device camera shutter."
+  },
+  "miniPhoneCameraTryAgain": "再試一次",
+  "@miniPhoneCameraTryAgain": {
+    "description": "MiniPhone Camera compose page: primary action to retry photo generation after a failure, retaining selected characters and prompt."
+  },
+  "miniPhoneCameraPricePerPhoto": "{price} 寶石／張",
+  "@miniPhoneCameraPricePerPhoto": {
+    "description": "MiniPhone Camera primary action: Gems cost per generated photo, shown only when a real quote is available; price is the numeric quote, never an illustrative fixed amount.",
+    "placeholders": {
+      "price": {
+        "type": "double",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "miniPhoneCameraCreatingPhoto": "正在製作照片",
+  "@miniPhoneCameraCreatingPhoto": {
+    "description": "MiniPhone Camera generation page: status overlay on the photo area while a generation request is running."
+  },
+  "miniPhoneCameraCreatingTitle": "美好時刻，正在成形。",
+  "@miniPhoneCameraCreatingTitle": {
+    "description": "MiniPhone Camera generation page: reassuring heading while the selected scene is being turned into a photo."
+  },
+  "miniPhoneCameraCreatingBody": "正在將角色與場景融合在一起。",
+  "@miniPhoneCameraCreatingBody": {
+    "description": "MiniPhone Camera generation page: supporting text explaining that the selected characters and described scene are being combined in the photo."
+  },
+  "miniPhoneCameraGenerationFailed": "無法製作這張照片。",
+  "@miniPhoneCameraGenerationFailed": {
+    "description": "MiniPhone Camera compose page: error heading after photo generation fails; the draft remains available for retry."
+  },
+  "miniPhoneCameraDraftPreserved": "選取的角色與描述都還在，請再試一次。",
+  "@miniPhoneCameraDraftPreserved": {
+    "description": "MiniPhone Camera compose page: failure explanation confirming selected characters and the editable prompt were preserved and inviting a retry."
+  },
+  "miniPhoneCameraTakeAnother": "再拍一張",
+  "@miniPhoneCameraTakeAnother": {
+    "description": "MiniPhone Camera result page: primary action to return to composing another photo."
+  },
+  "miniPhoneCameraUseInPost": "用於貼文",
+  "@miniPhoneCameraUseInPost": {
+    "description": "MiniPhone Camera result page: action to attach the generated photo to a new MiniPhone post draft."
+  },
+  "miniPhoneCameraOpenPhoto": "開啟完整照片",
+  "@miniPhoneCameraOpenPhoto": {
+    "description": "MiniPhone Camera result page: accessibility label on the generated photo button that opens the full-size image viewer."
+  },
+  "miniPhoneCameraImageUnavailable": "無法顯示圖片",
+  "@miniPhoneCameraImageUnavailable": {
+    "description": "MiniPhone Camera result page: fallback label when the generated photo image cannot be displayed."
+  },
+  "miniPhoneCameraSavedToPhotos": "已儲存至相簿",
+  "@miniPhoneCameraSavedToPhotos": {
+    "description": "MiniPhone Camera result page: status after the generated photo is confirmed in the MiniPhone Photos album, not the device photo library."
+  },
+  "miniPhoneCameraSyncingPhotos": "正在與相簿同步…",
+  "@miniPhoneCameraSyncingPhotos": {
+    "description": "MiniPhone Camera result page: status while refreshing the MiniPhone Photos album to confirm the generated photo; does not claim it is saved yet."
+  },
+  "miniPhoneCameraPhotoSyncFailed": "無法與相簿同步，請再試一次。",
+  "@miniPhoneCameraPhotoSyncFailed": {
+    "description": "MiniPhone Camera result page: album confirmation failed; photo generation may have succeeded, so this is a MiniPhone Photos synchronization error, not a generation failure."
+  },
+  "worldoLaunchSetting": "設定",
+  "@worldoLaunchSetting": {
+    "description": "Origin detail merged recommended role card editor: label for the character background/relationships (bio), editable only in the newly launched World."
+  },
+  "miniPhoneCameraMomentTitle": "捕捉這一刻",
+  "@miniPhoneCameraMomentTitle": {
+    "description": "Shared photo explanation bottom sheet title, opened from the LocationChat camera action or the MiniPhone Camera shutter: capture the current scene, including the latest reply scene in LocationChat. Shown on first use and reopenable in the current preview."
+  },
+  "miniPhoneCameraMomentBody": "將這個場景化為一張有角色們入鏡的照片。",
+  "@miniPhoneCameraMomentBody": {
+    "description": "Shared photo explanation bottom sheet body for the LocationChat camera action and the MiniPhone Camera shutter: turn the current scene into a photo with the characters, including the latest reply scene in LocationChat; same explanation at both entry points, with no prices or free trial claims."
+  },
+  "miniPhoneCameraDontAskAgain": "下次不再詢問，點選相機即可直接產生照片。",
+  "@miniPhoneCameraDontAskAgain": {
+    "description": "Photo explanation checkbox below the Free trial button, shared by LocationChat and MiniPhone Camera: explains skipping confirmation and generating directly next time. Environment/account-scoped preference is saved on confirmation; current frontend preview deliberately reopens the explanation until generation is connected. Do not add a Settings promise because no Settings control exists yet."
+  },
+  "miniPhoneCameraFreeTrial": "免費試用",
+  "@miniPhoneCameraFreeTrial": {
+    "description": "Primary photo explanation button in LocationChat and MiniPhone Camera. The user-requested frontend design shows a free trial at zero Gems per photo. Generation is not connected yet; this confirms the explanation only, never charges, creates an image, or grants a real backend trial. Keep the button short."
+  },
+  "miniPhoneCameraFreePrice": "{originalPrice} {price} 寶石／張",
+  "@miniPhoneCameraFreePrice": {
+    "description": "Compact price chip above Free trial in the shared Camera explanation: originalPrice is crossed out (30 from the user's supplied reference image), followed by price (0). These are frontend preview figures, not server billing or granted trial entitlements. Preserve both rich-text placeholders and their localizable order.",
+    "placeholders": {
+      "originalPrice": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "miniPhoneCameraStyle": "風格",
+  "@miniPhoneCameraStyle": {
+    "description": "MiniPhone Camera compose page: short caption below the bottom-left template thumbnail before any photo style is selected. Tapping opens the existing horizontal template selector."
   }
 }

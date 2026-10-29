@@ -11,6 +11,8 @@ import '../world_details_shell.dart';
 import 'origin_character_form.dart';
 import 'origin_role_recommendation.dart';
 import 'origin_role_selection_mark.dart';
+import 'origin_role_draft.dart';
+export 'origin_role_draft.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -30,66 +32,6 @@ typedef OriginRoleLaunchHandler =
     Future<OriginRoleLaunchHandlerResult> Function(
       OriginRoleLaunchSelection selection,
     );
-
-@immutable
-class OriginCustomRoleDraft {
-  const OriginCustomRoleDraft({
-    this.avatarUrl = '',
-    this.name = '',
-    this.identity = '',
-    this.personality = '',
-    this.bio = '',
-  });
-
-  final String avatarUrl;
-  final String name;
-  final String identity;
-  final String personality;
-  final String bio;
-
-  Map<String, dynamic> toPayload() {
-    final payload = <String, dynamic>{
-      'name': name.trim(),
-      'identity': identity.trim(),
-    };
-    final resolvedAvatar = avatarUrl.trim();
-    final resolvedPersonality = personality.trim();
-    final resolvedBio = bio.trim();
-    if (resolvedAvatar.isNotEmpty) payload['avatar'] = resolvedAvatar;
-    if (resolvedPersonality.isNotEmpty) {
-      payload['personality'] = resolvedPersonality;
-    }
-    if (resolvedBio.isNotEmpty) payload['bio'] = resolvedBio;
-    return payload;
-  }
-}
-
-@immutable
-class OriginRoleLaunchSelection {
-  const OriginRoleLaunchSelection._({
-    this.presetCharacterId,
-    this.customRole,
-    this.initialLocationId,
-  });
-
-  factory OriginRoleLaunchSelection.preset(
-    String characterId, {
-    String? initialLocationId,
-  }) {
-    return OriginRoleLaunchSelection._(
-      presetCharacterId: characterId,
-      initialLocationId: initialLocationId,
-    );
-  }
-
-  factory OriginRoleLaunchSelection.custom(OriginCustomRoleDraft role) {
-    return OriginRoleLaunchSelection._(customRole: role);
-  }
-
-  final String? presetCharacterId;
-  final OriginCustomRoleDraft? customRole;
-  final String? initialLocationId;
-}
 
 Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   required BuildContext context,
@@ -358,9 +300,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                     onTap: () {},
                     child: GenesisBottomSheetPanel(
                       key: const ValueKey('origin-role-sheet'),
-                      title: GenesisL10n
-                          .current
-                          .worldoLaunchSetupRole,
+                      title: GenesisL10n.current.worldoLaunchSetupRole,
                       height: targetHeight,
                       trailing: GenesisBottomSheetCloseButton(
                         buttonKey: const ValueKey('origin-role-sheet-close'),
@@ -462,16 +402,12 @@ class _RoleSegmentedControl extends StatelessWidget {
           Row(
             children: [
               _SegmentButton(
-                label: GenesisL10n
-                    .current
-                    .worldoLaunchPreset,
+                label: GenesisL10n.current.worldoLaunchPreset,
                 selected: index == 0,
                 onTap: () => onChanged(0),
               ),
               _SegmentButton(
-                label: GenesisL10n
-                    .current
-                    .worldoLaunchCustom,
+                label: GenesisL10n.current.worldoLaunchCustom,
                 selected: index == 1,
                 onTap: () => onChanged(1),
               ),
@@ -542,9 +478,7 @@ class _PresetRoleGrid extends StatelessWidget {
     if (characters.isEmpty) {
       return Center(
         child: Text(
-          GenesisL10n
-              .current
-              .worldoLaunchNoPresetRole,
+          GenesisL10n.current.worldoLaunchNoPresetRole,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -726,12 +660,8 @@ class OriginCustomRoleForm extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
                 child: Text(
                   fillingProfile
-                      ? GenesisL10n
-                            .current
-                            .worldoLaunchFilling
-                      : GenesisL10n
-                            .current
-                            .worldoLaunchFillMyProfile,
+                      ? GenesisL10n.current.worldoLaunchFilling
+                      : GenesisL10n.current.worldoLaunchFillMyProfile,
                   style: const TextStyle(
                     fontSize: 14,
                     height: 1.1,
@@ -789,9 +719,7 @@ class _SheetActions extends StatelessWidget {
         Expanded(
           child: GenesisPrimaryButton(
             key: const ValueKey('origin-role-launch'),
-            label: GenesisL10n
-                .current
-                .worldoLaunchLaunch,
+            label: GenesisL10n.current.worldoLaunchLaunch,
             onPressed: canLaunch ? onLaunch : null,
             onDisabledPressed: launching ? null : onLaunch,
             isLoading: launching,

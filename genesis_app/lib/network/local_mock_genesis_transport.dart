@@ -970,6 +970,14 @@ class LocalMockGenesisTransport implements HttpTransport {
         'world_id': _state.launchV1World(
           '${body['origin_id'] ?? body['oid'] ?? ''}',
           presetCharacterId: '${body['preset_character_id'] ?? ''}',
+          presetCharacterOverride: body['preset_character_override'] is Map
+              ? Map<String, dynamic>.from(
+                  body['preset_character_override'] as Map,
+                )
+              : null,
+          customRole: body['custom_role'] is Map
+              ? Map<String, dynamic>.from(body['custom_role'] as Map)
+              : null,
         ),
       });
     }
@@ -3704,9 +3712,50 @@ class _MockState {
     };
   }
 
-  String launchV1World(String oid, {String? presetCharacterId}) {
+  String launchV1World(
+    String oid, {
+    String? presetCharacterId,
+    Map<String, dynamic>? presetCharacterOverride,
+    Map<String, dynamic>? customRole,
+  }) {
     if (oid.isNotEmpty) _v1World['oid'] = oid;
     final charId = (presetCharacterId ?? '').trim();
+    final characters = _originEditCharacters(
+      _findV1Origin(oid),
+    ).map(_deepCopyMap).toList();
+    for (final character in characters) {
+      if ('${character['char_id'] ?? character['character_id']}' != charId) {
+        continue;
+      }
+      final override = presetCharacterOverride ?? const <String, dynamic>{};
+      for (final field in ['name', 'identity', 'personality', 'avatar']) {
+        if (override.containsKey(field)) character[field] = override[field];
+      }
+      if (override.containsKey('personality')) {
+        character['tagline'] = override['personality'];
+      }
+      character['player_uid'] = _v1User['uid'];
+      // Current backend intentionally ignores bio overrides and clears bio/goal.
+      character['description'] = '';
+      character['bio'] = '';
+      character['goal'] = '';
+    }
+    if (charId.isEmpty && customRole != null) {
+      var suffix = 1;
+      final ids = characters
+          .map((item) => '${item['char_id'] ?? item['character_id']}')
+          .toSet();
+      while (ids.contains('char_$suffix')) {
+        suffix++;
+      }
+      characters.add({
+        ..._deepCopyMap(customRole),
+        'char_id': 'char_$suffix',
+        'type': 'custom',
+        'player_uid': _v1User['uid'],
+      });
+    }
+    _v1World['_launch_characters'] = characters;
     if (oid.isNotEmpty && charId.isNotEmpty) {
       _v1PresetLaunchHistoryByOrigin.putIfAbsent(
         oid,
@@ -3877,7 +3926,9 @@ class _MockState {
     final world = _findV1World(wid);
     return {
       'world': _deepCopyMap(world),
-      'character_list': kMockV1Characters.map(_deepCopyMap).toList(),
+      'character_list': _launchWorldCharacters(
+        world,
+      ).map(_deepCopyMap).toList(),
       'metric': _deepCopyMap(kMockV1Metric),
       'location_list': kMockV1Locations.map(_deepCopyMap).toList(),
       'tick_list': kMockV1Ticks.map(_deepCopyMap).toList(),
@@ -3903,7 +3954,9 @@ class _MockState {
         ),
       },
       'relation_status': _v1WorldRelationStatus(world),
-      'characters': kMockV1Characters.map(_contractCharacter).toList(),
+      'characters': _launchWorldCharacters(
+        world,
+      ).map(_contractCharacter).toList(),
       'locations': kMockV1Locations.map(_contractLocation).toList(),
       'ticks': _v1WorldTicks(world).map(_deepCopyMap).toList(),
     };
@@ -3911,6 +3964,17 @@ class _MockState {
 
   Map<String, dynamic> v1WorldContractInfo(String? worldId) {
     return _v1WorldContractItem(_findV1World(worldId));
+  }
+
+  List<Map<String, dynamic>> _launchWorldCharacters(
+    Map<String, dynamic> world,
+  ) {
+    final characters = world['_launch_characters'];
+    return characters is List
+        ? characters
+              .map((item) => Map<String, dynamic>.from(item as Map))
+              .toList()
+        : kMockV1Characters;
   }
 
   Map<String, dynamic> v1WorldMap(String worldId, String locationId) {

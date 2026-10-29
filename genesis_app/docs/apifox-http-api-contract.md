@@ -1417,11 +1417,17 @@ Query：
 
 - `origin_id*`: string，待 launch 的 origin 业务 id
 - `preset_character_id`: string，origin 角色列表中的 `char_id`
-- `preset_character_override`: object，可选；服务端支持 `name/identity/personality/bio/goal/avatar`，用于覆盖新 world 中绑定原 `char_id` 的角色副本
+- `preset_character_override`: object，可选；当前本地正式后端实际覆盖 `name/identity/personality/avatar`，用于覆盖新 world 中绑定原 `char_id` 的角色副本；`bio/goal` 仅兼容接收且静默忽略（2026-10-29 核对 `components/dto/origin.go` 与 `service/svc_origin/launch_preset_override.go`）。
 - `custom_role`: `WorldCustomRole`
 
 `preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
 `preset_character_override` 只能用于 preset 模式，并且至少包含一个允许覆盖的字段；custom 模式携带时服务端忽略。
+
+2026-10-29 详情页推荐角色与用户卡合并：推荐角色保留原 `char_id`，名字为空或 `{{user}}` 时补用户名，图片为空时独立补用户头像；其余角色顺序保持。推荐卡编辑和补齐资料通过 preset override 提交；无推荐角色的用户身份仍使用 `custom_role`。Origin 模板和用户资料均不回写。开场预览按推荐角色 ID 使用自己的消息气泡；进入 Launch 页面后仅实际选择的 preset ID 被视为用户。
+
+Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；草稿、本地编辑和详情预览保留全文及原 `goal`，请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
+
+Avatar 入参兼容已按后端 `components/define/image.go:64` 的 `ImageResource.UnmarshalJSON` 核对：URL 字符串和 ImageResource 对象均真实支持；空对象清空头像。覆盖字段省略时继承，显式空文本清空（name 最终不可空）。
 
 `WorldCustomRole`：
 
@@ -2566,7 +2572,7 @@ query：
 | `POST /api/v1/origin/update` | 当前 `OriginV1Api.update` 已发送 `origin_id/origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/characters/locations/update_notes/deleted_char_ids/deleted_location_ids`，但尚未暴露新契约中的 `definition_version/map_url/tile_types`；高层 `GenesisApi.updateOrigin` 已兼容轻量 `OriginUpsertResp`。 |
 | `POST /api/v2/origin/create` | 已新增 `OriginV2Api.create` / `GenesisApi.createOriginV2`，完整支持含 `characters[].is_recommend` 的 V1 create body 与 `init_location_group`。Create 页面在同步成功且返回非空 `origin_id` 后立即展示创建成功，不等待异步地图状态；本地 mock 覆盖 definition version 2、Opening 保存与 processing 状态。 |
 | `POST /api/v2/origin/update` | 已新增 `OriginV2Api.update` / `GenesisApi.updateOriginV2`，完整支持含 `characters[].is_recommend` 的 V1 update body、删除列表和完整 `init_location_group`；Edit 页面继续通过 V1 info 等待状态 10。本地 mock 返回递增版本、回显 Opening，并在 info 轮询中确定性模拟 `20 -> 10`。 |
-| `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 使用 `origin_id/preset_character_id/custom_role`；详情页发送 preset 或 custom 二选一 payload，不提供 preset 编辑或 override 调用链，并消费响应 `world_id`。 |
+| `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 使用 `origin_id/preset_character_id/preset_character_override/custom_role`；详情页合并推荐卡，支持本地编辑和 override 调用链；preset/custom 二选一，custom 时不发送 preset override，消费响应 `world_id`。Setting 的 bio 提交当前仅兼容接收、不落库，见本节限制。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
 | `GET /api/v1/discuss/replies` | 已新增 `DiscussV1Api.replies(rootDiscussId,pn,rn)`，query 使用 `root_discuss_id/pn/rn`，响应消费 `list/total/pn/rn`；本地 mock 会按 `root_discuss_id` 过滤并按创建时间倒序分页。 |
 | `POST /api/v1/discuss/post` | `DiscussV1Api.post` 已支持顶级评论与回复统一入口，body 使用 `biz_type/biz_id/content/images/root_discuss_id/parent_discuss_id`，响应消费 `discuss_id/root_discuss_id/level`。 |
