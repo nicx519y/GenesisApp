@@ -907,4 +907,4 @@ from controlled Flutter verification.
 
 - AI 私聊源消息在 pending/generating 时仅作为内存中的待确认气泡，异步 completed 后才写入本地聊天消息库；failed 不写入该库，余额不足撤回正文到空输入框。发送请求日志仅用于断线恢复，不作为成功消息。玩家互发仍按正式送达保存。服务端当前契约仍先保存玩家源消息；“余额不足不写服务端消息库”尚需服务端调整，不能以客户端过滤替代。
 
-- AI 私聊 HTTP 受理及源消息 pending/generating 阶段持续显示本人气泡左侧发送 loading，直到异步 completed；余额不足终态撤回气泡并恢复草稿，其他失败保留失败态。HTTP 受理不等于发送完成，玩家互发不等待 AI 终态。
+- AI 私聊本人气泡左侧 loading 仅表示消息提交中；HTTP 成功受理或收到正式源消息后立即消失，不等待 AI 回复完成，pending/generating 不再显示发送 loading。AI 回复等待、Send 限制及超时释放继续独立运行；余额不足终态撤回气泡并恢复草稿，其他失败保留失败态。发送结果未确认时仍保留原有待确认／超时处理，玩家互发不等待 AI 终态。

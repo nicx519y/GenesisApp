@@ -404,12 +404,6 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
                 m.senderId == store.uid &&
                 replyStatus == 'failed'
             ? 'failed'
-            : m.senderType == 'user' &&
-                  m.senderId == store.uid &&
-                  (replyStatus == 'pending' || replyStatus == 'generating')
-            ? (store.messagesController.sendReleasedFor(m.requestId)
-                  ? context.l10n.miniPhoneAwaitingConfirmation
-                  : 'sending')
             : 'sent',
       );
     }).toList();
@@ -431,9 +425,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
             : outgoing.sendReleased
             ? context.l10n.miniPhoneAwaitingConfirmation
             : outgoing.accepted
-            ? (store.messagesController.isPlayerChat(person.id)
-                  ? 'sent'
-                  : 'sending')
+            ? 'sent'
             : outgoing.uncertain
             ? context.l10n.miniPhoneAwaitingConfirmation
             : 'sending',

@@ -384,7 +384,7 @@ void main() {
               find.byType(ChatSelfMessageBubble),
             )
             .any((bubble) => bubble.message.status == 'sending'),
-        isTrue,
+        isFalse,
       );
       now = now.add(const Duration(seconds: 20));
       await tester.runAsync(() async {

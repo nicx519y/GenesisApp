@@ -394,7 +394,7 @@ void main() {
       await tester.runAsync(() => composer(tester).onSend());
       final request = store.pending['dm:c']!.id;
       await flush(tester);
-      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(find.byType(ChatSendingBadge), findsNothing);
       store.receive(
         phoneEvent('source', [
           {
@@ -404,7 +404,7 @@ void main() {
         ], requestId: request),
       );
       await flush(tester);
-      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(find.byType(ChatSendingBadge), findsNothing);
       store.receive(
         phoneEvent(
           'balance-failed',
@@ -523,7 +523,8 @@ void main() {
       response.complete(ok({}));
       await flush(tester);
       expect(deliveryRows(tester), hasLength(1));
-      expect(deliveryRows(tester).single.status, 'sending');
+      expect(deliveryRows(tester).single.status, 'sent');
+      expect(find.byType(ChatSendingBadge), findsNothing);
       final completed = {
         ...phoneMessage(2, sender: 'user', requestId: pending.id),
         'content': 'Message 1',
@@ -740,36 +741,55 @@ void main() {
     },
   );
 
-  testWidgets(
-    'AI reply clears loading when the source echo still says pending',
-    (tester) async {
-      final backend = PhoneBackend();
-      final store = await openChat(tester, backend);
-      await tester.enterText(find.byType(TextField), 'Hello');
-      await tester.runAsync(() => composer(tester).onSend());
-      final request = store.pending['dm:c']!.id;
-      store.receive(
-        phoneEvent('source-pending', [
-          {
-            ...phoneMessage(1, sender: 'user', requestId: request),
-            'reply_status': 'pending',
-          },
-        ], requestId: request),
-      );
-      await flush(tester);
-      expect(deliveryRows(tester).first.status, 'sending');
-      store.receive(
-        phoneEvent('reply-completed', [
-          phoneMessage(2, requestId: request),
-        ], requestId: request),
-      );
-      await flush(tester);
-      expect(deliveryRows(tester).first.status, 'sent');
-      expect(find.byType(ChatSendingBadge), findsNothing);
-      expect(store.history('c').first.replyStatus, 'completed');
-      await closeChat(tester, store);
-    },
-  );
+  testWidgets('HTTP acceptance clears loading while AI reply remains pending', (
+    tester,
+  ) async {
+    final backend = PhoneBackend();
+    final store = await openChat(tester, backend);
+    await tester.enterText(find.byType(TextField), 'Hello');
+    final response = Completer<Object?>();
+    backend.respond = (r) =>
+        r.uri.path.endsWith('/dm/send') ? response.future : null;
+    late Future<void> sending;
+    await tester.runAsync(() async {
+      sending = composer(tester).onSend();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    });
+    await tester.pump();
+    expect(deliveryRows(tester).single.status, 'sending');
+    expect(find.byType(ChatSendingBadge), findsOneWidget);
+    await tester.runAsync(() async {
+      response.complete(ok({}));
+      await sending;
+    });
+    await tester.pump();
+    expect(deliveryRows(tester).single.status, 'sent');
+    expect(find.byType(ChatSendingBadge), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Next draft');
+    expect(composer(tester).sendEnabled, isFalse);
+    expect(store.waiting('c'), isNotNull);
+    final request = store.pending['dm:c']!.id;
+    store.receive(
+      phoneEvent('source-pending', [
+        {
+          ...phoneMessage(1, sender: 'user', requestId: request),
+          'reply_status': 'pending',
+        },
+      ], requestId: request),
+    );
+    await flush(tester);
+    expect(deliveryRows(tester).first.status, 'sent');
+    store.receive(
+      phoneEvent('reply-completed', [
+        phoneMessage(2, requestId: request),
+      ], requestId: request),
+    );
+    await flush(tester);
+    expect(deliveryRows(tester).first.status, 'sent');
+    expect(find.byType(ChatSendingBadge), findsNothing);
+    expect(store.history('c').first.replyStatus, 'completed');
+    await closeChat(tester, store);
+  });
 
   testWidgets(
     'first virtual chat retains its user bubble when AI arrives before the source echo',
