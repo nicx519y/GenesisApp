@@ -294,10 +294,29 @@ class MiniPhoneMessagesController {
   List<PhoneMessage> history(String charId) =>
       messages[sessionFor(charId)] ?? const [];
   bool unresolved(String key) =>
-      pending[key] != null && !pending[key]!.rejected;
+      pending[key] != null &&
+      !pending[key]!.rejected &&
+      !pending[key]!.sendReleased;
   PhoneWrite? waiting(String charId) =>
       unresolved('dm:$charId') ? pending['dm:$charId'] : null;
+  bool sendReleasedFor(String? requestId) =>
+      requestId != null &&
+      pending.values.any((w) => w.id == requestId && w.sendReleased);
   bool _terminal(String? state) => state == 'completed' || state == 'failed';
+
+  /// Server delivery/terminal evidence can arrive before the send HTTP returns.
+  /// Retire only this request, so its late HTTP cleanup cannot own the next send.
+  void finishPendingDm(PhoneWrite write) {
+    if (!pending.containsValue(write)) return;
+    write
+      ..accepted = true
+      ..uncertain = false
+      ..rejected = false;
+    // A late terminal can finish an archived request while another send owns
+    // the same character's submission lock.
+    if (identical(pending[write.key], write)) busy.remove(write.key);
+    pending.removeWhere((_, value) => identical(value, write));
+  }
 
   String? replyStatusFor(String? requestId, String? messageStatus) {
     final state = replyStates[requestId];
@@ -332,7 +351,11 @@ class MiniPhoneMessagesController {
     if (charId == null || isPlayerChat(charId)) return;
     sessionByChar[charId] = sessionId;
     final key = 'dm:$charId';
-    final write = pending[key];
+    final current = pending[key];
+    final write = pending.values
+        .where((w) => w.kind == 'dm' && w.id == requestId)
+        .firstOrNull;
+    final ownsComposer = current == null || identical(current, write);
     if (_terminal(state.status)) {
       appliedReplyTerminals.add(requestId);
       final history = messages[sessionId];
@@ -360,15 +383,17 @@ class MiniPhoneMessagesController {
       if (state.status == 'failed' &&
           isGemBalanceFailureCode(state.failureCode)) {
         outgoing.remove(requestId);
-        if (write?.id == requestId && (drafts[charId]?.isEmpty ?? true)) {
+        if (ownsComposer &&
+            write?.id == requestId &&
+            (drafts[charId]?.isEmpty ?? true)) {
           drafts[charId] = write!.content;
           restoredBalanceDrafts[charId] = write.content;
         }
       }
-      if (write?.id == requestId) pending.remove(key);
+      if (write?.id == requestId) finishPendingDm(write!);
       if (state.status == 'failed' &&
           !isGemBalanceFailureCode(state.failureCode) &&
-          (write == null || write.id == requestId)) {
+          ownsComposer) {
         replyFailures[charId] =
             state.failure ?? GenesisL10n.current.miniPhoneReplyFailed;
         replyFailureNotices[charId] = (
@@ -390,7 +415,7 @@ class MiniPhoneMessagesController {
           ..accepted = true
           ..uncertain = false
           ..rejected = false;
-      } else if (write == null && source != null) {
+      } else if (write == null && current == null && source != null) {
         pending[key] = PhoneWrite(requestId, 'dm', charId, source.content)
           ..accepted = true;
       }
@@ -463,7 +488,7 @@ class MiniPhoneMessagesController {
             sessionByChar[w.target] = id;
             w.accepted = true;
             w.rejected = false;
-            if (isPlayerChat(w.target)) pending.remove(w.key);
+            if (isPlayerChat(w.target)) finishPendingDm(w);
           }
         }
       }

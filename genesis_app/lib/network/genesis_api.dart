@@ -29,6 +29,7 @@ import 'v2/genesis_v2_api.dart';
 import '../app/config/platform_config.dart';
 import '../app/debug/location_chat_debug_http.dart';
 import '../platform/auth/auth_session.dart';
+import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/identity_auth_service.dart';
 import '../platform/auth/provider_identity_auth_service.dart';
 import '../platform/device/device_id_service.dart';

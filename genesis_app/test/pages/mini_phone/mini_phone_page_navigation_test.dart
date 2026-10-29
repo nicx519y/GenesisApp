@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
@@ -33,6 +34,7 @@ void main() {
     bool directChat = false,
     String entrySource = 'unknown',
     MiniPhoneScreen initialScreen = MiniPhoneScreen.messages,
+    Future<bool> Function()? networkAvailabilityCheck,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -53,7 +55,7 @@ void main() {
           )
         : null;
     final s = (await tester.runAsync(() async {
-      final s = b.store();
+      final s = b.store(networkAvailabilityCheck: networkAvailabilityCheck);
       await s.ready;
       return s;
     }))!;
@@ -108,6 +110,62 @@ void main() {
     }
     await settle(tester);
     return session;
+  }
+
+  for (final directChat in [false, true]) {
+    testWidgets(
+      'offline Send shows a toast in the real phone navigator directChat=$directChat',
+      (tester) async {
+        final session = await mount(
+          tester,
+          TargetPlatform.android,
+          directChat: directChat,
+          networkAvailabilityCheck: () async => false,
+        );
+        if (!directChat) {
+          await tester.tap(
+            find.byKey(const ValueKey('mini-phone-conversation-c0')),
+          );
+          await settle(tester);
+        }
+        await tester.enterText(find.byType(TextField), 'Keep offline draft');
+        for (
+          var i = 0;
+          i < 6 &&
+              !tester
+                  .widget<ChatComposer>(find.byType(ChatComposer))
+                  .sendEnabled;
+          i++
+        ) {
+          await settle(tester);
+        }
+        expect(
+          tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+          isTrue,
+        );
+        for (var attempt = 0; attempt < 2; attempt++) {
+          await tester.tap(
+            find.byKey(const ValueKey('chat-composer-send-button')),
+          );
+          await settle(tester);
+          expect(
+            find.text('Network unavailable. Check network.'),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .widget<ChatComposer>(find.byType(ChatComposer))
+                .controller
+                .text,
+            'Keep offline draft',
+          );
+          expect(session.data!.pending, isEmpty);
+          expect(session.data!.outgoingDm('c0'), isEmpty);
+          await tester.pump(const Duration(seconds: 3));
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
 
   for (final source in [

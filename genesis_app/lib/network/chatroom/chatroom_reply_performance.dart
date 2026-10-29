@@ -199,6 +199,9 @@ class _ReplyCardPerformance {
     if (identical(_source, card.messages) &&
         identical(_streams, streams) &&
         _streamRevision == streamRevision &&
+        // A retry removes old outputs without receiving a new content frame.
+        // Invalidate their cached presentation before the next attempt arrives.
+        _streamOrderRevision == orderRevision &&
         _failed == failed) {
       return;
     }
@@ -254,12 +257,21 @@ class _ReplyCardPerformance {
         signatures[message.globalMessageId] = (
           message.isLlmStreamMessage,
           message.message.toJson(),
+          state
+              ._candidatePresentationAttempts[(
+                card.cardId,
+                message.globalMessageId,
+              )]
+              ?.identity,
         );
       }
     }
     var contentChanged =
         failed != _failed ||
         signatures.length != _messageSignatures.length ||
+        // A retry can replace a single stream with the same message ID and
+        // local revision. Its replacement still needs a new materialized row.
+        _streamOrderRevision != orderRevision ||
         !identical(oldStreams, streams);
     for (final entry in signatures.entries) {
       final before = _messageSignatures[entry.key];
@@ -288,9 +300,11 @@ class _ReplyCardPerformance {
   }
 
   static bool _sameSignature(Object? left, Object? right) {
-    if (left is (bool, Map<String, Object?>) &&
-        right is (bool, Map<String, Object?>)) {
-      return left.$1 == right.$1 && _sameJson(left.$2, right.$2);
+    if (left is (bool, Map<String, Object?>, Object?) &&
+        right is (bool, Map<String, Object?>, Object?)) {
+      return left.$1 == right.$1 &&
+          _sameJson(left.$2, right.$2) &&
+          left.$3 == right.$3;
     }
     return left == right;
   }
@@ -339,7 +353,13 @@ class _ReplyCardPerformance {
       final previous = _converted[message.globalMessageId];
       final value = previous != null && _sameSignature(previous.$1, signature)
           ? previous.$2
-          : _candidateToWorld(message);
+          : _candidateToWorld(
+              message,
+              state._candidatePresentationAttempts[(
+                card.cardId,
+                message.globalMessageId,
+              )],
+            );
       converted[message.globalMessageId] = (signature, value);
       result.add(value);
     }

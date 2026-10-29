@@ -1,7 +1,7 @@
 import '../settings/wallpaper/mini_phone_wallpaper_image.dart';
 import 'package:flutter/material.dart';
 import '../../../app/config/genesis_image_config.dart';
-import '../../../components/common/genesis_center_toast.dart';
+import '../shared/mini_phone_toast.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../../../ui/components/genesis_avatar.dart';
@@ -823,7 +823,7 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
     button: true,
     child: GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => showGenesisToast(
+      onTap: () => showMiniPhoneToast(
         context,
         context.l10n.miniPhoneComingSoon,
         brightness: Brightness.dark,

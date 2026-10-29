@@ -1656,7 +1656,7 @@ abstract class AppLocalizations {
   /// **'The message is empty'**
   String get chatMessageEmpty;
 
-  /// 首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字
+  /// Location Chat: connection preflight failure toast for Send/retry, Regenerate, Go On, opening Edit, saving edits, and loading/sending Inspiration replies when the device has a network but WebSocket connection or location join fails. Keep drafts and existing replies; do not dispatch the action or add a message. MiniPhone Messages Send/retry checks the shared World WebSocket without joining a location. Also used for the Location Chat send failure callback.
   ///
   /// In en, this message translates to:
   /// **'Could not connect to this chat'**
@@ -1674,10 +1674,10 @@ abstract class AppLocalizations {
   /// **'Could not confirm the message send'**
   String get chatSendConfirmFailed;
 
-  /// 首页 - Home → 地点聊天室 - 回复操作，地点聊天室发送消息中显示的文字
+  /// Location Chat: device-network preflight failure toast for Send/retry, Regenerate, Go On, opening Edit, saving edits, and loading/sending Inspiration replies. MiniPhone Messages Send/retry uses the same toast. Ask the user to check their network; retain input and existing replies without dispatching the action or adding a message.
   ///
   /// In en, this message translates to:
-  /// **'No network connection'**
+  /// **'Network unavailable. Check network.'**
   String get chatNoNetworkConnection;
 
   /// 首页 - Home → 地点聊天室 - 回复操作，点击 Go On 继续生成回复中显示的文字

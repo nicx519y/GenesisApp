@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
@@ -35,10 +36,16 @@ Future<void> flush(WidgetTester tester) async {
 
 Future<MiniPhoneStore> openChat(
   WidgetTester tester,
-  PhoneBackend backend,
-) async {
+  PhoneBackend backend, {
+  Future<bool> Function()? networkAvailabilityCheck,
+  bool Function()? chatConnectionReady,
+}) async {
   final store = (await tester.runAsync(() async {
-    final store = backend.store(namespace: 'delivery-test:${_storeSequence++}');
+    final store = backend.store(
+      namespace: 'delivery-test:${_storeSequence++}',
+      networkAvailabilityCheck: networkAvailabilityCheck,
+      chatConnectionReady: chatConnectionReady,
+    );
     await store.ready;
     return store;
   }))!;
@@ -62,6 +69,7 @@ Future<void> mountChat(WidgetTester tester, MiniPhoneStore store) async {
 }
 
 Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
+  await tester.pump();
   await tester.pump(const Duration(seconds: 3));
   await tester.pumpWidget(const SizedBox.shrink());
   await flush(tester);
@@ -73,6 +81,310 @@ Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('generic Request failed stays a read error without a Toast', (
+    tester,
+  ) async {
+    final backend = PhoneBackend();
+    final store = await openChat(tester, backend);
+    backend.respond = (r) {
+      if (r.uri.path.endsWith('/messages')) {
+        throw ApiException(
+          message: 'Request failed',
+          kind: ApiExceptionKind.transport,
+        );
+      }
+      return null;
+    };
+    final refreshed = await tester.runAsync(() => store.refreshMessages('c'));
+    await tester.pump();
+    await tester.pump();
+    expect(refreshed, isFalse);
+    expect(store.errors['messages:${store.sessionFor('c')}'], 'Request failed');
+    expect(find.text('Request failed'), findsNothing);
+    backend.respond = (r) => r.uri.path.endsWith('/messages')
+        ? {'err_no': 5001, 'err_msg': 'History denied', 'data': {}}
+        : null;
+    await tester.runAsync(() => store.refreshMessages('c'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('History denied'), findsOneWidget);
+    await closeChat(tester, store);
+  });
+
+  testWidgets(
+    'generic Request failed send keeps its uncertain request without a Toast',
+    (tester) async {
+      final backend = PhoneBackend();
+      final store = await openChat(tester, backend);
+      backend.respond = (r) {
+        if (r.uri.path.endsWith('/dm/send')) {
+          throw ApiException(
+            message: 'Request failed',
+            kind: ApiExceptionKind.transport,
+          );
+        }
+        return null;
+      };
+      await tester.enterText(find.byType(TextField), 'Keep recovery active');
+      await tester.runAsync(composer(tester).onSend);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Request failed'), findsNothing);
+      expect(store.errors['dm:c'], 'Request failed');
+      expect(store.waiting('c')!.uncertain, isTrue);
+      expect(store.outgoingDm('c'), hasLength(1));
+      expect(backend.calls('dm/send'), hasLength(1));
+      await closeChat(tester, store);
+    },
+  );
+
+  for (final hasNetwork in [false, true]) {
+    testWidgets(
+      'DM preflight distinguishes ${hasNetwork ? "disconnected World socket" : "device offline"} and preserves the draft',
+      (tester) async {
+        final backend = PhoneBackend();
+        var available = hasNetwork, connected = false;
+        final store = await openChat(
+          tester,
+          backend,
+          networkAvailabilityCheck: () async => available,
+          chatConnectionReady: () => connected,
+        );
+        await tester.enterText(find.byType(TextField), 'Keep this draft');
+        await tester.runAsync(composer(tester).onSend);
+        await tester.pump();
+        await tester.pump();
+        expect(
+          find.text(
+            hasNetwork
+                ? 'Could not connect to this chat'
+                : 'Network unavailable. Check network.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            hasNetwork
+                ? 'Network unavailable. Check network.'
+                : 'Could not connect to this chat',
+          ),
+          findsNothing,
+        );
+        expect(backend.calls('dm/send'), isEmpty);
+        expect(store.pending, isEmpty);
+        expect(store.outgoingDm('c'), isEmpty);
+        expect(composer(tester).controller.text, 'Keep this draft');
+        expect(composer(tester).sendEnabled, isTrue);
+        available = connected = true;
+        await tester.runAsync(composer(tester).onSend);
+        await tester.pump();
+        expect(backend.calls('dm/send'), hasLength(1));
+        expect(composer(tester).controller.text, isEmpty);
+        await closeChat(tester, store);
+      },
+    );
+  }
+
+  for (final hasNetwork in [false, true]) {
+    testWidgets(
+      'DM preflight toast is not masked by an earlier history error network=$hasNetwork',
+      (tester) async {
+        final backend = PhoneBackend();
+        var available = true;
+        var connected = true;
+        final store = await openChat(
+          tester,
+          backend,
+          networkAvailabilityCheck: () async => available,
+          chatConnectionReady: () => connected,
+        );
+        backend.respond = (r) => r.uri.path.endsWith('/messages')
+            ? {'err_no': 5001, 'err_msg': 'History unavailable', 'data': {}}
+            : null;
+        await tester.runAsync(() => store.refreshMessages('c'));
+        await tester.pump();
+        await tester.pump();
+        expect(find.text('History unavailable'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 3));
+        available = hasNetwork;
+        connected = false;
+        await tester.enterText(find.byType(TextField), 'Keep this draft');
+        for (var attempt = 0; attempt < 2; attempt++) {
+          await tester.runAsync(composer(tester).onSend);
+          await tester.pump();
+          await tester.pump();
+          expect(
+            find.text(
+              hasNetwork
+                  ? 'Could not connect to this chat'
+                  : 'Network unavailable. Check network.',
+            ),
+            findsOneWidget,
+          );
+          expect(composer(tester).controller.text, 'Keep this draft');
+          expect(store.outgoingDm('c'), isEmpty);
+          expect(backend.calls('dm/send'), isEmpty);
+          await tester.pump(const Duration(seconds: 3));
+        }
+        await closeChat(tester, store);
+      },
+    );
+  }
+
+  for (final available in [false, true]) {
+    for (final newerDraft in ['Newer draft', '']) {
+      testWidgets(
+        'DM keeps the input during delayed network preflight available=$available empty=${newerDraft.isEmpty}',
+        (tester) async {
+          final backend = PhoneBackend();
+          final network = Completer<bool>();
+          final store = await openChat(
+            tester,
+            backend,
+            networkAvailabilityCheck: () => network.future,
+          );
+          await tester.enterText(find.byType(TextField), 'Draft during check');
+          late Future<void> sending;
+          await tester.runAsync(() async {
+            sending = composer(tester).onSend();
+            await Future<void>.delayed(Duration.zero);
+          });
+          await tester.pump();
+          expect(composer(tester).controller.text, 'Draft during check');
+          expect(store.outgoingDm('c'), isEmpty);
+          expect(backend.calls('dm/send'), isEmpty);
+          await tester.enterText(find.byType(TextField), newerDraft);
+          await tester.runAsync(() async {
+            network.complete(available);
+            await sending;
+          });
+          await tester.pump();
+          expect(composer(tester).controller.text, newerDraft);
+          expect(backend.calls('dm/send'), hasLength(available ? 1 : 0));
+          if (!available) expect(store.outgoingDm('c'), isEmpty);
+          await closeChat(tester, store);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'offline retry preserves the uncertain request and original body',
+    (tester) async {
+      final backend = PhoneBackend();
+      var available = true;
+      final store = await openChat(
+        tester,
+        backend,
+        networkAvailabilityCheck: () async => available,
+      );
+      backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+          ? Future<Object?>.error(TimeoutException('No response'))
+          : null;
+      await tester.enterText(find.byType(TextField), 'Original request');
+      await tester.runAsync(composer(tester).onSend);
+      await tester.pump();
+      final pending = store.waiting('c')!;
+      expect(pending.uncertain, isTrue);
+      available = false;
+      await tester.runAsync(composer(tester).onSend);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Network unavailable. Check network.'), findsOneWidget);
+      expect(backend.calls('dm/send'), hasLength(1));
+      expect(identical(store.waiting('c'), pending), isTrue);
+      expect(store.outgoingDm('c'), hasLength(1));
+      available = true;
+      backend.respond = null;
+      await tester.runAsync(composer(tester).onSend);
+      await tester.pump();
+      final calls = backend.calls('dm/send');
+      expect(calls, hasLength(2));
+      expect(backend.body(calls.last), backend.body(calls.first));
+      await closeChat(tester, store);
+    },
+  );
+
+  testWidgets(
+    'reply failure immediately enables a new send before HTTP returns',
+    (tester) async {
+      final backend = PhoneBackend();
+      final firstResponse = Completer<Object?>();
+      final secondResponse = Completer<Object?>();
+      var sends = 0;
+      backend.respond = (r) => r.uri.path.endsWith('/dm/send')
+          ? (++sends == 1 ? firstResponse.future : secondResponse.future)
+          : null;
+      final store = await openChat(tester, backend);
+      await tester.enterText(find.byType(TextField), 'First message');
+      late Future<void> firstSend;
+      await tester.runAsync(() async {
+        firstSend = composer(tester).onSend();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      });
+      await tester.pump();
+      final firstRequest = store.waiting('c')!.id;
+      await tester.enterText(find.byType(TextField), 'Second message');
+      expect(composer(tester).sendEnabled, isFalse);
+      await tester.runAsync(() async {
+        store.receive(
+          phoneEvent(
+            'failed',
+            [],
+            requestId: firstRequest,
+            failure: 'Reply failed',
+          ),
+        );
+        await store.writesSaved;
+      });
+      await tester.pump();
+      await tester.pump();
+      expect(composer(tester).sendEnabled, isTrue);
+      expect(find.text('Reply failed'), findsOneWidget);
+      expect(store.waiting('c'), isNull);
+      expect(
+        deliveryRows(tester).any((m) => m.text == 'First message'),
+        isTrue,
+      );
+      late Future<void> secondSend;
+      await tester.runAsync(() async {
+        secondSend = composer(tester).onSend();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+      });
+      await tester.pump();
+      expect(sends, 2);
+      final secondRequest = store.waiting('c')!.id;
+      expect(secondRequest, isNot(firstRequest));
+      await tester.runAsync(() async {
+        firstResponse.complete({
+          'err_no': 4004,
+          'err_msg': 'Late rejection',
+          'data': {},
+        });
+        await firstSend;
+      });
+      await tester.pump();
+      expect(composer(tester).controller.text, isEmpty);
+      expect(find.text('Late rejection'), findsNothing);
+      expect(store.waiting('c')!.id, secondRequest);
+      expect(store.busy, contains('dm:c'));
+      await tester.runAsync(() async {
+        secondResponse.complete(ok({}));
+        await secondSend;
+      });
+      store.receive(
+        phoneEvent(
+          'next-failed',
+          [],
+          requestId: secondRequest,
+          failure: 'Reply failed',
+        ),
+      );
+      await tester.pump();
+      await closeChat(tester, store);
+    },
+  );
+
   testWidgets(
     'async balance failure removes the bubble and restores draft across reentry',
     (tester) async {
@@ -82,7 +394,7 @@ void main() {
       await tester.runAsync(() => composer(tester).onSend());
       final request = store.pending['dm:c']!.id;
       await flush(tester);
-      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(find.byType(ChatSendingBadge), findsNothing);
       store.receive(
         phoneEvent('source', [
           {
@@ -92,7 +404,7 @@ void main() {
         ], requestId: request),
       );
       await flush(tester);
-      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(find.byType(ChatSendingBadge), findsNothing);
       store.receive(
         phoneEvent(
           'balance-failed',
@@ -211,7 +523,8 @@ void main() {
       response.complete(ok({}));
       await flush(tester);
       expect(deliveryRows(tester), hasLength(1));
-      expect(deliveryRows(tester).single.status, 'sending');
+      expect(deliveryRows(tester).single.status, 'sent');
+      expect(find.byType(ChatSendingBadge), findsNothing);
       final completed = {
         ...phoneMessage(2, sender: 'user', requestId: pending.id),
         'content': 'Message 1',
@@ -428,36 +741,55 @@ void main() {
     },
   );
 
-  testWidgets(
-    'AI reply clears loading when the source echo still says pending',
-    (tester) async {
-      final backend = PhoneBackend();
-      final store = await openChat(tester, backend);
-      await tester.enterText(find.byType(TextField), 'Hello');
-      await tester.runAsync(() => composer(tester).onSend());
-      final request = store.pending['dm:c']!.id;
-      store.receive(
-        phoneEvent('source-pending', [
-          {
-            ...phoneMessage(1, sender: 'user', requestId: request),
-            'reply_status': 'pending',
-          },
-        ], requestId: request),
-      );
-      await flush(tester);
-      expect(deliveryRows(tester).first.status, 'sending');
-      store.receive(
-        phoneEvent('reply-completed', [
-          phoneMessage(2, requestId: request),
-        ], requestId: request),
-      );
-      await flush(tester);
-      expect(deliveryRows(tester).first.status, 'sent');
-      expect(find.byType(ChatSendingBadge), findsNothing);
-      expect(store.history('c').first.replyStatus, 'completed');
-      await closeChat(tester, store);
-    },
-  );
+  testWidgets('HTTP acceptance clears loading while AI reply remains pending', (
+    tester,
+  ) async {
+    final backend = PhoneBackend();
+    final store = await openChat(tester, backend);
+    await tester.enterText(find.byType(TextField), 'Hello');
+    final response = Completer<Object?>();
+    backend.respond = (r) =>
+        r.uri.path.endsWith('/dm/send') ? response.future : null;
+    late Future<void> sending;
+    await tester.runAsync(() async {
+      sending = composer(tester).onSend();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    });
+    await tester.pump();
+    expect(deliveryRows(tester).single.status, 'sending');
+    expect(find.byType(ChatSendingBadge), findsOneWidget);
+    await tester.runAsync(() async {
+      response.complete(ok({}));
+      await sending;
+    });
+    await tester.pump();
+    expect(deliveryRows(tester).single.status, 'sent');
+    expect(find.byType(ChatSendingBadge), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Next draft');
+    expect(composer(tester).sendEnabled, isFalse);
+    expect(store.waiting('c'), isNotNull);
+    final request = store.pending['dm:c']!.id;
+    store.receive(
+      phoneEvent('source-pending', [
+        {
+          ...phoneMessage(1, sender: 'user', requestId: request),
+          'reply_status': 'pending',
+        },
+      ], requestId: request),
+    );
+    await flush(tester);
+    expect(deliveryRows(tester).first.status, 'sent');
+    store.receive(
+      phoneEvent('reply-completed', [
+        phoneMessage(2, requestId: request),
+      ], requestId: request),
+    );
+    await flush(tester);
+    expect(deliveryRows(tester).first.status, 'sent');
+    expect(find.byType(ChatSendingBadge), findsNothing);
+    expect(store.history('c').first.replyStatus, 'completed');
+    await closeChat(tester, store);
+  });
 
   testWidgets(
     'first virtual chat retains its user bubble when AI arrives before the source echo',

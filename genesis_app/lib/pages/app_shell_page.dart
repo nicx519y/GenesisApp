@@ -781,35 +781,13 @@ class _AppShellPageState extends State<AppShellPage>
     required LoginSource source,
   }) async {
     debugPrint('[Auth][AppShell] onLogin start provider=$provider');
-    final services = AppServicesScope.read(context);
-    final session = await services.identityAuth.signIn(provider);
-    final user = await services.backendAuth.loginWithIdentity(
-      session,
+    final ok = await loginGenesisWithProvider(
+      context,
+      provider,
       source: source,
     );
-    if (user.uid.trim().isNotEmpty) {
-      await services.sessionStore.saveUid(user.uid);
-    }
-    final cachedUserInfo = await services.sessionStore.readUserInfo();
-    final loginUserInfo = <String, dynamic>{
-      if (cachedUserInfo != null) ...cachedUserInfo,
-      'uid': user.uid,
-      'gender': user.gender,
-      'age': user.age,
-      'membership_status': user.membershipStatus,
-      'login_provider': provider.name,
-    };
-    if (user.nickname.trim().isNotEmpty) {
-      loginUserInfo['name'] = user.nickname;
-    }
-    if (user.avatar.trim().isNotEmpty) {
-      loginUserInfo['avatar'] = user.avatar;
-    }
-    await services.sessionStore.saveUserInfo(loginUserInfo);
-    services.notifySessionChanged();
-    unawaited(_messagesPoller.runNow());
-    debugPrint('[Auth][AppShell] backend login success uid=${user.uid}');
-    return true;
+    if (ok && mounted) unawaited(_messagesPoller.runNow());
+    return ok;
   }
 
   int _normalTabIndex(int index) {

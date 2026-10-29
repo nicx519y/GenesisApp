@@ -995,7 +995,8 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo confirmar el envío del mensaje';
 
   @override
-  String get chatNoNetworkConnection => 'Sin conexión a internet';
+  String get chatNoNetworkConnection =>
+      'Red no disponible. Revisa tu conexión de red.';
 
   @override
   String get chatRoundCannotContinue => 'Este turno no puede continuar';

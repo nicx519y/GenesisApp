@@ -16,7 +16,7 @@ import '../../ui/navigation/genesis_dark_page_route.dart';
 import 'music/mini_phone_music_service.dart';
 import 'settings/wallpaper/mini_phone_wallpaper_controller.dart';
 import 'settings/wallpaper/mini_phone_wallpaper_cache.dart';
-import '../../components/common/genesis_center_toast.dart';
+import 'shared/mini_phone_toast.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../platform/session/memory_user_session_store.dart';
 import 'shared/mini_phone_ui.dart';
@@ -370,7 +370,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           !_session.isDisposed &&
           generation == phone?.accountGeneration &&
           screen == MiniPhoneScreen.chat) {
-        showGenesisToast(context, MiniPhoneStore.errorText(error));
+        showMiniPhoneToast(context, MiniPhoneStore.errorText(error));
       }
     }
   }
@@ -380,7 +380,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     await _music.refreshLikes(api.fetchMusicCatalog);
     if (!mounted || screen == MiniPhoneScreen.music) return;
     final error = _music.catalogError;
-    if (error != null) showGenesisToast(context, error);
+    if (error != null) showMiniPhoneToast(context, error);
   }
 
   @override
@@ -942,10 +942,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                 _shownPhoneErrors[entry.key] != entry.value &&
                 !shown.contains(entry.value),
           )
-          .map((entry) => entry.value)
+          .map((entry) => miniPhoneToastMessage(entry.value))
+          .where((message) => message.trim().isNotEmpty)
           .toSet();
       _shownPhoneErrors.addAll(errors);
-      if (fresh.isNotEmpty) showGenesisToast(context, fresh.join('\n'));
+      if (fresh.isNotEmpty) showMiniPhoneToast(context, fresh.join('\n'));
     });
   }
 }

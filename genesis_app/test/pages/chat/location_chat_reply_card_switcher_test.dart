@@ -1100,7 +1100,9 @@ void main() {
         currentCardId = -1;
         regenerationInProgress = true;
       });
-      await tester.pump(const Duration(milliseconds: 800));
+      // Commit the pending card before advancing the collapse to completion.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       await tester.pump(const Duration(milliseconds: 1));
 
       expect(

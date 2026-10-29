@@ -1476,10 +1476,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "c3c2fd501eefe61a04a80c16cc812000eb17aa7e6daad140ae356f1e699a0414",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -1494,10 +1494,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "c226c48b7e6fd81fb293a5aa462f88b2b3a6aaf637610acd0f8d55c0a7461c96",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "53ba1448dfb16b328bcc6a04f7d72c9f9321a2e5bf5d66e6957529b96bb62fbe",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -7403,10 +7403,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "86c99f697a81e97cb096a36a99e0f5a0669311c06b6d253c564905367780bb27",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -7421,10 +7421,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "819fe08184ab57b65008490cea8d0fca4ea21488c4b6ceda2844406d4f44df06",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "959db1012151595907d76777418d42dd531dcd15642d46e0b76c3949217d7663",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -13330,10 +13330,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "c836c8fdad206fbef1a3744aadbc967b8d4271940e7a4fc368c6dc797ec9a6af",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -13348,10 +13348,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "08e43fe96e4421a5c225e0f7a8a5501df00142e7eaa4bfa5445e6a2144ba9f84",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "b30f180f60df256364d72f6ab31011ecae73bfd1571c62f254563fa7d296c094",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -19257,10 +19257,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "99c9d634fa7ae82c49078bdc56f6cd08b043bfe52ede848ef217769653423a50",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -19275,10 +19275,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "f1bea972cc65693306299ebb07c7a1d071cb3cf3eb6c4f87361cc0f36acf7416",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "9c9a71346dad0569414d2f101a73c80402403d5a818003b0297062e3f04edfda",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -25184,10 +25184,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "a59461429b1e0653dc510faaff3352460b93025c8c64ef733b453367b0774207",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -25202,10 +25202,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "d2338e9ca4f15a405fab6753108a98e6c268aa0ac37f0dad0aaada492480a2be",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "0f631dfd46ad1181a173b445680824f1db49083cd0677bd72cd9e00c67557b81",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -31111,10 +31111,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "3dc850e2cbdf0b4ce7adc606d67eec94afd9bcff43b07f9f8c389f64d25cce77",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -31129,10 +31129,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "34159014213ee5460177507573d3de0597c4ffddd73c517d020b4acf34a2d840",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "1e16ddb7cd19c7660cef752e499effe1a87aa76a14aeaa9f40856642c05417c5",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -37038,10 +37038,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "cc1d0b78e0903157fc3f19166c329f7a8b6aa2e18764451a15c46a167ed7a09b",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -37056,10 +37056,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "9b27fc5583dfed090ecd2fcdb7356054a5905689ba36ba7daab5b54aaa2199f5",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "d01d6cc63912f627c977edfc4f121c6f2e80715b055b698d80ae19d41619638b",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",
@@ -42965,10 +42965,10 @@
           "note": ""
         },
         "chatConnectionFailed": {
-          "source_hash": "48760e743da9349b2b1c3ebd55fcd2694aba040d01795b88b1858ed8cde8b318",
+          "source_hash": "791791842055f70b7db97760e5f3d1ef6e5f8fff064386854ccb84cc87cd65c8",
           "text_hash": "c80fc3d2997849e5bae8c7d56964f83a1debe4c1fff0ed6d52a4c13fdb8671e0",
-          "status": "baseline",
-          "note": ""
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatReplyChangedSelect": {
           "source_hash": "d9f201d7f2ac52607847d4c5713f79b0f56cb82f930b34c97000d5814accea86",
@@ -42983,10 +42983,10 @@
           "note": ""
         },
         "chatNoNetworkConnection": {
-          "source_hash": "c17f090a8d347e6ac57dfa62b003a73b3baa1d456996ba30a29dfefe308508f8",
-          "text_hash": "629d71a7c5a052befee494ff1574e51c00d499c02fa637b73da68304ce805fe0",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "156612bd407de5f7ac8f83432524e5fb5e4cecb2f7352b02b1564e1790936027",
+          "text_hash": "e886377e9694343f3956efb5cba0855b71b91feb2b715013f8299ef4b69eb4f4",
+          "status": "ai",
+          "note": "Rechecked the expanded chat preflight context; the existing connection/network wording remains accurate."
         },
         "chatRoundCannotContinue": {
           "source_hash": "948776ae3da5749d2e6119f4000a0e54b3002c473579ab74909143fde5ffc5f3",

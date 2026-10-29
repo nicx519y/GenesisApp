@@ -985,7 +985,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatSendConfirmFailed => 'Could not confirm the message send';
 
   @override
-  String get chatNoNetworkConnection => 'No network connection';
+  String get chatNoNetworkConnection => 'Network unavailable. Check network.';
 
   @override
   String get chatRoundCannotContinue => 'This round cannot continue';
@@ -4634,7 +4634,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get chatSendConfirmFailed => '無法確認訊息是否已送出';
 
   @override
-  String get chatNoNetworkConnection => '沒有網路連線';
+  String get chatNoNetworkConnection => '網路無法使用，請檢查網路連線。';
 
   @override
   String get chatRoundCannotContinue => '無法繼續這一回合';

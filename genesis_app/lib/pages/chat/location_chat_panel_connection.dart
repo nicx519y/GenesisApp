@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _closeChatroom() async {
+    _pageSendReleases.clear();
     _clearAckLoading();
     _detachReplyActions();
     final service = _service;
@@ -360,6 +361,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     WorldChatroomService service,
     AppServices services,
   ) async {
+    final generation = _serviceGeneration;
     try {
       final uid = (await services.sessionStore.readUid())?.trim() ?? '';
       final userInfo = await services.sessionStore.readUserInfo();
@@ -389,15 +391,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           senderName: senderName,
         ),
       );
+      if (!_isCurrentService(service, generation)) return;
       if (widget.isLeafLocation) {
         await _joinLocation(service);
       }
-    } catch (e) {
-      if (!mounted) return;
-      if (_replyConnectionAction != null) return;
-      _setLocationChatState(() {
-        _messages.add(ChatMessageVm.system(GenesisL10n.current.genericError));
-      });
+    } catch (_) {
+      // Background connection failures remain silent; Send owns its feedback.
     }
   }
 
@@ -420,6 +419,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   Future<bool> _performJoinLocation(WorldChatroomService service) async {
+    final generation = _serviceGeneration;
     _joiningLocation = true;
     try {
       if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
@@ -435,24 +435,20 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         locationId: widget.locationId,
         announceUserEntry: !_initialMessageSendPending,
       );
+      if (!_isCurrentService(service, generation)) return false;
       _joinedLocation = true;
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinDone');
       _maybeSendInitialMessage();
       return true;
     } catch (e) {
+      if (!_isCurrentService(service, generation)) return false;
       _joinedLocation = false;
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinFailed', details: {'error': '$e'});
-      if (!mounted) return false;
-      if (_replyConnectionAction == null) {
-        _setLocationChatState(() {
-          _messages.add(ChatMessageVm.system(GenesisL10n.current.genericError));
-        });
-      }
       return false;
     } finally {
-      _joiningLocation = false;
+      if (_isCurrentService(service, generation)) _joiningLocation = false;
     }
   }
 

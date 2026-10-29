@@ -4,10 +4,25 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   String get _initialMessageText =>
       _initialOutgoingMessage?.text ?? _textController.serializedText;
 
-  Future<bool> _hasNetworkForSend() {
+  Future<bool> _hasNetworkForSend() async {
     final check =
         widget.networkAvailabilityCheck ?? locationChatHasNetworkConnection;
-    return check();
+    try {
+      return await check();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _showSendFailure(Object error, {bool noNetwork = false}) {
+    final message = noNetwork
+        ? context.l10n.chatNoNetworkConnection
+        : chatroomOperationErrorMessage(error);
+    if (message.isNotEmpty && isChatroomErrorPresentedGlobally(error)) return;
+    showGenesisToast(
+      context,
+      message.isEmpty ? context.l10n.genericError : message,
+    );
   }
 
   Future<bool> _prepareSendConnection(WorldChatroomService service) async {
@@ -28,10 +43,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     try {
       if (!isCurrent()) return false;
       await _guardPageWait('send_connect', (operation) async {
-        operation.onRelease(() {
-          service.abandonConnectionWait(
-            expectedGeneration: connectionGeneration,
-          );
+        service.watchConnectionWait(
+          operation,
+          expectedGeneration: connectionGeneration,
+        );
+        _pageSendReleases.listen(operation, () {
           if (!mounted ||
               generation != _sendConnectionGeneration ||
               serviceGeneration != _serviceGeneration) {
@@ -39,6 +55,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           }
           _sendConnectionGeneration++;
           _setLocationChatState(() => _sendConnectionPending = false);
+          if (widget.active) {
+            showGenesisToast(context, context.l10n.chatConnectionFailed);
+          }
         });
         await _openChatConnectionGate(
           service: service,
@@ -49,8 +68,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       return isCurrent() && service.state.joinedLocationId == locationId;
     } catch (error) {
       if (error is ChatSendWaitReleased) return false;
-      if (mounted && isCurrent() && !isChatroomErrorPresentedGlobally(error)) {
-        showGenesisToast(context, chatroomOperationErrorMessage(error));
+      if (mounted && isCurrent()) {
+        showGenesisToast(context, context.l10n.chatConnectionFailed);
       }
       return false;
     } finally {
@@ -141,7 +160,21 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       return;
     }
     final hasNetwork = await _hasNetworkForSend();
-    if (hasNetwork && !await _prepareSendConnection(service)) {
+    if (!mounted ||
+        sendAttempt != _sendAttemptGeneration ||
+        !widget.active ||
+        !identical(service, _service)) {
+      return;
+    }
+    if (!hasNetwork) {
+      final error = SocketException(
+        GenesisL10n.current.chatNoNetworkConnection,
+      );
+      _showSendFailure(error, noNetwork: true);
+      onFailure?.call(error, false);
+      return;
+    }
+    if (!await _prepareSendConnection(service)) {
       onFailure?.call(
         StateError(GenesisL10n.current.chatConnectionFailed),
         false,
@@ -152,7 +185,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         sendAttempt != _sendAttemptGeneration ||
         !widget.active ||
         !identical(service, _service) ||
-        (hasNetwork && service.state.joinedLocationId != widget.locationId) ||
+        !service.state.connected ||
+        service.state.joinedLocationId != widget.locationId ||
         _tickBlocksSend ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
@@ -300,31 +334,12 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     // controls in the same state update, before any reply finalization awaits.
     addOptimisticMessage();
 
-    if (!hasNetwork) {
-      await _submitLocalMessage(
-        service: service,
-        localMessage: localMessage,
-        clientMsgId: clientMsgId,
-        isInitialSend: true,
-        scene: inspirationSource != null
-            ? 'inspiration_send'
-            : outgoingMessage != null
-            ? 'initial_send'
-            : 'send',
-        replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
-        failBeforeTransport: true,
-        onCanonicalMessage: onCanonicalMessage,
-        onFailure: onFailure,
-      );
-      return;
-    }
-
     if (controller != null) {
       final location = widget.locationId;
       final bindingGeneration = _replyBindingGeneration;
       try {
         await _guardPageWait('send_finalize', (operation) async {
-          operation.onRelease(() {
+          _pageSendReleases.listen(operation, () {
             if (!mounted || sendAttempt != _sendAttemptGeneration) return;
             _sendAttemptGeneration++;
             _setLocationChatState(() {
@@ -408,9 +423,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         }
         return;
       }
-      if (_chatroomState.joinedLocationId != location ||
-          _tickBlocksSend ||
-          _sendAwaitingResponse) {
+      final connectionReady =
+          service.state.connected &&
+          _chatroomState.joinedLocationId == location;
+      if (!connectionReady || _tickBlocksSend || _sendAwaitingResponse) {
         onFailure?.call(
           StateError(GenesisL10n.current.chatMessageCannotSend),
           false,
@@ -426,6 +442,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             _suppressedReplyActionsIdentity = null;
           }
         });
+        if (!connectionReady) {
+          showGenesisToast(context, context.l10n.chatConnectionFailed);
+        }
         return;
       }
     }
@@ -466,7 +485,18 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       return;
     }
     final sendAttempt = ++_sendAttemptGeneration;
-    if (!await _hasNetworkForSend()) return;
+    if (!await _hasNetworkForSend()) {
+      if (mounted &&
+          sendAttempt == _sendAttemptGeneration &&
+          widget.active &&
+          identical(service, _service)) {
+        _showSendFailure(
+          SocketException(GenesisL10n.current.chatNoNetworkConnection),
+          noNetwork: true,
+        );
+      }
+      return;
+    }
     if (!await _prepareSendConnection(service)) return;
     if (!mounted ||
         sendAttempt != _sendAttemptGeneration ||
@@ -489,7 +519,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       _setLocationChatState(() => _sending = true);
       try {
         await _guardPageWait('send_finalize', (operation) async {
-          operation.onRelease(() {
+          _pageSendReleases.listen(operation, () {
             if (!mounted || sendAttempt != _sendAttemptGeneration) return;
             _sendAttemptGeneration++;
             _setLocationChatState(() => _sending = false);
@@ -521,10 +551,14 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           !identical(service, _service)) {
         return;
       }
-      if (_chatroomState.joinedLocationId != location ||
-          _tickBlocksSend ||
-          _sendAwaitingResponse) {
+      final connectionReady =
+          service.state.connected &&
+          _chatroomState.joinedLocationId == location;
+      if (!connectionReady || _tickBlocksSend || _sendAwaitingResponse) {
         _setLocationChatState(() => _sending = false);
+        if (!connectionReady) {
+          showGenesisToast(context, context.l10n.chatConnectionFailed);
+        }
         return;
       }
     }
@@ -558,7 +592,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required bool isInitialSend,
     required String scene,
     String? replyActionsSuppressionIdentity,
-    bool failBeforeTransport = false,
     void Function(WorldChatroomMessage message)? onCanonicalMessage,
     void Function(Object error, bool receiptReceived)? onFailure,
   }) async {
@@ -591,9 +624,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           ),
         );
       }
-      if (failBeforeTransport) {
-        throw SocketException(GenesisL10n.current.chatNoNetworkConnection);
-      }
       final handle = service.sendMessage(
         localMessage.text,
         clientMsgId: clientMsgId,
@@ -605,9 +635,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         sentLocationId,
         'send:$clientMsgId',
       )!;
-      wait.onRelease(() {
+      _pageSendReleases.listen(wait, () {
         if (!ownsSend()) return;
-        service.cancelCanonicalMessageWait(clientMsgId);
         _sendAttemptGeneration++;
         _setLocationChatState(() {
           _sending = false;
@@ -743,6 +772,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _suppressedReplyActionsIdentity = null;
         }
       });
+      if (widget.active &&
+          !receiptReceived &&
+          !service.isSendAcceptanceUnknown(clientMsgId)) {
+        _showSendFailure(e);
+      }
       _recordPanelDebug(
         action: 'sendFailed',
         details: {'clientMsgId': clientMsgId, 'error': '$e'},

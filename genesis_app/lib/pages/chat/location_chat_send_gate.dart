@@ -1,6 +1,46 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatSendGateBinding on _LocationChatPanelState {
+  void _scheduleEntrySendWaitCheck({required bool presentationSettled}) {
+    if (_entrySendWaitChecked ||
+        _entrySendWaitCheckScheduled ||
+        !_initialContentReadyNotified ||
+        !widget.active ||
+        !widget.isLeafLocation ||
+        _service == null ||
+        !presentationSettled) {
+      return;
+    }
+    _entrySendWaitCheckScheduled = true;
+    final generation = _entrySendWaitCheckGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _entrySendWaitCheckGeneration) return;
+      _entrySendWaitCheckScheduled = false;
+      final presentationContext = _replyPresentationContextKey.currentContext;
+      if (!widget.active || presentationContext == null) return;
+      final status = _replyRenderStatus(presentationContext, listen: false);
+      if (!status.presentationSettled) return;
+      // Draft/permission eligibility is separate from asynchronous Send locks.
+      // An empty composer alone must not create a wait.
+      if (!status.backendPending && !_tickBlocksSend) return;
+      final last = _replyProjection
+          .presentation(_renderedReplyState)
+          .messages
+          .where((message) => !message.isAiContentDisclaimer)
+          .lastOrNull;
+      if (last == null) return;
+      _entrySendWaitChecked = true;
+      _service?.reconcileRenderedLocationSendWait(
+        widget.locationId,
+        lastMessageIsTick: last.isTick,
+        lastMessageId: last.localId,
+        worldTickInProgress: widget.worldTickInProgress,
+      );
+      _pageSendGate?.reconcile();
+      if (mounted) _setLocationChatState(() {});
+    });
+  }
+
   bool get _tickBlocksSend {
     if (_service?.tickBlocksSend ?? _chatroomState.inputBlocked) return true;
     if (!widget.worldTickInProgress) return false;
@@ -14,6 +54,8 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
     final next =
         _service?.sendGate ?? AppServicesScope.read(context).chatSendGate;
     if (identical(next, _pageSendGate)) return;
+    _pageSendReleases.clear();
+    _replySendReleases.clear();
     _pageSendGate?.removeListener(_onSendGateChanged);
     _pageSendGate = next;
     next.addListener(_onSendGateChanged);
@@ -21,7 +63,60 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
 
   void _onSendGateChanged() {
     if (!mounted) return;
-    _setLocationChatState(() {});
+    _setLocationChatState(() {
+      _syncTickProgressState(
+        progressing:
+            widget.worldTickInProgress ||
+            (_service?.state ?? _chatroomState).inputBlocked,
+        nextSource:
+            (_service?.state ?? _chatroomState).messagesByLocation[widget
+                .locationId] ??
+            const [],
+      );
+    });
+  }
+
+  void _releaseReplyPresentationWait() {
+    final presentationContext = _replyPresentationContextKey.currentContext;
+    if (presentationContext != null) {
+      ChatStreamingEffects.releaseLocalWait(presentationContext);
+    }
+    _scrollCoordinator.releasePresentationWait();
+    _setReplyControlsState(() => _replyCardTransitionBusy = false);
+  }
+
+  void _scheduleReleasedReplyPresentationCleanup({
+    required bool backendPending,
+  }) {
+    if (backendPending) return;
+    final identity = (
+      _replyBindingGeneration,
+      _renderedReplyState?.roundId,
+      _waitingPositionOperation,
+    );
+    if (_releasedReplyPresentationIdentity == identity) return;
+    _releasedReplyPresentationIdentity = identity;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          identity !=
+              (
+                _replyBindingGeneration,
+                _renderedReplyState?.roundId,
+                _waitingPositionOperation,
+              )) {
+        return;
+      }
+      final currentContext = _replyPresentationContextKey.currentContext;
+      if (currentContext == null ||
+          !(_renderedReplyState?.sendReleased ?? false) ||
+          _replyRenderStatus(currentContext, listen: false).backendPending) {
+        _releasedReplyPresentationIdentity = null;
+        return;
+      }
+      _presentationSendWait?.finish();
+      _releaseReplyPresentationWait();
+      _scheduleDeferredTickReleaseIfReady();
+    });
   }
 
   ChatSendOperation _beginPageWait(String scene, {String? id}) {
@@ -71,7 +166,7 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
       if (operation.released) {
         scheduleMicrotask(_releaseInitialSendWait);
       } else {
-        operation.onRelease(_releaseInitialSendWait);
+        _pageSendReleases.listen(operation, _releaseInitialSendWait);
       }
     } else {
       _initialSendWait?.finish();
@@ -99,13 +194,9 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
       'reply_presentation',
       id: id,
     );
-    operation.onRelease(() {
+    _replySendReleases.listen(operation, () {
       if (!mounted || !identical(_presentationSendWait, operation)) return;
-      final presentationContext = _replyPresentationContextKey.currentContext;
-      if (presentationContext != null) {
-        ChatStreamingEffects.releaseLocalWait(presentationContext);
-      }
-      _scrollCoordinator.releasePresentationWait();
+      _releaseReplyPresentationWait();
       final round = _renderedReplyState;
       if (round != null) {
         _replyController?.finishLocallyStalledStream(
@@ -113,7 +204,6 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
           '${round.roundId}',
         );
       }
-      _setReplyControlsState(() => _replyCardTransitionBusy = false);
     });
     return operation;
   }

@@ -20,12 +20,17 @@ class PhoneWrite {
         )
         ..accepted = j['accepted'] == true
         ..rejected = j['rejected'] == true
+        ..sendReleased = j['sendReleased'] == true
         ..uncertain = true;
   final String id, kind, target, content;
   final String? image, retryRootId;
   final int? replyTo;
   bool accepted = false, uncertain = false, rejected = false;
+  // Local unlock is independent of server acceptance and final outcome.
+  bool sendReleased = false;
   String get key => '$kind:$target';
+  String get recoveryKey => 'dm-recovery:$id';
+  String get storageKey => kind == 'dm' && sendReleased ? recoveryKey : key;
   Map<String, dynamic> toJson() => {
     'id': id,
     'kind': kind,
@@ -36,5 +41,6 @@ class PhoneWrite {
     if (retryRootId != null) 'retryRootId': retryRootId,
     'accepted': accepted,
     'rejected': rejected,
+    if (sendReleased) 'sendReleased': true,
   };
 }

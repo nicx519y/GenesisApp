@@ -324,6 +324,27 @@ class WorldChatroomMessage {
   int get conversationRoundNumber => int.tryParse(conversationRoundId) ?? 0;
 
   factory WorldChatroomMessage.fromHttpMessage(ChatroomHttpMessage message) {
+    // HTTP backfill is another representation of the same generation. The
+    // service interns this token with its live attempt before publishing it.
+    final attemptNo = message.attemptNo;
+    final attempt =
+        attemptNo != null &&
+            attemptNo > 0 &&
+            message.gatewayRequestId.trim().isNotEmpty &&
+            message.worldId.trim().isNotEmpty &&
+            message.locationId.trim().isNotEmpty &&
+            message.conversationRoundId > 0 &&
+            message.globalMessageId > 0
+        ? LlmAttempt(
+            LlmGenerationId(
+              message.worldId,
+              message.locationId,
+              '${message.conversationRoundId}',
+              message.gatewayRequestId,
+            ),
+            attemptNo,
+          )
+        : null;
     final timelinePayload = _resolvedChatroomTimelinePayload(
       senderType: message.senderType,
       rawPayload: message.content,
@@ -332,6 +353,7 @@ class WorldChatroomMessage {
       content: message.content,
     );
     return WorldChatroomMessage(
+      llmAttempt: attempt,
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
       locationMessageId: _safeLocationMessageId(

@@ -35,7 +35,7 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
               (round) =>
                   round.invalidatedByTick &&
                   (tickRoundId == null || round.roundId != tickRoundId) &&
-                  (round.generating || round.goOnPending),
+                  (round.generatingBlocksSend || round.goOnBlocksSend),
             )
             .toList(growable: false) ??
         const <ChatroomReplyRoundState>[];
@@ -108,7 +108,8 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     if (controller != null &&
         _deferredTickActionRoundIds.any((roundId) {
           final round = controller.stateForRound(widget.locationId, roundId);
-          return round != null && (round.generating || round.goOnPending);
+          return round != null &&
+              (round.generatingBlocksSend || round.goOnBlocksSend);
         })) {
       return false;
     }
@@ -157,6 +158,18 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
       // A late canonical Tick is rendered normally without keeping this wait.
       final wasAwaitingMessage = _awaitingTickProgressMessage;
       _cancelTickProgressMessage();
+      return wasAwaitingMessage;
+    }
+    // Keep the real Tick session active, but retire its local waiting row at
+    // the same deadline as Send. Rebuilds/re-entry must not recreate that row.
+    final tick = (_service?.sendGate ?? _pageSendGate)?.beginTick(
+      widget.worldId,
+    );
+    if (tick?.released ?? false) {
+      final wasAwaitingMessage = _awaitingTickProgressMessage;
+      _tickProgressSessionActive = true;
+      _awaitingTickProgressMessage = false;
+      _activeTickProgressSlotId = '';
       return wasAwaitingMessage;
     }
     if (_tickProgressSessionActive) return false;

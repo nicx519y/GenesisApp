@@ -1,5 +1,6 @@
 import '../gems/gem_balance_prompt_controller.dart';
 import '../../network/chatroom/location_chat_send_gate.dart';
+import '../../platform/auth/login_submission_controller.dart';
 import '../gems/gem_store_catalog.dart';
 import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
 import '../../platform/billing/membership_product_store.dart';
@@ -61,6 +62,7 @@ import '../attribution/adjust_local_adid_store.dart';
 class AppServices {
   late final GemBalancePromptController balancePrompts;
   final chatSendGate = LocationChatSendGate();
+  final loginSubmission = LoginSubmissionController();
   AppServices({
     required this.config,
     required this.platformConfig,
@@ -121,6 +123,7 @@ class AppServices {
     api.onGemBalanceAlert = balancePrompts.report;
     chatroom.onGemBalanceAlert = balancePrompts.report;
     this.sessionRevision.addListener(balancePrompts.reset);
+    this.sessionRevision.addListener(_resetLoginForSessionChange);
     this.personalization =
         personalization ??
         PersonalizationStore(
@@ -293,6 +296,11 @@ class AppServices {
     unawaited(gemStoreCatalog.preload());
   }
 
+  void _resetLoginForSessionChange() {
+    loginSubmission.resetSessionResult();
+    api.cancelPendingAuthentication();
+  }
+
   void notifySessionChanged() {
     pendingLoginCheckInUid.value = null;
     gemWallet.reset();
@@ -319,12 +327,20 @@ class AppServices {
     );
   }
 
+  void retireAuthentication() {
+    loginSubmission.invalidate();
+    api.invalidateAuthentication();
+  }
+
   void dispose() {
+    retireAuthentication();
     api.onGemBalanceAlert = null;
     chatroom.onGemBalanceAlert = null;
     sessionRevision.removeListener(balancePrompts.reset);
+    sessionRevision.removeListener(_resetLoginForSessionChange);
     balancePrompts.dispose();
     chatSendGate.dispose();
+    loginSubmission.dispose();
     StoreQueryCache.reset();
     _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(

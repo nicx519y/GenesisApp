@@ -1,3 +1,5 @@
+import '../auth/login_submission_state.dart';
+import '../auth/login_route_completion.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
 
@@ -63,6 +65,7 @@ class PersonalizationSheet extends StatefulWidget {
     this.initiallySignedIn = false,
     this.requiresSignIn = false,
     this.trackFormEvents = true,
+    this.useSharedLoginSubmission = true,
   });
 
   final Future<PersonalizationProfile?> Function(IdentityProvider) onSignIn;
@@ -79,13 +82,14 @@ class PersonalizationSheet extends StatefulWidget {
   final bool initiallySignedIn;
   final bool requiresSignIn;
   final bool trackFormEvents;
+  final bool useSharedLoginSubmission;
 
   @override
   State<PersonalizationSheet> createState() => _PersonalizationSheetState();
 }
 
 class _PersonalizationSheetState extends State<PersonalizationSheet>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, LoginSubmissionState<PersonalizationSheet> {
   late PersonalizationStep _step;
   final _formExposureKey = GlobalKey();
   bool _formShowReported = false;
@@ -95,7 +99,9 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
   );
   String? _gender;
   String? _age;
-  IdentityProvider? _signingIn;
+  IdentityProvider? get _signingIn => loginSubmittingProvider;
+  @override
+  bool get usesSharedLoginSubmission => widget.useSharedLoginSubmission;
   bool _saving = false;
   bool _signedIn = false;
   bool _requiresSignIn = false;
@@ -190,6 +196,17 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
     _validateSelections();
   }
 
+  @override
+  void onLoginSubmissionChanged() {
+    // Another login surface may have updated the session while this step was
+    // covered. Apply that update when the shared submission finishes as well.
+    if (widget.initiallySignedIn &&
+        _step == PersonalizationStep.signIn &&
+        _signingIn == null) {
+      _step = PersonalizationStep.form;
+    }
+  }
+
   void _validateSelections() {
     for (final field in widget.form) {
       if (field.name == 'gender' &&
@@ -239,35 +256,34 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
   PersonalizationProfile get _profile =>
       PersonalizationProfile(gender: _gender, age: _age);
 
-  Future<void> _signIn(IdentityProvider provider) async {
-    if (_signingIn != null) return;
-    setState(() => _signingIn = provider);
-    try {
-      final profile = await widget.onSignIn(provider);
-      if (!mounted || profile == null) return;
-      if (profile.completed) {
-        Navigator.of(context).pop(profile);
-        return;
-      }
-      setState(() {
-        _signedIn = true;
-        // An unfilled account has neither field. Keep the local form draft.
-        _step = PersonalizationStep.form;
+  Future<void> _signIn(IdentityProvider provider) =>
+      submitLogin(provider, (submission) async {
+        try {
+          final profile = await widget.onSignIn(provider);
+          if (!submission.isActive || profile == null) return;
+          submission.markSucceeded();
+          if (!mounted) return;
+          if (profile.completed) {
+            completeLoginRoute(context, profile);
+            return;
+          }
+          setState(() {
+            _signedIn = true;
+            // An unfilled account has neither field. Keep the local form draft.
+            _step = PersonalizationStep.form;
+          });
+        } on AuthCancelledException {
+          // Closing the provider UI is not a failed sign-in.
+        } catch (error) {
+          if (mounted && submission.isActive) {
+            showGenesisToast(
+              context,
+              loginErrorMessage(error),
+              brightness: Brightness.dark,
+            );
+          }
+        }
       });
-    } on AuthCancelledException {
-      // Closing the provider UI is not a failed sign-in.
-    } catch (error) {
-      if (mounted) {
-        showGenesisToast(
-          context,
-          loginErrorMessage(error),
-          brightness: Brightness.dark,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _signingIn = null);
-    }
-  }
 
   void _backToForm() {
     if (!_loginRequired && _signingIn == null) {

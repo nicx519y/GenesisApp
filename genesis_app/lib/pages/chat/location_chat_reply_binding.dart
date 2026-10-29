@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
+    _replySendReleases.clear();
     _finishPendingReplyAnalyticsForDetach();
     _replyRenderGate.reset();
     _clearDeferredTick();

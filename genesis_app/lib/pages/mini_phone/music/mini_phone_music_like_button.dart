@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/bootstrap/app_services_scope.dart';
-import '../../../components/common/genesis_center_toast.dart';
+import '../shared/mini_phone_toast.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../../../network/api_exception.dart';
 import '../../../network/models/music.dart';
@@ -36,7 +36,7 @@ class MiniMusicLikeButton extends StatelessWidget {
       );
     } catch (error) {
       if (overlay != null && overlay.mounted) {
-        showGenesisToastInOverlay(
+        showMiniPhoneToastInOverlay(
           overlay,
           error is ApiException ? error.message : fallback,
           brightness: Brightness.dark,

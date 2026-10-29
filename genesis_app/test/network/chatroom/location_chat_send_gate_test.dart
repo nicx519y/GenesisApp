@@ -28,20 +28,76 @@ void main() {
       jsonDecode(event['ext_data']! as String) as Map<String, dynamic>;
 
   test(
-    'waiting warns once at 30s and releases at 45s without another report',
+    'scene configuration drives scheduling, reporting and release independently',
+    () {
+      fakeAsync((clock) {
+        final events = <Map<String, Object?>>[];
+        final manager = LocationChatSendGate(
+          now: () => DateTime(2026).add(clock.elapsed),
+          report: events.add,
+          sceneConfigs: const {
+            'custom': ChatSendTimeoutConfig(
+              warningAfter: Duration(seconds: 2),
+              waitAfter: Duration(seconds: 3),
+            ),
+          },
+        );
+        final normal = start(manager);
+        final custom = start(manager, id: 'custom', scene: 'custom');
+        clock.elapse(const Duration(seconds: 2));
+        expect(events.single['object3'], 'custom');
+        expect(details(events.single)['report_after_ms'], 2000);
+        expect(details(events.single)['release_after_ms'], 3000);
+        expect(custom.blocks, isTrue);
+        clock.elapse(const Duration(seconds: 1));
+        expect(custom.released, isTrue);
+        expect(normal.blocks, isTrue);
+        clock.elapse(const Duration(seconds: 17));
+        expect(normal.released, isTrue);
+        manager.dispose();
+      });
+    },
+  );
+
+  test(
+    'explicit terminal release cleans up once without timeout telemetry',
     () {
       fakeAsync((clock) {
         final events = <Map<String, Object?>>[];
         final manager = gate(clock, events);
         final op = start(manager);
-        clock.elapse(const Duration(seconds: 29));
+        var cleaned = 0;
+        var notified = 0;
+        op.onRelease(() => cleaned++);
+        manager.addListener(() => notified++);
+        op.releaseLocalWait();
+        op.releaseLocalWait();
+        op.stream('late', 1);
+        clock.elapse(const Duration(minutes: 1));
+        expect(manager.blocks('w', 'l'), isFalse);
+        expect(cleaned, 1);
+        expect(notified, 1);
+        expect(events, isEmpty);
+        manager.dispose();
+      });
+    },
+  );
+
+  test(
+    'waiting warns once at 15s and releases at 20s without another report',
+    () {
+      fakeAsync((clock) {
+        final events = <Map<String, Object?>>[];
+        final manager = gate(clock, events);
+        final op = start(manager);
+        clock.elapse(const Duration(seconds: 14));
         expect(events, isEmpty);
         clock.elapse(const Duration(seconds: 1));
         expect(events.single['action_type'], 'chat_timeout');
-        expect(events.single['object4'], '30000');
+        expect(events.single['object4'], '15000');
         expect(details(events.single)['reason'], 'wait_stalled');
         expect(op.blocks, isTrue);
-        clock.elapse(const Duration(seconds: 15));
+        clock.elapse(const Duration(seconds: 5));
         expect(op.released, isTrue);
         expect(events, hasLength(1));
         manager.dispose();
@@ -57,21 +113,21 @@ void main() {
         final manager = gate(clock, events);
         final first = start(manager);
         final second = start(manager, id: 'b');
-        clock.elapse(const Duration(seconds: 20));
+        clock.elapse(const Duration(seconds: 10));
         second.progress('ack');
-        clock.elapse(const Duration(seconds: 20));
+        clock.elapse(const Duration(seconds: 5));
         second.progress('ack'); // Duplicate ACK cannot extend the deadline.
         clock.elapse(const Duration(seconds: 5));
         expect(first.released, isTrue);
         expect(second.blocks, isTrue);
-        clock.elapse(const Duration(seconds: 20));
+        clock.elapse(const Duration(seconds: 10));
         expect(second.released, isTrue);
         manager.dispose();
       });
     },
   );
 
-  test('stream start without chunks releases at 5s, not 45s', () {
+  test('stream start without chunks releases at 5s, not 20s', () {
     fakeAsync((clock) {
       final events = <Map<String, Object?>>[];
       final manager = gate(clock, events);
@@ -92,7 +148,7 @@ void main() {
       final events = <Map<String, Object?>>[];
       final manager = gate(clock, events);
       final op = start(manager, scene: 'go_on');
-      clock.elapse(const Duration(seconds: 31));
+      clock.elapse(const Duration(seconds: 16));
       op.stream('m', 1); // A chunk without a start frame also starts streaming.
       clock.elapse(const Duration(seconds: 5));
       expect(events.map((e) => details(e)['reason']), [
@@ -142,9 +198,9 @@ void main() {
         op.stream('b', 1);
         op.stream('b', 'end', end: true);
         expect(op.streaming, isFalse);
-        clock.elapse(const Duration(seconds: 29));
+        clock.elapse(const Duration(seconds: 14));
         expect(events, isEmpty);
-        clock.elapse(const Duration(seconds: 16));
+        clock.elapse(const Duration(seconds: 6));
         expect(op.released, isTrue);
         expect(details(events.single)['reason'], 'wait_stalled');
         manager.dispose();
@@ -178,7 +234,7 @@ void main() {
       final events = <Map<String, Object?>>[];
       final manager = gate(clock, events);
       final op = start(manager);
-      clock.elapse(const Duration(seconds: 40));
+      clock.elapse(const Duration(seconds: 15));
       expect(identical(start(manager), op), isTrue);
       clock.elapse(const Duration(seconds: 5));
       expect(start(manager).released, isTrue);
@@ -204,7 +260,7 @@ void main() {
           report: (_) => throw StateError('queue'),
         );
         final op = start(broken);
-        clock.elapse(const Duration(seconds: 45));
+        clock.elapse(const Duration(seconds: 20));
         expect(op.released, isTrue);
         broken.dispose();
       });

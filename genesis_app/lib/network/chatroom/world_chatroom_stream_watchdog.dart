@@ -32,7 +32,10 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
       watch = _ChatroomStreamWatch(operation: operation, roundId: round);
       _streamWatches[location] = watch;
       final captured = watch;
-      operation.onRelease(() => _expireStreamWatch(location, captured));
+      _sendReleases.listen(
+        operation,
+        () => _expireStreamWatch(location, captured),
+      );
     }
     watch.roundId = round;
     watch.operation.diagnostics['round_id'] = round;
@@ -117,6 +120,9 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
     if (watch.clientMsgId.isNotEmpty && !watch.accepted) {
       _session?.cancelSendMessageWait(watch.clientMsgId);
     }
+    if (watch.clientMsgId.isNotEmpty) {
+      cancelCanonicalMessageWait(watch.clientMsgId);
+    }
     final round = watch.roundId;
     if (round.isNotEmpty) {
       _locallyEndedStreamRounds[(location, round)] = DateTime.now().add(
@@ -175,6 +181,7 @@ extension _WorldChatroomStreamWatchdog on WorldChatroomService {
   void _clearStreamWatches() {
     // Session-owned operations survive page/service reconstruction. The next
     // owner attaches to the same request identity instead of restarting time.
+    _entrySendWaits.clear();
     _streamWatches.clear();
     _locallyEndedStreamRounds.clear();
   }

@@ -1,3 +1,5 @@
+import 'auth/login_submission_state.dart';
+import 'auth/login_route_completion.dart';
 import '../l10n/genesis_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,32 +24,52 @@ class LoginSheet extends StatefulWidget {
     required this.onLogin,
     this.isDismissible = true,
     this.linkPurchasedMembership = false,
+    this.useSharedLoginSubmission = true,
   });
 
   final Future<bool> Function(IdentityProvider provider) onLogin;
   final bool isDismissible;
   final bool linkPurchasedMembership;
 
+  /// Developer simulations must not publish a real app login result.
+  final bool useSharedLoginSubmission;
+
   @override
   State<LoginSheet> createState() => _LoginSheetState();
 }
 
-class _LoginSheetState extends State<LoginSheet> {
-  IdentityProvider? _submittingProvider;
+class _LoginSheetState extends State<LoginSheet>
+    with LoginSubmissionState<LoginSheet> {
+  IdentityProvider? get _submittingProvider => loginSubmittingProvider;
+  @override
+  bool get usesSharedLoginSubmission => widget.useSharedLoginSubmission;
+  bool _completionScheduled = false;
 
-  Future<void> _submit(IdentityProvider provider) async {
-    if (_submittingProvider != null) return;
-    setState(() => _submittingProvider = provider);
+  @override
+  void onLoginSubmissionChanged() {
+    if (!loginSubmissionSucceeded || _completionScheduled) return;
+    _completionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _completionScheduled = false;
+      if (loginSubmissionSucceeded) completeLoginRoute(context, true);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _submit(IdentityProvider provider) => submitLogin(provider, (
+    submission,
+  ) async {
     debugPrint('[Auth][LoginSheet] submit start');
     try {
       debugPrint('[Auth][LoginSheet] requesting sign-in');
       final ok = await widget.onLogin(provider);
       debugPrint('[Auth][LoginSheet] login result: $ok');
-      if (!mounted) return;
+      if (!submission.isActive) return;
       if (ok) {
         debugPrint('[Auth][LoginSheet] login success, closing sheet');
-        Navigator.of(context).pop(true);
-      } else {
+        submission.markSucceeded();
+      } else if (mounted) {
         debugPrint('[Auth][LoginSheet] login failed: onLogin returned false');
         showGenesisToast(
           context,
@@ -65,7 +87,7 @@ class _LoginSheetState extends State<LoginSheet> {
     } catch (e, st) {
       debugPrint('[Auth][LoginSheet] login exception: $e');
       debugPrint('[Auth][LoginSheet] stacktrace:\n$st');
-      if (!mounted) return;
+      if (!mounted || !submission.isActive) return;
       showGenesisToast(
         context,
         loginErrorMessage(e),
@@ -73,9 +95,8 @@ class _LoginSheetState extends State<LoginSheet> {
       );
     } finally {
       debugPrint('[Auth][LoginSheet] submit end');
-      if (mounted) setState(() => _submittingProvider = null);
     }
-  }
+  });
 
   @override
   Widget build(BuildContext context) {

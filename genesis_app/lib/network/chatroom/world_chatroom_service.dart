@@ -49,8 +49,8 @@ const _defaultLocationQueueInitConcurrency = 4;
 const _transientCharactersMovedMessageIdBase = 0x10000000000000;
 const _transientCharactersMovedRoundPrefix = 'ws-event:';
 const _closedConversationRoundRetention = Duration(minutes: 5);
-const conversationRoundFallbackTimeout = Duration(seconds: 45);
-const chatroomStreamIdleTimeout = Duration(seconds: 5);
+const conversationRoundFallbackTimeout = ChatSendTimeoutConfig.defaultWaitAfter;
+const chatroomStreamIdleTimeout = ChatSendTimeoutConfig.defaultStreamAfter;
 
 bool get _chatroomHydrateMetricsEnabled => kDebugMode || kProfileMode;
 
@@ -344,6 +344,7 @@ class WorldChatroomService {
     _replyActionsController = controller;
     controller.addListener(_syncInspirationContexts);
     controller.addListener(_syncEntrySnapshots);
+    controller.addListener(_syncEntrySendWaits);
     _observeReplyHistory();
     for (final key in _locallyEndedStreamRounds.keys) {
       controller.finishLocallyStalledStream(key.$1, key.$2);
@@ -416,8 +417,18 @@ class WorldChatroomService {
   final Duration _reconnectInterval;
   final Duration _conversationRoundTimeout;
   final LocationChatSendGate sendGate;
+  final _sendReleases = ChatSendReleaseScope();
   final bool _ownsSendGate;
   ChatSendOperation? _tickSendOperation;
+  final _entrySendWaits =
+      <
+        String,
+        ({
+          ChatSendOperation operation,
+          ChatroomReplyRoundState round,
+          bool ownsDeadline,
+        })
+      >{};
 
   bool get tickBlocksSend =>
       _state.inputBlocked && !(_tickSendOperation?.released ?? false);
@@ -472,6 +483,19 @@ class WorldChatroomService {
   bool isSendAcceptanceUnknown(String id) => _unknownSendClientIds.contains(id);
 
   int get connectionWaitGeneration => _connectionAttemptGeneration;
+
+  void watchConnectionWait(
+    ChatSendOperation operation, {
+    required int expectedGeneration,
+    bool onlyWhileConnecting = false,
+  }) {
+    if (_disposed) return;
+    _sendReleases.listen(operation, () {
+      if (!onlyWhileConnecting || operation.phase == 'connecting') {
+        abandonConnectionWait(expectedGeneration: expectedGeneration);
+      }
+    });
+  }
 
   void abandonConnectionWait({int? expectedGeneration}) {
     if (_disposed ||
@@ -583,14 +607,6 @@ class WorldChatroomService {
   void setInputBlocked(bool blocked) {
     _throwIfDisposed();
     if (_state.inputBlocked == blocked) return;
-    if (blocked) {
-      _tickSendOperation = sendGate.beginTick(_worldId);
-      _tickSendOperation!.onRelease(() {
-        if (!_disposed) _setState(_state);
-      });
-    } else {
-      _tickSendOperation?.finish();
-    }
     _setState(_state.copyWith(inputBlocked: blocked));
   }
 
@@ -630,7 +646,8 @@ class WorldChatroomService {
     );
     watch.operation.diagnostics['client_msg_id'] = resolvedClientMsgId;
     _streamWatches[resolvedLocationId] = watch;
-    watch.operation.onRelease(
+    _sendReleases.listen(
+      watch.operation,
       () => _expireStreamWatch(resolvedLocationId, watch),
     );
     final roundState = ConversationRoundState(
@@ -649,36 +666,106 @@ class WorldChatroomService {
   void reconcileLocationStreamWait(String locationId) {
     if (_disposed) return;
     final location = locationId.trim();
-    final watch = _streamWatches[location];
-    if (watch != null) {
-      sendGate.reconcile();
+    if (location.isEmpty) return;
+    sendGate.reconcile();
+  }
+
+  /// Called after the entry's messages have actually drained their reveal/layout.
+  /// Restored snapshots are not live stream activity: start an ordinary wait,
+  /// or reuse the World Tick deadline when the last rendered message is a Tick.
+  /// Existing request/stream operations always retain their original deadlines.
+  void reconcileRenderedLocationSendWait(
+    String locationId, {
+    required bool lastMessageIsTick,
+    required String lastMessageId,
+    bool worldTickInProgress = false,
+  }) {
+    if (_disposed) return;
+    final location = locationId.trim();
+    if (location.isEmpty) return;
+    sendGate.reconcile();
+    final existing = _streamWatches[location];
+    if (existing?.operation.blocks ?? false) return;
+    final controller = _replyActionsController;
+    final round = controller?.stateFor(location);
+    if (round == null ||
+        round.complete ||
+        round.sendReleased ||
+        round.generating ||
+        round.busy ||
+        round.goOnPending) {
       return;
     }
-    if (_state.conversationRoundStatesByLocation.containsKey(location)) return;
-    // Historical presentation has no live send to wait for. Do not touch the
-    // separate candidate-generation, regeneration or Go On recovery flows.
-    final controller = _replyActionsController;
-    if (controller == null) return;
-    final stalledRounds = <String>{};
-    for (final round in controller.statesFor(location).toList()) {
-      if (!round.complete &&
-          round.formalReplyMessages.isNotEmpty &&
-          !round.generating &&
-          !round.busy &&
-          !round.goOnPending) {
-        stalledRounds.add('${round.roundId}');
-        controller.finishLocallyStalledStream(location, '${round.roundId}');
+    final roundId = '${round.roundId}';
+    if (sendGate.forRound(_worldId, location, roundId)?.blocks ?? false) return;
+    if (!lastMessageIsTick) {
+      _bindStreamWatch(location, roundId);
+      final operation = _streamWatches[location]?.operation;
+      if (operation != null && operation.blocks) {
+        _entrySendWaits[location] = (
+          operation: operation,
+          round: round,
+          ownsDeadline: true,
+        );
+      }
+      operation?.diagnostics.addAll({
+        'recovered_on_entry': true,
+        'last_message_id': lastMessageId,
+        'last_message_type': 'ordinary',
+      });
+      // Rendering is not a received start/chunk and must not enable 5s timing.
+      return;
+    }
+    final operation = sendGate.beginTick(_worldId);
+    operation.diagnostics.addAll({
+      'recovered_on_entry': true,
+      'last_message_type': 'tick',
+    });
+    // Tick diagnostics are World-scoped, never overwritten by another location.
+    _entrySendWaits[location] = (
+      operation: operation,
+      round: round,
+      ownsDeadline: !worldTickInProgress && !_state.inputBlocked,
+    );
+    _sendReleases.listen(operation, () {
+      final retained = _entrySendWaits[location];
+      if (_disposed ||
+          retained == null ||
+          !identical(retained.operation, operation) ||
+          !identical(retained.round, round)) {
+        return;
+      }
+      _entrySendWaits.remove(location);
+      // A later reply action on the same round has its own operation identity.
+      if (round.generating || round.busy || round.goOnPending) return;
+      _expireStreamWatch(
+        location,
+        _ChatroomStreamWatch(operation: operation, roundId: roundId),
+      );
+    });
+  }
+
+  void _syncEntrySendWaits() {
+    final completed = <ChatSendOperation>{};
+    _entrySendWaits.removeWhere((location, wait) {
+      if (!wait.round.complete &&
+          !wait.round.sendReleased &&
+          !wait.round.generating &&
+          !wait.round.busy &&
+          !wait.round.goOnPending) {
+        return false;
+      }
+      if (wait.ownsDeadline) completed.add(wait.operation);
+      return true;
+    });
+    for (final operation in completed) {
+      if ((!operation.tick || !_state.inputBlocked) &&
+          !_entrySendWaits.values.any(
+            (wait) => identical(wait.operation, operation),
+          )) {
+        operation.finish();
       }
     }
-    final settled = <WorldChatroomMessage>[
-      for (final message
-          in _state.messagesByLocation[location] ??
-              const <WorldChatroomMessage>[])
-        if (message.streaming &&
-            stalledRounds.contains(message.conversationRoundId))
-          message.copyWith(streaming: false),
-    ];
-    if (settled.isNotEmpty) _upsertMessages(settled, persist: false);
   }
 
   bool isLocationSendIdleTimedOut(String locationId) {
@@ -786,7 +873,10 @@ class WorldChatroomService {
           roundId: conversationRoundId,
         );
         _streamWatches[locationId] = watch;
-        operation.onRelease(() => _expireStreamWatch(locationId, watch));
+        _sendReleases.listen(
+          operation,
+          () => _expireStreamWatch(locationId, watch),
+        );
       }
     }
     if (_streamWatches[locationId]?.clientMsgId == clientMsgId) {
@@ -1018,6 +1108,7 @@ class WorldChatroomService {
       _reportedFailureOccurrences.clear();
     }
     if (_worldId != nextWorldId || _identity?.userId != identity.userId) {
+      _sendReleases.clear();
       for (final generation in _llmGenerations.values) {
         for (final attempt in generation.attempts.values) {
           attempt.onPresentationChanged = null;
@@ -1747,6 +1838,7 @@ class WorldChatroomService {
 
   Future<void> dispose() async {
     if (_disposed) return;
+    _sendReleases.clear();
     _retentionLeases.clear();
     _cacheEvictedRanges.clear();
     _clearAllConversationRounds();

@@ -1,52 +1,32 @@
 part of 'location_chat_scroll_coordinator.dart';
 
-class _OutgoingAttempt {
-  _OutgoingAttempt(this.attempt, this.messages, this.index, this.release);
-  final LlmAttempt attempt;
-  final List<ChatMessageVm> messages;
-  final int index;
-  final VoidCallback release;
-}
-
+// View adapter only: the independent presentation controller owns attempt
+// lifetime, projections and waiting policy; this bridge starts animations and
+// invalidates the existing scroll layout after their callbacks.
 extension _LocationChatStreamRetraction
     on _LocationChatAnchoredMessageListState {
-  void _observeRetractionAttempts() {
-    if (widget.readOnlyArchive) return;
-    final incoming = <ChatMessageVm>[
-      ...widget.messages,
-      ...?widget.replyCards
-          .where((c) => c.id == widget.replyCurrentCardId)
-          .firstOrNull
-          ?.messages,
-    ];
-    final wanted =
-        incoming.map((m) => m.llmAttempt).whereType<LlmAttempt>().toSet()
-          ..addAll(_outgoingAttempts.keys);
-    for (final attempt in _attemptListeners.keys.toList()) {
-      if (wanted.contains(attempt)) continue;
-      attempt.removeListener(_attemptListeners.remove(attempt)!);
-    }
-    for (final attempt in wanted) {
-      if (_attemptListeners.containsKey(attempt) || attempt.invalidated) {
-        continue;
-      }
-      void listener() => _beginAttemptRetraction(attempt);
-      _attemptListeners[attempt] = listener;
-      attempt.addListener(listener);
-    }
+  void _updateReplyPresentation() {
+    _replyPresentation.update(
+      messages: widget.messages,
+      cards: widget.replyCards,
+      currentCardId: widget.replyCurrentCardId,
+      cardBindingIdentity: widget.replyCardBindingIdentity,
+      sessionIdentity: widget.coordinator,
+      operationIdentity: widget.waitingPositionIdentity,
+      regenerationRevision: widget.replyRegenerationDispatchRevision,
+      regenerationInProgress: widget.replyRegenerationInProgress,
+      readOnly: widget.readOnlyArchive,
+    );
   }
 
   void _beginAttemptRetraction(LlmAttempt attempt) {
-    if (!mounted ||
-        !attempt.animateRetraction ||
-        _outgoingAttempts.containsKey(attempt)) {
-      return;
-    }
-    _retrySources[attempt.generation] = attempt;
+    if (!mounted || !_replyPresentation.canRetract(attempt)) return;
     final source = _renderedMessages;
+    final card = _currentReplyCard;
+    final cardReceipts = card?.messages.map(_receiptIdentity).toSet() ?? {};
     final snapshots = <ChatMessageVm>[];
     final seen = <Object>{};
-    for (final message in [...source, ...?_currentReplyCard?.messages]) {
+    for (final message in [...source, ...?card?.messages]) {
       if (message.llmAttempt != attempt ||
           !seen.add(_receiptIdentity(message))) {
         continue;
@@ -60,77 +40,34 @@ extension _LocationChatStreamRetraction
         snapshots.add(frozen);
       }
     }
-    if (snapshots.isEmpty) return;
-    final index = source.indexWhere((m) => m.llmAttempt == attempt);
-    _outgoingAttempts[attempt] = _OutgoingAttempt(
+    _replyPresentation.beginRetraction(
       attempt,
-      snapshots,
-      math.max(0, index),
-      attempt.retainPresentation(),
+      snapshots: snapshots,
+      index: math.max(0, source.indexWhere((m) => m.llmAttempt == attempt)),
+      cardId: snapshots.any((m) => cardReceipts.contains(_receiptIdentity(m)))
+          ? card?.id
+          : null,
     );
-    _retractionRevision++;
-    _replaceRenderedMessages(_inputMessages, rebuild: true);
+    if (snapshots.isNotEmpty) {
+      _replaceRenderedMessages(_inputMessages, rebuild: true);
+    }
   }
 
   void _finishRetractingMessage(LlmAttempt attempt, ChatMessageVm message) {
     if (!mounted) return;
-    final outgoing = _outgoingAttempts[attempt];
-    if (outgoing == null || !outgoing.messages.remove(message)) return;
-    if (outgoing.messages.isEmpty) {
-      _outgoingAttempts.remove(attempt);
-      outgoing.release();
-    }
-    _retractionRevision++;
-    // A fully buffered end is still a live arrival after the outgoing batch.
-    for (final message in widget.messages) {
-      if (message.llmAttempt?.generation == attempt.generation &&
-          message.llmAttempt?.invalidated == false) {
-        _liveRevealMessageIds.add(_receiptIdentity(message));
-        _restoredEntryContent.remove(_streamIdentity(message));
+    final result = _replyPresentation.finishMessage(attempt, message);
+    if (!result.changed) return;
+    if (result.generationFinished) {
+      // Prepare the buffered replacement once, including a complete end that
+      // arrived during retraction. Card-only messages must also reveal live.
+      for (final message in _replyPresentation.incomingMessages) {
+        if (message.llmAttempt?.generation == attempt.generation &&
+            message.llmAttempt?.invalidated == false) {
+          _liveRevealMessageIds.add(_receiptIdentity(message));
+          _restoredEntryContent.remove(_streamIdentity(message));
+        }
       }
     }
     _replaceRenderedMessages(_inputMessages, rebuild: true);
-  }
-
-  List<ChatMessageVm> _projectRetractions(
-    List<ChatMessageVm> incoming, {
-    int? cardId,
-  }) {
-    if (_outgoingAttempts.isEmpty) return incoming;
-    final relevant = _outgoingAttempts.values
-        .where(
-          (o) =>
-              cardId == null ||
-              o.attempt.generation.card == cardId ||
-              (cardId == 0 && o.attempt.generation.card == null),
-        )
-        .toList();
-    if (relevant.isEmpty) return incoming;
-    final generations = relevant.map((o) => o.attempt.generation).toSet();
-    final result = incoming
-        .where((m) => !generations.contains(m.llmAttempt?.generation))
-        .toList();
-    for (final outgoing in relevant) {
-      final first = incoming.indexWhere(
-        (m) => m.llmAttempt?.generation == outgoing.attempt.generation,
-      );
-      final index = cardId != null
-          ? 0
-          : (first < 0 ? outgoing.index : first).clamp(0, result.length);
-      result.insertAll(index, outgoing.messages);
-    }
-    return result;
-  }
-
-  void _releaseRetractions() {
-    for (final entry in _attemptListeners.entries) {
-      entry.key.removeListener(entry.value);
-    }
-    _attemptListeners.clear();
-    _retrySources.clear();
-    for (final outgoing in _outgoingAttempts.values) {
-      outgoing.release();
-    }
-    _outgoingAttempts.clear();
   }
 }

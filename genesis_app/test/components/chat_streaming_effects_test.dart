@@ -22,6 +22,7 @@ Widget harness(
   bool scoped = true,
   bool animateArrival = false,
   bool mountedBody = true,
+  VoidCallback? onProgress,
 }) {
   final body = ChatStreamingMessage(
     key: ValueKey(identity),
@@ -61,6 +62,7 @@ Widget harness(
               child: scoped
                   ? ChatStreamingEffects(
                       settings: settings,
+                      onProgress: onProgress,
                       child: mountedBody ? body : const SizedBox.shrink(),
                     )
                   : body,
@@ -81,6 +83,33 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'progress notifies only real reveal changes, not duplicate frames or rebuilds',
+    (tester) async {
+      var notifications = 0;
+      void progress() => notifications++;
+      await tester.pumpWidget(
+        harness('A long streaming message ' * 8, onProgress: progress),
+      );
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(notifications, greaterThan(0));
+      final beforeRepeat = notifications;
+      await tester.pump();
+      await tester.pumpWidget(
+        harness('A long streaming message ' * 8, onProgress: progress),
+      );
+      expect(notifications, beforeRepeat);
+      await settle(tester);
+      final afterReveal = notifications;
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(
+        harness('A long streaming message ' * 8, onProgress: progress),
+      );
+      expect(notifications, afterReveal);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   for (final revealEnabled in [true, false]) {
     testWidgets(
       'incoming messages wait for terminal rendering, reveal=$revealEnabled',

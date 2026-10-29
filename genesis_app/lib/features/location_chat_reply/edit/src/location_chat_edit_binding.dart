@@ -122,6 +122,16 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
           ),
           onSave: (result) async {
             try {
+              final service = _service;
+              if (service == null) {
+                throw ChatroomPreflightException(
+                  GenesisL10n.current.chatConnectionFailed,
+                );
+              }
+              await _checkReplyActionConnection(
+                service: service,
+                isCurrent: currentEditor,
+              );
               await controller.submitEdit(target, operations(result));
             } on ChatroomFeatureQuotaException {
               if (currentEditor()) {

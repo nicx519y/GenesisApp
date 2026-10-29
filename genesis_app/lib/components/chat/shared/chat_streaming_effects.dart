@@ -8,6 +8,9 @@ import 'package:flutter/scheduler.dart';
 import '../../../app/debug/location_chat_bubble_layout_settings.dart';
 import 'chat_scene_plate_tokens.dart';
 
+// Retraction runs 4/3 as fast as the original reverse animation.
+const _retractionDurationFactor = 0.75;
+
 /// A presentation task is declared before its bubble is mounted. This keeps
 /// offscreen/queued replies in the completion barrier without building history.
 class ChatStreamingTask {
@@ -45,7 +48,7 @@ class ChatStreamingEffects extends StatefulWidget {
   final LocationChatBubbleLayoutSettings settings;
   final Object? presentationRevision;
   final Object? operationIdentity;
-  final void Function(Object progress)? onProgress;
+  final VoidCallback? onProgress;
   final bool deferIncomingMessages;
   final Widget child;
 
@@ -232,6 +235,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       if (task.streaming ||
           task.animateArrival ||
           _records.containsKey(task.identity) ||
+          _continuityRecords.containsKey(task.continuityIdentity) ||
           _pending.containsKey(task.continuation)) {
         record(
           task.identity,
@@ -246,6 +250,8 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       if (widget.deferIncomingMessages &&
           !previousIds.contains(task.identity) &&
           !task.restoredContent &&
+          current?.seen != true &&
+          current?.cancelled != true &&
           predecessor != null &&
           !identical(current, predecessor)) {
         _deferredTasks.add(task.identity);
@@ -279,7 +285,9 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       }
       _pending.clear();
       _deferredTasks.clear();
-      _continuityRecords.clear();
+      // A previous reply can move from its card to the timeline after this
+      // operation starts. Retain its retired record under the business ID so
+      // that promotion cannot create a fresh reveal or hide the outgoing row.
       for (final body in _bodies) {
         body.markNeedsLayout();
       }
@@ -418,7 +426,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     var result = _records[identity];
     if (result == null && continuityIdentity != null) {
       final continuous = _continuityRecords[continuityIdentity];
-      if (continuous != null && !continuous.cancelled) result = continuous;
+      if (continuous != null) result = continuous;
     }
     final candidates = _pending[continuation];
     // Final IDs can replace temporary stream IDs. Only migrate an unambiguous
@@ -808,7 +816,9 @@ class _StreamingMessageRowState extends State<_StreamingMessageRow>
     if (collapse && !paused && !_collapse.isAnimating && !record.retracted) {
       _collapse.duration = Duration(
         milliseconds: widget.settings.animateStreamingHeight
-            ? widget.settings.streamingHeightDurationMs
+            ? (widget.settings.streamingHeightDurationMs *
+                      _retractionDurationFactor)
+                  .round()
             : 0,
       );
       _collapse.forward();
@@ -1094,7 +1104,10 @@ class _RenderStreamingBody extends RenderProxyBox {
           _reveal.target(
             0,
             _clock,
-            (record.revealed * settings.effectiveStreamingTextDurationMs / 2)
+            (record.revealed *
+                    settings.effectiveStreamingTextDurationMs /
+                    2 *
+                    _retractionDurationFactor)
                 .ceil(),
             Curves.linear,
           );
@@ -1142,7 +1155,7 @@ class _RenderStreamingBody extends RenderProxyBox {
     final previousReveal = record.revealed;
     record.revealed = _reveal.value(_clock);
     if (previousReveal != record.revealed) {
-      _scope.owner.widget.onProgress?.call((record, record.revealed));
+      _scope.owner.widget.onProgress?.call();
     }
 
     var targetHeight = child!.size.height;

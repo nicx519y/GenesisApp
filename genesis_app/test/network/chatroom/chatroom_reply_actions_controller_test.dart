@@ -5,6 +5,11 @@ import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_switcher.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
@@ -73,6 +78,7 @@ ChatroomLlmCard _card(
   bool canEdit = true,
   bool canDelete = true,
   int messages = 2,
+  int? attemptNo,
 }) => ChatroomLlmCard.fromJson({
   'card_id': id,
   'card_index': index,
@@ -93,6 +99,8 @@ ChatroomLlmCard _card(
             'trigger_uid': 'u',
             'conversation_round_id': _round,
             'global_message_id': _messageId + i,
+            if (attemptNo != null) 'gateway_request_id': 'candidate-request',
+            if (attemptNo != null) 'attempt_no': attemptNo,
             'card_id': id,
             'card_message_index': 1 + i * 2,
             'sender_type': 'character',
@@ -343,9 +351,12 @@ ChatroomLlmCardStream _stream(
   int seq = 1,
   String content = '',
   int id = _messageId,
+  int? attemptNo,
 }) => ChatroomLlmCardStream.fromV2Message(
   ChatroomV2Message(
     type: 'llm_card_stream',
+    gatewayRequestId: attemptNo == null ? '' : 'candidate-request',
+    attemptNo: attemptNo,
     streamType: stream,
     worldId: 'w',
     locationId: 'l',
@@ -388,6 +399,198 @@ ChatroomLlmCardGenerationEnd _terminal(
 );
 
 void main() {
+  test(
+    'disposed reply controller drops shared gate listeners before late save failure',
+    () async {
+      final h = _Harness();
+      h.api.cards = _cards([_card(101)]);
+      final target = await h.prepareEditor();
+      final barrier = Completer<void>();
+      h.api.saveBarrier = barrier;
+      final save = h.controller.save(target, const [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'Draft',
+        ),
+      ]);
+      final failure = expectLater(save, throwsA(anything));
+      await _settle();
+      final gate = h.controller.sendGate;
+      expect(gate.debugResources.listeners, greaterThan(0));
+      h.controller.dispose();
+      expect(gate.debugResources.listeners, 0);
+      gate.reset();
+      barrier.completeError(StateError('late transport failure'));
+      await failure;
+      await _settle();
+      expect(gate.debugResources.history, 0);
+    },
+  );
+
+  for (final savedAttempt in <int?>[null, 1, 2]) {
+    testWidgets(
+      'candidate backfill preserves reveal only for the same attempt ($savedAttempt)',
+      (tester) async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        final content = 'A completed candidate reply. ' * 5;
+        h.controller.receiveEvent(
+          _stream('end', content: content, attemptNo: 1),
+        );
+        final liveAttempt = h.state.messagesForCard(102).single.llmAttempt!;
+        late BuildContext effects;
+        Widget view() {
+          final source = h.state.messagesForCard(102).single;
+          final message = ChatMessageVm(
+            localId: 'candidate',
+            globalMessageId: source.globalMessageId,
+            roundId: source.conversationRoundId,
+            llmAttempt: source.llmAttempt,
+            senderId: source.senderId,
+            senderName: 'Character',
+            senderType: 'character',
+            text: source.content,
+            isMe: false,
+            status: 'sent',
+          );
+          return MaterialApp(
+            home: Scaffold(
+              body: ChatStreamingEffects(
+                settings: LocationChatBubbleLayoutSettings.defaults,
+                child: Builder(
+                  builder: (context) {
+                    effects = context;
+                    return LocationChatAnchoredMessageList(
+                      coordinator: coordinator,
+                      topTitle: '',
+                      messages: [message],
+                      showDateDividers: false,
+                      replyCurrentCardId: 102,
+                      replyCardBindingIdentity: 'round',
+                      replyActionsIdentity: 'round',
+                      replyCards: [
+                        LocationChatReplyCard(id: 102, messages: [message]),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        }
+
+        await tester.pumpWidget(view());
+        await tester.pumpAndSettle(const Duration(milliseconds: 20));
+        final before =
+            ChatStreamingEffects.debugTasksOf(effects).single
+                as (Object, bool, bool?, bool?, bool?, double?, bool);
+        expect(before.$3, isFalse);
+        h.api.cards = _cards([
+          _card(101, messages: 1),
+          _card(
+            102,
+            index: 2,
+            messages: 1,
+            content: content,
+            attemptNo: savedAttempt,
+          ),
+        ]);
+        await tester.runAsync(() async {
+          h.controller.receiveEvent(_terminal('succeeded'));
+          await _settle();
+        });
+        expect(
+          h.state.messagesForCard(102).single.llmAttempt,
+          same(liveAttempt),
+        );
+        await tester.pumpWidget(view());
+        await tester.pump();
+        expect(
+          (ChatStreamingEffects.debugTasksOf(effects).single
+                  as (Object, bool, bool?, bool?, bool?, double?, bool))
+              .$6,
+          before.$6,
+        );
+        await tester.runAsync(() async {
+          await h.controller.clearCardsCache('l');
+          await h.controller.restoreLocationCards('l');
+        });
+        final saved = h.state.messagesForCard(102).single;
+        expect(saved.llmAttempt?.generation.card, 102);
+        expect(saved.llmAttempt?.number, savedAttempt ?? 1);
+        if (savedAttempt != 2) expect(saved.llmAttempt, same(liveAttempt));
+        // The same global message ID in a different candidate is not a match.
+        expect(h.state.messagesForCard(101).single.llmAttempt, isNull);
+        await tester.pumpWidget(view());
+        await tester.pump();
+        final after =
+            ChatStreamingEffects.debugTasksOf(effects).single
+                as (Object, bool, bool?, bool?, bool?, double?, bool);
+        if (savedAttempt == 2) {
+          expect(after.$6, lessThan(before.$6!));
+        } else {
+          expect(after.$6, before.$6);
+          expect(after.$3, isFalse);
+          // A later refresh without generation fields must not forget the match.
+          h.api.cards = _cards([
+            _card(102, index: 2, messages: 1, content: content),
+          ]);
+          await tester.runAsync(() async {
+            await h.controller.clearCardsCache('l');
+            await h.controller.restoreLocationCards('l');
+          });
+          expect(
+            h.state.messagesForCard(102).single.llmAttempt,
+            same(liveAttempt),
+          );
+          await tester.pumpWidget(view());
+          await tester.pump();
+          expect(
+            (ChatStreamingEffects.debugTasksOf(effects).single
+                    as (Object, bool, bool?, bool?, bool?, double?, bool))
+                .$6,
+            before.$6,
+          );
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  test(
+    'candidate backfill before terminal keeps only the current retry identity',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.controller.receiveEvent(_stream('end', content: 'Old', attemptNo: 1));
+      final old = h.state.messagesForCard(102).single.llmAttempt!;
+      h.controller.receiveEvent(_stream('end', content: 'New', attemptNo: 2));
+      final current = h.state.messagesForCard(102).single.llmAttempt!;
+      expect(old.invalidated, isTrue);
+      expect(current.number, 2);
+      expect(current.invalidated, isFalse);
+      h.api.cards = _cards([_card(102, index: 2, content: 'New')]);
+      await h.controller.clearCardsCache('l');
+      await h.controller.restoreLocationCards('l');
+      final saved = h.state.messagesForCard(102);
+      expect(saved.first.llmAttempt, same(current));
+      expect(saved.first.llmAttempt?.number, 2);
+      expect(
+        saved.last.llmAttempt,
+        isNull,
+        reason: 'An unseen message cannot inherit another message’s attempt',
+      );
+      expect(
+        h.state.cards.single.messages.first.message.attemptNo,
+        isNull,
+        reason:
+            'Presentation fallback must not rewrite authoritative server data',
+      );
+    },
+  );
+
   test(
     'finalization timeout retains draft and a late read cannot select or submit',
     () async {
@@ -446,6 +649,101 @@ void main() {
       await _settle();
       expect(target.draft.single.content, 'Keep draft');
       expect(h.state.displayedMessages.first.content, 'Original');
+    },
+  );
+
+  testWidgets(
+    'candidate retry never restores old text while waiting for the next attempt',
+    (tester) async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final oldA = 'Old character reply ' * 5;
+      final oldB = 'Old second reply ' * 5;
+      h.controller.receiveEvent(_stream('end', content: oldA, attemptNo: 1));
+      h.controller.receiveEvent(
+        _stream('end', id: _messageId + 1, content: oldB, attemptNo: 1),
+      );
+      final oldAttempt = h.state.messagesForCard(102).first.llmAttempt!;
+      Widget view() {
+        final messages = [
+          for (final source in h.state.messagesForCard(102))
+            ChatMessageVm(
+              localId: 'candidate-${source.globalMessageId}',
+              globalMessageId: source.globalMessageId,
+              roundId: source.conversationRoundId,
+              llmAttempt: source.llmAttempt,
+              senderId: source.senderId,
+              senderName: 'Character',
+              senderType: source.senderType,
+              text: source.content,
+              isMe: false,
+              status: source.streaming ? 'streaming' : 'sent',
+            ),
+        ];
+        return MaterialApp(
+          home: Scaffold(
+            body: ChatStreamingEffects(
+              settings: LocationChatBubbleLayoutSettings.defaults,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                topTitle: '',
+                messages: messages,
+                showDateDividers: false,
+                replyCurrentCardId: 102,
+                replyCardBindingIdentity: 'round',
+                replyActionsIdentity: 'round',
+                replyCards: [
+                  LocationChatReplyCard(id: 102, messages: messages),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(view());
+      await tester.pumpAndSettle(const Duration(milliseconds: 20));
+      h.controller.receiveEvent(
+        ChatroomLlmGenerationState.fromV2Message(
+          ChatroomV2Message(
+            type: 'llm_generation_state',
+            worldId: 'w',
+            locationId: 'l',
+            conversationRoundId: _round,
+            gatewayRequestId: 'candidate-request',
+            payload: {
+              'card_id': 102,
+              'state': 'retrying',
+              'retract_attempt_no': 1,
+              'next_attempt_no': 2,
+              'reason_code': 'retry',
+            },
+          ),
+        ),
+      );
+      await tester.pumpWidget(view());
+      expect(oldAttempt.presentationPending, isTrue);
+      for (var frame = 0; frame < 100; frame++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(oldAttempt.presentationPending, isFalse);
+      expect(find.text(oldA), findsNothing);
+      expect(find.text(oldB), findsNothing);
+      expect(h.state.messagesForCard(102), isEmpty);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      h.controller.receiveEvent(
+        _stream('end', content: 'New reply', attemptNo: 2),
+      );
+      await tester.pumpWidget(view());
+      await tester.pumpAndSettle(const Duration(milliseconds: 20));
+      expect(find.text('New reply'), findsOneWidget);
+      expect(find.text(oldA), findsNothing);
+      expect(find.text(oldB), findsNothing);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      h.controller.sendGate.reset();
     },
   );
 

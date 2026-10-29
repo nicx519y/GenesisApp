@@ -1,8 +1,9 @@
 part of 'me_page.dart';
 
 extension _MePageActions on _MePageState {
-  Future<void> _login(IdentityProvider provider) async {
-    if (_loggingInProvider != null) return;
+  Future<void> _login(IdentityProvider provider) => submitLogin(provider, (
+    submission,
+  ) async {
     final login = widget.onLogin;
     if (login == null) {
       showGenesisToast(
@@ -13,9 +14,10 @@ extension _MePageActions on _MePageState {
       return;
     }
     final sessionRevisionBeforeLogin = _sessionRevisionListenable?.value;
-    _updateState(() => _loggingInProvider = provider);
     try {
       final ok = await login(provider);
+      if (!submission.isActive) return;
+      if (ok) submission.markSucceeded();
       if (!mounted) return;
       if (ok) {
         if (_sessionRevisionListenable?.value == sessionRevisionBeforeLogin) {
@@ -39,16 +41,14 @@ extension _MePageActions on _MePageState {
     } catch (e, st) {
       debugPrint('[Auth][MePage] login failed: $e');
       debugPrint('[Auth][MePage] stacktrace:\n$st');
-      if (!mounted) return;
+      if (!mounted || !submission.isActive) return;
       showGenesisToast(
         context,
         loginErrorMessage(e),
         brightness: Brightness.dark,
       );
-    } finally {
-      if (mounted) _updateState(() => _loggingInProvider = null);
     }
-  }
+  });
 
   Future<void> _runPostLoginFlow(Future<void> Function() flow) async {
     try {

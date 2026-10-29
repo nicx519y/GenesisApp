@@ -22,7 +22,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
       presentation,
       _replyProjection.presentation(presentation).messages,
     );
-    return (
+    final status = (
       backendPending:
           _sending ||
           _sendAwaitingResponse ||
@@ -36,6 +36,16 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
           !_replyCardTransitionBusy,
       discardPending: controls.tickSupersededReply || replyState?.error != null,
     );
+    // The viewport owns cleanup even when an empty draft short-circuits the
+    // composer's Send eligibility check.
+    if (presentation?.sendReleased ?? false) {
+      _scheduleReleasedReplyPresentationCleanup(
+        backendPending: status.backendPending,
+      );
+    } else {
+      _releasedReplyPresentationIdentity = null;
+    }
+    return status;
   }
 
   bool _replyReadyToSend(BuildContext context, {bool listen = true}) {
@@ -65,7 +75,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
       deferIncomingMessages: true,
       settings: locationChatBubbleLayoutSettings.value,
       operationIdentity: (_replyBindingGeneration, _waitingPositionOperation),
-      onProgress: (progress) => _presentationSendWait?.progress(progress),
+      onProgress: () => _presentationSendWait?.presentationProgress(),
       presentationRevision: (
         presentation?.roundId,
         presentation?.viewedCardId,
@@ -167,6 +177,9 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             goOnRoundId: controls.goOnAwaitingRoundId,
           );
           final renderStatus = _replyRenderStatus(context);
+          _scheduleEntrySendWaitCheck(
+            presentationSettled: renderStatus.presentationSettled,
+          );
           final renderedControls = _replyRenderGate.resolve(
             (
               actions: controls.actions,

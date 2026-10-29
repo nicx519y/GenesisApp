@@ -391,6 +391,21 @@ private final class GenesisNetworkAvailabilityStreamHandler: NSObject, FlutterSt
         return
       }
       switch call.method {
+      case "getNetworkAvailability":
+        let monitor = NWPathMonitor()
+        var finished = false
+        let finish: (Bool?) -> Void = { available in
+          guard !finished else { return }
+          finished = true
+          monitor.pathUpdateHandler = nil
+          monitor.cancel()
+          result(available)
+        }
+        monitor.pathUpdateHandler = { path in
+          DispatchQueue.main.async { finish(path.status == .satisfied) }
+        }
+        monitor.start(queue: DispatchQueue(label: "com.worldo.ai.network_availability_snapshot"))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { finish(nil) }
       case "getNetworkTypes":
         // A fresh one-shot path avoids stale metadata after a foreground transition.
         let monitor = NWPathMonitor()

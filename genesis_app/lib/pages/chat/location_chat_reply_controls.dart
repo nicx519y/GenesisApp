@@ -17,7 +17,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
     List<ChatMessageVm> displayMessages,
   ) {
     final rounds = _replyController?.statesFor(widget.locationId) ?? const [];
-    final pending = rounds.where((state) => state.goOnPending).toList();
+    final pending = rounds.where((state) => state.goOnBlocksSend).toList();
     final regenerationState = presentationState ?? replyState;
     final acceptedGoOn = pending
         .where((state) => state.goOnRoundId != null)
@@ -32,10 +32,10 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
         rounds.any(
           (state) =>
               state.invalidatedByTick &&
-              (state.generating || state.goOnPending),
+              (state.generatingBlocksSend || state.goOnBlocksSend),
         );
     final regenerationInProgress =
-        (regenerationState?.generating ?? false) ||
+        (regenerationState?.generatingBlocksSend ?? false) ||
         (_replyRequestLoading && _replyLoadingForRegeneration);
     if (regenerationInProgress &&
         _replyRegenerationContentIsRendering(
@@ -54,7 +54,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
       regenerate:
           _replyConnectionAction ==
               _LocationChatReplyConnectionAction.regenerate ||
-          rounds.any((state) => state.generating) ||
+          rounds.any((state) => state.generatingBlocksSend) ||
           (_replyRequestLoading && _replyLoadingForRegeneration),
       goOn:
           _replyConnectionAction == _LocationChatReplyConnectionAction.goOn ||
@@ -100,7 +100,8 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
         ),
         busy: (
           regenerate:
-              (regenerationState?.generating ?? false) || operations.regenerate,
+              (regenerationState?.generatingBlocksSend ?? false) ||
+              operations.regenerate,
           goOn: operations.goOn && !goOnContentIsRendering,
           edit: operations.edit,
           inspiration: operations.inspiration,

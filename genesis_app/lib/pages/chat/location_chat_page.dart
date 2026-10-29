@@ -14,6 +14,7 @@ import '../../components/common/page_presentation_scope.dart';
 import '../mini_phone/mini_phone.dart';
 import 'dart:ui' as ui;
 import 'dart:io';
+import '../../utils/network_availability.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -83,7 +84,7 @@ import '../../ui/components/genesis_delete_button.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'location_chat_reply_presentation.dart';
 import 'location_chat_local_message_order.dart';
-import 'location_chat_reply_card_switcher.dart';
+import 'location_chat_reply_card.dart';
 import 'location_chat_reply_render_snapshot.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
 import '../gems/memory_model_page_cache.dart';
@@ -140,21 +141,10 @@ const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 typedef LocationChatNetworkAvailabilityCheck = Future<bool> Function();
 
-/// A local connectivity check used by Send to choose the failed-bubble path
-/// when the device has no usable network interface. Unknown platform failures
-/// deliberately fail open so a temporary probe problem never blocks WSS.
-Future<bool> locationChatHasNetworkConnection() async {
-  try {
-    final interfaces = await NetworkInterface.list(includeLoopback: false);
-    return interfaces.any(
-      (interface) => interface.addresses.any(
-        (address) => !address.isLoopback && !address.isLinkLocal,
-      ),
-    );
-  } catch (_) {
-    return true;
-  }
-}
+/// Rejects chat actions before clearing drafts or creating outgoing bubbles
+/// when the system cannot confirm device network availability. The device
+/// network check must succeed before the World WebSocket is inspected.
+Future<bool> locationChatHasNetworkConnection() => hasDeviceNetworkConnection();
 
 @visibleForTesting
 int debugLocationChatReplyProjectionCount = 0;
@@ -717,11 +707,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _loadPastHiddenInitialHistoryIfNeeded();
   }
 
+  final _pageSendReleases = ChatSendReleaseScope();
+  final _replySendReleases = ChatSendReleaseScope();
   LocationChatSendGate? _pageSendGate;
   ChatSendOperation? _initialSendWait;
   ChatSendOperation? _replyPreparationWait;
   ChatSendOperation? _presentationSendWait;
+  Object? _releasedReplyPresentationIdentity;
   int _pageWaitSequence = 0;
+  bool _entrySendWaitChecked = false;
+  bool _entrySendWaitCheckScheduled = false;
+  int _entrySendWaitCheckGeneration = 0;
   int _sendAttemptGeneration = 0;
   int _replyOperationGeneration = 0;
   bool _sendConnectionPending = false;
@@ -979,7 +975,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _editQuotaLoading ||
         _inspirationQuotaChecking ||
         _inspirationLoading ||
-        rounds.any((round) => round.generating || round.goOnPending);
+        rounds.any(
+          (round) => round.generatingBlocksSend || round.goOnBlocksSend,
+        );
   }
 
   bool get _shouldShowAiContentDisclaimer =>
@@ -1163,6 +1161,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _pageSendReleases.clear();
+    _replySendReleases.clear();
     _pageSendGate?.removeListener(_onSendGateChanged);
     WidgetsBinding.instance.removeObserver(this);
     _presentation?.removeListener(_handlePresentationChanged);
@@ -1240,7 +1240,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
+    if (changedChatTarget || (!oldWidget.active && widget.active)) {
+      _entrySendWaitChecked = false;
+      _entrySendWaitCheckScheduled = false;
+      _entrySendWaitCheckGeneration++;
+    }
     if (changedChatTarget) {
+      _pageSendReleases.clear();
       _localMessageOrder.clear();
       _detachReplyActions();
     }

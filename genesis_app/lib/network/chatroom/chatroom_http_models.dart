@@ -13,6 +13,8 @@ class ChatroomHttpMessage {
     this.streamType = '',
     this.ts,
     this.worldId = '',
+    this.gatewayRequestId = '',
+    this.attemptNo,
     this.sessionId = '',
     required this.globalMessageId,
     required this.messageId,
@@ -44,6 +46,8 @@ class ChatroomHttpMessage {
   final String streamType;
   final int? ts;
   final String worldId;
+  final String gatewayRequestId;
+  final int? attemptNo;
   final String sessionId;
   final int globalMessageId;
   final int messageId;
@@ -187,6 +191,8 @@ class ChatroomHttpMessage {
       streamType: message.streamType,
       ts: message.ts,
       worldId: message.worldId,
+      gatewayRequestId: message.gatewayRequestId,
+      attemptNo: message.attemptNo,
       sessionId: message.sessionId,
       globalMessageId: message.globalMessageId ?? 0,
       messageId: message.messageId ?? 0,

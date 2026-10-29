@@ -79,6 +79,21 @@ void main() {
       );
     });
 
+    test('hides server join rejections including authentication failures', () {
+      for (final code in [5001, 10001]) {
+        expect(
+          shouldShowChatroomFailureToast(
+            _serverAckFailure(
+              code: code,
+              errMsg: 'Join rejected',
+              requestType: 'join',
+            ),
+          ),
+          isFalse,
+        );
+      }
+    });
+
     test('hides internal LLM stream ordering failures', () {
       expect(
         shouldShowChatroomFailureToast(

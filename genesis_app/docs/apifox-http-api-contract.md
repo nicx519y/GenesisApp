@@ -499,6 +499,8 @@ Apple 登录。请求和响应结构与 Google 登录一致。
 - `user*`: `UserInfo`
 - `relation*`: `UserRelation`
 
+客户端 Google／Apple 登录共用会话提交流程。应用配置被替换后，旧授权不得继续请求旧环境；已经发出的旧登录请求即使返回成功，也不再持久化其 UID、Token 或用户资料。该结果在客户端按取消处理，不改变 OAuth 请求／响应字段，也不对新环境的第三方身份执行退出。
+
 ### POST `/api/v1/user/logout`
 
 退出当前 session。

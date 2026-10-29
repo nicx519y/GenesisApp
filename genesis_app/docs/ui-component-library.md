@@ -51,6 +51,22 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 新增样式时先判断是否是全局语义。如果多个页面会共用，放入 token；如果只是某个业务卡片的个性样式，保留在对应业务组件内。
 
+## Location Chat 连接失败反馈
+
+WebSocket 连接、自动重连和加入地点失败保持静默，不显示横幅、系统消息或连接／加入失败 Toast。用户发送或重试消息时，连接／加入准备失败或明确发送失败才使用公共 `showGenesisToast` 提示；设备网络检查确认无网络时使用 `chatNoNetworkConnection`（英文 `Network unavailable. Check network.`）；设备有网络但 WebSocket 建联失败或 join 失败时使用 `chatConnectionFailed`（英文 `Could not connect to this chat`），发送与手动重试共用；其他明确发送失败缺少可展示错误文案时复用 `genericError`。后端发送错误沿用已有公共 Toast，避免重复展示；结果未知的请求保留未知状态，不自动重发。Regenerate、Go On、Edit 入口与保存、灵感加载与发送均先复用设备网络及连接／join 检查和上述两类提示；前置失败不发起业务请求、不清空输入、不新增气泡、不撤回已有回复。连接准备期间同样保留输入；只有准备成功才进入原提交路径。其他业务失败保留各操作原有提示。
+
+LocationChat 和 MiniPhone Messages 共用系统网络快照检测：先确认设备有网络，再读取 World WebSocket 连接状态；无网络或检测失败时只显示 `chatNoNetworkConnection`，不继续连接检查。Android 使用默认活动网络的 Internet 与 validated 能力，iOS 使用当次 NWPathMonitor 路径，不再以本地 IP／VPN 网卡存在作为手机有网的依据。LocationChat 在 Socket 未连接时直接显示 `chatConnectionFailed`；Socket 已连接后仍须通过原地点 join 检查。Send、重试和四类回复操作沿用相同顺序。此原生通道更新需要重新构建安装，热重载不会更新原生实现。
+
+2026-10-28 已通过飞书客户端同步「多语言翻译」第 112 行 `chatConnectionFailed`、第 115 行 `chatNoNetworkConnection` 的场景、备注、英文和全部 8 种目标译文；第 835 行 `genericError` 仅更新场景和备注。已同步「应用内所有Toast文案」的「toast 注释版」K7、K63、K65、K71，说明设备无网络与有网络但连接／加入失败的两类提示。已逐项回读并确认保存到云端；AI 译文未标为人工审校。
+
+MiniPhone Messages 的发送和手动重试复用上述两条本地化提示：设备网络检查确认无网络时使用 `chatNoNetworkConnection`；设备有网络但共用 World WebSocket 未连接时使用 `chatConnectionFailed`。MiniPhone 不执行地点 join，也不受地点 join 状态限制。检查失败保留草稿及既有待确认请求，不下发 `/dm/send`、不新增请求日志或临时气泡；已下发请求的结果不明仍沿用原恢复流程。
+
+2026-10-28 已同步飞书「多语言翻译」第 112、115 行的 MiniPhone 显示场景与备注，并同步「toast 注释版」K7；英文及全部目标译文复核后保持原样。已回读并确认保存到云端。
+
+2026-10-28 本次追加：将同一前置检查扩展到 Regenerate、Go On、Edit 打开／保存和灵感加载／发送，MiniPhone 检查完成前也不清空输入。`chatConnectionFailed`、`chatNoNetworkConnection` 的英文与 8 种译文保持原样，仅扩展显示场景。用户明确要求本次不再更新飞书文档，因此跳过飞书第 112／115 行及「toast 注释版」备注同步；上文较早同步记录不代表本次场景已同步。
+
+MiniPhone 的 Toast 通过 `shared/mini_phone_toast.dart` 复用公共组件，并在展示层过滤通用 `Request failed` 文本；合并错误时先逐项过滤。错误状态与恢复流程保留，明确的断网、连接失败及其他业务提示不受影响。本次按用户要求不更新飞书文档。
+
 ## 聊天输入栏高度通知
 
 共享 `ChatComposer` 的 `onHeightChanged` 报告整个输入栏的布局高度，包含自身内边距及底部安全区。仅在有监听者时，从实际布局中读取尺寸；首次布局和后续高度变化均在本帧结束时通知外层，同帧多次布局只报告最终高度。未变化的高度不重复通知。

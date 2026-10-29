@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,64 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 
 void main() {
+  for (final succeeds in [false, true]) {
+    testWidgets('login completes only its own route success=$succeeds', (
+      tester,
+    ) async {
+      final navigator = GlobalKey<NavigatorState>();
+      final pending = Completer<bool>();
+      bool? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await showLoginSheet(
+                    context: context,
+                    onLogin: (_) => pending.future,
+                  );
+                },
+                child: const Text('Open login'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open login'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue with Google'));
+      await tester.pump();
+      unawaited(
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('Covered route')),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      pending.complete(succeeds);
+      await tester.pumpAndSettle();
+      expect(find.text('Covered route'), findsOneWidget);
+      expect(
+        find.byType(LoginSheet, skipOffstage: false),
+        succeeds ? findsNothing : findsOneWidget,
+      );
+      if (succeeds) expect(result, isTrue);
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      if (!succeeds) {
+        expect(find.byType(LoginSheet), findsOneWidget);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(result, isFalse);
+      }
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('server login error shows only err_msg', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

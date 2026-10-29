@@ -1,12 +1,12 @@
 # MiniPhone Collect 埋点表
 
-更新日期：2026-10-21。此表描述客户端实现；不代表真实 Collect 服务端入库或 Android/iOS 真机已验收。
+更新日期：2026-10-29。此表描述客户端实现；不代表真实 Collect 服务端入库或 Android/iOS 真机已验收。
 
 ## 采集方式与范围
 
 所有事件调用 `GenesisTelemetry.collectLog`，复用现有 SQLite 队列和批量上传器。默认端点为 `https://collect.worldo.ai/api/v1/collect`，受公共配置和上传策略控制。默认每 5 秒尝试上传，每批最多 100 条且不超过 256 KiB；未确认成功的事件按原 `event_id` 重试。
 
-本次共 13 个事件名，覆盖核心访问和操作。不采集曝光、停留、刷新、分页、滚动、后台恢复或 AI 回复终态。预览不采集；自动音乐行为不计为用户操作。`collectLogAndWait` 的返回值只表示入队结果，不表示服务端入库。
+下表覆盖核心访问和操作，以及 Send 本地超时监控。不采集曝光、停留、刷新、分页、滚动、后台恢复或 AI 回复终态。预览不采集；自动音乐行为不计为用户操作。`collectLogAndWait` 的返回值只表示入队结果，不表示服务端入库。
 
 ## 公共字段
 
@@ -28,12 +28,12 @@
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
-| `action_type` | string | 页面为 pageview，其他为 event |
+| `action_type` | string | 页面为 pageview，发送超时为 chat_timeout，其他为 event |
 | `action` | string | 下表中的固定事件名 |
 | `object1` | string | 真实 world_id；无正式世界/数据会话不生成业务事件 |
 | `object2` | string | 下表定义的业务目标；无值为空字符串 |
 | `object3` | string | 下表定义的阶段或操作；无值为空字符串 |
-| `object4` | string | 提交类的 attempt_id；其他为空字符串 |
+| `object4` | string | 提交类的 attempt_id；超时监控为累计毫秒；其他为空字符串 |
 | `ext_data` | string | JSON 编码的扩展对象；Photos 张次为空字符串 |
 
 所有业务 ID 按完整十进制字符串上报，不转浮点数。布尔值为 JSON boolean，Token 数为 JSON integer。不采集正文、图片 URL、本地路径、原始错误文本或请求/响应正文。
@@ -46,6 +46,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `mini_phone_open` | event | 手机路由首次实际展示；每次打开一次，直达私聊也记录 | 实际首屏 | open | 空 | open_id、source、is_restored |
 | `mini_phone_page` | pageview | 页面首次可见、切换或返回后重新可见；聊天角色/评论帖子切换也记录 | 页面枚举 | view | 空 | open_id、source、from_page、navigation_type；chat 带 char_id，comments 带 post_id |
+| `mini_phone_send_lock_timeout` | chat_timeout | 普通 Send 等待连续 15 秒无有效进展；同操作一次，20 秒释放不追加上报 | char_id | phone_dm / phone_dm_prepare | 累计等待毫秒 | operation_id、client_request_id（准备阶段省略）、reason=wait_stalled、phase、idle_duration_ms、report_after_ms=15000、release_after_ms=20000；其余字段同共用 SendGate |
 | `mini_phone_dm_send` | event | 有效发送提交及该次 HTTP 返回结果 | char_id | 提交阶段 | attempt_id | open_id、source=chat、client_request_id、is_retry、dm_session_id、peer_type；失败时错误字段 |
 | `mini_phone_post_publish` | event | 有效点击 Post，在图片上传前记录 submit；上传/提交返回时记录结果 | new | 提交阶段 | attempt_id | open_id、source=create、has_image、is_retry、client_request_id（已分配时）；失败时错误字段 |
 | `mini_phone_comment_send` | event | 有效提交评论或回复，以及该次 HTTP 结果 | post_id | 提交阶段 | attempt_id | open_id、source=comments、client_request_id、is_retry、reply_to_comment_id（回复时）；失败时错误字段 |

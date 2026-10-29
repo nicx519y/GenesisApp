@@ -1,3 +1,4 @@
+import '../../components/auth/login_submission_state.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_membership_badge.dart';
@@ -70,7 +71,7 @@ class MePage extends StatefulWidget {
 }
 
 class _MePageState extends State<MePage>
-    with RouteAware, LanguageDataRefresh<MePage> {
+    with RouteAware, LanguageDataRefresh<MePage>, LoginSubmissionState<MePage> {
   @override
   Future<void> refreshLanguageData() async {
     await _refresh();
@@ -88,7 +89,7 @@ class _MePageState extends State<MePage>
   final ValueNotifier<UserProfileData?> _profileData =
       ValueNotifier<UserProfileData?>(null);
   final ValueNotifier<bool> _profileCollapsed = ValueNotifier<bool>(false);
-  IdentityProvider? _loggingInProvider;
+  IdentityProvider? get _loggingInProvider => loginSubmittingProvider;
   late final MeCollectionController<UserProfileOriginItem> _originsState;
   late final MeCollectionController<UserProfileWorldItem> _worldsState;
   int _loadGeneration = 0;

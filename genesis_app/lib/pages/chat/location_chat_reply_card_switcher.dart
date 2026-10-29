@@ -5,38 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../components/chat/shared/chat_ui.dart';
+import 'location_chat_reply_card.dart';
 import 'location_chat_reply_layout_bridge.dart';
 import 'location_chat_reply_render_snapshot.dart';
 
+export 'location_chat_reply_card.dart';
+
 const replyCardSwitchDuration = Duration(milliseconds: 500);
-const _replyCardRegenerateCollapseDuration = Duration(milliseconds: 800);
+const _replyCardRegenerateCollapseDuration = Duration(milliseconds: 600);
 const _replyCardRegenerateFadeRampFraction = 60 / 800;
 const _replyCardRegenerateFadeExtent = 48.0;
-
-class LocationChatReplyCard {
-  const LocationChatReplyCard({
-    required this.id,
-    required List<ChatMessageVm> messages,
-    this.status,
-    this.contentIdentity,
-  }) : _messages = messages,
-       _resolveMessages = null;
-
-  const LocationChatReplyCard.lazy({
-    required this.id,
-    required List<ChatMessageVm> Function() resolveMessages,
-    this.status,
-    this.contentIdentity,
-  }) : _messages = null,
-       _resolveMessages = resolveMessages;
-
-  final int id;
-  final List<ChatMessageVm>? _messages;
-  final List<ChatMessageVm> Function()? _resolveMessages;
-  List<ChatMessageVm> get messages => _messages ?? _resolveMessages!();
-  final Object? contentIdentity;
-  final Widget? status;
-}
 
 /// Owns presentation-only card transitions. Business state stays with the
 /// parent and is committed only after the relevant interaction settles.

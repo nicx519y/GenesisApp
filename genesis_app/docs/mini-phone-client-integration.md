@@ -35,6 +35,38 @@ that projection. The unrepresented remainder of the server count is retained
 separately from the at-most-20 returned rows. Posts notifications retain their
 existing HTTP behavior. The phone entry combines local DM and current Post counts.
 
+Messages send and manual retry first read a fresh system network snapshot, then
+inspect the attached World WebSocket only when availability is confirmed.
+Android checks the active network for Internet and validated capabilities; iOS
+checks a fresh NWPathMonitor path. Local IP/VPN interfaces alone do not grant
+network availability on either mobile platform. A missing, failed or timed-out
+probe stops preflight with the network hint; it does not proceed to the socket
+check. These snapshots do not prove chat-server reachability. A device with no network uses the localized
+`chatNoNetworkConnection` Toast (`Network unavailable. Check network.`).
+A device with a network but no connected World socket uses
+`chatConnectionFailed` (`Could not connect to this chat`). A failed preflight
+does not dispatch `/dm/send`, create a new write journal entry or outgoing bubble;
+the composer keeps the submitted draft throughout preflight without clearing it
+and preserves any newer input. Only successful preflight clears the unchanged
+submitted draft before creating its local outgoing row.
+MiniPhone routes all Toasts through `shared/mini_phone_toast.dart`. The generic
+`Request failed` text is suppressed at presentation only, including direct model
+loading, chat reads/writes, wallpaper and music-like feedback. Error records,
+uncertain writes, retries and read-only recovery remain unchanged. Explicit
+network/connection hints and other business messages still display; combined
+errors filter only the generic item.
+
+Send preflight errors take precedence over earlier history/session/recovery
+errors. Starting another send clears that attempt's displayed-error latch while
+preflight is pending, so every failed user attempt can show its Toast even when
+an older read error remains. AI reply-failure consumption by request ID is
+unchanged.
+Existing uncertain requests keep their original request ID, body and bubble.
+MiniPhone does not join a location and does not require a LocationChat join.
+The World owns reconnection; MiniPhone does not create a separate socket.
+HTTP transport errors after dispatch retain the existing uncertain-result
+recovery and business-error handling.
+
 Write journals persist request IDs and original content in account/environment/
 world-scoped preferences. Retries preserve the complete operation, including
 image URL and reply target. Requests are not automatically resent. DM submission
@@ -436,6 +468,15 @@ quality 85 without resizing. The local mock transport returns explicit
 empty reads and refuses unsupported writes instead of simulating successful
 AI replies.
 
+## Messages Send 本地超时释放（2026-10-29）
+
+- 与 LocationChat 共用 `lib/network/chat_send_gate.dart`，手机会话持有独立实例，避免 World Tick／地点等待影响私聊。前置网络检查为 `phone_dm_prepare`，日志保存／HTTP 提交／回复等待为 `phone_dm`，通过 `ChatSendTimeoutConfig` 配置。
+- 普通等待连续 15 秒无有效进展上报 `wait_stalled`，连续 20 秒释放本地 Send；上报 action 为 `mini_phone_send_lock_timeout`，object1=world_id、object2=char_id、object3=scene、object4=累计毫秒，ext_data 记录 client_request_id（准备阶段无此字段）、原因和阈值。上报失败不阻止释放。
+- 首次 HTTP／正式源消息受理及 pending→generating 的真实推进刷新等待；重复状态、无变化恢复查询、断线重连不刷新。返回前台核对原截止时间。
+- 释放独立于 accepted／rejected／reply_status：保留原请求键、正文及未知结果，停止该请求的本地 loading，允许新 Send 创建新请求，不自动重发旧请求。尚未超时且未受理的普通通信错误仍可按原请求手动重试。
+- 超时旧请求以独立恢复键保留在请求日志中；同一角色允许多条已释放恢复记录和一条当前发送记录。2→4→8→16→30 秒只读恢复继续查询所有未终态记录，后台暂停。释放标记持久化，重开不重锁；已开始的会话等待不因页面重开重计时。
+- 终态推送／历史以及迟到 HTTP 只更新对应请求，不清除新请求 busy、不覆盖新草稿。账号切换清除旧操作和监听。`type:error` 仍不映射为手机失败终态；手机使用关联的 `phone.reply.updated`／送达批次／HTTP 结果。
+
 ## Local DM cache and unread reconciliation
 
 - Phone dismissal is idempotent and verifies the original route before a deferred
@@ -680,10 +721,11 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 | --- | --- |
 | `phone_characters_moved` | 地点正式消息；带 world/location、global/message/location_message ID；conversation_round_id 可省略或为 null，非空时必须为正整数；缺省仍入队展示且不新增 Send 等待锁，不解除其他锁；conversation_type/sender_type 同名；payload.content[] 为 char_id/old_loc_id/to_loc_id。按顶层地点入普通队列与 SQLite，用地点游标排序/去重，HTTP 回填与本地恢复使用相同格式；无需私聊访问或返回观察期；实时消息同时按每项 char_id/to_loc_id 更新地图角色位置，历史回填不重放移动。详见 WebSocket 契约的私聊角色移动正式消息章节 |
 | `phone.messages.delivered` | 批量合并私聊、绑定会话 ID、关联 AI 终态；当前前台会话按需提交已读；推送本身不重查聚合，已读成功后校准 |
-| `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；不触发聚合或应用列表请求 |
+| `phone.reply.updated` | 更新关联请求状态，终态优先、失败保留玩家源消息；匹配失败立即解除回复等待和本地 HTTP 提交锁，允许新请求，不等待旧 HTTP 返回；不触发聚合或应用列表请求 |
 | `phone.post.notification.created` | 仅查询帖子未读通知并更新帖子聚合；不涉及私聊，也不刷新 Feed、作者或详情 |
 
 - 原有三类点号命名的手机事件均按 `event_id` 去重；Posts 与 DM 请求范围独立。初始化、重连及前台恢复执行聚合校准和必要 DM 恢复；Home 入口只校准聚合。推送不刷新应用列表。
+- DM 回复失败使用手机专用 `phone.reply.updated` 的 `job_status=failed`，历史查询返回 `reply_status=failed` 时沿用相同终态处理。只结束匹配 `client_request_id` 的请求；完成终态和玩家本人正式送达也释放对应提交锁。旧 HTTP 的成功、业务拒绝或超时均不能覆盖终态、恢复原输入或解除后来请求的锁；重新发送使用新请求 ID，不自动重发。普通 LocationChat 的错误不能按当前打开的手机角色推断关联。
 - DM 未读采用 Home 基准加本地唯一消息／阅读变化，保留未返回明细的数量差额；不按事件次数累加。Home 请求期间的消息与阅读不可被响应覆盖；Posts 聚合继续由 HTTP 校准。
 - 手机关闭后继续处理当前世界事件；退出世界释放订阅。首次初始化、Socket 重连和返回前台恢复查询。
 - Home 时钟还观察共享世界状态的 `latestSocketCurrentTime`；不能用设备时间代替世界时间。入口图标、Home 和设置预览共用会话世界时间；仅入口 icon 在时间为空或无法解析时显示 `18:05`，Home 和设置预览留空，日期缺失仍留空。
@@ -865,4 +907,4 @@ from controlled Flutter verification.
 
 - AI 私聊源消息在 pending/generating 时仅作为内存中的待确认气泡，异步 completed 后才写入本地聊天消息库；failed 不写入该库，余额不足撤回正文到空输入框。发送请求日志仅用于断线恢复，不作为成功消息。玩家互发仍按正式送达保存。服务端当前契约仍先保存玩家源消息；“余额不足不写服务端消息库”尚需服务端调整，不能以客户端过滤替代。
 
-- AI 私聊 HTTP 受理及源消息 pending/generating 阶段持续显示本人气泡左侧发送 loading，直到异步 completed；余额不足终态撤回气泡并恢复草稿，其他失败保留失败态。HTTP 受理不等于发送完成，玩家互发不等待 AI 终态。
+- AI 私聊本人气泡左侧 loading 仅表示消息提交中；HTTP 成功受理或收到正式源消息后立即消失，不等待 AI 回复完成，pending/generating 不再显示发送 loading。AI 回复等待、Send 限制及超时释放继续独立运行；余额不足终态撤回气泡并恢复草稿，其他失败保留失败态。发送结果未确认时仍保留原有待确认／超时处理，玩家互发不等待 AI 终态。

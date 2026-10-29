@@ -8,8 +8,17 @@ import '../../network/chatroom/chatroom_feature_quota_models.dart';
 import '../../network/chatroom/chatroom_failure_identity.dart';
 import '../common/genesis_center_toast.dart';
 
+/// A localized, local preflight failure before any chat operation is dispatched.
+final class ChatroomPreflightException implements Exception {
+  const ChatroomPreflightException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 const Set<String> _userInitiatedChatroomRequestTypes = <String>{
-  'join',
   'leave',
   'send_message',
 };
@@ -46,6 +55,7 @@ bool isChatroomErrorPresentedGlobally(Object? error) => switch (error) {
 };
 
 String chatroomOperationErrorMessage(Object error) => switch (error) {
+  ChatroomPreflightException e => e.message,
   ApiException e when e.kind == ApiExceptionKind.business =>
     e.serverErrMsg?.trim() ?? '',
   ChatroomFailureEvent e => chatroomFailureToastMessage(e),
@@ -84,6 +94,12 @@ bool isChatroomUnauthorizedFailure(ChatroomFailureEvent failure) {
 }
 
 bool shouldShowChatroomFailureToast(ChatroomFailureEvent failure) {
+  // Connection and auto-join failures are passive. User actions report their
+  // own failure after the shared connection gate completes.
+  if (failure.requestType.trim() == 'join' ||
+      failure.sourceType.trim() == 'join') {
+    return false;
+  }
   // Balance feedback (Toast + purchase sheet) is owned by the root host.
   if (isChatroomBalanceFailureCode(failure.code)) return false;
   if (chatroomFailureToastMessage(failure).isEmpty) return false;

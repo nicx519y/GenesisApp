@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/chatroom/location_chat_send_gate.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -23,6 +24,224 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'service disposal removes subscriptions while shared identity keeps its deadline',
+    () async {
+      var now = DateTime(2026);
+      final gate = LocationChatSendGate(now: () => now, report: (_) {});
+      addTearDown(gate.dispose);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        refreshInitialSnapshotOnConnect: false,
+        sendGate: gate,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      service.setInputBlocked(true);
+      final tick = gate.beginTick('world-1');
+      final wait = service.beginSendWait('loc-1', 'connection', 'send_connect');
+      service.watchConnectionWait(
+        wait,
+        expectedGeneration: service.connectionWaitGeneration,
+      );
+      expect(gate.debugResources.listeners, greaterThan(0));
+      await service.dispose();
+      expect(gate.debugResources.listeners, 0);
+      expect(gate.beginTick('world-1'), same(tick));
+      expect(tick.blocks, true);
+      now = now.add(const Duration(seconds: 60));
+      gate.reconcile();
+      expect(tick.released, true);
+      expect(wait.released, true);
+    },
+  );
+
+  test(
+    'connection cleanup survives removal of page release subscriptions',
+    () async {
+      var now = DateTime(2026);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        refreshInitialSnapshotOnConnect: false,
+        sendGateClock: () => now,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final wait = service.beginSendWait('loc-1', 'connect', 'send_connect');
+      final generation = service.connectionWaitGeneration;
+      final page = ChatSendReleaseScope();
+      var pageCalls = 0;
+      page.listen(wait, () => pageCalls++);
+      service.watchConnectionWait(wait, expectedGeneration: generation);
+      page.clear();
+      now = now.add(const Duration(seconds: 45));
+      service.sendGate.reconcile();
+      expect(pageCalls, 0);
+      expect(service.connectionWaitGeneration, greaterThan(generation));
+      expect(service.sendGate.debugResources.listeners, 0);
+    },
+  );
+
+  test(
+    'service releases canonical wait without page listener and still ingests late echo',
+    () async {
+      var now = DateTime(2026);
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        ackTimeout: const Duration(seconds: 5),
+        useV2Protocol: true,
+        sendGateClock: () => now,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final joining = service.join(locationId: 'loc-1');
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      final joinFrame = socket.sent
+          .map((raw) => jsonDecode(raw) as Map<String, dynamic>)
+          .lastWhere((frame) => frame['type'] == 'join');
+      socket.serverV2Ack(clientMsgId: joinFrame['client_msg_id'] as String);
+      await joining;
+      final handle = service.sendMessage(
+        'late echo',
+        clientMsgId: 'ownerless-echo',
+      );
+      await _waitFor(() => socket.sentTypes.contains('send_message'));
+      socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+      await handle.receipt;
+      final canceled = expectLater(
+        handle.canonicalMessage,
+        throwsA(isA<ChatroomFailureEvent>()),
+      );
+      now = now.add(const Duration(seconds: 45));
+      service.sendGate.reconcile();
+      await canceled;
+      expect(service.cancelCanonicalMessageWait(handle.clientMsgId), false);
+      expect(service.sendGate.debugResources.listeners, 0);
+      socket.serverV2Message(
+        type: 'user',
+        senderId: 'user-1',
+        senderName: 'Player One',
+        messageId: 72,
+        locationMessageId: 9,
+        roundId: 702,
+        content: 'late echo',
+        clientMsgId: handle.clientMsgId,
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (m) => m.messageId == 72,
+            ) ==
+            true,
+      );
+      expect(service.sendGate.blocks('world-1', 'loc-1'), false);
+    },
+  );
+
+  for (final ended in [false, true]) {
+    test(
+      'HTTP attempt backfill preserves live identity ended=$ended',
+      () async {
+        final socket = _FakeChatroomSocket();
+        final http = _MutationHttpTransport();
+        final storage = MemoryChatroomMessageStorage();
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(socket),
+          httpTransport: http,
+          messageStorage: storage,
+          useV2Protocol: true,
+          refreshInitialSnapshotOnConnect: false,
+        );
+        addTearDown(service.dispose);
+        await service.connect(worldId: 'world-1', identity: _identity());
+        Map<String, dynamic> row(int id, int attempt, String content) => {
+          'type': 'character',
+          'stream_type': '',
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'global_message_id': 90000 + id,
+          'message_id': id,
+          'location_message_id': id,
+          'conversation_round_id': 801,
+          'gateway_request_id': 'backfill-request',
+          'attempt_no': attempt,
+          'sender_type': 'character',
+          'sender_id': 'c',
+          'sender_name': 'Character',
+          'payload': {'content': content},
+          'err_no': 0,
+        };
+        for (final id in [1, 2]) {
+          socket.serverFrame('character', {
+            ...row(id, 1, 'Reply $id'),
+            'stream_type': ended ? 'llm_stream_end' : 'llm_chunk',
+            'payload': {'seq': 1, 'content': 'Reply $id'},
+          });
+        }
+        await _waitFor(
+          () => service.state.messagesByLocation['loc-1']?.length == 2,
+        );
+        final attempt =
+            service.state.messagesByLocation['loc-1']!.first.llmAttempt!;
+        var retractions = 0;
+        attempt.addListener(() => retractions++);
+        http.messagesByLocation['loc-1'] = [
+          row(1, 1, 'Reply 1'),
+          row(2, 1, 'Reply 2'),
+        ];
+        for (var refresh = 0; refresh < 2; refresh++) {
+          await service.refreshLatestMessages(locationId: 'loc-1');
+          final messages = service.state.messagesByLocation['loc-1']!;
+          expect(messages.map((m) => m.content), ['Reply 1', 'Reply 2']);
+          for (final message in messages) {
+            expect(message.llmAttempt, same(attempt));
+            expect(message.streaming, isFalse);
+          }
+        }
+        await service.loadCachedMessages(
+          worldId: 'world-1',
+          locationId: 'loc-1',
+        );
+        expect(
+          service.state.messagesByLocation['loc-1']!.first.llmAttempt,
+          same(attempt),
+        );
+        expect(retractions, 0);
+
+        // Reused IDs from a real retry must get a new identity, and a late HTTP
+        // snapshot of the old attempt must not resurrect either old output.
+        socket.serverFrame('character', {
+          ...row(1, 2, 'New reply'),
+          'stream_type': 'llm_stream_end',
+        });
+        await _waitFor(
+          () =>
+              service.state.messagesByLocation['loc-1']!.first.content ==
+              'New reply',
+        );
+        final next =
+            service.state.messagesByLocation['loc-1']!.single.llmAttempt!;
+        expect(next, isNot(same(attempt)));
+        expect(next.number, 2);
+        expect(retractions, 1);
+        await service.refreshLatestMessages(locationId: 'loc-1');
+        expect(
+          service.state.messagesByLocation['loc-1']!.single.content,
+          'New reply',
+        );
+        expect(
+          service.state.messagesByLocation['loc-1']!.single.llmAttempt,
+          same(next),
+        );
+        final cached = await service.loadCachedMessages(
+          worldId: 'world-1',
+          locationId: 'loc-1',
+        );
+        expect(cached.map((m) => m.content), ['New reply']);
+      },
+    );
+  }
+
   test(
     'Tick expiry releases Send locally but preserves true Tick lock',
     () async {
@@ -130,17 +349,109 @@ void main() {
     },
   );
 
-  test('reentry releases orphaned ordinary reply presentation', () async {
-    final service = await _service(
-      socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
-      useV2Protocol: true,
-      refreshInitialSnapshotOnConnect: false,
+  for (final tick in [false, true]) {
+    test(
+      'rendered entry restores ${tick ? "Tick" : "ordinary"} timeout without resetting it',
+      () async {
+        var now = DateTime(2026);
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+          useV2Protocol: true,
+          refreshInitialSnapshotOnConnect: false,
+          sendGateClock: () => now,
+        );
+        addTearDown(service.dispose);
+        await service.connect(worldId: 'world-1', identity: _identity());
+        final replies = service.replyActions!;
+        final message = WorldChatroomMessage(
+          messageId: 1,
+          locationMessageId: 1,
+          conversationRoundId: '1',
+          roundOrder: 0,
+          locationId: 'loc-1',
+          senderType: 'character',
+          senderId: 'char-1',
+          senderName: 'Guide',
+          content: 'Partial',
+          createdAt: null,
+          streaming: true,
+        );
+        replies.observeMessages('loc-1', [message]);
+        expect(replies.stateFor('loc-1')!.complete, isFalse);
+        service.reconcileLocationStreamWait('loc-1');
+        expect(replies.stateFor('loc-1')!.complete, isFalse);
+        expect(service.sendGate.blocks('world-1', 'loc-1'), isFalse);
+        void rendered() => service.reconcileRenderedLocationSendWait(
+          'loc-1',
+          lastMessageIsTick: tick,
+          lastMessageId: 'message:1',
+        );
+        rendered();
+        expect(service.sendGate.blocks('world-1', 'loc-1'), isTrue);
+        final threshold = tick ? 60 : 20;
+        now = now.add(Duration(seconds: threshold - 1));
+        rendered(); // Page recreation must reuse the original deadline.
+        expect(replies.stateFor('loc-1')!.sendReleased, isFalse);
+        now = now.add(const Duration(seconds: 1));
+        service.sendGate.reconcile();
+        expect(replies.stateFor('loc-1')!.sendReleased, isTrue);
+        expect(service.sendGate.blocks('world-1', 'loc-1'), isFalse);
+        expect(service.state.inputBlocked, isFalse);
+        rendered();
+        expect(service.sendGate.blocks('world-1', 'loc-1'), isFalse);
+      },
     );
-    addTearDown(service.dispose);
-    await service.connect(worldId: 'world-1', identity: _identity());
-    final replies = service.replyActions!;
-    replies.observeMessages('loc-1', [
-      WorldChatroomMessage(
+
+    test(
+      'rendered entry ${tick ? "Tick" : "ordinary"} wait ends on real completion',
+      () async {
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+          useV2Protocol: true,
+          refreshInitialSnapshotOnConnect: false,
+        );
+        addTearDown(service.dispose);
+        await service.connect(worldId: 'world-1', identity: _identity());
+        final replies = service.replyActions!;
+        final message = WorldChatroomMessage(
+          messageId: 1,
+          locationMessageId: 1,
+          conversationRoundId: '1',
+          roundOrder: 0,
+          locationId: 'loc-1',
+          senderType: 'character',
+          senderId: 'char-1',
+          senderName: 'Guide',
+          content: 'Partial',
+          createdAt: null,
+          streaming: true,
+        );
+        replies.observeMessages('loc-1', [message]);
+        service.reconcileRenderedLocationSendWait(
+          'loc-1',
+          lastMessageIsTick: tick,
+          lastMessageId: 'message:1',
+        );
+        expect(service.sendGate.blocks('world-1', 'loc-1'), isTrue);
+        replies.observeMessages('loc-1', [message.copyWith(streaming: false)]);
+        expect(service.sendGate.blocks('world-1', 'loc-1'), isFalse);
+        expect(replies.stateFor('loc-1')!.sendReleased, isFalse);
+      },
+    );
+  }
+
+  test(
+    'entry recovery cannot finish an independently owned World Tick',
+    () async {
+      var now = DateTime(2026);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        refreshInitialSnapshotOnConnect: false,
+        sendGateClock: () => now,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final message = WorldChatroomMessage(
         messageId: 1,
         locationMessageId: 1,
         conversationRoundId: '1',
@@ -152,13 +463,25 @@ void main() {
         content: 'Partial',
         createdAt: null,
         streaming: true,
-      ),
-    ]);
-    expect(replies.stateFor('loc-1')!.complete, isFalse);
-    service.reconcileLocationStreamWait('loc-1');
-    expect(replies.stateFor('loc-1')!.complete, isTrue);
-    expect(service.state.conversationRoundStatesByLocation, isEmpty);
-  });
+      );
+      final tick = service.sendGate.beginTick('world-1');
+      now = now.add(const Duration(seconds: 20));
+      service.replyActions!.observeMessages('loc-1', [message]);
+      service.reconcileRenderedLocationSendWait(
+        'loc-1',
+        lastMessageIsTick: true,
+        lastMessageId: 'tick:1',
+        worldTickInProgress: true,
+      );
+      service.replyActions!.observeMessages('loc-1', [
+        message.copyWith(streaming: false),
+      ]);
+      expect(tick.blocks, isTrue);
+      now = now.add(const Duration(seconds: 40));
+      service.sendGate.reconcile();
+      expect(tick.released, isTrue);
+    },
+  );
 
   test('reentry expires an overdue stream before its timer can run', () async {
     final socket = _FakeChatroomSocket();
@@ -214,7 +537,11 @@ void main() {
     );
     await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
     sleep(const Duration(milliseconds: 90));
-    service.reconcileLocationStreamWait('loc-1');
+    service.reconcileRenderedLocationSendWait(
+      'loc-1',
+      lastMessageIsTick: true,
+      lastMessageId: 'newer-tick',
+    );
     expect(service.isLocationSendIdleTimedOut('loc-1'), isFalse);
     sleep(const Duration(milliseconds: 80));
     service.reconcileLocationStreamWait('loc-1');
@@ -636,7 +963,7 @@ void main() {
     'stream idle watchdog receipt starts first-byte timeout and late binding stays ended',
     () async {
       expect(chatroomStreamIdleTimeout, const Duration(seconds: 5));
-      expect(conversationRoundFallbackTimeout, const Duration(seconds: 45));
+      expect(conversationRoundFallbackTimeout, const Duration(seconds: 20));
       final socket = _FakeChatroomSocket();
       final service = await _service(
         socketTransport: _FakeChatroomTransport(socket),
@@ -6331,6 +6658,82 @@ void main() {
     await service.dispose();
   });
 
+  test('V2 conversation error releases only its matching wait', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 801);
+    socket.serverWaitingConversationRound(locationId: 'loc-2', roundId: 802);
+    await _waitFor(
+      () => service.state.conversationRoundStatesByLocation.length == 2,
+    );
+    void error({
+      String world = 'world-1',
+      String location = 'loc-1',
+      int? round,
+    }) {
+      socket.serverFrame('error', {
+        'world_id': world,
+        'location_id': location,
+        if (round != null) 'conversation_round_id': round,
+        'err_no': 2025,
+        'err_msg': 'Generation failed',
+        'payload': <String, Object?>{},
+      });
+    }
+
+    error(world: 'other-world', round: 801);
+    error(location: 'other-location', round: 801);
+    error(round: 800);
+    error(); // No request/round identity must not terminate an arbitrary send.
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(service.sendGate.blocks('world-1', 'loc-1'), isTrue);
+
+    service.setInputBlocked(true);
+    error(round: 801);
+    await _waitFor(
+      () =>
+          !service.state.conversationRoundStatesByLocation.containsKey('loc-1'),
+    );
+    expect(service.replyActions!.stateForRound('loc-1', 801)!.complete, isTrue);
+    expect(
+      service.replyActions!.stateForRound('loc-1', 801)!.sendReleased,
+      isTrue,
+    );
+    expect(service.tickBlocksSend, isTrue);
+    service.setInputBlocked(false);
+    expect(service.sendGate.blocks('world-1', 'loc-1'), isFalse);
+    expect(service.sendGate.blocks('world-1', 'loc-2'), isTrue);
+
+    socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 803);
+    await _waitFor(
+      () =>
+          service
+              .state
+              .conversationRoundStatesByLocation['loc-1']
+              ?.conversationRoundId ==
+          '803',
+    );
+    error(round: 801); // Repeated old failure cannot release the next round.
+    socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 801);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(service.sendGate.blocks('world-1', 'loc-1'), isTrue);
+    expect(
+      service
+          .state
+          .conversationRoundStatesByLocation['loc-1']
+          ?.conversationRoundId,
+      '803',
+    );
+    error(round: 803);
+    await _waitFor(() => !service.sendGate.blocks('world-1', 'loc-1'));
+  });
+
   test('V2 stream error removes its provisional message', () async {
     final socket = _FakeChatroomSocket();
     final service = await _service(
@@ -6383,6 +6786,13 @@ void main() {
                     message.senderId == 'char-1',
               ) ??
               false),
+    );
+
+    expect(service.sendGate.blocks('world-1', 'loc-1'), isFalse);
+    expect(service.replyActions!.stateForRound('loc-1', 8)!.complete, isTrue);
+    expect(
+      service.replyActions!.stateForRound('loc-1', 8)!.sendReleased,
+      isTrue,
     );
 
     await service.dispose();
@@ -6533,6 +6943,7 @@ Future<WorldChatroomService> _service({
   bool useV2Protocol = false,
   ChatroomDisconnectMonitor? disconnectMonitor,
   DateTime Function()? sendGateClock,
+  LocationChatSendGate? sendGate,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('user-1');
@@ -6566,6 +6977,7 @@ Future<WorldChatroomService> _service({
     reconnectInterval: reconnectInterval,
     conversationRoundTimeout: conversationRoundTimeout,
     sendGateClock: sendGateClock,
+    sendGate: sendGate,
     streamIdleTimeout: streamIdleTimeout,
     refreshInitialSnapshotOnConnect: refreshInitialSnapshotOnConnect,
   );

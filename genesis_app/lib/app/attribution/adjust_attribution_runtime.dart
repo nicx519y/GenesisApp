@@ -111,13 +111,12 @@ class AdjustAttributionRuntime {
     try {
       final resolvedPlatform = platform ?? defaultTargetPlatform;
       applyPrivacyConsent();
-      initializeSdk(
-        createConfig(
-          releaseMode: releaseMode,
-          environment: environment,
-          platform: resolvedPlatform,
-        ),
+      final config = createConfig(
+        releaseMode: releaseMode,
+        environment: environment,
+        platform: resolvedPlatform,
       );
+      if (!_invokeSdk('initialize', () => initializeSdk(config))) return;
       _initialized = true;
       _finishFirstSessionDelayIfReady();
 
@@ -159,7 +158,7 @@ class AdjustAttributionRuntime {
         choices.adPersonalization ? '1' : '0',
       );
     }
-    Adjust.trackThirdPartySharing(sharing);
+    _invokeSdk('privacy sharing', () => Adjust.trackThirdPartySharing(sharing));
     _finishFirstSessionDelayIfReady();
   }
 
@@ -173,7 +172,9 @@ class AdjustAttributionRuntime {
         (privacyConsent.choices == null && !privacyConsent.startupResolved)) {
       return;
     }
-    Adjust.endFirstSessionDelay();
+    if (!_invokeSdk('end first-session delay', Adjust.endFirstSessionDelay)) {
+      return;
+    }
     _firstSessionDelayReleased = true;
     debugPrint('[Adjust] first-session delay release requested');
   }
@@ -241,6 +242,24 @@ class AdjustAttributionRuntime {
       'network=${attribution.network}, campaign=${attribution.campaign}, '
       'adgroup=${attribution.adgroup}, creative=${attribution.creative}',
     );
+  }
+
+  // Adjust's void APIs discard the Future returned by MethodChannel.invokeMethod.
+  // Catch both synchronous failures and later native replies in this call's
+  // zone so they cannot reach the app-wide fatal error reporter.
+  static bool _invokeSdk(String operation, void Function() invoke) {
+    var invoked = false;
+    runZonedGuarded(
+      () {
+        invoke();
+        invoked = true;
+      },
+      (error, stackTrace) {
+        debugPrint('[Adjust] $operation failed: $error');
+        debugPrint('[Adjust] stacktrace:\n$stackTrace');
+      },
+    );
+    return invoked;
   }
 
   static void _handleSessionSuccess(AdjustSessionSuccess session) {

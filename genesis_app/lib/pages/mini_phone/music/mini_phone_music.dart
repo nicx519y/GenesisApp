@@ -3,7 +3,7 @@ import 'dart:async';
 import '../../../utils/display_name_formatter.dart';
 import 'package:flutter/material.dart';
 import '../../../app/bootstrap/app_services_scope.dart';
-import '../../../components/common/genesis_center_toast.dart';
+import '../shared/mini_phone_toast.dart';
 import '../shared/mini_phone_ui.dart';
 import 'mini_phone_music_service.dart';
 import 'mini_phone_music_widgets.dart';
@@ -38,7 +38,7 @@ class MiniPhoneMusicPlayerState extends State<MiniPhoneMusicPlayer> {
     final error = _music.catalogError ?? _music.playbackError;
     if (error != _shownMusicError) {
       _shownMusicError = error;
-      if (error != null) showGenesisToast(context, error);
+      if (error != null) showMiniPhoneToast(context, error);
     }
     setState(() {});
   }

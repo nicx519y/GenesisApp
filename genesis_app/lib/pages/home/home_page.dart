@@ -1,3 +1,4 @@
+import '../../components/auth/login_submission_state.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
@@ -121,52 +122,52 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with LoginSubmissionState<HomePage> {
   // Feed widgets still observe this notifier for their own loading lifecycle;
   // startup permissions never change it.
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
-  IdentityProvider? _loggingInProvider;
+  IdentityProvider? get _loggingInProvider => loginSubmittingProvider;
 
-  Future<void> _login(IdentityProvider provider) async {
-    if (_loggingInProvider != null) return;
-    final login = widget.onLogin;
-    if (login == null) {
-      showGenesisToast(
-        context,
-        GenesisL10n.current.homeSignInUnavailable,
-        brightness: Brightness.dark,
-      );
-      return;
-    }
-    setState(() => _loggingInProvider = provider);
-    try {
-      final ok = await login(provider);
-      if (ok) {
-        final onLoginCompleted = widget.onLoginCompleted;
-        if (onLoginCompleted != null) {
-          await _runPostLoginFlow(onLoginCompleted);
+  Future<void> _login(IdentityProvider provider) =>
+      submitLogin(provider, (submission) async {
+        final login = widget.onLogin;
+        if (login == null) {
+          showGenesisToast(
+            context,
+            GenesisL10n.current.homeSignInUnavailable,
+            brightness: Brightness.dark,
+          );
+          return;
         }
-      } else if (mounted) {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.meSignInFailed,
-          brightness: Brightness.dark,
-        );
-      }
-    } on AuthCancelledException {
-      // The user closed the provider sign-in flow.
-    } catch (error) {
-      if (mounted) {
-        showGenesisToast(
-          context,
-          loginErrorMessage(error),
-          brightness: Brightness.dark,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loggingInProvider = null);
-    }
-  }
+        try {
+          final ok = await login(provider);
+          if (!submission.isActive) return;
+          if (ok) {
+            submission.markSucceeded();
+            final onLoginCompleted = widget.onLoginCompleted;
+            if (onLoginCompleted != null) {
+              await _runPostLoginFlow(onLoginCompleted);
+            }
+          } else if (mounted) {
+            showGenesisToast(
+              context,
+              GenesisL10n.current.meSignInFailed,
+              brightness: Brightness.dark,
+            );
+          }
+        } on AuthCancelledException {
+          // The user closed the provider sign-in flow.
+        } catch (error) {
+          if (mounted && submission.isActive) {
+            showGenesisToast(
+              context,
+              loginErrorMessage(error),
+              brightness: Brightness.dark,
+            );
+          }
+        }
+      });
 
   Future<void> _runPostLoginFlow(Future<void> Function() flow) async {
     try {
