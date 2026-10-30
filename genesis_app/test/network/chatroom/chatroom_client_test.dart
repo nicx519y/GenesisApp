@@ -1,6 +1,7 @@
 import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
@@ -15,6 +16,63 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'connection diagnostics distinguish signer and transport failures without changing errors',
+    () async {
+      final signerError = StateError('signer failed');
+      final signerClient = await _client(
+        _SequencedChatroomTransport([]),
+        wsBaseUrl: 'wss://example.test:9443/ws?secret=hidden',
+        handshakeHeaderSigner: (_, _) async => throw signerError,
+      );
+      final signerDetails = <String, Object?>{};
+      await expectLater(
+        signerClient.connect(
+          worldId: 'w',
+          onConnectionDiagnostics: signerDetails.addAll,
+        ),
+        throwsA(same(signerError)),
+      );
+      expect(signerDetails['failure_stage'], 'gateway_signing');
+      expect(signerDetails['target_host'], 'example.test');
+      expect(signerDetails['target_port'], 9443);
+      expect(signerDetails['target_path'], '/ws');
+      expect(jsonEncode(signerDetails), isNot(contains('hidden')));
+      expect(jsonEncode(signerDetails), isNot(contains('token-1')));
+      expect(signerDetails.containsKey('transport_duration_ms'), isFalse);
+
+      const transportError = WebSocketException('rejected', 503);
+      final transportClient = await _client(
+        _SequencedChatroomTransport([transportError]),
+      );
+      final transportDetails = <String, Object?>{};
+      await expectLater(
+        transportClient.connect(
+          worldId: 'w',
+          onConnectionDiagnostics: transportDetails.addAll,
+        ),
+        throwsA(same(transportError)),
+      );
+      expect(transportDetails['failure_stage'], 'websocket_connect');
+      expect(transportDetails['transport_duration_ms'], isNonNegative);
+    },
+  );
+
+  test(
+    'diagnostic observer exceptions do not break a successful connection',
+    () async {
+      final client = await _client(
+        _FakeChatroomTransport(_FakeChatroomSocket()),
+        autoHeartbeat: false,
+      );
+      final session = await client.connect(
+        worldId: 'w',
+        onConnectionDiagnostics: (_) => throw StateError('observer'),
+      );
+      await session.close();
+    },
+  );
+
   test('phone async failure code reaches global balance handler', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(

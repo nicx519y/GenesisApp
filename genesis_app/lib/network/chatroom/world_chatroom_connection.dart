@@ -21,6 +21,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
       _state.copyWith(connected: false, reconnecting: _state.world != null),
     );
     int? monitorAttempt;
+    final connectionDetails = <String, Object?>{};
     var handshakeSucceeded = false;
     try {
       await _detachSession(disconnect: true);
@@ -32,6 +33,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
         senderId: identity.senderId,
         senderName: identity.senderName,
         autoHeartbeat: false,
+        onConnectionDiagnostics: connectionDetails.addAll,
       );
       if (_userDisconnected ||
           _disposed ||
@@ -67,6 +69,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
           monitorAttempt,
           error: e,
           stack: stack,
+          connectionDetails: connectionDetails,
         );
       }
       final failure = e is ChatroomFailureEvent

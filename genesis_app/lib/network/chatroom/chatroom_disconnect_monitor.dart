@@ -56,6 +56,8 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   final DateTime Function() _now;
   DateTime? _recoveryForegroundSince;
   Duration _recoveryElapsed = Duration.zero;
+  bool _hasAttempt = false;
+  bool _initialAttemptCounted = false;
   int _recoveryAttempts = 0;
   String? _recoveryId;
   bool _recovering = false;
@@ -91,10 +93,6 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       action: 'websocket_disconnect',
       object1: worldId,
       object2: phase,
-      object3: _fitDiagnostics(
-        jsonDecode(extData) as Map<String, dynamic>,
-        2000,
-      ),
       object4: networkType,
       extData: extData,
     );
@@ -120,6 +118,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
         'connect_attempts': connectAttempts,
         'duration_unit': 'ms',
         'duration_scope': 'foreground_recovery',
+        'attempts_scope': 'foreground',
         'success_stage': 'ws_connected',
       }),
     );
@@ -135,6 +134,8 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _recovering = false;
     _recoveryForegroundSince = null;
     _recoveryElapsed = Duration.zero;
+    _hasAttempt = false;
+    _initialAttemptCounted = false;
     _recoveryAttempts = 0;
     _recoveryId = null;
   }
@@ -153,7 +154,11 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _attempt++;
     _attemptClock = Stopwatch()..start();
     if (!_disposed && _needed && !_connected) {
-      _recoveryAttempts++;
+      if (!_hasAttempt) {
+        _hasAttempt = true;
+        _initialAttemptCounted = _foreground;
+      }
+      if (_foreground) _recoveryAttempts++;
     }
     return _attempt;
   }
@@ -174,7 +179,10 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
           phase: _everConnected ? 'reconnect' : 'initial_connect',
           retryCount: _everConnected
               ? _recoveryAttempts
-              : (_recoveryAttempts - 1).clamp(0, _recoveryAttempts),
+              : (_recoveryAttempts - (_initialAttemptCounted ? 1 : 0)).clamp(
+                  0,
+                  _recoveryAttempts,
+                ),
           durationMs: elapsed.inMilliseconds.clamp(0, 1 << 53),
           connectAttempts: _recoveryAttempts,
         );
@@ -188,7 +196,12 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _clearObservation();
   }
 
-  void connectFailed(int attempt, {Object? error, StackTrace? stack}) {
+  void connectFailed(
+    int attempt, {
+    Object? error,
+    StackTrace? stack,
+    Map<String, Object?> connectionDetails = const {},
+  }) {
     if (attempt != _attempt || _connected) return;
     lost(
       'connect_error',
@@ -196,6 +209,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       error: error,
       stack: stack,
       connectDurationMs: _attemptClock?.elapsedMilliseconds,
+      connectionDetails: connectionDetails,
     );
   }
 
@@ -209,6 +223,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     String? stackSummary,
     int? connectDurationMs,
     Map<String, Object?> closeDetails = const {},
+    Map<String, Object?> connectionDetails = const {},
   }) {
     if (!_needed || _disposed || (attempt != null && attempt != _attempt)) {
       return;
@@ -217,13 +232,24 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _details.add({
       'attempt': _attempt,
       'cause': cause,
+      'foreground': _foreground,
+      ...connectionDetails,
       'time': DateTime.now().toUtc().toIso8601String(),
       if (connectDurationMs != null) 'connect_duration_ms': connectDurationMs,
       if (error != null) 'error_type': error.runtimeType.toString(),
       if (error != null) 'error_message': _bounded(error.toString(), 400),
+      if (error is WebSocketException && error.httpStatusCode != null)
+        'http_status_code': error.httpStatusCode,
+      if (error is TlsException) ...{
+        if (error.osError != null) 'os_error_code': error.osError!.errorCode,
+        if (error.osError != null)
+          'os_error_message': _bounded(error.osError!.message, 400),
+      },
       if (error is SocketException) ...{
         'os_error_code': error.osError?.errorCode,
         'os_error_message': error.osError?.message,
+        if (error.address != null) 'socket_address': error.address!.address,
+        if (error.port != null) 'socket_port': error.port,
       },
       if (stack != null || stackSummary != null)
         'stack_summary': _bounded(
@@ -272,6 +298,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     final ext = <String, Object>{
       'recovery_id': _recoveryId!,
       'connect_attempts': _recoveryAttempts,
+      'attempts_scope': 'foreground',
       'cause': _cause ?? 'unknown',
       'attempt_details': List.of(_details),
     };

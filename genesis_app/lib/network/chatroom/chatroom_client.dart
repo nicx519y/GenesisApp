@@ -61,11 +61,32 @@ class ChatroomClient {
     String? senderId,
     String? senderName,
     bool? autoHeartbeat,
+    void Function(Map<String, Object?> details)? onConnectionDiagnostics,
   }) async {
+    void stage(String value, {int? transportDurationMs}) {
+      try {
+        onConnectionDiagnostics?.call({
+          'failure_stage': value,
+          'target_scheme': _wsBaseUri.scheme,
+          'target_host': _wsBaseUri.host,
+          'target_port': _wsBaseUri.hasPort
+              ? _wsBaseUri.port
+              : (_wsBaseUri.scheme == 'wss' ? 443 : 80),
+          'target_path': _wsBaseUri.path.isEmpty ? '/' : _wsBaseUri.path,
+          if (transportDurationMs != null)
+            'transport_duration_ms': transportDurationMs,
+        });
+      } catch (_) {
+        // Optional diagnostics must not change connection behavior or exceptions.
+      }
+    }
+
+    stage('validation');
     final resolvedWorldId = worldId.trim();
     if (resolvedWorldId.isEmpty) {
       throw const ChatroomProtocolException('worldId is required');
     }
+    stage('session_read');
     final localSession = await _sessionStore.readCompleteSession();
     if (localSession == null) {
       throw const ChatroomProtocolException('authToken is required');
@@ -83,6 +104,7 @@ class ChatroomClient {
         ? senderName!.trim()
         : resolvedSenderId;
     final uri = _resolveUri(worldId: resolvedWorldId);
+    stage('request_headers');
     var headers = <String, String>{
       ...await _resolveRequestHeaders(),
       'Authorization': authToken.toLowerCase().startsWith('bearer ')
@@ -91,6 +113,7 @@ class ChatroomClient {
     };
     final signer = _handshakeHeaderSigner;
     if (signer != null) {
+      stage('gateway_signing');
       headers = await signer(uri, headers);
     }
     final protocolVersion = resolveChatroomProtocolVersion(
@@ -99,6 +122,7 @@ class ChatroomClient {
     final connectStopwatch = Stopwatch()..start();
     final ChatroomSocket socket;
     try {
+      stage('websocket_connect');
       socket = await _transport.connect(
         uri,
         headers: headers.isEmpty ? null : headers,
@@ -114,6 +138,10 @@ class ChatroomClient {
       );
     } catch (error) {
       connectStopwatch.stop();
+      stage(
+        'websocket_connect',
+        transportDurationMs: connectStopwatch.elapsedMilliseconds,
+      );
       _chatroomTelemetry(
         'chatroom.ws_connect',
         data: <String, Object?>{
@@ -126,6 +154,7 @@ class ChatroomClient {
       );
       rethrow;
     }
+    stage('session_setup');
     final session = ChatroomSession._(
       onBalanceAlert: (alert) => onGemBalanceAlert?.call(alert, authToken),
       socket: socket,

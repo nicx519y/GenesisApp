@@ -132,27 +132,119 @@ void main() {
     expect(successes, hasLength(1));
   });
 
+  testWidgets('paired success excludes background attempts and duration', (
+    tester,
+  ) async {
+    var now = DateTime.utc(2026);
+    final m = monitor(now: () => now);
+    m.connectFailed(m.beginAttempt());
+    now = now.add(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 15));
+    m.didChangeAppLifecycleState(AppLifecycleState.paused);
+    now = now.add(const Duration(seconds: 100));
+    m.connectFailed(m.beginAttempt());
+    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    now = now.add(const Duration(seconds: 3));
+    m.succeeded(m.beginAttempt());
+    expect(successes.single['duration_ms'], 18000);
+    expect(successes.single['attempts'], 2);
+    expect(successes.single['retry_count'], 1);
+    expect(
+      successes.single['recovery_id'],
+      (reports.single['ext'] as Map)['recovery_id'],
+    );
+  });
+
   testWidgets(
-    'paired success retains counts and excludes background duration',
+    'initial background attempt is not subtracted from foreground retries',
+    (tester) async {
+      final m = monitor();
+      m.didChangeAppLifecycleState(AppLifecycleState.paused);
+      m.connectFailed(m.beginAttempt());
+      m.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pump(const Duration(seconds: 15));
+      m.succeeded(m.beginAttempt());
+      expect(successes.single['attempts'], 1);
+      expect(successes.single['retry_count'], 1);
+    },
+  );
+
+  testWidgets(
+    'success in background pairs without counting background attempt or time',
     (tester) async {
       var now = DateTime.utc(2026);
       final m = monitor(now: () => now);
-      m.connectFailed(m.beginAttempt());
+      m.succeeded(m.beginAttempt());
+      m.lost('socket_closed');
       now = now.add(const Duration(seconds: 15));
       await tester.pump(const Duration(seconds: 15));
-      m.didChangeAppLifecycleState(AppLifecycleState.paused);
-      now = now.add(const Duration(seconds: 100));
       m.connectFailed(m.beginAttempt());
-      m.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      now = now.add(const Duration(seconds: 3));
+      m.didChangeAppLifecycleState(AppLifecycleState.paused);
+      now = now.add(const Duration(minutes: 2));
       m.succeeded(m.beginAttempt());
-      expect(successes.single['duration_ms'], 18000);
-      expect(successes.single['attempts'], 3);
-      expect(successes.single['retry_count'], 2);
+      expect(successes.single['duration_ms'], 15000);
+      expect(successes.single['attempts'], 1);
+      expect(successes.single['retry_count'], 1);
       expect(
         successes.single['recovery_id'],
         (reports.single['ext'] as Map)['recovery_id'],
       );
+    },
+  );
+
+  testWidgets(
+    'structured transport errors and stage metadata reach bounded ext data',
+    (tester) async {
+      final errors = <Object>[
+        const WebSocketException('rejected', 403),
+        SocketException(
+          'refused',
+          osError: const OSError('refused', 61),
+          address: InternetAddress('127.0.0.1'),
+          port: 443,
+        ),
+        const HandshakeException(
+          'certificate rejected',
+          OSError('TLS verify', 7),
+        ),
+      ];
+      for (final error in errors) {
+        final m = monitor();
+        m.connectFailed(
+          m.beginAttempt(),
+          error: error,
+          connectionDetails: {
+            'failure_stage': 'websocket_connect',
+            'target_scheme': 'wss',
+            'target_host': 'example.test',
+            'target_port': 443,
+            'target_path': '/ws',
+            'transport_duration_ms': 123,
+          },
+        );
+        await tester.pump(const Duration(seconds: 15));
+        final ext = reports.last['ext'] as Map;
+        final detail = (ext['attempt_details'] as List).single as Map;
+        expect(jsonEncode(ext).length, lessThanOrEqualTo(4000));
+        expect(detail['failure_stage'], 'websocket_connect');
+        expect(detail['target_host'], 'example.test');
+        expect(detail['transport_duration_ms'], 123);
+        expect(detail['foreground'], isTrue);
+        if (error is WebSocketException) {
+          expect(detail['http_status_code'], 403);
+          expect(detail.containsKey('socket_address'), isFalse);
+        } else if (error is SocketException) {
+          expect(detail['socket_address'], '127.0.0.1');
+          expect(detail['socket_port'], 443);
+          expect(detail['os_error_code'], 61);
+          expect(detail.containsKey('http_status_code'), isFalse);
+        } else {
+          expect(detail['os_error_code'], 7);
+          expect(detail['os_error_message'], 'TLS verify');
+          expect(detail.containsKey('http_status_code'), isFalse);
+        }
+        m.dispose();
+      }
     },
   );
 
@@ -216,6 +308,7 @@ void main() {
       expect(reports.single['ext'], {
         'recovery_id': isA<String>(),
         'connect_attempts': 2,
+        'attempts_scope': 'foreground',
         'cause': 'connect_error',
         'attempt_details': anything,
         'last_error_code': 'connect_failed',
@@ -262,6 +355,7 @@ void main() {
       expect(reports.single['ext'], {
         'recovery_id': isA<String>(),
         'connect_attempts': 0,
+        'attempts_scope': 'foreground',
         'cause': 'socket_error',
         'attempt_details': anything,
         'close_code': 1001,
