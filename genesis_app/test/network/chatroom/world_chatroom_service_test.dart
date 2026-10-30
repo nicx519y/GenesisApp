@@ -549,7 +549,7 @@ void main() {
   });
 
   test(
-    'disconnect telemetry observes an actual hanging handshake and cancels on recovery',
+    'disconnect telemetry waits for failure rather than reporting a hanging initial handshake',
     () async {
       final socket = _FakeChatroomSocket();
       final ready = Completer<void>();
@@ -580,12 +580,12 @@ void main() {
         identity: _identity(),
       );
       await _waitFor(() => transport.connectStarted);
-      await _waitFor(() => reports.isNotEmpty);
-      expect(reports, ['world-1/initial_connect/unknown/none']);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(reports, isEmpty);
       ready.complete();
       await connecting;
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(reports, hasLength(1));
+      expect(reports, isEmpty);
     },
   );
 

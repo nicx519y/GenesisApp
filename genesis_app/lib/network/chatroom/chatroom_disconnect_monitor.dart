@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../platform/network/network_type_snapshot.dart';
@@ -20,12 +21,13 @@ typedef ReconnectSuccessReport =
     void Function({
       required String worldId,
       required String phase,
+      required String recoveryId,
       required int retryCount,
       required int durationMs,
       required int connectAttempts,
     });
 
-/// One observation per foreground outage, independent of retry and join work.
+/// One disconnect and, only after that report, one success per recovery round.
 class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   ChatroomDisconnectMonitor({
     this.threshold = const Duration(seconds: 15),
@@ -55,7 +57,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   DateTime? _recoveryForegroundSince;
   Duration _recoveryElapsed = Duration.zero;
   int _recoveryAttempts = 0;
-  bool _recoveryFailed = false;
+  String? _recoveryId;
   bool _recovering = false;
 
   WidgetsBinding? _binding;
@@ -67,9 +69,9 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   bool _reported = false;
   int _generation = 0;
   int _attempt = 0;
-  int _attempts = 0;
   String _worldId = '';
   String _owner = '';
+  String _networkType = 'unknown';
   String? _cause;
   String? _errorCode;
   int? _closeCode;
@@ -101,6 +103,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   static void _collectSuccess({
     required String worldId,
     required String phase,
+    required String recoveryId,
     required int retryCount,
     required int durationMs,
     required int connectAttempts,
@@ -113,6 +116,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       object3: durationMs.toString(),
       object4: phase,
       extData: jsonEncode({
+        'recovery_id': recoveryId,
         'connect_attempts': connectAttempts,
         'duration_unit': 'ms',
         'duration_scope': 'foreground_recovery',
@@ -132,7 +136,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _recoveryForegroundSince = null;
     _recoveryElapsed = Duration.zero;
     _recoveryAttempts = 0;
-    _recoveryFailed = false;
+    _recoveryId = null;
   }
 
   void activate(String worldId, String owner) {
@@ -149,10 +153,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _attempt++;
     _attemptClock = Stopwatch()..start();
     if (!_disposed && _needed && !_connected) {
-      _startRecovery();
       _recoveryAttempts++;
-      _observe();
-      _attempts++;
     }
     return _attempt;
   }
@@ -160,7 +161,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
   void succeeded(int attempt) {
     if (!_needed || _disposed || attempt != _attempt) return;
     if (_connected) return;
-    if (_recovering && _recoveryFailed) {
+    if (_recovering && _reported) {
       final elapsed =
           _recoveryElapsed +
           (_recoveryForegroundSince == null
@@ -168,6 +169,7 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
               : _now().difference(_recoveryForegroundSince!));
       try {
         _reportSuccess(
+          recoveryId: _recoveryId!,
           worldId: _worldId,
           phase: _everConnected ? 'reconnect' : 'initial_connect',
           retryCount: _everConnected
@@ -212,7 +214,6 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       return;
     }
     _startRecovery();
-    _recoveryFailed = true;
     _details.add({
       'attempt': _attempt,
       'cause': cause,
@@ -238,30 +239,39 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _cause ??= cause;
     if (errorCode != null) _errorCode = errorCode;
     if (closeCode != null) _closeCode = closeCode;
-    if (_reported) unawaited(_emit(_generation, repeat: true));
   }
 
   void _observe() {
-    if (!_foreground || _timer != null || _reported || !_needed || _disposed) {
+    if (!_recovering ||
+        !_foreground ||
+        _timer != null ||
+        _reported ||
+        !_needed ||
+        _disposed) {
       return;
     }
     final generation = _generation;
-    _timer = Timer(threshold, () => unawaited(_emit(generation)));
+    unawaited(_refreshNetworkType(generation));
+    _timer = Timer(threshold, () => _emit(generation));
   }
 
-  Future<void> _emit(int generation, {bool repeat = false}) async {
-    if (!_valid(generation, repeat: repeat)) return;
+  Future<void> _refreshNetworkType(int generation) async {
     String network;
     try {
       network = await _readNetworkType().timeout(const Duration(seconds: 1));
     } catch (_) {
       network = 'unknown';
     }
-    // Recovery/background/account changes while native snapshot is pending cancel it.
-    if (!_valid(generation, repeat: repeat)) return;
-    _reported = true;
+    if (_valid(generation)) _networkType = network;
+  }
+
+  void _emit(int generation) {
+    if (!_valid(generation)) return;
+    // Assign the identity only when the failure is actually reported.
+    _recoveryId = const Uuid().v4();
     final ext = <String, Object>{
-      'connect_attempts': _attempts,
+      'recovery_id': _recoveryId!,
+      'connect_attempts': _recoveryAttempts,
       'cause': _cause ?? 'unknown',
       'attempt_details': List.of(_details),
     };
@@ -272,20 +282,21 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
         worldId: _worldId,
         phase: _everConnected ? 'reconnect' : 'initial_connect',
         cause: _cause ?? 'unknown',
-        networkType: network,
+        networkType: _networkType,
         extData: _fitDiagnostics(ext, 4000),
       );
+      _reported = true;
     } catch (_) {
       // Diagnostics must never affect the connection or retry path.
     }
   }
 
-  bool _valid(int generation, {bool repeat = false}) =>
+  bool _valid(int generation) =>
       !_disposed &&
       _needed &&
       _foreground &&
       !_connected &&
-      (repeat || !_reported) &&
+      !_reported &&
       generation == _generation;
 
   void _clearObservation() {
@@ -293,10 +304,10 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
     _timer?.cancel();
     _timer = null;
     _reported = false;
+    _networkType = 'unknown';
     _cause = null;
     _errorCode = null;
     _closeCode = null;
-    _attempts = 0;
     _details.clear();
   }
 
@@ -311,7 +322,11 @@ class ChatroomDisconnectMonitor with WidgetsBindingObserver {
       _recoveryForegroundSince = _now();
     }
     _foreground = foreground;
-    _clearObservation();
+    // Background pauses observation, but never opens a second reporting round.
+    // Preserve the round ID, report flag and attempts until success/cancellation.
+    _generation++;
+    _timer?.cancel();
+    _timer = null;
     if (_foreground && _needed && !_connected) _observe();
   }
 
