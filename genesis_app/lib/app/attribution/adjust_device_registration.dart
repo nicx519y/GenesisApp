@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:adjust_sdk/adjust.dart';
 import 'package:flutter/foundation.dart';
+import '../../platform/device/gaid_reader.dart';
 
 import '../privacy/privacy_consent_controller.dart';
 import 'adjust_local_adid_store.dart';
@@ -72,7 +73,7 @@ class AdjustDeviceRegistration {
     required this.environmentProvider,
     this.readAdid = Adjust.getAdidWithTimeout,
     this.readGoogleAdId = Adjust.getGoogleAdId,
-    this.readNativeGoogleAdId,
+    this.readNativeGoogleAdId = readSystemGaid,
     this.readIdfa = Adjust.getIdfa,
     this.readIdfv = Adjust.getIdfv,
     this.readAppInstanceId = _emptyAppInstanceId,
@@ -517,18 +518,17 @@ class AdjustDeviceRegistration {
   Future<({String id, String adjustId, String nativeId})> _readGoogleAdId({
     bool captureNative = false,
   }) async {
-    final adjustId = await _readOptional(readGoogleAdId, 'GPS ADID');
-    if (_isUsableAdvertisingId(adjustId) && !captureNative) {
-      return (id: adjustId, adjustId: adjustId, nativeId: '');
-    }
-    final nativeReader = readNativeGoogleAdId;
-    final nativeId = nativeReader == null
-        ? ''
-        : await _readOptional(nativeReader, 'native GPS ADID');
-    final id = _isUsableAdvertisingId(adjustId)
-        ? adjustId
-        : (_isUsableAdvertisingId(nativeId) ? nativeId : '');
-    return (id: id, adjustId: adjustId, nativeId: nativeId);
+    final result = await readGaid(
+      adjustReader: readGoogleAdId,
+      systemReader: readNativeGoogleAdId ?? readSystemGaid,
+      timeout: optionalIdTimeout,
+      captureNative: captureNative,
+    );
+    return (
+      id: result.id,
+      adjustId: result.adjustId,
+      nativeId: result.nativeId,
+    );
   }
 
   bool _isUsableAdvertisingId(String value) =>

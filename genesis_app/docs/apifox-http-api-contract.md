@@ -2751,6 +2751,12 @@ World：
 - 补报复用实际购买时的 store_product_id 和凭据，HTTP 请求不发送 plan_code、request_id 或 base_plan_id；本地快照的套餐及记录编号不会重新注入上报参数。未知套餐的商店历史不猜测、不落入补报队列。已登录升级继续使用最新商品列表返回的原订阅 UUID/token 和目标 base plan，不依赖本地成功订单历史。
 - 本地 mock 对 prepare/report 返回 `5000`，不伪造购买身份、商店验单或会员发放。
 
+## 设备信息日志精简（2026-10-30）
+
+- Android 归因注册与设备日志共用 GAID 获取策略：Adjust 优先，空值、全零值、异常或超时后通过系统 API 兜底；两者均无有效值时不提供 GAID。`device_info` 始终发送 `adjust_adid`，Android 同时始终发送 `gaid`、`gaid_source`；未获取到的值使用空字符串，不省略字段、不传 null。有效 GAID 的来源枚举为 `adjust`、`system_api`，无 GAID 时来源为空字符串。归因诊断可额外读取系统值作对比，最终仍优先使用有效的 Adjust 值。
+- `device_info` 的 object1 不再上报 `android_user_serial`、`android_user_type`、`gateway_public_key_hash`、`os_build_fingerprint_hash`、`schema_version`、`signing_cert_sha256`。
+- Android 厂商与型号合并为 `device`，格式为 `manufacturer,model`，例如 `vivo,V2339`；各项去除首尾空格并跳过空项，不再单独上报 `manufacturer`、`model` 或原设备代号。其余归因标识、设备 ID 来源和 trigger 保持原规则。原生诊断快照及 Gateway 密钥流程不变。
+
 ## 游客会员订单启动检查（2026-09-14）
 
 - App 主界面首次显示后（包括默认进入 Worldo 标签、尚未构建 Home），优先使用已购买缓存中的最新 UUID 调用 `POST /api/v1/membership/guest/purchase/check`。没有已购买缓存才用会员专用只读查询发现当前 App 的 Google SUBS / Apple 有效订阅，排除 pending 及过期订单，选择购买时间最新的一笔，用其 `obfuscatedAccountId` / `appAccountToken` 调用 check；不逐个检查历史 UUID，包括无缓存重装场景。已登录跳过；并发入口调用共用一个任务，登录或切账号使迟到结果失效。

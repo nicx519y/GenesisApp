@@ -9,8 +9,6 @@ import '../../platform/app/app_metadata_service.dart';
 import '../../platform/device/device_id_service.dart';
 import 'genesis_telemetry.dart';
 
-const int deviceInfoSchemaVersion = 1;
-
 typedef DeviceInfoAppVersionReader = Future<AppVersionInfo> Function();
 typedef DeviceInfoCollectLogger = Future<bool> Function(String object1);
 
@@ -132,7 +130,6 @@ class DeviceInfoTelemetryReporter {
     if (trigger == null) return;
 
     final payload = SplayTreeMap<String, Object?>.of(<String, Object?>{
-      'schema_version': deviceInfoSchemaVersion,
       'trigger': trigger,
       ...context,
     });
@@ -173,6 +170,12 @@ class DeviceInfoTelemetryReporter {
         ? _androidFields
         : _iosFields;
     return <String, Object?>{
+      if (snapshot.platform == 'android')
+        'device': [snapshot.fields['manufacturer'], snapshot.fields['model']]
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .join(','),
       for (final key in allowedFields)
         if (_isTelemetryValue(snapshot.fields[key]) ||
             (snapshot.platform == 'ios' &&
@@ -186,8 +189,12 @@ class DeviceInfoTelemetryReporter {
     DeviceIdService service,
     String platform,
   ) async {
+    final context = <String, Object?>{
+      'adjust_adid': '',
+      if (platform == 'android') ...{'gaid': '', 'gaid_source': ''},
+    };
     if (service is! DeviceIdDiagnosticsService) {
-      return const <String, Object?>{};
+      return context;
     }
     try {
       final diagnostics = await (service as DeviceIdDiagnosticsService)
@@ -202,10 +209,13 @@ class DeviceInfoTelemetryReporter {
               'idfa': diagnostics.idfa,
               'idfv': diagnostics.idfv,
             };
-      final context = <String, Object?>{};
       for (final entry in identifiers.entries) {
         final value = _normalizedAttributionIdentifier(entry.value);
         if (value != null) context[entry.key] = value;
+      }
+      if (platform == 'android' && context['gaid'] != '') {
+        final source = _normalizedAttributionIdentifier(diagnostics.gaidSource);
+        if (source != null) context['gaid_source'] = source;
       }
       return context;
     } catch (error, stackTrace) {
@@ -215,7 +225,7 @@ class DeviceInfoTelemetryReporter {
       debugPrint(
         '[Telemetry][DeviceInfo] attribution stacktrace:\n$stackTrace',
       );
-      return const <String, Object?>{};
+      return context;
     }
   }
 
@@ -249,17 +259,7 @@ class DeviceInfoTelemetryReporter {
     );
   }
 
-  static const _androidFields = <String>[
-    'device_id_source',
-    'signing_cert_sha256',
-    'android_user_serial',
-    'android_user_type',
-    'gateway_public_key_hash',
-    'manufacturer',
-    'model',
-    'device',
-    'os_build_fingerprint_hash',
-  ];
+  static const _androidFields = <String>['device_id_source'];
 
   static const _iosFields = <String>[
     'device_id_source',
@@ -268,7 +268,6 @@ class DeviceInfoTelemetryReporter {
     'bundle_id',
     'app_id_prefix',
     'keychain_access_group_hash',
-    'gateway_public_key_hash',
     'idfv_hash',
     'device_model',
     'os_build',
