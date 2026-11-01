@@ -1034,7 +1034,7 @@ JSON body：
 
 - `recorded_count*`: integer
 
-客户端只统计封面图片已成功渲染、在列表真实内容视口内可见面积至少 30% 且连续可见满 1.5 秒的卡片；占位图、图片加载中或加载失败时不开始计时。可见面积低于 30% 时取消本次计时，重新进入后重新计时。快速经过的卡片不采集，当前页面生命周期内按 OID 去重。服务端 `5000` 或可重试网络错误最多尝试 3 次，参数错误 `4004` 不重试。
+客户端只统计封面图片已成功渲染、在列表真实内容视口内可见面积至少 30% 且连续可见满 1 秒的卡片；占位图、图片加载中或加载失败时不开始计时。可见面积低于 30% 时取消本次计时，重新进入后重新计时。快速经过的卡片不采集，当前页面生命周期内按 OID 去重。服务端 `5000` 或可重试网络错误最多尝试 3 次，参数错误 `4004` 不重试。
 
 ### GET `/api/v1/origin/hot_tags`
 
@@ -2554,7 +2554,7 @@ query：
 | `GET /api/v2/search` | `SearchV1Api.search` 保留调用入口但返回完整 `SearchV2Response`；继续发送 `keyword/type/pn/rn`，完整消费三类分页块及所有 item 字段；三类都保留 `matches[].field/highlight_ranges`，只有 Origin 的 `character_name` 命中带 `character_id`，Origin 额外保留 `characters` 和 `matches_truncated`；范围使用 UTF-16 code unit。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `scene/tag/tag_id/keyword/uid/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`；详情入口使用 `info.definition_version/default_map_location_id` 立即挂载不可交互的 Tilemap，地图返回后即可渲染，detail 返回后再补齐 location tree 与交互；首页 popular 会优先消费 `list[].discusses` 作为最新 2 条讨论预览，本地 mock 仅默认/`popular` 场景返回该字段。 |
 | `GET /api/v1/origin/feed` | `OriginV1Api.feed` 使用 `start_score/rn`；Origin 页仅 For you 使用该接口，刷新传 `0`，分页严格复用响应 `next_score`，并以 `has_more` 和游标前进共同决定是否继续；`list[].info` 保留 `definition_version/default_map_location_id`，详情 loading 阶段据此直接挂载不可交互的默认 2.5D Tilemap，地图渲染不等待 detail。 |
-| `POST /api/v1/origin/feed/exposure` | `OriginV1Api.reportFeedExposure` 提交 `origin_ids`；Origin 页仅在封面成功渲染后，按列表真实内容视口内 30% 可见面积和连续 1.5 秒可见时长采集；占位、加载中、加载失败、低于阈值或快速经过均不采集，本地按页面生命周期去重。 |
+| `POST /api/v1/origin/feed/exposure` | `OriginV1Api.reportFeedExposure` 提交 `origin_ids`；Origin 页仅在封面成功渲染后，按列表真实内容视口内 30% 可见面积和连续 1 秒可见时长采集；占位、加载中、加载失败、低于阈值或快速经过均不采集，本地按页面生命周期去重。 |
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/my_launch_preset_characters` | `OriginV1Api.myLaunchPresetCharacters(originId,limit)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId,limit)` 的 query 使用 `origin_id/limit`；Opening Sheet 固定请求 `limit=5`，服务端先按 `last_active_at DESC` 排序再限制数量，客户端按响应顺序展示；响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |

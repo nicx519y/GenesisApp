@@ -21507,7 +21507,7 @@ void main() {
     expect(transport.requestsFor(exposurePath), isEmpty);
     // pumpAndSettle has already advanced the visibility clock. Leave margin
     // for that frame instead of assuming the exposure timer starts here.
-    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pump(const Duration(milliseconds: 800));
     expect(
       transport.requestsFor(exposurePath),
       isEmpty,
