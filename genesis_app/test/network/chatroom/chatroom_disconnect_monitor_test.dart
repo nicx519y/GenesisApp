@@ -1,22 +1,34 @@
+import 'package:genesis_flutter_android/network/chatroom/chatroom_connect_deadline.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_disconnect_monitor.dart';
-import 'package:genesis_flutter_android/platform/network/network_type_snapshot.dart';
 
 void main() {
-  late List<Map<String, Object>> reports;
+  late List<Map<String, dynamic>> failures;
   late List<Map<String, Object>> successes;
   ChatroomDisconnectMonitor monitor({
-    Future<String> Function()? network,
     DateTime Function()? now,
+    Future<String> Function()? network,
   }) {
-    final value = ChatroomDisconnectMonitor(
+    final m = ChatroomDisconnectMonitor(
       now: now,
-      readNetworkType: network ?? () async => 'none',
+      readNetworkType: network ?? () async => 'wifi',
+      report:
+          ({
+            required worldId,
+            required phase,
+            required cause,
+            required networkType,
+            required extData,
+          }) {
+            failures.add({
+              ...jsonDecode(extData) as Map<String, dynamic>,
+              'phase': phase,
+            });
+          },
       reportSuccess:
           ({
             required worldId,
@@ -27,445 +39,260 @@ void main() {
             required connectAttempts,
           }) {
             successes.add({
-              'recovery_id': recoveryId,
+              'id': recoveryId,
               'phase': phase,
-              'retry_count': retryCount,
-              'duration_ms': durationMs,
+              'retries': retryCount,
+              'duration': durationMs,
               'attempts': connectAttempts,
             });
           },
-      report:
-          ({
-            required worldId,
-            required phase,
-            required cause,
-            required networkType,
-            required extData,
-          }) {
-            reports.add({
-              'world': worldId,
-              'phase': phase,
-              'cause': cause,
-              'network': networkType,
-              'ext': jsonDecode(extData),
-            });
-          },
     );
-    value.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    value.activate('world-1', 'user-1');
-    addTearDown(value.dispose);
-    return value;
+    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    m.activate('w', 'u');
+    addTearDown(m.dispose);
+    return m;
   }
 
+  void fail(ChatroomDisconnectMonitor m, {bool timeout = false}) =>
+      m.connectFailed(
+        m.beginAttempt(),
+        error: timeout
+            ? const ChatroomConnectDeadlineExceeded(Duration(seconds: 5))
+            : StateError('failed'),
+      );
   setUp(() {
-    reports = [];
+    failures = [];
     successes = [];
   });
 
-  testWidgets('quick initial and reconnect successes do not report', (
-    tester,
-  ) async {
-    final m = monitor();
-    m.connectFailed(m.beginAttempt());
-    await tester.pump(const Duration(seconds: 5));
-    m.succeeded(m.beginAttempt());
-    m.lost('socket_closed');
-    await tester.pump(const Duration(seconds: 5));
-    m.succeeded(m.beginAttempt());
-    await tester.pump(const Duration(seconds: 20));
-    expect(reports, isEmpty);
-    expect(successes, isEmpty);
-  });
-
-  testWidgets('each reported round pairs once and uses a distinct ID', (
-    tester,
-  ) async {
-    final m = monitor();
-    final first = m.beginAttempt();
-    m.connectFailed(first);
-    await tester.pump(const Duration(seconds: 15));
-    final firstId = (reports.single['ext'] as Map)['recovery_id'];
-    expect(firstId, isA<String>());
-    expect(firstId, isNotEmpty);
-    // Recovery only pairs with the anomaly from this failed round.
-    m.succeeded(first);
-    m.succeeded(first);
-    expect(successes, hasLength(1));
-    expect(successes.single['recovery_id'], firstId);
-    expect(successes.single['phase'], 'initial_connect');
-    m.lost('socket_closed');
-    await tester.pump(const Duration(seconds: 15));
-    final secondId = (reports.last['ext'] as Map)['recovery_id'];
-    expect(secondId, isNot(firstId));
-    m.succeeded(first - 1);
-    expect(successes, hasLength(1));
-    m.succeeded(m.beginAttempt());
-    expect(successes, hasLength(2));
-    expect(successes.last['recovery_id'], secondId);
-    expect(successes.last['phase'], 'reconnect');
-    // Prior reported rounds cannot authorize a later quick success.
-    m.lost('socket_closed');
-    m.succeeded(m.beginAttempt());
-    expect(successes, hasLength(2));
-  });
-
-  testWidgets('reported round survives background without duplicate reports', (
-    tester,
-  ) async {
-    final m = monitor();
-    m.connectFailed(m.beginAttempt());
-    await tester.pump(const Duration(seconds: 15));
-    final id = (reports.single['ext'] as Map)['recovery_id'];
-    m.didChangeAppLifecycleState(AppLifecycleState.paused);
-    m.connectFailed(m.beginAttempt());
-    await tester.pump(const Duration(minutes: 1));
-    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    await tester.pump(const Duration(seconds: 30));
-    expect(reports, hasLength(1));
-    m.succeeded(m.beginAttempt());
-    expect(successes.single['recovery_id'], id);
-    m.lost('socket_closed');
-    await tester.pump(const Duration(seconds: 15));
-    m.cancel();
-    m.activate('other', 'other');
-    m.succeeded(m.beginAttempt());
-    expect(successes, hasLength(1));
-  });
-
-  testWidgets('paired success excludes background attempts and duration', (
-    tester,
-  ) async {
-    var now = DateTime.utc(2026);
-    final m = monitor(now: () => now);
-    m.connectFailed(m.beginAttempt());
-    now = now.add(const Duration(seconds: 15));
-    await tester.pump(const Duration(seconds: 15));
-    m.didChangeAppLifecycleState(AppLifecycleState.paused);
-    now = now.add(const Duration(seconds: 100));
-    m.connectFailed(m.beginAttempt());
-    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    now = now.add(const Duration(seconds: 3));
-    m.succeeded(m.beginAttempt());
-    expect(successes.single['duration_ms'], 18000);
-    expect(successes.single['attempts'], 2);
-    expect(successes.single['retry_count'], 1);
-    expect(
-      successes.single['recovery_id'],
-      (reports.single['ext'] as Map)['recovery_id'],
-    );
-  });
-
   testWidgets(
-    'initial background attempt is not subtracted from foreground retries',
+    'initial failure plus five failed retries reports once, and pairs recovery',
     (tester) async {
       final m = monitor();
-      m.didChangeAppLifecycleState(AppLifecycleState.paused);
-      m.connectFailed(m.beginAttempt());
-      m.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      await tester.pump(const Duration(seconds: 15));
+      fail(m);
+      for (var i = 0; i < 4; i++) {
+        fail(m);
+      }
+      expect(failures, isEmpty);
+      fail(m);
+      expect(failures.single['cause'], 'retry_exhausted');
+      expect(failures.single['retry_failure_count'], 5);
+      expect(failures.single['timeout_count'], 0);
+      fail(m);
+      fail(m, timeout: true);
+      fail(m, timeout: true);
+      expect(failures, hasLength(1));
+      final a = m.beginAttempt();
+      m.succeeded(a);
+      m.succeeded(a);
+      expect(successes, hasLength(1));
+      expect(successes.single['id'], failures.single['recovery_id']);
+    },
+  );
+  testWidgets('fifth retry success and fast reconnect produce no telemetry', (
+    tester,
+  ) async {
+    final m = monitor();
+    for (var i = 0; i < 5; i++) {
+      fail(m);
+    }
+    m.succeeded(m.beginAttempt());
+    m.lost('socket_closed');
+    for (var i = 0; i < 4; i++) {
+      fail(m);
+    }
+    m.succeeded(m.beginAttempt());
+    expect(failures, isEmpty);
+    expect(successes, isEmpty);
+  });
+  testWidgets(
+    'two timeouts including initial attempt report stalled, never twice',
+    (tester) async {
+      final m = monitor();
+      fail(m, timeout: true);
+      expect(failures, isEmpty);
+      fail(m, timeout: true);
+      expect(failures.single['cause'], 'connect_stalled');
+      expect(failures.single['timeout_count'], 2);
+      expect(failures.single['retry_failure_count'], 0);
+      for (var i = 0; i < 6; i++) {
+        fail(m);
+      }
+      expect(failures, hasLength(1));
       m.succeeded(m.beginAttempt());
-      expect(successes.single['attempts'], 1);
-      expect(successes.single['retry_count'], 1);
+      expect(successes.single['id'], failures.single['recovery_id']);
+    },
+  );
+  testWidgets(
+    'lower-level timeout is an explicit retry failure, never a stall',
+    (tester) async {
+      final m = monitor();
+      for (var i = 0; i < 6; i++) {
+        m.connectFailed(
+          m.beginAttempt(),
+          error: TimeoutException('signing or socket returned timeout'),
+        );
+      }
+      expect(failures.single['cause'], 'retry_exhausted');
+      expect(failures.single['timeout_count'], 0);
+      expect(failures.single['retry_failure_count'], 5);
+      final detail = (failures.single['attempt_details'] as List).last as Map;
+      expect(detail['error_type'], 'TimeoutException');
     },
   );
 
+  testWidgets('mixed failures count separately and first threshold wins', (
+    tester,
+  ) async {
+    final m = monitor();
+    fail(m, timeout: true);
+    for (var i = 0; i < 4; i++) {
+      fail(m);
+    }
+    expect(failures, isEmpty);
+    fail(m);
+    expect(failures.single['cause'], 'retry_exhausted');
+    expect(failures.single['timeout_count'], 1);
+    fail(m, timeout: true);
+    expect(failures, hasLength(1));
+  });
+  testWidgets('each new outage resets counters and recovery identity', (
+    tester,
+  ) async {
+    final m = monitor();
+    fail(m, timeout: true);
+    fail(m, timeout: true);
+    m.succeeded(m.beginAttempt());
+    final first = failures.single['recovery_id'];
+    m.lost('socket_closed');
+    for (var i = 0; i < 4; i++) {
+      fail(m);
+    }
+    expect(failures, hasLength(1));
+    fail(m);
+    expect(failures, hasLength(2));
+    expect(failures.last['recovery_id'], isNot(first));
+    expect(failures.last['phase'], 'reconnect');
+    m.succeeded(m.beginAttempt());
+    expect(successes, hasLength(2));
+  });
   testWidgets(
-    'success in background pairs without counting background attempt or time',
+    'background attempts and time never advance reporting thresholds',
     (tester) async {
       var now = DateTime.utc(2026);
       final m = monitor(now: () => now);
+      fail(m, timeout: true);
+      now = now.add(const Duration(seconds: 5));
+      m.didChangeAppLifecycleState(AppLifecycleState.paused);
+      for (var i = 0; i < 8; i++) {
+        fail(m, timeout: true);
+      }
+      now = now.add(const Duration(minutes: 2));
+      expect(failures, isEmpty);
+      m.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      fail(m, timeout: true);
+      expect(failures.single['timeout_count'], 2);
+      now = now.add(const Duration(seconds: 3));
       m.succeeded(m.beginAttempt());
-      m.lost('socket_closed');
-      now = now.add(const Duration(seconds: 15));
-      await tester.pump(const Duration(seconds: 15));
-      m.connectFailed(m.beginAttempt());
+      expect(successes.single['duration'], 8000);
+      expect(successes.single['attempts'], 3);
+      expect(successes.single['retries'], 2);
+    },
+  );
+  testWidgets(
+    'background recovery pairs but does not count its attempt or time',
+    (tester) async {
+      var now = DateTime.utc(2026);
+      final m = monitor(now: () => now);
+      fail(m, timeout: true);
+      fail(m, timeout: true);
+      now = now.add(const Duration(seconds: 10));
       m.didChangeAppLifecycleState(AppLifecycleState.paused);
       now = now.add(const Duration(minutes: 2));
       m.succeeded(m.beginAttempt());
-      expect(successes.single['duration_ms'], 15000);
-      expect(successes.single['attempts'], 1);
-      expect(successes.single['retry_count'], 1);
-      expect(
-        successes.single['recovery_id'],
-        (reports.single['ext'] as Map)['recovery_id'],
-      );
+      expect(successes.single['attempts'], 2);
+      expect(successes.single['duration'], 10000);
+      expect(successes.single['id'], failures.single['recovery_id']);
     },
   );
-
-  testWidgets(
-    'structured transport errors and stage metadata reach bounded ext data',
-    (tester) async {
-      final errors = <Object>[
-        const WebSocketException('rejected', 403),
-        SocketException(
-          'refused',
-          osError: const OSError('refused', 61),
-          address: InternetAddress('127.0.0.1'),
-          port: 443,
-        ),
-        const HandshakeException(
-          'certificate rejected',
-          OSError('TLS verify', 7),
-        ),
-      ];
-      for (final error in errors) {
-        final m = monitor();
-        m.connectFailed(
-          m.beginAttempt(),
-          error: error,
-          connectionDetails: {
-            'failure_stage': 'websocket_connect',
-            'target_scheme': 'wss',
-            'target_host': 'example.test',
-            'target_port': 443,
-            'target_path': '/ws',
-            'transport_duration_ms': 123,
-          },
-        );
-        await tester.pump(const Duration(seconds: 15));
-        final ext = reports.last['ext'] as Map;
-        final detail = (ext['attempt_details'] as List).single as Map;
-        expect(jsonEncode(ext).length, lessThanOrEqualTo(4000));
-        expect(detail['failure_stage'], 'websocket_connect');
-        expect(detail['target_host'], 'example.test');
-        expect(detail['transport_duration_ms'], 123);
-        expect(detail['foreground'], isTrue);
-        if (error is WebSocketException) {
-          expect(detail['http_status_code'], 403);
-          expect(detail.containsKey('socket_address'), isFalse);
-        } else if (error is SocketException) {
-          expect(detail['socket_address'], '127.0.0.1');
-          expect(detail['socket_port'], 443);
-          expect(detail['os_error_code'], 61);
-          expect(detail.containsKey('http_status_code'), isFalse);
-        } else {
-          expect(detail['os_error_code'], 7);
-          expect(detail['os_error_message'], 'TLS verify');
-          expect(detail.containsKey('http_status_code'), isFalse);
-        }
-        m.dispose();
-      }
-    },
-  );
-
-  testWidgets(
-    'raw errors retained but failures after threshold do not repeat',
-    (tester) async {
-      final m = monitor();
-      final a = m.beginAttempt();
-      m.connectFailed(
-        a,
-        error: const SocketException(
-          'lookup failed',
-          osError: OSError('host missing', 8),
-        ),
-        stack: StackTrace.fromString('frame1\nframe2'),
-      );
-      await tester.pump(const Duration(seconds: 15));
-      final ext = reports.single['ext'] as Map;
-      final detail = (ext['attempt_details'] as List).single as Map;
-      expect(detail['error_type'], 'SocketException');
-      expect(detail['os_error_code'], 8);
-      expect(detail['os_error_message'], 'host missing');
-      expect(detail['stack_summary'], 'frame1\nframe2');
-      for (final key in [
-        'dns_duration_ms',
-        'tcp_duration_ms',
-        'tls_duration_ms',
-        'timing_unavailable_reason',
-      ]) {
-        expect(detail.containsKey(key), isFalse);
-      }
-      m.connectFailed(m.beginAttempt(), error: StateError('retry failure'));
-      await tester.pump();
-      expect(reports, hasLength(1));
-      expect(
-        ((reports.last['ext'] as Map)['attempt_details'] as List)
-            .last['error_type'],
-        'SocketException',
-      );
-      m.succeeded(m.beginAttempt());
-      await tester.pump(const Duration(seconds: 30));
-      expect(reports, hasLength(1));
-    },
-  );
-
-  testWidgets(
-    '15 second threshold starts at failure rather than initial attempt',
-    (tester) async {
-      final m = monitor();
-      final a = m.beginAttempt();
-      await tester.pump(const Duration(seconds: 14));
-      expect(reports, isEmpty);
-      m.connectFailed(a);
-      m.beginAttempt();
-      await tester.pump(const Duration(seconds: 1));
-      expect(reports, isEmpty);
-      await tester.pump(const Duration(seconds: 14));
-      expect(reports.single, containsPair('phase', 'initial_connect'));
-      expect(reports.single, containsPair('cause', 'connect_error'));
-      expect(reports.single, containsPair('network', 'none'));
-      expect(reports.single['ext'], {
-        'recovery_id': isA<String>(),
-        'connect_attempts': 2,
-        'attempts_scope': 'foreground',
-        'cause': 'connect_error',
-        'attempt_details': anything,
-        'last_error_code': 'connect_failed',
-      });
-      m.beginAttempt();
-      await tester.pump(const Duration(minutes: 1));
-      expect(reports, hasLength(1));
-    },
-  );
-
-  testWidgets('initial hang without failure does not start observation', (
-    tester,
-  ) async {
-    final m = monitor();
-    final attempt = m.beginAttempt();
-    await tester.pump(const Duration(minutes: 1));
-    expect(reports, isEmpty);
-    m.succeeded(attempt);
-    expect(successes, isEmpty);
-  });
-
-  testWidgets('handshake before threshold cancels even while join is pending', (
+  testWidgets('stale and duplicated failures do not advance thresholds', (
     tester,
   ) async {
     final m = monitor();
     final a = m.beginAttempt();
-    await tester.pump(const Duration(seconds: 14));
-    m.succeeded(a);
-    await tester.pump(const Duration(seconds: 30));
-    expect(reports, isEmpty);
+    m.connectFailed(
+      a,
+      error: const ChatroomConnectDeadlineExceeded(Duration(seconds: 5)),
+    );
+    m.connectFailed(
+      a,
+      error: const ChatroomConnectDeadlineExceeded(Duration(seconds: 5)),
+    );
+    expect(failures, isEmpty);
+    m.cancel();
+    m.activate('other', 'other');
+    m.connectFailed(
+      a,
+      error: const ChatroomConnectDeadlineExceeded(Duration(seconds: 5)),
+    );
+    fail(m, timeout: true);
+    expect(failures, isEmpty);
+    m.succeeded(m.beginAttempt());
+    expect(successes, isEmpty);
   });
-
-  testWidgets(
-    'reconnect deduplicates causes and allows a new outage after recovery',
-    (tester) async {
-      final m = monitor(network: () async => 'wifi,vpn');
-      m.succeeded(m.beginAttempt());
-      m.lost('socket_error', errorCode: 'socket_error');
-      m.lost('socket_closed', closeCode: 1001);
-      await tester.pump(const Duration(seconds: 15));
-      expect(reports.single['cause'], 'socket_error');
-      expect(reports.single['phase'], 'reconnect');
-      expect(reports.single['network'], 'wifi,vpn');
-      expect(reports.single['ext'], {
-        'recovery_id': isA<String>(),
-        'connect_attempts': 0,
-        'attempts_scope': 'foreground',
-        'cause': 'socket_error',
-        'attempt_details': anything,
-        'close_code': 1001,
-        'last_error_code': 'socket_error',
-      });
-      m.succeeded(m.beginAttempt());
-      m.lost('heartbeat_send_failed');
-      await tester.pump(const Duration(seconds: 15));
-      expect(reports, hasLength(2));
-      expect(reports.last['cause'], 'heartbeat_send_failed');
-    },
-  );
-
-  testWidgets('background time excluded and resume starts fresh observation', (
-    tester,
-  ) async {
-    final m = monitor();
-    m.connectFailed(m.beginAttempt());
-    await tester.pump(const Duration(seconds: 14));
-    m.didChangeAppLifecycleState(AppLifecycleState.paused);
-    await tester.pump(const Duration(minutes: 1));
-    expect(reports, isEmpty);
-    m.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    await tester.pump(const Duration(seconds: 14));
-    expect(reports, isEmpty);
-    await tester.pump(const Duration(seconds: 1));
-    expect(reports, hasLength(1));
-  });
-
-  testWidgets(
-    'exit cancels and stale callbacks do not close a new observation',
-    (tester) async {
-      final m = monitor();
-      final old = m.beginAttempt();
-      m.connectFailed(old);
-      await tester.pump(const Duration(seconds: 14));
-      m.cancel();
-      await tester.pump(const Duration(seconds: 20));
-      expect(reports, isEmpty);
-      m.activate('world-2', 'user-2');
-      m.connectFailed(m.beginAttempt());
-      m.succeeded(old);
-      m.connectFailed(old);
-      m.lost('socket_closed', attempt: old);
-      await tester.pump(const Duration(seconds: 15));
-      expect(reports.single['world'], 'world-2');
-      expect(reports.single['cause'], 'connect_error');
-    },
-  );
-
-  testWidgets('pending network snapshot cannot suppress threshold pair', (
+  testWidgets('network query never delays count threshold or recovery', (
     tester,
   ) async {
     final pending = Completer<String>();
     final m = monitor(network: () => pending.future);
-    final a = m.beginAttempt();
-    m.connectFailed(a);
-    await tester.pump(const Duration(seconds: 15));
-    expect(reports, hasLength(1));
-    expect(reports.single['network'], 'unknown');
-    m.succeeded(a);
-    pending.complete('none');
+    fail(m, timeout: true);
+    fail(m, timeout: true);
+    expect(failures, hasLength(1));
+    m.succeeded(m.beginAttempt());
+    pending.complete('mobile');
     await tester.pump();
-    expect(
-      successes.single['recovery_id'],
-      (reports.single['ext'] as Map)['recovery_id'],
-    );
-    expect(reports, hasLength(1));
+    expect(successes, hasLength(1));
+    expect(failures, hasLength(1));
   });
-
-  testWidgets('network query failure cannot block report', (tester) async {
-    final m = monitor(
-      network: () async => throw StateError('native unavailable'),
-    );
-    m.connectFailed(m.beginAttempt());
-    await tester.pump(const Duration(seconds: 15));
-    expect(reports.single['network'], 'unknown');
-  });
-
-  testWidgets('hung native query times out without blocking diagnostics', (
+  testWidgets('structured HTTP and TLS diagnostics survive threshold report', (
     tester,
   ) async {
-    final m = monitor(network: () => Completer<String>().future);
-    m.connectFailed(m.beginAttempt());
-    await tester.pump(const Duration(seconds: 15));
-    expect(reports.single['network'], 'unknown');
-  });
-
-  testWidgets('dispose cancels an outstanding observation', (tester) async {
-    final m = monitor();
-    m.beginAttempt();
-    m.dispose();
-    await tester.pump(const Duration(seconds: 20));
-    expect(reports, isEmpty);
-  });
-
-  test(
-    'network types are concrete, stable, deduplicated and none is exclusive',
-    () {
-      expect(
-        NetworkTypeSnapshot.normalize(['vpn', 'wifi', 'wifi', 'none']),
-        'wifi,vpn',
+    for (final error in <Object>[
+      const WebSocketException('denied', 403),
+      const HandshakeException('TLS', OSError('cert', 7)),
+      SocketException(
+        'refused',
+        address: InternetAddress('127.0.0.1'),
+        port: 443,
+      ),
+    ]) {
+      final m = monitor();
+      fail(m);
+      for (var i = 0; i < 4; i++) {
+        fail(m);
+      }
+      m.connectFailed(
+        m.beginAttempt(),
+        error: error,
+        connectionDetails: {
+          'failure_stage': 'websocket_connect',
+          'target_host': 'example.test',
+          'transport_duration_ms': 123,
+        },
       );
-      expect(
-        NetworkTypeSnapshot.normalize(['ethernet', 'bluetooth', 'satellite']),
-        'ethernet,bluetooth,satellite',
-      );
-      expect(NetworkTypeSnapshot.normalize(['none']), 'none');
-      expect(NetworkTypeSnapshot.normalize(['other']), 'unknown');
-      expect(NetworkTypeSnapshot.normalize([]), 'unknown');
-    },
-  );
+      final detail = (failures.last['attempt_details'] as List).last as Map;
+      expect(detail['failure_stage'], 'websocket_connect');
+      if (error is WebSocketException) {
+        expect(detail['http_status_code'], 403);
+      }
+      if (error is TlsException) {
+        expect(detail['os_error_code'], 7);
+      }
+      if (error is SocketException) {
+        expect(detail['socket_port'], 443);
+      }
+      expect(jsonEncode(failures.last).length, lessThan(4000));
+      m.dispose();
+    }
+  });
 }

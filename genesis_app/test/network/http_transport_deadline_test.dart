@@ -11,6 +11,57 @@ import 'package:genesis_flutter_android/network/platform_http3_transport.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
+  test(
+    'deadline factory is used only by its own timer and cancels child work',
+    () async {
+      final ownError = StateError('own deadline');
+      NetworkCancellationToken? child;
+      await expectLater(
+        runWithNetworkDeadline<void>(
+          timeout: const Duration(milliseconds: 10),
+          timeoutErrorFactory: () => ownError,
+          action: (token) {
+            child = token;
+            return Completer<void>().future;
+          },
+        ),
+        throwsA(same(ownError)),
+      );
+      expect(child!.isCancelled, isTrue);
+      final lowerError = TimeoutException('lower-level timeout');
+      var factoryCalls = 0;
+      await expectLater(
+        runWithNetworkDeadline<void>(
+          timeout: const Duration(seconds: 1),
+          timeoutErrorFactory: () {
+            factoryCalls++;
+            return ownError;
+          },
+          action: (_) async => throw lowerError,
+        ),
+        throwsA(same(lowerError)),
+      );
+      expect(factoryCalls, 0);
+    },
+  );
+  test('default HTTP deadline and early success remain unchanged', () async {
+    await expectLater(
+      runWithNetworkDeadline<void>(
+        timeout: const Duration(milliseconds: 5),
+        action: (_) => Completer<void>().future,
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(
+      await runWithNetworkDeadline<int>(
+        timeout: const Duration(milliseconds: 20),
+        timeoutErrorFactory: () => StateError('deadline'),
+        action: (_) async => 42,
+      ),
+      42,
+    );
+  });
+
   for (final engine in ['native', 'dio', 'io']) {
     for (final userCancelled in [false, true]) {
       test(

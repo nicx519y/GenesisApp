@@ -1,3 +1,4 @@
+import 'chatroom_connect_deadline.dart';
 import '../gem_balance_alert.dart';
 export '../gem_balance_alert.dart';
 import 'location_chat_send_gate.dart';
@@ -183,6 +184,8 @@ class WorldChatroomService {
     required ChatroomMessageStorage messageStorage,
     Duration heartbeatInterval = const Duration(seconds: 2),
     Duration reconnectInterval = const Duration(seconds: 5),
+    Duration fastReconnectInterval = const Duration(seconds: 2),
+    Duration connectionTimeout = const Duration(seconds: 5),
     Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
     Duration streamIdleTimeout = chatroomStreamIdleTimeout,
     bool refreshInitialSnapshotOnConnect = true,
@@ -207,6 +210,8 @@ class WorldChatroomService {
        _messageStorage = messageStorage,
        _heartbeatInterval = heartbeatInterval,
        _reconnectInterval = reconnectInterval,
+       _fastReconnectInterval = fastReconnectInterval,
+       _connectionTimeout = connectionTimeout,
        _conversationRoundTimeout = conversationRoundTimeout,
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
@@ -415,6 +420,10 @@ class WorldChatroomService {
   final ChatroomMessageStorage _messageStorage;
   final Duration _heartbeatInterval;
   final Duration _reconnectInterval;
+  final Duration _fastReconnectInterval;
+  final Duration _connectionTimeout;
+  int _retryAttempts = 0;
+  NetworkCancellationToken? _connectionCancellation;
   final Duration _conversationRoundTimeout;
   final LocationChatSendGate sendGate;
   final _sendReleases = ChatSendReleaseScope();
@@ -503,6 +512,8 @@ class WorldChatroomService {
             expectedGeneration != _connectionAttemptGeneration)) {
       return;
     }
+    _connectionCancellation?.cancel();
+    _connectionCancellation = null;
     _connectionAttemptGeneration++;
     final connect = _connectCompleter;
     final join = _joinCompleter;
@@ -1089,6 +1100,8 @@ class WorldChatroomService {
     final nextWorldId = worldId.trim();
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
+      abandonConnectionWait();
+      _retryAttempts = 0;
       _historyConnectedOnce = false;
       _replyActionsController?.dispose();
       _replyActionsController = null;
@@ -1493,6 +1506,8 @@ class WorldChatroomService {
   }
 
   Future<void> disconnect() async {
+    abandonConnectionWait();
+    _retryAttempts = 0;
     _disconnectMonitor?.cancel();
     _suspendInspirations();
     _cancelHistoryRefreshes();
@@ -1842,6 +1857,7 @@ class WorldChatroomService {
     _retentionLeases.clear();
     _cacheEvictedRanges.clear();
     _clearAllConversationRounds();
+    abandonConnectionWait();
     _disposed = true;
     if (_ownsSendGate) sendGate.dispose();
     for (final generation in _llmGenerations.values) {

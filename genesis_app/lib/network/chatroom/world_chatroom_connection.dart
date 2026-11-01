@@ -23,17 +23,26 @@ extension _WorldChatroomConnection on WorldChatroomService {
     int? monitorAttempt;
     final connectionDetails = <String, Object?>{};
     var handshakeSucceeded = false;
+    final cancellation = NetworkCancellationToken();
+    _connectionCancellation = cancellation;
     try {
       await _detachSession(disconnect: true);
       if (attemptGeneration != _connectionAttemptGeneration) return;
       monitorAttempt = _disconnectMonitor?.beginAttempt();
-      final session = await _client.connect(
-        worldId: _worldId,
-        userId: identity.userId,
-        senderId: identity.senderId,
-        senderName: identity.senderName,
-        autoHeartbeat: false,
-        onConnectionDiagnostics: connectionDetails.addAll,
+      final session = await runWithNetworkDeadline<ChatroomSession>(
+        timeout: _connectionTimeout,
+        timeoutErrorFactory: () =>
+            ChatroomConnectDeadlineExceeded(_connectionTimeout),
+        cancellationToken: cancellation,
+        action: (token) => _client.connect(
+          worldId: _worldId,
+          userId: identity.userId,
+          senderId: identity.senderId,
+          senderName: identity.senderName,
+          autoHeartbeat: false,
+          onConnectionDiagnostics: connectionDetails.addAll,
+          cancellationToken: token,
+        ),
       );
       if (_userDisconnected ||
           _disposed ||
@@ -42,6 +51,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
         return;
       }
       handshakeSucceeded = true;
+      _retryAttempts = 0;
       if (monitorAttempt != null) {
         _disconnectMonitor?.succeeded(monitorAttempt);
       }
@@ -82,10 +92,15 @@ extension _WorldChatroomConnection on WorldChatroomService {
               cause: e,
             );
       _recordFailure(failure);
-      _scheduleReconnect();
+      _scheduleReconnect(
+        immediate: e is ChatroomConnectDeadlineExceeded && !handshakeSucceeded,
+      );
       if (!completer.isCompleted) completer.completeError(failure);
       rethrow;
     } finally {
+      if (identical(_connectionCancellation, cancellation)) {
+        _connectionCancellation = null;
+      }
       if (identical(_connectCompleter, completer)) {
         _connectCompleter = null;
       }
@@ -364,12 +379,17 @@ extension _WorldChatroomConnection on WorldChatroomService {
     _scheduleReconnect();
   }
 
-  void _scheduleReconnect() {
+  void _scheduleReconnect({bool immediate = false}) {
     if (_userDisconnected || _disposed) return;
     _setState(_state.copyWith(reconnecting: true));
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(_reconnectInterval, () {
+    final delay = immediate
+        ? Duration.zero
+        : (_retryAttempts < 5 ? _fastReconnectInterval : _reconnectInterval);
+    _reconnectTimer = Timer(delay, () {
       _reconnectTimer = null;
+      if (_disposed || _userDisconnected) return;
+      _retryAttempts++;
       unawaited(_connectOnce().catchError((Object _) {}));
     });
   }

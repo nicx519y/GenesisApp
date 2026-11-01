@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:genesis_flutter_android/network/http_transport.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/websocket_capture.dart';
@@ -13,6 +14,55 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  test(
+    'cancelling an unfinished handshake aborts its dedicated HTTP client',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final requests = <HttpRequest>[];
+      final subscription = server.listen(requests.add);
+      addTearDown(() async {
+        await subscription.cancel();
+        await server.close(force: true);
+      });
+      final transport = IoWebSocketTransport(logFrames: false);
+      final token = NetworkCancellationToken();
+      final connecting = transport.connectCancellable(
+        Uri.parse('ws://127.0.0.1:${server.port}/ws'),
+        cancellationToken: token,
+      );
+      final expectation = expectLater(connecting, throwsA(anything));
+      while (requests.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      token.cancel();
+      await expectation.timeout(const Duration(seconds: 2));
+    },
+  );
+
+  test(
+    'cancellable handshake still delivers a usable socket after success',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final sub = server.listen((request) async {
+        final s = await WebSocketTransformer.upgrade(request);
+        s.listen((event) => s.add(event));
+      });
+      addTearDown(() async {
+        await sub.cancel();
+        await server.close(force: true);
+      });
+      final transport = IoWebSocketTransport(logFrames: false);
+      final socket = await transport.connectCancellable(
+        Uri.parse('ws://127.0.0.1:${server.port}/ws'),
+        cancellationToken: NetworkCancellationToken(),
+      );
+      final receive = socket.messages.first;
+      await socket.send('probe');
+      expect(await receive, 'probe');
+      await socket.close();
+    },
+  );
 
   test(
     'transport records SEND and RECV without changing socket messages',

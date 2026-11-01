@@ -7,6 +7,7 @@ import 'dart:math';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../api_client.dart';
+import '../http_transport.dart';
 import '../app_request_headers.dart';
 import '../gateway_auth.dart';
 import '../../platform/device/device_id_service.dart';
@@ -16,7 +17,10 @@ import 'chatroom_models.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_socket_transport.dart';
 import '../websocket_transport.dart'
-    show NetworkWebSocketDiagnostics, NetworkWebSocketCloseDetails;
+    show
+        NetworkWebSocketDiagnostics,
+        NetworkWebSocketCloseDetails,
+        CancellableWebSocketTransport;
 import 'chatroom_timeline_payload.dart';
 import 'chatroom_message_type.dart';
 
@@ -62,6 +66,7 @@ class ChatroomClient {
     String? senderName,
     bool? autoHeartbeat,
     void Function(Map<String, Object?> details)? onConnectionDiagnostics,
+    NetworkCancellationToken? cancellationToken,
   }) async {
     void stage(String value, {int? transportDurationMs}) {
       try {
@@ -81,6 +86,7 @@ class ChatroomClient {
       }
     }
 
+    cancellationToken?.throwIfCancelled();
     stage('validation');
     final resolvedWorldId = worldId.trim();
     if (resolvedWorldId.isEmpty) {
@@ -88,6 +94,7 @@ class ChatroomClient {
     }
     stage('session_read');
     final localSession = await _sessionStore.readCompleteSession();
+    cancellationToken?.throwIfCancelled();
     if (localSession == null) {
       throw const ChatroomProtocolException('authToken is required');
     }
@@ -111,11 +118,13 @@ class ChatroomClient {
           ? authToken
           : 'Bearer $authToken',
     };
+    cancellationToken?.throwIfCancelled();
     final signer = _handshakeHeaderSigner;
     if (signer != null) {
       stage('gateway_signing');
       headers = await signer(uri, headers);
     }
+    cancellationToken?.throwIfCancelled();
     final protocolVersion = resolveChatroomProtocolVersion(
       _caseInsensitiveHeaderValue(headers, 'x-app-version'),
     );
@@ -123,10 +132,24 @@ class ChatroomClient {
     final ChatroomSocket socket;
     try {
       stage('websocket_connect');
-      socket = await _transport.connect(
-        uri,
-        headers: headers.isEmpty ? null : headers,
-      );
+      final transport = _transport;
+      socket =
+          cancellationToken != null &&
+              transport is CancellableWebSocketTransport
+          ? await (transport as CancellableWebSocketTransport)
+                .connectCancellable(
+                  uri,
+                  headers: headers,
+                  cancellationToken: cancellationToken,
+                )
+          : await transport.connect(
+              uri,
+              headers: headers.isEmpty ? null : headers,
+            );
+      if (cancellationToken?.isCancelled == true) {
+        unawaited(socket.close());
+        cancellationToken!.throwIfCancelled();
+      }
       connectStopwatch.stop();
       _chatroomTelemetry(
         'chatroom.ws_connect',

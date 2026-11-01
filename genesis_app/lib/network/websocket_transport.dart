@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'devtools_websocket_profile.dart';
 import 'io_http_transport.dart';
+import 'http_transport.dart';
 import 'websocket_capture.dart';
 
 const kLogWebSocketFrames = !bool.fromEnvironment('dart.vm.product');
@@ -35,7 +36,16 @@ abstract interface class NetworkWebSocketTransport {
   Future<NetworkWebSocket> connect(Uri uri, {Map<String, String>? headers});
 }
 
-class IoWebSocketTransport implements NetworkWebSocketTransport {
+abstract interface class CancellableWebSocketTransport {
+  Future<NetworkWebSocket> connectCancellable(
+    Uri uri, {
+    Map<String, String>? headers,
+    required NetworkCancellationToken cancellationToken,
+  });
+}
+
+class IoWebSocketTransport
+    implements NetworkWebSocketTransport, CancellableWebSocketTransport {
   IoWebSocketTransport({
     String? proxy,
     bool logFrames = kLogWebSocketFrames,
@@ -44,7 +54,8 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
     WebSocketFrameLogSink? frameLogSink,
     WebSocketCaptureController? captureController,
     DevToolsWebSocketProfile Function(Uri)? frameProfileFactory,
-  }) : _client = createProxyAwareHttpClient(proxy),
+  }) : _proxy = proxy,
+       _client = createProxyAwareHttpClient(proxy),
        _logFrames = logFrames,
        _logName = logName,
        _frameLogName = frameLogName,
@@ -53,6 +64,7 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
        _frameProfileFactory =
            frameProfileFactory ?? DevToolsWebSocketProfile.new;
 
+  final String? _proxy;
   final HttpClient _client;
   final bool _logFrames;
   final String _logName;
@@ -66,13 +78,44 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
     Uri uri, {
     Map<String, String>? headers,
   }) async {
-    developer.log('connecting $uri', name: _logName);
-    final socket = await WebSocket.connect(
-      uri.toString(),
-      headers: headers,
-      compression: CompressionOptions.compressionOff,
-      customClient: _client,
+    return _connect(uri, headers: headers);
+  }
+
+  @override
+  Future<NetworkWebSocket> connectCancellable(
+    Uri uri, {
+    Map<String, String>? headers,
+    required NetworkCancellationToken cancellationToken,
+  }) => _connect(uri, headers: headers, cancellationToken: cancellationToken);
+
+  Future<NetworkWebSocket> _connect(
+    Uri uri, {
+    Map<String, String>? headers,
+    NetworkCancellationToken? cancellationToken,
+  }) async {
+    cancellationToken?.throwIfCancelled();
+    final client = cancellationToken == null
+        ? _client
+        : createProxyAwareHttpClient(_proxy);
+    final removeCancel = cancellationToken?.addCancelListener(
+      () => client.close(force: true),
     );
+    late WebSocket socket;
+    try {
+      socket = await WebSocket.connect(
+        uri.toString(),
+        headers: headers,
+        compression: CompressionOptions.compressionOff,
+        customClient: client,
+      );
+      if (cancellationToken?.isCancelled == true) {
+        unawaited(socket.close());
+        cancellationToken!.throwIfCancelled();
+      }
+    } finally {
+      removeCancel?.call();
+      if (cancellationToken != null) client.close();
+    }
     developer.log(
       'connected $uri protocol=${socket.protocol ?? ''}',
       name: _logName,

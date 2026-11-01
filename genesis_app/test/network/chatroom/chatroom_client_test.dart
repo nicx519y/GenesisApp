@@ -2,6 +2,7 @@ import 'package:genesis_flutter_android/network/gem_balance_alert.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:genesis_flutter_android/network/http_transport.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
@@ -16,6 +17,33 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('cancelled signing cannot later start a socket handshake', () async {
+    final signing = Completer<Map<String, String>>();
+    final transport = _SequencedChatroomTransport([]);
+    final token = NetworkCancellationToken();
+    final client = await _client(
+      transport,
+      handshakeHeaderSigner: (_, _) => signing.future,
+    );
+    final details = <String, Object?>{};
+    final pending = client.connect(
+      worldId: 'w',
+      cancellationToken: token,
+      onConnectionDiagnostics: details.addAll,
+    );
+    final check = expectLater(
+      pending,
+      throwsA(isA<NetworkRequestCancelledException>()),
+    );
+    while (details['failure_stage'] != 'gateway_signing') {
+      await Future<void>.delayed(Duration.zero);
+    }
+    token.cancel();
+    signing.complete({});
+    await check;
+    expect(transport.connectCount, 0);
+  });
+
   test(
     'connection diagnostics distinguish signer and transport failures without changing errors',
     () async {
