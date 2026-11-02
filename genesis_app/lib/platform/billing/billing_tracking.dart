@@ -204,7 +204,14 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         stackTrace: stackTrace,
         stage: 'precheck',
         context: {
-          if (step != null) 'step': step,
+          'step':
+              step ??
+              switch (errorCode) {
+                'purchase_in_progress' => 'check_purchase_busy',
+                'uuid_unavailable' => 'load_account_uuid',
+                'gp_unavailable' => 'check_store_availability',
+                _ => 'validate_product',
+              },
           if (durationMs != null) 'total_duration_ms': durationMs,
         },
       ),

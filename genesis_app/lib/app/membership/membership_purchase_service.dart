@@ -407,7 +407,18 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         tracking ??
         SubscriptionTracking.recovery('${provider.name}:attempt:$attemptId');
     if (_busy || (otherPurchaseBusy?.call() ?? false)) {
-      _trackPreparationFailure(attemptId, 'precheck', 'purchase_in_progress');
+      _trackPreparationFailure(
+        attemptId,
+        'precheck',
+        'purchase_in_progress',
+        context: {
+          'plan_code': product.planCode,
+          'store_product_id': product.storeProductId,
+          'base_plan_id': product.basePlanId,
+          'offer_id': product.offerId,
+          'step': 'check_purchase_busy',
+        },
+      );
       _emitCheckout(
         MembershipCheckoutState.failed,
         attemptId,
@@ -743,7 +754,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           stackTrace: stackTrace,
           context: {
             'attempt_id': id,
-            'product_id': product.planCode,
+            'plan_code': product.planCode,
             'store_product_id': product.storeProductId,
             'base_plan_id': product.basePlanId,
             'offer_id': product.offerId,
@@ -1177,7 +1188,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           context: {
             'attempt_id': record.requestId,
             'store_callback_received': true,
-            'product_id': record.product.storeProductId,
+            'success_callback_received': false,
+            'plan_code': record.product.planCode,
+            'store_product_id': record.product.storeProductId,
             'callback_product_id': purchase.productId,
             'association': purchase.productId.isEmpty
                 ? 'client_inferred'
@@ -1652,6 +1665,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           diagnostics: paymentFailureDiagnostics(
             provider: provider.name,
             stage: 'stream',
+            status: 'error',
             stackTrace: stackTrace,
             error: error,
           ),

@@ -113,8 +113,23 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         'purchase_failed',
         properties: <String, Object?>{
           'product_id': product.productId,
+          'attempt_id': clickAttemptId,
+          'source': BillingPurchaseSource.buyGemsPage.value,
+          'provider': defaultTargetPlatform == TargetPlatform.iOS
+              ? 'apple'
+              : defaultTargetPlatform == TargetPlatform.android
+              ? 'google'
+              : 'unknown',
+          'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+              ? product.appleProductId
+              : product.googleProductId,
           'reason': 'precheck_failed',
           'error_code': 'service_unavailable',
+          'failure_diagnostics': {
+            'stage': 'prepare',
+            'step': 'resolve_billing_service',
+            'error_layer': 'business',
+          },
         },
       );
       showGenesisToast(

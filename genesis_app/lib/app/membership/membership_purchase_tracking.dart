@@ -33,7 +33,21 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
           tracking,
           reason,
           once: true,
-          diagnostics: diagnostics,
+          diagnostics: {
+            'provider': provider.name,
+            'attempt_id': id,
+            if (_records[id] case final record?) ...{
+              'plan_code': record.product.planCode,
+              'store_product_id': record.product.storeProductId,
+              'base_plan_id': record.product.basePlanId,
+              'offer_id': record.product.offerId,
+            },
+            if (_checkoutWaits[id] case final wait?) ...{
+              'store_handoff_started': wait.storeHandedOff,
+              'store_callback_received': wait.storeCallbackReceived,
+            },
+            ...diagnostics,
+          },
         );
       }
     } catch (_) {
@@ -66,7 +80,7 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
           stage: stage,
           error: error,
           stackTrace: stackTrace,
-          context: context,
+          context: {'attempt_id': id, ...context},
         ),
       );
     } catch (_) {

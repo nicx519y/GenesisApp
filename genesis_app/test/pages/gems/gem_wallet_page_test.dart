@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -835,6 +836,13 @@ void main() {
         purchaseEvents.last.collectPayload?['object3'],
         'prepare_failed[reason=service_unavailable]',
       );
+      final diagnostic =
+          jsonDecode(purchaseEvents.last.collectPayload!['ext_data'] as String)
+              as Map;
+      expect(diagnostic['attempt_id'], isNotEmpty);
+      expect(diagnostic['source'], 'buy_gems_page');
+      expect(diagnostic['provider'], isNotEmpty);
+      expect(diagnostic['step'], 'resolve_billing_service');
       await tester.pump(const Duration(seconds: 3));
     },
   );

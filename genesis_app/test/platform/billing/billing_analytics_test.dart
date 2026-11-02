@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/platform/billing/payment_failure_diagnostics.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,39 @@ class _AsyncFailingTelemetrySink extends _CapturingTelemetrySink {
 }
 
 void main() {
+  for (final provider in ['googlePlay', 'appStore']) {
+    test('$provider Gems cancellation uses the same common schema', () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: {
+          'attempt_id': 'click-1',
+          'product_id': 'gem-1',
+          'store_product_id': 'store.gem-1',
+          'provider': provider,
+          'reason': 'canceled',
+          'failure_diagnostics': paymentFailureDiagnostics(
+            provider: provider,
+            stage: 'callback',
+            status: 'canceled',
+          ),
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      final payload = sink.events.single.collectPayload!;
+      expect(payload['object3'], 'callback_failed[reason=canceled]');
+      final d = jsonDecode(payload['ext_data'] as String) as Map;
+      expect(d['provider'], provider == 'googlePlay' ? 'google' : 'apple');
+      expect(d['attempt_id'], 'click-1');
+      expect(d['product_id'], 'gem-1');
+      expect(d['store_product_id'], 'store.gem-1');
+      expect(d['purchase_status'], 'canceled');
+      expect(d['event_status'], 'canceled');
+      expect(d['payment_outcome'], 'canceled');
+    });
+  }
+
   test(
     'asynchronous telemetry failure is contained at the payment boundary',
     () async {

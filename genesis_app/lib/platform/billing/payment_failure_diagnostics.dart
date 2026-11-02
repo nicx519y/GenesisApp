@@ -63,19 +63,30 @@ Map<String, Object?> paymentFailureDiagnostics({
         'foreground': foreground,
       'error_layer': error is ApiException
           ? 'http'
+          : {
+              'load_local_orders',
+              'prepare_order',
+              'persist_guest_identity',
+            }.contains(stage)
+          ? 'storage'
           : native['responseCode'] != null || native['nativeCode'] != null
           ? 'store_native'
           : error is IAPError ||
                 error is PlatformException ||
-                error is BillingPlatformException
+                error is BillingPlatformException ||
+                code?.isNotEmpty == true ||
+                source?.isNotEmpty == true
           ? 'sdk'
           : error is Error || error is FormatException
           ? 'client'
+          : error == null && {'precheck', 'prepare', 'query'}.contains(stage)
+          ? 'business'
           : 'unknown',
       if (error != null) 'error_type': error.runtimeType.toString(),
       if (code != null) 'error_code': code,
       if (source != null) 'error_source': source,
-      if (status != null) 'purchase_status': status,
+      if (status != null && stage == 'callback') 'purchase_status': status,
+      if (status != null) 'event_status': status,
       if (native['responseCode'] != null)
         'response_code': native['responseCode'],
       if (native['subResponseCode'] != null)
@@ -115,6 +126,8 @@ const _diagnosticKeys = {
   'step',
   'original_reason',
   'purchase_kind',
+  'plan_code',
+  'event_status',
   'payment_outcome',
   'error_layer',
   'stack_trace',

@@ -1,3 +1,5 @@
+import '../../support/membership_fixtures.dart' as fixtures;
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -26,6 +28,74 @@ void main() {
     events = [];
     analytics = SubscriptionAnalytics(sink: events.add);
   });
+
+  for (final provider in MembershipProvider.values) {
+    for (final phase in ['callback', 'stream', 'prepare', 'busy']) {
+      test(
+        '$provider $phase failure retains attempt, tracking and store identifiers',
+        () async {
+          final h = support.Harness(provider: provider, analytics: analytics);
+          addTearDown(h.service.dispose);
+          final product = fixtures.membershipProduct(
+            provider: provider,
+            offerId: provider == MembershipProvider.google ? 'test-offer' : '',
+          );
+          h.productsHandler = () async => [product];
+          if (phase == 'busy') h.gemsBusy = true;
+          const runtimeId = 'runtime-attempt-distinct-from-tracking';
+          if (phase == 'prepare') h.accountUuidHandler = () async => '';
+          await h.service.purchase(
+            product,
+            attemptId: runtimeId,
+            tracking: tracking,
+          );
+          if (phase == 'callback') {
+            await h.service.interceptPurchase(
+              h.purchase(status: BillingPurchaseStatus.canceled),
+            );
+          } else if (phase == 'stream') {
+            h.service.handleStreamError(
+              StateError('listener error'),
+              StackTrace.fromString('billing.dart:42'),
+            );
+          }
+          final event = events.singleWhere(
+            (e) => e.action == 'subscription_failed',
+          );
+          final d = jsonDecode(event.extData) as Map;
+          expect(d['attempt_id'], runtimeId);
+          expect(d['tracking_id'], tracking.id);
+          expect(
+            d['provider'],
+            provider == MembershipProvider.google ? 'google' : 'apple',
+          );
+          expect(d['plan_code'], h.product().planCode);
+          expect(d['store_product_id'], h.product().storeProductId);
+          expect(d.containsKey('product_id'), false);
+          if (product.basePlanId.isNotEmpty) {
+            expect(d['base_plan_id'], product.basePlanId);
+          } else {
+            expect(d.containsKey('base_plan_id'), false);
+          }
+          if (product.offerId.isNotEmpty) {
+            expect(d['offer_id'], product.offerId);
+          } else {
+            expect(d.containsKey('offer_id'), false);
+          }
+          if (phase == 'callback') {
+            expect(event.object3, 'callback_failed[reason=canceled]');
+            expect(d['purchase_status'], 'canceled');
+            expect(d['event_status'], 'canceled');
+            expect(d['callback_product_id'], h.product().storeProductId);
+          } else if (phase == 'stream') {
+            expect(d['event_status'], 'error');
+            expect(d.containsKey('purchase_status'), false);
+            expect(d['payment_outcome'], 'unknown');
+          }
+        },
+      );
+    }
+  }
 
   test(
     'edit quota sheet and purchase use a distinct source with existing surface',

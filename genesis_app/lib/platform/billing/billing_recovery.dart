@@ -253,6 +253,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             context: {
               'callback_product_id': purchase.productId,
               'store_callback_received': true,
+              'success_callback_received': false,
               if (attempt != null)
                 'total_duration_ms': DateTime.now()
                     .difference(attempt.startedAt)
@@ -302,6 +303,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             context: {
               'callback_product_id': purchase.productId,
               'store_callback_received': true,
+              'success_callback_received': false,
               if (attempt != null)
                 'total_duration_ms': DateTime.now()
                     .difference(attempt.startedAt)

@@ -5,6 +5,28 @@ import 'package:genesis_flutter_android/platform/billing/payment_failure_diagnos
 
 void main() {
   test(
+    'code-only SDK errors retain their layer without an exception object',
+    () {
+      final d = paymentFailureDiagnostics(
+        provider: 'apple',
+        stage: 'callback',
+        code: 'purchase_error',
+        source: 'app_store',
+      );
+      expect(d['error_layer'], 'sdk');
+    },
+  );
+  test('stream status cannot fabricate a purchase callback status', () {
+    final d = paymentFailureDiagnostics(
+      provider: 'google',
+      stage: 'stream',
+      status: 'error',
+    );
+    expect(d['event_status'], 'error');
+    expect(d.containsKey('purchase_status'), false);
+  });
+
+  test(
     'Google codes and diagnostic are structured and credentials are redacted',
     () {
       final diagnostic = paymentFailureDiagnostics(
