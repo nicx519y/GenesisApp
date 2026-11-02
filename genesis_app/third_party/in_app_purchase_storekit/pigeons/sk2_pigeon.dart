@@ -28,7 +28,11 @@ enum SK2ProductTypeMessage {
 
 enum SK2SubscriptionOfferTypeMessage { introductory, promotional, winBack }
 
-enum SK2SubscriptionOfferPaymentModeMessage { payAsYouGo, payUpFront, freeTrial }
+enum SK2SubscriptionOfferPaymentModeMessage {
+  payAsYouGo,
+  payUpFront,
+  freeTrial,
+}
 
 class SK2SubscriptionOfferMessage {
   const SK2SubscriptionOfferMessage({
@@ -88,9 +92,15 @@ class SK2ProductMessage {
     required this.priceLocale,
     required this.type,
     this.subscription,
+    this.purchaseSignature,
+    this.cacheHit,
+    this.cacheAgeMs,
   });
 
   /// The unique product identifier.
+  final bool? cacheHit;
+  final int? cacheAgeMs;
+  final String? purchaseSignature;
   final String id;
 
   /// The localized display name of the product, if it exists.
@@ -116,7 +126,10 @@ class SK2ProductMessage {
 }
 
 class SK2PriceLocaleMessage {
-  SK2PriceLocaleMessage({required this.currencyCode, required this.currencySymbol});
+  SK2PriceLocaleMessage({
+    required this.currencyCode,
+    required this.currencySymbol,
+  });
 
   final String currencyCode;
   final String currencySymbol;
@@ -156,6 +169,7 @@ class SK2ProductPurchaseOptionsMessage {
     this.winBackOfferId,
     this.handoffId,
     this.checkoutAttemptId,
+    this.expectedSignature,
   });
 
   final String? appAccountToken;
@@ -164,6 +178,7 @@ class SK2ProductPurchaseOptionsMessage {
   final String? winBackOfferId;
   final String? handoffId;
   final String? checkoutAttemptId;
+  final String? expectedSignature;
 }
 
 class SK2TransactionMessage {
@@ -199,14 +214,23 @@ class SK2TransactionMessage {
 }
 
 class SK2ErrorMessage {
-  const SK2ErrorMessage({required this.code, required this.domain, required this.userInfo});
+  const SK2ErrorMessage({
+    required this.code,
+    required this.domain,
+    required this.userInfo,
+  });
 
   final int code;
   final String domain;
   final Map<String, Object>? userInfo;
 }
 
-enum SK2ProductPurchaseResultMessage { success, unverified, userCancelled, pending }
+enum SK2ProductPurchaseResultMessage {
+  success,
+  unverified,
+  userCancelled,
+  pending,
+}
 
 /// The status of a purchase transaction.
 /// Used to communicate the result state to Dart layer via purchaseStream.
@@ -233,9 +257,20 @@ abstract class InAppPurchase2API {
   @async
   List<SK2ProductMessage> products(List<String> identifiers);
 
+  @async
+  List<SK2ProductMessage> loadProducts(
+    List<String> identifiers,
+    bool forceRefresh,
+  );
+  @async
+  void invalidateProducts(List<String>? identifiers);
+
   // https://developer.apple.com/documentation/storekit/product/3791971-purchase
   @async
-  SK2ProductPurchaseResultMessage purchase(String id, {SK2ProductPurchaseOptionsMessage? options});
+  SK2ProductPurchaseResultMessage purchase(
+    String id, {
+    SK2ProductPurchaseOptionsMessage? options,
+  });
 
   @async
   bool isWinBackOfferEligible(String productId, String offerId);

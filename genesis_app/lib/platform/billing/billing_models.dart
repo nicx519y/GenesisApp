@@ -84,17 +84,20 @@ class BillingStoreProduct {
 class BillingProductQueryResult {
   const BillingProductQueryResult.success(this.product)
     : errorCode = null,
+      errorMessage = null,
       errorSource = null,
       errorDetails = null;
 
   const BillingProductQueryResult.failure(
     this.errorCode, {
+    this.errorMessage,
     this.errorSource,
     this.errorDetails,
   }) : product = null;
 
   final BillingStoreProduct? product;
   final String? errorCode;
+  final String? errorMessage;
   final String? errorSource;
   final Object? errorDetails;
 
@@ -276,6 +279,7 @@ class BillingUiEvent {
     required this.attemptId,
     required this.message,
     this.grantedGemsCent = 0,
+    this.requiresProductRefresh = false,
     this.debugInfo,
   });
 
@@ -284,6 +288,7 @@ class BillingUiEvent {
   final String attemptId;
   final String message;
   final int grantedGemsCent;
+  final bool requiresProductRefresh;
   final String? debugInfo;
 }
 

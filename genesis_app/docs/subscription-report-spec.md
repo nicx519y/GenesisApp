@@ -2,6 +2,8 @@
 
 更新：2026-10-08。状态：报表设计，尚未确认后台已接入或线上数据已按此口径聚合。事件定义见 `vip-purchase-analytics-draft.md`。
 
+失败事件 `subscription_failed`、`purchase_failed` 的 `action_type` 为 `monitor`，其余购买事件仍为 `pay_event`。统计失败数时不能仅筛选 `pay_event`。
+
 订阅购买事件的 `object2` 留空，不再提供页面、点击、商店结果或 claim 之间的关联 ID。任何使用旧 `object2` 关联成功尝试、游客绑定或页面访问的报表查询必须停用或重写。
 
 ## 当前可直接统计

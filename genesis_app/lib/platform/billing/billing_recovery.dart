@@ -172,6 +172,16 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     _recordVerifiedPurchaseForAnalytics(purchase);
     final attemptId = attempt?.id ?? newBillingAttemptId();
     final productId = attempt?.product.productId ?? purchase.productId;
+    final callbackAssociation =
+        token.isNotEmpty && _attemptByPurchaseToken[token] != null
+        ? 'purchase_token'
+        : _attemptByStoreProductId.containsKey(purchase.productId)
+        ? 'active_store_product'
+        : _interruptedAttemptByStoreProductId.containsKey(purchase.productId)
+        ? 'interrupted_store_product'
+        : purchase.productId.isEmpty && attempt != null
+        ? 'active_attempt_fallback'
+        : 'unmatched';
     _cancelAttemptTimeout(
       attempt == null
           ? purchase.productId
@@ -233,6 +243,24 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             stage: 'callback',
             status: 'canceled',
           ),
+          failureDiagnostics: _storeFailureDiagnostics(
+            message: purchase.errorMessage,
+            code: purchase.rawErrorCode ?? purchase.errorCode,
+            source: purchase.errorSource,
+            details: purchase.errorDetails,
+            stage: 'callback',
+            status: 'canceled',
+            context: {
+              'callback_product_id': purchase.productId,
+              'store_callback_received': true,
+              if (attempt != null)
+                'total_duration_ms': DateTime.now()
+                    .difference(attempt.startedAt)
+                    .inMilliseconds,
+              'association': callbackAssociation,
+              'purchase_token_present': purchase.purchaseToken.isNotEmpty,
+            },
+          ),
         );
         return;
       case BillingPurchaseStatus.error:
@@ -264,6 +292,24 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             stage: 'callback',
             status: 'error',
           ),
+          failureDiagnostics: _storeFailureDiagnostics(
+            message: purchase.errorMessage,
+            code: purchase.rawErrorCode ?? purchase.errorCode,
+            source: purchase.errorSource,
+            details: purchase.errorDetails,
+            stage: 'callback',
+            status: 'error',
+            context: {
+              'callback_product_id': purchase.productId,
+              'store_callback_received': true,
+              if (attempt != null)
+                'total_duration_ms': DateTime.now()
+                    .difference(attempt.startedAt)
+                    .inMilliseconds,
+              'association': callbackAssociation,
+              'purchase_token_present': purchase.purchaseToken.isNotEmpty,
+            },
+          ),
         );
         return;
       case BillingPurchaseStatus.purchased:
@@ -286,6 +332,13 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         status: 'store_failed',
         source: source,
         errorCode: 'purchase_token_missing',
+        failureDiagnostics: {
+          'stage': 'callback',
+          'step': 'validate_receipt',
+          'success_callback_received': true,
+          'store_callback_received': true,
+          'callback_product_id': purchase.productId,
+        },
       );
       _emitFailure(
         productId,

@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/network/models/gem_product.dart';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_analytics.dart';
@@ -20,7 +22,114 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
   Future<void> setUserId(String? uid) async {}
 }
 
+class _AsyncFailingTelemetrySink extends _CapturingTelemetrySink {
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    throw StateError('asynchronous telemetry write failed');
+  }
+}
+
 void main() {
+  test(
+    'asynchronous telemetry failure is contained at the payment boundary',
+    () async {
+      GenesisTelemetry.setSinkForTesting(_AsyncFailingTelemetrySink());
+      expect(
+        () => const GenesisBillingAnalytics().track(
+          'purchase_failed',
+          properties: {
+            'reason': 'query_failed',
+            'error_code': 'product_not_found',
+            'attempt_id': 'safe-attempt',
+          },
+        ),
+        returnsNormally,
+      );
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
+
+  test(
+    'confirmation diagnostic distinguishes actual price drift without changing catalog',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+      const product = GemProduct(
+        productId: 'gem',
+        appleProductId: 'apple.gem',
+        googleProductId: 'google.gem',
+        baseGemsCent: 100,
+        bonusGemsCent: 0,
+        priceCurrencyCode: 'USD',
+        priceAmount: 100,
+        canPurchase: true,
+        activityType: 'none',
+      );
+      final displayed = product.withStorePrice(
+        formatted: r'$1',
+        micros: 1000000,
+        currency: 'EUR',
+      );
+      final current = product.withStorePrice(
+        formatted: r'$2',
+        micros: 2000000,
+        currency: 'EUR',
+      );
+      reportGemConfirmationFailure(
+        product: displayed,
+        attemptId: 'click-1',
+        source: 'buy_gems_page',
+        reason: 'catalog_unavailable',
+        currentProducts: [current],
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        'query_failed[reason=price_changed]',
+      );
+      final diagnostic =
+          jsonDecode(sink.events.single.collectPayload!['ext_data'] as String)
+              as Map;
+      expect(diagnostic['expected_price_amount_micros'], 1000000);
+      expect(diagnostic['actual_price_amount_micros'], 2000000);
+      expect(displayed.storeAmountMicros, 1000000);
+    },
+  );
+
+  test(
+    'failure Collect retains detailed diagnostics without leaking to analytics data',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: {
+          'attempt_id': 'a-1',
+          'product_id': 'gem_pack_1000',
+          'reason': 'purchase_callback_error',
+          'failure_diagnostics': {
+            'stage': 'callback',
+            'response_code': 'developerError',
+            'sub_response_code': 0,
+            'debug_message': 'Invalid product details',
+            'purchase_token': 'secret-token',
+            'association': 'active_attempt_fallback',
+          },
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      final event = sink.events.single;
+      final diagnostic =
+          jsonDecode(event.collectPayload!['ext_data'] as String) as Map;
+      expect(diagnostic['debug_message'], 'Invalid product details');
+      expect(diagnostic['attempt_id'], 'a-1');
+      expect(diagnostic['response_code'], 'developerError');
+      expect(diagnostic['association'], 'active_attempt_fallback');
+      expect(diagnostic.containsKey('purchase_token'), isFalse);
+      expect(event.data.containsKey('failure_diagnostics'), isFalse);
+    },
+  );
+
   tearDown(GenesisTelemetry.resetForTesting);
 
   test('billing analytics sanitizes sensitive properties', () {
@@ -147,6 +256,7 @@ void main() {
         'action': 'purchase_timeout',
         'object1': 'gem_pack_500',
         'object3': timeoutType,
+        'ext_data': isA<String>(),
       });
     });
   }
@@ -168,10 +278,11 @@ void main() {
 
     final event = sink.events.single;
     expect(event.collectPayload, {
-      'action_type': 'pay_event',
+      'action_type': 'monitor',
+      'ext_data': isA<String>(),
       'action': 'purchase_failed',
       'object1': 'gem_pack_500',
-      'object3': 'query_failed[product_not_found]',
+      'object3': 'query_failed[reason=product_not_found]',
     });
   });
 
@@ -193,7 +304,7 @@ void main() {
 
     expect(
       sink.events.single.collectPayload?['object3'],
-      'query_failed[billing_unavailable]',
+      'query_failed[reason=store_query_error]',
     );
   });
 
@@ -215,7 +326,7 @@ void main() {
 
       expect(
         sink.events.single.collectPayload?['object3'],
-        'query_failed[unknown]',
+        'query_failed[reason=store_query_error]',
       );
     },
   );
@@ -236,7 +347,7 @@ void main() {
 
     expect(
       sink.events.single.collectPayload?['object3'],
-      'precheck_failed[gp_unavailable]',
+      'prepare_failed[reason=service_unavailable]',
     );
   });
 
@@ -259,10 +370,11 @@ void main() {
 
       final event = sink.events.single;
       expect(event.collectPayload, {
-        'action_type': 'pay_event',
+        'action_type': 'monitor',
+        'ext_data': isA<String>(),
         'action': 'purchase_failed',
         'object1': 'gem_pack_500',
-        'object3': 'purchase_callback_error[network_error]',
+        'object3': 'callback_failed[reason=store_error]',
       });
     },
   );
@@ -285,7 +397,7 @@ void main() {
 
       expect(
         sink.events.single.collectPayload?['object3'],
-        'purchase_callback_error[unknown]',
+        'callback_failed[reason=store_error]',
       );
     },
   );
@@ -306,10 +418,11 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(sink.events.single.collectPayload, {
-      'action_type': 'pay_event',
+      'action_type': 'monitor',
+      'ext_data': isA<String>(),
       'action': 'purchase_failed',
       'object1': 'gem_pack_1000',
-      'object3': 'launch_failed[storekit_duplicate_product_object]',
+      'object3': 'launch_failed[reason=store_launch_error]',
     });
   });
 
@@ -331,7 +444,7 @@ void main() {
 
       expect(
         sink.events.single.collectPayload?['object3'],
-        '$reason[account_mismatch]',
+        'unknown_failed[reason=unknown_error]',
       );
     });
   }

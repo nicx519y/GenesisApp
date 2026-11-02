@@ -15,6 +15,8 @@ class GooglePlayPurchaseParam extends PurchaseParam {
     this.changeSubscriptionParam,
     this.offerToken,
     this.throwOnBillingFailure = false,
+    this.beforeLaunch,
+    this.onProductDiagnostic,
   });
 
   /// The 'changeSubscriptionParam' containing information for upgrading or
@@ -30,4 +32,6 @@ class GooglePlayPurchaseParam extends PurchaseParam {
   /// Opt in to native launch errors instead of losing them in a false result.
   /// Existing consumable callers retain their original behavior.
   final bool throwOnBillingFailure;
+  final bool Function()? beforeLaunch;
+  final void Function(String, String?)? onProductDiagnostic;
 }

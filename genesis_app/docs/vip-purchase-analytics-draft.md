@@ -1,10 +1,10 @@
 # 购买事件口径
 
-更新：2026-10-08。客户端实现口径；真机支付、线上 Collect 和 Firebase 数据仍需验收。
+更新：2026-11-02。客户端实现口径；真机支付、线上 Collect 和 Firebase 数据仍需验收。
 
 ## 订阅事件
 
-订阅事件使用 `action_type=pay_event`。`object1` 是原入口来源，`object2` 留空，`object3` 按下表填写。公共 UID 使用事件入队时的身份；登录后的 claim 事件不能反推购买时是否为游客。
+订阅失败事件 `subscription_failed` 使用 `action_type=monitor`，其余订阅事件使用 `action_type=pay_event`。`object1` 是原入口来源，`object2` 留空，`object3` 按下表填写。公共 UID 使用事件入队时的身份；登录后的 claim 事件不能反推购买时是否为游客。
 
 | action | object3 | 触发时机 |
 | --- | --- | --- |
@@ -13,14 +13,16 @@
 | `subscription_pending` | `store_callback_pending` | 商店明确返回 pending；不发送 report。 |
 | `subscription_timeout` | `prepare` / `store_callback` | 客户端准备或等待商店回调超时；不代表扣款失败。 |
 | `subscription_success` | 本笔商店交易号；缺失时为空 | 当前购买的商店回调返回 purchased，立即记录，不等待 report。 |
-| `subscription_failed` | `precheck_failed[原因]`、`query_failed[原因]`、`launch_failed[原因]`，或商店回调的原生错误码／取消原因 | 点击后的前置检查、商店商品查询、商店拉起失败，或商店回调返回 error / canceled；report 结果不触发。 |
+| `subscription_failed` | `阶段_failed[reason=具体原因]`；阶段为 precheck、prepare、query、launch、callback、stream，原始错误放 ext_data，详见 payment-failure-monitoring.md | 点击后的前置检查、商店商品查询、商店拉起失败，或商店回调返回 error / canceled；report 结果不触发。 |
 | `subscription_claim_result` | `completed` / `rejected` / `error[code]` / `timeout` | 游客登录后，每次实际 claim 请求的结果。 |
 
 重复 purchased 回调按平台和本笔交易身份去重；pending 后转 purchased 时才记录 success。普通 restored 和无当前购买凭据的历史订单不计新购买。打点失败不阻断 report、登录、claim 或页面状态。`object2` 不承载内部操作 ID、购买凭据或新的关联 ID。
 
 ## Gems 事件
 
-`buy_page_show`、`product_click`、`purchase_pending`、`purchase_timeout`、`purchase_success` 和 `purchase_failed` 的购买关联字段不再写入 `object2`。`purchase_success` 在当前购买的商店 purchased 回调后触发；`purchase_failed` 对应点击后的前置检查、商店商品查询、商店拉起失败、购买流 onError，或商店 canceled / error 回调。前三类失败的 `object3` 分别为 `precheck_failed[错误码]`、`query_failed[错误码]`、`launch_failed[错误码]`；拉起失败没有错误码时为 `launch_failed`。购买流 onError 的 `object3` 优先保留结构化平台错误码，否则为 `store_failure[stage=stream;status=error]`。流错误后如仍收到本笔 purchased 回调，可在 `purchase_failed` 之后再记录 `purchase_success`；两条事件都只按各自的回调事实计入。report 的 completed、rejected、网络错误和超时都不生成购买结果事件。`purchase_success.object3` 使用商店本笔交易号，缺失时留空，不发送 purchase token。
+`purchase_failed` 使用 `action_type=monitor`，其余 Gems 购买事件使用 `action_type=pay_event`。
+
+`buy_page_show`、`product_click`、`purchase_pending`、`purchase_timeout`、`purchase_success` 和 `purchase_failed` 的购买关联字段不再写入 `object2`。`purchase_success` 在当前购买的商店 purchased 回调后触发；`purchase_failed` 对应点击后的前置检查、商店商品查询、商店拉起失败、购买流 onError，或商店 canceled / error 回调。失败 `object3` 统一为 `阶段_failed[reason=具体原因]`，完整分类、诊断、脱敏和去重规则见 [支付失败监控诊断](payment-failure-monitoring.md)。监听异常独立去重，后续商店明确结果仍可记录；支付事件不代表订单最终结算状态。report 的 completed、rejected、网络错误和超时都不生成购买结果事件。`purchase_success.object3` 使用商店本笔交易号，缺失时留空，不发送 purchase token。
 
 ## report 与 Firebase
 

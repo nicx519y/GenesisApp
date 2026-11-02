@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/app/membership/membership_access_store.d
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'dart:async';
+import 'package:genesis_flutter_android/components/gems/gem_purchase_state.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -136,8 +137,116 @@ void _testWidgets(String name, Future<void> Function(WidgetTester) body) {
 }
 
 void main() {
+  testWidgets('pre-store lookup times out without launching on a late result', (
+    tester,
+  ) async {
+    final result = Completer<Map<String, MembershipStorePrice>>();
+    var purchases = 0;
+    final catalog = MembershipCatalog(
+      provider: MembershipProvider.google,
+      loadProducts: (_) async =>
+          MembershipProductList(products: [membershipProduct(yearly: true)]),
+      loadStorePrices: (_) => result.future,
+    );
+    await tester.pumpWidget(
+      page(
+        null,
+        catalog: catalog,
+        purchase: (_) async {
+          purchases++;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(buttonKey));
+    await tester.pump();
+    expect(
+      tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).isLoading,
+      true,
+    );
+    await tester.pump(const Duration(seconds: 90));
+    await tester.pump();
+    expect(
+      tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).isLoading,
+      false,
+    );
+    expect(purchases, 0);
+    result.complete({});
+    await tester.pumpAndSettle();
+    expect(purchases, 0);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets(
-    'cached purchase stays usable during API refresh then store lookup blocks',
+    'server catalog becomes visible while the first platform lookup is pending',
+    (tester) async {
+      final server = Completer<MembershipProductList>();
+      final platform = Completer<Map<String, MembershipStorePrice>>();
+      var purchases = 0;
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.apple,
+        loadProducts: (_) => server.future,
+        loadStorePrices: (_) => platform.future,
+      );
+      await tester.pumpWidget(
+        page(
+          null,
+          catalog: catalog,
+          purchase: (_) async {
+            purchases++;
+          },
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(GemPurchaseLoading), findsOneWidget);
+      server.complete(
+        MembershipProductList(
+          products: [
+            membershipProduct(yearly: true, provider: MembershipProvider.apple),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(catalog.queryingStore.value, isTrue);
+      expect(find.byType(GemPurchaseLoading), findsNothing);
+      expect(find.byKey(buttonKey), findsOneWidget);
+      expect(catalog.hasCheckoutProducts, isFalse);
+      await tester.tapAt(tester.getCenter(find.byKey(buttonKey)));
+      await tester.pump();
+      expect(purchases, 0);
+      platform.complete({});
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'startup server preload renders on entry before platform preload finishes',
+    (tester) async {
+      final platform = Completer<Map<String, MembershipStorePrice>>();
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async =>
+            MembershipProductList(products: [membershipProduct(yearly: true)]),
+        loadStorePrices: (_) => platform.future,
+      );
+      final preload = catalog.preload();
+      await tester.pump();
+      await tester.pump();
+      expect(catalog.cached, isNotNull);
+      await tester.pumpWidget(page(null, catalog: catalog));
+      await tester.pump();
+      expect(find.byType(GemPurchaseLoading), findsNothing);
+      expect(find.byKey(buttonKey), findsOneWidget);
+      platform.complete({});
+      await preload;
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'cached purchase stays usable during server and platform refresh',
     (tester) async {
       var calls = 0;
       var storeCalls = 0;
@@ -191,10 +300,13 @@ void main() {
         find.byKey(const ValueKey('gem-products-global-loading')),
         findsNothing,
       );
-      expect(find.byType(ModalBarrier).evaluate().length, barriersBeforeRefresh);
+      expect(
+        find.byType(ModalBarrier).evaluate().length,
+        barriersBeforeRefresh,
+      );
       await tester.tapAt(tester.getCenter(find.byKey(buttonKey)));
       await tester.pump();
-      expect(purchases, 1);
+      expect(purchases, 2);
       storeResult.complete({'pro_yearly': price});
       await tester.pumpAndSettle();
       expect(
@@ -203,7 +315,7 @@ void main() {
       );
       await tester.tap(find.byKey(buttonKey));
       await tester.pumpAndSettle();
-      expect(purchases, 2);
+      expect(purchases, 3);
       expect(calls, 2);
       expect(storeCalls, 2);
     },

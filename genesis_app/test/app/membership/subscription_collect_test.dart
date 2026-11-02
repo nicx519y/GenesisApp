@@ -1,9 +1,61 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 
 void main() {
+  test(
+    'subscription failure carries correlation and native error diagnostic',
+    () async {
+      final events = <SubscriptionAnalyticsEvent>[];
+      final analytics = SubscriptionAnalytics(sink: events.add);
+      analytics.failed(
+        const SubscriptionTracking(id: 'track-1'),
+        'google[response_code=developerError]',
+        diagnostics: {
+          'stage': 'callback',
+          'debug_message': 'Wrong purchase parameters',
+          'response_code': 'developerError',
+          'product_id': 'premium_monthly',
+          'purchase_token': 'secret',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      final event = events.single;
+      final d = jsonDecode(event.extData) as Map;
+      expect(d['tracking_id'], 'track-1');
+      expect(d['stage'], 'callback');
+      expect(d['debug_message'], 'Wrong purchase parameters');
+      expect(d['product_id'], 'premium_monthly');
+      expect(d.containsKey('purchase_token'), isFalse);
+    },
+  );
+
   tearDown(GenesisTelemetry.resetForTesting);
+  test('subscription failure is queued as monitor', () async {
+    final store = MemoryCollectEventStore();
+    final uploader = CollectTelemetryUploader(store: store)
+      ..configure(enabled: true);
+    GenesisTelemetry.setCollectUploaderForTesting(uploader);
+    SubscriptionAnalytics().failed(
+      const SubscriptionTracking(
+        id: 'failed-checkout',
+        source: SubscriptionSource.meMembership,
+      ),
+      'launch_failed[NOT_FOUND]',
+    );
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    final event = (await store.claimPending(limit: 20))!.events.single;
+    expect(event.actionType, 'monitor');
+    expect(event.action, 'subscription_failed');
+    expect(event.object1, 'from_me_membership');
+    expect(event.object3, 'launch_failed[reason=store_launch_error]');
+    expect(
+      (jsonDecode(event.extData) as Map)['original_reason'],
+      'launch_failed[NOT_FOUND]',
+    );
+  });
+
   test(
     'queued click captures guest UID, claim captures login UID without extra fields',
     () async {

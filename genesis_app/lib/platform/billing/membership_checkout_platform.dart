@@ -10,7 +10,7 @@ import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import '../../network/models/membership_product.dart';
 import 'billing_models.dart';
 import 'membership_product_store.dart';
-import 'store_query_cache.dart';
+import 'store_product_access.dart';
 
 class PreparedMembershipCheckout {
   const PreparedMembershipCheckout({
@@ -62,7 +62,16 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
       );
     }
     final response = await _queryProducts(product);
-    if (response.error != null) throw response.error!;
+    if (response.error case final error?) {
+      if (product.provider == MembershipProvider.google) {
+        throw BillingPlatformException(
+          error.code,
+          error.message,
+          error.details,
+        );
+      }
+      throw error;
+    }
     for (final detail in response.productDetails) {
       if (detail.id != product.storeProductId || !_subscription(detail)) {
         continue;
@@ -84,41 +93,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
   }
 
   Future<ProductDetailsResponse> _queryProducts(MembershipProduct product) =>
-      queryMembershipStoreProduct(
-        _store,
-        product,
-        loader: () => _queryFreshProducts(product),
-      );
-
-  Future<ProductDetailsResponse> _queryFreshProducts(
-    MembershipProduct product,
-  ) async {
-    if (product.provider != MembershipProvider.google) {
-      return _store.queryProductDetails({product.storeProductId});
-    }
-    final response = await _store
-        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
-        .queryProductDetails(
-          productId: product.storeProductId,
-          productType: ProductType.subs,
-        );
-    if (response.billingResult.responseCode != BillingResponse.ok) {
-      throw BillingPlatformException(
-        response.billingResult.responseCode.name,
-        response.billingResult.debugMessage ?? '',
-        {
-          'responseCode': response.billingResult.responseCode.name,
-          'subResponseCode': response.billingResult.subResponseCode,
-        },
-      );
-    }
-    return ProductDetailsResponse(
-      productDetails: response.productDetailsList
-          .expand(GooglePlayProductDetails.fromProductDetails)
-          .toList(),
-      notFoundIDs: const [],
-    );
-  }
+      queryMembershipStoreProduct(_store, product);
 
   @override
   Future<bool> launch(
@@ -134,6 +109,12 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     final param = nativeProduct is GooglePlayProductDetails
         ? GooglePlayPurchaseParam(
             throwOnBillingFailure: true,
+            beforeLaunch: StoreProductAccess.canLaunch,
+            onProductDiagnostic: (stage, code) => StoreProductAccess.diagnostic(
+              stage,
+              nativeProduct.id,
+              errorCode: code,
+            ),
             productDetails: nativeProduct,
             offerToken: nativeProduct.offerToken,
             applicationUserName: accountUuid,
@@ -154,11 +135,9 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
       });
       debugPrint('[Membership][google_launch] $diagnostics');
     }
-    final accepted = await StoreQueryCache.launch(
+    final accepted = await StoreProductAccess.launch(
       () => _store.buyNonConsumable(purchaseParam: param),
     );
-    // Play returns when its purchase UI is launched; StoreKit calls back from
-    // native preparation before waiting for the user's purchase result.
     if (accepted && nativeProduct is GooglePlayProductDetails) {
       onStoreHandoff?.call();
     }

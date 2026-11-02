@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -8,7 +9,7 @@ import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import '../../app/telemetry/storekit2_transaction_analytics.dart';
 import 'billing_models.dart';
 import 'google_play_billing_platform.dart';
-import 'store_query_cache.dart';
+import 'store_product_access.dart';
 
 class AppStoreBillingPlatform implements BillingPlatform {
   AppStoreBillingPlatform({
@@ -92,12 +93,13 @@ class AppStoreBillingPlatform implements BillingPlatform {
     BillingStoreProductType expectedType, {
     String? purchaseOptionId,
     String? offerId,
-  }) => StoreQueryCache.load(
-    _inAppPurchase,
-    'gems.apple.$storeProductId.${expectedType.name}',
-    () => _queryProduct(storeProductId, expectedType),
-    usable: (result) => result.product != null,
-  );
+  }) async {
+    await StoreProductAccess.ready();
+    return StoreProductAccess.lookup(
+      storeProductId,
+      () => _queryProduct(storeProductId, expectedType),
+    );
+  }
 
   Future<BillingProductQueryResult> _queryProduct(
     String storeProductId,
@@ -112,6 +114,7 @@ class AppStoreBillingPlatform implements BillingPlatform {
       );
     }
     try {
+      final clock = Stopwatch()..start();
       final response = await _inAppPurchase.queryProductDetails({
         storeProductId,
       });
@@ -122,12 +125,22 @@ class AppStoreBillingPlatform implements BillingPlatform {
         );
         return BillingProductQueryResult.failure(
           response.error!.code,
+          errorMessage: response.error!.message,
           errorSource: response.error!.source,
           errorDetails: response.error!.details,
         );
       }
       for (final product in response.productDetails) {
         if (product.id != storeProductId) continue;
+        if (product is AppStoreProduct2Details) {
+          StoreProductAccess.diagnostic(
+            'lookup',
+            storeProductId,
+            cacheHit: product.sk2Product.cacheHit,
+            cacheAgeMs: product.sk2Product.cacheAgeMs,
+            durationMs: clock.elapsedMilliseconds,
+          );
+        }
         debugPrint(
           '[Billing][AppStore] product ready id=$storeProductId '
           'price="${product.price}" rawPrice=${product.rawPrice} '
@@ -145,6 +158,8 @@ class AppStoreBillingPlatform implements BillingPlatform {
         );
       }
       return const BillingProductQueryResult.failure('product_not_found');
+    } on PlatformException {
+      rethrow;
     } on Object catch (error) {
       throw BillingPlatformException('query_product_failed', '$error');
     }
@@ -155,7 +170,7 @@ class AppStoreBillingPlatform implements BillingPlatform {
     required BillingStoreProduct product,
     required String billingAccountId,
     bool Function()? onStoreHandoff,
-  }) => StoreQueryCache.launch(
+  }) => StoreProductAccess.launch(
     () => _buyConsumable(
       product: product,
       billingAccountId: billingAccountId,

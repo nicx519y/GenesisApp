@@ -42,7 +42,10 @@ void main() {
         isYearly: true,
       );
       analytics.failed(click, 'query_failed');
-      expect(events.every((e) => e.object1 == 'from_chat_edit_save_quota'), isTrue);
+      expect(
+        events.every((e) => e.object1 == 'from_chat_edit_save_quota'),
+        isTrue,
+      );
       expect(events.first.object2, isEmpty);
       expect(events.first.object3, 'subscription_sheet');
       expect(
@@ -118,7 +121,7 @@ void main() {
     expect(events.map((event) => event.object3), [
       'store_callback_pending',
       'report',
-      'report_rejected',
+      'unknown_failed[reason=unknown_error]',
       'GPA.result',
       'completed',
     ]);
@@ -439,10 +442,7 @@ void main() {
         tracking: tracking,
       );
       expect(events, hasLength(1));
-      expect(
-        events.single.object3,
-        'google[response_code=5;sub_response_code=2]',
-      );
+      expect(events.single.object3, 'callback_failed[reason=store_error]');
     },
   );
 
@@ -471,7 +471,7 @@ void main() {
   );
 
   test(
-    'purchase stream reports failure immediately and deduplicates its callback',
+    'stream diagnostic does not suppress the later explicit store failure',
     () async {
       final h = support.Harness(analytics: analytics);
       await h.service.purchase(
@@ -484,11 +484,19 @@ void main() {
       );
       expect(events, hasLength(1));
       expect(events.single.action, 'subscription_failed');
-      expect(events.single.object3, 'google[response_code=-1]');
+      expect(
+        events.single.object3,
+        'stream_failed[reason=unknown_stream_error]',
+      );
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.error),
       );
-      expect(events, hasLength(1));
+      expect(events, hasLength(2));
+      expect(events.last.object3, 'callback_failed[reason=store_error]');
+      await h.service.interceptPurchase(
+        h.purchase(status: BillingPurchaseStatus.error),
+      );
+      expect(events, hasLength(2));
     },
   );
 
@@ -503,7 +511,10 @@ void main() {
       );
       h.service.handleStreamError();
       expect(events.single.action, 'subscription_failed');
-      expect(events.single.object3, 'store_failure[stage=stream;status=error]');
+      expect(
+        events.single.object3,
+        'stream_failed[reason=unknown_stream_error]',
+      );
 
       await h.service.interceptPurchase(h.purchase());
 
@@ -529,7 +540,10 @@ void main() {
       expect(h.platform.launches, 0);
       expect(events, hasLength(1));
       expect(events.single.action, 'subscription_failed');
-      expect(events.single.object3, startsWith('precheck_failed['));
+      expect(
+        events.single.object3,
+        startsWith(stage == 'catalog' ? 'query_failed[' : 'prepare_failed['),
+      );
     });
   }
 
@@ -553,7 +567,10 @@ void main() {
       await h.service.purchase(h.product(), tracking: tracking);
       expect(h.platform.launches, 0);
       expect(events, hasLength(1));
-      expect(events.single.object3, 'precheck_failed[local_storage_failed]');
+      expect(
+        events.single.object3,
+        'prepare_failed[reason=local_storage_failed]',
+      );
       final failingAnalytics = SubscriptionAnalytics(
         sink: (_) => throw StateError('telemetry broken'),
       );

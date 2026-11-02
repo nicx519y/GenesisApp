@@ -1,3 +1,5 @@
+import '../../platform/billing/payment_failure_classification.dart';
+import '../../platform/billing/payment_failure_diagnostics.dart';
 import 'dart:async';
 
 import 'package:uuid/uuid.dart';
@@ -96,8 +98,10 @@ class SubscriptionAnalyticsEvent {
     this.object2,
     this.object3, {
     this.object1 = '',
+    this.extData = '',
     this.eventId,
   });
+  final String extData;
   final String action;
   final String object1;
   final String object2;
@@ -118,12 +122,15 @@ class SubscriptionAnalytics {
 
   static Future<void> _collect(SubscriptionAnalyticsEvent event) async {
     await GenesisTelemetry.collectLogAndWait(
-      actionType: 'pay_event',
+      actionType: event.action == 'subscription_failed'
+          ? 'monitor'
+          : 'pay_event',
       action: event.action,
       object1: event.object1,
       object2: event.object2,
       object3: event.object3,
       eventId: event.eventId,
+      extData: event.extData,
     );
   }
 
@@ -174,16 +181,43 @@ class SubscriptionAnalytics {
     SubscriptionTracking tracking,
     String reason, {
     bool once = false,
+    Map<String, Object?> diagnostics = const {},
   }) {
-    if (once && !_once.add('checkout:${tracking.id}')) return;
-    _emit(
-      SubscriptionAnalyticsEvent(
-        'subscription_failed',
-        '',
-        reason,
-        object1: tracking.source.value,
-      ),
-    );
+    try {
+      final classification = classifyPaymentFailure(reason, diagnostics);
+      final failureKey = classification.stage == 'stream'
+          ? 'checkout:${tracking.id}:stream'
+          : 'checkout:${tracking.id}';
+      if (once && !_once.add(failureKey)) return;
+      _emit(
+        SubscriptionAnalyticsEvent(
+          'subscription_failed',
+          '',
+          classification.object3,
+          object1: tracking.source.value,
+          extData: encodePaymentFailureDiagnostics({
+            'tracking_id': tracking.id,
+            'source': tracking.source.value,
+            ...diagnostics,
+            'schema_version': 2,
+            'purchase_kind': 'subscription',
+            'stage': classification.stage,
+            'step': classification.step,
+            'reason': classification.reason,
+            'original_reason': reason,
+            'payment_outcome': classification.reason == 'canceled'
+                ? 'canceled'
+                : classification.stage == 'stream' ||
+                      classification.reason.contains('receipt_missing') ||
+                      classification.reason == 'signed_transaction_missing'
+                ? 'unknown'
+                : 'failed',
+          }),
+        ),
+      );
+    } catch (_) {
+      /* Analytics must never interrupt checkout. */
+    }
   }
 
   void timeout(SubscriptionTracking tracking, String stage) {
@@ -196,6 +230,13 @@ class SubscriptionAnalytics {
         '',
         stage,
         object1: tracking.source.value,
+        extData: encodePaymentFailureDiagnostics({
+          'tracking_id': tracking.id,
+          'purchase_kind': 'subscription',
+          'stage': stage == 'store_callback' ? 'callback' : stage,
+          'timeout_type': stage,
+          'payment_outcome': 'unknown',
+        }),
       ),
     );
   }

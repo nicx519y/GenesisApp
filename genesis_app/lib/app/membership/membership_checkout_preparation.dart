@@ -56,7 +56,8 @@ class _CheckoutIdentity {
 }
 
 class _CheckoutPreparationFailure implements Exception {
-  const _CheckoutPreparationFailure(this.stage, this.error);
+  const _CheckoutPreparationFailure(this.stage, this.error, [this.durationMs]);
+  final int? durationMs;
   final String stage;
   final Object error;
 }
@@ -70,7 +71,11 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
     try {
       return await run();
     } catch (error) {
-      throw _CheckoutPreparationFailure(stage, error);
+      throw _CheckoutPreparationFailure(
+        stage,
+        error,
+        clock.elapsedMilliseconds,
+      );
     } finally {
       if (kDebugMode) {
         debugPrint(
@@ -142,10 +147,6 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
         ready.product.basePlanId != product.basePlanId ||
         ready.product.offerId != product.offerId) {
       return null;
-    }
-    // A refresh may have replaced the catalog while native preparation waited.
-    if (!identical(await readCheckoutProducts(), products)) {
-      throw const MembershipPurchaseBlocked('eligibility_unavailable');
     }
     if (!preparation._usable ||
         preparation._session != _session ||

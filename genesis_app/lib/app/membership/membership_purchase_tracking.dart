@@ -23,21 +23,55 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
     String reason, {
     bool fromStoreCallback = false,
     bool fromStoreStream = false,
+    Map<String, Object?> diagnostics = const {},
   }) {
-    if (!fromStoreCallback && !fromStoreStream) return;
-    final tracking = _attemptTracking[id];
-    if (tracking != null) analytics.failed(tracking, reason, once: true);
+    try {
+      if (!fromStoreCallback && !fromStoreStream) return;
+      final tracking = _attemptTracking[id];
+      if (tracking != null) {
+        analytics.failed(
+          tracking,
+          reason,
+          once: true,
+          diagnostics: diagnostics,
+        );
+      }
+    } catch (_) {
+      /* Telemetry is best effort. */
+    }
   }
 
-  void _trackPreparationFailure(String id, String stage, String reason) {
-    final tracking = _attemptTracking[id];
-    if (tracking == null) return;
-    final action = switch (stage) {
-      'query_store_product' => 'query_failed',
-      'launch_store' => 'launch_failed',
-      _ => 'precheck_failed',
-    };
-    analytics.failed(tracking, '$action[$reason]', once: true);
+  void _trackPreparationFailure(
+    String id,
+    String stage,
+    String reason, {
+    Object? error,
+    StackTrace? stackTrace,
+    Map<String, Object?> context = const {},
+  }) {
+    try {
+      final tracking = _attemptTracking[id];
+      if (tracking == null) return;
+      final action = switch (stage) {
+        'query_store_product' => 'query_failed',
+        'launch_store' => 'launch_failed',
+        _ => 'precheck_failed',
+      };
+      analytics.failed(
+        tracking,
+        '$action[$reason]',
+        once: true,
+        diagnostics: paymentFailureDiagnostics(
+          provider: provider.name,
+          stage: stage,
+          error: error,
+          stackTrace: stackTrace,
+          context: context,
+        ),
+      );
+    } catch (_) {
+      /* Telemetry is best effort. */
+    }
   }
 
   String _preparationFailure(Object error, String stage) {

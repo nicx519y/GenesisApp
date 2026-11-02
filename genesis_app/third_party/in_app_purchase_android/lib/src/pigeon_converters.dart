@@ -35,6 +35,8 @@ ProductDetailsResponseWrapper productDetailsResponseWrapperFromPlatform(
   PlatformProductDetailsResponse response,
 ) {
   return ProductDetailsResponseWrapper(
+    cacheHit: response.cacheHit,
+    cacheAgeMs: response.cacheAgeMs,
     billingResult: resultWrapperFromPlatform(response.billingResult),
     productDetailsList: response.productDetails
         .map(productDetailsWrapperFromPlatform)

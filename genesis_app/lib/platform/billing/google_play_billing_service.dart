@@ -1,4 +1,7 @@
+import 'payment_failure_diagnostics.dart';
 import 'dart:async';
+import 'checkout_preparation_budget.dart';
+import 'store_product_access.dart';
 
 import '../../l10n/genesis_l10n.dart';
 
@@ -37,6 +40,7 @@ class GooglePlayBillingService implements BillingService {
     Future<bool> Function(BillingPurchase)? interceptPurchase,
     bool Function()? otherPurchaseBusy,
     ValueChanged<Object>? onPurchaseStreamError,
+    void Function(Object, StackTrace)? onPurchaseStreamErrorWithStack,
     this.purchaseEventReporting,
   }) : _platform = platform,
        _pendingPurchaseStore = pendingPurchaseStore,
@@ -50,7 +54,8 @@ class GooglePlayBillingService implements BillingService {
        _attemptTimeout = attemptTimeout,
        _interceptPurchase = interceptPurchase,
        _otherPurchaseBusy = otherPurchaseBusy,
-       _onPurchaseStreamError = onPurchaseStreamError;
+       _onPurchaseStreamError = onPurchaseStreamError,
+       _onPurchaseStreamErrorWithStack = onPurchaseStreamErrorWithStack;
 
   final BillingPlatform _platform;
   final BillingPendingPurchaseStore _pendingPurchaseStore;
@@ -65,6 +70,7 @@ class GooglePlayBillingService implements BillingService {
   final Future<bool> Function(BillingPurchase)? _interceptPurchase;
   final bool Function()? _otherPurchaseBusy;
   final ValueChanged<Object>? _onPurchaseStreamError;
+  final void Function(Object, StackTrace)? _onPurchaseStreamErrorWithStack;
   final PurchaseEventRecorder? purchaseEventReporting;
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(),
@@ -120,7 +126,8 @@ class GooglePlayBillingService implements BillingService {
     BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
     String operationId = '',
   }) async {
-    final startedAt = DateTime.now();
+    final startedAt =
+        CheckoutPreparationBudget.current?.startedAt ?? DateTime.now();
     final attemptId = operationId.trim().isNotEmpty
         ? operationId.trim()
         : newBillingAttemptId();
@@ -281,9 +288,17 @@ class GooglePlayBillingService implements BillingService {
         late final String billingAccountId;
         try {
           billingAccountId = await _resolveBillingAccountId();
-        } catch (error) {
+        } catch (error, stackTrace) {
           if (!canContinue()) return;
-          _trackPrecheckFailure(product, attemptId, 'uuid_unavailable');
+          _trackPrecheckFailure(
+            product,
+            attemptId,
+            'uuid_unavailable',
+            error: error,
+            stackTrace: stackTrace,
+            step: 'load_account_uuid',
+            durationMs: DateTime.now().difference(startedAt).inMilliseconds,
+          );
           _emitFailure(
             product.productId,
             attemptId,
@@ -320,11 +335,86 @@ class GooglePlayBillingService implements BillingService {
         _cancelAttemptTimeout(preflightTimerKey);
         scheduleTimeout(storeProductId);
 
+        final recovery = StoreProductRecovery(canContinue: canContinue);
+        BillingStoreProduct? refreshedProduct;
+        Future<void> refreshProduct() async {
+          storeHandedOff = false;
+          if (!canContinue()) {
+            throw const BillingPlatformException('checkout_aborted');
+          }
+          scheduleTimeout(storeProductId);
+          final fresh = await _loadProductCatalog();
+          if (!canContinue()) {
+            throw const BillingPlatformException('checkout_aborted');
+          }
+          final matches = fresh.where(
+            (p) => p.productId == activeProduct.productId && p.canPurchase,
+          );
+          if (matches.length != 1 ||
+              billingProductKindFrom(matches.single.billingType) !=
+                  BillingProductKind.consumable) {
+            throw const BillingPlatformException('product_not_found');
+          }
+          final nextProduct = matches.single;
+          final nextId = _storeProductIdFor(nextProduct, _platform.provider);
+          if (nextId.trim().isEmpty) {
+            throw const BillingPlatformException('product_not_found');
+          }
+          final response = await StoreProductAccess.refresh(
+            () => _queryStoreProduct(nextProduct, nextId),
+          );
+          if (!canContinue()) {
+            throw const BillingPlatformException('checkout_aborted');
+          }
+          if (!response.isSuccess) {
+            throw BillingPlatformException(
+              response.errorCode ?? 'product_not_found',
+            );
+          }
+          _attemptByStoreProductId.remove(storeProductId);
+          _cancelAttemptTimeout(storeProductId);
+          activeProduct = nextProduct;
+          storeProductId = nextId;
+          refreshedProduct = response.product!;
+          attempt =
+              BillingPurchaseAttempt(
+                id: attemptId,
+                product: activeProduct,
+                billingAccountId: billingAccountId,
+                source: BillingRecoverySource.direct,
+                startedAt: startedAt,
+              ).copyWithStorePrice(
+                priceAmountMicros: refreshedProduct!.priceAmountMicros,
+                priceCurrencyCode: refreshedProduct!.priceCurrencyCode,
+              );
+          _attemptByStoreProductId[storeProductId] = attempt;
+          scheduleTimeout(storeProductId);
+        }
+
+        final queryClock = Stopwatch()..start();
         late BillingProductQueryResult queryResult;
         try {
-          queryResult = await _queryStoreProduct(activeProduct, storeProductId);
+          queryResult = await recovery.run(
+            action: () async {
+              if (refreshedProduct != null) {
+                return BillingProductQueryResult.success(refreshedProduct!);
+              }
+              final result = await _queryStoreProduct(
+                activeProduct,
+                storeProductId,
+              );
+              if (!result.isSuccess) {
+                final error = BillingPlatformException(
+                  result.errorCode ?? 'unknown',
+                );
+                if (StoreProductRecovery.isUnavailable(error)) throw error;
+              }
+              return result;
+            },
+            refresh: refreshProduct,
+          );
           if (!canContinue()) return;
-        } catch (error) {
+        } catch (error, stackTrace) {
           if (!canContinue()) return;
           _clearActiveAttempt(storeProductId, attempt);
           _emitFailure(
@@ -342,6 +432,19 @@ class GooglePlayBillingService implements BillingService {
             'query_failed',
             errorCode: _platformFailureErrorCode(error),
             failureReason: _storeFailureReason(error: error, stage: 'query'),
+            failureDiagnostics: _storeFailureDiagnostics(
+              error: error,
+              stackTrace: stackTrace,
+              stage: 'query',
+              context: {
+                'step': 'query_store_product',
+                'stage_duration_ms': queryClock.elapsedMilliseconds,
+                'retry_count': recovery.used ? 1 : 0,
+                'total_duration_ms': DateTime.now()
+                    .difference(startedAt)
+                    .inMilliseconds,
+              },
+            ),
           );
           return;
         }
@@ -370,12 +473,28 @@ class GooglePlayBillingService implements BillingService {
               details: queryResult.errorDetails,
               stage: 'query',
             ),
+            failureDiagnostics: _storeFailureDiagnostics(
+              message: queryResult.errorMessage,
+              code: queryResult.errorCode,
+              source: queryResult.errorSource,
+              details: queryResult.errorDetails,
+              stage: 'query',
+              context: {
+                'step': 'query_store_product',
+                'stage_duration_ms': queryClock.elapsedMilliseconds,
+                'retry_count': recovery.used ? 1 : 0,
+                'total_duration_ms': DateTime.now()
+                    .difference(startedAt)
+                    .inMilliseconds,
+              },
+            ),
           );
           return;
         }
 
-        final storeProduct = queryResult.product!;
-        if (product.requiresStorePrice &&
+        var storeProduct = queryResult.product!;
+        if (!recovery.used &&
+            product.requiresStorePrice &&
             (product.storeAmountMicros != storeProduct.priceAmountMicros ||
                 product.storeCurrencyCode != storeProduct.priceCurrencyCode)) {
           _clearActiveAttempt(storeProductId, attempt);
@@ -388,7 +507,20 @@ class GooglePlayBillingService implements BillingService {
               reason: 'store_price_changed',
             ),
           );
-          _trackPrecheckFailure(product, attemptId, 'store_price_changed');
+          _trackFlowResult(
+            product,
+            attemptId,
+            'precheck_failed',
+            errorCode: 'store_price_changed',
+            failureDiagnostics: {
+              'stage': 'query',
+              'step': 'check_store_price',
+              'expected_price_amount_micros': product.storeAmountMicros,
+              'actual_price_amount_micros': storeProduct.priceAmountMicros,
+              'expected_currency': product.storeCurrencyCode,
+              'actual_currency': storeProduct.priceCurrencyCode,
+            },
+          );
           return;
         }
         final storeCurrency = storeProduct.priceCurrencyCode.trim();
@@ -400,12 +532,23 @@ class GooglePlayBillingService implements BillingService {
           _attemptByStoreProductId[storeProductId] = attempt;
         }
 
+        final launchClock = Stopwatch()..start();
         try {
           launchRequested = true;
-          final accepted = await _platform.buyConsumable(
-            product: storeProduct,
-            billingAccountId: billingAccountId,
-            onStoreHandoff: onStoreHandoff,
+          final accepted = await StoreProductAccess.withCheckoutGuard(
+            canContinue,
+            () => recovery.run(
+              action: () => _platform.buyConsumable(
+                product: storeProduct,
+                billingAccountId: billingAccountId,
+                onStoreHandoff: onStoreHandoff,
+              ),
+              refresh: () async {
+                await refreshProduct();
+                storeProduct = refreshedProduct!;
+              },
+            ),
+            attemptId: attemptId,
           );
           if (_attemptByStoreProductId[storeProductId]?.id != attemptId ||
               !canContinue()) {
@@ -428,9 +571,18 @@ class GooglePlayBillingService implements BillingService {
               'launch_rejected',
               errorCode: 'launch_rejected',
               failureReason: 'store_failure[stage=launch]',
+              failureDiagnostics: {
+                'stage': 'launch',
+                'step': 'launch_store',
+                'stage_duration_ms': launchClock.elapsedMilliseconds,
+                'total_duration_ms': DateTime.now()
+                    .difference(startedAt)
+                    .inMilliseconds,
+                'retry_count': recovery.used ? 1 : 0,
+              },
             );
           }
-        } catch (error) {
+        } catch (error, stackTrace) {
           if (_attemptByStoreProductId[storeProductId]?.id != attemptId ||
               !canContinue()) {
             return;
@@ -442,6 +594,8 @@ class GooglePlayBillingService implements BillingService {
             attemptId,
             _purchaseFailureMessage(error),
             debugInfo: purchaseDebugInfo('gems.launch_store', error: error),
+            requiresProductRefresh:
+                _platformFailureErrorCode(error) == 'product_details_changed',
           );
           _trackFlowResult(
             activeProduct,
@@ -449,6 +603,20 @@ class GooglePlayBillingService implements BillingService {
             'launch_failed',
             errorCode: _platformFailureErrorCode(error),
             failureReason: _storeFailureReason(error: error, stage: 'launch'),
+            failureDiagnostics: _storeFailureDiagnostics(
+              error: error,
+              stackTrace: stackTrace,
+              stage: 'launch',
+              context: {
+                'step': 'launch_store',
+                'stage_duration_ms': launchClock.elapsedMilliseconds,
+                'retry_count': recovery.used ? 1 : 0,
+                'store_handoff_started': storeHandedOff,
+                'total_duration_ms': DateTime.now()
+                    .difference(startedAt)
+                    .inMilliseconds,
+              },
+            ),
           );
         }
       } catch (_) {

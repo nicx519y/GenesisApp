@@ -7,7 +7,7 @@ import '../../network/models/membership_product.dart';
 import '../../utils/store_price_display_policy.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
 import '../../platform/billing/membership_product_store.dart';
-import '../../platform/billing/store_query_cache.dart';
+import '../../platform/billing/store_product_access.dart';
 
 class MembershipPlatformUnavailable implements Exception {}
 
@@ -140,18 +140,25 @@ class MembershipCatalog {
   int _session = 0;
   int _loadGeneration = 0;
   final ValueNotifier<bool> queryingStore = ValueNotifier(false);
+  final ValueNotifier<int> displayRevision = ValueNotifier(0);
+
+  MembershipCatalogData _publishDisplay(MembershipCatalogData data) {
+    _cached = data;
+    displayRevision.value++;
+    return data;
+  }
 
   MembershipCatalogData? get cached => _cached;
   bool get hasCheckoutProducts => _checkoutProducts != null;
   bool get hasStoreProducts =>
       loadStorePrices == null ||
-      (_storeRevision == StoreQueryCache.revision &&
+      (_storeRevision == StoreProductAccess.revision &&
           _cached != null &&
           _cached!.offers.every((offer) => offer.storePrice != null));
 
   bool hasStoreProduct(MembershipProduct? product) =>
       loadStorePrices == null ||
-      (_storeRevision == StoreQueryCache.revision &&
+      (_storeRevision == StoreProductAccess.revision &&
           product != null &&
           (_cached?.offers.any(
                 (offer) =>
@@ -190,7 +197,9 @@ class MembershipCatalog {
       // A slow disk read must not replace an already returned API response.
       if (_cached != null) return _cached;
       if (response == null) return null;
-      return _cached = _catalog(response.products, platform, response.prices);
+      return _publishDisplay(
+        _catalog(response.products, platform, response.prices),
+      );
     } catch (error) {
       debugPrint(
         '[Membership] catalog cache read failed: ${error.runtimeType}',
@@ -209,8 +218,6 @@ class MembershipCatalog {
 
   Future<MembershipCatalogData> load() {
     final generation = ++_loadGeneration;
-    _checkoutProducts = null;
-    _checkoutOwner = null;
     return _loading = _load(_session, generation);
   }
 
@@ -256,13 +263,13 @@ class MembershipCatalog {
   ) async {
     try {
       final platform = provider!;
-      final storeRevision = StoreQueryCache.revision;
+      final storeRevision = StoreProductAccess.revision;
       final prices = await loadStorePrices!(response.products);
       final result = _catalog(response, platform, prices);
       if (session != _session || generation != _loadGeneration) {
         throw StateError('membership_catalog_session_changed');
       }
-      _cached = result;
+      _publishDisplay(result);
       _storeRevision = storeRevision;
       unawaited(_saveCache(platform, _checkoutOwner, response, prices));
       return result;
@@ -320,19 +327,33 @@ class MembershipCatalog {
       return _catalog(response, platform);
     }
     queryingStore.value = true;
-    _checkoutProducts = null;
-    _checkoutOwner = null;
-    final storeRevision = StoreQueryCache.revision;
+    // Publish display data before awaiting the platform. This cannot authorize
+    // checkout: identities remain unavailable until the fresh lookup completes.
+    if (_cached == null) _publishDisplay(_catalog(response, platform));
+    final storeRevision = StoreProductAccess.revision;
     Map<String, MembershipStorePrice> prices = {};
     if (loadStorePrices != null) {
       try {
-        prices = await StoreQueryCache.refresh(
+        prices = await StoreProductAccess.refresh(
           () => loadStorePrices!(response.products),
         );
       } catch (error) {
         debugPrint(
           '[Membership] store price lookup failed: ${error.runtimeType}',
         );
+      }
+    }
+    for (final product in response.products) {
+      if (prices.containsKey(product.planCode)) continue;
+      final old = (_cached?.offers ?? const <MembershipOffer>[]).where(
+        (o) =>
+            o.product.planCode == product.planCode &&
+            o.product.storeProductId == product.storeProductId &&
+            o.product.basePlanId == product.basePlanId &&
+            o.product.offerId == product.offerId,
+      );
+      if (old.length == 1 && old.single.storePrice != null) {
+        prices[product.planCode] = old.single.storePrice!;
       }
     }
     final result = _catalog(response, platform, prices);
@@ -344,7 +365,7 @@ class MembershipCatalog {
       );
       _checkoutOwner = owner;
       // Cache display fields without the last purchase UUID.
-      _cached = result;
+      _publishDisplay(result);
       _storeRevision = storeRevision;
       unawaited(_saveCache(platform, owner, response, prices));
     }

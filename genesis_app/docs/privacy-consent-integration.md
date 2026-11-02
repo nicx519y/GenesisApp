@@ -53,5 +53,5 @@
 首次发送保护依据：[Adjust Flutter First session delay](https://dev.adjust.com/en/sdk/flutter/features/first-session-delay/)。无选择的跳过路径不保证携带用户同意值；这是保留产品配置与失败继续启动策略，不代表已有用户授权。
 # 隐私弹窗曝光打点（2026-11-01）
 
-- 弹窗首帧显示后通过现有 Collect 记录 `action_type=pageview`、`action=privacy_choices`，`object1=startup` 表示启动自动弹出，`object1=settings` 表示设置页主动打开。不传 object2，不记录 Manage 页面切换或按钮点击。
+- 弹窗首帧显示后通过现有 Collect 记录 `action_type=pageview`、`action=privacy_choices`，`object1=startup` 表示启动自动弹出，`object1=settings` 表示设置页主动打开。`object2` 使用系统 Locale 的完整语言标签（例如 `fr-FR`），与公共请求头 `x-system-language` 使用相同来源和格式；不记录 Manage 页面切换或按钮点击。
 - 同一次弹窗只记录一次，组件重建不重复；关闭后重新打开重新记录。关闭持久化的 Developer 预览不记录。沿用 Collect 原有采集开关和授权控制。

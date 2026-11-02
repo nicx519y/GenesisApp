@@ -1,6 +1,9 @@
+import '../../platform/session/app_background_resume.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import '../../platform/billing/checkout_preparation_budget.dart';
+import '../../platform/billing/store_product_access.dart';
 import '../../components/gems/gem_daily_reset_countdown.dart';
 
 import 'package:flutter/foundation.dart';
@@ -128,6 +131,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         WidgetsBindingObserver,
         RouteAware,
         LanguageDataRefresh<GemWalletPage> {
+  final _backgroundResume = AppBackgroundResume();
   @override
   Future<void> refreshLanguageData() => _refreshAll(silent: true);
   @override
@@ -292,7 +296,8 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
+    final resumedFromBackground = _backgroundResume.update(state);
+    if (!resumedFromBackground) return;
     if (_purchaseTabs.index == 0) {
       final membership = _membershipServices?.membership;
       if (membership != null) unawaited(membership.refresh());
@@ -327,19 +332,15 @@ class _GemWalletPageState extends State<GemWalletPage>
         ? AppServicesScope.maybeOf(context)?.gemStoreCatalog
         : null;
     return AnimatedBuilder(
-      animation: Listenable.merge([if (catalog != null) catalog.queryingStore]),
+      animation: Listenable.merge([
+        if (catalog != null) catalog.queryingStore,
+        if (catalog != null) catalog.displayRevision,
+      ]),
       builder: (_, _) => _buildPurchasePage(context),
     );
   }
 
-  bool get _isProductRefreshBlocking =>
-      _blockingProductRefresh ||
-      (widget.productsLoader == null &&
-          _products != null &&
-          AppServicesScope.maybeRead(
-                context,
-              )?.gemStoreCatalog.queryingStore.value ==
-              true);
+  bool get _isProductRefreshBlocking => _blockingProductRefresh;
 
   Widget _buildPurchasePage(BuildContext context) {
     return GenesisDarkTheme(
@@ -413,7 +414,12 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   Widget _buildBody(ValueListenable<GemWalletState> walletStateListenable) {
-    if (_primaryLoading) {
+    final displayProducts =
+        _products ??
+        (widget.productsLoader == null
+            ? AppServicesScope.maybeRead(context)?.gemStoreCatalog.cached
+            : null);
+    if (_primaryLoading && displayProducts == null) {
       return const GemPurchaseLoading();
     }
     if (!_hasPageData && _productsError != null && _tasksError != null) {
@@ -425,13 +431,14 @@ class _GemWalletPageState extends State<GemWalletPage>
       );
     }
     return GenesisRefreshIndicator(
-      onRefresh: () => _refreshAll(silent: true),
+      onRefresh: () =>
+          StoreProductAccess.refresh(() => _refreshAll(silent: true)),
       child: _GemWalletContent(
-        products: _products,
+        products: displayProducts,
         taskGroups: _taskGroups,
         dailyResetClock: _dailyResetClock,
         onDailyReset: _onDailyReset,
-        productsLoading: _products == null
+        productsLoading: displayProducts == null
             ? _productsLoading
             : _isProductRefreshBlocking,
         tasksLoading: _tasksLoading,
@@ -440,7 +447,8 @@ class _GemWalletPageState extends State<GemWalletPage>
         walletStateListenable: walletStateListenable,
         billingStateListenable: _billingStateListenable,
         onPurchase: _purchaseProduct,
-        onRetryProducts: () => unawaited(_refreshProducts()),
+        onRetryProducts: () =>
+            unawaited(StoreProductAccess.refresh(() => _refreshProducts())),
         onRetryTasks: () => unawaited(_refreshTasks()),
         taskStatusFor: _taskStatus,
         isTaskLoading: _loadingTaskCodes.contains,

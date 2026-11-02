@@ -106,6 +106,8 @@ class _DmaPreviewState extends State<_DmaPreview> {
         actionType: 'pageview',
         action: 'privacy_choices',
         object1: widget.openChoicesDirectly ? 'settings' : 'startup',
+        object2: WidgetsBinding.instance.platformDispatcher.locale
+            .toLanguageTag(),
       );
     });
   }

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/platform/billing/store_product_access.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_product_store.dart';
@@ -78,7 +79,7 @@ void main() {
     );
   });
   test(
-    'missing store prices retry without querying server; entries reuse both caches',
+    'startup and every payment entry refresh server then platform',
     () async {
       var serverCalls = 0;
       var storeCalls = 0;
@@ -90,16 +91,23 @@ void main() {
             products: [membershipProduct(yearly: true)],
           );
         },
-        loadStorePrices: (_) async =>
-            ++storeCalls == 1 ? {} : {'pro_yearly': yearlyPrice},
+        loadStorePrices: (_) async {
+          expect(StoreProductAccess.forceRefresh, isTrue);
+          expect(
+            serverCalls,
+            storeCalls + 1,
+            reason: 'Server refresh precedes platform refresh.',
+          );
+          return ++storeCalls == 1 ? {} : {'pro_yearly': yearlyPrice};
+        },
       );
       await source.preload();
       expect(source.cached!.offers.single.storePrice, isNull);
       await source.loadForEntry();
       await source.loadForEntry();
       expect(source.cached!.offers.single.storePrice, yearlyPrice);
-      expect(serverCalls, 1);
-      expect(storeCalls, 2);
+      expect(serverCalls, 3);
+      expect(storeCalls, 3);
     },
   );
 }

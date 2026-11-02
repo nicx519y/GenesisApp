@@ -40,6 +40,56 @@ const _wrappingTaskDescription =
     'and interacting with characters to move its story forward.';
 
 void main() {
+  testWidgets(
+    'Gems sheet preflight timeout releases loading and cannot buy on late lookup',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final wallet = GemWalletStore(
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+        readUid: () async => 'u_user',
+      );
+      final billing = _FakeBillingService();
+      addTearDown(wallet.dispose);
+      addTearDown(billing.dispose);
+      final store = catalog_support.Store(BillingProvider.appStore)
+        ..queryGate = Completer<void>();
+      final catalog = GemStoreCatalog(
+        loadProducts: () async => _products(),
+        platform: store,
+        namespace: 'preflight-timeout',
+        readOwner: () async => 'u_user',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 700,
+              child: GemPurchaseBottomSheet(
+                productsLoader: catalog.loadForEntry,
+                catalog: catalog,
+                walletStore: wallet,
+                billingService: billing,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('gem-product-gem_pack_500')));
+      await tester.pump();
+      expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 90));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.textContaining('Purchasing Gems'), findsNothing);
+      expect(billing.purchasedProducts, isEmpty);
+      store.queryGate!.complete();
+      await tester.pumpAndSettle();
+      expect(billing.purchasedProducts, isEmpty);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
   testWidgets('Daily zero refreshes tasks once without a request loop', (
     tester,
   ) async {
@@ -783,7 +833,7 @@ void main() {
       ]);
       expect(
         purchaseEvents.last.collectPayload?['object3'],
-        'precheck_failed[service_unavailable]',
+        'prepare_failed[reason=service_unavailable]',
       );
       await tester.pump(const Duration(seconds: 3));
     },

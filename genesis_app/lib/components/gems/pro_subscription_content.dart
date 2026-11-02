@@ -1,5 +1,7 @@
+import '../../platform/session/app_background_resume.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import '../../platform/billing/checkout_preparation_budget.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -124,6 +126,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   _ProPlan _plan = _ProPlan.yearly;
   AppServices? _services;
+  MembershipCatalog? _displayCatalog;
   List<MembershipOffer> _offers = [];
   MembershipAccessStore? _membership;
   bool _submitting = false;
@@ -132,6 +135,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   bool _hasFreshCatalog = false;
   MembershipCheckoutPreparation? _checkoutPreparation;
   bool _loading = false;
+  final _backgroundResume = AppBackgroundResume();
   bool _started = false;
   int? _entryRevision;
   int _requestGeneration = 0;
@@ -160,9 +164,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final resumedFromBackground = _backgroundResume.update(state);
     if (state != AppLifecycleState.resumed) {
       _clearCheckoutPreparation();
-    } else if (!_submitting && _hasFreshCatalog) {
+    } else if (resumedFromBackground && !_submitting && _hasFreshCatalog) {
       unawaited(_load(silent: true));
     }
   }
@@ -178,6 +183,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     if (!_started || !identical(services, _services)) {
       _services?.sessionRevision.removeListener(_sessionChanged);
       _services = services;
+      _bindDisplayCatalog();
       _bindMembership();
       _bindPurchaseUpdates();
       _purchasePresentation?.dispose();
@@ -194,12 +200,32 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   @override
   void didUpdateWidget(ProSubscriptionContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _bindDisplayCatalog();
     _bindMembership();
     if (oldWidget.productsLoader != widget.productsLoader ||
         oldWidget.catalog != widget.catalog) {
       unawaited(_load());
     }
     _bindPurchaseUpdates();
+  }
+
+  void _bindDisplayCatalog() {
+    final catalog = _catalog;
+    if (identical(catalog, _displayCatalog)) return;
+    _displayCatalog?.displayRevision.removeListener(_catalogDisplayChanged);
+    _displayCatalog = catalog;
+    catalog?.displayRevision.addListener(_catalogDisplayChanged);
+  }
+
+  void _catalogDisplayChanged() {
+    final catalog = _displayCatalog;
+    final display = catalog?.cached;
+    if (!mounted || display == null) return;
+    setState(() {
+      _applyCatalog(display);
+      _loading = false;
+      _hasFreshCatalog = catalog!.hasCheckoutProducts;
+    });
   }
 
   void _bindMembership() {
@@ -237,6 +263,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _displayCatalog?.displayRevision.removeListener(_catalogDisplayChanged);
     _clearCheckoutPreparation();
     _purchasePresentation?.dispose();
     _membership?.state.removeListener(_membershipChanged);
@@ -344,7 +371,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   }
 
   Future<void> _onSubscribePressed() async {
-    if (_submitting || _catalog?.queryingStore.value == true) return;
+    if (_submitting) return;
+    final budget = CheckoutPreparationBudget();
     final session = _services?.sessionRevision.value;
     setState(() {
       _submitting = true;
@@ -358,7 +386,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
           (_catalog != null &&
               !_catalog!.hasStoreProduct(_offerFor(_plan)?.product))) {
         final previous = _offerFor(_plan);
-        await _load(silent: true, checkoutOnly: true);
+        await budget.wait(_load(silent: true, checkoutOnly: true));
         if (!mounted || !_hasFreshCatalog) return;
         final current = _offerFor(_plan);
         if ((_catalog?.loadStorePrices != null &&
@@ -380,7 +408,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         return;
       }
       setState(() => _checkingCatalog = false);
-      await _subscribe();
+      await budget.run(_subscribe);
+    } on TimeoutException {
+      if (mounted) {
+        showGenesisToast(context, GenesisL10n.current.gemsPurchaseTimeout);
+      }
     } finally {
       if (mounted) {
         setState(() {

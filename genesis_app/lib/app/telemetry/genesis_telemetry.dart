@@ -334,6 +334,7 @@ class GenesisTelemetry {
     Map<String, Object?>? collectPayload,
     String? eventId,
     bool includeCollectIdentityHeaders = true,
+    bool bestEffort = false,
   }) {
     if (!_enabled) return;
     final event = GenesisTelemetryEvent(
@@ -347,15 +348,23 @@ class GenesisTelemetry {
       includeCollectIdentityHeaders: includeCollectIdentityHeaders,
     );
     if (capture && collectPayload != null && collectPayload.isNotEmpty) {
-      unawaited(
-        _collectUploader.enqueuePayloadWithResult(
-          collectPayload,
-          includeIdentityHeaders: includeCollectIdentityHeaders,
-          eventId: eventId,
-        ),
+      final pending = _collectUploader.enqueuePayloadWithResult(
+        collectPayload,
+        includeIdentityHeaders: includeCollectIdentityHeaders,
+        eventId: eventId,
       );
+      if (bestEffort) {
+        unawaited(
+          pending.then<void>((_) {}, onError: (Object _, StackTrace __) {}),
+        );
+      } else {
+        unawaited(pending);
+      }
     }
-    unawaited(_sink.record(event));
+    final recorded = _sink.record(event);
+    unawaited(
+      bestEffort ? recorded.catchError((Object _, StackTrace __) {}) : recorded,
+    );
   }
 
   static void click({

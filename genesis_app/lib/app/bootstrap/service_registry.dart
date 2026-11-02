@@ -4,7 +4,7 @@ import '../../platform/auth/login_submission_controller.dart';
 import '../gems/gem_store_catalog.dart';
 import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
 import '../../platform/billing/membership_product_store.dart';
-import '../../platform/billing/store_query_cache.dart';
+import '../../platform/billing/store_product_access.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_language_controller.dart';
 import 'dart:async';
@@ -283,7 +283,7 @@ class AppServices {
 
   void _membershipSessionChanged() {
     chatSendGate.reset();
-    StoreQueryCache.reset();
+    StoreProductAccess.reset();
     personalization.resetForSession();
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
@@ -341,7 +341,7 @@ class AppServices {
     balancePrompts.dispose();
     chatSendGate.dispose();
     loginSubmission.dispose();
-    StoreQueryCache.reset();
+    StoreProductAccess.reset();
     _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(
       _refreshMembershipProducts,
@@ -616,6 +616,10 @@ class ServiceRegistry {
             readLoginUid: sessionStore.readLoginUid,
             readCheckoutProducts: () =>
                 services.membershipCatalog.readCheckoutProducts(),
+            refreshCheckoutProducts: () async {
+              await services.membershipCatalog.loadForEntry();
+              return services.membershipCatalog.readCheckoutProducts();
+            },
             loadAccountUuid: loadBillingAccountUuid,
             prepareGuest: () async => api.v1.membership.prepareGuest(
               provider: membershipProvider,
@@ -666,7 +670,8 @@ class ServiceRegistry {
             readUid: sessionStore.readUid,
             interceptPurchase: membershipPurchases?.interceptPurchase,
             otherPurchaseBusy: () => membershipPurchases?.isBusy ?? false,
-            onPurchaseStreamError: membershipPurchases?.handleStreamError,
+            onPurchaseStreamErrorWithStack:
+                membershipPurchases?.handleStreamError,
             purchaseEventReporting: purchaseEventReporting,
           );
     final directMessageConversations = DirectMessageConversationStore(

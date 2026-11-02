@@ -1,5 +1,8 @@
+import '../../platform/billing/billing_analytics.dart';
+import '../../platform/session/app_background_resume.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import '../../platform/billing/checkout_preparation_budget.dart';
 
 import 'package:flutter/material.dart';
 
@@ -172,7 +175,8 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
+    final resumedFromBackground = _backgroundResume.update(state);
+    if (resumedFromBackground &&
         !_checkingPrice &&
         !widget.billingService.state.value.hasBusyPurchase) {
       unawaited(_loadProducts());
@@ -182,6 +186,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   List<GemProduct>? _products;
   Object? _productsError;
   bool _productsLoading = false;
+  final _backgroundResume = AppBackgroundResume();
   bool _blockingProductRefresh = false;
   int _productsRequestGeneration = 0;
   StreamSubscription<BillingUiEvent>? _billingEvents;
@@ -261,6 +266,8 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         widget.billingService.state.value.hasBusyPurchase) {
       return;
     }
+    final clickAttemptId = newBillingAttemptId();
+    final budget = CheckoutPreparationBudget();
     _showPurchaseProcessing(attemptId: '');
     if (product.requiresStorePrice) {
       final catalog =
@@ -272,17 +279,48 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       }
       _checkingPrice = true;
       try {
-        final fresh = await catalog.confirm(product);
+        final fresh = await budget.wait(catalog.confirm(product));
         if (!mounted) return;
         setState(() {
           _products = catalog.cached;
         });
         if (fresh == null) {
+          reportGemConfirmationFailure(
+            product: product,
+            attemptId: clickAttemptId,
+            source: BillingPurchaseSource.buyGemsSheet.value,
+            reason: 'catalog_unavailable',
+            currentProducts: catalog.cached,
+            durationMs: DateTime.now()
+                .difference(budget.startedAt)
+                .inMilliseconds,
+          );
           _dismissPurchaseDialog();
           return;
         }
         product = fresh;
-      } catch (_) {
+      } on TimeoutException {
+        reportGemConfirmationTimeout(
+          product: product,
+          attemptId: clickAttemptId,
+        );
+        _dismissPurchaseDialog();
+        if (mounted) {
+          showGenesisToast(context, GenesisL10n.current.gemsPurchaseTimeout);
+        }
+        return;
+      } catch (error, stackTrace) {
+        reportGemConfirmationFailure(
+          product: product,
+          attemptId: clickAttemptId,
+          source: BillingPurchaseSource.buyGemsSheet.value,
+          reason: 'store_query_error',
+          error: error,
+          stackTrace: stackTrace,
+          durationMs: DateTime.now()
+              .difference(budget.startedAt)
+              .inMilliseconds,
+        );
         _dismissPurchaseDialog();
         if (mounted) unawaited(_loadProducts());
         return;
@@ -293,9 +331,12 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     _startedProductIds.add(product.productId);
     _showPurchaseProcessing(attemptId: '');
     try {
-      await widget.billingService.purchaseGem(
-        product,
-        source: BillingPurchaseSource.buyGemsSheet,
+      await budget.run(
+        () => widget.billingService.purchaseGem(
+          product,
+          source: BillingPurchaseSource.buyGemsSheet,
+          operationId: clickAttemptId,
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -333,6 +374,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       case BillingUiEventKind.deferred:
         _startedProductIds.remove(event.productId);
         _dismissPurchaseDialog();
+        if (event.requiresProductRefresh) unawaited(_loadProducts());
         showGenesisToast(
           context,
           purchaseToastMessage(
@@ -453,14 +495,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     return AnimatedBuilder(
       animation: Listenable.merge([
         if (widget.catalog != null) widget.catalog!.queryingStore,
+        if (widget.catalog != null) widget.catalog!.displayRevision,
       ]),
       builder: (_, _) => _buildPurchaseContent(context),
     );
   }
 
-  bool get _isProductRefreshBlocking =>
-      _blockingProductRefresh ||
-      (_products != null && widget.catalog?.queryingStore.value == true);
+  bool get _isProductRefreshBlocking => _blockingProductRefresh;
 
   Widget _buildPurchaseContent(BuildContext context) {
     return SingleChildScrollView(
@@ -479,7 +520,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   }
 
   Widget _buildProducts() {
-    final products = _products;
+    final products = _products ?? widget.catalog?.cached;
     if (_productsLoading && products == null) {
       return const GemProductGridSkeleton();
     }

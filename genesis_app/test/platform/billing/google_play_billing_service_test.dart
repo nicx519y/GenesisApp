@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/platform/billing/checkout_preparation_budget.dart';
+import 'package:genesis_flutter_android/platform/billing/store_product_access.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -96,9 +98,9 @@ class _FakeBillingPlatform implements BillingPlatform {
   }) async {
     buyCount += 1;
     purchasedOfferToken = product.offerToken;
-    expect(product.id, expectedStoreProductId);
-    expect(product.type, BillingStoreProductType.inApp);
-    expect(billingAccountId, '4b74ec68-7abc-4cce-a223-e997e31dc811');
+    expectSync(product.id, expectedStoreProductId);
+    expectSync(product.type, BillingStoreProductType.inApp);
+    expectSync(billingAccountId, '4b74ec68-7abc-4cce-a223-e997e31dc811');
     handoff = onStoreHandoff;
     final handler = buyHandler;
     final accepted = handler == null ? buyAccepted : await handler();
@@ -119,8 +121,8 @@ class _FakeBillingPlatform implements BillingPlatform {
     queriedOfferId = offerId;
     final handler = queryHandler;
     if (handler != null) return handler(storeProductId);
-    expect(storeProductId, expectedStoreProductId);
-    expect(expectedType, BillingStoreProductType.inApp);
+    expectSync(storeProductId, expectedStoreProductId);
+    expectSync(expectedType, BillingStoreProductType.inApp);
     return queryResult;
   }
 
@@ -141,12 +143,14 @@ class _BillingAnalyticsRecord {
 
 class _FakeBillingAnalytics implements BillingAnalytics {
   final records = <_BillingAnalyticsRecord>[];
+  bool fail = false;
 
   @override
   void track(
     String action, {
     Map<String, Object?> properties = const <String, Object?>{},
   }) {
+    if (fail) throw StateError('telemetry unavailable');
     records.add(_BillingAnalyticsRecord(action, Map.of(properties)));
   }
 }
@@ -326,6 +330,19 @@ void main() {
     service.dispose();
     await platform.close();
   });
+
+  test(
+    'throwing telemetry cannot prevent store launch or successful reporting',
+    () async {
+      analytics.fail = true;
+      await service.purchaseGem(_product);
+      expect(platform.buyCount, 1);
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+      expect(reports, hasLength(1));
+      expect(uiEvents.last.kind, BillingUiEventKind.success);
+    },
+  );
 
   test('pending and canceled Gems callbacks use the active language', () async {
     GenesisL10n.bind(lookupAppLocalizations(const Locale('zh', 'TW')));
@@ -1594,7 +1611,7 @@ void main() {
   });
 
   test(
-    'product not found never reloads server catalog during checkout',
+    'product not found refreshes the server SKU and continues checkout',
     () async {
       const refreshedProduct = GemProduct(
         productId: 'gem_pack_500',
@@ -1650,11 +1667,51 @@ void main() {
 
       await service.purchaseGem(_product);
 
-      expect(platform.queriedStoreProductIds, [_product.googleProductId]);
-      expect(platform.buyCount, 0);
-      expect(catalogLoads, 0);
+      expect(platform.queriedStoreProductIds, [
+        _product.googleProductId,
+        refreshedProduct.googleProductId,
+      ]);
+      expect(platform.buyCount, 1);
+      expect(catalogLoads, 1);
     },
   );
+
+  test(
+    'price drift emits diagnostics and preserves the existing stop before store launch',
+    () async {
+      await service.purchaseGem(
+        _product.withStorePrice(
+          formatted: r'$2.00',
+          micros: 2000000,
+          currency: 'USD',
+        ),
+      );
+      expect(platform.buyCount, 0);
+      final failed = analytics.records
+          .where((r) => r.action == 'purchase_failed')
+          .single;
+      expect(failed.properties['error_code'], 'store_price_changed');
+      final d = failed.properties['failure_diagnostics'] as Map;
+      expect(d['expected_price_amount_micros'], 2000000);
+      expect(d['actual_price_amount_micros'], 1490000);
+      expect(service.state.value.hasBusyPurchase, false);
+    },
+  );
+
+  test('stream diagnostic preserves a later explicit store error', () async {
+    await service.purchaseGem(_product, operationId: 'stream-then-error');
+    platform.emitError(StateError('listener error'));
+    await _settle();
+    platform.emit(_purchase(BillingPurchaseStatus.error));
+    await _settle();
+    final failures = analytics.records
+        .where((r) => r.action == 'purchase_failed')
+        .toList();
+    expect(failures, hasLength(2));
+    expect(failures.first.properties['reason'], 'stream_failed');
+    expect(failures.last.properties['reason'], 'purchase_callback_error');
+    expect(reports, isEmpty);
+  });
 
   test('billing launch rejection is tracked', () async {
     platform.buyAccepted = false;
@@ -1774,6 +1831,71 @@ void main() {
       ),
     );
     await _settle();
+  });
+
+  test(
+    'missing product query refreshes catalog and native products before buying',
+    () async {
+      var queries = 0;
+      platform.queryHandler = (_) async {
+        if (++queries == 1) {
+          return const BillingProductQueryResult.failure('product_not_found');
+        }
+        expect(StoreProductAccess.forceRefresh, true);
+        return platform.queryResult;
+      };
+      await service.purchaseGem(_product);
+      expect(productCatalogLoadCount, 1);
+      expect(queries, 2);
+      expect(platform.buyCount, 1);
+      expect(
+        analytics.records.where((e) => e.action == 'purchase_failed'),
+        isEmpty,
+      );
+    },
+  );
+
+  test('query and launch cannot each trigger a catalog recovery', () async {
+    var queries = 0;
+    platform.queryHandler = (_) async => ++queries == 1
+        ? const BillingProductQueryResult.failure('product_not_found')
+        : platform.queryResult;
+    platform.buyHandler = () => throw PlatformException(code: 'NOT_FOUND');
+    await service.purchaseGem(_product);
+    expect(productCatalogLoadCount, 1);
+    expect(queries, 2);
+    expect(platform.buyCount, 1);
+    expect(
+      analytics.records.where((e) => e.action == 'purchase_failed'),
+      hasLength(1),
+    );
+  });
+
+  test('network query failure does not retry a purchase', () async {
+    platform.queryResult = const BillingProductQueryResult.failure(
+      'network_error',
+    );
+    await service.purchaseGem(_product);
+    expect(productCatalogLoadCount, 0);
+    expect(platform.buyCount, 0);
+  });
+
+  testWidgets('Gems service inherits time already spent in page preflight', (
+    tester,
+  ) async {
+    final budget = CheckoutPreparationBudget(
+      startedAt: DateTime.now().subtract(const Duration(seconds: 89)),
+    );
+    final gate = Completer<BillingProductQueryResult>();
+    platform.queryHandler = (_) => gate.future;
+    final work = budget.run(() => service.purchaseGem(_product));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await work;
+    expect(service.state.value.hasBusyPurchase, false);
+    gate.complete(platform.queryResult);
+    await tester.pump();
+    expect(platform.buyCount, 0);
   });
 
   test('billing launch failure tracks the platform error code', () async {
@@ -2330,6 +2452,75 @@ void main() {
         (record) => record.action == 'purchase_success',
       );
       expect(success.properties.containsKey('attempt_id'), isFalse);
+    },
+  );
+
+  testWidgets(
+    'Apple Gems user idle beyond 90 seconds does not expire store flow',
+    (tester) async {
+      service.dispose();
+      await platform.close();
+      platform = _FakeBillingPlatform(
+        providerValue: BillingProvider.appStore,
+        expectedStoreProductId: _product.appleProductId,
+      );
+      platform.queryHandler = (_) async => BillingProductQueryResult.success(
+        BillingStoreProduct(
+          id: _product.appleProductId,
+          type: BillingStoreProductType.inApp,
+          nativeProduct: const Object(),
+        ),
+      );
+      final result = Completer<bool>();
+      platform.buyHandler = () async {
+        expectSync(platform.handoff!(), true);
+        return result.future;
+      };
+      service = GooglePlayBillingService(
+        platform: platform,
+        pendingPurchaseStore: pendingStore,
+        loadBillingAccountId: () async => billingAccountId,
+        loadProductCatalog: () async => [_product],
+        reportPurchase: (_) async => const GemPurchaseReport(
+          status: GemPurchaseReportStatus.completed,
+          grantedGemsCent: 55000,
+        ),
+        refreshWallet: () async {},
+        readUid: () async => currentUid,
+        analytics: analytics,
+      );
+      service.events.listen(uiEvents.add);
+      final work = service.purchaseGem(_product);
+      for (var step = 0; step < 10 && platform.buyCount == 0; step++) {
+        await tester.pump();
+      }
+      expect(
+        platform.buyCount,
+        1,
+        reason: '${uiEvents.map((e) => e.debugInfo).toList()}',
+      );
+      await tester.pump(const Duration(seconds: 120));
+      expect(service.state.value.hasBusyPurchase, true);
+      expect(uiEvents, isEmpty);
+      expect(
+        analytics.records.where(
+          (e) =>
+              e.action == 'purchase_timeout' || e.action == 'purchase_failed',
+        ),
+        isEmpty,
+      );
+      result.complete(true);
+      await tester.pump();
+      await work;
+      platform.emit(
+        _purchase(
+          BillingPurchaseStatus.canceled,
+          provider: BillingProvider.appStore,
+          storeProductId: _product.appleProductId,
+        ),
+      );
+      await tester.pump();
+      expect(service.state.value.hasBusyPurchase, false);
     },
   );
 
