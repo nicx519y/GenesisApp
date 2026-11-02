@@ -33,6 +33,7 @@ import 'chatroom_timeline_payload.dart';
 part 'world_chatroom_connection.dart';
 part 'world_chatroom_entry.dart';
 part 'world_chatroom_history_repository.dart';
+part 'world_chatroom_sync.dart';
 part 'world_chatroom_message_mutations.dart';
 part 'world_chatroom_event_projection.dart';
 part 'world_chatroom_message_reducer.dart';
@@ -45,6 +46,7 @@ part 'world_chatroom_stream_watchdog.dart';
 const _maxMessagesPerLocation = 200;
 const _maxRecoverableLocationMessageGap = 50;
 const _maxLocationMessageGapFillAttempts = 3;
+const _maxLiveLocationSyncRetries = 2;
 const _defaultLocationQueueInitConcurrency = 4;
 const _transientCharactersMovedMessageIdBase = 0x10000000000000;
 const _transientCharactersMovedRoundPrefix = 'ws-event:';
@@ -212,9 +214,32 @@ class WorldChatroomService {
 
   final _entryChannels = <String, ValueNotifier<ChatroomLocationEntry>>{};
   final _entryLocalReads = <(String, _HistoryTicket), Future<void>>{};
-  final _entryNetworkReads = <(String, int, _HistoryTicket), Future<void>>{};
+  final _entryNetworkReads = <(String, int, int), Future<void>>{};
   final _entryPreloads = <(String, _HistoryTicket), Future<void>>{};
   final _entryNetworkVerified = <String, _HistoryTicket>{};
+  int _messageSyncGeneration = 0;
+  NetworkCancellationToken _messageSyncCancellation =
+      NetworkCancellationToken();
+  final _connectionSyncAttempted = <String>{};
+  final _failedLocationSyncs = <String, _HistoryTicket>{};
+  final _liveLocationSyncRetries = <(String, int), Future<void>>{};
+  final _liveLocationSyncRetryCounts = <String, int>{};
+  int _messageReadsActive = 0;
+  int _liveMessageRevision = 0;
+  final _liveMessageRevisions = <(String, Object), int>{};
+  final _messageReadWaiters = Queue<Completer<void>>();
+  final _gapRepairs = <(String, int), Future<void>>{};
+  final _gapRepairPending = <(String, int)>{};
+  final _releasedLocationGaps = <String>{};
+
+  /// Changes whenever the Socket supplying the message queues changes.
+  int get messageSyncGeneration => _messageSyncGeneration;
+
+  Set<String> releasedLocationMessageGapKeys(String locationId) =>
+      _releasedGapKeysFor(locationId);
+
+  Future<void> repairLocationMessageGaps(String locationId) =>
+      _requestLocationGapRepair(locationId);
   final _entryLocalReady = <String>{};
   final _entryReadDepth = <(String, _HistoryTicket), int>{};
   final _entryReadErrors = <(String, _HistoryTicket), Object>{};
@@ -807,6 +832,14 @@ class WorldChatroomService {
     final resolvedRoundId = conversationRoundId.trim();
     if (resolvedLocationId.isEmpty || resolvedRoundId.isEmpty) return;
     _bindStreamWatch(resolvedLocationId, resolvedRoundId);
+    // The watchdog rejects older rounds. Their late waiting events must not
+    // replace the current round while retaining a different round's deadline.
+    final watch = _streamWatches[resolvedLocationId];
+    if (watch != null &&
+        watch.roundId.isNotEmpty &&
+        watch.roundId != resolvedRoundId) {
+      return;
+    }
     if (_streamLocallyEnded(resolvedLocationId, resolvedRoundId) ||
         (_streamWatches[resolvedLocationId]?.operation.finished ?? false)) {
       return;
@@ -988,8 +1021,10 @@ class WorldChatroomService {
     _rememberClosedConversationRound(locationId, current.conversationRoundId);
     final watch = _streamWatches[locationId];
     if (watch != null &&
-        (watch.clientMsgId == current.clientMsgId ||
-            watch.roundId == current.conversationRoundId)) {
+        ((watch.clientMsgId.isNotEmpty &&
+                watch.clientMsgId == current.clientMsgId) ||
+            (watch.roundId.isNotEmpty &&
+                watch.roundId == current.conversationRoundId))) {
       watch.operation.finish();
     }
     final next = <String, ConversationRoundState>{
@@ -1089,6 +1124,18 @@ class WorldChatroomService {
     final nextWorldId = worldId.trim();
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
+      if (_identity != null) {
+        final world = _state.world;
+        _userDisconnected = true;
+        abandonConnectionWait();
+        await _detachSession(disconnect: true);
+        _desiredLocationId = '';
+        _lastUserEnterLocationCommandId = '';
+        _pendingUserEnterLocationCommandId = '';
+        _clearAllConversationRounds();
+        _setState(const WorldChatroomState());
+        if (world?.worldId == nextWorldId) applyWorldSnapshot(world!);
+      }
       _historyConnectedOnce = false;
       _replyActionsController?.dispose();
       _replyActionsController = null;
@@ -1371,7 +1418,7 @@ class WorldChatroomService {
     if (_worldId.isEmpty || latestLimit <= 0) return;
     final ids = _orderedNonEmpty(
       locationIds ?? _leafLocationIdsForCurrentWorld(),
-    );
+    ).where(_shouldStoreMessageForLocation).toList(growable: false);
     if (ids.isEmpty) return;
     final stopwatch = _chatroomHydrateMetricsEnabled
         ? (Stopwatch()..start())
@@ -1396,6 +1443,7 @@ class WorldChatroomService {
     final waiting = <Future<void>>[];
     for (final location in ids) {
       final ticket = _historyTicket(location);
+      if (_entryNetworkVerified[location] == ticket) continue;
       final key = (location, ticket);
       final existing = _entryPreloads[key];
       if (existing != null) {
@@ -1435,6 +1483,7 @@ class WorldChatroomService {
         },
       );
       await Future.wait(waiting);
+      await Future.wait(ids.map(repairLocationMessageGaps));
     } finally {
       for (final entry in preloads.entries) {
         if (!entry.value.isCompleted) entry.value.complete();
@@ -1737,6 +1786,7 @@ class WorldChatroomService {
       _upsertMessages(localMessages, persist: false, protectIncoming: true);
     }
 
+    final liveRevision = _liveMessageRevision;
     final response = await _api.chatroomHttp.getMessages(
       worldId: _worldId,
       locationId: resolvedLocationId,
@@ -1747,6 +1797,7 @@ class WorldChatroomService {
       resolvedLocationId,
       response.messages,
       ticket: ticket,
+      liveRevision: liveRevision,
     );
     checkCurrent();
     for (final message in response.messages) {

@@ -978,7 +978,7 @@ void main() {
           'location_id': 'location-current',
           'global_message_id': 1001,
           'message_id': 1001,
-          'location_message_id': 104,
+          'location_message_id': 304,
           'conversation_round_id': 801,
           'conversation_type': 'phone_characters_moved',
           'sender_type': 'phone_characters_moved',
@@ -2202,6 +2202,7 @@ void main() {
         streamType: 'llm_chunk',
         roundId: 401,
         messageId: 402,
+        locationMessageId: 303,
         seq: 1,
         content: 'A short reply.',
         conversationType: 'go_on',
@@ -2227,6 +2228,7 @@ void main() {
         streamType: 'llm_chunk',
         roundId: 401,
         messageId: 402,
+        locationMessageId: 303,
         seq: 2,
         content: '\nMore content.' * 40,
         conversationType: 'go_on',
@@ -2234,11 +2236,17 @@ void main() {
       await _pumpUntilLocationChatTest(
         tester,
         () => coordinator.hasMessageContentBelowViewport,
-        step: const Duration(milliseconds: 16),
+        step: const Duration(milliseconds: 32),
       );
       await tester.pump();
       expect(position.pixels, closeTo(held, 0.1));
       expect(find.byKey(notice), findsNothing);
+      expect(
+        harness.service.state.messagesByLocation['location-current']!
+            .singleWhere((m) => m.globalMessageId == 90402)
+            .streaming,
+        true,
+      );
       final currentList = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
@@ -12007,6 +12015,103 @@ void main() {
     await service.dispose();
   });
 
+  for (final source in ['Send', 'Go on']) {
+    for (final attempt in [false, true]) {
+      testWidgets(
+        'prepared $source reply restores toolbar from WebSocket only attempt=$attempt',
+        (tester) async {
+          final backend = _LocationChatReplyHttpTransport();
+          final harness = await _mountCompletedReplyActionPanel(
+            tester,
+            backend: backend,
+            usePreparedEntry: true,
+          );
+          final type = source == 'Send' ? 'user_message' : 'go_on';
+          if (source == 'Send') {
+            final composer = tester.widget<ChatComposer>(
+              find.byType(ChatComposer),
+            );
+            composer.controller.text = 'New conversation';
+            await tester.pump();
+            unawaited(composer.onSend());
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket.sendMessageCount == 1,
+            );
+            final request = harness.socket
+                .replyActionFrames('send_message')
+                .single;
+            harness.socket.serverV2AckForLatestSend(errNo: 0);
+            harness.socket.serverV2UserMessage(
+              messageId: 401,
+              locationMessageId: 303,
+              clientMsgId: request['client_msg_id'] as String,
+              content: 'New conversation',
+              conversationType: type,
+            );
+          } else {
+            await tester.tap(find.bySemanticsLabel('Go on'));
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket.replyActionFrames('go_on').length == 1,
+            );
+            harness.socket.serverReplyActionAck('go_on', roundId: 401);
+          }
+          harness.socket.serverWaitingConversationRound(roundId: 401);
+          final reads = backend.requests
+              .where((r) => r.uri.path.endsWith('/api/v2/messages'))
+              .length;
+          for (final streamType in [
+            'llm_stream_start',
+            'llm_chunk',
+            'llm_stream_end',
+          ]) {
+            harness.socket.serverV2StreamFrame(
+              streamType: streamType,
+              roundId: 401,
+              messageId: 402,
+              locationMessageId: source == 'Send' ? 304 : 303,
+              seq: streamType == 'llm_chunk' ? 1 : null,
+              content: streamType == 'llm_stream_start'
+                  ? ''
+                  : 'A new completed reply.',
+              conversationType: type,
+              attemptNo: attempt ? 1 : null,
+            );
+            await tester.pump();
+          }
+          harness.socket.serverEndConversationRound(
+            roundId: 401,
+            conversationType: type,
+          );
+          await _pumpUntilLocationChatTest(tester, () {
+            final list = tester.widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            );
+            return list.regenerateFeature.enabled &&
+                list.goOnFeature.enabled &&
+                list.editFeature.enabled &&
+                list.inspirationFeature.enabled;
+          });
+          await tester.pumpAndSettle();
+          for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+            expect(find.bySemanticsLabel(label), findsOneWidget);
+          }
+          expect(
+            backend.requests.where(
+              (r) => r.uri.path.endsWith('/api/v2/messages'),
+            ),
+            hasLength(reads),
+            reason: 'Live reply controls must not depend on a history refresh.',
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          unawaited(harness.service.dispose());
+          await tester.pump(const Duration(seconds: 3));
+        },
+      );
+    }
+  }
+
   for (final terminalOnly in [false, true]) {
     testWidgets(
       'Send unlocks with toolbar after queued reveal, terminalOnly=$terminalOnly',
@@ -16674,6 +16779,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
 
   void serverV2UserMessage({
     required int messageId,
+    int? locationMessageId,
     String messageType = 'text',
     int minAppVersion = 0,
     String clientMsgId = '',
@@ -16689,7 +16795,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'location_id': 'location-current',
       'global_message_id': 90000 + messageId,
       'message_id': messageId,
-      'location_message_id': messageId,
+      'location_message_id': locationMessageId ?? messageId,
       'conversation_round_id': messageId,
       if (conversationType.isNotEmpty) 'conversation_type': conversationType,
       'trigger_uid': triggerUid,
@@ -16846,6 +16952,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
     String content = '',
     String conversationType = '',
     String triggerUid = 'user-1',
+    int? attemptNo,
   }) {
     _serverFrame('character', {
       'stream_type': streamType,
@@ -16857,6 +16964,10 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'message_id': messageId,
       'location_message_id': locationMessageId ?? messageId,
       'conversation_round_id': roundId,
+      if (attemptNo != null) ...{
+        'gateway_request_id': 'reply-$roundId',
+        'attempt_no': attemptNo,
+      },
       if (conversationType.isNotEmpty) 'conversation_type': conversationType,
       'trigger_uid': triggerUid,
       'sender_type': 'character',

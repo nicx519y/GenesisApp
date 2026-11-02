@@ -65,11 +65,15 @@ class MiniPhoneCameraPage extends StatefulWidget {
 
 class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   final _prompt = TextEditingController();
+  final _promptFocus = FocusNode();
+  final _promptFieldKey = GlobalKey();
   final _scroll = ScrollController();
   final _castScroll = ScrollController();
   late Object _viewOwner;
   Object? _shownFailure;
   bool _capturePending = false;
+  bool _promptRevealScheduled = false;
+  double _promptLift = 0;
   String _personLabel(PhonePerson person) =>
       person.key == widget.selfPersonKey ? strings.you : person.name;
 
@@ -79,7 +83,39 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   @override
   void initState() {
     super.initState();
+    _promptFocus.addListener(_promptFocusChanged);
     _attach();
+  }
+
+  void _promptFocusChanged() {
+    setState(() {
+      if (!_promptFocus.hasFocus) _promptLift = 0;
+    });
+    _schedulePromptReveal();
+  }
+
+  void _schedulePromptReveal() {
+    if (_promptRevealScheduled) return;
+    _promptRevealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _promptRevealScheduled = false;
+      if (!mounted) return;
+      if (!_promptFocus.hasFocus || !_keyboardOpen) {
+        if (_promptLift != 0) setState(() => _promptLift = 0);
+        return;
+      }
+      final field = _promptFieldKey.currentContext?.findRenderObject();
+      if (field is! RenderBox || !field.hasSize || !field.attached) return;
+      final keyboardTop =
+          MediaQuery.sizeOf(context).height -
+          MediaQuery.viewInsetsOf(context).bottom;
+      final fieldBottom = field.localToGlobal(Offset(0, field.size.height)).dy;
+      // Measure the field's resting position, independent of its current lift.
+      final lift = math.max(0.0, fieldBottom + _promptLift + 12 - keyboardTop);
+      if ((lift - _promptLift).abs() > .1) {
+        setState(() => _promptLift = lift);
+      }
+    });
   }
 
   void _attach() {
@@ -135,6 +171,8 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   void dispose() {
     camera.removeListener(_changed);
     camera.close(owner: _viewOwner);
+    _promptFocus.removeListener(_promptFocusChanged);
+    _promptFocus.dispose();
     _prompt.dispose();
     _scroll.dispose();
     _castScroll.dispose();
@@ -142,24 +180,28 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: miniBackground,
-    child: miniPhonePanel(
-      widget.header,
-      switch (camera.phase) {
-        MiniPhoneCameraPhase.compose => _compose(),
-        MiniPhoneCameraPhase.generating => _generating(),
-        MiniPhoneCameraPhase.result => _result(),
-      },
-      footer: Visibility(
-        visible: !_keyboardOpen,
-        maintainState: true,
-        maintainAnimation: true,
-        maintainSize: true,
-        child: _footer(),
+  Widget build(BuildContext context) {
+    // Move only the input layer after keyboard or draft-layout changes.
+    _schedulePromptReveal();
+    return Material(
+      color: miniBackground,
+      child: miniPhonePanel(
+        widget.header,
+        switch (camera.phase) {
+          MiniPhoneCameraPhase.compose => _compose(),
+          MiniPhoneCameraPhase.generating => _generating(),
+          MiniPhoneCameraPhase.result => _result(),
+        },
+        footer: Visibility(
+          visible: !_keyboardOpen,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: _footer(),
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   bool get _keyboardOpen => MediaQuery.viewInsetsOf(context).bottom > 0;
 
@@ -171,8 +213,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   Widget _compose() => LayoutBuilder(
     builder: (context, bounds) {
       final scale = MediaQuery.textScalerOf(context).scale(11) / 11;
-      // Reserve the same status/cast space while editing; only the scroll
-      // viewport reveals the field, rather than lifting the camera controls.
+      // Keep the photo and cast geometry fixed while the input lifts separately.
       final frameHeight = math.min(
         (bounds.maxWidth - miniPageInset * 2) / genesisOriginCoverAspectRatio,
         math.max(260.0, bounds.maxHeight - 110 - 34 * scale),
@@ -180,13 +221,13 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
       return SingleChildScrollView(
         key: const PageStorageKey('mini-phone-camera-compose'),
         controller: _scroll,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(
-          miniPageInset,
-          4,
-          miniPageInset,
-          4 + (_keyboardOpen ? MediaQuery.viewInsetsOf(context).bottom : 0),
-        ),
+        // EditableText's implicit showOnScreen must not scroll the photo.
+        physics: _promptFocus.hasFocus
+            ? const NeverScrollableScrollPhysics()
+            : null,
+        // Nested input scroll notifications must not dismiss its keyboard.
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+        padding: const EdgeInsets.fromLTRB(miniPageInset, 4, miniPageInset, 4),
         child: Column(
           children: [
             SizedBox(
@@ -195,6 +236,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
               child: MiniPhoneCameraViewfinder(
                 imageUrl: widget.coverImageUrl,
                 footer: _promptField(),
+                footerLift: _promptLift,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
                   child: Column(
@@ -261,6 +303,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   );
 
   Widget _promptField() => MiniGlass(
+    key: _promptFieldKey,
     radius: 12,
     outlined: false,
     opacity: .5,
@@ -277,8 +320,11 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
             label: strings.describeMoment,
             child: TextField(
               controller: _prompt,
+              focusNode: _promptFocus,
               minLines: 1,
               maxLines: 3,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
               style: miniStyle(12),
               onChanged: camera.setPrompt,
               onTapOutside: (_) =>

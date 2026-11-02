@@ -337,25 +337,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           unawaited(_scheduleLatestMessagesRefresh());
         }
       case 'world_new_message':
-        _logChatroomSocketEvent(
-          'world_new_message fetch start location=${event.locationId} '
-          'world=$_worldId',
-        );
-        final notificationLocationId = event.locationId.trim();
-        if (notificationLocationId.isNotEmpty) {
-          unawaited(
-            _refreshEventLocationMessages(
-              locationId: notificationLocationId,
-              sourceType: event.eventType,
-            ),
-          );
-        } else {
-          unawaited(_scheduleLatestMessagesRefresh());
-        }
-        _logChatroomSocketEvent(
-          'world_new_message fetch scheduled location=${event.locationId} '
-          'world=$_worldId',
-        );
+        // Archive invalidation is emitted by _notifyHistoryChange. Location
+        // queues receive complete messages directly from the Socket.
+        break;
       case 'tick_start':
         if (event.worldId != _worldId) return;
         _setState(

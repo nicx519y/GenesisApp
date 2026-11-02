@@ -449,6 +449,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     _syncEntrySnapshots();
     _publishLocationMessageChanges(previousState, state);
     if (!_states.isClosed) _states.add(state);
+    _scheduleConnectionLocationSync();
   }
 
   void _publishLocationMessageChanges(

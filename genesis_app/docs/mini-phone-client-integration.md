@@ -265,6 +265,12 @@ Validation for this scheduling change:
   Messages list instance/scroll position; iOS swipe back updates the screen state.
   The fixed Close exits the outer phone route. Home app-entry expansion remains
   in `AppLaunchTransitionHost`, independent of these page transitions.
+  App-root returns to Home (header Back, Android system Back, and the internal
+  Navigator's `maybePop`) are intercepted by a root-page `PopScope` and use the
+  launch host's icon shrink. The root route remains mounted until that animation
+  finishes; it must not play a platform pop first. iOS root edge drags use the
+  same shrink, with cancellation restoring the open page. Subpage returns and
+  direct-chat exits retain their platform routes.
 
 - Messages renders only `/dm_sessions` entries, merging pages by
   `(world_id, char_id)`. Existing rows combine the API preview with cached
@@ -911,9 +917,9 @@ from controlled Flutter verification.
 
 ## Camera frontend (2026-10-30)
 
-Camera is an unlocked home app. The LocationChat reply toolbar places Camera on the right using the shared action primitive; visibility and availability follow Regenerate. It opens the explanation in place, not a Camera route. Both entry points currently force the explanation while no backend adapter exists; confirming reports Coming soon. The crossed-out 30 / 0 Gems and Free trial are UI previews, not server entitlements.
+Camera is an unlocked home app. The LocationChat reply toolbar places Camera on the right using the shared action primitive; visibility and availability follow Regenerate. Camera resolves its own action state: while Regenerate, Go on, Edit, or Inspiration is busy, Camera is disabled and keeps its icon rather than showing another action's loading indicator. It opens the explanation in place, not a Camera route. Both entry points currently force the explanation while no backend adapter exists; confirming reports Coming soon. The crossed-out 30 / 0 Gems and Free trial are UI previews, not server entitlements.
 
-The fixed 2:3 viewfinder uses the World cover with strong image blur and a dark scrim. Selection is via the horizontal cast strip; focused portraits are circular, 48px like the strip, with thin white corners. The in-frame count pill and borderless prompt use glass surfaces. Bottom controls are Style, a white shutter and Photos; the style sheet uses standard sheet colors and centered image captions. Keyboard opening hides the cast and controls while retaining geometry. No location selector or All-character popup remains.
+The fixed 2:3 viewfinder uses the World cover with strong image blur and a dark scrim. Selection is via the horizontal cast strip; focused portraits are circular, 48px like the strip, with thin white corners. The in-frame count pill and borderless prompt use glass surfaces. Bottom controls are Style, a white shutter and Photos; the style sheet uses standard sheet colors and centered image captions. Keyboard opening hides the cast and controls while retaining geometry. Only the focused prompt lifts above the keyboard top with at least 12 logical pixels of clearance; the photo stays at its original position and size, without scrolling. Keyboard-height and multiline-draft changes recheck the input position, and keyboard dismissal restores it. The prompt retains the keyboard's newline action. There is no additional keyboard accessory bar. Scrolling overflowing text inside the prompt keeps focus and the keyboard open; the outer scroll view must not dismiss editing in response to nested input scroll notifications. Tapping outside the prompt still dismisses editing and preserves the draft. No location selector or All-character popup remains.
 
 The World MiniPhone session owns the draft. Account/environment/World changes invalidate old context and results; closing cancels in-flight delivery. Camera uses the actual character directory, World cover and album projection without message-derived fallback characters. Generation, status/recovery and authoritative image-message/album contracts remain pending: no transport is injected, no photo is fabricated, and no billing/History/album write occurs. Future adapters must own real request identities and synchronization.
 

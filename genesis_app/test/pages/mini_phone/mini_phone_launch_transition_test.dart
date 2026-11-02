@@ -188,17 +188,83 @@ void main() {
     await settle(tester);
   }
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final action in ['header', 'system', 'nested navigator']) {
+      testWidgets('$platform $action root return shrinks to its icon', (
+        tester,
+      ) async {
+        await mount(tester, platform: platform, music: true);
+        for (final app in [
+          MiniPhoneScreen.messages,
+          MiniPhoneScreen.posts,
+          MiniPhoneScreen.photos,
+          MiniPhoneScreen.settings,
+          MiniPhoneScreen.camera,
+          MiniPhoneScreen.music,
+        ]) {
+          final homePage =
+              app == MiniPhoneScreen.settings || app == MiniPhoneScreen.music
+              ? 2
+              : 1;
+          await tester.tap(find.bySemanticsLabel('Home position $homePage'));
+          await settle(tester);
+          final icon = source(app);
+          final iconRect = tester.getRect(icon);
+          await tester.tap(icon);
+          await settle(tester);
+          final surface = find.byKey(const ValueKey('app-launch-surface'));
+          final full = tester.getRect(surface);
+          final title = app.name[0].toUpperCase() + app.name.substring(1);
+          final header = find.widgetWithText(TextButton, title);
+          final route = ModalRoute.of(tester.element(header))!;
+          switch (action) {
+            case 'nested navigator':
+              await Navigator.of(tester.element(header)).maybePop();
+            case 'system':
+              await tester.binding.handlePopRoute();
+            default:
+              await tester.tap(header);
+          }
+          await tester.pump();
+          expect(controller(tester).status, AppLaunchTransitionStatus.closing);
+          // The route must stay put; only the launch surface animates.
+          expect(route.animation!.isCompleted, isTrue);
+          await tester.pump(const Duration(milliseconds: 140));
+          expect(tester.getRect(surface).width, lessThan(full.width));
+          await tester.pump(const Duration(microseconds: 139900));
+          final nearIcon = tester.getRect(surface);
+          expect((nearIcon.center - iconRect.center).distance, lessThan(4));
+          expect(nearIcon.width, closeTo(iconRect.width, 4));
+          await settle(tester);
+          expect(controller(tester).status, AppLaunchTransitionStatus.home);
+          expect(tester.takeException(), isNull);
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        phone.dispose();
+      });
+    }
+  }
+
   testWidgets(
     'iOS icon launches shrink with edge drags and cancel without a route pop',
     (tester) async {
-      await mount(tester, platform: TargetPlatform.iOS);
+      await mount(tester, platform: TargetPlatform.iOS, music: true);
       final desktop = tester.element(find.byType(PageView));
       for (final app in [
         MiniPhoneScreen.messages,
         MiniPhoneScreen.posts,
         MiniPhoneScreen.photos,
         MiniPhoneScreen.settings,
+        MiniPhoneScreen.camera,
+        MiniPhoneScreen.music,
       ]) {
+        final homePage =
+            app == MiniPhoneScreen.settings || app == MiniPhoneScreen.music
+            ? 2
+            : 1;
+        await tester.tap(find.bySemanticsLabel('Home position $homePage'));
+        await settle(tester);
+        final iconRect = tester.getRect(source(app));
         await tester.tap(source(app));
         await settle(tester);
         final host = find.byType(AppLaunchTransitionHost);
@@ -223,7 +289,18 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('app-launch-surface'))),
           full,
         );
-        await tester.dragFrom(start, const Offset(340, 0));
+        final close = await tester.startGesture(start);
+        await close.moveBy(const Offset(340, 0));
+        await tester.pump();
+        await close.up();
+        await tester.pump();
+        // The drag leaves about 36ms of the reverse animation. Inspect its
+        // destination just before dismissal removes the app surface.
+        await tester.pump(const Duration(microseconds: 35800));
+        final nearIcon = tester.getRect(
+          find.byKey(const ValueKey('app-launch-surface')),
+        );
+        expect((nearIcon.center - iconRect.center).distance, lessThan(4));
         await settle(tester);
         expect(controller(tester).status, AppLaunchTransitionStatus.home);
         expect(tester.element(find.byType(PageView)), same(desktop));
@@ -243,7 +320,7 @@ void main() {
         MiniPhoneScreen.messages,
         MiniPhoneScreen.posts,
         MiniPhoneScreen.photos,
-        MiniPhoneScreen.settings,
+        MiniPhoneScreen.camera,
       ]) {
         final before = tester.getRect(source(app));
         await tester.tap(source(app));

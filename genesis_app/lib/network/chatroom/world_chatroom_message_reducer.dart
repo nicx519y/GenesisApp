@@ -61,9 +61,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     }
     _requireHistoryAvailable(locationId);
     final ticket = _historyTicket(locationId);
-    final response = await _api.chatroomHttp.getMessages(
-      worldId: _worldId,
+    final liveRevision = _liveMessageRevision;
+    final response = await _readLocationMessages(
       locationId: locationId,
+      ticket: ticket,
       since: 0,
       limit: limit,
     );
@@ -71,6 +72,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       locationId,
       response.messages,
       ticket: ticket,
+      liveRevision: liveRevision,
     );
     if (_historyIsCurrent(locationId, ticket)) {
       _setState(
@@ -295,6 +297,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     String locationId,
     List<ChatroomHttpMessage> messages, {
     required _HistoryTicket ticket,
+    int? liveRevision,
   }) async {
     if (!_historyIsCurrent(locationId, ticket)) {
       return const <WorldChatroomMessage>[];
@@ -302,43 +305,100 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     _beginEntryRead(locationId);
     Object? entryError;
     try {
-      final fetched = messages
-          .map(
-            (message) => (
-              http: message,
-              world: _worldMessageFromHttpMessage(
+      var worldMessages = <WorldChatroomMessage>[];
+      await _withLocationWrite(locationId, () async {
+        if (!_historyIsCurrent(locationId, ticket)) return;
+        worldMessages = messages
+            .map(
+              (message) => _worldMessageFromHttpMessage(
                 message,
                 fallbackLocationId: locationId,
               ),
-            ),
-          )
-          .where((entry) => _isAttemptCurrent(entry.world.llmAttempt))
-          .toList(growable: false);
-      final worldMessages = fetched
-          .map((entry) => entry.world)
-          .toList(growable: false);
-      await _withLocationWrite(locationId, () async {
-        if (!_historyIsCurrent(locationId, ticket)) return;
+            )
+            .where(
+              (message) =>
+                  _isAttemptCurrent(message.llmAttempt) &&
+                  _deletedMessageIds[locationId]?.contains(
+                        message.globalMessageId,
+                      ) !=
+                      true,
+            )
+            .map((incoming) {
+              final newerLive =
+                  liveRevision != null &&
+                  _liveRevisionFor(incoming) > liveRevision;
+              if (newerLive) {
+                for (final live
+                    in _state.messagesByLocation[locationId] ??
+                        const <WorldChatroomMessage>[]) {
+                  if (_sameMessage(live, incoming)) {
+                    return live;
+                  }
+                }
+              }
+              return _mergeWithExistingMessage(
+                _state.worldMessages,
+                incoming,
+                preferIncomingContent: true,
+              );
+            })
+            .toList();
         if (ticket.owner.isNotEmpty && ticket.world.isNotEmpty) {
           await _messageStorage.mergeMessages(
             ownerUid: ticket.owner,
             worldId: ticket.world,
             locationId: locationId,
-            messages: fetched
-                // A retry can arrive while this cache write is queued.
-                .where((entry) => _isAttemptCurrent(entry.world.llmAttempt))
-                .map(
-                  (m) => _storageJsonFromHttpMessage(
-                    m.http,
+            messages: worldMessages.where((message) => !message.streaming).map((
+              message,
+            ) {
+              final http = messages
+                  .where(
+                    (row) => row.globalMessageId == message.globalMessageId,
+                  )
+                  .firstOrNull;
+              return <String, dynamic>{
+                if (http != null)
+                  ..._storageJsonFromHttpMessage(
+                    http,
                     fallbackLocationId: locationId,
                   ),
-                )
-                .toList(),
+                ..._storageJsonFromWorldMessage(message),
+                if (http != null) ...{
+                  'err_no': http.errNo,
+                  'err_msg': http.errMsg,
+                  'ts': http.ts,
+                  'created_at': asString(
+                    http.rawJson['created_at'],
+                    fallback: http.createdAt?.toIso8601String() ?? '',
+                  ),
+                },
+              };
+            }).toList(),
             maxMessagesPerLocation: _maxMessagesPerLocation,
+            isCurrent: () => _historyIsCurrent(locationId, ticket),
           );
         }
         if (_historyIsCurrent(locationId, ticket)) {
-          _upsertMessages(worldMessages, persist: false, protectIncoming: true);
+          // Recheck after disk I/O: an incoming stream can advance while it runs.
+          final currentMessages = worldMessages.map((incoming) {
+            if (liveRevision != null &&
+                _liveRevisionFor(incoming) > liveRevision) {
+              for (final live
+                  in _state.messagesByLocation[locationId] ??
+                      const <WorldChatroomMessage>[]) {
+                if (_sameMessage(live, incoming)) {
+                  return live;
+                }
+              }
+            }
+            return incoming;
+          }).toList();
+          _upsertMessages(
+            currentMessages,
+            persist: false,
+            protectIncoming: true,
+            preferIncomingContent: true,
+          );
         }
       });
       if (!_historyIsCurrent(locationId, ticket)) {
@@ -740,6 +800,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     List<WorldChatroomMessage> messages, {
     bool persist = true,
     bool protectIncoming = false,
+    bool preferIncomingContent = false,
     String socketCurrentTime = '',
     int socketTickNo = 0,
     int socketSubTickNo = 0,
@@ -757,6 +818,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       ..._state.streamMessagesByKey,
     };
     final resolvedMessages = <WorldChatroomMessage>[];
+    final newFormalLocations = <String>{};
     var lastMessageId = _state.lastMessageId;
     for (final rawIncoming in messages) {
       if (!_isAttemptCurrent(rawIncoming.llmAttempt)) continue;
@@ -773,6 +835,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         _observeAttempt(shared);
         attached = rawIncoming.copyWith(llmAttempt: shared);
       }
+      if (persist || attached.isLlmStreamMessage) {
+        final revision = ++_liveMessageRevision;
+        for (final key in _liveMessageKeys(attached)) {
+          _liveMessageRevisions[key] = revision;
+        }
+      }
       final incoming =
           attached.streaming &&
               _streamLocallyEnded(
@@ -787,20 +855,37 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           true) {
         continue;
       }
+      if (persist &&
+          !incoming.streaming &&
+          incoming.locationMessageId > 0 &&
+          worldMessages
+              .where((old) => _sameMessage(old, incoming))
+              .every((old) => old.streaming)) {
+        newFormalLocations.add(incoming.locationId);
+      }
       _completeCanonicalEcho(incoming);
       _bindCanonicalConversationRound(incoming);
-      final message = _mergeWithExistingMessage(worldMessages, incoming);
+      final message = _mergeWithExistingMessage(
+        worldMessages,
+        incoming,
+        preferIncomingContent: preferIncomingContent,
+      );
       resolvedMessages.add(message);
       if (persist && !message.streaming && message.globalMessageId > 0) {
         _historyRefreshes[message.locationId]?.liveMessages[message
                 .globalMessageId] =
             message;
       }
-      worldMessages = _upsertIntoList(worldMessages, message);
+      worldMessages = _upsertIntoList(
+        worldMessages,
+        message,
+        preferIncomingContent: preferIncomingContent,
+      );
       if (_shouldStoreMessageInLocationQueue(message)) {
         byLocation[message.locationId] = _upsertIntoList(
           byLocation[message.locationId] ?? const <WorldChatroomMessage>[],
           message,
+          preferIncomingContent: preferIncomingContent,
         );
       }
       final key = message.llmAttempt == null
@@ -836,6 +921,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       );
     }
     worldMessages = _retainedWorldIndex(worldMessages, byLocation);
+    final retainedLiveIds = {
+      for (final message in worldMessages) ..._liveMessageKeys(message),
+    };
+    _liveMessageRevisions.removeWhere(
+      (key, _) => !retainedLiveIds.contains(key),
+    );
     _setState(
       _stateWithSocketWorldProgress(
         _state.copyWith(
@@ -859,6 +950,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         locationId: locationId,
         details: {'incoming': resolvedMessages.length, 'persist': persist},
       );
+      unawaited(repairLocationMessageGaps(locationId));
+      if (newFormalLocations.contains(locationId)) {
+        _retryFailedLocationSyncOnMessage(locationId);
+      }
     }
     if (persist) {
       for (final message in resolvedMessages) {
@@ -894,14 +989,21 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
 
   List<WorldChatroomMessage> _upsertIntoList(
     List<WorldChatroomMessage> messages,
-    WorldChatroomMessage message,
-  ) {
+    WorldChatroomMessage message, {
+    bool preferIncomingContent = false,
+  }) {
     final next = <WorldChatroomMessage>[];
     var replaced = false;
     for (final item in messages) {
       if (_sameMessage(item, message)) {
         if (!replaced) {
-          next.add(_mergeSameMessage(item, message));
+          next.add(
+            _mergeSameMessage(
+              item,
+              message,
+              preferIncomingContent: preferIncomingContent,
+            ),
+          );
           replaced = true;
         }
       } else {
@@ -915,11 +1017,16 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
 
   WorldChatroomMessage _mergeWithExistingMessage(
     List<WorldChatroomMessage> messages,
-    WorldChatroomMessage incoming,
-  ) {
+    WorldChatroomMessage incoming, {
+    bool preferIncomingContent = false,
+  }) {
     for (final existing in messages) {
       if (_sameMessage(existing, incoming)) {
-        return _mergeSameMessage(existing, incoming);
+        return _mergeSameMessage(
+          existing,
+          incoming,
+          preferIncomingContent: preferIncomingContent,
+        );
       }
     }
     return incoming;
@@ -927,12 +1034,15 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
 
   WorldChatroomMessage _mergeSameMessage(
     WorldChatroomMessage existing,
-    WorldChatroomMessage incoming,
-  ) {
+    WorldChatroomMessage incoming, {
+    bool preferIncomingContent = false,
+  }) {
     if (incoming.llmAttempt != null || existing.llmAttempt != null) {
       return incoming;
     }
-    if (existing.rawPayload['status'] == 20 && incoming.isLlmStreamMessage) {
+    if (!preferIncomingContent &&
+        existing.rawPayload['status'] == 20 &&
+        incoming.isLlmStreamMessage) {
       return existing;
     }
     final needsConversationType =
@@ -960,6 +1070,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       return _sameMessageValue(existing, mergedIncoming)
           ? existing
           : mergedIncoming;
+    }
+    if (preferIncomingContent) {
+      // A fresh HTTP snapshot may contain an edit to a previously ended stream.
+      // Preserve its presentation identity, not its obsolete body or cursors.
+      return mergedIncoming.copyWith(
+        isLlmStreamMessage: true,
+        streamType: existing.streamType,
+      );
     }
     final merged = mergedIncoming.copyWith(
       globalMessageId: existing.globalMessageId > 0

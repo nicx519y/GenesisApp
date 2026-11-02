@@ -640,7 +640,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                                       destination == _pageStack(screen).first,
                                   child: ColoredBox(
                                     color: miniBackground,
-                                    child: _screen(destination),
+                                    child: _routeScreen(destination),
                                   ),
                                 ),
                             ],
@@ -664,6 +664,23 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _routeScreen(MiniPhoneScreen destination) {
+    final page = _screen(destination);
+    if (widget.initialContact != null ||
+        destination != _pageStack(screen).first) {
+      return page;
+    }
+    // System back reaches the internal Navigator before the outer PopScope.
+    // Keep the app root mounted while the launch host shrinks it home.
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && screen == destination) _back();
+      },
+      child: page,
     );
   }
 

@@ -7,6 +7,49 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   test(
+    'merge rolls back when the connection becomes stale during a transaction',
+    () async {
+      sqfliteFfiInit();
+      final dir = await Directory.systemTemp.createTemp(
+        'chatroom-stale-merge-',
+      );
+      final storage = SqfliteChatroomMessageStorage(
+        databasePath: '${dir.path}/messages.db',
+        databaseFactoryOverride: databaseFactoryFfi,
+      );
+      try {
+        await storage.mergeMessages(
+          ownerUid: 'user-1',
+          worldId: 'world-1',
+          locationId: 'loc-1',
+          messages: [_message(messageId: 1, locationMessageId: 1)],
+        );
+        var checks = 0;
+        await expectLater(
+          storage.mergeMessages(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-1',
+            messages: [_message(messageId: 2, locationMessageId: 2)],
+            isCurrent: () => ++checks == 1,
+          ),
+          throwsStateError,
+        );
+        final messages = await storage.loadLatestMessages(
+          ownerUid: 'user-1',
+          worldId: 'world-1',
+          locationId: 'loc-1',
+          limit: 20,
+        );
+        expect(messages.map((m) => m['msg_id']), [1]);
+      } finally {
+        await storage.close();
+        await dir.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
     'database v4 upgrades to v5 without losing messages and supports reply companions',
     () async {
       sqfliteFfiInit();

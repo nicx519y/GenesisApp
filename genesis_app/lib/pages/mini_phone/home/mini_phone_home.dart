@@ -546,9 +546,9 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                                 size: narrow ? 56 : 62,
                               ),
                               _homeApp(
-                                'settings',
-                                context.l10n.miniPhoneSettings,
-                                MiniPhoneScreen.settings,
+                                'camera',
+                                context.l10n.miniPhoneCamera,
+                                MiniPhoneScreen.camera,
                                 size: narrow ? 56 : 62,
                               ),
                             ],
@@ -799,13 +799,13 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _homeApp(
-              'camera',
-              context.l10n.miniPhoneCamera,
-              MiniPhoneScreen.camera,
+              'settings',
+              context.l10n.miniPhoneSettings,
+              MiniPhoneScreen.settings,
               size: size,
             ),
             const SizedBox(height: 7),
-            _homeAppLabel(context.l10n.miniPhoneCamera, size),
+            _homeAppLabel(context.l10n.miniPhoneSettings, size),
           ],
         ),
         Column(

@@ -20,6 +20,7 @@ typedef _HistoryTicket = ({
   String owner,
   int generation,
   int session,
+  int connection,
 });
 
 extension _WorldChatroomMessageMutations on WorldChatroomService {
@@ -154,6 +155,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     owner: _storageOwnerUid,
     generation: _state.historyGenerationByLocation[locationId] ?? 0,
     session: _historySessionGeneration,
+    connection: _messageSyncGeneration,
   );
 
   bool _historyIsCurrent(String locationId, _HistoryTicket ticket) =>
@@ -161,6 +163,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
       ticket.world == _worldId &&
       ticket.owner == _storageOwnerUid &&
       ticket.session == _historySessionGeneration &&
+      ticket.connection == _messageSyncGeneration &&
       ticket.generation ==
           (_state.historyGenerationByLocation[locationId] ?? 0);
 
@@ -176,6 +179,9 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     _historyRefreshes[locationId]?.cancel();
     _localMessageCacheGeneration += 1;
     _latestMessageFetchFutures.clear();
+    _entryNetworkVerified.remove(locationId);
+    _failedLocationSyncs.remove(locationId);
+    _connectionSyncAttempted.remove(locationId);
     if (!resetPagination) return;
     _setState(
       _state.copyWith(
@@ -479,6 +485,8 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         if (!await _loadReplyCardsForHistory(location, incoming, ticket)) {
           entryError = StateError('Reply cards could not be loaded');
         }
+        _scheduleConnectionLocationSync();
+        unawaited(repairLocationMessageGaps(location));
       }
     } catch (error) {
       entryError = error;

@@ -24,6 +24,7 @@ import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../features/location_chat_reply/shared/reply_action_state.dart';
+import '../../features/location_chat_reply/shared/reply_touch_target.dart';
 import '../../ui/tokens/genesis_spacing.dart';
 import 'location_chat_reply_actions.dart';
 import 'location_chat_reply_card_switcher.dart';
@@ -3326,7 +3327,7 @@ class _LocationChatAnchoredMessageListState
       enabled: requiresSecondScroll,
       topPadding: style.messageListPadding.top,
     );
-    return NotificationListener<ChatStreamingLayoutNotification>(
+    final content = NotificationListener<ChatStreamingLayoutNotification>(
       onNotification: (_) {
         _scheduleContentVisibility();
         return true;
@@ -3458,6 +3459,7 @@ class _LocationChatAnchoredMessageListState
         },
       ),
     );
+    return LocationChatReplyTouchScope(child: content);
   }
 
   Widget _buildLazyMessageView({

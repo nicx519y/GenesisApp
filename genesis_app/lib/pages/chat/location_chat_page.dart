@@ -135,7 +135,6 @@ const Duration _locationChatBackgroundFadeDuration = Duration(
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
-const int _locationChatMessageGapMaxAttempts = 3;
 const double _locationChatOlderMessagesTriggerExtent = 180;
 const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
 const String _locationChatDefaultBackgroundAsset =
@@ -799,8 +798,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
-  final Map<String, int> _messageGapFillAttempts = <String, int>{};
-  final Set<String> _releasedMessageGapKeys = <String>{};
   bool _deferredVisibleMessageGapFill = false;
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
@@ -1344,8 +1341,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _initialLatestMessagesRefresh = null;
           _messageGapFillKeys.clear();
           _messageGapFillBeforeLocationMessageIds.clear();
-          _messageGapFillAttempts.clear();
-          _releasedMessageGapKeys.clear();
           _deferredVisibleMessageGapFill = false;
           _prepareConnection();
         }),

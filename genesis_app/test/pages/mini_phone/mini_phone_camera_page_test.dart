@@ -72,6 +72,7 @@ void main() {
     double? price,
     double scale = 1,
     double keyboardInset = 0,
+    TargetPlatform? platform,
     VoidCallback? onOpenAlbum,
     Future<void> Function()? onCaptureRequested,
     String? albumThumbnailUrl,
@@ -80,7 +81,7 @@ void main() {
     String coverImageUrl = '',
   }) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: GenesisTheme.dark(),
+    theme: GenesisTheme.dark().copyWith(platform: platform),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
         textScaler: TextScaler.linear(scale),
@@ -320,6 +321,122 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  for (final viewport in [const Size(390, 844), const Size(350, 740)]) {
+    testWidgets(
+      'only the focused prompt moves above the keyboard at $viewport',
+      (tester) async {
+        await size(tester, viewport);
+        final scale = viewport.width < 390 ? 2.0 : 1.0;
+        await tester.pumpWidget(app(scale: scale));
+        final field = find.byType(TextField);
+        final closeKeyboard = find.byKey(
+          const ValueKey('mini-phone-camera-hide-keyboard'),
+        );
+        expect(closeKeyboard, findsNothing);
+        final frame = find.byKey(
+          const ValueKey('mini-phone-camera-viewfinder'),
+        );
+        final frameRect = tester.getRect(frame);
+        final promptBottom = tester.getRect(field).bottom;
+        final status = find.byKey(const ValueKey('mini-phone-camera-status'));
+        final statusRect = tester.getRect(status);
+        await tester.tap(field);
+        await tester.pump();
+        for (final inset in [220.0, 300.0, 360.0]) {
+          await tester.pumpWidget(app(scale: scale, keyboardInset: inset));
+          await tester.pumpAndSettle();
+          expect(
+            tester.getRect(field).bottom,
+            lessThanOrEqualTo(viewport.height - inset - 8),
+          );
+          expect(closeKeyboard, findsNothing);
+          expect(tester.getRect(frame), frameRect);
+          expect(tester.getRect(status), statusRect);
+          expect(field.hitTestable(), findsOneWidget);
+        }
+        await tester.enterText(
+          field,
+          'A longer scene description\nwith a second line\nand a third line',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(field).bottom,
+          lessThanOrEqualTo(viewport.height - 360 - 8),
+        );
+        expect(tester.getRect(field).top, greaterThanOrEqualTo(56));
+        expect(tester.getRect(frame), frameRect);
+        expect(camera.prompt, contains('third line'));
+        expect(
+          tester.widget<TextField>(field).textInputAction,
+          TextInputAction.newline,
+        );
+        await tester.testTextInput.receiveAction(TextInputAction.newline);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+        final draft = camera.prompt;
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+        expect(camera.prompt, draft);
+        expect(closeKeyboard, findsNothing);
+        await tester.pumpWidget(app(scale: scale));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(frame), frameRect);
+        expect(tester.getRect(field).bottom, closeTo(promptBottom, .01));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '$platform scrolling the prompt keeps focus and keyboard open',
+      (tester) async {
+        await size(tester, const Size(390, 844));
+        await tester.pumpWidget(app(platform: platform));
+        final field = find.byType(TextField);
+        final draft = List.generate(
+          20,
+          (index) => 'Scene description line $index',
+        ).join('\n');
+        await tester.enterText(field, draft);
+        await tester.pumpWidget(app(platform: platform, keyboardInset: 300));
+        await tester.pumpAndSettle();
+        final frame = find.byKey(
+          const ValueKey('mini-phone-camera-viewfinder'),
+        );
+        final frameRect = tester.getRect(frame);
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: field, matching: find.byType(Scrollable)),
+            )
+            .position;
+        expect(position.maxScrollExtent, greaterThan(0));
+        final originalOffset = position.pixels;
+        await tester.drag(field, const Offset(0, 48));
+        await tester.pumpAndSettle();
+        expect(position.pixels, lessThan(originalOffset));
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+        final scrolledOffset = position.pixels;
+        await tester.drag(field, const Offset(0, -48));
+        await tester.pumpAndSettle();
+        expect(position.pixels, greaterThan(scrolledOffset));
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(camera.prompt, draft);
+        expect(tester.getRect(frame), frameRect);
+        await tester.tapAt(const Offset(20, 70));
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
+        expect(camera.prompt, draft);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   testWidgets('keyboard hides controls without resizing the viewfinder', (
     tester,

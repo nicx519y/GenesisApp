@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../ui/tokens/genesis_colors.dart';
 import 'reply_action_state.dart';
+import 'reply_touch_target.dart';
 
 /// Shared visual primitive. Feature directories own the semantic label, icon,
 /// availability, and invocation policy.
@@ -19,7 +20,8 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
     required this.state,
   });
 
-  static const double size = 32;
+  static const double size = 48;
+  static const double layoutSize = 32;
   static const double iconSize = 17;
 
   final String label;
@@ -40,54 +42,55 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
     final disabledTap = state == LocationChatReplyActionState.disabled
         ? onDisabledTap
         : null;
-    return Semantics(
-      container: true,
-      label: label,
-      enabled: enabled || disabledTap != null,
-      button: true,
-      expanded: expanded,
-      liveRegion: loading,
-      value: loading
-          ? GenesisL10n
-                .current
-                .chatLoading
-          : null,
-      child: Tooltip(
-        message: label,
-        excludeFromSemantics: true,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: enabled
-              ? () {
-                  onBeforeInvoke?.call();
-                  onTap!();
-                }
-              : disabledTap,
-          child: SizedBox.square(
-            dimension: size,
-            child: Center(
-              child: loading
-                  ? const SizedBox.square(
-                      key: ValueKey('location-chat-reply-feature-loading'),
-                      dimension: iconSize,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        strokeCap: StrokeCap.round,
-                        color: GenesisColors.darkTextPrimary,
+    final invoke = enabled
+        ? () {
+            onBeforeInvoke?.call();
+            onTap!();
+          }
+        : disabledTap;
+    return LocationChatReplyTouchTarget(
+      onTap: invoke,
+      touchSize: size,
+      child: Semantics(
+        container: true,
+        label: label,
+        enabled: enabled || disabledTap != null,
+        button: true,
+        expanded: expanded,
+        liveRegion: loading,
+        value: loading ? GenesisL10n.current.chatLoading : null,
+        child: Tooltip(
+          message: label,
+          excludeFromSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: invoke,
+            child: SizedBox.square(
+              dimension: layoutSize,
+              child: Center(
+                child: loading
+                    ? const SizedBox.square(
+                        key: ValueKey('location-chat-reply-feature-loading'),
+                        dimension: iconSize,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          strokeCap: StrokeCap.round,
+                          color: GenesisColors.darkTextPrimary,
+                        ),
+                      )
+                    : SvgPicture.asset(
+                        iconAsset,
+                        width: iconSize,
+                        height: iconSize,
+                        colorFilter: ColorFilter.mode(
+                          state == LocationChatReplyActionState.disabled
+                              ? GenesisColors.darkTextTertiary
+                              : GenesisColors.darkTextPrimary,
+                          BlendMode.srcIn,
+                        ),
+                        excludeFromSemantics: true,
                       ),
-                    )
-                  : SvgPicture.asset(
-                      iconAsset,
-                      width: iconSize,
-                      height: iconSize,
-                      colorFilter: ColorFilter.mode(
-                        state == LocationChatReplyActionState.disabled
-                            ? GenesisColors.darkTextTertiary
-                            : GenesisColors.darkTextPrimary,
-                        BlendMode.srcIn,
-                      ),
-                      excludeFromSemantics: true,
-                    ),
+              ),
             ),
           ),
         ),

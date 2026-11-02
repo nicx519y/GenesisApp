@@ -558,7 +558,9 @@ void main() {
       expect(tester.getSize(find.bySemanticsLabel(action)), const Size(32, 32));
     }
     for (final action in ['Regenerate', 'Go on', 'Edit']) {
-      await tester.tap(find.bySemanticsLabel(action));
+      await tester.tapAt(
+        tester.getTopLeft(find.bySemanticsLabel(action)) + const Offset(2, 2),
+      );
       await tester.pump();
     }
     expect(calls, ['regenerate', 'goOn', 'edit']);

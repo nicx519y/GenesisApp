@@ -99,11 +99,11 @@ class LocationChatReplyActions extends StatefulWidget {
   /// Animate the toolbar's height while keeping its buttons hidden until open.
   static const actionCollapseAnimationEnabled = true;
 
-  static const double buttonSize = 32;
-  static const double iconSize = 17;
+  static const double buttonSize = LocationChatReplyFeatureButton.layoutSize;
+  static const double iconSize = LocationChatReplyFeatureButton.iconSize;
   static const double centerSpacing = 50;
-  // Account for the icon's inset inside its button when spacing the row.
-  static const double contentBottomGap = 12 - (buttonSize - iconSize) / 2;
+  // Keep the external content gap independent of the larger touch targets.
+  static const double contentBottomGap = 4.5;
 
   @override
   State<LocationChatReplyActions> createState() =>
@@ -159,8 +159,25 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   LocationChatEditFeature get _edit => widget.editFeature;
   LocationChatInspirationFeature get _inspiration => widget.inspirationFeature;
 
+  LocationChatReplyAction get _takePhoto => LocationChatReplyAction(
+    onInvoke: widget.onTakePhoto,
+    state: resolveLocationChatReplyActionState(
+      // The current camera action opens a preview; other actions' requests
+      // only disable it and must never supply its loading state.
+      busy: false,
+      supported:
+          widget.onTakePhoto != null &&
+          _regenerate.state != LocationChatReplyActionState.none,
+      otherReplyOperationActive:
+          _regenerate.busy || _goOn.busy || _edit.busy || _inspiration.loading,
+      canInvoke: _regenerate.invocation != null,
+      showWhenUnavailable: true,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final takePhoto = _takePhoto;
     final hasWaitingIndicator =
         widget.loadingIndicator != null ||
         widget.reservedLoadingIndicator != null;
@@ -207,15 +224,14 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             onBeforeInvoke: () => _setEditPromptExpanded(false),
             onToggle: _invokeInspiration,
           ),
-        if (widget.onTakePhoto != null &&
-            _regenerate.state != LocationChatReplyActionState.none) ...[
+        if (takePhoto.state != LocationChatReplyActionState.none) ...[
           const Spacer(),
           LocationChatReplyFeatureButton(
             key: const ValueKey('location-chat-take-photo'),
             label: context.l10n.miniPhoneCamera,
             iconAsset: cameraIconAsset,
-            state: _regenerate.state,
-            onTap: _regenerate.invocation == null ? null : widget.onTakePhoto,
+            state: takePhoto.state,
+            onTap: takePhoto.invocation,
           ),
         ],
       ],
@@ -742,17 +758,23 @@ class _LocationChatReplyActionToolbarState
             ),
             builder: (context, child) => _expansionController.isDismissed
                 ? const SizedBox.shrink()
+                : _wantsOpen && _expansionController.isCompleted
+                ? SizedBox(
+                    key: const ValueKey(
+                      'location-chat-reply-actions-transition',
+                    ),
+                    height: LocationChatReplyActions.buttonSize,
+                    child: child,
+                  )
                 : SizeTransition(
                     key: const ValueKey(
                       'location-chat-reply-actions-transition',
                     ),
                     sizeFactor: _expansion,
                     alignment: Alignment.bottomLeft,
-                    child: _wantsOpen && _expansionController.isCompleted
-                        ? child
-                        : const SizedBox(
-                            height: LocationChatReplyActions.buttonSize,
-                          ),
+                    child: const SizedBox(
+                      height: LocationChatReplyActions.buttonSize,
+                    ),
                   ),
           );
     final indicator = widget.reservedIndicator;

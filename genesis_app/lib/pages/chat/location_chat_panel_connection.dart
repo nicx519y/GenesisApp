@@ -799,9 +799,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       }
       _cancelOlderMessagesLoadSchedule();
       _messageGapFillKeys.clear();
-      _messageGapFillAttempts.clear();
       _messageGapFillBeforeLocationMessageIds.clear();
-      _releasedMessageGapKeys.clear();
     }
     final snapshotHasMore = state.historyHasMoreByLocation[widget.locationId];
     if (snapshotHasMore != null &&

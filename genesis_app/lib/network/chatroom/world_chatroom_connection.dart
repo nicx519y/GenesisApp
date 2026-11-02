@@ -48,6 +48,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
       if (_historyConnectedOnce) _historyChanges.add(_worldId);
       _historyConnectedOnce = true;
       _setState(_state.copyWith(connected: true));
+      _startHeartbeat();
       if (_refreshInitialSnapshotOnConnect) {
         await _refreshInitialSnapshot();
       }
@@ -204,14 +205,10 @@ extension _WorldChatroomConnection on WorldChatroomService {
         _session == session &&
         _desiredLocationId == location &&
         _state.joinedLocationId == location;
-    final ticket = _historyTicket(location);
-    final preload = _entryPreloads[(location, ticket)];
-    if (preload != null) await preload;
-    if (!stillJoined() || !_historyIsCurrent(location, ticket)) return;
-    // Disk readiness alone is not proof of a successful network preload.
-    if (_entryNetworkVerified[location] != ticket) {
-      await refreshLocationHistory(locationId: location);
+    if (_historyRefreshes[location]?.token.isCancelled == true) {
+      _restartPendingHistory(location);
     }
+    await initializeLeafLocationQueues(locationIds: [location]);
     if (!stillJoined()) return;
     await replyActions?.restoreLocationCards(location, reloadCards: false);
   }
@@ -293,6 +290,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
   }
 
   Future<void> _detachSession({required bool disconnect}) async {
+    _invalidateMessageSync();
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     final session = _session;

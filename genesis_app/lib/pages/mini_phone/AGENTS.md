@@ -27,6 +27,8 @@
 
 ## 必须保持的约束
 
+- 应用首页返回桌面时，左上角返回、Android 系统返回及内部 Navigator 的 maybePop 统一交给 AppLaunchTransitionHost 收起；根页面拦截普通路由 pop，保持挂载至动画完成，不能先侧滑退出再直接结束缩放。
+
 - iOS 应用首页从屏幕前缘侧滑时，由 AppLaunchTransitionHost 跟手驱动与返回按钮相同的图标收起路径；松手完成，取消／系统中断回弹，不叠加 Cupertino 横移。普通入口保留透明桌面基底路由，桌面只保留一个真实实例；子页仍通过原生路由侧滑回父页，完成转场后更新状态。LocationChat 直达私聊仍原生侧滑回调用页，不补桌面／Messages 导航层。
 
 - 同一 World 的地图与地点聊天只由 World 固定层的 `MiniPhoneDockHost` 持有一个入口；页面通过 `MiniPhoneDockScene` 提供活动场景的真实布局边界及打开回调。地图／聊天／不同地点切换不得销毁入口 State、重播未读动画或重建音乐浮层。转场保持屏幕位置并暂禁交互，布局测量排除转场绘制变换；键盘和控件仅临时避让，不覆盖保存位置。覆盖页面或 World 内容不支持入口时隐藏但保留实例及同步隐藏音乐浮层；离开 World 释放，无 Host 的独立聊天保留本地入口。Launch 从预览切换到正式 World 会话时只重建绑定会话的入口，不得用会话 Key 重建 Host／聊天子树；WorldPage 持有的 Dock controller 同样保持，避免丢失首条待发送消息。地点场景仍调用自身的手机打开／返回流程，不改变私聊移动卡片逻辑。
@@ -100,7 +102,7 @@
 
 - Messages 与 LocationChat 共用 `lib/network/chat_send_gate.dart` 的场景配置与超时调度：普通无进展 15 秒上报、20 秒释放本地 Send；手机独立实例不受地点 Tick 影响。释放不改变服务端结果，不自动重发；已释放请求与当前请求分别保存并恢复，迟到结果不得重锁或清理新请求。释放标记写入日志，页面重开不重锁；细则见集成文档 Messages Send 本地超时释放。
 
-- Camera 为前端预览，正式生成接口未接入；不得伪造照片、History消息、相册资产或扣费。World/账号/环境变化清理草稿，关闭/取消拒绝迟到结果。LocationChat拍照可见性与可用性严格跟随Regenerate，点击在聊天原地打开说明，不跳转Camera。
+- Camera 为前端预览，正式生成接口未接入；不得伪造照片、History消息、相册资产或扣费。World/账号/环境变化清理草稿，关闭/取消拒绝迟到结果。LocationChat拍照可见性与可用性严格跟随Regenerate，但独立解析按钮状态；Regenerate/Go on/Edit/Inspiration busy时拍照仅disabled并保留相机图标，不继承其他操作的loading。点击在聊天原地打开说明，不跳转Camera。
 - 未接生成接口期间两个入口均强制展示说明预览；30划线/0Gems与免费试用仅为设计预览，确认后提示Coming soon，不代表服务端权益。
 - Camera取景框复用固定封面2:3比例，World封面模糊加暗色遮罩；框内状态与描述用玻璃表面，头像与外部角色条共用48px圆形尺寸。选人仅走下方角色条，无All弹窗。白色细聚焦角线，底部左右分别为风格/相册，中央白色快门。
-- Camera键盘弹起隐藏底部操作及角色条并保留布局尺寸，单独关闭Scaffold键盘重排，不影响其他App。共享MiniGlass可选highlight/tint默认保持其他调用原样。当前UI细节和验证见docs/changes/2026-10-30-camera-role-release.md；历次设计记录见camera-viewfinder文档。
+- Camera键盘弹起隐藏底部操作及角色条并保留布局尺寸，单独关闭Scaffold键盘重排，不影响其他App；描述输入聚焦后仅上移输入框至实际键盘顶边之上，主图位置及尺寸保持不变，禁止通过滚动主图避让。键盘高度或多行输入变化后重新定位，输入框与键盘顶边至少留12逻辑像素间距，键盘收起后恢复原位。描述输入保留回车换行，不额外添加键盘操作栏；超出可见行数时，输入框内触摸滚动保持焦点和键盘，不因滚动通知冒泡触发收键盘。点击输入框外部仍收起键盘并保留草稿。共享MiniGlass可选highlight/tint默认保持其他调用原样。当前UI细节和验证见docs/changes/2026-10-30-camera-role-release.md；历次设计记录见camera-viewfinder文档。

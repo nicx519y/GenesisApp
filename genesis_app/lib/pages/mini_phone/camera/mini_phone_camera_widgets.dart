@@ -58,10 +58,12 @@ class MiniPhoneCameraViewfinder extends StatelessWidget {
     required this.child,
     this.imageUrl = '',
     this.footer,
+    this.footerLift = 0,
   });
   final Widget child;
   final String imageUrl;
   final Widget? footer;
+  final double footerLift;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
@@ -113,20 +115,55 @@ class MiniPhoneCameraViewfinder extends StatelessWidget {
               painter: _ViewfinderGuides(),
             ),
           ),
-          Column(
+          CustomMultiChildLayout(
+            delegate: _ViewfinderContentLayout(footerLift),
             children: [
-              Expanded(child: child),
+              LayoutId(id: _ViewfinderSlot.content, child: child),
               if (footer != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-                  child: footer,
-                ),
+                LayoutId(id: _ViewfinderSlot.footer, child: footer!),
             ],
           ),
         ],
       ),
     ),
   );
+}
+
+enum _ViewfinderSlot { content, footer }
+
+class _ViewfinderContentLayout extends MultiChildLayoutDelegate {
+  _ViewfinderContentLayout(this.footerLift);
+  final double footerLift;
+
+  @override
+  void performLayout(Size size) {
+    var contentHeight = size.height;
+    if (hasChild(_ViewfinderSlot.footer)) {
+      final footerSize = layoutChild(
+        _ViewfinderSlot.footer,
+        BoxConstraints.tightFor(
+          width: (size.width - 48).clamp(0.0, size.width),
+        ),
+      );
+      contentHeight = (size.height - footerSize.height - 28).clamp(
+        0.0,
+        size.height,
+      );
+      positionChild(
+        _ViewfinderSlot.footer,
+        Offset(24, (contentHeight - footerLift).clamp(0.0, size.height)),
+      );
+    }
+    layoutChild(
+      _ViewfinderSlot.content,
+      BoxConstraints.tight(Size(size.width, contentHeight)),
+    );
+    positionChild(_ViewfinderSlot.content, Offset.zero);
+  }
+
+  @override
+  bool shouldRelayout(_ViewfinderContentLayout oldDelegate) =>
+      footerLift != oldDelegate.footerLift;
 }
 
 class _ViewfinderGuides extends CustomPainter {

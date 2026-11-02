@@ -140,6 +140,7 @@ class LocationChatDebugChatroomMessageStorage
     required String locationId,
     required List<Map<String, dynamic>> messages,
     int maxMessagesPerLocation = 200,
+    bool Function()? isCurrent,
   }) async {
     await _delegate.mergeMessages(
       ownerUid: ownerUid,
@@ -147,7 +148,9 @@ class LocationChatDebugChatroomMessageStorage
       locationId: locationId,
       messages: messages,
       maxMessagesPerLocation: maxMessagesPerLocation,
+      isCurrent: isCurrent,
     );
+    if (isCurrent?.call() == false) return;
     await _recordLatestSnapshot(
       action: 'merge',
       ownerUid: ownerUid,

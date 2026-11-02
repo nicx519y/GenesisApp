@@ -14,7 +14,7 @@ class _LocationChatMessageParseCacheEntry {
 
 extension _LocationChatMessageReconciler on _LocationChatPanelState {
   Set<String> get _renderableGapKeys => {
-    ..._releasedMessageGapKeys,
+    ...?_service?.releasedLocationMessageGapKeys(widget.locationId),
     for (final gap
         in _service?.cacheEvictionGaps(widget.locationId) ??
             const <({int lower, int upper})>[])
@@ -457,7 +457,11 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         continue;
       }
       final key = _locationChatMessageGapKey(widget.locationId, gap);
-      if (_releasedMessageGapKeys.contains(key)) continue;
+      if (service
+          .releasedLocationMessageGapKeys(widget.locationId)
+          .contains(key)) {
+        continue;
+      }
       if (!_messageGapFillBeforeLocationMessageIds.add(
         gap.upperLocationMessageId,
       )) {
@@ -508,91 +512,33 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     required _LocationChatMessageGap gap,
   }) async {
     final location = widget.locationId;
-    final generation = service.state.historyGenerationByLocation[location] ?? 0;
-    bool current() =>
-        mounted &&
-        identical(service, _service) &&
-        widget.locationId == location &&
-        generation ==
-            (service.state.historyGenerationByLocation[location] ?? 0);
+    final generation = service.messageSyncGeneration;
+    final history = service.state.historyGenerationByLocation[location] ?? 0;
     try {
-      for (
-        var attempt = 1;
-        attempt <= _locationChatMessageGapMaxAttempts;
-        attempt += 1
-      ) {
-        if (!current()) return;
-        _messageGapFillAttempts[key] = attempt;
-        try {
-          if (_isLocationChatMessageGapFilled(
-            service.state.messagesByLocation[widget.locationId] ??
-                const <WorldChatroomMessage>[],
-            gap,
-          )) {
-            _messageGapFillKeys.remove(key);
-            _messageGapFillAttempts.remove(key);
-            return;
-          }
-          await service.loadOlderMessages(
-            locationId: widget.locationId,
-            beforeMessageId: gap.upperLocationMessageId,
-            limit: math.min(100, gap.missingCount + 1),
-          );
-          if (!current()) return;
-          if (_isLocationChatMessageGapFilled(
-            service.state.messagesByLocation[widget.locationId] ??
-                const <WorldChatroomMessage>[],
-            gap,
-          )) {
-            _messageGapFillKeys.remove(key);
-            _messageGapFillAttempts.remove(key);
-            return;
-          }
-        } catch (error) {
-          _logPanelMetric(
-            'message gap fill failed location=${widget.locationId} '
-            'lower=${gap.lowerLocationMessageId} '
-            'upper=${gap.upperLocationMessageId} '
-            'attempt=$attempt error=$error',
-          );
-          _recordPanelDebug(
-            action: 'gapFillFailed',
-            details: {
-              'lowerLocationMessageId': gap.lowerLocationMessageId,
-              'upperLocationMessageId': gap.upperLocationMessageId,
-              'attempt': attempt,
-              'error': '$error',
-            },
-          );
-        }
-      }
+      await service.repairLocationMessageGaps(location);
     } finally {
-      if (current()) {
-        _messageGapFillBeforeLocationMessageIds.remove(
-          gap.upperLocationMessageId,
-        );
-      }
+      _messageGapFillKeys.remove(key);
+      _messageGapFillBeforeLocationMessageIds.remove(
+        gap.upperLocationMessageId,
+      );
     }
-    if (!current()) return;
-    _releasedMessageGapKeys.add(key);
-    _messageGapFillKeys.remove(key);
-    _messageGapFillAttempts.remove(key);
-    _recordPanelDebug(
-      action: 'gapFillReleased',
-      details: {
-        'lowerLocationMessageId': gap.lowerLocationMessageId,
-        'upperLocationMessageId': gap.upperLocationMessageId,
-        'attempts': _locationChatMessageGapMaxAttempts,
-      },
-    );
-    if (!mounted) return;
+    if (!mounted ||
+        !identical(service, _service) ||
+        location != widget.locationId ||
+        generation != service.messageSyncGeneration ||
+        history != (service.state.historyGenerationByLocation[location] ?? 0)) {
+      return;
+    }
+    if (!service.releasedLocationMessageGapKeys(location).contains(key)) {
+      // Successful repairs already publish their messages. A blocked repair
+      // (for example after a failed latest-page read) must await the next
+      // service change instead of rescheduling itself through reconciliation.
+      return;
+    }
     final changed = _reconcileMessages(
-      _chatroomState.messagesByLocation[widget.locationId] ??
-          const <WorldChatroomMessage>[],
+      service.state.messagesByLocation[location] ?? const [],
     );
-    if (changed && mounted) {
-      _setLocationChatState(() {});
-    }
+    if (changed && mounted) _setLocationChatState(() {});
   }
 
   ChatMessageVm? _matchingPendingSelfMessage(
