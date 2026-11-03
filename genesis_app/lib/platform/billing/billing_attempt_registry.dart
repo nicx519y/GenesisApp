@@ -12,57 +12,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     _processingPurchaseKeys.remove(processingKey);
   }
 
-  Future<void> _runExclusivePurchase(
-    String processingKey,
-    Future<void> Function() action,
-  ) async {
-    if (!_beginExclusivePurchase(processingKey)) return;
-    try {
-      await action();
-    } finally {
-      _endExclusivePurchase(processingKey);
-    }
-  }
-
-  Future<BillingPurchaseAttempt?> _recoveredAttemptFor(
-    BillingPurchase purchase, {
-    required BillingRecoverySource source,
-    required String fallbackAttemptId,
-    List<GemProduct>? productCatalog,
-  }) async {
-    String accountId;
-    try {
-      accountId = await _resolveBillingAccountId();
-    } catch (_) {
-      return null;
-    }
-    if (accountId.isEmpty) return null;
-    try {
-      final products = productCatalog ?? await _loadProductCatalog();
-      final product = products.cast<GemProduct?>().firstWhere(
-        (candidate) =>
-            candidate != null &&
-            _storeProductIdFor(candidate, purchase.provider) ==
-                purchase.productId,
-        orElse: () => null,
-      );
-      if (product == null ||
-          billingProductKindFrom(product.billingType) !=
-              BillingProductKind.consumable) {
-        return null;
-      }
-      return BillingPurchaseAttempt(
-        id: fallbackAttemptId,
-        product: product,
-        billingAccountId: accountId,
-        source: source,
-        startedAt: DateTime.now(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
   BillingPendingPurchase _purchaseRecord({
     required BillingPurchase purchase,
     required String attemptId,
@@ -207,62 +156,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     return report;
   }
 
-  Future<void> _processTransientStoreRecovery(
-    BillingPendingPurchase record, {
-    required BillingPurchase purchase,
-  }) async {
-    String currentAccountId;
-    try {
-      currentAccountId = await _resolveBillingAccountId();
-    } catch (_) {
-      return;
-    }
-    if (!_sameBillingAccount(currentAccountId, record.billingAccountId)) {
-      return;
-    }
-    late final GemPurchaseReport report;
-    try {
-      report = await _sendPurchaseReport(record, purchase: purchase);
-    } catch (error) {
-      debugPrint('[Billing] transient store recovery report failed: $error');
-      _completedPurchaseKeys.add(record.key);
-      _emitDeferred(
-        record.productId,
-        record.attemptId,
-        debugInfo: purchaseDebugInfo('gems.restore_report', error: error),
-      );
-      _setBusy(record.productId, false);
-      return;
-    }
-
-    if (report.status == GemPurchaseReportStatus.completed) {
-      _refreshProductsInBackground();
-      _emitUiEvent(
-        BillingUiEvent(
-          kind: BillingUiEventKind.success,
-          productId: record.productId,
-          attemptId: record.attemptId,
-          message: 'Purchase successful!',
-          grantedGemsCent: report.grantedGemsCent!,
-        ),
-      );
-      _refreshWalletInBackground();
-    } else {
-      _emitFailure(
-        record.productId,
-        record.attemptId,
-        GenesisL10n.current.gemsPurchaseRefunded,
-        debugInfo: purchaseDebugInfo(
-          'gems.restore_report',
-          status: report.status.name,
-          reason: report.reason,
-        ),
-      );
-    }
-    _setBusy(record.productId, false);
-    _completedPurchaseKeys.add(record.key);
-  }
-
   void _finishPurchaseAttempt(
     BillingPendingPurchase record,
     BillingPurchase? purchase,
@@ -382,17 +275,6 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
     return attempt != null &&
         _sameBillingAccount(attempt.billingAccountId, currentAccountId);
-  }
-
-  bool _storePurchaseBelongsToCurrentAccount(
-    BillingPurchase purchase,
-    String billingAccountId,
-  ) {
-    final currentAccountId = billingAccountId.trim();
-    if (currentAccountId.isEmpty) return false;
-    final platformAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
-    return platformAccountId.isNotEmpty &&
-        _sameBillingAccount(platformAccountId, currentAccountId);
   }
 
   bool _sameBillingAccount(String first, String second) {

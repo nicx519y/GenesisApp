@@ -37,3 +37,13 @@ Gems、登录订阅、游客订阅的 report 仅接受 completed / rejected。�
 ## 当前验证边界
 
 本文件描述客户端目标口径。商店真实扣款、服务端到账、Firebase/Collect 线上入库以及报表聚合应分别验收；客户端收到 purchased 不等于服务端已完成发货。
+
+## 非当前购买的订阅回调
+
+订阅 purchased 回调必须关联当前进程中点击购买创建的记录；仅账号 UUID 匹配不再构建恢复购买记录。启动／重启后没有本次购买记录的历史回调不触发 report、订阅成功事件或 Adjust 购买归因。已发起过 report 的购买尝试不再处理后续续订或重复 purchased 为新购买。同一进程内由本次点击产生的 pending 后续完成仍按正常购买处理。游客 claim 维护与 Gems 链路保持原逻辑。
+
+## 非当前购买的 Gems 回调
+
+Gems 监听仅处理当前进程点击购买创建并能匹配的购买尝试（含同一次 pending／中断后返回的结果）。无购买尝试的 purchased 与 restored 历史回调不触发成功事件、Adjust 归因、StoreKit Firebase 交易统计或 report；主动恢复查询也不再为 Gems 构建购买尝试及发送 report。正常购买的 report rejected 统计保持不变。
+
+Gems 的 product_click 在页面／弹窗接受有效点击后立即记录，早于前置价格确认；价格确认失败或超时也保留该点击。购买服务不重复记录 product_click，禁用／防重入拦截的点击不记录。

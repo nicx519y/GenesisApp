@@ -847,6 +847,52 @@ void main() {
     },
   );
 
+  testWidgets('sheet click is recorded before price confirmation can proceed', (
+    tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    final wallet = GemWalletStore(
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    addTearDown(wallet.dispose);
+    addTearDown(billing.dispose);
+    final product = _products().first.withStorePrice(
+      formatted: r'$1.49',
+      micros: 1490000,
+      currency: 'USD',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 700,
+            child: GemPurchaseBottomSheet(
+              productsLoader: () async => [product],
+              walletStore: wallet,
+              billingService: billing,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('gem-product-${product.productId}')));
+    await tester.pump();
+    // No catalog is available, so confirmation exits before the service call.
+    expect(billing.purchasedProducts, isEmpty);
+    final clicks = telemetry.events.where(
+      (e) => e.name == 'pay_event' && e.data['action'] == 'product_click',
+    );
+    expect(clicks, hasLength(1));
+    expect(clicks.single.collectPayload?['object1'], product.productId);
+    expect(clicks.single.collectPayload?['object3'], 'buy_gems_sheet');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
     tester,
   ) async {
@@ -1473,7 +1519,12 @@ void main() {
     expect(billing.storeRecoveryCount, 0);
     expect(billing.recoveredProductCatalog, isNull);
     expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
-    expect(billing.purchaseTrackIds, ['']);
+    expect(billing.purchaseTrackIds.single, isNotEmpty);
+    final clicks = telemetry.events.where(
+      (e) => e.name == 'pay_event' && e.data['action'] == 'product_click',
+    );
+    expect(clicks, hasLength(1));
+    expect(clicks.single.collectPayload?['object3'], 'buy_gems_page');
     final showEvent = telemetry.events.singleWhere(
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',
@@ -1517,71 +1568,73 @@ void main() {
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.light);
   });
 
-  testWidgets('opening Gems never queries historical purchases after products load', (
-    tester,
-  ) async {
-    final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balanceCent: 43000),
-      readUid: () async => 'u_user',
-    );
-    final billing = _FakeBillingService();
-    final productsCompleter = Completer<List<GemProduct>>();
-    addTearDown(walletStore.dispose);
-    addTearDown(billing.dispose);
+  testWidgets(
+    'opening Gems never queries historical purchases after products load',
+    (tester) async {
+      final walletStore = GemWalletStore(
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+        readUid: () async => 'u_user',
+      );
+      final billing = _FakeBillingService();
+      final productsCompleter = Completer<List<GemProduct>>();
+      addTearDown(walletStore.dispose);
+      addTearDown(billing.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GemWalletPage(
-          walletStore: walletStore,
-          billingService: billing,
-          productsLoader: (_) => productsCompleter.future,
-          tasksLoader: (_) async => _taskGroups(),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemWalletPage(
+            walletStore: walletStore,
+            billingService: billing,
+            productsLoader: (_) => productsCompleter.future,
+            tasksLoader: (_) async => _taskGroups(),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(billing.storeRecoveryCount, 0);
+      expect(billing.storeRecoveryCount, 0);
 
-    productsCompleter.complete(_products());
-    await tester.pumpAndSettle();
+      productsCompleter.complete(_products());
+      await tester.pumpAndSettle();
 
-    expect(billing.storeRecoveryCount, 0);
-    expect(billing.recoveredProductCatalog, isNull);
-  });
+      expect(billing.storeRecoveryCount, 0);
+      expect(billing.recoveredProductCatalog, isNull);
+    },
+  );
 
-  testWidgets('Gems purchase remains available without querying historical purchases', (
-    tester,
-  ) async {
-    final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balanceCent: 43000),
-      readUid: () async => 'u_user',
-    );
-    final billing = _FakeBillingService()..storeRecoveryResult = false;
-    addTearDown(walletStore.dispose);
-    addTearDown(billing.dispose);
+  testWidgets(
+    'Gems purchase remains available without querying historical purchases',
+    (tester) async {
+      final walletStore = GemWalletStore(
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+        readUid: () async => 'u_user',
+      );
+      final billing = _FakeBillingService()..storeRecoveryResult = false;
+      addTearDown(walletStore.dispose);
+      addTearDown(billing.dispose);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GemWalletPage(
-          walletStore: walletStore,
-          billingService: billing,
-          productsLoader: (_) async => _products(),
-          tasksLoader: (_) async => _taskGroups(),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemWalletPage(
+            walletStore: walletStore,
+            billingService: billing,
+            productsLoader: (_) async => _products(),
+            tasksLoader: (_) async => _taskGroups(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
-    );
-    await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+      );
+      await tester.pump();
 
-    expect(billing.storeRecoveryCount, 0);
-    expect(billing.purchasedProducts, hasLength(1));
-    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
-  });
+      expect(billing.storeRecoveryCount, 0);
+      expect(billing.purchasedProducts, hasLength(1));
+      expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+    },
+  );
 
   testWidgets('opening Gems never calls the historical recovery service', (
     tester,

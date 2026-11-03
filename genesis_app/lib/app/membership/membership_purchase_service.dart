@@ -995,9 +995,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (pending.length == 1) record = pending.single;
       }
     }
-    if (record == null && purchase.status == BillingPurchaseStatus.purchased) {
-      record = await _recordForCurrentAccountPurchase(purchase);
-    }
     if (record == null) {
       // An unmatched purchased callback must not report, track, or initiate
       // guest recovery for another account. Restore history has its own path.
@@ -1061,76 +1058,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
-  Future<MembershipPurchaseRecord?> _recordForCurrentAccountPurchase(
-    BillingPurchase purchase,
-  ) async {
-    final callbackUuid =
-        purchase.obfuscatedAccountId?.trim().toLowerCase() ?? '';
-    final credential = provider == MembershipProvider.google
-        ? purchase.purchaseToken.trim()
-        : purchase.transactionId.trim();
-    if (!isMembershipAccountUuid(callbackUuid) ||
-        credential.isEmpty ||
-        purchase.productId.trim().isEmpty) {
-      return null;
-    }
-    final session = _session;
-    try {
-      final uid = await readLoginUid();
-      MembershipProductList? products;
-      String currentUuid;
-      if (uid == null) {
-        products = await readCheckoutProducts();
-        currentUuid = products.lastAccountUuid ?? '';
-      } else {
-        currentUuid = await loadAccountUuid();
-      }
-      currentUuid = currentUuid.trim().toLowerCase();
-      if (_disposed ||
-          session != _session ||
-          await readLoginUid() != uid ||
-          currentUuid != callbackUuid) {
-        return null;
-      }
-      // A live catalog is not needed to report a verified store product. Guest
-      // checkouts already read it to resolve their current account UUID.
-      final matches = products?.products.where(
-        (product) =>
-            product.provider == provider &&
-            product.storeProductId == purchase.productId,
-      );
-      final product = matches?.isNotEmpty == true
-          ? matches!.first
-          : MembershipOrderProduct(
-              planCode: 'unknown',
-              provider: provider,
-              storeProductId: purchase.productId,
-            );
-      if (_disposed || session != _session || await readLoginUid() != uid) {
-        return null;
-      }
-      final identity = purchase.transactionId.trim().isNotEmpty
-          ? purchase.transactionId.trim()
-          : credential;
-      final tracking = SubscriptionTracking.recovery(
-        '${provider.name}:purchase:$identity',
-      );
-      return MembershipPurchaseRecord(
-        requestId: tracking.id,
-        tracking: tracking,
-        product: product,
-        accountUuid: callbackUuid,
-        ownerUid: uid,
-        guest: uid == null
-            ? MembershipGuestIdentity(accountUuid: callbackUuid)
-            : null,
-      );
-    } catch (error) {
-      _log('purchase ownership check deferred', error);
-      return null;
-    }
-  }
-
   Future<void> _handleCheckoutRecord(
     MembershipPurchaseRecord record,
     BillingPurchase purchase,
@@ -1142,13 +1069,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _signedTransactions['${record.accountUuid}:${purchase.transactionId}'] =
           purchase.signedTransaction;
     }
-    if (_reportedRequestIds.contains(record.requestId) &&
-        (provider == MembershipProvider.apple ||
-            record.paid &&
-                (purchase.transactionId.isEmpty ||
-                    purchase.transactionId == record.transactionId))) {
-      return;
-    }
+    // A completed/report-attempted checkout cannot accept a later renewal or
+    // replay as another user purchase. Unmatched history is ignored in _handle.
+    if (_reportedRequestIds.contains(record.requestId)) return;
     if (provider == MembershipProvider.apple &&
         purchase.status == BillingPurchaseStatus.purchased &&
         purchase.productId.isNotEmpty &&

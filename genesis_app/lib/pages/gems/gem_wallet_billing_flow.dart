@@ -22,6 +22,13 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         AppServicesScope.maybeRead(context)?.billing;
     if (service?.state.value.hasBusyPurchase == true) return;
     final clickAttemptId = newBillingAttemptId();
+    const GenesisBillingAnalytics().track(
+      'product_click',
+      properties: {
+        'product_id': product.productId,
+        'source': BillingPurchaseSource.buyGemsPage.value,
+      },
+    );
     final budget = CheckoutPreparationBudget();
     _showBillingPurchaseProcessing();
     if (product.requiresStorePrice) {
@@ -80,13 +87,6 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     if (service == null) {
       _dismissBillingPurchaseDialog();
       const analytics = GenesisBillingAnalytics();
-      analytics.track(
-        'product_click',
-        properties: <String, Object?>{
-          'product_id': product.productId,
-          'source': BillingPurchaseSource.buyGemsPage.value,
-        },
-      );
       analytics.track(
         'purchase_failed',
         properties: <String, Object?>{

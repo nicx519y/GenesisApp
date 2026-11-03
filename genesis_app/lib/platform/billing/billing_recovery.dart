@@ -23,66 +23,12 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       return false;
     }
 
-    final seenPurchaseKeys = <String>{};
+    // Historical queries may route subscriptions for their own handling, but
+    // never turn Gems history into a new checkout, report, or analytics event.
     for (final purchase in purchases) {
-      if (await _routeSubscription(purchase, productCatalog: productCatalog)) {
-        continue;
-      }
-      final purchaseIdentity = purchase.purchaseToken.trim();
-      final purchaseKey = '${purchase.provider.name}:$purchaseIdentity';
-      if (purchaseIdentity.isNotEmpty && !seenPurchaseKeys.add(purchaseKey)) {
-        continue;
-      }
-      await _recoverStorePurchase(
-        purchase,
-        billingAccountId: billingAccountId,
-        productCatalog: productCatalog,
-      );
+      await _routeSubscription(purchase, productCatalog: productCatalog);
     }
     return true;
-  }
-
-  Future<void> _recoverStorePurchase(
-    BillingPurchase purchase, {
-    required String billingAccountId,
-    List<GemProduct>? productCatalog,
-  }) async {
-    if (purchase.status != BillingPurchaseStatus.purchased) return;
-    final token = purchase.purchaseToken.trim();
-    if (token.isEmpty) {
-      debugPrint('[Billing] skipped store recovery without purchase identity');
-      return;
-    }
-
-    final fallbackAttemptId = newBillingAttemptId();
-    if (!_storePurchaseBelongsToCurrentAccount(purchase, billingAccountId)) {
-      debugPrint('[Billing] skipped store recovery for another account');
-      return;
-    }
-    final recoveredAttempt = await _recoveredAttemptFor(
-      purchase,
-      source: BillingRecoverySource.foreground,
-      fallbackAttemptId: fallbackAttemptId,
-      productCatalog: productCatalog,
-    );
-    if (recoveredAttempt == null) return;
-    final now = DateTime.now();
-    final record = _purchaseRecord(
-      purchase: purchase,
-      attemptId: recoveredAttempt.id,
-      billingAccountId: recoveredAttempt.billingAccountId,
-      productId: recoveredAttempt.product.productId,
-      status: BillingPendingPurchaseStatus.received,
-      createdAt: now,
-      updatedAt: now,
-      priceAmountMicros: recoveredAttempt.priceAmountMicros,
-      priceCurrencyCode: recoveredAttempt.priceCurrencyCode,
-    );
-    _recordVerifiedPurchaseForAnalytics(purchase);
-    final processingKey = record.key;
-    await _runExclusivePurchase(processingKey, () async {
-      await _processTransientStoreRecovery(record, purchase: purchase);
-    });
   }
 
   Future<void> _recoverInternal(
@@ -159,6 +105,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
   }) async {
     final token = purchase.purchaseToken.trim();
     final attempt = _attemptForPurchase(purchase);
+    if (attempt == null || purchase.status == BillingPurchaseStatus.restored) {
+      return;
+    }
     if (!_purchaseBelongsToBillingAccount(
       purchase,
       attempt,
@@ -170,8 +119,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       return;
     }
     _recordVerifiedPurchaseForAnalytics(purchase);
-    final attemptId = attempt?.id ?? newBillingAttemptId();
-    final productId = attempt?.product.productId ?? purchase.productId;
+    final attemptId = attempt.id;
+    final productId = attempt.product.productId;
     final callbackAssociation =
         token.isNotEmpty && _attemptByPurchaseToken[token] != null
         ? 'purchase_token'
@@ -179,17 +128,15 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         ? 'active_store_product'
         : _interruptedAttemptByStoreProductId.containsKey(purchase.productId)
         ? 'interrupted_store_product'
-        : purchase.productId.isEmpty && attempt != null
+        : purchase.productId.isEmpty
         ? 'active_attempt_fallback'
         : 'unmatched';
     _cancelAttemptTimeout(
-      attempt == null
-          ? purchase.productId
-          : _storeProductIdFor(attempt.product, purchase.provider),
+      _storeProductIdFor(attempt.product, purchase.provider),
     );
     switch (purchase.status) {
       case BillingPurchaseStatus.pending:
-        if (token.isNotEmpty && attempt != null) {
+        if (token.isNotEmpty) {
           _attemptByPurchaseToken[token] = attempt;
         }
         _setBusy(productId, false);
@@ -254,10 +201,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
               'callback_product_id': purchase.productId,
               'store_callback_received': true,
               'success_callback_received': false,
-              if (attempt != null)
-                'total_duration_ms': DateTime.now()
-                    .difference(attempt.startedAt)
-                    .inMilliseconds,
+              'total_duration_ms': DateTime.now()
+                  .difference(attempt.startedAt)
+                  .inMilliseconds,
               'association': callbackAssociation,
               'purchase_token_present': purchase.purchaseToken.isNotEmpty,
             },
@@ -304,10 +250,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
               'callback_product_id': purchase.productId,
               'store_callback_received': true,
               'success_callback_received': false,
-              if (attempt != null)
-                'total_duration_ms': DateTime.now()
-                    .difference(attempt.startedAt)
-                    .inMilliseconds,
+              'total_duration_ms': DateTime.now()
+                  .difference(attempt.startedAt)
+                  .inMilliseconds,
               'association': callbackAssociation,
               'purchase_token_present': purchase.purchaseToken.isNotEmpty,
             },
@@ -323,10 +268,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
 
     if (token.isEmpty) {
       _clearAttempt(purchase, attempt);
-      if (attempt != null) {
-        // Keep this attempt available if the store later supplies the receipt.
-        _interruptedAttemptByStoreProductId[purchase.productId] = attempt;
-      }
+      // Keep this attempt available if the store later supplies the receipt.
+      _interruptedAttemptByStoreProductId[purchase.productId] = attempt;
       _trackFlowResultById(
         attemptId: attemptId,
         productId: productId,
@@ -353,22 +296,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       );
       return;
     }
-    if (attempt != null) _attemptByPurchaseToken[token] = attempt;
+    _attemptByPurchaseToken[token] = attempt;
 
-    final resolvedAttempt =
-        attempt ??
-        await _recoveredAttemptFor(
-          purchase,
-          source: source,
-          fallbackAttemptId: attemptId,
-        );
-    if (resolvedAttempt == null ||
-        !_sameBillingAccount(
-          resolvedAttempt.billingAccountId,
-          billingAccountId,
-        )) {
-      return;
-    }
+    final resolvedAttempt = attempt;
 
     _trackPurchasedCallback(
       purchase,

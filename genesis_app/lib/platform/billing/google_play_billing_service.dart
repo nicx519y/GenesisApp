@@ -133,12 +133,6 @@ class GooglePlayBillingService implements BillingService {
         : newBillingAttemptId();
     var activeProduct = product;
     var storeProductId = _storeProductIdFor(product, _platform.provider);
-    _trackProduct(
-      'product_click',
-      product: product,
-      attemptId: attemptId,
-      data: <String, Object?>{'source': source.value},
-    );
     if (_disposed) return;
     if (_state.value.hasBusyPurchase || (_otherPurchaseBusy?.call() ?? false)) {
       _trackPrecheckFailure(product, attemptId, 'purchase_in_progress');

@@ -267,6 +267,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       return;
     }
     final clickAttemptId = newBillingAttemptId();
+    const GenesisBillingAnalytics().track(
+      'product_click',
+      properties: {
+        'product_id': product.productId,
+        'source': BillingPurchaseSource.buyGemsSheet.value,
+      },
+    );
     final budget = CheckoutPreparationBudget();
     _showPurchaseProcessing(attemptId: '');
     if (product.requiresStorePrice) {
