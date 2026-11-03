@@ -887,7 +887,13 @@ void main() {
       (e) => e.name == 'pay_event' && e.data['action'] == 'product_click',
     );
     expect(clicks, hasLength(1));
-    expect(clicks.single.collectPayload?['object1'], product.productId);
+    expect(clicks.single.collectPayload?['object1'], 'buy_gems_sheet');
+    expect(
+      clicks.single.collectPayload?['object2'],
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? product.appleProductId
+          : product.googleProductId,
+    );
     expect(clicks.single.collectPayload?['object3'], 'buy_gems_sheet');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -1524,6 +1530,13 @@ void main() {
       (e) => e.name == 'pay_event' && e.data['action'] == 'product_click',
     );
     expect(clicks, hasLength(1));
+    expect(
+      clicks.single.collectPayload?['object2'],
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? billing.purchasedProducts.single.appleProductId
+          : billing.purchasedProducts.single.googleProductId,
+    );
+    expect(clicks.single.collectPayload?['object1'], 'buy_gems_page');
     expect(clicks.single.collectPayload?['object3'], 'buy_gems_page');
     final showEvent = telemetry.events.singleWhere(
       (event) =>

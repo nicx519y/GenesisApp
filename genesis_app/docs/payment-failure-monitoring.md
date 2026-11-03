@@ -29,7 +29,7 @@
 
 ## 上报范围及隔离
 
-仅显式点击后的商品确认失败、购买服务失败、商店回调和监听异常进入失败监控。预加载、商品预热失败不进入两类失败点。补齐点击后 catalog.confirm 失败、store_price_changed 和订阅凭证缺失。商品确认超时使用 purchase_timeout，订阅超时仍使用 subscription_timeout，携带关联 ID，超时不计为明确支付失败。
+仅显式点击后的商品确认失败、购买服务失败、商店回调和监听异常进入失败监控。预加载、商品预热失败不进入两类失败点。补齐点击后 catalog.confirm 失败、store_price_changed 和订阅凭证缺失。商品确认、购买准备和回调等待超时统一进入 purchase_failed／subscription_failed（monitor），object3=阶段_failed[reason=timeout]；ext_data 包含 timeout_type、stage、step、关联 ID 和实际可得的耗时，payment_outcome=unknown。超时独立去重，不表示已确认扣款失败。
 
 分类、编码、失败 sink 均有异常隔离；Gems 遥测调用启用 bestEffort，Collect 入队和通用 sink 的异步异常也会被处理，其他遥测调用的默认行为不变；不新增 await、商店请求或重试，不改变付款调起、价格／资格校验、购买结果、发货与补单控制。多个捕获位置的同一失败继续去重；监听异常独立去重，不吞掉后续明确的取消、错误或成功结果。原始成功上报语义保持不变。
 

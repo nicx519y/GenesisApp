@@ -51,12 +51,12 @@ Map<String, Object?> _billingCollectPayload(
   final action = data['action'];
   if (action is! String || action.isEmpty) return const {};
 
-  final productId = data['product_id'] ?? data['store_product_id'];
   if (action == 'product_click') {
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
-      if (productId != null) 'object1': productId,
+      'object1': data['source'] ?? '',
+      'object2': data['store_product_id'] ?? '',
       if (data['source'] != null) 'object3': data['source'],
     };
   }
@@ -64,7 +64,8 @@ Map<String, Object?> _billingCollectPayload(
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
-      if (productId != null) 'object1': productId,
+      'object1': data['source'] ?? '',
+      'object2': data['store_product_id'] ?? '',
       if (data['transaction_id'] != null) 'object3': data['transaction_id'],
     };
   }
@@ -72,23 +73,9 @@ Map<String, Object?> _billingCollectPayload(
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
-      if (productId != null) 'object1': productId,
+      'object1': data['source'] ?? '',
+      'object2': data['store_product_id'] ?? '',
       'object3': 'store_callback_pending',
-    };
-  }
-  if (action == 'purchase_timeout') {
-    return <String, Object?>{
-      'action_type': 'pay_event',
-      'action': action,
-      if (productId != null) 'object1': productId,
-      if (data['timeout_type'] != null) 'object3': data['timeout_type'],
-      'ext_data': encodePaymentFailureDiagnostics({
-        ...data,
-        'attempt_id': attemptId,
-        'purchase_kind': 'consumable',
-        'stage': 'prepare',
-        if (failureDiagnostics is Map<String, Object?>) ...failureDiagnostics,
-      }),
     };
   }
   if (action == 'purchase_failed') {
@@ -112,7 +99,8 @@ Map<String, Object?> _billingCollectPayload(
     return <String, Object?>{
       'action_type': 'monitor',
       'action': action,
-      if (productId != null) 'object1': productId,
+      'object1': data['source'] ?? '',
+      'object2': data['store_product_id'] ?? '',
       'object3': classification.object3,
       'ext_data': encodePaymentFailureDiagnostics({
         ...diagnostic,
@@ -124,7 +112,8 @@ Map<String, Object?> _billingCollectPayload(
         'original_reason': original,
         'payment_outcome': classification.reason == 'canceled'
             ? 'canceled'
-            : classification.stage == 'stream' ||
+            : classification.reason == 'timeout' ||
+                  classification.stage == 'stream' ||
                   classification.reason.contains('receipt_missing') ||
                   classification.reason == 'signed_transaction_missing'
             ? 'unknown'
@@ -330,13 +319,19 @@ void reportGemConfirmationFailure({
 void reportGemConfirmationTimeout({
   required GemProduct product,
   required String attemptId,
+  String source = '',
 }) {
   try {
     const GenesisBillingAnalytics().track(
-      'purchase_timeout',
+      'purchase_failed',
       properties: {
         'product_id': product.productId,
+        'source': source,
+        'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+            ? product.appleProductId
+            : product.googleProductId,
         'attempt_id': attemptId,
+        'reason': 'timeout',
         'timeout_type': 'prepare',
         'failure_diagnostics': {'stage': 'query', 'step': 'confirm_product'},
       },

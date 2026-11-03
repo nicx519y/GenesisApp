@@ -10,7 +10,11 @@ void main() {
       final events = <SubscriptionAnalyticsEvent>[];
       final analytics = SubscriptionAnalytics(sink: events.add);
       analytics.failed(
-        const SubscriptionTracking(id: 'track-1'),
+        const SubscriptionTracking(
+          id: 'track-1',
+          source: SubscriptionSource.meMembership,
+          storeProductId: 'premium_monthly',
+        ),
         'google[response_code=developerError]',
         diagnostics: {
           'stage': 'callback',
@@ -30,6 +34,37 @@ void main() {
       expect(d.containsKey('purchase_token'), isFalse);
     },
   );
+
+  for (final stage in ['prepare', 'store_callback']) {
+    test('subscription timeout $stage is queued as monitor', () async {
+      final store = MemoryCollectEventStore();
+      final uploader = CollectTelemetryUploader(store: store)
+        ..configure(enabled: true);
+      GenesisTelemetry.setCollectUploaderForTesting(uploader);
+      SubscriptionAnalytics().timeout(
+        const SubscriptionTracking(
+          id: 'timeout-checkout',
+          source: SubscriptionSource.meMembership,
+          storeProductId: 'premium_monthly',
+        ),
+        stage,
+      );
+      await GenesisTelemetry.waitForCollectWritesForTesting();
+      final event = (await store.claimPending(limit: 20))!.events.single;
+      expect(event.actionType, 'monitor');
+      expect(event.action, 'subscription_failed');
+      expect(event.object1, 'from_me_membership');
+      expect(event.object2, 'premium_monthly');
+      expect(
+        event.object3,
+        '${stage == 'store_callback' ? 'callback' : stage}_failed[reason=timeout]',
+      );
+      final diagnostic = jsonDecode(event.extData) as Map;
+      expect(diagnostic['reason'], 'timeout');
+      expect(diagnostic['timeout_type'], stage);
+      expect(diagnostic['payment_outcome'], 'unknown');
+    });
+  }
 
   tearDown(GenesisTelemetry.resetForTesting);
   test('subscription failure is queued as monitor', () async {
@@ -97,7 +132,11 @@ void main() {
       final uploader = CollectTelemetryUploader(store: store)
         ..configure(enabled: true);
       GenesisTelemetry.setCollectUploaderForTesting(uploader);
-      const tracking = SubscriptionTracking(id: 'recovery_stable');
+      const tracking = SubscriptionTracking(
+        id: 'recovery_stable',
+        source: SubscriptionSource.meMembership,
+        storeProductId: 'premium_monthly',
+      );
       SubscriptionAnalytics().success(tracking, 'google', 'GPA.same-order');
       SubscriptionAnalytics().success(tracking, 'google', 'GPA.same-order');
       await GenesisTelemetry.waitForCollectWritesForTesting();
@@ -110,6 +149,7 @@ void main() {
         event.eventId,
       );
       expect(event.object3, 'GPA.same-order');
+      expect(event.object2, 'premium_monthly');
     },
   );
 }

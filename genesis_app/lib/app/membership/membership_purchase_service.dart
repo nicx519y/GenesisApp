@@ -407,6 +407,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _attemptTracking[attemptId] =
         tracking ??
         SubscriptionTracking.recovery('${provider.name}:attempt:$attemptId');
+    _attemptTracking[attemptId] = _attemptTracking[attemptId]!.copyWith(
+      storeProductId: product.storeProductId,
+    );
     if (_busy || (otherPurchaseBusy?.call() ?? false)) {
       _trackPreparationFailure(
         attemptId,
@@ -453,7 +456,22 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         !wait.storeCallbackReceived;
     void onTimeout() {
       if (!isCurrent() || wait.storeHandedOff) return;
-      analytics.timeout(_attemptTracking[id]!, 'prepare');
+      analytics.timeout(
+        _attemptTracking[id]!,
+        'prepare',
+        diagnostics: {
+          'provider': provider.name,
+          'attempt_id': id,
+          'step': stage,
+          'stage_duration_ms': DateTime.now()
+              .difference(stageStartedAt)
+              .inMilliseconds,
+          'total_duration_ms': DateTime.now()
+              .difference(startedAt)
+              .inMilliseconds,
+          'store_handoff_started': wait.storeHandedOff,
+        },
+      );
       _release(id);
       _setState(
         MembershipCheckoutState.deferred,
@@ -730,7 +748,19 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           wait.timer?.cancel();
           wait.timer = Timer(_appleResultCallbackTimeout, () {
             if (!isCurrent()) return;
-            analytics.timeout(_attemptTracking[id]!, 'store_callback');
+            analytics.timeout(
+              _attemptTracking[id]!,
+              'store_callback',
+              diagnostics: {
+                'provider': provider.name,
+                'attempt_id': id,
+                'store_handoff_started': wait.storeHandedOff,
+                'store_callback_received': wait.storeCallbackReceived,
+                'total_duration_ms': DateTime.now()
+                    .difference(startedAt)
+                    .inMilliseconds,
+              },
+            );
             _release(id);
             _setState(
               MembershipCheckoutState.deferred,

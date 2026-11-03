@@ -26,6 +26,9 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       'product_click',
       properties: {
         'product_id': product.productId,
+        'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+            ? product.appleProductId
+            : product.googleProductId,
         'source': BillingPurchaseSource.buyGemsPage.value,
       },
     );
@@ -59,6 +62,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         reportGemConfirmationTimeout(
           product: product,
           attemptId: clickAttemptId,
+          source: BillingPurchaseSource.buyGemsPage.value,
         );
         _dismissBillingPurchaseDialog();
         if (mounted) {

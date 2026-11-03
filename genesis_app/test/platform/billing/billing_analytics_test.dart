@@ -31,6 +31,31 @@ class _AsyncFailingTelemetrySink extends _CapturingTelemetrySink {
 }
 
 void main() {
+  for (final action in [
+    'product_click',
+    'purchase_success',
+    'purchase_pending',
+    'purchase_failed',
+  ]) {
+    test('$action carries store SKU in object2', () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+      const GenesisBillingAnalytics().track(
+        action,
+        properties: {
+          'product_id': 'business-product',
+          'store_product_id': 'store-sku',
+          'source': 'buy_gems_page',
+          'reason': 'canceled',
+          'timeout_type': 'prepare',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(sink.events.single.collectPayload?['object1'], 'buy_gems_page');
+      expect(sink.events.single.collectPayload?['object2'], 'store-sku');
+    });
+  }
+
   for (final provider in ['googlePlay', 'appStore']) {
     test('$provider Gems cancellation uses the same common schema', () async {
       final sink = _CapturingTelemetrySink();
@@ -219,7 +244,8 @@ void main() {
       expect(event.collectPayload, {
         'action_type': 'pay_event',
         'action': 'product_click',
-        'object1': 'gem_pack_500',
+        'object1': 'buy_gems_sheet',
+        'object2': '',
         'object3': 'buy_gems_sheet',
       });
     },
@@ -244,7 +270,8 @@ void main() {
     expect(event.collectPayload, {
       'action_type': 'pay_event',
       'action': 'purchase_success',
-      'object1': 'gem_pack_500',
+      'object1': '',
+      'object2': 'worldo_gem_pack_500',
       'object3': 'GPA.1',
     });
   });
@@ -265,34 +292,78 @@ void main() {
     expect(sink.events.single.collectPayload, {
       'action_type': 'pay_event',
       'action': 'purchase_pending',
-      'object1': 'gem_pack_500',
+      'object1': '',
+      'object2': '',
       'object3': 'store_callback_pending',
     });
   });
 
-  for (final timeoutType in const ['report', 'store_no_callback']) {
-    test('timeout collect projection uses $timeoutType as object3', () async {
-      final sink = _CapturingTelemetrySink();
-      GenesisTelemetry.setSinkForTesting(sink);
+  test('price confirmation timeout is a query failed monitor', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+    const product = GemProduct(
+      productId: 'gem',
+      appleProductId: 'apple.gem',
+      googleProductId: 'google.gem',
+      baseGemsCent: 100,
+      bonusGemsCent: 0,
+      priceCurrencyCode: 'USD',
+      priceAmount: 100,
+      canPurchase: true,
+      activityType: 'none',
+    );
+    reportGemConfirmationTimeout(
+      product: product,
+      attemptId: 'confirm-timeout',
+      source: 'buy_gems_sheet',
+    );
+    await Future<void>.delayed(Duration.zero);
+    final payload = sink.events.single.collectPayload!;
+    expect(payload['action_type'], 'monitor');
+    expect(payload['action'], 'purchase_failed');
+    expect(payload['object1'], 'buy_gems_sheet');
+    expect(payload['object3'], 'query_failed[reason=timeout]');
+    final d = jsonDecode(payload['ext_data'] as String) as Map;
+    expect(d['attempt_id'], 'confirm-timeout');
+    expect(d['timeout_type'], 'prepare');
+    expect(d['step'], 'confirm_product');
+    expect(d['payment_outcome'], 'unknown');
+  });
 
-      const GenesisBillingAnalytics().track(
-        'purchase_timeout',
-        properties: <String, Object?>{
-          'attempt_id': 'attempt-1',
-          'product_id': 'gem_pack_500',
-          'timeout_type': timeoutType,
-        },
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      expect(sink.events.single.collectPayload, {
-        'action_type': 'pay_event',
-        'action': 'purchase_timeout',
-        'object1': 'gem_pack_500',
-        'object3': timeoutType,
-        'ext_data': isA<String>(),
-      });
-    });
+  for (final stage in ['prepare', 'query', 'callback']) {
+    test(
+      'timeout is a failed monitor with stage $stage and diagnostic details',
+      () async {
+        final sink = _CapturingTelemetrySink();
+        GenesisTelemetry.setSinkForTesting(sink);
+        const GenesisBillingAnalytics().track(
+          'purchase_failed',
+          properties: {
+            'attempt_id': 'attempt-1',
+            'product_id': 'gem_pack_500',
+            'store_product_id': 'store-sku',
+            'source': 'buy_gems_page',
+            'reason': 'timeout',
+            'timeout_type': 'prepare',
+            'failure_diagnostics': {'stage': stage, 'step': 'confirm_product'},
+          },
+        );
+        await Future<void>.delayed(Duration.zero);
+        final payload = sink.events.single.collectPayload!;
+        expect(payload['action_type'], 'monitor');
+        expect(payload['action'], 'purchase_failed');
+        expect(payload['object1'], 'buy_gems_page');
+        expect(payload['object2'], 'store-sku');
+        expect(payload['object3'], '${stage}_failed[reason=timeout]');
+        final d = jsonDecode(payload['ext_data'] as String) as Map;
+        expect(d['reason'], 'timeout');
+        expect(d['timeout_type'], 'prepare');
+        expect(d['stage'], stage);
+        expect(d['step'], 'confirm_product');
+        expect(d['payment_outcome'], 'unknown');
+        expect(d['attempt_id'], 'attempt-1');
+      },
+    );
   }
 
   test('query failure collect projection appends error code', () async {
@@ -315,7 +386,8 @@ void main() {
       'action_type': 'monitor',
       'ext_data': isA<String>(),
       'action': 'purchase_failed',
-      'object1': 'gem_pack_500',
+      'object1': '',
+      'object2': '',
       'object3': 'query_failed[reason=product_not_found]',
     });
   });
@@ -407,7 +479,8 @@ void main() {
         'action_type': 'monitor',
         'ext_data': isA<String>(),
         'action': 'purchase_failed',
-        'object1': 'gem_pack_500',
+        'object1': '',
+        'object2': '',
         'object3': 'callback_failed[reason=store_error]',
       });
     },
@@ -455,7 +528,8 @@ void main() {
       'action_type': 'monitor',
       'ext_data': isA<String>(),
       'action': 'purchase_failed',
-      'object1': 'gem_pack_1000',
+      'object1': '',
+      'object2': '',
       'object3': 'launch_failed[reason=store_launch_error]',
     });
   });

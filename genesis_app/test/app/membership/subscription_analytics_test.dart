@@ -55,6 +55,59 @@ void main() {
     expect(events, isEmpty);
   });
 
+  test(
+    'store product follows click and results while object3 stays unchanged',
+    () {
+      final t = analytics.click(
+        'sku-page',
+        SubscriptionSurface.page,
+        SubscriptionSource.meMembership,
+        isYearly: false,
+        storeProductId: 'premium_monthly',
+      );
+      final restored = SubscriptionTracking.fromJson(t.toJson())!;
+      analytics.pending(restored, 'store_callback_pending');
+      analytics.timeout(restored, 'prepare');
+      analytics.failed(restored, 'canceled');
+      analytics.success(restored, 'apple', 'transaction-1');
+      analytics.claim(restored, 'completed');
+      expect(events.map((e) => e.object2), everyElement('premium_monthly'));
+      expect(events.map((e) => e.object3), [
+        'monthly',
+        'store_callback_pending',
+        'prepare_failed[reason=timeout]',
+        'unknown_failed[reason=canceled]',
+        'transaction-1',
+        'completed',
+      ]);
+    },
+  );
+
+  test('timeout deduplicates separately and preserves later store results', () {
+    const t = SubscriptionTracking(
+      id: 'timeout-result',
+      source: SubscriptionSource.meMembership,
+      storeProductId: 'sku',
+    );
+    analytics.timeout(t, 'store_callback');
+    analytics.timeout(t, 'store_callback');
+    analytics.failed(
+      t,
+      'canceled',
+      once: true,
+      diagnostics: {'stage': 'callback'},
+    );
+    analytics.success(t, 'apple', 'late-transaction');
+    expect(events.map((e) => e.action), [
+      'subscription_failed',
+      'subscription_failed',
+      'subscription_success',
+    ]);
+    expect(events.first.object3, 'callback_failed[reason=timeout]');
+    expect(events[1].object3, 'callback_failed[reason=canceled]');
+    expect(events.last.object3, 'late-transaction');
+  });
+
   for (final provider in MembershipProvider.values) {
     for (final phase in ['callback', 'stream', 'prepare', 'busy']) {
       test(
@@ -205,7 +258,7 @@ void main() {
 
     expect(events.map((event) => event.action), [
       'subscription_pending',
-      'subscription_timeout',
+      'subscription_failed',
       'subscription_failed',
       'subscription_success',
       'subscription_claim_result',
@@ -216,7 +269,7 @@ void main() {
     );
     expect(events.map((event) => event.object3), [
       'store_callback_pending',
-      'report',
+      'report_failed[reason=timeout]',
       'unknown_failed[reason=unknown_error]',
       'GPA.result',
       'completed',
@@ -254,7 +307,7 @@ void main() {
       );
       expect(failed, hasLength(1));
       expect(failed.single.object1, 'from_me_membership');
-      expect(failed.single.object2, isEmpty);
+      expect(failed.single.object2, h.product().storeProductId);
       expect(failed.single.object3, startsWith('${stage}_failed['));
       expect(h.reports, isEmpty);
     });
@@ -360,7 +413,10 @@ void main() {
       ]);
       expect(events.first.object3, 'GPA.actual');
       expect(events.last.object3, 'report_failed[reason=network_error]');
-      expect(events.every((e) => e.object2.isEmpty), isTrue);
+      expect(
+        events.every((e) => e.object2 == h.product().storeProductId),
+        isTrue,
+      );
       expect(events.last.object1, 'from_me_membership');
       expect(
         h.reports.every((r) => !r.toJson().containsKey('request_id')),
@@ -403,7 +459,7 @@ void main() {
         'subscription_pending',
         'subscription_success',
       ]);
-      expect(events.last.object2, isEmpty);
+      expect(events.last.object2, h.product().storeProductId);
       expect(events.last.object1, 'from_me_membership');
     },
   );
@@ -463,7 +519,7 @@ void main() {
         'subscription_success',
         'subscription_claim_result',
       ]);
-      expect(events.last.object2, isEmpty);
+      expect(events.last.object2, h.product().storeProductId);
       expect(events.last.object1, 'from_me_membership');
       expect(events.last.object3, 'completed');
     },
@@ -565,8 +621,8 @@ void main() {
       await purchase;
       blocked.completeError(StateError('late error'));
       await tester.pump();
-      expect(events.single.action, 'subscription_timeout');
-      expect(events.single.object3, 'prepare');
+      expect(events.single.action, 'subscription_failed');
+      expect(events.single.object3, 'prepare_failed[reason=timeout]');
     },
   );
 

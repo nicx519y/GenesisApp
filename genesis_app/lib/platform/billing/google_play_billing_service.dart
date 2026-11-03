@@ -85,6 +85,7 @@ class GooglePlayBillingService implements BillingService {
       <String, BillingPurchaseAttempt>{};
   final Set<String> _processingPurchaseKeys = <String>{};
   final Set<String> _completedPurchaseKeys = <String>{};
+  final Map<String, String> _purchaseSources = {};
   final Set<String> _trackedPurchasedKeys = <String>{};
   final Set<String> _trackedPendingAttemptIds = <String>{};
   final Set<String> _trackedFailedAttemptIds = <String>{};
@@ -131,6 +132,8 @@ class GooglePlayBillingService implements BillingService {
     final attemptId = operationId.trim().isNotEmpty
         ? operationId.trim()
         : newBillingAttemptId();
+    _purchaseSources[attemptId] = source.value;
+    var preparationStep = 'start_store_listener';
     var activeProduct = product;
     var storeProductId = _storeProductIdFor(product, _platform.provider);
     if (_disposed) return;
@@ -193,7 +196,15 @@ class GooglePlayBillingService implements BillingService {
         attemptId: attemptId,
         productId: activeProduct.productId,
         storeProductId: storeProductId,
-        timeoutType: 'store_no_callback',
+        timeoutType: 'prepare',
+        diagnostics: {
+          'stage': 'prepare',
+          'step': preparationStep,
+          'total_duration_ms': DateTime.now()
+              .difference(startedAt)
+              .inMilliseconds,
+          'store_handoff_started': storeHandedOff,
+        },
       );
       if (!launchRequested) {
         final attempt = _attemptByStoreProductId[storeProductId];
@@ -281,6 +292,7 @@ class GooglePlayBillingService implements BillingService {
 
         late final String billingAccountId;
         try {
+          preparationStep = 'load_account_uuid';
           billingAccountId = await _resolveBillingAccountId();
         } catch (error, stackTrace) {
           if (!canContinue()) return;
@@ -385,6 +397,7 @@ class GooglePlayBillingService implements BillingService {
           scheduleTimeout(storeProductId);
         }
 
+        preparationStep = 'query_store_product';
         final queryClock = Stopwatch()..start();
         late BillingProductQueryResult queryResult;
         try {
@@ -526,6 +539,7 @@ class GooglePlayBillingService implements BillingService {
           _attemptByStoreProductId[storeProductId] = attempt;
         }
 
+        preparationStep = 'launch_store';
         final launchClock = Stopwatch()..start();
         try {
           launchRequested = true;
@@ -679,6 +693,7 @@ class GooglePlayBillingService implements BillingService {
     _attemptByStoreProductId.clear();
     _interruptedAttemptByStoreProductId.clear();
     _attemptByPurchaseToken.clear();
+    _purchaseSources.clear();
     _completedPurchaseKeys.clear();
     _trackedPurchasedKeys.clear();
     _trackedPendingAttemptIds.clear();

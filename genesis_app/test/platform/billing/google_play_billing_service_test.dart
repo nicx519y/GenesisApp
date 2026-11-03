@@ -1934,7 +1934,11 @@ void main() {
         expect(service.state.value.hasBusyPurchase, isFalse);
         expect(platform.buyCount, 0);
         expect(
-          analytics.records.where((e) => e.action == 'purchase_timeout'),
+          analytics.records.where(
+            (e) =>
+                (e.action == 'purchase_failed' &&
+                e.properties['reason'] == 'timeout'),
+          ),
           hasLength(1),
         );
         expect(uiEvents.single.kind, BillingUiEventKind.deferred);
@@ -1979,9 +1983,15 @@ void main() {
     query.completeError(StateError('late failure'));
     await _settle();
     expect(service.state.value.hasBusyPurchase, isTrue);
+    final failures = analytics.records.where(
+      (e) => e.action == 'purchase_failed',
+    );
+    expect(failures, hasLength(1));
+    expect(failures.single.properties['reason'], 'timeout');
+    expect(failures.single.properties['attempt_id'], 'old-query');
     expect(
-      analytics.records.where((e) => e.action == 'purchase_failed'),
-      isEmpty,
+      (failures.single.properties['failure_diagnostics'] as Map)['step'],
+      'query_store_product',
     );
   });
 
@@ -2004,7 +2014,11 @@ void main() {
     expect(service.state.value.hasBusyPurchase, isFalse);
     expect(platform.buyCount, 0);
     expect(
-      analytics.records.where((e) => e.action == 'purchase_timeout'),
+      analytics.records.where(
+        (e) =>
+            (e.action == 'purchase_failed' &&
+            e.properties['reason'] == 'timeout'),
+      ),
       isEmpty,
     );
   });
@@ -2047,7 +2061,9 @@ void main() {
       expect(
         analytics.records.where(
           (e) =>
-              e.action == 'purchase_timeout' || e.action == 'purchase_failed',
+              (e.action == 'purchase_failed' &&
+                  e.properties['reason'] == 'timeout') ||
+              e.action == 'purchase_failed',
         ),
         isEmpty,
       );
@@ -2084,7 +2100,13 @@ void main() {
     await old;
     await current;
     expect(
-      analytics.records.where((r) => r.action == 'purchase_timeout').length,
+      analytics.records
+          .where(
+            (r) =>
+                (r.action == 'purchase_failed' &&
+                r.properties['reason'] == 'timeout'),
+          )
+          .length,
       1,
     );
     expect(service.state.value.hasBusyPurchase, isFalse);
@@ -2129,10 +2151,12 @@ void main() {
       await _settle();
 
       final timeout = analytics.records.singleWhere(
-        (record) => record.action == 'purchase_timeout',
+        (record) =>
+            (record.action == 'purchase_failed' &&
+            record.properties['reason'] == 'timeout'),
       );
-      expect(timeout.properties.containsKey('attempt_id'), isFalse);
-      expect(timeout.properties['timeout_type'], 'store_no_callback');
+      expect(timeout.properties['attempt_id'], 'track_id_launch_timeout');
+      expect(timeout.properties['timeout_type'], 'prepare');
       expect(service.state.value.hasBusyPurchase, isFalse);
 
       releaseLaunch.complete(true);
@@ -2140,7 +2164,9 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(
         analytics.records.where(
-          (record) => record.action == 'purchase_timeout',
+          (record) =>
+              (record.action == 'purchase_failed' &&
+              record.properties['reason'] == 'timeout'),
         ),
         hasLength(1),
       );
@@ -2305,7 +2331,9 @@ void main() {
       );
       expect(
         analytics.records.where(
-          (record) => record.action == 'purchase_timeout',
+          (record) =>
+              (record.action == 'purchase_failed' &&
+              record.properties['reason'] == 'timeout'),
         ),
         isEmpty,
       );
@@ -2356,7 +2384,11 @@ void main() {
     expect(uiEvents.last.message, 'Payment is being confirmed.');
     expect(service.state.value.hasBusyPurchase, isFalse);
     expect(
-      analytics.records.where((record) => record.action == 'purchase_timeout'),
+      analytics.records.where(
+        (record) =>
+            (record.action == 'purchase_failed' &&
+            record.properties['reason'] == 'timeout'),
+      ),
       isEmpty,
     );
     expect(await pendingStore.loadAll(), isEmpty);
@@ -2403,7 +2435,9 @@ void main() {
 
       expect(
         analytics.records.where(
-          (record) => record.action == 'purchase_timeout',
+          (record) =>
+              (record.action == 'purchase_failed' &&
+              record.properties['reason'] == 'timeout'),
         ),
         isEmpty,
       );
@@ -2473,7 +2507,9 @@ void main() {
       expect(
         analytics.records.where(
           (e) =>
-              e.action == 'purchase_timeout' || e.action == 'purchase_failed',
+              (e.action == 'purchase_failed' &&
+                  e.properties['reason'] == 'timeout') ||
+              e.action == 'purchase_failed',
         ),
         isEmpty,
       );
@@ -2539,7 +2575,11 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 60));
           expect(service.state.value.hasBusyPurchase, isTrue);
           expect(
-            analytics.records.where((r) => r.action == 'purchase_timeout'),
+            analytics.records.where(
+              (r) =>
+                  (r.action == 'purchase_failed' &&
+                  r.properties['reason'] == 'timeout'),
+            ),
             isEmpty,
           );
           platform.emit(
@@ -2554,7 +2594,11 @@ void main() {
           result.complete(true);
           await purchase;
           expect(
-            analytics.records.where((r) => r.action == 'purchase_timeout'),
+            analytics.records.where(
+              (r) =>
+                  (r.action == 'purchase_failed' &&
+                  r.properties['reason'] == 'timeout'),
+            ),
             isEmpty,
           );
           expect(service.state.value.hasBusyPurchase, isFalse);
@@ -2588,7 +2632,11 @@ void main() {
     await service.recover(BillingRecoverySource.foreground);
 
     expect(
-      analytics.records.where((record) => record.action == 'purchase_timeout'),
+      analytics.records.where(
+        (record) =>
+            (record.action == 'purchase_failed' &&
+            record.properties['reason'] == 'timeout'),
+      ),
       isEmpty,
     );
     expect(await pendingStore.loadAll(), isEmpty);
@@ -2646,6 +2694,40 @@ void main() {
     expect(serialized, isNot(contains('4b74ec68-7abc-4cce-a223-e997e31dc811')));
     expect(serialized, isNot(contains('original_json')));
   });
+
+  for (final source in BillingPurchaseSource.values) {
+    test(
+      'Gems $source retains entry through pending and report rejection',
+      () async {
+        reportStatus = GemPurchaseReportStatus.rejected;
+        await service.purchaseGem(_product, source: source);
+        platform.emit(_purchase(BillingPurchaseStatus.pending));
+        await _settle();
+        platform.emit(_purchase(BillingPurchaseStatus.purchased));
+        await _settle();
+        final results = analytics.records.where(
+          (r) => [
+            'purchase_pending',
+            'purchase_success',
+            'purchase_failed',
+          ].contains(r.action),
+        );
+        expect(results.map((r) => r.action), [
+          'purchase_pending',
+          'purchase_success',
+          'purchase_failed',
+        ]);
+        expect(
+          results.map((r) => r.properties['source']),
+          everyElement(source.value),
+        );
+        expect(
+          results.map((r) => r.properties['store_product_id']),
+          everyElement(_product.googleProductId),
+        );
+      },
+    );
+  }
 
   test('rejected is terminal and does not refresh the wallet', () async {
     reportStatus = GemPurchaseReportStatus.rejected;

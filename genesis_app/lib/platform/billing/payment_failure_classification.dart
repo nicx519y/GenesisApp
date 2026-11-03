@@ -134,7 +134,8 @@ PaymentFailureClassification classifyPaymentFailure(
     'result_conversion_error' ||
     'upstream_stream_error' ||
     'unknown_stream_error' ||
-    'canceled' => specific,
+    'canceled' ||
+    'timeout' => specific,
     _ => switch (stage) {
       'query' => 'store_query_error',
       'launch' => 'store_launch_error',

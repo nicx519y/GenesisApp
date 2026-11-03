@@ -302,6 +302,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
 
     _trackPurchasedCallback(
       purchase,
+      attemptId: resolvedAttempt.id,
       productId: resolvedAttempt.product.productId,
       priceAmountMicros: resolvedAttempt.priceAmountMicros,
       priceCurrencyCode: resolvedAttempt.priceCurrencyCode,

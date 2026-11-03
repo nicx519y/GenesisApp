@@ -438,7 +438,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       unawaited(_load());
       return;
     }
-    final tracking = _tracking.click(isYearly: offer.product.isYearly);
+    final tracking = _tracking.click(
+      isYearly: offer.product.isYearly,
+      storeProductId: offer.product.storeProductId,
+    );
     final access = _membership?.state.value ?? const MembershipAccessState();
     if (membershipIsSubscribedToSelectedPlan(offer.product, access)) {
       _tracking.analytics.failed(

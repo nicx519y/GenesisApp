@@ -5,6 +5,7 @@ import 'dart:async';
 import '../../platform/billing/checkout_preparation_budget.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import 'subscription_tracking_scope.dart';
 import '../../app/membership/subscription_analytics.dart';
@@ -271,6 +272,9 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       'product_click',
       properties: {
         'product_id': product.productId,
+        'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+            ? product.appleProductId
+            : product.googleProductId,
         'source': BillingPurchaseSource.buyGemsSheet.value,
       },
     );
@@ -310,6 +314,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         reportGemConfirmationTimeout(
           product: product,
           attemptId: clickAttemptId,
+          source: BillingPurchaseSource.buyGemsSheet.value,
         );
         _dismissPurchaseDialog();
         if (mounted) {

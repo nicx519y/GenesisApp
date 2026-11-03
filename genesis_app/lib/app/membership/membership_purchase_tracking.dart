@@ -2,11 +2,13 @@ part of 'membership_purchase_service.dart';
 
 extension _MembershipPurchaseTracking on MembershipPurchaseService {
   SubscriptionTracking _trackingFor(MembershipPurchaseRecord record) =>
-      _attemptTracking[record.requestId] ??=
-          record.tracking ??
-          SubscriptionTracking.recovery(
-            '${provider.name}:attempt:${record.requestId}',
-          );
+      _attemptTracking[record.requestId] =
+          (_attemptTracking[record.requestId] ??
+                  record.tracking ??
+                  SubscriptionTracking.recovery(
+                    '${provider.name}:attempt:${record.requestId}',
+                  ))
+              .copyWith(storeProductId: record.product.storeProductId);
 
   SubscriptionTracking _trackingForClaim(MembershipGuestClaimRecord claim) {
     final purchase = _claimPurchase(claim);

@@ -156,6 +156,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         properties: <String, Object?>{
           'product_id': productId,
           'store_product_id': storeProductId,
+          'source': _purchaseSources[attemptId] ?? '',
           if (action == 'purchase_failed') 'attempt_id': attemptId,
           if (action == 'purchase_failed') 'provider': _platform.provider.name,
           ...data,
@@ -164,25 +165,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     } catch (_) {
       // A custom analytics sink must not be able to break billing.
     }
-  }
-
-  void _trackProduct(
-    String action, {
-    required GemProduct product,
-    required String attemptId,
-    Map<String, Object?> data = const <String, Object?>{},
-  }) {
-    _track(
-      action,
-      attemptId: attemptId,
-      productId: product.productId,
-      storeProductId: _storeProductIdFor(product, _platform.provider),
-      data: <String, Object?>{
-        'provider': _platform.provider.apiValue,
-        'trigger': BillingRecoverySource.direct.value,
-        ...data,
-      },
-    );
   }
 
   void _trackPrecheckFailure(
@@ -396,6 +378,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   void _trackPurchasedCallback(
     BillingPurchase purchase, {
     required String productId,
+    required String attemptId,
     int? priceAmountMicros,
     String priceCurrencyCode = '',
   }) {
@@ -411,6 +394,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     }
     _track(
       'purchase_success',
+      attemptId: attemptId,
       productId: productId,
       storeProductId: purchase.productId,
       data: <String, Object?>{
@@ -444,13 +428,25 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     required String productId,
     required String storeProductId,
     required String timeoutType,
+    Map<String, Object?> diagnostics = const {},
   }) {
+    if (!_trackedFailedAttemptIds.add('$attemptId:timeout:$timeoutType')) {
+      return;
+    }
     _track(
-      'purchase_timeout',
+      'purchase_failed',
       attemptId: attemptId,
       productId: productId,
       storeProductId: storeProductId,
-      data: <String, Object?>{'timeout_type': timeoutType},
+      data: {
+        'reason': 'timeout',
+        'timeout_type': timeoutType,
+        'failure_diagnostics': {
+          'stage': 'prepare',
+          'step': 'prepare_checkout',
+          ...diagnostics,
+        },
+      },
     );
   }
 
