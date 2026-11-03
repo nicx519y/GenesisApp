@@ -29,7 +29,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
             ? product.appleProductId
             : product.googleProductId,
-        'source': BillingPurchaseSource.buyGemsPage.value,
+        'source': _gemsPurchaseSource.value,
       },
     );
     final budget = CheckoutPreparationBudget();
@@ -47,7 +47,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
           reportGemConfirmationFailure(
             product: product,
             attemptId: clickAttemptId,
-            source: BillingPurchaseSource.buyGemsPage.value,
+            source: _gemsPurchaseSource.value,
             reason: 'catalog_unavailable',
             currentProducts: catalog.cached,
             durationMs: DateTime.now()
@@ -62,7 +62,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         reportGemConfirmationTimeout(
           product: product,
           attemptId: clickAttemptId,
-          source: BillingPurchaseSource.buyGemsPage.value,
+          source: _gemsPurchaseSource.value,
         );
         _dismissBillingPurchaseDialog();
         if (mounted) {
@@ -73,7 +73,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         reportGemConfirmationFailure(
           product: product,
           attemptId: clickAttemptId,
-          source: BillingPurchaseSource.buyGemsPage.value,
+          source: _gemsPurchaseSource.value,
           reason: 'store_query_error',
           error: error,
           stackTrace: stackTrace,
@@ -96,7 +96,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         properties: <String, Object?>{
           'product_id': product.productId,
           'attempt_id': clickAttemptId,
-          'source': BillingPurchaseSource.buyGemsPage.value,
+          'source': _gemsPurchaseSource.value,
           'provider': defaultTargetPlatform == TargetPlatform.iOS
               ? 'apple'
               : defaultTargetPlatform == TargetPlatform.android
@@ -133,7 +133,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       await budget.run(
         () => service.purchaseGem(
           product,
-          source: BillingPurchaseSource.buyGemsPage,
+          source: _gemsPurchaseSource,
           operationId: clickAttemptId,
         ),
       );

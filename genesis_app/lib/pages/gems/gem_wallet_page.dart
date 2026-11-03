@@ -312,14 +312,20 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   bool get _hasPageData => _products != null || _taskGroups != null;
 
+  BillingPurchaseSource get _gemsPurchaseSource =>
+      BillingPurchaseSource.fromEntry(
+        widget.showSubscriptionInitially || !widget.showBuyGems
+            ? 'subscription_tab'
+            : widget.gemsSource,
+      );
+
   void _trackBuyGemsPageView() {
+    if (_gemsPurchaseSource == BillingPurchaseSource.unknown) return;
     GenesisTelemetry.collectLog(
       actionType: 'pay_event',
       action: 'buy_page_show',
-      object1: BillingPurchaseSource.buyGemsPage.value,
-      object3: widget.showSubscriptionInitially || !widget.showBuyGems
-          ? 'subscription_tab'
-          : widget.gemsSource,
+      object1: _gemsPurchaseSource.value,
+      object3: 'buy_gems_page',
     );
   }
 

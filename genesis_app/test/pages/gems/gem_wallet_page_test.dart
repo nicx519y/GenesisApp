@@ -777,6 +777,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: GemWalletPage(
+          gemsSource: 'me_gems',
           walletStore: walletStore,
           productsLoader: (_) async => _products(),
           tasksLoader: (_) async => _taskGroups(),
@@ -795,7 +796,7 @@ void main() {
     expect(events, hasLength(1));
     expect(events.single.data['action_type'], 'pay_event');
     expect(events.single.data['action'], 'buy_page_show');
-    expect(events.single.data['object1'], 'buy_gems_page');
+    expect(events.single.data['object1'], 'from_me_gems');
     expect(events.single.data.containsKey('object2'), isFalse);
   });
 
@@ -813,6 +814,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: GemWalletPage(
+            gemsSource: 'me_gems',
             walletStore: walletStore,
             productsLoader: (_) async => _products(),
             tasksLoader: (_) async => [],
@@ -840,7 +842,7 @@ void main() {
           jsonDecode(purchaseEvents.last.collectPayload!['ext_data'] as String)
               as Map;
       expect(diagnostic['attempt_id'], isNotEmpty);
-      expect(diagnostic['source'], 'buy_gems_page');
+      expect(diagnostic['source'], 'from_me_gems');
       expect(diagnostic['provider'], isNotEmpty);
       expect(diagnostic['step'], 'resolve_billing_service');
       await tester.pump(const Duration(seconds: 3));
@@ -870,6 +872,7 @@ void main() {
           body: SizedBox(
             height: 700,
             child: GemPurchaseBottomSheet(
+              purchaseSource: BillingPurchaseSource.msgNoBalance,
               productsLoader: () async => [product],
               walletStore: wallet,
               billingService: billing,
@@ -887,14 +890,14 @@ void main() {
       (e) => e.name == 'pay_event' && e.data['action'] == 'product_click',
     );
     expect(clicks, hasLength(1));
-    expect(clicks.single.collectPayload?['object1'], 'buy_gems_sheet');
+    expect(clicks.single.collectPayload?['object1'], 'from_msg_no_balance');
     expect(
       clicks.single.collectPayload?['object2'],
       defaultTargetPlatform == TargetPlatform.iOS
           ? product.appleProductId
           : product.googleProductId,
     );
-    expect(clicks.single.collectPayload?['object3'], 'buy_gems_sheet');
+    expect(clicks.single.collectPayload?['object3'], isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
@@ -1465,6 +1468,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: GemWalletPage(
+          gemsSource: 'me_gems',
           walletStore: walletStore,
           billingService: billing,
           productsLoader: (_) async => _products(),
@@ -1524,7 +1528,7 @@ void main() {
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
     expect(billing.storeRecoveryCount, 0);
     expect(billing.recoveredProductCatalog, isNull);
-    expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
+    expect(billing.purchaseSources, [BillingPurchaseSource.meGems]);
     expect(billing.purchaseTrackIds.single, isNotEmpty);
     final clicks = telemetry.events.where(
       (e) => e.name == 'pay_event' && e.data['action'] == 'product_click',
@@ -1536,8 +1540,8 @@ void main() {
           ? billing.purchasedProducts.single.appleProductId
           : billing.purchasedProducts.single.googleProductId,
     );
-    expect(clicks.single.collectPayload?['object1'], 'buy_gems_page');
-    expect(clicks.single.collectPayload?['object3'], 'buy_gems_page');
+    expect(clicks.single.collectPayload?['object1'], 'from_me_gems');
+    expect(clicks.single.collectPayload?['object3'], isNull);
     final showEvent = telemetry.events.singleWhere(
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',

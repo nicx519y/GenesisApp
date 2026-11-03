@@ -214,13 +214,13 @@ void main() {
     expect(fixture.billing.purchasedProducts, hasLength(1));
     expect(fixture.billing.purchasedProducts.single.productId, 'gem_pack_500');
     expect(fixture.billing.purchaseSources, [
-      BillingPurchaseSource.buyGemsSheet,
+      BillingPurchaseSource.msgNoBalance,
     ]);
     final showEvent = telemetry.events.singleWhere(
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',
     );
-    expect(fixture.billing.purchaseTrackIds, ['']);
+    expect(fixture.billing.purchaseTrackIds.single, isNotEmpty);
     expect(showEvent.data.containsKey('object2'), isFalse);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
@@ -315,9 +315,9 @@ void _expectSheetShowEvent(_CapturingTelemetrySink telemetry, String trigger) {
   expect(events, hasLength(1));
   expect(events.single.data['action_type'], 'pay_event');
   expect(events.single.data['action'], 'buy_page_show');
-  expect(events.single.data['object1'], 'buy_gems_sheet');
+  expect(events.single.data['object1'], 'from_$trigger');
   expect(events.single.data.containsKey('object2'), isFalse);
-  expect(events.single.data['object3'], trigger);
+  expect(events.single.data['object3'], 'buy_gems_sheet');
 }
 
 class _CapturingTelemetrySink implements GenesisTelemetrySink {

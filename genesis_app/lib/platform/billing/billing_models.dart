@@ -44,12 +44,37 @@ extension BillingRecoverySourceValue on BillingRecoverySource {
   };
 }
 
-enum BillingPurchaseSource { buyGemsPage, buyGemsSheet }
+enum BillingPurchaseSource {
+  buyGemsPage,
+  buyGemsSheet,
+  meGems,
+  tickNoBalance,
+  msgLowBalance,
+  msgNoBalance,
+  subscriptionTab,
+  unknown;
+
+  static BillingPurchaseSource fromEntry(String? entry) =>
+      switch (entry?.trim()) {
+        'me_gems' || 'from_me_gems' => meGems,
+        'tick_no_balance' || 'from_tick_no_balance' => tickNoBalance,
+        'msg_low_balance' || 'from_msg_low_balance' => msgLowBalance,
+        'msg_no_balance' || 'from_msg_no_balance' => msgNoBalance,
+        'subscription_tab' || 'from_subscription_tab' => subscriptionTab,
+        _ => unknown,
+      };
+}
 
 extension BillingPurchaseSourceValue on BillingPurchaseSource {
   String get value => switch (this) {
     BillingPurchaseSource.buyGemsPage => 'buy_gems_page',
     BillingPurchaseSource.buyGemsSheet => 'buy_gems_sheet',
+    BillingPurchaseSource.meGems => 'from_me_gems',
+    BillingPurchaseSource.tickNoBalance => 'from_tick_no_balance',
+    BillingPurchaseSource.msgLowBalance => 'from_msg_low_balance',
+    BillingPurchaseSource.msgNoBalance => 'from_msg_no_balance',
+    BillingPurchaseSource.subscriptionTab => 'from_subscription_tab',
+    BillingPurchaseSource.unknown => 'from_unknown',
   };
 }
 

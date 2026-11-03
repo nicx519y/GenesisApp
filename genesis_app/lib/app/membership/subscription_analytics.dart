@@ -130,7 +130,9 @@ class SubscriptionAnalytics {
 
   static Future<void> _collect(SubscriptionAnalyticsEvent event) async {
     await GenesisTelemetry.collectLogAndWait(
-      actionType: event.action == 'subscription_failed'
+      actionType:
+          (event.action == 'subscription_failed' ||
+              event.action == 'subscription_success_skipped')
           ? 'monitor'
           : 'pay_event',
       action: event.action,
@@ -292,12 +294,20 @@ class SubscriptionAnalytics {
     String orderId,
   ) {
     final identity = '$provider:${orderId.isEmpty ? tracking.id : orderId}';
+    final duplicateTransaction = _successfulReceipts.contains(identity);
     final alreadyRecorded =
-        tracking.successEventId != null || !_successfulReceipts.add(identity);
+        tracking.successEventId != null || duplicateTransaction;
     _successfulReceipts.add(identity);
     final eventId =
         tracking.successEventId ?? subscriptionEventId('success:$identity');
-    if (alreadyRecorded) return tracking.copyWith(successEventId: eventId);
+    if (alreadyRecorded) {
+      successSkipped(
+        tracking,
+        duplicateTransaction ? 'duplicate_transaction' : 'duplicate_tracking',
+        transactionIdentity: identity,
+      );
+      return tracking.copyWith(successEventId: eventId);
+    }
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_success',
@@ -308,6 +318,26 @@ class SubscriptionAnalytics {
       ),
     );
     return tracking.copyWith(successEventId: eventId);
+  }
+
+  void successSkipped(
+    SubscriptionTracking tracking,
+    String reason, {
+    String transactionIdentity = '',
+  }) {
+    if (!_once.add(
+      'success_skipped:${tracking.id}:$transactionIdentity:$reason',
+    )) {
+      return;
+    }
+    _emit(
+      SubscriptionAnalyticsEvent(
+        'subscription_success_skipped',
+        tracking.storeProductId,
+        reason,
+        object1: tracking.source.value,
+      ),
+    );
   }
 
   void claim(SubscriptionTracking tracking, String result) => _emit(

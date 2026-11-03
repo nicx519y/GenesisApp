@@ -113,6 +113,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       attempt,
       billingAccountId,
     )) {
+      _trackSuccessSkipped(purchase, attempt, 'account_mismatch');
       debugPrint(
         '[Billing] ignored purchase callback without a matching account',
       );
@@ -267,6 +268,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     if (purchase.status != BillingPurchaseStatus.purchased) return;
 
     if (token.isEmpty) {
+      _trackSuccessSkipped(purchase, attempt, 'receipt_missing');
       _clearAttempt(purchase, attempt);
       // Keep this attempt available if the store later supplies the receipt.
       _interruptedAttemptByStoreProductId[purchase.productId] = attempt;

@@ -86,6 +86,7 @@ class GooglePlayBillingService implements BillingService {
   final Set<String> _processingPurchaseKeys = <String>{};
   final Set<String> _completedPurchaseKeys = <String>{};
   final Map<String, String> _purchaseSources = {};
+  final Set<String> _skippedSuccessKeys = <String>{};
   final Set<String> _trackedPurchasedKeys = <String>{};
   final Set<String> _trackedPendingAttemptIds = <String>{};
   final Set<String> _trackedFailedAttemptIds = <String>{};
@@ -696,6 +697,7 @@ class GooglePlayBillingService implements BillingService {
     _purchaseSources.clear();
     _completedPurchaseKeys.clear();
     _trackedPurchasedKeys.clear();
+    _skippedSuccessKeys.clear();
     _trackedPendingAttemptIds.clear();
     for (final timeout in _attemptTimeouts.values) {
       timeout.cancel();

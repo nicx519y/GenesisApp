@@ -1516,6 +1516,20 @@ void main() {
       );
       expect(analytics.records.last.properties['reason'], 'receipt_missing');
 
+      platform.emit(
+        _purchase(BillingPurchaseStatus.purchased, purchaseToken: ''),
+      );
+      await _settle();
+      final skipped = analytics.records.where(
+        (r) => r.action == 'purchase_success_skipped',
+      );
+      expect(skipped, hasLength(1));
+      expect(skipped.single.properties['reason'], 'receipt_missing');
+      expect(
+        skipped.single.properties['store_product_id'],
+        _product.googleProductId,
+      );
+
       platform.emit(_purchase(BillingPurchaseStatus.purchased));
       await _settle();
 

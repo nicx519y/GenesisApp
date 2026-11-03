@@ -375,6 +375,29 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     );
   }
 
+  void _trackSuccessSkipped(
+    BillingPurchase purchase,
+    BillingPurchaseAttempt attempt,
+    String reason,
+  ) {
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
+    final identity = purchase.purchaseToken.isNotEmpty
+        ? purchase.purchaseToken
+        : purchase.transactionId;
+    if (!_skippedSuccessKeys.add(
+      '${attempt.id}:${purchase.provider.name}:$identity:$reason',
+    )) {
+      return;
+    }
+    _track(
+      'purchase_success_skipped',
+      attemptId: attempt.id,
+      productId: attempt.product.productId,
+      storeProductId: purchase.productId,
+      data: {'reason': reason},
+    );
+  }
+
   void _trackPurchasedCallback(
     BillingPurchase purchase, {
     required String productId,
@@ -390,6 +413,14 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         : purchase.purchaseToken.trim();
     if (receipt.isEmpty ||
         !_trackedPurchasedKeys.add('${purchase.provider.name}:$receipt')) {
+      final attempt = _attemptForPurchase(purchase);
+      if (attempt != null) {
+        _trackSuccessSkipped(
+          purchase,
+          attempt,
+          receipt.isEmpty ? 'receipt_missing' : 'duplicate_transaction',
+        );
+      }
       return;
     }
     _track(

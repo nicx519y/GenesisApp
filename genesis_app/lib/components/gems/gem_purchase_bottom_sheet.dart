@@ -76,6 +76,7 @@ Future<void> showGemPurchaseBottomSheet(
       child: PurchaseOptionsSheet(
         analyticsPageId: analyticsPageId,
         gemsBuilder: (_) => GemPurchaseBottomSheet(
+          purchaseSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
           productsLoader: resolvedProductsLoader,
           catalog: productsLoader == null ? services?.gemStoreCatalog : null,
           walletStore: resolvedWalletStore,
@@ -119,6 +120,7 @@ Future<void> showSubscriptionPurchaseBottomSheet(
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
+                  purchaseSource: BillingPurchaseSource.subscriptionTab,
                   productsLoader: services.gemStoreCatalog.loadForEntry,
                   catalog: services.gemStoreCatalog,
                   walletStore: services.gemWallet,
@@ -131,12 +133,13 @@ Future<void> showSubscriptionPurchaseBottomSheet(
 }
 
 void _trackGemPurchaseSheetShow(String? analyticsTrigger) {
-  final trigger = analyticsTrigger?.trim() ?? '';
+  final source = BillingPurchaseSource.fromEntry(analyticsTrigger);
+  if (source == BillingPurchaseSource.unknown) return;
   GenesisTelemetry.collectLog(
     actionType: 'pay_event',
     action: 'buy_page_show',
-    object1: BillingPurchaseSource.buyGemsSheet.value,
-    object3: trigger.isEmpty ? null : trigger,
+    object1: source.value,
+    object3: 'buy_gems_sheet',
   );
 }
 
@@ -148,12 +151,14 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.walletStore,
     required this.billingService,
     this.catalog,
+    this.purchaseSource = BillingPurchaseSource.unknown,
   });
 
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
   final GemStoreCatalog? catalog;
+  final BillingPurchaseSource purchaseSource;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -275,7 +280,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
             ? product.appleProductId
             : product.googleProductId,
-        'source': BillingPurchaseSource.buyGemsSheet.value,
+        'source': widget.purchaseSource.value,
       },
     );
     final budget = CheckoutPreparationBudget();
@@ -299,7 +304,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
           reportGemConfirmationFailure(
             product: product,
             attemptId: clickAttemptId,
-            source: BillingPurchaseSource.buyGemsSheet.value,
+            source: widget.purchaseSource.value,
             reason: 'catalog_unavailable',
             currentProducts: catalog.cached,
             durationMs: DateTime.now()
@@ -314,7 +319,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         reportGemConfirmationTimeout(
           product: product,
           attemptId: clickAttemptId,
-          source: BillingPurchaseSource.buyGemsSheet.value,
+          source: widget.purchaseSource.value,
         );
         _dismissPurchaseDialog();
         if (mounted) {
@@ -325,7 +330,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         reportGemConfirmationFailure(
           product: product,
           attemptId: clickAttemptId,
-          source: BillingPurchaseSource.buyGemsSheet.value,
+          source: widget.purchaseSource.value,
           reason: 'store_query_error',
           error: error,
           stackTrace: stackTrace,
@@ -346,7 +351,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       await budget.run(
         () => widget.billingService.purchaseGem(
           product,
-          source: BillingPurchaseSource.buyGemsSheet,
+          source: widget.purchaseSource,
           operationId: clickAttemptId,
         ),
       );

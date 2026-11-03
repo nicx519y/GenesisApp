@@ -7,7 +7,7 @@ import 'membership_purchase_service_test.dart' as support;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  for (final identity in ['matching', 'different', 'missing']) {
+  for (final identity in ['matching', 'different', 'missing', 'invalid']) {
     test(
       'Apple $identity identity controls success but never prevents report',
       () async {
@@ -31,13 +31,33 @@ void main() {
         await h.service.interceptPurchase(
           h.purchase(
             omitUuid: identity == 'missing',
-            uuid: identity == 'different'
+            uuid: identity == 'invalid'
+                ? 'invalid-uuid'
+                : identity == 'different'
                 ? '11111111-1111-4111-8111-111111111111'
                 : null,
           ),
         );
         await Future<void>.delayed(Duration.zero);
         expect(h.reports, hasLength(1));
+        final skipped = events.where(
+          (e) => e.action == 'subscription_success_skipped',
+        );
+        if (identity == 'matching') {
+          expect(skipped, isEmpty);
+        } else {
+          expect(
+            skipped.single.object3,
+            {
+              'different': 'account_uuid_mismatch',
+              'missing': 'account_uuid_missing',
+              'invalid': 'account_uuid_invalid',
+            }[identity],
+          );
+          expect(skipped.single.extData, isEmpty);
+          expect(skipped.single.object1, 'from_me_membership');
+        }
+
         expect(
           events.where((e) => e.action == 'subscription_success').length,
           identity == 'matching' ? 1 : 0,

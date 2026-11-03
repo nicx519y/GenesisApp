@@ -1,6 +1,7 @@
 import 'package:genesis_flutter_android/platform/billing/payment_failure_diagnostics.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'dart:convert';
+import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_analytics.dart';
@@ -31,6 +32,52 @@ class _AsyncFailingTelemetrySink extends _CapturingTelemetrySink {
 }
 
 void main() {
+  test(
+    'Gems skipped success has monitor projection and no extra data',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+      const GenesisBillingAnalytics().track(
+        'purchase_success_skipped',
+        properties: {
+          'source': 'from_me_gems',
+          'store_product_id': 'store-sku',
+          'reason': 'duplicate_transaction',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(sink.events.single.collectPayload, {
+        'action_type': 'monitor',
+        'action': 'purchase_success_skipped',
+        'object1': 'from_me_gems',
+        'object2': 'store-sku',
+        'object3': 'duplicate_transaction',
+      });
+    },
+  );
+
+  test(
+    'business entry maps consistently and unknown entry is not uploaded',
+    () async {
+      expect(
+        BillingPurchaseSource.fromEntry('tick_no_balance'),
+        BillingPurchaseSource.tickNoBalance,
+      );
+      expect(
+        BillingPurchaseSource.fromEntry('from_me_gems'),
+        BillingPurchaseSource.meGems,
+      );
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+      const GenesisBillingAnalytics().track(
+        'product_click',
+        properties: {'source': 'from_unknown'},
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(sink.events, isEmpty);
+    },
+  );
+
   for (final action in [
     'product_click',
     'purchase_success',
@@ -45,13 +92,13 @@ void main() {
         properties: {
           'product_id': 'business-product',
           'store_product_id': 'store-sku',
-          'source': 'buy_gems_page',
+          'source': 'from_me_gems',
           'reason': 'canceled',
           'timeout_type': 'prepare',
         },
       );
       await Future<void>.delayed(Duration.zero);
-      expect(sink.events.single.collectPayload?['object1'], 'buy_gems_page');
+      expect(sink.events.single.collectPayload?['object1'], 'from_me_gems');
       expect(sink.events.single.collectPayload?['object2'], 'store-sku');
     });
   }
@@ -246,7 +293,6 @@ void main() {
         'action': 'product_click',
         'object1': 'buy_gems_sheet',
         'object2': '',
-        'object3': 'buy_gems_sheet',
       });
     },
   );
@@ -342,7 +388,7 @@ void main() {
             'attempt_id': 'attempt-1',
             'product_id': 'gem_pack_500',
             'store_product_id': 'store-sku',
-            'source': 'buy_gems_page',
+            'source': 'from_me_gems',
             'reason': 'timeout',
             'timeout_type': 'prepare',
             'failure_diagnostics': {'stage': stage, 'step': 'confirm_product'},
@@ -352,7 +398,7 @@ void main() {
         final payload = sink.events.single.collectPayload!;
         expect(payload['action_type'], 'monitor');
         expect(payload['action'], 'purchase_failed');
-        expect(payload['object1'], 'buy_gems_page');
+        expect(payload['object1'], 'from_me_gems');
         expect(payload['object2'], 'store-sku');
         expect(payload['object3'], '${stage}_failed[reason=timeout]');
         final d = jsonDecode(payload['ext_data'] as String) as Map;

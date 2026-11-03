@@ -24,6 +24,37 @@ void main() {
     id: 'checkout_page_click',
     source: SubscriptionSource.meMembership,
   );
+  test(
+    'skipped success deduplicates reasons without consuming normal success',
+    () {
+      analytics.successSkipped(
+        tracking,
+        'account_uuid_missing',
+        transactionIdentity: 'tx',
+      );
+      analytics.successSkipped(
+        tracking,
+        'account_uuid_missing',
+        transactionIdentity: 'tx',
+      );
+      expect(events.single.object3, 'account_uuid_missing');
+      final done = analytics.success(tracking, 'apple', 'tx');
+      analytics.success(done, 'apple', 'tx');
+      analytics.success(done, 'apple', 'tx');
+      expect(
+        events.where((e) => e.action == 'subscription_success'),
+        hasLength(1),
+      );
+      expect(
+        events
+            .where((e) => e.action == 'subscription_success_skipped')
+            .map((e) => e.object3),
+        ['account_uuid_missing', 'duplicate_transaction'],
+      );
+      analytics.success(done.copyWith(), 'apple', 'other-tx');
+      expect(events.last.object3, 'duplicate_tracking');
+    },
+  );
   setUp(() {
     events = [];
     analytics = SubscriptionAnalytics(sink: events.add);
@@ -410,9 +441,11 @@ void main() {
       expect(events.map((e) => e.action), [
         'subscription_success',
         'subscription_failed',
+        'subscription_success_skipped',
       ]);
       expect(events.first.object3, 'GPA.actual');
-      expect(events.last.object3, 'report_failed[reason=network_error]');
+      expect(events[1].object3, 'report_failed[reason=network_error]');
+      expect(events.last.object3, 'duplicate_transaction');
       expect(
         events.every((e) => e.object2 == h.product().storeProductId),
         isTrue,
@@ -766,7 +799,10 @@ void main() {
         'google',
         'GPA.later',
       );
-      expect(events, hasLength(1));
+      expect(
+        events.where((e) => e.action == 'subscription_success'),
+        hasLength(1),
+      );
       expect(state.successEventId, isNotNull);
       final restarted = SubscriptionAnalytics(sink: events.add);
       restarted.success(
@@ -774,7 +810,10 @@ void main() {
         'google',
         'GPA.later',
       );
-      expect(events, hasLength(1));
+      expect(
+        events.where((e) => e.action == 'subscription_success'),
+        hasLength(1),
+      );
     },
   );
 }

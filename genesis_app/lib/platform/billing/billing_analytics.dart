@@ -24,7 +24,7 @@ class GenesisBillingAnalytics implements BillingAnalytics {
         'action': action,
         ...properties,
       });
-      if (data['action'] == null) return;
+      if (data['action'] == null || data['source'] == 'from_unknown') return;
       GenesisTelemetry.event(
         'pay_event',
         category: 'billing.purchase',
@@ -51,13 +51,21 @@ Map<String, Object?> _billingCollectPayload(
   final action = data['action'];
   if (action is! String || action.isEmpty) return const {};
 
+  if (action == 'purchase_success_skipped') {
+    return {
+      'action_type': 'monitor',
+      'action': action,
+      'object1': data['source'] ?? '',
+      'object2': data['store_product_id'] ?? '',
+      'object3': data['reason'] ?? '',
+    };
+  }
   if (action == 'product_click') {
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
       'object1': data['source'] ?? '',
       'object2': data['store_product_id'] ?? '',
-      if (data['source'] != null) 'object3': data['source'],
     };
   }
   if (action == 'purchase_success') {

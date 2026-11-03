@@ -1064,6 +1064,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           (isCurrentGoogleCheckout && storeAccountUuid.isNotEmpty);
       if ((!hasCheckoutIdentity && !hasMatchingStoreAccount) ||
           (record.guest == null && await readLoginUid() != record.ownerUid)) {
+        if (purchase.status == BillingPurchaseStatus.purchased) {
+          analytics.successSkipped(
+            _trackingFor(record),
+            'account_mismatch',
+            transactionIdentity: purchase.transactionId,
+          );
+        }
         debugPrint(
           '[Membership] ignored store callback without matching account ownership',
         );
@@ -1101,7 +1108,14 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
     // A completed/report-attempted checkout cannot accept a later renewal or
     // replay as another user purchase. Unmatched history is ignored in _handle.
-    if (_reportedRequestIds.contains(record.requestId)) return;
+    if (_reportedRequestIds.contains(record.requestId)) {
+      final tracking = _trackingFor(record);
+      if (purchase.status == BillingPurchaseStatus.purchased &&
+          tracking.successEventId != null) {
+        analytics.success(tracking, provider.name, purchase.transactionId);
+      }
+      return;
+    }
     if (provider == MembershipProvider.apple &&
         purchase.status == BillingPurchaseStatus.purchased &&
         purchase.productId.isNotEmpty &&
@@ -1219,6 +1233,14 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     await _save(record);
     _release(record.requestId);
     if (record.needsReceiptRecovery) {
+      if (purchase.status == BillingPurchaseStatus.purchased) {
+        analytics.successSkipped(
+          _trackingFor(record),
+          _successIdentitySkipReason(record, purchase) ?? 'receipt_missing',
+          transactionIdentity: purchase.transactionId,
+        );
+      }
+
       _checkoutFailure(
         record.requestId,
         'receipt_missing',
@@ -1266,13 +1288,27 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       );
       return;
     }
-    if (record.guest == null && await readLoginUid() != record.ownerUid) return;
+    if (record.guest == null && await readLoginUid() != record.ownerUid) {
+      analytics.successSkipped(
+        _trackingFor(record),
+        'account_mismatch',
+        transactionIdentity: purchase.transactionId,
+      );
+      return;
+    }
     final returnedUuid = purchase.obfuscatedAccountId?.trim().toLowerCase();
     final matchesPurchaseIdentity =
         provider != MembershipProvider.apple ||
         (returnedUuid != null &&
             isMembershipAccountUuid(returnedUuid) &&
             returnedUuid == record.accountUuid.trim().toLowerCase());
+    if (!matchesPurchaseIdentity) {
+      analytics.successSkipped(
+        _trackingFor(record),
+        _successIdentitySkipReason(record, purchase)!,
+        transactionIdentity: purchase.transactionId,
+      );
+    }
     final tracking = matchesPurchaseIdentity
         ? analytics.success(
             _trackingFor(record),
@@ -1437,6 +1473,20 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         _catalogChanged();
       }
     }
+  }
+
+  String? _successIdentitySkipReason(
+    MembershipPurchaseRecord record,
+    BillingPurchase purchase,
+  ) {
+    if (provider != MembershipProvider.apple) return null;
+    final uuid = purchase.obfuscatedAccountId?.trim().toLowerCase() ?? '';
+    if (uuid.isEmpty) return 'account_uuid_missing';
+    if (!isMembershipAccountUuid(uuid)) return 'account_uuid_invalid';
+    if (uuid != record.accountUuid.trim().toLowerCase()) {
+      return 'account_uuid_mismatch';
+    }
+    return null;
   }
 
   String? _reportFailureMessage(MembershipPurchaseRecord? record) {
