@@ -2373,7 +2373,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meSignUpContinue => '가입하여 계속';
 
   @override
-  String get meAccountLoggedAnotherDevice => '다른 기기에서 내 계정에 로그인했습니다.';
+  String get meAccountLoggedAnotherDevice => '로그인이 만료되었습니다. 다시 로그인해 주세요.';
 
   @override
   String get premiumSubscription => '구독';

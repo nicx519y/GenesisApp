@@ -2475,7 +2475,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Tu cuenta tiene una sesión iniciada en otro dispositivo.';
+      'Tu sesión ha caducado. Vuelve a iniciar sesión.';
 
   @override
   String get premiumSubscription => 'Suscripción';

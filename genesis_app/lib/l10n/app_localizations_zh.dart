@@ -2437,7 +2437,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Your account is logged in on another device.';
+      'Your session has expired. Please sign in again.';
 
   @override
   String get premiumSubscription => 'Subscription';
@@ -6019,7 +6019,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get meSignUpContinue => '註冊後繼續';
 
   @override
-  String get meAccountLoggedAnotherDevice => '你的帳號已在其他裝置登入。';
+  String get meAccountLoggedAnotherDevice => '登入已過期，請重新登入。';
 
   @override
   String get premiumSubscription => '訂閱';

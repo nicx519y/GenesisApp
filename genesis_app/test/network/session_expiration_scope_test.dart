@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/l10n/app_localizations_en.dart';
+import 'package:genesis_flutter_android/l10n/app_localizations_zh.dart';
+import 'package:genesis_flutter_android/l10n/genesis_l10n.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -63,6 +66,45 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         expect(notifications, 0);
       });
+    }
+
+    for (final entry in [
+      (AppLocalizationsEn(), 'Your session has expired. Please sign in again.'),
+      (AppLocalizationsZhTw(), '登入已過期，請重新登入。'),
+    ]) {
+      test(
+        '10001 uses session-expired copy for ${entry.$1.localeName}',
+        () async {
+          final previousLocale = GenesisL10n.current;
+          GenesisL10n.bind(entry.$1);
+          addTearDown(() => GenesisL10n.bind(previousLocale));
+          final store = MemoryUserSessionStore();
+          await store.saveUid('user-a');
+          await store.saveAuthToken('token-a');
+          final message = Completer<String>();
+          final api = GenesisApi(
+            transport: _Transport((_) => _expired),
+            useMock: false,
+            sessionStore: store,
+            appHeaderProvider: () async => {},
+            onSessionExpired: (value) async => message.complete(value),
+          );
+
+          await expectLater(
+            api.v1.search.suggest(query: 'abc'),
+            throwsA(
+              isA<ApiException>()
+                  .having((e) => e.message, 'localized message', entry.$2)
+                  .having(
+                    (e) => e.serverErrMsg,
+                    'original server error',
+                    'ErrorUserNotLogin',
+                  ),
+            ),
+          );
+          expect(await message.future, entry.$2);
+        },
+      );
     }
 
     test('current authenticated request still expires its session', () async {

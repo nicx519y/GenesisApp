@@ -418,7 +418,7 @@ class ServiceRegistry {
         }
 
         final navigator = genesisNavigatorKey.currentState;
-        navigator?.pushNamedAndRemoveUntil(RouteNames.origin, (_) => false);
+        navigator?.pushNamedAndRemoveUntil(RouteNames.me, (_) => false);
         final toastMessage = GenesisL10n.current.meAccountLoggedAnotherDevice;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final overlay = genesisNavigatorKey.currentState?.overlay;

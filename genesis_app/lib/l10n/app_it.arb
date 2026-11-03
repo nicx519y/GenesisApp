@@ -3326,9 +3326,9 @@
   "@meSignUpContinue": {
     "description": "首页 - Me → 登录弹窗，登录弹窗"
   },
-  "meAccountLoggedAnotherDevice": "Il tuo account è connesso su un altro dispositivo.",
+  "meAccountLoggedAnotherDevice": "La tua sessione è scaduta. Accedi di nuovo.",
   "@meAccountLoggedAnotherDevice": {
-    "description": "首页 - Me → 登录状态提示，账号在其他设备登录导致当前会话失效中显示的文字"
+    "description": "Global session-expiration toast: a request using the current signed-in session returned error 10001; shown after signing out and opening the Me sign-in page. Does not imply another-device login."
   },
   "premiumSubscription": "Abbonamento",
   "@premiumSubscription": {

@@ -1596,13 +1596,13 @@ void main() {
               .having(
                 (error) => error.message,
                 'message',
-                'Your account is logged in on another device.',
+                'Your session has expired. Please sign in again.',
               ),
         ),
       );
       expect(
         await expired.future,
-        'Your account is logged in on another device.',
+        'Your session has expired. Please sign in again.',
       );
       expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
     },
@@ -4738,7 +4738,7 @@ void main() {
     expect(await api.hasAuthenticatedSession(), isFalse);
     expect(
       await sessionExpired.future,
-      'Your account is logged in on another device.',
+      'Your session has expired. Please sign in again.',
     );
     expect(identityAuth.refreshCount, 0);
     expect(

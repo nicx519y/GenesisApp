@@ -2437,7 +2437,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Your account is logged in on another device.';
+      'Your session has expired. Please sign in again.';
 
   @override
   String get premiumSubscription => 'Subscription';

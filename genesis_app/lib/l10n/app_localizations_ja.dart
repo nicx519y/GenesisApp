@@ -2367,7 +2367,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meSignUpContinue => '登録して続行';
 
   @override
-  String get meAccountLoggedAnotherDevice => '別の端末でアカウントにログインされています。';
+  String get meAccountLoggedAnotherDevice => 'ログインの有効期限が切れました。もう一度ログインしてください。';
 
   @override
   String get premiumSubscription => 'サブスクリプション';

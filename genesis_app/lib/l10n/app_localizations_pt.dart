@@ -2472,7 +2472,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Sua conta está conectada em outro dispositivo.';
+      'Sua sessão expirou. Entre novamente.';
 
   @override
   String get premiumSubscription => 'Assinatura';

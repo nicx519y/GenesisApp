@@ -4126,10 +4126,10 @@ abstract class AppLocalizations {
   /// **'Sign up to continue'**
   String get meSignUpContinue;
 
-  /// 首页 - Me → 登录状态提示，账号在其他设备登录导致当前会话失效中显示的文字
+  /// Global session-expiration toast: a request using the current signed-in session returned error 10001; shown after signing out and opening the Me sign-in page. Does not imply another-device login.
   ///
   /// In en, this message translates to:
-  /// **'Your account is logged in on another device.'**
+  /// **'Your session has expired. Please sign in again.'**
   String get meAccountLoggedAnotherDevice;
 
   /// 首页 - Me → Premium 订阅，Premium/Gems 页签中显示的文字

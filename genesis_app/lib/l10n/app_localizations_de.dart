@@ -2483,7 +2483,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Dein Konto ist auf einem anderen Gerät angemeldet.';
+      'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.';
 
   @override
   String get premiumSubscription => 'Abonnement';

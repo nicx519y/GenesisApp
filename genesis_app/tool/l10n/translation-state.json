@@ -3912,10 +3912,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "e414ca1f3ea6c2066cd4195ddfdb2d42b8898c5d75249644ffd97a44fad34350",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "222739304e68a1708c32a9aa853346a876e281b9182b12e6f41bdfb14334219a",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -9839,10 +9839,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "59c2239f9f5d47b99befac34ce8d661853f583161d1a74f6fca042e104f05124",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "331343040cf652601b0fa765acc70000b89db685abba61dd7393c9548e77c526",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -15766,10 +15766,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "b947d3d288e3c5ab9a1100bc3ce48fb19bdf5259e09980ddf2107d9864ce032b",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "16a32a1e2ebb6354879c66dbf1684a5cdc5725bf4eac84d4bd758f0568559e53",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -21693,10 +21693,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "4ce2a64ccacb5bf953dbbff217b90d7d3fb32072083ad84e75471e820054e56c",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "1f74c83a1167196bdcc792c10d3fe0fb62df9d7a0f9694fffa6c13560abb37be",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -27620,10 +27620,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "a5f0bf11adab6c41ff4ca739a9972ae134a123301cae32dcea9f0c5dbabf9d14",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "04a95b743d16e6ca2708b569cebce44ec00fbeac053e5754207c117fdf331a30",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -33547,10 +33547,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "36cb7cfa8296223c3f2031aace7dc45d08272be1a16e43ce05ab4f070beff788",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "180dd69ee0860107f1a295e8ec36f06322afcd2470d808f5f5120b1ec8af43de",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -39474,10 +39474,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "b699f77fc74efadb3c8d1ed57fe089bc09ce5b4768bae5b6ecd5acb476566f57",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "d3ebc7a25cacae9d4adca7e44089a46dd5e5cdb16f11a3cf5340253ce23c87bb",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -45401,10 +45401,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "2e08739b0be4d57ec0bb1f3d094bb107841fa3ff343dbecd8092a708e016246b",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "ca6177729d6b33f09578be795fd3e5875319d7af96a686218bd608db35336d92",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",

@@ -2479,7 +2479,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Il tuo account è connesso su un altro dispositivo.';
+      'La tua sessione è scaduta. Accedi di nuovo.';
 
   @override
   String get premiumSubscription => 'Abbonamento';
