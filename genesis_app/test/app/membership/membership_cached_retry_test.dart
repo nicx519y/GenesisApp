@@ -18,7 +18,7 @@ void main() {
     final h = support.Harness();
     addTearDown(h.service.dispose);
     final budget = CheckoutPreparationBudget(
-      startedAt: DateTime.now().subtract(const Duration(seconds: 89)),
+      startedAt: DateTime.now().subtract(const Duration(seconds: 29)),
     );
     final gate = Completer<void>();
     h.platform.onPrepare = () => gate.future;
@@ -102,7 +102,7 @@ void main() {
         throw PlatformException(code: 'product_not_found');
     final work = h.service.purchase(h.product());
     await tester.pump();
-    await tester.pump(const Duration(seconds: 90));
+    await tester.pump(const Duration(seconds: 30));
     await work;
     gate.complete(
       MembershipProductList(products: [membershipProduct(offerId: 'updated')]),

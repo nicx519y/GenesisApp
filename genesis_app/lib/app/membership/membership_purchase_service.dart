@@ -91,7 +91,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     this.checkGuestPurchase,
     this.discoverGuestPurchases,
     this.retryDelay = const Duration(seconds: 15),
-    this.attemptTimeout = const Duration(seconds: 90),
+    this.attemptTimeout = CheckoutPreparationBudget.timeout,
     this.guestRecoveryTimeout = const Duration(seconds: 15),
     this.purchaseEventReporting,
   }) : analytics = analytics ?? SubscriptionAnalytics();

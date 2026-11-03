@@ -217,7 +217,7 @@ class Harness {
     bool claimEnabled = false,
     bool guestRecoveryEnabled = false,
     Duration retryDelay = const Duration(days: 1),
-    Duration attemptTimeout = const Duration(seconds: 90),
+    Duration attemptTimeout = const Duration(seconds: 30),
     Duration guestRecoveryTimeout = const Duration(seconds: 15),
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(

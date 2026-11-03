@@ -6,7 +6,7 @@ class CheckoutPreparationBudget {
   CheckoutPreparationBudget({DateTime? startedAt})
     : startedAt = startedAt ?? DateTime.now();
 
-  static const timeout = Duration(seconds: 90);
+  static const timeout = Duration(seconds: 30);
   static final Object _key = Object();
   static CheckoutPreparationBudget? get current =>
       Zone.current[_key] as CheckoutPreparationBudget?;

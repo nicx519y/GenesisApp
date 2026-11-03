@@ -1884,7 +1884,7 @@ void main() {
     tester,
   ) async {
     final budget = CheckoutPreparationBudget(
-      startedAt: DateTime.now().subtract(const Duration(seconds: 89)),
+      startedAt: DateTime.now().subtract(const Duration(seconds: 29)),
     );
     final gate = Completer<BillingProductQueryResult>();
     platform.queryHandler = (_) => gate.future;

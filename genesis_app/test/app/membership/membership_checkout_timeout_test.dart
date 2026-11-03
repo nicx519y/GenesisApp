@@ -91,7 +91,7 @@ void main() {
           await tester.pump();
           expect(entered, isTrue);
           expect(h.service.isBusy, isTrue);
-          await tester.pump(const Duration(seconds: 89));
+          await tester.pump(const Duration(seconds: 29));
           expect(returned, isFalse);
           await tester.pump(const Duration(seconds: 1));
           expect(returned, isTrue);
@@ -122,7 +122,7 @@ void main() {
   }
 
   testWidgets(
-    'moving from eligibility to store query does not restart 90 seconds',
+    'moving from eligibility to store query does not restart 30 seconds',
     (tester) async {
       final h = Harness();
       final eligibility = Completer<void>();
@@ -137,11 +137,11 @@ void main() {
           .purchase(h.product())
           .then((_) => returned = true);
       await tester.pump();
-      await tester.pump(const Duration(seconds: 60));
+      await tester.pump(const Duration(seconds: 20));
       eligibility.complete();
       await tester.pump();
       expect(h.platform.product, isNotNull);
-      await tester.pump(const Duration(seconds: 30));
+      await tester.pump(const Duration(seconds: 10));
       expect(returned, isTrue);
       expect(h.service.isBusy, isFalse);
       store.complete();
@@ -159,7 +159,7 @@ void main() {
     h.platform.onPrepare = () => gate.future;
     final old = h.service.purchase(h.product(), attemptId: 'old');
     await tester.pump();
-    await tester.pump(const Duration(seconds: 90));
+    await tester.pump(const Duration(seconds: 30));
     await old;
     h.platform.onPrepare = null;
     await h.service.purchase(h.product(), attemptId: 'new');
@@ -179,7 +179,7 @@ void main() {
       BillingPurchaseStatus.pending,
     ]) {
       testWidgets(
-        '$provider user can remain in store beyond 90 seconds before $outcome',
+        '$provider user can remain in store beyond 30 seconds before $outcome',
         (tester) async {
           final h = Harness(provider: provider);
           if (outcome == BillingPurchaseStatus.pending) {
@@ -252,7 +252,7 @@ void main() {
           .then((_) => returned = true);
       await tester.pump();
       expect(h.platform.launches, 1);
-      await tester.pump(const Duration(seconds: 90));
+      await tester.pump(const Duration(seconds: 30));
       expect(returned, isTrue);
       expect(h.store.records, isEmpty);
       await h.service.interceptPurchase(h.purchase());
@@ -295,7 +295,7 @@ void main() {
     final response = Completer<MembershipPurchaseReport>();
     h.reportHandler = (_) => response.future;
     await h.service.purchase(h.product());
-    await tester.pump(const Duration(seconds: 89));
+    await tester.pump(const Duration(seconds: 29));
     final callback = h.service.interceptPurchase(h.purchase());
     await tester.pump();
     await tester.pump(const Duration(seconds: 15));
@@ -325,7 +325,7 @@ void main() {
     h.platform.autoHandoff = false;
     await h.service.purchase(h.product(yearly: true), attemptId: 'new');
     await h.service.interceptPurchase(h.purchase(transaction: 'renewal'));
-    await tester.pump(const Duration(seconds: 90));
+    await tester.pump(const Duration(seconds: 30));
     expect(h.service.isBusy, isFalse);
     expect(h.service.state.value, MembershipCheckoutState.deferred);
     h.service.dispose();

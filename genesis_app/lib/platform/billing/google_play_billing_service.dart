@@ -36,7 +36,7 @@ class GooglePlayBillingService implements BillingService {
     BillingWalletRefresher? refreshProductsAfterPurchase,
     required BillingUidReader readUid,
     BillingAnalytics analytics = const GenesisBillingAnalytics(),
-    Duration attemptTimeout = const Duration(seconds: 90),
+    Duration attemptTimeout = CheckoutPreparationBudget.timeout,
     Future<bool> Function(BillingPurchase)? interceptPurchase,
     bool Function()? otherPurchaseBusy,
     ValueChanged<Object>? onPurchaseStreamError,

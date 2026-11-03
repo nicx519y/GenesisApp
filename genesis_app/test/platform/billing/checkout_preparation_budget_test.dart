@@ -18,7 +18,7 @@ void main() {
           .catchError((Object e) {
             failure = e;
           });
-      await tester.pump(const Duration(seconds: 90));
+      await tester.pump(const Duration(seconds: 30));
       await result;
       expect(failure, isA<TimeoutException>());
       expect(lookup.isCompleted, false);
@@ -28,9 +28,9 @@ void main() {
     },
   );
 
-  testWidgets('preflight stages share one 90 second budget', (tester) async {
+  testWidgets('preflight stages share one 30 second budget', (tester) async {
     final budget = CheckoutPreparationBudget(
-      startedAt: DateTime.now().subtract(const Duration(seconds: 80)),
+      startedAt: DateTime.now().subtract(const Duration(seconds: 20)),
     );
     final next = Completer<void>();
     final result = budget.wait(next.future);
