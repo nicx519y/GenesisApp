@@ -20,7 +20,8 @@
   ├─ 一次共享 UID 读取（最多 2 秒）→ Home/Worldo 本地缓存判定
   ├─ 后台 config：等 Collect（最多 2 秒）和共享 UID
   │  → Gateway 注册（缺密钥时）/校时 → config → 发布配置、采样率
-  └─ 图片连接预热、支付监听
+  ├─ 图片连接预热、支付监听
+  └─ 商品预加载：等待 config／已登录用户语言校准 → 服务端目录 → 平台商品缓存
 → 等本地设置与落地页判定完成 → runApp（不等后台 config）
 → 首帧：记录 launch_page，启动后台运行时、支付恢复、消息轮询
 → 付费游客强制登录检查（不受填表配置开关限制）
@@ -71,3 +72,10 @@ flutter test --no-pub test/app/startup/app_startup_coordinator_test.dart test/pl
 flutter analyze --no-pub lib/pages/app_shell_page.dart lib/app/startup/app_startup_coordinator.dart test/widget_test.dart
 xcrun swiftc -frontend -parse ios/Runner/AppDelegate.swift
 ```
+
+
+## 启动商品重复请求修正（2026-11-03）
+
+首次启动原先在 Config 语言返回前发送会员 products；语言确定后，HTTP 层正确丢弃旧语言 GET 结果，随后引导预加载又查询一次。现由 main 建立本次启动共用的商品就绪 Future，Config 和既有启动 UserInfo 语言校准结束后释放。会员与 Gems 的服务端商品加载入口均等待它，覆盖启动、引导和提前进入支付页；各目录原有并发合并继续生效，不新增预加载请求。
+
+Config／UserInfo 失败后仍释放商品等待，沿用已有缓存／系统语言；不新增重试，不关闭语言版本校验。首屏、图片预热和交易监听不等商品就绪。账号改变或服务被替换时，等待中的旧任务重新检查认证有效性，不能在放行后发送过期请求。配置替换保留原启动等待；完成后该 Future 不再增加后续入页、购买成功刷新或恢复查询的等待。

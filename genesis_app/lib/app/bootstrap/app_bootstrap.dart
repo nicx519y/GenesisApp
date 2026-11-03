@@ -29,6 +29,7 @@ class AppBootstrap {
 
   static AppServices createInitialServices({
     AppConfig config = const AppConfig(),
+    Future<void>? purchaseCatalogReady,
   }) {
     WidgetsFlutterBinding.ensureInitialized();
     enableGenesisDevToolsHttpProfiling();
@@ -38,7 +39,10 @@ class AppBootstrap {
     );
     GenesisHttpCacheManager.configureTransport(httpTransport);
     unawaited(_warmUpStaticImageConnections());
-    final services = ServiceRegistry.build(config: config);
+    final services = ServiceRegistry.build(
+      config: config,
+      purchaseCatalogReady: purchaseCatalogReady,
+    );
     services.startPurchaseServices();
     return services;
   }

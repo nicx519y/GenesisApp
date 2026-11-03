@@ -115,7 +115,13 @@ Future<void> main() async {
       if (!collectReady.isCompleted) collectReady.complete();
     }),
   );
-  final services = AppBootstrap.createInitialServices(config: appConfig);
+  // All catalog entry points share this gate, including early page/onboarding
+  // loads. Language calibration and products never delay the first frame.
+  final purchaseCatalogReady = Completer<void>();
+  final services = AppBootstrap.createInitialServices(
+    config: appConfig,
+    purchaseCatalogReady: purchaseCatalogReady.future,
+  );
   String? lastPrivacySnapshot;
   void synchronizePrivacy() {
     // Also release Adjust's delay when startup resolves without a saved choice.
@@ -178,21 +184,31 @@ Future<void> main() async {
   // preparation and config. Config listeners apply confirmed flags when ready.
   unawaited(
     loadStartupAppConfig(
-      store: services.appGlobalConfig,
-      uidResolution: startupUidResolution,
-      collectReady: collectReady.future,
-    ).then((_) async {
-      // Remote preference calibration follows Config, never the feed's first
-      // request. Also run when the form is disabled or Worldo is not mounted.
-      unawaited(services.personalization.loadForOriginFeed());
-      final resolution = await startupUidResolution;
-      if (resolution.uid == null || resolution.uid!.isEmpty) return;
-      try {
-        await services.api.v1.user.info();
-      } catch (error) {
-        debugPrint('[Language] Could not load startup user language: $error');
-      }
-    }),
+          store: services.appGlobalConfig,
+          uidResolution: startupUidResolution,
+          collectReady: collectReady.future,
+        )
+        .then((_) async {
+          // Remote preference calibration follows Config, never the feed's first
+          // request. Also run when the form is disabled or Worldo is not mounted.
+          unawaited(services.personalization.loadForOriginFeed());
+          final resolution = await startupUidResolution;
+          if (resolution.uid == null || resolution.uid!.isEmpty) return;
+          try {
+            await services.api.v1.user.info();
+          } catch (error) {
+            debugPrint(
+              '[Language] Could not load startup user language: $error',
+            );
+          }
+        })
+        .whenComplete(() {
+          // Config failure uses existing cached/system language. UserInfo has its
+          // normal HTTP deadline; every outcome releases catalog preparation.
+          if (!purchaseCatalogReady.isCompleted) {
+            purchaseCatalogReady.complete();
+          }
+        }),
   );
   await Future.wait<Object?>(<Future<Object?>>[
     systemUiInitialization,
