@@ -1,5 +1,4 @@
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
@@ -65,21 +64,9 @@ Future<ProductDetailsResponse> queryMembershipStoreProduct(
   await StoreProductAccess.ready();
   if (loader != null) return loader();
   if (product.provider != MembershipProvider.google) {
-    final clock = Stopwatch()..start();
     final response = await store.queryProductDetails({product.storeProductId});
-    for (final detail
-        in response.productDetails.whereType<AppStoreProduct2Details>()) {
-      StoreProductAccess.diagnostic(
-        'lookup',
-        detail.id,
-        cacheHit: detail.sk2Product.cacheHit,
-        cacheAgeMs: detail.sk2Product.cacheAgeMs,
-        durationMs: clock.elapsedMilliseconds,
-      );
-    }
     return response;
   }
-  final clock = Stopwatch()..start();
   final response = await store
       .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
       .loadProductDetails(
@@ -87,14 +74,7 @@ Future<ProductDetailsResponse> queryMembershipStoreProduct(
         productType: ProductType.subs,
         forceRefresh: StoreProductAccess.forceRefresh,
       );
-  StoreProductAccess.diagnostic(
-    'lookup',
-    product.storeProductId,
-    cacheHit: response.cacheHit,
-    cacheAgeMs: response.cacheAgeMs,
-    durationMs: clock.elapsedMilliseconds,
-    errorCode: response.billingResult.responseCode.name,
-  );
+
   return ProductDetailsResponse(
     productDetails: response.productDetailsList
         .expand(GooglePlayProductDetails.fromProductDetails)

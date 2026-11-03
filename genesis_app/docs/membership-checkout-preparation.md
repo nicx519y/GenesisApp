@@ -41,7 +41,6 @@ Gems 与会员共用 `NOT_FOUND` 恢复：仅在原生商品缓存检查失败�
 
 ## 诊断与验证
 
-Collect 新增 `pay_event / store_product_diagnostic`：object1 为商店商品 ID，object3 为阶段，ext_data 为有限的结构化字段，包括 force_refresh、cache_hit、cache_age_ms、duration_ms、error_code；适用阶段另带 lookup_id、attempt_id。Android 自动恢复记录启动和结果。原始收据、购买 token、签名交易、账号 UUID 不进入该诊断。
 
 验证入口：`flutter test test/platform/billing`；Android `:in_app_purchase_android:testDebugUnitTest --tests io.flutter.plugins.inapppurchase.NativeProductCacheTest`；iOS Debug 无签名编译。缓存单元测试、Pigeon 通道测试和编译不能替代 Google Play / Apple Sandbox 的真实购买与耗时验收。
 

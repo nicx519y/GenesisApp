@@ -124,20 +124,12 @@ class GooglePlayBillingPlatform implements BillingPlatform {
       };
       final addition = _inAppPurchase
           .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-      final clock = Stopwatch()..start();
       final response = await addition.loadProductDetails(
         forceRefresh: StoreProductAccess.forceRefresh,
         productId: storeProductId,
         productType: productType,
       );
-      StoreProductAccess.diagnostic(
-        'lookup',
-        storeProductId,
-        cacheHit: response.cacheHit,
-        cacheAgeMs: response.cacheAgeMs,
-        durationMs: clock.elapsedMilliseconds,
-        errorCode: response.billingResult.responseCode.name,
-      );
+
       if (response.billingResult.responseCode != BillingResponse.ok) {
         final errorCode = googlePlayBillingQueryErrorCode(
           response.billingResult.responseCode,
@@ -278,11 +270,6 @@ class GooglePlayBillingPlatform implements BillingPlatform {
         product: nativeProduct.id,
         expectedProductDetails: nativeProduct.productDetails,
         beforeLaunch: StoreProductAccess.canLaunch,
-        onProductDiagnostic: (stage, code) => StoreProductAccess.diagnostic(
-          stage,
-          nativeProduct.id,
-          errorCode: code,
-        ),
         offerToken: product.offerToken,
         accountId: billingAccountId,
       );

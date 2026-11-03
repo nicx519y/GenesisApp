@@ -302,7 +302,7 @@ void main() {
   );
 
   test(
-    'report technical failure emits store success only without business retry',
+    'report technical failure emits store success and report failure without retry',
     () async {
       final h = support.Harness(analytics: analytics);
       var requests = 0;
@@ -328,8 +328,12 @@ void main() {
       await h.service.recover();
       await h.service.interceptPurchase(h.purchase(transaction: 'GPA.actual'));
       expect(requests, 1);
-      expect(events.map((e) => e.action), ['subscription_success']);
-      expect(events.single.object3, 'GPA.actual');
+      expect(events.map((e) => e.action), [
+        'subscription_success',
+        'subscription_failed',
+      ]);
+      expect(events.first.object3, 'GPA.actual');
+      expect(events.last.object3, 'report_failed[reason=network_error]');
       expect(events.every((e) => e.object2.isEmpty), isTrue);
       expect(events.last.object1, 'from_me_membership');
       expect(

@@ -14,6 +14,17 @@ PaymentFailureClassification classifyPaymentFailure(
   String text(String key) => diagnostic[key]?.toString() ?? '';
   var step = text('step');
   final suppliedStage = text('stage');
+  if (suppliedStage == 'report') {
+    final match = RegExp(
+      r'^report_(?:rejected|failed)\[([^\]]+)\]$',
+    ).firstMatch(original);
+    final reason = match?.group(1)?.split('[').first ?? 'unknown';
+    return PaymentFailureClassification(
+      'report',
+      reason,
+      step.isEmpty ? 'purchase_report' : step,
+    );
+  }
   if (step.isEmpty) step = suppliedStage;
   var raw = original;
   for (final prefix in [

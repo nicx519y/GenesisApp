@@ -137,7 +137,49 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
     MembershipPurchaseRecord record,
     MembershipPurchaseRequest request,
   ) async {
-    return reportPurchase(request);
+    final tracking = _trackingFor(record);
+    void failed(String reason, {Object? error, StackTrace? stack}) {
+      analytics.failed(
+        tracking,
+        reason,
+        once: true,
+        diagnostics: paymentFailureDiagnostics(
+          provider: provider.name,
+          stage: 'report',
+          error: error,
+          stackTrace: stack,
+          context: {
+            'step': 'purchase_report',
+            'attempt_id': record.requestId,
+            'store_product_id': record.product.storeProductId,
+            'transaction_id': record.transactionId,
+            'success_callback_received': true,
+          },
+        ),
+      );
+    }
+
+    try {
+      final result = await reportPurchase(request);
+      if (result.status == MembershipReportStatus.rejected) {
+        failed('report_rejected[${result.reason ?? 'unknown'}]');
+      }
+      return result;
+    } catch (error, stack) {
+      final reason = subscriptionRequestTimedOut(error)
+          ? 'timeout'
+          : error is FormatException
+          ? 'invalid_response'
+          : error is ApiException
+          ? error.kind == ApiExceptionKind.business
+                ? 'business_error'
+                : error.kind == ApiExceptionKind.transport
+                ? 'network_error'
+                : 'request_error'
+          : 'request_error';
+      failed('report_failed[$reason]', error: error, stack: stack);
+      rethrow;
+    }
   }
 
   Future<MembershipClaimResult> _sendTrackedClaim(

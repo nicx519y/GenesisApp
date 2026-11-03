@@ -25,7 +25,7 @@
 - 通用错误：error_type、error_code、error_source、error_layer、message、脱敏 stack_trace。没有实际原始字段时不补造。
 - Google：response_code、sub_response_code、debug_message；Apple：native_code、domain、可取得的错误消息。
 - HTTP：api_path、http_status、business_code、client_failure_code、transport_error_kind、可取得的 request_id；不包含请求体、响应体或认证信息。
-- 现场：实际可获得的阶段／累计耗时、重试次数、前后台、是否交给商店、是否已收到回调。预期与实际价格、币种仅在对应检查位置记录。缓存命中信息继续由已有 store_product_diagnostic 提供；失败事件没有取得该值时不猜测。
+- 现场：实际可获得的阶段／累计耗时、重试次数、前后台、是否交给商店、是否已收到回调。预期与实际价格、币种仅在对应检查位置记录。失败事件没有取得缓存命中信息时不猜测。
 
 ## 上报范围及隔离
 

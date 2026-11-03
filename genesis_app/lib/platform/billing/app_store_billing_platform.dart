@@ -114,7 +114,6 @@ class AppStoreBillingPlatform implements BillingPlatform {
       );
     }
     try {
-      final clock = Stopwatch()..start();
       final response = await _inAppPurchase.queryProductDetails({
         storeProductId,
       });
@@ -132,15 +131,6 @@ class AppStoreBillingPlatform implements BillingPlatform {
       }
       for (final product in response.productDetails) {
         if (product.id != storeProductId) continue;
-        if (product is AppStoreProduct2Details) {
-          StoreProductAccess.diagnostic(
-            'lookup',
-            storeProductId,
-            cacheHit: product.sk2Product.cacheHit,
-            cacheAgeMs: product.sk2Product.cacheAgeMs,
-            durationMs: clock.elapsedMilliseconds,
-          );
-        }
         debugPrint(
           '[Billing][AppStore] product ready id=$storeProductId '
           'price="${product.price}" rawPrice=${product.rawPrice} '

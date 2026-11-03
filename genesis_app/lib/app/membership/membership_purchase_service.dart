@@ -1,4 +1,5 @@
 import '../../platform/billing/payment_failure_diagnostics.dart';
+import '../../network/api_exception.dart';
 import 'dart:async';
 import '../../platform/billing/checkout_preparation_budget.dart';
 import '../../platform/billing/store_product_access.dart';
@@ -1313,16 +1314,24 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       return;
     }
     if (record.guest == null && await readLoginUid() != record.ownerUid) return;
-    final tracking = analytics.success(
-      _trackingFor(record),
-      provider.name,
-      purchase.transactionId,
-    );
+    final returnedUuid = purchase.obfuscatedAccountId?.trim().toLowerCase();
+    final matchesPurchaseIdentity =
+        provider != MembershipProvider.apple ||
+        (returnedUuid != null &&
+            isMembershipAccountUuid(returnedUuid) &&
+            returnedUuid == record.accountUuid.trim().toLowerCase());
+    final tracking = matchesPurchaseIdentity
+        ? analytics.success(
+            _trackingFor(record),
+            provider.name,
+            purchase.transactionId,
+          )
+        : _trackingFor(record);
     _attemptTracking[record.requestId] = tracking;
     record = record.copyWith(tracking: tracking);
     await _save(record);
     final eventReporter = purchaseEventReporting;
-    if (eventReporter != null) {
+    if (eventReporter != null && matchesPurchaseIdentity) {
       unawaited(
         eventReporter.recordPurchase(
           provider: provider.name,

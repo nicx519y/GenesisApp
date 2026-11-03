@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 import 'billing_models.dart';
-import '../../app/telemetry/genesis_telemetry.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -17,7 +15,6 @@ abstract final class StoreProductAccess {
   static final Object _freshKey = Object();
   static final Object _checkoutGuardKey = Object();
   static final Object _attemptKey = Object();
-  static final Object _lookupKey = Object();
   static bool canLaunch() =>
       (Zone.current[_checkoutGuardKey] as bool Function()?)?.call() ?? true;
   static Future<T> withCheckoutGuard<T>(
@@ -34,59 +31,8 @@ abstract final class StoreProductAccess {
     () => SK2Product.withFreshProducts(action),
     zoneValues: {_freshKey: true},
   );
-  static void diagnostic(
-    String stage,
-    String productId, {
-    bool? cacheHit,
-    int? cacheAgeMs,
-    int? durationMs,
-    String? errorCode,
-  }) {
-    try {
-      GenesisTelemetry.event(
-        'store_product_diagnostic',
-        category: 'billing.product',
-        collectPayload: {
-          'action_type': 'pay_event',
-          'action': 'store_product_diagnostic',
-          'object1': productId,
-          'object3': stage,
-          'ext_data': jsonEncode({
-            'force_refresh': forceRefresh,
-            if (Zone.current[_attemptKey] != null)
-              'attempt_id': Zone.current[_attemptKey],
-            if (Zone.current[_lookupKey] != null)
-              'lookup_id': Zone.current[_lookupKey],
-            if (cacheHit != null) 'cache_hit': cacheHit,
-            if (cacheAgeMs != null) 'cache_age_ms': cacheAgeMs,
-            if (durationMs != null) 'duration_ms': durationMs,
-            if (errorCode != null) 'error_code': errorCode,
-          }),
-        },
-      );
-    } catch (_) {
-      /* Diagnostics must not interrupt checkout. */
-    }
-  }
-
   static Future<T> lookup<T>(String sku, Future<T> Function() action) =>
-      runZoned(() async {
-        final clock = Stopwatch()..start();
-        diagnostic('lookup_start', sku);
-        try {
-          return await action();
-        } catch (error) {
-          diagnostic(
-            'lookup_failed',
-            sku,
-            durationMs: clock.elapsedMilliseconds,
-            errorCode: error is PlatformException
-                ? error.code
-                : error.runtimeType.toString(),
-          );
-          rethrow;
-        }
-      }, zoneValues: {_lookupKey: newBillingAttemptId()});
+      action();
 
   static Future<void> ready() => _resetPending;
 

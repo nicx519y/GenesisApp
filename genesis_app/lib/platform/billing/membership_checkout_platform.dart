@@ -110,11 +110,6 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
         ? GooglePlayPurchaseParam(
             throwOnBillingFailure: true,
             beforeLaunch: StoreProductAccess.canLaunch,
-            onProductDiagnostic: (stage, code) => StoreProductAccess.diagnostic(
-              stage,
-              nativeProduct.id,
-              errorCode: code,
-            ),
             productDetails: nativeProduct,
             offerToken: nativeProduct.offerToken,
             applicationUserName: accountUuid,

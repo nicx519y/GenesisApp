@@ -12,7 +12,7 @@
 | `subscription_purchase_click` | `yearly` / `monthly` | 可用购买按钮被点击并进入购买流程。 |
 | `subscription_pending` | `store_callback_pending` | 商店明确返回 pending；不发送 report。 |
 | `subscription_timeout` | `prepare` / `store_callback` | 客户端准备或等待商店回调超时；不代表扣款失败。 |
-| `subscription_success` | 本笔商店交易号；缺失时为空 | 当前购买的商店回调返回 purchased，立即记录，不等待 report。 |
+| `subscription_success` | 本笔商店交易号；缺失时为空 | 当前购买回调 purchased 时记录，不等待 report；Apple 还要求回调 appAccountToken 为有效 UUID 且与本次购买 UUID 一致，缺失或不匹配不记录。 |
 | `subscription_failed` | `阶段_failed[reason=具体原因]`；阶段为 precheck、prepare、query、launch、callback、stream，原始错误放 ext_data，详见 payment-failure-monitoring.md | 点击后的前置检查、商店商品查询、商店拉起失败，或商店回调返回 error / canceled；report 结果不触发。 |
 | `subscription_claim_result` | `completed` / `rejected` / `error[code]` / `timeout` | 游客登录后，每次实际 claim 请求的结果。 |
 
@@ -26,7 +26,7 @@
 
 ## report 与 Firebase
 
-Gems、登录订阅、游客订阅的 report 仅接受 completed / rejected。report 响应负责发货与页面业务状态，不决定购买打点。商店 purchased 回调同时触发项目自定义 Firebase 购买事件；按交易去重。平台自动采集的购买事件是独立来源，分析时应区分，避免合并重复计数。
+Gems、登录订阅、游客订阅的 report 仅接受 completed / rejected。会员 report 被 rejected 或请求异常时记录 subscription_failed，stage=report，object3=report_failed[reason=具体原因]，每次购买尝试去重；report 正常发送，业务结果处理保持原流程。Apple 的 UUID 校验同时控制项目自定义购买归因事件。身份匹配时仍可能先记商店成功、再记 report 失败，成功不表示到账。商店 purchased 回调按上述校验触发项目自定义 Firebase 购买事件；按交易去重。平台自动采集的购买事件是独立来源，分析时应区分，避免合并重复计数。
 
 商店 pending 不 report；后续 purchased 回调发起首次 report。点击后的前置检查、商品查询或商店拉起失败产生带阶段原因的失败事件；等待超时仍使用单独的 timeout 事件。report 异常不把已购买的交易改记为 purchase_failed / subscription_failed。
 
