@@ -176,7 +176,6 @@ class _GemWalletPageState extends State<GemWalletPage>
   bool _billingPurchaseDialogShowing = false;
   RawDialogRoute<void>? _billingPurchaseDialogRoute;
   bool _billingPurchaseDialogDismissing = false;
-  bool _storeRecoveryStarted = false;
   late TabController _purchaseTabs;
   late bool _subscriptionVisited;
   late bool _gemsVisited;

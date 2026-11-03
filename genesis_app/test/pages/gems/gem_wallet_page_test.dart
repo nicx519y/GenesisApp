@@ -387,7 +387,7 @@ void main() {
           expect(tasks, products);
           expect(balances, products);
           expect(billing.startCount, products);
-          expect(billing.storeRecoveryCount, products);
+          expect(billing.storeRecoveryCount, 0);
           expect(
             telemetry.events
                 .where((event) => event.name == 'buy_page_show')
@@ -431,7 +431,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
+            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 0],
           );
           expect(
             telemetry.events
@@ -461,7 +461,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [subscriptionFirst ? 3 : 2, 2, 1, 1, 1, 1],
+            [subscriptionFirst ? 3 : 2, 2, 1, 1, 1, 0],
           );
           // Returning to the foreground while Subscription is selected must
           // not issue background Gems page requests, even after visiting Gems.
@@ -1470,11 +1470,8 @@ void main() {
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
-    expect(billing.storeRecoveryCount, 1);
-    expect(
-      billing.recoveredProductCatalog?.map((product) => product.productId),
-      _products().map((product) => product.productId),
-    );
+    expect(billing.storeRecoveryCount, 0);
+    expect(billing.recoveredProductCatalog, isNull);
     expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
     expect(billing.purchaseTrackIds, ['']);
     final showEvent = telemetry.events.singleWhere(
@@ -1520,7 +1517,7 @@ void main() {
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.light);
   });
 
-  testWidgets('store recovery starts only after products load succeeds', (
+  testWidgets('opening Gems never queries historical purchases after products load', (
     tester,
   ) async {
     final walletStore = GemWalletStore(
@@ -1549,14 +1546,11 @@ void main() {
     productsCompleter.complete(_products());
     await tester.pumpAndSettle();
 
-    expect(billing.storeRecoveryCount, 1);
-    expect(
-      billing.recoveredProductCatalog?.map((product) => product.productId),
-      _products().map((product) => product.productId),
-    );
+    expect(billing.storeRecoveryCount, 0);
+    expect(billing.recoveredProductCatalog, isNull);
   });
 
-  testWidgets('store recovery failure does not prevent a new purchase', (
+  testWidgets('Gems purchase remains available without querying historical purchases', (
     tester,
   ) async {
     final walletStore = GemWalletStore(
@@ -1584,12 +1578,12 @@ void main() {
     );
     await tester.pump();
 
-    expect(billing.storeRecoveryCount, 1);
+    expect(billing.storeRecoveryCount, 0);
     expect(billing.purchasedProducts, hasLength(1));
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
   });
 
-  testWidgets('store recovery exception does not escape the page', (
+  testWidgets('opening Gems never calls the historical recovery service', (
     tester,
   ) async {
     final walletStore = GemWalletStore(
@@ -1613,7 +1607,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(billing.storeRecoveryCount, 1);
+    expect(billing.storeRecoveryCount, 0);
     expect(tester.takeException(), isNull);
   });
 

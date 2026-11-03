@@ -59,7 +59,6 @@ extension _GemWalletDataActions on _GemWalletPageState {
         _productsLoading = false;
         _blockingProductRefresh = false;
       });
-      _startStoreRecovery(products);
     } catch (error) {
       if (!mounted || generation != _productsRequestGeneration) return;
       _updateState(() {
