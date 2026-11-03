@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 /// Correlates native StoreKit preparation with one Dart checkout.
 class StoreKitPurchaseHandoff {
@@ -20,10 +21,21 @@ class StoreKitPurchaseHandoff {
       channel.setMethodCallHandler((call) async {
         if (call.method != 'ready') return false;
         final callback = _callbacks.remove(call.arguments);
+        if (kDebugMode) {
+          debugPrint(
+            '[StoreKit][purchase_trace] id=${call.arguments} stage=dart_handoff_received known=${callback != null}',
+          );
+        }
         // Unknown/stale calls must never authorize a new platform payment.
         if (callback == null) return false;
         try {
-          return callback();
+          final allowed = callback();
+          if (kDebugMode) {
+            debugPrint(
+              '[StoreKit][purchase_trace] id=${call.arguments} stage=dart_handoff_response allowed=$allowed',
+            );
+          }
+          return allowed;
         } catch (_) {
           return false;
         }
@@ -32,9 +44,18 @@ class StoreKitPurchaseHandoff {
     }
     final id = '$_epoch-${++_sequence}';
     _callbacks[id] = onHandoff;
+    final clock = Stopwatch()..start();
+    if (kDebugMode) {
+      debugPrint('[StoreKit][purchase_trace] id=$id stage=dart_purchase_start');
+    }
     try {
       return await purchase(id);
     } finally {
+      if (kDebugMode) {
+        debugPrint(
+          '[StoreKit][purchase_trace] id=$id stage=dart_purchase_end elapsed_ms=${clock.elapsedMilliseconds}',
+        );
+      }
       _callbacks.remove(id);
     }
   }

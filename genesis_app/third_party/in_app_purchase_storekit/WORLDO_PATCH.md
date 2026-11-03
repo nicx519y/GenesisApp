@@ -1,5 +1,15 @@
 # Worldo StoreKit patch
 
+## Purchase debug traces
+
+Debug builds emit `[StoreKit][purchase_trace]` with a per-call handoff ID,
+product ID, native stage and elapsed milliseconds. Stages cover Dart launch,
+native entry/product lookup, signature validation, handoff request/decision,
+`Product.purchase` invocation/return, result dispatch and bridge completion.
+Errors include NSError domain/code only, never receipts, tokens or account UUIDs.
+`storekit_purchase_call` confirms invocation, not confirmation-sheet visibility.
+Changes to native traces require rebuilding the iOS app; hot reload is insufficient.
+
 Based on Flutter `in_app_purchase_storekit` 0.4.11+2 (BSD license in LICENSE).
 Runtime and Pigeon sources are vendored at the resolved version; platform result
 delivery, transaction verification, and transaction finishing retain upstream behavior.

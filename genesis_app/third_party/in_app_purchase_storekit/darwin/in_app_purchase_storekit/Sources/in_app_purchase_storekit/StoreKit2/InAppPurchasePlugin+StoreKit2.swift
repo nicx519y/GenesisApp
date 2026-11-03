@@ -73,9 +73,20 @@ extension InAppPurchasePlugin: InAppPurchase2API {
     completion: @escaping (Result<SK2ProductPurchaseResultMessage, Error>) -> Void
   ) {
     Task { @MainActor in
+      let diagnosticId = options?.handoffId ?? UUID().uuidString
+      let started = ProcessInfo.processInfo.systemUptime
+      func trace(_ stage: String) {
+        #if DEBUG
+          let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+          NSLog("[StoreKit][purchase_trace] id=%@ product=%@ stage=%@ elapsed_ms=%d", diagnosticId, id, stage, elapsed)
+        #endif
+      }
+      trace("native_enter")
       do {
+        trace("product_lookup_start")
         guard let product = try await WorldoProductCache.shared.load([id], force: false).first
         else {
+          trace("product_lookup_empty")
           let error = PigeonError(
             code: "storekit2_failed_to_fetch_product",
             message: "Storekit has failed to fetch this product.",
@@ -83,7 +94,9 @@ extension InAppPurchasePlugin: InAppPurchase2API {
           return completion(.failure(error))
         }
 
+        trace("product_lookup_complete")
         if let expected = options?.expectedSignature, expected != product.purchaseSignature {
+          trace("product_signature_changed")
           WorldoProductCache.shared.invalidate([id])
           return completion(
             .failure(
@@ -127,8 +140,10 @@ extension InAppPurchasePlugin: InAppPurchase2API {
         // block a new purchase here; StoreKit decides the purchase outcome.
         // Native product validation remains within the preparation deadline.
         if let handoffId = options?.handoffId {
+          trace("handoff_request")
           let allowed: Bool = await withCheckedContinuation { continuation in
             guard let channel = self.purchaseHandoffChannel else {
+              trace("handoff_channel_missing")
               continuation.resume(returning: false)
               return
             }
@@ -136,6 +151,7 @@ extension InAppPurchasePlugin: InAppPurchase2API {
               continuation.resume(returning: result as? Bool ?? false)
             }
           }
+          trace(allowed ? "handoff_allowed" : "handoff_denied")
           guard allowed else {
             return completion(
               .failure(
@@ -144,10 +160,13 @@ extension InAppPurchasePlugin: InAppPurchase2API {
                   message: "The purchase preparation is no longer active.", details: nil)))
           }
         }
+        trace("storekit_purchase_call")
         let result = try await product.purchase(options: purchaseOptions)
+        trace("storekit_purchase_return")
 
         switch result {
         case .success(let verification):
+          trace("result_success_dispatch")
           sendTransactionUpdate(
             productId: id,
             transaction: verification.unsafePayloadValue,
@@ -156,20 +175,26 @@ extension InAppPurchasePlugin: InAppPurchase2API {
             checkoutAttemptId: options?.checkoutAttemptId
           )
         case .pending:
+          trace("result_pending_dispatch")
           sendTransactionUpdate(
             productId: id, status: .pending, checkoutAttemptId: options?.checkoutAttemptId)
         case .userCancelled:
+          trace("result_cancelled_dispatch")
           sendTransactionUpdate(
             productId: id, status: .cancelled, checkoutAttemptId: options?.checkoutAttemptId)
         @unknown default:
+          trace("result_unknown")
           return completion(
             .failure(
               PigeonError(
                 code: "storekit2_unknown_purchase_result",
                 message: "An unknown StoreKit PurchaseResult has been encountered.", details: nil)))
         }
+        trace("bridge_completion_success")
         completion(.success(result.convertToPigeon()))
       } catch {
+        let nativeError = error as NSError
+        trace("error domain=\(nativeError.domain) code=\(nativeError.code)")
         completion(
           .failure(
             PigeonError(
