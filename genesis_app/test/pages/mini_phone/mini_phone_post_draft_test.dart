@@ -11,6 +11,34 @@ import '../../support/mini_phone_chat_backend.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'camera sample draft stays isolated and cannot upload or publish',
+    () async {
+      final backend = PhoneBackend();
+      final store = backend.store();
+      await store.ready;
+      final real = MiniPhonePostDraft(store)..setText('Existing real draft');
+      final preview = MiniPhonePostDraft.cameraPreview(
+        store,
+        'assets/sample.jpg',
+      );
+      addTearDown(() {
+        preview.dispose();
+        real.dispose();
+        store.dispose();
+      });
+      preview.setText('Camera caption');
+      expect(preview.previewAsset, 'assets/sample.jpg');
+      expect(preview.canSubmit, isFalse);
+      expect(
+        await preview.submit((_) async => throw StateError('No upload')),
+        isFalse,
+      );
+      expect(backend.calls('post/create'), isEmpty);
+      expect(real.text, 'Existing real draft');
+      expect(real.canSubmit, isTrue);
+    },
+  );
   final photo = ProcessedUploadImage(
     bytes: Uint8List.fromList([1, 2, 3]),
     filename: 'prepared.jpg',

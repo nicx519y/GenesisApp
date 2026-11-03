@@ -15,6 +15,8 @@ import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dar
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_widgets.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/photos/mini_phone_photos_page.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/posts/mini_phone_create_post_page.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_store.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/messages/mini_phone_live_chat.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/home/mini_phone_home.dart';
@@ -120,6 +122,80 @@ void main() {
     await settle(tester);
     return session;
   }
+
+  testWidgets('camera album back returns to the camera draft', (tester) async {
+    await mount(
+      tester,
+      TargetPlatform.android,
+      initialScreen: MiniPhoneScreen.camera,
+    );
+    expect(find.byType(MiniPhoneCameraPage), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('mini-phone-camera-album')));
+    await settle(tester);
+    final back = find.ancestor(
+      of: find.text('Photos'),
+      matching: find.byType(TextButton),
+    );
+    await tester.tap(back.first);
+    await settle(tester);
+    expect(find.byType(MiniPhoneCameraPage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('mini-phone-camera-shutter')),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'camera photo uses existing create page and returns via album to camera',
+    (tester) async {
+      final session = await mount(
+        tester,
+        TargetPlatform.android,
+        initialScreen: MiniPhoneScreen.camera,
+      );
+      session.postDraft!.setText('Keep real draft');
+      await tester.tap(find.byKey(const ValueKey('mini-phone-camera-album')));
+      await settle(tester);
+      tester
+          .widget<MiniPhonePhotosPage>(find.byType(MiniPhonePhotosPage))
+          .onUsePreviewInPost!(MiniPhoneCameraTemplate.povSelfie.assetPath);
+      await settle(tester);
+      final create = tester.widget<MiniPhoneCreatePostPage>(
+        find.byType(MiniPhoneCreatePostPage),
+      );
+      expect(create.draft.isCameraPreview, isTrue);
+      expect(
+        create.draft.previewAsset,
+        MiniPhoneCameraTemplate.povSelfie.assetPath,
+      );
+      expect(find.byType(BottomSheet), findsNothing);
+      await tester.enterText(find.byType(TextField), 'Local caption');
+      expect(create.draft.canSubmit, isFalse);
+      expect(session.postDraft!.text, 'Keep real draft');
+      await tester.tap(
+        find
+            .ancestor(
+              of: find.text('Create post'),
+              matching: find.byType(TextButton),
+            )
+            .first,
+      );
+      await settle(tester);
+      expect(find.byType(MiniPhonePhotosPage), findsOneWidget);
+      await tester.tap(
+        find
+            .ancestor(
+              of: find.text('Photos'),
+              matching: find.byType(TextButton),
+            )
+            .first,
+      );
+      await settle(tester);
+      expect(find.byType(MiniPhoneCameraPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   for (final resource in ['people', 'album']) {
     testWidgets(

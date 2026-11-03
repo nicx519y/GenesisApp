@@ -6229,6 +6229,30 @@ abstract class AppLocalizations {
   /// **'An eye-level photo of only the selected characters, taken by someone outside the frame. Keep every selected character visible, with relaxed poses and natural expressions in a setting from their world. The photographer and camera stay off-screen: no mirror and no outstretched selfie arm. Keep their appearance and outfits. Do not add extra people.'**
   String get miniPhoneCameraByFriendPrompt;
 
+  /// MiniPhone Camera style selector: short label for a naturally captured, unposed photo of only the selected characters sharing a moment. The Taiwan Traditional Chinese label must be 抓拍, matching the user-provided source image filename.
+  ///
+  /// In en, this message translates to:
+  /// **'Candid'**
+  String get miniPhoneCameraCandid;
+
+  /// MiniPhone Camera style selector: short style label for a static still photo capturing a spontaneous gesture with a subtle sense of motion. This is not video or the Apple Live Photo feature. The Taiwan Traditional Chinese label must be 實況照片, matching the user-provided source image filename.
+  ///
+  /// In en, this message translates to:
+  /// **'Live photo'**
+  String get miniPhoneCameraLivePhoto;
+
+  /// MiniPhone Camera: complete editable prompt inserted when the Candid style is selected. Preserve all constraints: only selected characters, naturally captured shared moment, unposed composition, setting from their world, unchanged appearance and outfits, and no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'A candid photo of only the selected characters, caught naturally in the middle of a shared moment. Keep their appearance and outfits, with an unposed composition and a setting from their world. Do not add extra people.'**
+  String get miniPhoneCameraCandidPrompt;
+
+  /// MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'A lively still photo of only the selected characters, capturing a spontaneous gesture with a subtle sense of motion. Keep their appearance and outfits and a setting from their world. Do not add extra people.'**
+  String get miniPhoneCameraLivePhotoPrompt;
+
   /// MiniPhone Camera compose page: primary action to request a photo using the selected participants and entered prompt; not the device camera shutter.
   ///
   /// In en, this message translates to:
@@ -6349,6 +6373,24 @@ abstract class AppLocalizations {
   /// **'Free trial'**
   String get miniPhoneCameraFreeTrial;
 
+  /// MiniPhone Camera: short notice on the camera page and heading for the local preview section in Photos. Explicitly describes a frontend-only local simulation: concurrent photo tasks use sample images, make no backend calls, consume no Gems, and write neither World history nor real album assets. Preserve the preview-only, no-charge, and not-saved meanings.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview only · No Gems used. Sample images are not saved to your World.'**
+  String get miniPhoneCameraPreviewNotice;
+
+  /// MiniPhone Camera: toast immediately after submitting a local mock photo task, while the camera remains available to start another concurrent task. This is a frontend-only simulation, not confirmation of a backend generation request or a saved photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo started. You can take another.'**
+  String get miniPhoneCameraPreviewStarted;
+
+  /// MiniPhone Camera: compact caption on the Photos album entry showing how many concurrent local simulated photo tasks are currently generating. Count is an integer number of pending preview tasks, not real backend jobs or saved album assets; preserve the count and ongoing status.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} generating'**
+  String miniPhoneCameraGeneratingCount({required int count});
+
   /// Compact price chip above Free trial in the shared Camera explanation: originalPrice is crossed out (30 from the user's supplied reference image), followed by price (0). These are frontend preview figures, not server billing or granted trial entitlements. Preserve both rich-text placeholders and their localizable order.
   ///
   /// In en, this message translates to:
@@ -6357,6 +6399,24 @@ abstract class AppLocalizations {
     required String originalPrice,
     required String price,
   });
+
+  /// MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose up to 5 people.'**
+  String get miniPhoneCameraPeopleLimit;
+
+  /// MiniPhone Camera Debug preview: text in the failed photo placeholder design. Actual billing and backend generation are not connected; keep the conditional meaning of any Gems charged and do not imply that a charge occurred or a refund has already completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation failed. Any Gems charged will be refunded.'**
+  String get miniPhoneCameraFailureRefund;
+
+  /// MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview only. This sample photo cannot be published to your world.'**
+  String get miniPhoneCameraPreviewPostNotice;
 }
 
 class _AppLocalizationsDelegate

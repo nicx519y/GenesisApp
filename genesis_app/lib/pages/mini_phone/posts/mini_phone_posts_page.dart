@@ -30,8 +30,9 @@ class MiniPhonePostsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (screen) {
     MiniPhoneScreen.create => MiniPhoneCreatePostPage(
+      key: ObjectKey(session.activePostDraft),
       store: session.data!,
-      draft: session.postDraft!,
+      draft: session.activePostDraft!,
       active: active,
       header: header,
       onPublished: onPublished,

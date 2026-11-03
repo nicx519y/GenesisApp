@@ -14,6 +14,28 @@ const _scope = MiniPhoneCameraScope(
 const _person = PhonePerson('character-a', 'Character A', '');
 
 void main() {
+  test(
+    'photo ratio defaults to 2:3 and is captured independently per request',
+    () {
+      final gate = MiniPhoneRequests(() {})..uid = _scope.accountId;
+      final draft = MiniPhoneCameraController(requests: gate, scope: _scope);
+      addTearDown(draft.dispose);
+      expect(draft.photoRatio, CameraPhotoRatio.portrait);
+      draft.setPhotoRatio(CameraPhotoRatio.square);
+      final snapshot = MiniPhoneCameraRequest(
+        scope: _scope,
+        participants: [_person],
+        prompt: '',
+        photoRatio: draft.photoRatio,
+      );
+      draft.setPhotoRatio(CameraPhotoRatio.tall);
+      expect(snapshot.aspectRatio, 1);
+      expect(draft.photoRatio.aspectRatio, 9 / 16);
+      draft.close();
+      draft.open();
+      expect(draft.photoRatio, CameraPhotoRatio.tall);
+    },
+  );
   late MiniPhoneRequests requests;
   late MiniPhoneCameraController camera;
   var disposed = false;
@@ -32,6 +54,20 @@ void main() {
     camera.togglePerson(_person);
     camera.setPrompt('  A selected scene  ');
   }
+
+  test('selects at most five people and allows replacing a selection', () {
+    final people = List.generate(6, (i) => PhonePerson('p$i', 'P$i', ''));
+    camera.setPeople(people);
+    for (final person in people) {
+      camera.togglePerson(person);
+    }
+    expect(camera.selectedPeople, people.take(5));
+    camera.togglePerson(people.first);
+    camera.togglePerson(people.last);
+    expect(camera.selectedPeople.length, 5);
+    expect(camera.selectedPeople, contains(people.last));
+    expect(camera.selectedPeople, isNot(contains(people.first)));
+  });
 
   MiniPhoneCameraResult photo(String suffix) =>
       MiniPhoneCameraResult(imageUrl: 'https://camera.test/$suffix.webp');

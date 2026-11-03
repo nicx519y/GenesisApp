@@ -25,6 +25,18 @@ class MiniPhoneCameraScope {
 
 enum MiniPhoneCameraPhase { compose, generating, result }
 
+enum CameraPhotoRatio {
+  landscape('3:2', 3 / 2),
+  square('1:1', 1),
+  portrait('2:3', 2 / 3),
+  tall('9:16', 9 / 16),
+  wide('16:9', 16 / 9);
+
+  const CameraPhotoRatio(this.label, this.aspectRatio);
+  final String label;
+  final double aspectRatio;
+}
+
 /// Only the caller can confirm album synchronization. None makes no promise.
 enum MiniPhoneCameraPhotosStatus { none, syncing, saved, failed }
 
@@ -33,14 +45,18 @@ class MiniPhoneCameraRequest {
     required this.scope,
     required Iterable<PhonePerson> participants,
     required this.prompt,
+    this.photoRatio = CameraPhotoRatio.portrait,
+    this.templateId,
   }) : participants = List.unmodifiable(participants);
 
   final MiniPhoneCameraScope scope;
   final List<PhonePerson> participants;
   final String prompt;
+  final CameraPhotoRatio photoRatio;
+  final String? templateId;
 
   /// Composition preference from the approved design, not a transport field.
-  double get aspectRatio => 3 / 4;
+  double get aspectRatio => photoRatio.aspectRatio;
 }
 
 /// A real image returned by the injected adapter. No synthetic message/asset ID.

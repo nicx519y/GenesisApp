@@ -3600,6 +3600,20 @@ class AppLocalizationsJa extends AppLocalizations {
       'フレームの外にいる人物が目線の高さで撮影した、選択したキャラクターだけの写真。選択した全員が見えるようにし、キャラクターたちのワールドの風景の中で、リラックスしたポーズと自然な表情を見せるようにしてください。撮影者とカメラは画面に入れず、鏡や自撮りのために伸ばした腕も写さないでください。外見と服装はそのままにしてください。ほかの人物を追加しないでください。';
 
   @override
+  String get miniPhoneCameraCandid => 'スナップ';
+
+  @override
+  String get miniPhoneCameraLivePhoto => '躍動感のある写真';
+
+  @override
+  String get miniPhoneCameraCandidPrompt =>
+      '選択したキャラクターだけが写る、自然なスナップ写真。ともに過ごすひとときを、ありのままに捉えてください。外見と服装は変えず、ポーズを決めない自然な構図で、キャラクターたちのワールドにある場所を舞台にしてください。他の人物は追加しないでください。';
+
+  @override
+  String get miniPhoneCameraLivePhotoPrompt =>
+      '選択したキャラクターだけが写る、生き生きとした静止写真。自然なしぐさを捉え、ほのかな動きを感じさせてください。外見と服装は変えず、キャラクターたちのワールドにある場所を舞台にしてください。他の人物は追加しないでください。';
+
+  @override
   String get miniPhoneCameraTakePhoto => '写真を撮る';
 
   @override
@@ -3667,10 +3681,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String get miniPhoneCameraFreeTrial => '無料で試す';
 
   @override
+  String get miniPhoneCameraPreviewNotice =>
+      'プレビューのみ · ジェムは消費されません。サンプル画像はワールドに保存されません。';
+
+  @override
+  String get miniPhoneCameraPreviewStarted => '写真の生成を開始しました。続けて次の写真を撮れます。';
+
+  @override
+  String miniPhoneCameraGeneratingCount({required int count}) {
+    return '$count枚を生成中';
+  }
+
+  @override
   String miniPhoneCameraFreePrice({
     required String originalPrice,
     required String price,
   }) {
     return '$originalPrice $price ジェム／枚';
   }
+
+  @override
+  String get miniPhoneCameraPeopleLimit => '選択できるのは5人までです。';
+
+  @override
+  String get miniPhoneCameraFailureRefund => '生成に失敗しました。ジェムが差し引かれていた場合は返還されます。';
+
+  @override
+  String get miniPhoneCameraPreviewPostNotice =>
+      'プレビュー専用です。このサンプル写真は自分のワールドに投稿できません。';
 }

@@ -3731,6 +3731,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'An eye-level photo of only the selected characters, taken by someone outside the frame. Keep every selected character visible, with relaxed poses and natural expressions in a setting from their world. The photographer and camera stay off-screen: no mirror and no outstretched selfie arm. Keep their appearance and outfits. Do not add extra people.';
 
   @override
+  String get miniPhoneCameraCandid => 'Candid';
+
+  @override
+  String get miniPhoneCameraLivePhoto => 'Live photo';
+
+  @override
+  String get miniPhoneCameraCandidPrompt =>
+      'A candid photo of only the selected characters, caught naturally in the middle of a shared moment. Keep their appearance and outfits, with an unposed composition and a setting from their world. Do not add extra people.';
+
+  @override
+  String get miniPhoneCameraLivePhotoPrompt =>
+      'A lively still photo of only the selected characters, capturing a spontaneous gesture with a subtle sense of motion. Keep their appearance and outfits and a setting from their world. Do not add extra people.';
+
+  @override
   String get miniPhoneCameraTakePhoto => 'Take photo';
 
   @override
@@ -3802,10 +3816,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get miniPhoneCameraFreeTrial => 'Free trial';
 
   @override
+  String get miniPhoneCameraPreviewNotice =>
+      'Preview only · No Gems used. Sample images are not saved to your World.';
+
+  @override
+  String get miniPhoneCameraPreviewStarted =>
+      'Photo started. You can take another.';
+
+  @override
+  String miniPhoneCameraGeneratingCount({required int count}) {
+    return '$count generating';
+  }
+
+  @override
   String miniPhoneCameraFreePrice({
     required String originalPrice,
     required String price,
   }) {
     return '$originalPrice $price Gems / photo';
   }
+
+  @override
+  String get miniPhoneCameraPeopleLimit => 'Choose up to 5 people.';
+
+  @override
+  String get miniPhoneCameraFailureRefund =>
+      'Generation failed. Any Gems charged will be refunded.';
+
+  @override
+  String get miniPhoneCameraPreviewPostNotice =>
+      'Preview only. This sample photo cannot be published to your world.';
 }

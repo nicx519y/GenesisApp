@@ -13,9 +13,13 @@ class MiniPhoneCameraStrings {
     required this.povSelfie,
     required this.mirrorSelfie,
     required this.byFriend,
+    required this.candid,
+    required this.livePhoto,
     required this.povSelfiePrompt,
     required this.mirrorSelfiePrompt,
     required this.byFriendPrompt,
+    required this.candidPrompt,
+    required this.livePhotoPrompt,
     required this.takePhoto,
     required this.tryAgain,
     required this.pricePerPhoto,
@@ -38,6 +42,7 @@ class MiniPhoneCameraStrings {
   final String inThePhoto, castHint, you, describeMoment, promptHint;
   final String tryTemplate, templateHint, povSelfie, mirrorSelfie, byFriend;
   final String povSelfiePrompt, mirrorSelfiePrompt, byFriendPrompt;
+  final String candid, livePhoto, candidPrompt, livePhotoPrompt;
   final String takePhoto, tryAgain, comingSoon;
   final String creatingPhoto, creatingTitle, creatingBody, cancel;
   final String generationFailed, draftPreserved, takeAnother, useInPost;

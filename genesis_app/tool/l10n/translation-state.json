@@ -6136,6 +6136,66 @@
           "text_hash": "f9efda84c8b56e9113ec169713ab0dc46046d716c5e1eb58a606cf3670e7aa20",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "d41dc8a275583d09aabcc9f53d35c2ca782f0e4665306e07ac10968662a2efe1",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "8eff95e092ba5b1feecc22a717d9f9e7570f8357b3b3165c255b2660b071995e",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "cd325493185b87ac6fc6fb2e42f5e8334455e74ed3ec0763b505a23799bb2122",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "d04a4699b1f1abc356125d71335251e49b3367eee225aaf7e3d77633b2a97b3f",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo. Traditional Chinese style labels match the user-provided filenames exactly."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "e89d229d850da3525aa08b0a51e73d72e7fb78f489300a0ef2a83a3114270284",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo. Traditional Chinese style labels match the user-provided filenames exactly."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "ab3bd5cdecfb115e0a17049d579049250eea5ba413d9ea6224b1410859407bf5",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo. Traditional Chinese style labels match the user-provided filenames exactly."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "a7c185eae3d7f6d1cd1336b88bb960c94ab4bac223c3cbba80a862fa3d52d584",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo. Traditional Chinese style labels match the user-provided filenames exactly."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "0c7a4da80bc0ceea20ab66c344bd18170d4ed138812daa2b111cc8d7514ad48f",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "7acb8a57ecb6cb9afd9f644e933def13ba1aea4d30e4685c89e1e0df5bf0736c",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "3a700cf0c0a4ae6f6808c5cb06a2dbc6a8f4cc75e420a20d80209348ed02910c",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -12273,6 +12333,66 @@
           "text_hash": "7b6af8dddd67b45ff4544787bce43c282e621e6ea52e1f447c3cf4b0ab3a1ee2",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "24d23806569db6af63de4d936fc17c98c5f7ea100b38649df1f3d7ef23ae5837",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "8682ae5646647dba72715bfb5352b4bc6319226f8fc0488e2cf414d202d40674",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "e68c1c1a0e05fb76b25c71cc79ae9d1768cbe2cdd3683f6bbff82829bcf1e3c5",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "9879d5f53fe130d1bf78527f865159ce94be38ccd52ab43dd60df78cc41e9d46",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "aad8660a736e746a370b13e7ac8ee98f4268e6e8007c95a98d3826ee912d8f6a",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "72a97cc3943063d078d595b7739625c723685d20c0c1c6224a0f5f86e312f2df",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "34eca042a5cd8c91eb42d7a1b4e1e4cbcb1ccb8b7f60e02bbde17034c3e24797",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "cda3b22edf9ac77b316b40401a75cbfdb27992eeba37b5e04203df67c97340db",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "a6d549e5f98936a62d54ba312baa145722d7229e36522b68e6ea02d1d076d0fe",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "b5f9189dc5d0bee8cbf95631c5fff5f4bd2517fbb736f995f36901ff0b9a230a",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -18410,6 +18530,66 @@
           "text_hash": "7b6af8dddd67b45ff4544787bce43c282e621e6ea52e1f447c3cf4b0ab3a1ee2",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "27cbe7ff89b41b67f6b42df5840e053189f3be062fac26ba99d031b33f58e4f5",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "c41ac234dab27e6e272284979ba83f49fba12026bb518e1ada4937ef93c284e5",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "37285a099358a70d6ea0d6bbe4ff7704e2f969091cda8e94fafafc3c65338430",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "53e5d59bb58cd3330cbca4d599e5c22cb627a2ed09f99c2ab76273d6ee97e71f",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "7f0840f64b76a1c12fe168ea32743986ba0ab0f6888b9a82ff44d8499d899012",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "1ecc3686f2b279a15c87869b1733413084472c22668fb667905393be4ad65b51",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "9d4f3fe581d8092a64136a6ecd5dc5d1bed120e691f725591ae444c4ae5c5ad7",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "4ad880cb0430508032a89b45b6ce8410d46bac9d0acef3fd06dc434020e5506a",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "79ab0b511095d66f3bc71b9e6d6de248df68ddcf105e26a69d8f7a3c2b7d8e74",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "516bba6afc8282eded1a9ae2607719bd9e55cb6667ca4f987d981d4cf2cebb0a",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -24547,6 +24727,66 @@
           "text_hash": "1a79a485d91f3f28f6515829e8af1ba99d73d3729f88c1e2dec47f9782bb874c",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "b41f0ca1cb11eab7c603190bfcbe73d32eea71da09fe67094e453e1c2fb09bd8",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "b8947340e9b58fd362efa6a99cc1fe7edb8c4171d723ef17105a17e0254aff78",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "2ac8a3bd1ccdd53ab30e349c6b6b78601885913efdcd7ce5576ded13decec941",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "74ce933143892ae3af8d231e92105f3460dd4cef345fc5aeb245c7b809a89160",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "e24914deffde9308b90973f7bb6b98f67a93828ecf81e52e732b686a203fc89d",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "a7a999f44a0c69101fb67e06486cf235e9d67be3adb875404d638b970046995b",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "3bb562e6d11ca8b4eb21934b27a8dd0875cdf348ac5e895338f0c835c251fb4d",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "a9edfda03dd9077427f971a4856b0407097c910e601bd738f5ad68911c67571e",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "0eedc3614bf446396cfea5d8a5e08e0b5219bf1fca8381053b0d5d9acebb49f5",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "d2a9f07ea421effba193e04ffc3ff4246ffdfccf7985274d7675b54310a72e93",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -30684,6 +30924,66 @@
           "text_hash": "05048f30c7177fdc1e59719c2b0df9471df01a8df13d99a6bff60ee1f07e4c89",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "29e738fdeb1ba6eed68e88f88c8f95f8be01b893d44675e076421138692bf27f",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "6bc905c5b75cd74ff4676855857a713c4aad558133967f6ef3aef52597b0fd70",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "4a4ea25652e5984cec0214b75675a87547ddc5b3a5c1689f3398a6fc8a97e364",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "c620d6b9ca96effa04272ee93c36688b130fb85a9415e79555c6f773ad37bf11",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "ec213ed2e8c22f083e6555ecb60d8150b4dfb7edeaaa46ee50e177041990ae6f",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "a42d66508dfecf2645db19ba0281d9c584017d58c141f12ee2da16da58647958",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "4e0a0849482731d3428b483f7b4924a83c49055dac63f9a9fbff82293a88a089",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "fd1e95460322f3174011f2cfaba3f182d45ca95f241979922d056a23c89c70e9",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "f910ed90a9f57c8b7c2877d31143643b1aea6c16e0a9b6ce9238c5a6632151b3",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "9d03338a0f695fce81f7e8f9ed880c91f92bd207f29f1dbdb8edae509da29d18",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -36821,6 +37121,66 @@
           "text_hash": "d01d1d6713c73f539a6d9c406d0455f7afa79fbae9ba1d3b01bb0b6c1acbfe89",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "c2c3fceb721253f416e3f4e50eb0cf3505894ccd027e1c327d198b4380912f01",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "525966dc61b86cea4ebd2ec18a350069f9a2440b47415037e84550c8da947b15",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "9b582496425c6cb77fef5cc799d969e4b45281692a2ff89f66c88b75eba79f4a",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "dc689e30b63a5ea8dd34f66afb81dc929888b0ff947479fabbf16e2b43f7ece3",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "7cb00f4d0dd51e08770b7a99c8d9947036d402ae1f17398c8109e925376ff6ff",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "618c06259833a80ac922851076306ae89a81a4ccbf62cd726d3ce585987bd9f3",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "918e2cbf90693f3160e2a9223147099fc7750b46a9b8b8ae4efa3af6a52ed662",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "0db498855314cbf15ead8fbbdde61bdeb77d7c55105674fa9663693fbf163317",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "46bd95b0fba0cd0c012ea62329c23b1f81ffbc7a1951d2c0bbd5eb49ae4f9f01",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "436ffb8f9205da0250bcf0342f1c92426895adfc392b65c67c2f7c4ec686b1ef",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -42958,6 +43318,66 @@
           "text_hash": "f5946039b7c379f55c8eb51aafa51995139f2e883c19431eda7a6cc8dd17c4ed",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "c3b9bba24f9c825f533b36c3ef913d3e487a3b428038b1967aee2cd5a86290a2",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "9db320d1cc926c43ef9ee4b4d821becd77d5afcf6e56991c1a5b19ca45bcd85c",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "106b8f51fb9d735e1bb085bfc55ca2bb9ace15041eb5f598a458a706096ae21e",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "3c2e33cce719780119e788bfd54e4118ef8a1793b7ff6274502cb87e1c214042",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "4561ad605ed628947453c886a39257467b7565ebd3c712f4f44d2702d98396fc",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "f0fbb7389ebffda0ffec524ee1dd5a883df444c1cacd8ae1a43fffcd40ce8a4d",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "dd0e306554ef6f447299cbd601281481ff94be4b8ff9e5a62a936794c3d8ad7b",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "b4f728eaefa5d4c3c0c8c59ccf5505428234ca3bc133c89311f8a4ee501442d1",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "bba78f2497dd3af60dccfb2bddfb24eae191648152fc60efebbf509724ea99ea",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "cd624d400cab1133413af2ae11ce3bf7e234b4350bf5a15d983e248b4d7e3622",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     },
@@ -49095,6 +49515,66 @@
           "text_hash": "505bf5f6dd9ac177de07fe96c65b0ad96071fcb7edbe7d2bbcdc61cd6eebb18e",
           "status": "ai",
           "note": "Camera framing instruction and compact style/status captions; localized for this locale."
+        },
+        "miniPhoneCameraPreviewNotice": {
+          "source_hash": "a44afa16b070442e348554d4dbbd50627c3f999773023086cdc66134d31419bc",
+          "text_hash": "646c5b27ea08687a890dd32a88ac5ee12a57f462f81ea820ffc375328b5126e4",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraPreviewStarted": {
+          "source_hash": "8387e7239b763db5635be8ad5c89313ed131fb5fd395250a540ce66cfc22299e",
+          "text_hash": "f6b17ead8e1716ec8631d62d1e8d91f26a86878b1276f52e05cfd1ec9cb82bb8",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraGeneratingCount": {
+          "source_hash": "d4b759dbb2be6ff4fad2c57eb1d024da576174b1f73ff8ef028ef90a4a29eccb",
+          "text_hash": "2160adf7af726c3bced8d62fa0bc896959d8b2641af1afa2a90e13d0729122d7",
+          "status": "ai",
+          "note": "AI translation using the supplied local-simulation context, language profile, and glossary; no human review claimed."
+        },
+        "miniPhoneCameraCandid": {
+          "source_hash": "06978ba952639526c0c4eb10acf7116a96d0114948aa80268986032ab4a642ef",
+          "text_hash": "5064ef9b2e4f29f7d685f9dfc289a3ac7c48a0a7f5be246c499f395bafececf0",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhoto": {
+          "source_hash": "defa7d4bda205964e20764471dd022c6f22a5cae05d654b5237eb23509d64ac5",
+          "text_hash": "95108896cecf642ca9aab815ce75fcb8fc87e94bc1c25095defaf2c9453bb71a",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraCandidPrompt": {
+          "source_hash": "a2d28e3ff9251f717928009a3aa06ce9cb3dcaab8e87d70c8b71cd8bd24c36b2",
+          "text_hash": "cf9e20a659b80b4e3a8ce4616003ea6ae11c59ac98c45d5a33e54b781403a0f6",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraLivePhotoPrompt": {
+          "source_hash": "04f7fc7909636e90d73485502b9ce16fe65389665506f2b926e7c79f4afb2b99",
+          "text_hash": "5a0b71565dd81e58606bbf8cb4fa7c886bcab170b11c7b782712fc61b1764d4b",
+          "status": "ai",
+          "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
+        },
+        "miniPhoneCameraPeopleLimit": {
+          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
+          "text_hash": "d676a8dc34e783db3678981349b66335573b5042d72d999aefa45a5485098b59",
+          "status": "ai",
+          "note": "Preserves the fixed maximum of 5 people."
+        },
+        "miniPhoneCameraFailureRefund": {
+          "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
+          "text_hash": "41be7631633d8c3ba6741fd5fd6761a11f8a5c0bc7868cd26ffeef985c831625",
+          "status": "ai",
+          "note": "Preserves conditional charging and future refund; does not claim a charge or completed refund."
+        },
+        "miniPhoneCameraPreviewPostNotice": {
+          "source_hash": "f16deb213f8fd938dcde0f0aaed4213ea67faa73455d8ea39d4d157b85816095",
+          "text_hash": "a6db78375edf9e3971129e9df0b7bac63aae8d2e351493f96a526a857f476959",
+          "status": "ai",
+          "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
         }
       }
     }

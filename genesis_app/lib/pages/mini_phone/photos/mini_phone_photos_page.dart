@@ -8,15 +8,21 @@ import '../../../ui/components/genesis_refresh_indicator.dart';
 import '../../../components/common/genesis_image_viewer_overlay.dart';
 import 'mini_phone_photo_projection.dart';
 import 'mini_phone_photo_thumbnail.dart';
+import '../camera/mini_phone_camera_preview_jobs.dart';
+import '../camera/mini_phone_camera_preview_album.dart';
 
 class MiniPhonePhotosPage extends StatefulWidget {
   const MiniPhonePhotosPage({
     super.key,
     required this.store,
     required this.header,
+    this.previewJobs,
+    this.onUsePreviewInPost,
   });
   final MiniPhoneStore store;
   final Widget header;
+  final MiniPhoneCameraPreviewJobs? previewJobs;
+  final ValueChanged<String>? onUsePreviewInPost;
   @override
   State<MiniPhonePhotosPage> createState() => _MiniPhonePhotosPageState();
 }
@@ -29,6 +35,7 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
   final _scroll = ScrollController(keepScrollOffset: false);
   bool _fillScheduled = false;
   Size _viewportSize = Size.zero;
+  double _previewExtent = 0;
 
   final _projection = MiniPhonePhotoProjection();
   final _confirmedProjection = MiniPhonePhotoProjection();
@@ -83,7 +90,9 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
       store.photosController.confirmedAlbum,
       store.worldCoverImageKeys,
     );
-    final boundary = ((confirmed.length + 2) ~/ 3) * (_viewportSize.width / 3);
+    final boundary =
+        _previewExtent +
+        ((confirmed.length + 2) ~/ 3) * (_viewportSize.width / 3);
     if (metrics.pixels + metrics.viewportDimension + 160 >= boundary) {
       _lists.loadNext('album', () => store.refreshAlbum(next: true));
     }
@@ -92,8 +101,25 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
   @override
   void initState() {
     super.initState();
+    widget.previewJobs?.beginAlbumVisit();
     _sync();
     widget.store.addListener(_changed);
+    widget.previewJobs?.addListener(_previewChanged);
+  }
+
+  void _previewChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant MiniPhonePhotosPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.previewJobs != widget.previewJobs) {
+      oldWidget.previewJobs?.endAlbumVisit();
+      widget.previewJobs?.beginAlbumVisit();
+      oldWidget.previewJobs?.removeListener(_previewChanged);
+      widget.previewJobs?.addListener(_previewChanged);
+    }
   }
 
   void _changed() {
@@ -102,7 +128,9 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
 
   @override
   void dispose() {
+    widget.previewJobs?.endAlbumVisit();
     widget.store.removeListener(_changed);
+    widget.previewJobs?.removeListener(_previewChanged);
     _scroll.dispose();
     super.dispose();
   }
@@ -137,28 +165,38 @@ class _MiniPhonePhotosPageState extends State<MiniPhonePhotosPage> {
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final asset = photos[index];
-                        return (_tiles[asset.id] ??= (
-                          asset: asset,
-                          widget: _livePhotoTile(asset),
-                        )).widget;
-                      },
-                      childCount: photos.length,
-                      findChildIndexCallback: (key) {
-                        if (key is! ValueKey<int>) return null;
-                        final index = photos.indexWhere(
-                          (a) => a.id == key.value,
-                        );
-                        return index < 0 ? null : index;
-                      },
+                  if (widget.previewJobs != null)
+                    CameraPreviewAlbumSliver(
+                      jobs: widget.previewJobs!,
+                      onUseInPost: widget.onUsePreviewInPost,
                     ),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
+                  SliverLayoutBuilder(
+                    builder: (context, constraints) {
+                      _previewExtent = constraints.precedingScrollExtent;
+                      return SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final asset = photos[index];
+                            return (_tiles[asset.id] ??= (
+                              asset: asset,
+                              widget: _livePhotoTile(asset),
+                            )).widget;
+                          },
+                          childCount: photos.length,
+                          findChildIndexCallback: (key) {
+                            if (key is! ValueKey<int>) return null;
+                            final index = photos.indexWhere(
+                              (a) => a.id == key.value,
+                            );
+                            return index < 0 ? null : index;
+                          },
                         ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                            ),
+                      );
+                    },
                   ),
                 ],
               ),

@@ -8,7 +8,6 @@ import '../../../components/common/genesis_modal_routes.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../../../ui/components/genesis_primary_button.dart';
-import '../../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../../ui/components/genesis_static_network_image.dart';
 import '../shared/mini_phone_controls.dart';
 import '../shared/mini_phone_panel.dart';
@@ -20,6 +19,10 @@ import 'mini_phone_camera_models.dart';
 import 'mini_phone_camera_strings.dart';
 import 'mini_phone_camera_templates.dart';
 import 'mini_phone_camera_widgets.dart';
+import 'mini_phone_camera_preview_jobs.dart';
+import 'mini_phone_camera_preview_album.dart';
+import 'mini_phone_camera_ratio_picker.dart';
+import 'mini_phone_camera_capture_flight.dart';
 
 /// Camera presentation only. Header/navigation and real generation are injected
 /// by the parent. With no adapter the draft remains editable and generation is
@@ -42,6 +45,7 @@ class MiniPhoneCameraPage extends StatefulWidget {
     this.onCaptureRequested,
     this.albumThumbnailUrl,
     this.coverImageUrl = '',
+    this.previewJobs,
   });
 
   final Widget header;
@@ -58,6 +62,7 @@ class MiniPhoneCameraPage extends StatefulWidget {
   final Future<void> Function()? onCaptureRequested;
   final String? albumThumbnailUrl;
   final String coverImageUrl;
+  final MiniPhoneCameraPreviewJobs? previewJobs;
 
   @override
   State<MiniPhoneCameraPage> createState() => _MiniPhoneCameraPageState();
@@ -70,6 +75,11 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   late Object _viewOwner;
   Object? _shownFailure;
   bool _capturePending = false;
+  final _captureStage = GlobalKey();
+  final _captureFrame = GlobalKey();
+  final _captureAlbum = GlobalKey();
+  final _flights = <({int id, Rect from, Rect to})>[];
+  int? _lastPreviewId;
   String _personLabel(PhonePerson person) =>
       person.key == widget.selfPersonKey ? strings.you : person.name;
 
@@ -80,6 +90,8 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   void initState() {
     super.initState();
     _attach();
+    _lastPreviewId = widget.previewJobs?.tasks.firstOrNull?.id;
+    widget.previewJobs?.addListener(_previewChanged);
   }
 
   void _attach() {
@@ -93,6 +105,12 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   @override
   void didUpdateWidget(covariant MiniPhoneCameraPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.previewJobs != widget.previewJobs) {
+      oldWidget.previewJobs?.removeListener(_previewChanged);
+      _lastPreviewId = widget.previewJobs?.tasks.firstOrNull?.id;
+      _flights.clear();
+      widget.previewJobs?.addListener(_previewChanged);
+    }
     if (oldWidget.controller != camera) {
       oldWidget.controller.removeListener(_changed);
       oldWidget.controller.close(owner: _viewOwner);
@@ -131,9 +149,37 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     }
   }
 
+  void _previewChanged() {
+    if (!mounted) return;
+    final task = widget.previewJobs?.tasks.firstOrNull;
+    if (task == null) _flights.clear();
+    if (task != null && task.id != _lastPreviewId) {
+      _lastPreviewId = task.id;
+      if (!MediaQuery.disableAnimationsOf(context) && !_keyboardOpen) {
+        final stage = _captureStage.currentContext?.findRenderObject();
+        final frame = _captureFrame.currentContext?.findRenderObject();
+        final album = _captureAlbum.currentContext?.findRenderObject();
+        if (stage is RenderBox &&
+            frame is RenderBox &&
+            album is RenderBox &&
+            frame.hasSize &&
+            album.hasSize) {
+          _flights.add((
+            id: task.id,
+            from:
+                frame.localToGlobal(Offset.zero, ancestor: stage) & frame.size,
+            to: album.localToGlobal(Offset.zero, ancestor: stage) & album.size,
+          ));
+        }
+      }
+    }
+    setState(() {});
+  }
+
   @override
   void dispose() {
     camera.removeListener(_changed);
+    widget.previewJobs?.removeListener(_previewChanged);
     camera.close(owner: _viewOwner);
     _prompt.dispose();
     _scroll.dispose();
@@ -142,31 +188,46 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: miniBackground,
-    child: miniPhonePanel(
-      widget.header,
-      switch (camera.phase) {
-        MiniPhoneCameraPhase.compose => _compose(),
-        MiniPhoneCameraPhase.generating => _generating(),
-        MiniPhoneCameraPhase.result => _result(),
-      },
-      footer: Visibility(
-        visible: !_keyboardOpen,
-        maintainState: true,
-        maintainAnimation: true,
-        maintainSize: true,
-        child: _footer(),
+  Widget build(BuildContext context) => Stack(
+    key: _captureStage,
+    children: [
+      Positioned.fill(
+        child: Material(
+          color: miniBackground,
+          child: miniPhonePanel(
+            widget.header,
+            switch (camera.phase) {
+              MiniPhoneCameraPhase.compose => _compose(),
+              MiniPhoneCameraPhase.generating => _generating(),
+              MiniPhoneCameraPhase.result => _result(),
+            },
+            footer: Visibility(
+              visible: !_keyboardOpen,
+              maintainState: true,
+              maintainAnimation: true,
+              maintainSize: true,
+              child: _footer(),
+            ),
+          ),
+        ),
       ),
-    ),
+      for (final flight in _flights)
+        CameraCaptureFlight(
+          key: ValueKey('camera-capture-flight-${flight.id}'),
+          from: flight.from,
+          to: flight.to,
+          onEnd: () {
+            if (mounted) {
+              setState(() => _flights.removeWhere((f) => f.id == flight.id));
+            }
+          },
+        ),
+    ],
   );
 
   bool get _keyboardOpen => MediaQuery.viewInsetsOf(context).bottom > 0;
 
-  MiniPhoneCameraTemplate? get _selectedTemplate => MiniPhoneCameraTemplate
-      .values
-      .where((template) => camera.prompt == template.prompt(strings))
-      .firstOrNull;
+  MiniPhoneCameraTemplate? get _selectedTemplate => camera.selectedTemplate;
 
   Widget _compose() => LayoutBuilder(
     builder: (context, bounds) {
@@ -174,8 +235,13 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
       // Reserve the same status/cast space while editing; only the scroll
       // viewport reveals the field, rather than lifting the camera controls.
       final frameHeight = math.min(
-        (bounds.maxWidth - miniPageInset * 2) / genesisOriginCoverAspectRatio,
-        math.max(260.0, bounds.maxHeight - 110 - 34 * scale),
+        (bounds.maxWidth - miniPageInset * 2) / (2 / 3),
+        math.max(260.0, bounds.maxHeight - 74 - 34 * scale),
+      );
+      final ratio = camera.photoRatio.aspectRatio;
+      final visibleHeight = math.min(
+        frameHeight,
+        (bounds.maxWidth - miniPageInset * 2) / ratio,
       );
       return SingleChildScrollView(
         key: const PageStorageKey('mini-phone-camera-compose'),
@@ -191,59 +257,87 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
           children: [
             SizedBox(
               height: frameHeight,
-              width: frameHeight * genesisOriginCoverAspectRatio,
-              child: MiniPhoneCameraViewfinder(
-                imageUrl: widget.coverImageUrl,
-                footer: _promptField(),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-                  child: Column(
-                    children: [
-                      Semantics(
-                        liveRegion: true,
-                        child: MiniGlass(
-                          key: const ValueKey('mini-phone-camera-status'),
-                          light: true,
-                          outlined: false,
-                          opacity: .12,
-                          radius: 14,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(
+                    child: SizedBox(
+                      key: _captureFrame,
+                      height: visibleHeight,
+                      width: visibleHeight * ratio,
+                      child: MiniPhoneCameraViewfinder(
+                        imageUrl: widget.coverImageUrl,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                          child: Column(
                             children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: camera.selectedPeople.isEmpty
-                                      ? miniTertiary
-                                      : miniRed,
-                                ),
-                              ),
-                              const SizedBox(width: 7),
-                              Flexible(
-                                child: Text(
-                                  strings.selectedCount(
-                                    camera.selectedPeople.length,
+                              Semantics(
+                                liveRegion: true,
+                                child: MiniGlass(
+                                  key: const ValueKey(
+                                    'mini-phone-camera-status',
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: miniStyle(11, FontWeight.w500),
+                                  light: true,
+                                  outlined: false,
+                                  opacity: .12,
+                                  radius: 14,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 5,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: camera.selectedPeople.isEmpty
+                                              ? miniTertiary
+                                              : miniRed,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 7),
+                                      Flexible(
+                                        child: Text(
+                                          strings.selectedCount(
+                                            camera.selectedPeople.length,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: miniStyle(11, FontWeight.w500),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              Expanded(child: _focusedPeople()),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Expanded(child: _focusedPeople()),
-                    ],
+                    ),
                   ),
-                ),
+                  Positioned(
+                    bottom: 28,
+                    left:
+                        (bounds.maxWidth -
+                                miniPageInset * 2 -
+                                frameHeight * 2 / 3) /
+                            2 +
+                        24,
+                    right:
+                        (bounds.maxWidth -
+                                miniPageInset * 2 -
+                                frameHeight * 2 / 3) /
+                            2 +
+                        24,
+                    child: _promptField(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
@@ -263,14 +357,14 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   Widget _promptField() => MiniGlass(
     radius: 12,
     outlined: false,
-    opacity: .5,
-    tint: miniBackground,
+    opacity: .16,
+    light: true,
     highlight: false,
     child: Row(
       children: [
         const Padding(
           padding: EdgeInsets.only(left: 10),
-          child: Icon(Icons.auto_awesome_outlined, size: 16, color: miniRed),
+          child: Icon(Icons.auto_awesome_outlined, size: 16, color: miniWhite),
         ),
         Expanded(
           child: Semantics(
@@ -332,6 +426,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   }
 
   Widget _participants() => Align(
+    key: const ValueKey('camera-participants-region'),
     alignment: Alignment.centerLeft,
     child: SingleChildScrollView(
       controller: _castScroll,
@@ -350,7 +445,18 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
                       (p) => p.key == person.key,
                     ) +
                     1,
-                onTap: () => camera.togglePerson(person),
+                onTap: () {
+                  if (camera.selectedPeople.length >=
+                          MiniPhoneCameraController.maxPeople &&
+                      !camera.selectedPeople.any((p) => p.key == person.key)) {
+                    showMiniPhoneToast(
+                      context,
+                      context.l10n.miniPhoneCameraPeopleLimit,
+                    );
+                    return;
+                  }
+                  camera.togglePerson(person);
+                },
               ),
             ),
         ],
@@ -370,7 +476,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
       useSafeArea: true,
       builder: (sheetContext) => MiniPhoneCameraTemplateSheet(
         strings: strings,
-        prompt: controller.prompt,
+        selectedTemplate: controller.selectedTemplate,
         onSelected: (value) => Navigator.of(sheetContext).pop(value),
       ),
     );
@@ -381,12 +487,16 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
         controller.requests.generation != generation) {
       return;
     }
-    controller.setPrompt(template.prompt(strings));
+    controller.setTemplate(template);
   }
 
   Future<void> _requestCapture() async {
     if (_capturePending) return;
     FocusManager.instance.primaryFocus?.unfocus();
+    if (widget.previewJobs != null && camera.selectedPeople.isEmpty) {
+      showMiniPhoneToast(context, strings.castHint);
+      return;
+    }
     if (widget.onCaptureRequested case final callback?) {
       setState(() => _capturePending = true);
       final controller = camera;
@@ -411,10 +521,15 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     final albumUrl = widget.albumThumbnailUrl?.trim();
     final template = _selectedTemplate ?? MiniPhoneCameraTemplate.values.first;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(26, 10, 26, 44),
+      padding: const EdgeInsets.fromLTRB(26, 10, 26, 28),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          CameraRatioPicker(
+            value: camera.photoRatio,
+            onChanged: camera.setPhotoRatio,
+          ),
+          const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -444,17 +559,21 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
               ),
               MiniPhoneCameraThumbnail(
                 key: const ValueKey('mini-phone-camera-album'),
-                label: widget.albumLabel ?? context.l10n.miniPhonePhotos,
+                label: (widget.previewJobs?.pendingCount ?? 0) > 0
+                    ? context.l10n.miniPhoneCameraGeneratingCount(
+                        count: widget.previewJobs!.pendingCount,
+                      )
+                    : widget.albumLabel ?? context.l10n.miniPhonePhotos,
                 onPressed: widget.onOpenAlbum,
-                child: albumUrl == null || albumUrl.isEmpty
-                    ? const ColoredBox(color: miniRaised)
-                    : GenesisStaticNetworkImage(
-                        imageUrl: albumUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_) => const ColoredBox(color: miniRaised),
-                        errorWidget: (_, _) =>
-                            const ColoredBox(color: miniRaised),
-                      ),
+                child: SizedBox(
+                  key: _captureAlbum,
+                  child: widget.previewJobs != null
+                      ? CameraPreviewAlbumThumbnail(
+                          jobs: widget.previewJobs!,
+                          fallback: _albumImage(albumUrl),
+                        )
+                      : _albumImage(albumUrl),
+                ),
               ),
             ],
           ),
@@ -470,6 +589,15 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
       ),
     );
   }
+
+  Widget _albumImage(String? albumUrl) => albumUrl == null || albumUrl.isEmpty
+      ? const ColoredBox(color: miniRaised)
+      : GenesisStaticNetworkImage(
+          imageUrl: albumUrl,
+          fit: BoxFit.cover,
+          placeholder: (_) => const ColoredBox(color: miniRaised),
+          errorWidget: (_, _) => const ColoredBox(color: miniRaised),
+        );
 
   Widget _generating() => LayoutBuilder(
     builder: (context, bounds) => SingleChildScrollView(

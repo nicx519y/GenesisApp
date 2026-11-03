@@ -4982,6 +4982,22 @@
   "@miniPhoneCameraByFriendPrompt": {
     "description": "MiniPhone Camera: complete editable prompt inserted by the By a friend template. Preserve all constraints: eye-level photo, only selected characters, photographer outside the frame, everyone visible with relaxed poses/natural expressions, world setting, photographer/camera off-screen, no mirror/selfie arm, unchanged appearance/outfits, no extra people."
   },
+  "miniPhoneCameraCandid": "Candid",
+  "@miniPhoneCameraCandid": {
+    "description": "MiniPhone Camera style selector: short label for a naturally captured, unposed photo of only the selected characters sharing a moment. The Taiwan Traditional Chinese label must be 抓拍, matching the user-provided source image filename."
+  },
+  "miniPhoneCameraLivePhoto": "Live photo",
+  "@miniPhoneCameraLivePhoto": {
+    "description": "MiniPhone Camera style selector: short style label for a static still photo capturing a spontaneous gesture with a subtle sense of motion. This is not video or the Apple Live Photo feature. The Taiwan Traditional Chinese label must be 實況照片, matching the user-provided source image filename."
+  },
+  "miniPhoneCameraCandidPrompt": "A candid photo of only the selected characters, caught naturally in the middle of a shared moment. Keep their appearance and outfits, with an unposed composition and a setting from their world. Do not add extra people.",
+  "@miniPhoneCameraCandidPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted when the Candid style is selected. Preserve all constraints: only selected characters, naturally captured shared moment, unposed composition, setting from their world, unchanged appearance and outfits, and no extra people."
+  },
+  "miniPhoneCameraLivePhotoPrompt": "A lively still photo of only the selected characters, capturing a spontaneous gesture with a subtle sense of motion. Keep their appearance and outfits and a setting from their world. Do not add extra people.",
+  "@miniPhoneCameraLivePhotoPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people."
+  },
   "miniPhoneCameraTakePhoto": "Take photo",
   "@miniPhoneCameraTakePhoto": {
     "description": "MiniPhone Camera compose page: primary action to request a photo using the selected participants and entered prompt; not the device camera shutter."
@@ -5068,6 +5084,21 @@
   "@miniPhoneCameraFreeTrial": {
     "description": "Primary photo explanation button in LocationChat and MiniPhone Camera. The user-requested frontend design shows a free trial at zero Gems per photo. Generation is not connected yet; this confirms the explanation only, never charges, creates an image, or grants a real backend trial. Keep the button short."
   },
+  "miniPhoneCameraPreviewNotice": "Preview only · No Gems used. Sample images are not saved to your World.",
+  "@miniPhoneCameraPreviewNotice": {
+    "description": "MiniPhone Camera: short notice on the camera page and heading for the local preview section in Photos. Explicitly describes a frontend-only local simulation: concurrent photo tasks use sample images, make no backend calls, consume no Gems, and write neither World history nor real album assets. Preserve the preview-only, no-charge, and not-saved meanings."
+  },
+  "miniPhoneCameraPreviewStarted": "Photo started. You can take another.",
+  "@miniPhoneCameraPreviewStarted": {
+    "description": "MiniPhone Camera: toast immediately after submitting a local mock photo task, while the camera remains available to start another concurrent task. This is a frontend-only simulation, not confirmation of a backend generation request or a saved photo."
+  },
+  "miniPhoneCameraGeneratingCount": "{count} generating",
+  "@miniPhoneCameraGeneratingCount": {
+    "description": "MiniPhone Camera: compact caption on the Photos album entry showing how many concurrent local simulated photo tasks are currently generating. Count is an integer number of pending preview tasks, not real backend jobs or saved album assets; preserve the count and ongoing status.",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "miniPhoneCameraFreePrice": "{originalPrice} {price} Gems / photo",
   "@miniPhoneCameraFreePrice": {
     "description": "Compact price chip above Free trial in the shared Camera explanation: originalPrice is crossed out (30 from the user's supplied reference image), followed by price (0). These are frontend preview figures, not server billing or granted trial entitlements. Preserve both rich-text placeholders and their localizable order.",
@@ -5075,5 +5106,17 @@
       "originalPrice": {"type": "String"},
       "price": {"type": "String"}
     }
+  },
+  "miniPhoneCameraPeopleLimit": "Choose up to 5 people.",
+  "@miniPhoneCameraPeopleLimit": {
+    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+  },
+  "miniPhoneCameraFailureRefund": "Generation failed. Any Gems charged will be refunded.",
+  "@miniPhoneCameraFailureRefund": {
+    "description": "MiniPhone Camera Debug preview: text in the failed photo placeholder design. Actual billing and backend generation are not connected; keep the conditional meaning of any Gems charged and do not imply that a charge occurred or a refund has already completed."
+  },
+  "miniPhoneCameraPreviewPostNotice": "Preview only. This sample photo cannot be published to your world.",
+  "@miniPhoneCameraPreviewPostNotice": {
+    "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
   }
 }

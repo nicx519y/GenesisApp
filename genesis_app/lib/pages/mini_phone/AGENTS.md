@@ -104,3 +104,5 @@
 - 未接生成接口期间两个入口均强制展示说明预览；30划线/0Gems与免费试用仅为设计预览，确认后提示Coming soon，不代表服务端权益。
 - Camera取景框复用固定封面2:3比例，World封面模糊加暗色遮罩；框内状态与描述用玻璃表面，头像与外部角色条共用48px圆形尺寸。选人仅走下方角色条，无All弹窗。白色细聚焦角线，底部左右分别为风格/相册，中央白色快门。
 - Camera键盘弹起隐藏底部操作及角色条并保留布局尺寸，单独关闭Scaffold键盘重排，不影响其他App。共享MiniGlass可选highlight/tint默认保持其他调用原样。当前UI细节和验证见docs/changes/2026-10-30-camera-role-release.md；历次设计记录见camera-viewfinder文档。
+
+- 2026-11-03 用户明确批准 Camera Debug 多任务模拟预览，作为上面“不伪造照片”规则的局部例外：仅 `kDebugMode` 创建 `MiniPhoneCameraPreviewJobs`，独立于正式生成适配器和 PhotosController。模拟任务及样图在相册顶部独立标识，不进入服务端相册、History、Posts 或扣费链路。关相机/手机不取消，World 会话释放、账号/环境切换清理；App 重启不恢复。Release 仍只展示未接接口的说明。详见 `docs/changes/2026-11-03-camera-multishot-preview.md`。
