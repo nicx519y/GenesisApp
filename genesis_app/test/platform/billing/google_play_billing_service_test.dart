@@ -2259,7 +2259,7 @@ void main() {
           analytics.records.where(
             (record) => record.action == 'purchase_failed',
           ),
-          isEmpty,
+          hasLength(status == GemPurchaseReportStatus.rejected ? 1 : 0),
         );
 
         platform.emit(_purchase(BillingPurchaseStatus.purchased));
@@ -2698,7 +2698,23 @@ void main() {
     expect(uiEvents.last.message, 'Purchase was refunded.');
     expect(
       analytics.records.where((r) => r.action == 'purchase_failed'),
-      isEmpty,
+      hasLength(1),
+    );
+    final failure = analytics.records.singleWhere(
+      (r) => r.action == 'purchase_failed',
+    );
+    expect(failure.properties['reason'], 'report_rejected');
+    expect(failure.properties['error_code'], 'account_mismatch');
+    expect(
+      (failure.properties['failure_diagnostics'] as Map)['stage'],
+      'report',
+    );
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    expect(reports, hasLength(1));
+    expect(
+      analytics.records.where((r) => r.action == 'purchase_failed'),
+      hasLength(1),
     );
     expect(
       analytics.records.where((r) => r.action == 'purchase_success'),

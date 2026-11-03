@@ -471,14 +471,15 @@ void main() {
           'attempt_id': 'attempt-1',
           'product_id': 'gem_pack_1000',
           'reason': reason,
-          'error_code': 'account mismatch',
+          'error_code': 'account_mismatch',
+          'failure_diagnostics': {'stage': 'report', 'step': 'purchase_report'},
         },
       );
       await Future<void>.delayed(Duration.zero);
 
       expect(
         sink.events.single.collectPayload?['object3'],
-        'unknown_failed[reason=unknown_error]',
+        'report_failed[reason=account_mismatch]',
       );
     });
   }

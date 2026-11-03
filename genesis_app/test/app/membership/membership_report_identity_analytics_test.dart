@@ -21,7 +21,13 @@ void main() {
           status: MembershipReportStatus.rejected,
           reason: 'account_mismatch',
         );
-        await h.service.purchase(h.product());
+        await h.service.purchase(
+          h.product(),
+          tracking: const SubscriptionTracking(
+            id: 'known-checkout',
+            source: SubscriptionSource.meMembership,
+          ),
+        );
         await h.service.interceptPurchase(
           h.purchase(
             omitUuid: identity == 'missing',
@@ -43,6 +49,27 @@ void main() {
       },
     );
   }
+  test(
+    'unknown source still reports purchases without emitting analytics',
+    () async {
+      final events = <SubscriptionAnalyticsEvent>[];
+      final h = support.Harness(
+        provider: MembershipProvider.apple,
+        analytics: SubscriptionAnalytics(sink: events.add),
+      );
+      addTearDown(h.service.dispose);
+      h.reportHandler = (_) async => const MembershipPurchaseReport(
+        status: MembershipReportStatus.rejected,
+        reason: 'account_mismatch',
+      );
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(h.purchase());
+      await Future<void>.delayed(Duration.zero);
+      expect(h.reports, hasLength(1));
+      expect(events, isEmpty);
+    },
+  );
+
   test('report timeout emits a report failure once', () async {
     final events = <SubscriptionAnalyticsEvent>[];
     final h = support.Harness(
@@ -51,7 +78,13 @@ void main() {
     );
     addTearDown(h.service.dispose);
     h.reportHandler = (_) async => throw TimeoutException('test');
-    await h.service.purchase(h.product());
+    await h.service.purchase(
+      h.product(),
+      tracking: const SubscriptionTracking(
+        id: 'known-checkout',
+        source: SubscriptionSource.meMembership,
+      ),
+    );
     final purchase = h.purchase();
     await h.service.interceptPurchase(purchase);
     await h.service.interceptPurchase(purchase);

@@ -29,6 +29,32 @@ void main() {
     analytics = SubscriptionAnalytics(sink: events.add);
   });
 
+  test('unknown and recovery sources never reach the subscription sink', () {
+    for (final sourceTracking in [
+      const SubscriptionTracking(id: 'unknown'),
+      SubscriptionTracking.recovery('apple:transaction'),
+      SubscriptionTracking.fromJson({'id': 'legacy', 'source': 'removed'})!,
+    ]) {
+      analytics.pageShow(
+        sourceTracking.id,
+        SubscriptionSurface.page,
+        sourceTracking.source,
+      );
+      analytics.click(
+        sourceTracking.id,
+        SubscriptionSurface.page,
+        sourceTracking.source,
+        isYearly: false,
+      );
+      analytics.failed(sourceTracking, 'canceled');
+      analytics.timeout(sourceTracking, 'prepare');
+      analytics.pending(sourceTracking, 'store_callback_pending');
+      analytics.success(sourceTracking, 'apple', sourceTracking.id);
+      analytics.claim(sourceTracking, 'completed');
+    }
+    expect(events, isEmpty);
+  });
+
   for (final provider in MembershipProvider.values) {
     for (final phase in ['callback', 'stream', 'prepare', 'busy']) {
       test(
@@ -198,7 +224,7 @@ void main() {
 
     final recovered = SubscriptionTracking.recovery('missing-click');
     analytics.failed(recovered, 'report_rejected');
-    expect(events.last.object1, 'from_unknown');
+    expect(events, hasLength(5));
   });
 
   for (final stage in ['precheck', 'query', 'launch']) {

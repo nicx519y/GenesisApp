@@ -135,6 +135,11 @@ class SubscriptionAnalytics {
   }
 
   void _emit(SubscriptionAnalyticsEvent event) {
+    // Unknown origins must not enter subscription analytics. Receipt reporting
+    // and business purchase handling remain independent of this sink.
+    if (SubscriptionSource.parse(event.object1) == SubscriptionSource.unknown) {
+      return;
+    }
     // Invoke synchronously so collect captures the UID at the event, even if
     // the queue write completes after a guest logs in or changes accounts.
     unawaited(Future<void>.sync(() => _sink(event)).catchError((Object _) {}));

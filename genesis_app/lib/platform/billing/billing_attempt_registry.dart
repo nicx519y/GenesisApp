@@ -165,8 +165,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   Future<GemPurchaseReport> _sendPurchaseReport(
     BillingPendingPurchase record, {
     BillingPurchase? purchase,
-  }) {
-    return _reportPurchase(
+  }) async {
+    final report = await _reportPurchase(
       GemPurchaseReportRequest(
         provider: record.provider.apiValue,
         productId: record.productId,
@@ -187,6 +187,24 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
         },
       ),
     );
+    if (report.status == GemPurchaseReportStatus.rejected &&
+        _trackedFailedAttemptIds.add('report:${record.key}')) {
+      _trackFailedById(
+        attemptId: record.attemptId,
+        productId: record.productId,
+        storeProductId: record.storeProductId,
+        reason: 'report_rejected',
+        errorCode: report.reason.trim().isNotEmpty
+            ? report.reason.trim()
+            : 'unknown',
+        failureDiagnostics: {
+          'stage': 'report',
+          'step': 'purchase_report',
+          'success_callback_received': true,
+        },
+      );
+    }
+    return report;
   }
 
   Future<void> _processTransientStoreRecovery(
