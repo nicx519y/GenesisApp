@@ -550,6 +550,7 @@ class _WorldPageState extends State<WorldPage>
         _onWorldSessionChanged,
       );
       _worldSessionServices = services;
+      _recapCache.bindScope((services, services.sessionRevision.value));
       services.sessionRevision.addListener(_onWorldSessionChanged);
       if (replacing) _onWorldSessionChanged();
     }
@@ -563,6 +564,8 @@ class _WorldPageState extends State<WorldPage>
 
   void _onWorldSessionChanged() {
     if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    _recapCache.bindScope((services, services.sessionRevision.value));
     // Account-scoped music and transport have been reset by the services.
     // Replace the World lease so its entry cannot reuse the disposed player.
     _stopWorldChatroom();

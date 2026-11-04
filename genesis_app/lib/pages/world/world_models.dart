@@ -2,7 +2,6 @@ import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-import 'world_constants.dart';
 import '../../network/models/origin.dart';
 import '../../network/json_utils.dart';
 import 'world_value_helpers.dart';
@@ -13,6 +12,7 @@ enum WorldBottomSheetKind {
   events,
   history,
   recap,
+  bonds,
   status,
   cast,
 }
@@ -24,6 +24,7 @@ String worldBottomSheetPageName(WorldBottomSheetKind kind) {
     WorldBottomSheetKind.events => 'world_events',
     WorldBottomSheetKind.history => 'world_history',
     WorldBottomSheetKind.recap => 'world_recap',
+    WorldBottomSheetKind.bonds => 'world_bonds',
     WorldBottomSheetKind.status => 'world_status',
     WorldBottomSheetKind.cast => 'world_cast',
   };
@@ -128,27 +129,37 @@ List<WorldBottomTagItem> worldBottomTagItemsFor(AppLocalizations l10n) => [
   WorldBottomTagItem(
     label: l10n.worldModelsDetail,
     kind: WorldBottomSheetKind.detail,
-    asset: worldDetailIconAsset,
+    asset: 'assets/mini_phone/icons/world-detail.svg',
   ),
   WorldBottomTagItem(
     label: l10n.worldHistory,
     kind: WorldBottomSheetKind.history,
-    icon: Icons.history_rounded,
-  ),
-  WorldBottomTagItem(
-    label: l10n.worldModelsEvents,
-    kind: WorldBottomSheetKind.events,
-    asset: worldSectionEventsIconAsset,
+    asset: 'assets/mini_phone/icons/world-history.svg',
   ),
   WorldBottomTagItem(
     label: l10n.worldRecap,
     kind: WorldBottomSheetKind.recap,
-    icon: Icons.auto_stories_outlined,
+    asset: 'assets/mini_phone/icons/memory-recap.svg',
+  ),
+  WorldBottomTagItem(
+    label: l10n.memoryCast,
+    kind: WorldBottomSheetKind.cast,
+    asset: 'assets/mini_phone/icons/memory-cast.svg',
+  ),
+  WorldBottomTagItem(
+    label: l10n.memoryBonds,
+    kind: WorldBottomSheetKind.bonds,
+    asset: 'assets/mini_phone/icons/memory-bonds.svg',
+  ),
+  WorldBottomTagItem(
+    label: l10n.worldModelsEvents,
+    kind: WorldBottomSheetKind.events,
+    asset: 'assets/mini_phone/icons/world-events.svg',
   ),
   WorldBottomTagItem(
     label: l10n.worldModelsLocations,
     kind: WorldBottomSheetKind.locations,
-    icon: Icons.place_outlined,
+    asset: 'assets/mini_phone/icons/world-locations.svg',
   ),
 ];
 
@@ -160,6 +171,8 @@ bool canAccessWorldSection(WorldBottomSheetKind kind, String relationStatus) {
     case WorldBottomSheetKind.history:
     case WorldBottomSheetKind.events:
     case WorldBottomSheetKind.recap:
+    case WorldBottomSheetKind.cast:
+    case WorldBottomSheetKind.bonds:
     case WorldBottomSheetKind.status:
       return shouldConnectWorldChatroom(relationStatus);
     default:

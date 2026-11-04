@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
-import 'package:genesis_flutter_android/components/gems/profile_membership_card.dart';
+import 'package:genesis_flutter_android/components/gems/memory_membership_carousel.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
@@ -116,7 +116,7 @@ void main() {
   }
 
   testWidgets(
-    'Me shows one membership card and keeps wallet and membership balances independent',
+    'Me shows both membership cards and keeps wallet and membership balances independent',
     (tester) async {
       var response = const GemWallet(balanceCent: 0);
       final wallet = GemWalletStore(
@@ -148,7 +148,7 @@ void main() {
             ),
           ),
         );
-        expect(find.text('Subscribe'), findsOneWidget);
+        expect(find.text('Subscribe'), findsNWidgets(2));
         final expiry = DateTime(2027, 9, 8, 14, 5, 9);
         for (final entry in [(1, false), (2, false), (0, false), (1, true)]) {
           final (status, pastExpiry) = entry;
@@ -168,17 +168,18 @@ void main() {
           });
           await access.refresh();
           await tester.pumpAndSettle();
-          expect(find.byType(ProfileMembershipCard), findsOneWidget);
+          expect(find.byType(MemoryMembershipProfileCarousel), findsOneWidget);
+          // Deluxe is its own subscription, so it keeps offering Subscribe.
           expect(
             find.text('Subscribe'),
-            active ? findsNothing : findsOneWidget,
+            active ? findsOneWidget : findsNWidgets(2),
           );
           expect(
             find.text('Expired'),
             status == 2 || pastExpiry ? findsOneWidget : findsNothing,
           );
           expect(
-            find.text('Expires 2027-09-08 14:05:09'),
+            find.text('Expires 2027-09-08'),
             active ? findsOneWidget : findsNothing,
           );
           expect(find.text('5,482.4'), findsOneWidget);
@@ -197,7 +198,7 @@ void main() {
           );
           await access.refresh();
           await tester.pumpAndSettle();
-          expect(find.text('Subscribe'), findsOneWidget);
+          expect(find.text('Subscribe'), findsNWidgets(2));
           expect(find.text('Expires —'), findsNothing);
           expect(find.text('Expired'), findsNothing);
           expect(find.text('5,182.4'), findsOneWidget);

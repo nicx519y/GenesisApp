@@ -1,4 +1,5 @@
 import '../../l10n/genesis_l10n.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/components/secend_tabs.dart';
@@ -7,30 +8,40 @@ import 'pro_colors.dart';
 
 /// Wallet uses the same underline tabs as the other app pages.
 class WalletPurchaseTabs extends StatelessWidget {
-  const WalletPurchaseTabs({super.key, required this.controller});
+  const WalletPurchaseTabs({
+    super.key,
+    required this.controller,
+    this.subscriptionAccent,
+  });
 
   final TabController controller;
+
+  /// The Subscription underline takes the colour of the card in view.
+  final ValueListenable<Color>? subscriptionAccent;
+
+  Color get _subscriptionColor => subscriptionAccent?.value ?? premiumGold;
 
   static const _labelStyle = TextStyle(
     fontSize: 16,
     height: 22 / 16,
     fontWeight: FontWeight.w600,
+    letterSpacing: 0,
   );
 
   /// The underline takes the colour of the tab it sits under, and crosses
   /// between them with the swipe rather than snapping at the end of it.
   Color _indicatorColor() {
     const gemsIndex = 1;
-    if (controller.length <= gemsIndex) return premiumGold;
+    if (controller.length <= gemsIndex) return _subscriptionColor;
     if (controller.indexIsChanging) {
       return controller.index == gemsIndex
           ? GenesisColors.redPrimary
-          : premiumGold;
+          : _subscriptionColor;
     }
     final page = (controller.animation?.value ?? controller.index.toDouble())
         .clamp(0.0, controller.length - 1.0);
     return Color.lerp(
-      premiumGold,
+      _subscriptionColor,
       GenesisColors.redPrimary,
       (page / gemsIndex).clamp(0.0, 1.0),
     )!;
@@ -65,20 +76,19 @@ class WalletPurchaseTabs extends StatelessWidget {
             context,
           ).textTheme.bodyMedium!.merge(_labelStyle);
           return AnimatedBuilder(
-            animation: Listenable.merge([controller, controller.animation]),
+            animation: Listenable.merge([
+              controller,
+              controller.animation,
+              subscriptionAccent,
+            ]),
             builder: (context, _) => SecendTabs(
               controller: controller,
               indicatorColor: _indicatorColor(),
               indicatorWidth: 24,
               indicatorHeight: 3,
               labels: [
-                GenesisL10n
-                    .current
-                    .premiumSubscription,
-                if (controller.length > 1)
-                  GenesisL10n
-                      .current
-                      .gemsBuy,
+                GenesisL10n.current.premiumSubscription,
+                if (controller.length > 1) GenesisL10n.current.gemsBuy,
               ],
               horizontalPadding: 0,
               labelPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -105,12 +115,8 @@ class WalletPurchaseTabs extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         child: Text(
                           index == 0
-                              ? GenesisL10n
-                                    .current
-                                    .premiumSubscription
-                              : GenesisL10n
-                                    .current
-                                    .gemsBuy,
+                              ? GenesisL10n.current.premiumSubscription
+                              : GenesisL10n.current.gemsBuy,
                           maxLines: 1,
                           softWrap: false,
                           style: measureStyle.copyWith(

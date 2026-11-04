@@ -1,4 +1,6 @@
 import '../../l10n/genesis_localizations.dart';
+import '../world/world_memory_host.dart';
+import '../../components/world_memory/world_memory.dart';
 import 'settings/mini_phone_settings_page.dart';
 import 'home/mini_phone_home.dart';
 import 'messages/mini_phone_messages_page.dart';
@@ -681,6 +683,29 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
 
   Widget _screen(MiniPhoneScreen destination) => switch (destination) {
     MiniPhoneScreen.home => _home(),
+    MiniPhoneScreen.recap ||
+    MiniPhoneScreen.cast ||
+    MiniPhoneScreen.bonds => SafeArea(
+      child: WorldMemoryHost(
+        services: AppServicesScope.read(context),
+        worldId: _session.worldId,
+        summaryUpdates: _session.summaryUpdates,
+        phone: true,
+        phoneHeaderBuilder: (context, profileBack) =>
+            _navigation(switch (destination) {
+              MiniPhoneScreen.cast => context.l10n.memoryCast,
+              MiniPhoneScreen.bonds => context.l10n.memoryBonds,
+              _ => context.l10n.worldRecap,
+            }, onBack: profileBack),
+        onOpenBonds: () => _go(MiniPhoneScreen.bonds),
+        active: screen == destination,
+        section: switch (destination) {
+          MiniPhoneScreen.cast => WorldMemorySection.cast,
+          MiniPhoneScreen.bonds => WorldMemorySection.bonds,
+          _ => WorldMemorySection.recap,
+        },
+      ),
+    ),
     MiniPhoneScreen.messages =>
       phone == null
           ? _emptyApp(destination)
@@ -770,7 +795,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     onOpenPost: _openLivePost,
   );
 
-  Widget _navigation(String title, {bool showModel = false}) => Padding(
+  Widget _navigation(
+    String title, {
+    bool showModel = false,
+    VoidCallback? onBack,
+  }) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: miniPageInset),
     child: SizedBox(
       height: 56,
@@ -778,7 +807,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         children: [
           Expanded(
             child: TextButton(
-              onPressed: _back,
+              onPressed: onBack ?? _back,
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 alignment: Alignment.centerLeft,

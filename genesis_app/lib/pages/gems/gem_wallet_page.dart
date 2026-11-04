@@ -29,7 +29,8 @@ import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
 import '../../components/gems/purchase_attribution_registration.dart';
-import '../../components/gems/pro_subscription_content.dart';
+import '../../components/gems/memory_membership_style.dart';
+import '../../components/gems/memory_membership_wallet_content.dart';
 import '../../components/gems/wallet_purchase_tabs.dart';
 import '../../components/page_header.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -64,6 +65,7 @@ class GemWalletPage extends StatefulWidget {
   const GemWalletPage({
     super.key,
     this.showSubscriptionInitially = false,
+    this.initialMembershipTier,
     this.showBuyGems = true,
     this.subscriptionSource = SubscriptionSource.unknown,
     this.subscriptionTracking,
@@ -82,6 +84,7 @@ class GemWalletPage extends StatefulWidget {
   final GemProductsLoader? productsLoader;
   final MembershipCatalogLoader? membershipProductsLoader;
   final bool showSubscriptionInitially;
+  final MemoryMembershipTier? initialMembershipTier;
   final bool showBuyGems;
   final SubscriptionSource subscriptionSource;
   final SubscriptionPageTracking? subscriptionTracking;
@@ -185,6 +188,10 @@ class _GemWalletPageState extends State<GemWalletPage>
   final PurchaseAttributionRegistration _attributionRegistration =
       PurchaseAttributionRegistration();
 
+  late final _subscriptionAccent = ValueNotifier<Color>(
+    (widget.initialMembershipTier ?? MemoryMembershipTier.deluxe).accent,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -270,6 +277,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     _idleBillingState.dispose();
     _purchaseTabs.removeListener(_visitCurrentTab);
     _purchaseTabs.dispose();
+    _subscriptionAccent.dispose();
     super.dispose();
   }
 
@@ -350,7 +358,10 @@ class _GemWalletPageState extends State<GemWalletPage>
           backgroundColor: GenesisColors.darkBackground,
           appBar: GenesisBackAppBar(
             pageName: GenesisL10n.current.gemsBuy,
-            titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
+            titleWidget: WalletPurchaseTabs(
+              controller: _purchaseTabs,
+              subscriptionAccent: _subscriptionAccent,
+            ),
             titleSideInset: 56,
             actions: [
               if (widget.showBuyGems)
@@ -388,12 +399,11 @@ class _GemWalletPageState extends State<GemWalletPage>
                           page: _subscriptionTracking,
                           child: PurchaseCatalogEntry(
                             revision: _subscriptionEntryRevision,
-                            child: ProSubscriptionContent(
-                              refreshMembershipOnOpen: false,
-                              closeOnPurchaseSuccess: true,
-                              horizontalInset: 16,
-                              headingTopSpacing: 10,
+                            child: MemoryMembershipWalletContent(
+                              initialTier: widget.initialMembershipTier,
                               productsLoader: widget.membershipProductsLoader,
+                              onTierChanged: (tier) =>
+                                  _subscriptionAccent.value = tier.accent,
                             ),
                           ),
                         )

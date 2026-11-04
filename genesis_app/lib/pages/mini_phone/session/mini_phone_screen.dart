@@ -9,4 +9,7 @@ enum MiniPhoneScreen {
   settings,
   music,
   models,
+  recap,
+  cast,
+  bonds,
 }

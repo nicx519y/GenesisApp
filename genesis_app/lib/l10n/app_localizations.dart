@@ -6144,6 +6144,480 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to save privacy choices. Please try again.'**
   String get privacyChoicesSaveError;
+
+  /// Shared World and MiniPhone memory section title for Timeline and Summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap'**
+  String get memoryRecap;
+
+  /// Shared World and MiniPhone memory section title for character profiles learned during the story.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast'**
+  String get memoryCast;
+
+  /// Shared World and MiniPhone memory section title for relationships learned during the story.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonds'**
+  String get memoryBonds;
+
+  /// Recap tab showing at most ten newest structured story events; unlocked by Deluxe independently of Premium.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get memoryTimeline;
+
+  /// Recap tab showing the full latest running story summary; unlocked by Premium independently of Deluxe.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary'**
+  String get memorySummary;
+
+  /// Explanatory copy shown only above the locked Timeline in shared memory UI.
+  ///
+  /// In en, this message translates to:
+  /// **'The key events of your story, who was there and when, updated automatically as you play. Everything here goes into memory, so characters remember what happened.'**
+  String get memoryTimelinePitch;
+
+  /// Explanatory copy shown only above the locked Summary in shared memory UI.
+  ///
+  /// In en, this message translates to:
+  /// **'One running summary of your whole story, rewritten automatically as you play. The AI keeps it in mind, so characters remember what happened.'**
+  String get memorySummaryPitch;
+
+  /// Explanatory copy shown only above locked Cast profiles in shared memory UI.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles of everyone in the story, filled in automatically as you play. Characters remember these details in every scene and chat.'**
+  String get memoryCastPitch;
+
+  /// Explanatory copy shown only above locked Bonds in shared memory UI.
+  ///
+  /// In en, this message translates to:
+  /// **'How everyone feels about you and about each other, updated automatically as you play. Characters carry these feelings into every scene and chat.'**
+  String get memoryBondsPitch;
+
+  /// Heading above the latest full running story summary or its locked skeleton.
+  ///
+  /// In en, this message translates to:
+  /// **'The story so far'**
+  String get memoryStorySoFar;
+
+  /// Unlocked Timeline empty state heading when the supplied snapshot has no events.
+  ///
+  /// In en, this message translates to:
+  /// **'No key events yet'**
+  String get memoryTimelineEmptyTitle;
+
+  /// Unlocked Timeline empty state explanation: events fill in as the story moves, and the memory updates once every 5 story turns.
+  ///
+  /// In en, this message translates to:
+  /// **'Key events appear here as your story unfolds. Memory checks in every 5 turns.'**
+  String get memoryTimelineEmptyBody;
+
+  /// Small line above the locked Timeline placeholder in the World sheet: how many key events the story already holds, without showing them.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 key event so far} other{{count} key events so far}}'**
+  String memoryKeyEventsSoFar({required int count});
+
+  /// Unlocked Summary empty state heading; body reuses the existing recapEmpty message.
+  ///
+  /// In en, this message translates to:
+  /// **'The story is just beginning'**
+  String get memorySummaryEmptyTitle;
+
+  /// Cast informational note when profiles contain only initial world setup and no story memory yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles start from the world setup and fill in as the story reveals more.'**
+  String get memoryCastSetupNote;
+
+  /// Unlocked Cast empty state when no character profiles were supplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters will appear here as your story begins.'**
+  String get memoryCastEmpty;
+
+  /// Bonds group heading for each character's feelings toward the player character.
+  ///
+  /// In en, this message translates to:
+  /// **'How they see you'**
+  String get memoryHowTheySeeYou;
+
+  /// Bonds group heading for relationships between other characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Between them'**
+  String get memoryBetweenThem;
+
+  /// Empty prompt inside the How they see you group of unlocked Bonds.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody has formed a view of you yet. It shows up here once someone does.'**
+  String get memoryToYouEmpty;
+
+  /// Empty prompt inside the Between them group of unlocked Bonds.
+  ///
+  /// In en, this message translates to:
+  /// **'No relationships between characters are recorded yet.'**
+  String get memoryBetweenEmpty;
+
+  /// Cast expanded profile group for status, age, gender, orientation and appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Basics'**
+  String get memoryBasics;
+
+  /// Cast expanded profile group for personality, background, preferences and boundaries.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get memoryAbout;
+
+  /// Cast expanded profile group for character arc and defining moment.
+  ///
+  /// In en, this message translates to:
+  /// **'Story'**
+  String get memoryStory;
+
+  /// MiniPhone expanded active character profile group for current activity and attitude toward the player.
+  ///
+  /// In en, this message translates to:
+  /// **'Right now'**
+  String get memoryRightNow;
+
+  /// Active non-player character's current activity field in Cast.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get memoryNow;
+
+  /// Player character's recent activity field in Cast.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get memoryRecent;
+
+  /// MiniPhone profile field showing this character's feelings toward the player.
+  ///
+  /// In en, this message translates to:
+  /// **'Toward you'**
+  String get memoryTowardYou;
+
+  /// Cast activity label and MiniPhone profile group for a departed or deceased character; replaces Now or Right now.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen'**
+  String get memoryLastSeen;
+
+  /// Cast final group containing departed and deceased characters, after all active characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Left the story'**
+  String get memoryLeftTheStory;
+
+  /// Outlined Cast status badge meaning the character has departed the story; not a direction.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get memoryLeft;
+
+  /// Outlined Cast status badge and profile status value for a dead character.
+  ///
+  /// In en, this message translates to:
+  /// **'Deceased'**
+  String get memoryDeceased;
+
+  /// First Basics field label in an expanded departed or deceased Cast profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get memoryStatus;
+
+  /// Cast Basics profile field label for the character's age.
+  ///
+  /// In en, this message translates to:
+  /// **'Age'**
+  String get memoryAge;
+
+  /// Cast Basics profile field label for the character's gender.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get memoryGender;
+
+  /// Cast Basics profile field label for sexual orientation.
+  ///
+  /// In en, this message translates to:
+  /// **'Orientation'**
+  String get memoryOrientation;
+
+  /// Cast Basics profile field label for physical appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get memoryAppearance;
+
+  /// Cast About profile field label for personality traits.
+  ///
+  /// In en, this message translates to:
+  /// **'Personality'**
+  String get memoryPersonality;
+
+  /// Cast About profile field label for the character's personal history.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get memoryBackground;
+
+  /// Cast About profile field label for hobbies and preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Likes & dislikes'**
+  String get memoryLikesDislikes;
+
+  /// Cast About profile field label for taboos and personal boundaries.
+  ///
+  /// In en, this message translates to:
+  /// **'Boundaries'**
+  String get memoryBoundaries;
+
+  /// Cast About profile field label for other relevant character details.
+  ///
+  /// In en, this message translates to:
+  /// **'Good to know'**
+  String get memoryGoodToKnow;
+
+  /// Cast Story profile field label for the character's evolving story arc.
+  ///
+  /// In en, this message translates to:
+  /// **'Arc'**
+  String get memoryArc;
+
+  /// Cast Story profile field label for an important character highlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Defining moment'**
+  String get memoryDefiningMoment;
+
+  /// Memory badge indicating an event, profile field or relationship changed in the latest supplied update.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get memoryUpdated;
+
+  /// Memory Timeline badge indicating an event was added in the latest supplied update.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get memoryNew;
+
+  /// Cast badge identifying the player character.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get memoryYou;
+
+  /// MiniPhone Cast list group heading for active non-player characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters'**
+  String get memoryCharacters;
+
+  /// Accessibility label for locked memory tabs and structural placeholders; no story content is disclosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked'**
+  String get memoryLocked;
+
+  /// Shared membership cards: independent Worldo Deluxe subscription name. Preserve Worldo and Deluxe as product names; Deluxe does not include Premium.
+  ///
+  /// In en, this message translates to:
+  /// **'Worldo Deluxe'**
+  String get memoryMembershipDeluxe;
+
+  /// Subscription sliding membership card: compact maximum monthly Gems allowance heading above the Pink/Red Gems breakdown, from Subscribe design. amount is a preformatted allowance. Deluxe draft amounts remain restricted to explicit Developer previews; this label does not confirm a production entitlement.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {amount} Gems Monthly'**
+  String memoryMembershipMonthlyGems({required String amount});
+
+  /// Subscription and locked-memory upsell plan cards: short billing period suffix beside a displayed catalog price. period is year for an annual plan, otherwise monthly. Keep both ICU select branches. Developer draft prices remain preview-only; the suffix does not define a SKU or enable billing.
+  ///
+  /// In en, this message translates to:
+  /// **'{period, select, year{/ year} other{/ month}}'**
+  String memoryMembershipPeriod({required String period});
+
+  /// Subscription and locked-memory upsell Yearly plan card: billing cadence note below the annual price, without repeating the amount. Used for catalog-backed plans or explicit Developer draft previews; does not confirm availability or enable Deluxe billing.
+  ///
+  /// In en, this message translates to:
+  /// **'Billed annually'**
+  String get memoryMembershipBilledAnnually;
+
+  /// Me compact Deluxe membership card from MeMember design: maximum monthly Gems and self-updating memory teaser. amount is a preformatted allowance.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {amount} Gems monthly, plus self-updating memory.'**
+  String memoryMembershipDeluxeProfileOffer({required String amount});
+
+  /// Premium locked-memory upsell card from Caps design: full evolving story recap covering twists, choices and characters, plus maximum monthly Gems including conditional daily claims. This describes the independent Premium Summary benefit, not Deluxe ownership; actual purchase uses the existing store-backed flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a full recap of every twist, choice and character, rewritten as you play, plus up to 3,500 Gems every month.'**
+  String get memoryMembershipPremiumOffer;
+
+  /// Deluxe locked-memory upsell card from Caps design: Timeline, Cast and Bonds form evolving memory that characters remember, plus a maximum monthly Gems allowance. Shown wherever those sections are locked.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Timeline, Cast and Bonds, a memory that updates as you play and that characters remember, plus up to 18,000 Gems every month.'**
+  String get memoryMembershipDeluxeOffer;
+
+  /// Deluxe subscription design-preview card tagline; proposed memory benefit, displayed with not-yet-available notice.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory that updates itself as you play.'**
+  String get memoryMembershipDeluxeTagline;
+
+  /// Production Deluxe card and subscribe feedback: no Deluxe checkout or SKU exists; proposed prices and benefits are unconfirmed. Must not imply a purchase or active membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Deluxe is not available yet.'**
+  String get memoryMembershipDeluxeUnavailable;
+
+  /// Premium offer and subscription cards: action opens original store-backed checkout where actual plans and prices are confirmed. The local Yearly/Monthly selector alone does not place an order.
+  ///
+  /// In en, this message translates to:
+  /// **'View current Premium plans and prices to subscribe.'**
+  String get memoryMembershipPremiumCheckout;
+
+  /// Explicit Developer-only membership preview notice above draft prices. Never use draft prices to charge or infer actual membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Design preview · prices and benefits are not confirmed'**
+  String get memoryMembershipDraftPreview;
+
+  /// Accessible label for a membership card chevron opening the matching Subscription slide.
+  ///
+  /// In en, this message translates to:
+  /// **'View {membership} details'**
+  String memoryMembershipDetails({required String membership});
+
+  /// Deluxe design card benefit: structured story memory with events, character profiles and relationships. Proposed benefit shown with availability disclaimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline, Cast and Bonds: key events, profiles, how everyone feels'**
+  String get memoryMembershipTimelineBenefit;
+
+  /// Deluxe subscription card, benefit row: Timeline is the Recap view listing the story's key events in the order they happened.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline: every key event, in order'**
+  String get memoryMembershipBenefitTimeline;
+
+  /// Deluxe subscription card, benefit row: Cast is the section with a self-updating profile for each character in the story.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast: a living profile of everyone'**
+  String get memoryMembershipBenefitCast;
+
+  /// Deluxe subscription card, benefit row: Bonds is the section showing how characters feel about the player and about one another.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonds: how everyone feels about each other'**
+  String get memoryMembershipBenefitBonds;
+
+  /// Deluxe design card benefit: the structured memory is intended to inform characters. Proposed benefit shown with availability disclaimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters remember all of it'**
+  String get memoryMembershipRememberBenefit;
+
+  /// Premium subscription card benefit title from approved design: existing persistent story Summary, independent of Deluxe.
+  ///
+  /// In en, this message translates to:
+  /// **'Story Recap the AI Remembers beyond Memory'**
+  String get memoryMembershipSummaryBenefit;
+
+  /// Subscription design card benefit title for unlimited Inspiration usage. Deluxe remains unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited Inspirations'**
+  String get memoryMembershipInspirationsBenefit;
+
+  /// Subscription design card benefit title for unlimited editing. Deluxe remains unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited Editing'**
+  String get memoryMembershipEditingBenefit;
+
+  /// Subscription design card badge benefit, membership is Premium or Deluxe; this text does not grant a badge or entitlement.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclusive {membership} Badge'**
+  String memoryMembershipBadgeBenefit({required String membership});
+
+  /// Premium subscription card benefit title from approved design. Do not show for Deluxe, whose inclusion is unconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Gem Recharge'**
+  String get memoryMembershipRechargeBenefit;
+
+  /// Developer-only screen title for isolated sample memory and parallel membership design; never changes real account or World data.
+  ///
+  /// In en, this message translates to:
+  /// **'Global memory preview'**
+  String get memoryPreviewTitle;
+
+  /// Developer memory preview notice: all story content on this page is a local design sample, not the selected user's World.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample story · preview only'**
+  String get memoryPreviewNotice;
+
+  /// Developer memory preview ownership option; neither Premium nor Deluxe is active in the sample.
+  ///
+  /// In en, this message translates to:
+  /// **'No subscriptions'**
+  String get memoryPreviewFree;
+
+  /// Developer memory preview ownership option; independent Premium and Deluxe are both active only in the sample.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium + Deluxe'**
+  String get memoryPreviewBoth;
+
+  /// Developer memory preview sample scenario with populated events, profiles, and relationships.
+  ///
+  /// In en, this message translates to:
+  /// **'Story in progress'**
+  String get memoryPreviewLive;
+
+  /// Developer memory preview sample scenario with no generated memory; not an action that creates a real World.
+  ///
+  /// In en, this message translates to:
+  /// **'New World'**
+  String get memoryPreviewFresh;
+
+  /// Developer memory preview scenario showing departed and deceased characters in a separate group.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters who left'**
+  String get memoryPreviewDepartures;
+
+  /// Developer memory preview layout toggle between World capsules and MiniPhone character detail layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone layout'**
+  String get memoryPreviewPhone;
+
+  /// Developer memory preview button to view the isolated sliding Premium/Deluxe subscription design and Me cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership cards'**
+  String get memoryPreviewMemberships;
 }
 
 class _AppLocalizationsDelegate

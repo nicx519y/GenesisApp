@@ -4920,5 +4920,351 @@
   "settingsAccountSignInDescription": "Entre para gerenciar sua conta",
   "@settingsAccountSignInDescription": {
     "description": "Settings > Account: short explanatory subtitle beneath the signed-out status, next to a Sign in button; refers only to account management, not access to privacy choices."
+  },
+  "memoryRecap": "Retrospectiva",
+  "@memoryRecap": {
+    "description": "Shared World and MiniPhone memory section title for Timeline and Summary."
+  },
+  "memoryCast": "Personagens",
+  "@memoryCast": {
+    "description": "Shared World and MiniPhone memory section title for character profiles learned during the story."
+  },
+  "memoryBonds": "Vínculos",
+  "@memoryBonds": {
+    "description": "Shared World and MiniPhone memory section title for relationships learned during the story."
+  },
+  "memoryTimeline": "Linha do tempo",
+  "@memoryTimeline": {
+    "description": "Recap tab showing at most ten newest structured story events; unlocked by Deluxe independently of Premium."
+  },
+  "memorySummary": "Resumo",
+  "@memorySummary": {
+    "description": "Recap tab showing the full latest running story summary; unlocked by Premium independently of Deluxe."
+  },
+  "memoryTimelinePitch": "Os principais acontecimentos da sua história, quem estava presente e quando tudo aconteceu são atualizados automaticamente enquanto você joga. Tudo aqui é armazenado na memória para que os personagens se lembrem do que aconteceu.",
+  "@memoryTimelinePitch": {
+    "description": "Explanatory copy shown only above the locked Timeline in shared memory UI."
+  },
+  "memorySummaryPitch": "Um resumo de toda a sua história, reescrito automaticamente enquanto você joga. A AI mantém essas informações em mente para que os personagens se lembrem do que aconteceu.",
+  "@memorySummaryPitch": {
+    "description": "Explanatory copy shown only above the locked Summary in shared memory UI."
+  },
+  "memoryCastPitch": "Perfis de todos os personagens da história, preenchidos automaticamente enquanto você joga. Os personagens se lembram desses detalhes em todas as cenas e conversas.",
+  "@memoryCastPitch": {
+    "description": "Explanatory copy shown only above locked Cast profiles in shared memory UI."
+  },
+  "memoryBondsPitch": "O que cada personagem sente por você e pelos outros é atualizado automaticamente enquanto você joga. Os personagens levam esses sentimentos para todas as cenas e conversas.",
+  "@memoryBondsPitch": {
+    "description": "Explanatory copy shown only above locked Bonds in shared memory UI."
+  },
+  "memoryStorySoFar": "A história até agora",
+  "@memoryStorySoFar": {
+    "description": "Heading above the latest full running story summary or its locked skeleton."
+  },
+  "memoryTimelineEmptyTitle": "Ainda não há acontecimentos importantes",
+  "@memoryTimelineEmptyTitle": {
+    "description": "Unlocked Timeline empty state heading when the supplied snapshot has no events."
+  },
+  "memoryTimelineEmptyBody": "Os principais acontecimentos aparecerão aqui conforme sua história avançar. A memória é atualizada a cada 5 turnos.",
+  "@memoryTimelineEmptyBody": {
+    "description": "Unlocked Timeline empty state explanation: events fill in as the story moves, and the memory updates once every 5 story turns."
+  },
+  "memorySummaryEmptyTitle": "A história está só começando",
+  "@memorySummaryEmptyTitle": {
+    "description": "Unlocked Summary empty state heading; body reuses the existing recapEmpty message."
+  },
+  "memoryCastSetupNote": "Os perfis partem da configuração inicial do mundo e são preenchidos conforme a história revela mais detalhes.",
+  "@memoryCastSetupNote": {
+    "description": "Cast informational note when profiles contain only initial world setup and no story memory yet."
+  },
+  "memoryCastEmpty": "Os personagens aparecerão aqui quando sua história começar.",
+  "@memoryCastEmpty": {
+    "description": "Unlocked Cast empty state when no character profiles were supplied."
+  },
+  "memoryHowTheySeeYou": "Como veem você",
+  "@memoryHowTheySeeYou": {
+    "description": "Bonds group heading for each character's feelings toward the player character."
+  },
+  "memoryBetweenThem": "Entre eles",
+  "@memoryBetweenThem": {
+    "description": "Bonds group heading for relationships between other characters."
+  },
+  "memoryToYouEmpty": "Ninguém formou uma opinião sobre você ainda. Ela aparecerá aqui quando alguém formar.",
+  "@memoryToYouEmpty": {
+    "description": "Empty prompt inside the How they see you group of unlocked Bonds."
+  },
+  "memoryBetweenEmpty": "Ainda não há vínculos registrados entre os personagens.",
+  "@memoryBetweenEmpty": {
+    "description": "Empty prompt inside the Between them group of unlocked Bonds."
+  },
+  "memoryBasics": "Informações básicas",
+  "@memoryBasics": {
+    "description": "Cast expanded profile group for status, age, gender, orientation and appearance."
+  },
+  "memoryAbout": "Sobre o personagem",
+  "@memoryAbout": {
+    "description": "Cast expanded profile group for personality, background, preferences and boundaries."
+  },
+  "memoryStory": "História",
+  "@memoryStory": {
+    "description": "Cast expanded profile group for character arc and defining moment."
+  },
+  "memoryRightNow": "Neste momento",
+  "@memoryRightNow": {
+    "description": "MiniPhone expanded active character profile group for current activity and attitude toward the player."
+  },
+  "memoryNow": "Atividade atual",
+  "@memoryNow": {
+    "description": "Active non-player character's current activity field in Cast."
+  },
+  "memoryRecent": "Atividade recente",
+  "@memoryRecent": {
+    "description": "Player character's recent activity field in Cast."
+  },
+  "memoryTowardYou": "Em relação a você",
+  "@memoryTowardYou": {
+    "description": "MiniPhone profile field showing this character's feelings toward the player."
+  },
+  "memoryLastSeen": "Última aparição",
+  "@memoryLastSeen": {
+    "description": "Cast activity label and MiniPhone profile group for a departed or deceased character; replaces Now or Right now."
+  },
+  "memoryLeftTheStory": "Fora da história",
+  "@memoryLeftTheStory": {
+    "description": "Cast final group containing departed and deceased characters, after all active characters."
+  },
+  "memoryLeft": "Partiu",
+  "@memoryLeft": {
+    "description": "Outlined Cast status badge meaning the character has departed the story; not a direction."
+  },
+  "memoryDeceased": "Faleceu",
+  "@memoryDeceased": {
+    "description": "Outlined Cast status badge and profile status value for a dead character."
+  },
+  "memoryStatus": "Status",
+  "@memoryStatus": {
+    "description": "First Basics field label in an expanded departed or deceased Cast profile."
+  },
+  "memoryAge": "Idade",
+  "@memoryAge": {
+    "description": "Cast Basics profile field label for the character's age."
+  },
+  "memoryGender": "Gênero",
+  "@memoryGender": {
+    "description": "Cast Basics profile field label for the character's gender."
+  },
+  "memoryOrientation": "Orientação sexual",
+  "@memoryOrientation": {
+    "description": "Cast Basics profile field label for sexual orientation."
+  },
+  "memoryAppearance": "Aparência",
+  "@memoryAppearance": {
+    "description": "Cast Basics profile field label for physical appearance."
+  },
+  "memoryPersonality": "Personalidade",
+  "@memoryPersonality": {
+    "description": "Cast About profile field label for personality traits."
+  },
+  "memoryBackground": "História pessoal",
+  "@memoryBackground": {
+    "description": "Cast About profile field label for the character's personal history."
+  },
+  "memoryLikesDislikes": "Gostos e aversões",
+  "@memoryLikesDislikes": {
+    "description": "Cast About profile field label for hobbies and preferences."
+  },
+  "memoryBoundaries": "Limites",
+  "@memoryBoundaries": {
+    "description": "Cast About profile field label for taboos and personal boundaries."
+  },
+  "memoryGoodToKnow": "Outros detalhes",
+  "@memoryGoodToKnow": {
+    "description": "Cast About profile field label for other relevant character details."
+  },
+  "memoryArc": "Evolução do personagem",
+  "@memoryArc": {
+    "description": "Cast Story profile field label for the character's evolving story arc."
+  },
+  "memoryDefiningMoment": "Momento marcante",
+  "@memoryDefiningMoment": {
+    "description": "Cast Story profile field label for an important character highlight."
+  },
+  "memoryUpdated": "Atualizado",
+  "@memoryUpdated": {
+    "description": "Memory badge indicating an event, profile field or relationship changed in the latest supplied update."
+  },
+  "memoryNew": "Novo",
+  "@memoryNew": {
+    "description": "Memory Timeline badge indicating an event was added in the latest supplied update."
+  },
+  "memoryYou": "Você",
+  "@memoryYou": {
+    "description": "Cast badge identifying the player character."
+  },
+  "memoryCharacters": "Personagens",
+  "@memoryCharacters": {
+    "description": "MiniPhone Cast list group heading for active non-player characters."
+  },
+  "memoryLocked": "Bloqueado",
+  "@memoryLocked": {
+    "description": "Accessibility label for locked memory tabs and structural placeholders; no story content is disclosed."
+  },
+  "memoryMembershipDeluxe": "Worldo Deluxe",
+  "@memoryMembershipDeluxe": {
+    "description": "Shared membership cards: independent Worldo Deluxe subscription name. Preserve Worldo and Deluxe as product names; Deluxe does not include Premium."
+  },
+  "memoryMembershipPremiumOffer": "Tenha uma retrospectiva completa de cada reviravolta, escolha e personagem, reescrita enquanto você joga, além de até 3.500 Gemas por mês.",
+  "@memoryMembershipPremiumOffer": {
+    "description": "Premium locked-memory upsell card from Caps design: full evolving story recap covering twists, choices and characters, plus maximum monthly Gems including conditional daily claims. This describes the independent Premium Summary benefit, not Deluxe ownership; actual purchase uses the existing store-backed flow."
+  },
+  "memoryMembershipDeluxeOffer": "Tenha Linha do tempo, Personagens e Vínculos: uma memória que se atualiza enquanto você joga e que os personagens lembram, além de até 18.000 Gemas por mês.",
+  "@memoryMembershipDeluxeOffer": {
+    "description": "Deluxe locked-memory upsell card from Caps design: Timeline, Cast and Bonds form evolving memory that characters remember, plus a maximum monthly Gems allowance. Shown wherever those sections are locked."
+  },
+  "memoryMembershipDeluxeTagline": "Uma memória que se atualiza sozinha enquanto você joga.",
+  "@memoryMembershipDeluxeTagline": {
+    "description": "Deluxe subscription design-preview card tagline; proposed memory benefit, displayed with not-yet-available notice."
+  },
+  "memoryMembershipDeluxeUnavailable": "Deluxe ainda não está disponível.",
+  "@memoryMembershipDeluxeUnavailable": {
+    "description": "Production Deluxe card and subscribe feedback: no Deluxe checkout or SKU exists; proposed prices and benefits are unconfirmed. Must not imply a purchase or active membership."
+  },
+  "memoryMembershipPremiumCheckout": "Confira os planos e preços atuais do Premium para assinar.",
+  "@memoryMembershipPremiumCheckout": {
+    "description": "Premium offer and subscription cards: action opens original store-backed checkout where actual plans and prices are confirmed. The local Yearly/Monthly selector alone does not place an order."
+  },
+  "memoryMembershipDraftPreview": "Prévia do design · preços e benefícios não confirmados",
+  "@memoryMembershipDraftPreview": {
+    "description": "Explicit Developer-only membership preview notice above draft prices. Never use draft prices to charge or infer actual membership."
+  },
+  "memoryMembershipDetails": "Ver detalhes de {membership}",
+  "@memoryMembershipDetails": {
+    "description": "Accessible label for a membership card chevron opening the matching Subscription slide.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipTimelineBenefit": "Linha do tempo, Personagens e Vínculos: acontecimentos importantes, perfis e sentimentos de cada personagem",
+  "@memoryMembershipTimelineBenefit": {
+    "description": "Deluxe design card benefit: structured story memory with events, character profiles and relationships. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipRememberBenefit": "Os personagens se lembram de tudo",
+  "@memoryMembershipRememberBenefit": {
+    "description": "Deluxe design card benefit: the structured memory is intended to inform characters. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipSummaryBenefit": "Retrospectiva da história que a AI lembra além da memória",
+  "@memoryMembershipSummaryBenefit": {
+    "description": "Premium subscription card benefit title from approved design: existing persistent story Summary, independent of Deluxe."
+  },
+  "memoryMembershipInspirationsBenefit": "Inspiração ilimitada",
+  "@memoryMembershipInspirationsBenefit": {
+    "description": "Subscription design card benefit title for unlimited Inspiration usage. Deluxe remains unavailable."
+  },
+  "memoryMembershipEditingBenefit": "Edição ilimitada",
+  "@memoryMembershipEditingBenefit": {
+    "description": "Subscription design card benefit title for unlimited editing. Deluxe remains unavailable."
+  },
+  "memoryMembershipBadgeBenefit": "Distintivo exclusivo de {membership}",
+  "@memoryMembershipBadgeBenefit": {
+    "description": "Subscription design card badge benefit, membership is Premium or Deluxe; this text does not grant a badge or entitlement.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipRechargeBenefit": "Recarga de Gemas",
+  "@memoryMembershipRechargeBenefit": {
+    "description": "Premium subscription card benefit title from approved design. Do not show for Deluxe, whose inclusion is unconfirmed."
+  },
+  "memoryPreviewTitle": "Prévia da memória global",
+  "@memoryPreviewTitle": {
+    "description": "Developer-only screen title for isolated sample memory and parallel membership design; never changes real account or World data."
+  },
+  "memoryPreviewNotice": "História de exemplo · apenas prévia",
+  "@memoryPreviewNotice": {
+    "description": "Developer memory preview notice: all story content on this page is a local design sample, not the selected user's World."
+  },
+  "memoryPreviewFree": "Sem assinaturas",
+  "@memoryPreviewFree": {
+    "description": "Developer memory preview ownership option; neither Premium nor Deluxe is active in the sample."
+  },
+  "memoryPreviewBoth": "Premium + Deluxe",
+  "@memoryPreviewBoth": {
+    "description": "Developer memory preview ownership option; independent Premium and Deluxe are both active only in the sample."
+  },
+  "memoryPreviewLive": "História em andamento",
+  "@memoryPreviewLive": {
+    "description": "Developer memory preview sample scenario with populated events, profiles, and relationships."
+  },
+  "memoryPreviewFresh": "Novo Mundo",
+  "@memoryPreviewFresh": {
+    "description": "Developer memory preview sample scenario with no generated memory; not an action that creates a real World."
+  },
+  "memoryPreviewDepartures": "Personagens que partiram",
+  "@memoryPreviewDepartures": {
+    "description": "Developer memory preview scenario showing departed and deceased characters in a separate group."
+  },
+  "memoryPreviewPhone": "Layout do celular",
+  "@memoryPreviewPhone": {
+    "description": "Developer memory preview layout toggle between World capsules and MiniPhone character detail layout."
+  },
+  "memoryPreviewMemberships": "Cartões de assinatura",
+  "@memoryPreviewMemberships": {
+    "description": "Developer memory preview button to view the isolated sliding Premium/Deluxe subscription design and Me cards."
+  },
+  "memoryMembershipMonthlyGems": "Até {amount} Gemas por mês",
+  "@memoryMembershipMonthlyGems": {
+    "description": "Subscription sliding membership card: compact maximum monthly Gems allowance heading above the Pink/Red Gems breakdown, from Subscribe design. amount is a preformatted allowance. Deluxe draft amounts remain restricted to explicit Developer previews; this label does not confirm a production entitlement.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipPeriod": "{period, select, year{/ ano} other{/ mês}}",
+  "@memoryMembershipPeriod": {
+    "description": "Subscription and locked-memory upsell plan cards: short billing period suffix beside a displayed catalog price. period is year for an annual plan, otherwise monthly. Keep both ICU select branches. Developer draft prices remain preview-only; the suffix does not define a SKU or enable billing.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipBilledAnnually": "Cobrança anual",
+  "@memoryMembershipBilledAnnually": {
+    "description": "Subscription and locked-memory upsell Yearly plan card: billing cadence note below the annual price, without repeating the amount. Used for catalog-backed plans or explicit Developer draft previews; does not confirm availability or enable Deluxe billing."
+  },
+  "memoryMembershipDeluxeProfileOffer": "Até {amount} Gemas por mês, além de memória que se atualiza sozinha.",
+  "@memoryMembershipDeluxeProfileOffer": {
+    "description": "Me compact Deluxe membership card from MeMember design: maximum monthly Gems and self-updating memory teaser. amount is a preformatted allowance.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryKeyEventsSoFar": "{count, plural, =0{{count} acontecimentos principais até agora} =1{{count} acontecimento principal até agora} other{{count} acontecimentos principais até agora}}",
+  "@memoryKeyEventsSoFar": {
+    "description": "Small line above the locked Timeline placeholder in the World sheet: how many key events the story already holds, without showing them.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryMembershipBenefitTimeline": "Linha do tempo: cada acontecimento principal, em ordem",
+  "@memoryMembershipBenefitTimeline": {
+    "description": "Deluxe subscription card, benefit row: Timeline is the Recap view listing the story's key events in the order they happened."
+  },
+  "memoryMembershipBenefitCast": "Personagens: um perfil vivo de cada um",
+  "@memoryMembershipBenefitCast": {
+    "description": "Deluxe subscription card, benefit row: Cast is the section with a self-updating profile for each character in the story."
+  },
+  "memoryMembershipBenefitBonds": "Vínculos: o que cada um sente pelos outros",
+  "@memoryMembershipBenefitBonds": {
+    "description": "Deluxe subscription card, benefit row: Bonds is the section showing how characters feel about the player and about one another."
   }
 }

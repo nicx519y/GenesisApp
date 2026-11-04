@@ -130,6 +130,8 @@ flutter:
     - assets/mini_phone/wallpaper-01.webp
     - assets/mini_phone/entry-icons-LICENSES.txt
     - assets/mini_phone/icons/
+    - assets/icons/memory_crown_deluxe.svg
+    - assets/world_memory_preview/
 
   fonts:
     - family: Inter

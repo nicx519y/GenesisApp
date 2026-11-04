@@ -17,6 +17,7 @@ import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
 import 'app/startup/ios_startup_network.dart';
 import 'app/startup/startup_app_config.dart';
+import 'app/debug/world_memory_debug_preview.dart';
 import 'app/startup/startup_dependency_guard.dart';
 import 'app/startup/startup_uid_resolution.dart';
 import 'platform/session/method_channel_user_session_store.dart';
@@ -85,6 +86,13 @@ Future<void> main() async {
       : Future<bool>.value(false);
   // Local debug preference loads in parallel without holding the first frame.
   if (kDebugMode) unawaited(purchaseToastDebugSettings.load());
+  // No memory backend yet: debug builds open on the sample story, with every
+  // section unlocked. Developer switches the membership and story, or turns it off.
+  if (kDebugMode) {
+    worldMemoryDebugPreview.value = const WorldMemoryDebugPreview(
+      membership: WorldMemoryDebugMembership.both,
+    );
+  }
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
   AdjustAttributionRuntime.configureEnvironment(appConfig);

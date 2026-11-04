@@ -3549,4 +3549,274 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get privacyChoicesSaveError => '개인정보 설정을 저장할 수 없습니다. 다시 시도해 주세요.';
+
+  @override
+  String get memoryRecap => '되돌아보기';
+
+  @override
+  String get memoryCast => '등장인물';
+
+  @override
+  String get memoryBonds => '관계';
+
+  @override
+  String get memoryTimeline => '타임라인';
+
+  @override
+  String get memorySummary => '줄거리 요약';
+
+  @override
+  String get memoryTimelinePitch =>
+      '이야기의 주요 사건과 함께한 인물, 사건이 일어난 때가 플레이에 따라 자동으로 업데이트돼요. 여기 있는 모든 내용이 기억에 저장되어 캐릭터들이 일어난 일을 기억해요.';
+
+  @override
+  String get memorySummaryPitch =>
+      '이야기 전체를 담은 요약이 플레이에 따라 자동으로 다시 작성돼요. AI가 내용을 기억하므로 캐릭터들이 일어난 일을 기억해요.';
+
+  @override
+  String get memoryCastPitch =>
+      '이야기에 등장하는 모든 인물의 프로필이 플레이에 따라 자동으로 채워져요. 캐릭터들은 모든 장면과 채팅에서 이 정보를 기억해요.';
+
+  @override
+  String get memoryBondsPitch =>
+      '여러분과 서로를 향한 각 인물의 감정이 플레이에 따라 자동으로 업데이트돼요. 캐릭터들은 모든 장면과 채팅에서도 이 감정을 이어가요.';
+
+  @override
+  String get memoryStorySoFar => '지금까지의 이야기';
+
+  @override
+  String get memoryTimelineEmptyTitle => '아직 주요 사건이 없어요';
+
+  @override
+  String get memoryTimelineEmptyBody =>
+      '이야기가 진행되면 주요 사건이 여기에 표시돼요. 메모리는 5턴마다 업데이트돼요.';
+
+  @override
+  String memoryKeyEventsSoFar({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '지금까지 주요 사건 $count개',
+      one: '지금까지 주요 사건 $count개',
+      zero: '지금까지 주요 사건 $count개',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get memorySummaryEmptyTitle => '이야기가 이제 막 시작됐어요';
+
+  @override
+  String get memoryCastSetupNote =>
+      '프로필은 월드의 초기 설정을 바탕으로 시작되며, 이야기를 통해 새로운 정보가 드러나면 채워져요.';
+
+  @override
+  String get memoryCastEmpty => '이야기가 시작되면 등장인물이 여기에 표시돼요.';
+
+  @override
+  String get memoryHowTheySeeYou => '나를 향한 감정';
+
+  @override
+  String get memoryBetweenThem => '인물 간 관계';
+
+  @override
+  String get memoryToYouEmpty => '아직 나에 대한 인상을 가진 사람이 없어요. 누군가 갖게 되면 여기에 표시돼요.';
+
+  @override
+  String get memoryBetweenEmpty => '아직 기록된 인물 간의 관계가 없어요.';
+
+  @override
+  String get memoryBasics => '기본 정보';
+
+  @override
+  String get memoryAbout => '인물 소개';
+
+  @override
+  String get memoryStory => '이야기';
+
+  @override
+  String get memoryRightNow => '현재 상황';
+
+  @override
+  String get memoryNow => '현재 활동';
+
+  @override
+  String get memoryRecent => '최근 활동';
+
+  @override
+  String get memoryTowardYou => '나를 향한 감정';
+
+  @override
+  String get memoryLastSeen => '마지막 모습';
+
+  @override
+  String get memoryLeftTheStory => '이야기를 떠난 인물';
+
+  @override
+  String get memoryLeft => '떠남';
+
+  @override
+  String get memoryDeceased => '사망';
+
+  @override
+  String get memoryStatus => '상태';
+
+  @override
+  String get memoryAge => '나이';
+
+  @override
+  String get memoryGender => '성별';
+
+  @override
+  String get memoryOrientation => '성적 지향';
+
+  @override
+  String get memoryAppearance => '외모';
+
+  @override
+  String get memoryPersonality => '성격';
+
+  @override
+  String get memoryBackground => '배경';
+
+  @override
+  String get memoryLikesDislikes => '좋아하는 것과 싫어하는 것';
+
+  @override
+  String get memoryBoundaries => '개인적 경계';
+
+  @override
+  String get memoryGoodToKnow => '알아둘 점';
+
+  @override
+  String get memoryArc => '인물의 변화';
+
+  @override
+  String get memoryDefiningMoment => '결정적 순간';
+
+  @override
+  String get memoryUpdated => '업데이트됨';
+
+  @override
+  String get memoryNew => '새 항목';
+
+  @override
+  String get memoryYou => '나';
+
+  @override
+  String get memoryCharacters => '등장인물';
+
+  @override
+  String get memoryLocked => '잠김';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return '매월 최대 $amount개의 젬';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ 년',
+      'other': '/ 월',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => '연간 청구';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return '매월 최대 $amount개의 젬과 자동으로 업데이트되는 기억.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      '모든 반전, 선택, 등장인물을 담고 플레이에 따라 다시 작성되는 전체 이야기 요약과 함께 매월 최대 3,500개의 젬을 받아 보세요.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      '플레이에 따라 업데이트되고 캐릭터들이 기억하는 타임라인, 등장인물, 관계로 구성된 기억과 함께 매월 최대 18,000개의 젬을 받아 보세요.';
+
+  @override
+  String get memoryMembershipDeluxeTagline => '플레이에 따라 자동으로 업데이트되는 기억.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable => 'Deluxe는 아직 이용할 수 없어요.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      '현재 Premium 요금제와 가격을 확인하고 구독하세요.';
+
+  @override
+  String get memoryMembershipDraftPreview => '디자인 미리보기 · 가격과 혜택은 확정되지 않았어요';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return '$membership 상세 정보 보기';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      '타임라인, 등장인물, 관계: 주요 사건, 프로필, 각 인물의 감정';
+
+  @override
+  String get memoryMembershipBenefitTimeline => '타임라인: 주요 사건을 순서대로';
+
+  @override
+  String get memoryMembershipBenefitCast => '등장인물: 계속 업데이트되는 모두의 프로필';
+
+  @override
+  String get memoryMembershipBenefitBonds => '관계: 서로를 어떻게 생각하는지';
+
+  @override
+  String get memoryMembershipRememberBenefit => '캐릭터들이 모든 내용을 기억해요';
+
+  @override
+  String get memoryMembershipSummaryBenefit => '기억 범위를 넘어 AI가 기억하는 이야기 되돌아보기';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => '무제한 영감';
+
+  @override
+  String get memoryMembershipEditingBenefit => '무제한 편집';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return '$membership 전용 배지';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => '젬 충전';
+
+  @override
+  String get memoryPreviewTitle => '전체 기억 미리보기';
+
+  @override
+  String get memoryPreviewNotice => '예시 이야기 · 미리보기 전용';
+
+  @override
+  String get memoryPreviewFree => '구독 없음';
+
+  @override
+  String get memoryPreviewBoth => 'Premium + Deluxe';
+
+  @override
+  String get memoryPreviewLive => '진행 중인 이야기';
+
+  @override
+  String get memoryPreviewFresh => '새 월드';
+
+  @override
+  String get memoryPreviewDepartures => '이야기를 떠난 인물';
+
+  @override
+  String get memoryPreviewPhone => '휴대폰 레이아웃';
+
+  @override
+  String get memoryPreviewMemberships => '멤버십 카드';
 }

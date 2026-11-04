@@ -4920,5 +4920,351 @@
   "settingsAccountSignInDescription": "로그인하여 계정을 관리하세요",
   "@settingsAccountSignInDescription": {
     "description": "Settings > Account: short explanatory subtitle beneath the signed-out status, next to a Sign in button; refers only to account management, not access to privacy choices."
+  },
+  "memoryRecap": "되돌아보기",
+  "@memoryRecap": {
+    "description": "Shared World and MiniPhone memory section title for Timeline and Summary."
+  },
+  "memoryCast": "등장인물",
+  "@memoryCast": {
+    "description": "Shared World and MiniPhone memory section title for character profiles learned during the story."
+  },
+  "memoryBonds": "관계",
+  "@memoryBonds": {
+    "description": "Shared World and MiniPhone memory section title for relationships learned during the story."
+  },
+  "memoryTimeline": "타임라인",
+  "@memoryTimeline": {
+    "description": "Recap tab showing at most ten newest structured story events; unlocked by Deluxe independently of Premium."
+  },
+  "memorySummary": "줄거리 요약",
+  "@memorySummary": {
+    "description": "Recap tab showing the full latest running story summary; unlocked by Premium independently of Deluxe."
+  },
+  "memoryTimelinePitch": "이야기의 주요 사건과 함께한 인물, 사건이 일어난 때가 플레이에 따라 자동으로 업데이트돼요. 여기 있는 모든 내용이 기억에 저장되어 캐릭터들이 일어난 일을 기억해요.",
+  "@memoryTimelinePitch": {
+    "description": "Explanatory copy shown only above the locked Timeline in shared memory UI."
+  },
+  "memorySummaryPitch": "이야기 전체를 담은 요약이 플레이에 따라 자동으로 다시 작성돼요. AI가 내용을 기억하므로 캐릭터들이 일어난 일을 기억해요.",
+  "@memorySummaryPitch": {
+    "description": "Explanatory copy shown only above the locked Summary in shared memory UI."
+  },
+  "memoryCastPitch": "이야기에 등장하는 모든 인물의 프로필이 플레이에 따라 자동으로 채워져요. 캐릭터들은 모든 장면과 채팅에서 이 정보를 기억해요.",
+  "@memoryCastPitch": {
+    "description": "Explanatory copy shown only above locked Cast profiles in shared memory UI."
+  },
+  "memoryBondsPitch": "여러분과 서로를 향한 각 인물의 감정이 플레이에 따라 자동으로 업데이트돼요. 캐릭터들은 모든 장면과 채팅에서도 이 감정을 이어가요.",
+  "@memoryBondsPitch": {
+    "description": "Explanatory copy shown only above locked Bonds in shared memory UI."
+  },
+  "memoryStorySoFar": "지금까지의 이야기",
+  "@memoryStorySoFar": {
+    "description": "Heading above the latest full running story summary or its locked skeleton."
+  },
+  "memoryTimelineEmptyTitle": "아직 주요 사건이 없어요",
+  "@memoryTimelineEmptyTitle": {
+    "description": "Unlocked Timeline empty state heading when the supplied snapshot has no events."
+  },
+  "memoryTimelineEmptyBody": "이야기가 진행되면 주요 사건이 여기에 표시돼요. 메모리는 5턴마다 업데이트돼요.",
+  "@memoryTimelineEmptyBody": {
+    "description": "Unlocked Timeline empty state explanation: events fill in as the story moves, and the memory updates once every 5 story turns."
+  },
+  "memorySummaryEmptyTitle": "이야기가 이제 막 시작됐어요",
+  "@memorySummaryEmptyTitle": {
+    "description": "Unlocked Summary empty state heading; body reuses the existing recapEmpty message."
+  },
+  "memoryCastSetupNote": "프로필은 월드의 초기 설정을 바탕으로 시작되며, 이야기를 통해 새로운 정보가 드러나면 채워져요.",
+  "@memoryCastSetupNote": {
+    "description": "Cast informational note when profiles contain only initial world setup and no story memory yet."
+  },
+  "memoryCastEmpty": "이야기가 시작되면 등장인물이 여기에 표시돼요.",
+  "@memoryCastEmpty": {
+    "description": "Unlocked Cast empty state when no character profiles were supplied."
+  },
+  "memoryHowTheySeeYou": "나를 향한 감정",
+  "@memoryHowTheySeeYou": {
+    "description": "Bonds group heading for each character's feelings toward the player character."
+  },
+  "memoryBetweenThem": "인물 간 관계",
+  "@memoryBetweenThem": {
+    "description": "Bonds group heading for relationships between other characters."
+  },
+  "memoryToYouEmpty": "아직 나에 대한 인상을 가진 사람이 없어요. 누군가 갖게 되면 여기에 표시돼요.",
+  "@memoryToYouEmpty": {
+    "description": "Empty prompt inside the How they see you group of unlocked Bonds."
+  },
+  "memoryBetweenEmpty": "아직 기록된 인물 간의 관계가 없어요.",
+  "@memoryBetweenEmpty": {
+    "description": "Empty prompt inside the Between them group of unlocked Bonds."
+  },
+  "memoryBasics": "기본 정보",
+  "@memoryBasics": {
+    "description": "Cast expanded profile group for status, age, gender, orientation and appearance."
+  },
+  "memoryAbout": "인물 소개",
+  "@memoryAbout": {
+    "description": "Cast expanded profile group for personality, background, preferences and boundaries."
+  },
+  "memoryStory": "이야기",
+  "@memoryStory": {
+    "description": "Cast expanded profile group for character arc and defining moment."
+  },
+  "memoryRightNow": "현재 상황",
+  "@memoryRightNow": {
+    "description": "MiniPhone expanded active character profile group for current activity and attitude toward the player."
+  },
+  "memoryNow": "현재 활동",
+  "@memoryNow": {
+    "description": "Active non-player character's current activity field in Cast."
+  },
+  "memoryRecent": "최근 활동",
+  "@memoryRecent": {
+    "description": "Player character's recent activity field in Cast."
+  },
+  "memoryTowardYou": "나를 향한 감정",
+  "@memoryTowardYou": {
+    "description": "MiniPhone profile field showing this character's feelings toward the player."
+  },
+  "memoryLastSeen": "마지막 모습",
+  "@memoryLastSeen": {
+    "description": "Cast activity label and MiniPhone profile group for a departed or deceased character; replaces Now or Right now."
+  },
+  "memoryLeftTheStory": "이야기를 떠난 인물",
+  "@memoryLeftTheStory": {
+    "description": "Cast final group containing departed and deceased characters, after all active characters."
+  },
+  "memoryLeft": "떠남",
+  "@memoryLeft": {
+    "description": "Outlined Cast status badge meaning the character has departed the story; not a direction."
+  },
+  "memoryDeceased": "사망",
+  "@memoryDeceased": {
+    "description": "Outlined Cast status badge and profile status value for a dead character."
+  },
+  "memoryStatus": "상태",
+  "@memoryStatus": {
+    "description": "First Basics field label in an expanded departed or deceased Cast profile."
+  },
+  "memoryAge": "나이",
+  "@memoryAge": {
+    "description": "Cast Basics profile field label for the character's age."
+  },
+  "memoryGender": "성별",
+  "@memoryGender": {
+    "description": "Cast Basics profile field label for the character's gender."
+  },
+  "memoryOrientation": "성적 지향",
+  "@memoryOrientation": {
+    "description": "Cast Basics profile field label for sexual orientation."
+  },
+  "memoryAppearance": "외모",
+  "@memoryAppearance": {
+    "description": "Cast Basics profile field label for physical appearance."
+  },
+  "memoryPersonality": "성격",
+  "@memoryPersonality": {
+    "description": "Cast About profile field label for personality traits."
+  },
+  "memoryBackground": "배경",
+  "@memoryBackground": {
+    "description": "Cast About profile field label for the character's personal history."
+  },
+  "memoryLikesDislikes": "좋아하는 것과 싫어하는 것",
+  "@memoryLikesDislikes": {
+    "description": "Cast About profile field label for hobbies and preferences."
+  },
+  "memoryBoundaries": "개인적 경계",
+  "@memoryBoundaries": {
+    "description": "Cast About profile field label for taboos and personal boundaries."
+  },
+  "memoryGoodToKnow": "알아둘 점",
+  "@memoryGoodToKnow": {
+    "description": "Cast About profile field label for other relevant character details."
+  },
+  "memoryArc": "인물의 변화",
+  "@memoryArc": {
+    "description": "Cast Story profile field label for the character's evolving story arc."
+  },
+  "memoryDefiningMoment": "결정적 순간",
+  "@memoryDefiningMoment": {
+    "description": "Cast Story profile field label for an important character highlight."
+  },
+  "memoryUpdated": "업데이트됨",
+  "@memoryUpdated": {
+    "description": "Memory badge indicating an event, profile field or relationship changed in the latest supplied update."
+  },
+  "memoryNew": "새 항목",
+  "@memoryNew": {
+    "description": "Memory Timeline badge indicating an event was added in the latest supplied update."
+  },
+  "memoryYou": "나",
+  "@memoryYou": {
+    "description": "Cast badge identifying the player character."
+  },
+  "memoryCharacters": "등장인물",
+  "@memoryCharacters": {
+    "description": "MiniPhone Cast list group heading for active non-player characters."
+  },
+  "memoryLocked": "잠김",
+  "@memoryLocked": {
+    "description": "Accessibility label for locked memory tabs and structural placeholders; no story content is disclosed."
+  },
+  "memoryMembershipDeluxe": "Worldo Deluxe",
+  "@memoryMembershipDeluxe": {
+    "description": "Shared membership cards: independent Worldo Deluxe subscription name. Preserve Worldo and Deluxe as product names; Deluxe does not include Premium."
+  },
+  "memoryMembershipPremiumOffer": "모든 반전, 선택, 등장인물을 담고 플레이에 따라 다시 작성되는 전체 이야기 요약과 함께 매월 최대 3,500개의 젬을 받아 보세요.",
+  "@memoryMembershipPremiumOffer": {
+    "description": "Premium locked-memory upsell card from Caps design: full evolving story recap covering twists, choices and characters, plus maximum monthly Gems including conditional daily claims. This describes the independent Premium Summary benefit, not Deluxe ownership; actual purchase uses the existing store-backed flow."
+  },
+  "memoryMembershipDeluxeOffer": "플레이에 따라 업데이트되고 캐릭터들이 기억하는 타임라인, 등장인물, 관계로 구성된 기억과 함께 매월 최대 18,000개의 젬을 받아 보세요.",
+  "@memoryMembershipDeluxeOffer": {
+    "description": "Deluxe locked-memory upsell card from Caps design: Timeline, Cast and Bonds form evolving memory that characters remember, plus a maximum monthly Gems allowance. Shown wherever those sections are locked."
+  },
+  "memoryMembershipDeluxeTagline": "플레이에 따라 자동으로 업데이트되는 기억.",
+  "@memoryMembershipDeluxeTagline": {
+    "description": "Deluxe subscription design-preview card tagline; proposed memory benefit, displayed with not-yet-available notice."
+  },
+  "memoryMembershipDeluxeUnavailable": "Deluxe는 아직 이용할 수 없어요.",
+  "@memoryMembershipDeluxeUnavailable": {
+    "description": "Production Deluxe card and subscribe feedback: no Deluxe checkout or SKU exists; proposed prices and benefits are unconfirmed. Must not imply a purchase or active membership."
+  },
+  "memoryMembershipPremiumCheckout": "현재 Premium 요금제와 가격을 확인하고 구독하세요.",
+  "@memoryMembershipPremiumCheckout": {
+    "description": "Premium offer and subscription cards: action opens original store-backed checkout where actual plans and prices are confirmed. The local Yearly/Monthly selector alone does not place an order."
+  },
+  "memoryMembershipDraftPreview": "디자인 미리보기 · 가격과 혜택은 확정되지 않았어요",
+  "@memoryMembershipDraftPreview": {
+    "description": "Explicit Developer-only membership preview notice above draft prices. Never use draft prices to charge or infer actual membership."
+  },
+  "memoryMembershipDetails": "{membership} 상세 정보 보기",
+  "@memoryMembershipDetails": {
+    "description": "Accessible label for a membership card chevron opening the matching Subscription slide.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipTimelineBenefit": "타임라인, 등장인물, 관계: 주요 사건, 프로필, 각 인물의 감정",
+  "@memoryMembershipTimelineBenefit": {
+    "description": "Deluxe design card benefit: structured story memory with events, character profiles and relationships. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipRememberBenefit": "캐릭터들이 모든 내용을 기억해요",
+  "@memoryMembershipRememberBenefit": {
+    "description": "Deluxe design card benefit: the structured memory is intended to inform characters. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipSummaryBenefit": "기억 범위를 넘어 AI가 기억하는 이야기 되돌아보기",
+  "@memoryMembershipSummaryBenefit": {
+    "description": "Premium subscription card benefit title from approved design: existing persistent story Summary, independent of Deluxe."
+  },
+  "memoryMembershipInspirationsBenefit": "무제한 영감",
+  "@memoryMembershipInspirationsBenefit": {
+    "description": "Subscription design card benefit title for unlimited Inspiration usage. Deluxe remains unavailable."
+  },
+  "memoryMembershipEditingBenefit": "무제한 편집",
+  "@memoryMembershipEditingBenefit": {
+    "description": "Subscription design card benefit title for unlimited editing. Deluxe remains unavailable."
+  },
+  "memoryMembershipBadgeBenefit": "{membership} 전용 배지",
+  "@memoryMembershipBadgeBenefit": {
+    "description": "Subscription design card badge benefit, membership is Premium or Deluxe; this text does not grant a badge or entitlement.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipRechargeBenefit": "젬 충전",
+  "@memoryMembershipRechargeBenefit": {
+    "description": "Premium subscription card benefit title from approved design. Do not show for Deluxe, whose inclusion is unconfirmed."
+  },
+  "memoryPreviewTitle": "전체 기억 미리보기",
+  "@memoryPreviewTitle": {
+    "description": "Developer-only screen title for isolated sample memory and parallel membership design; never changes real account or World data."
+  },
+  "memoryPreviewNotice": "예시 이야기 · 미리보기 전용",
+  "@memoryPreviewNotice": {
+    "description": "Developer memory preview notice: all story content on this page is a local design sample, not the selected user's World."
+  },
+  "memoryPreviewFree": "구독 없음",
+  "@memoryPreviewFree": {
+    "description": "Developer memory preview ownership option; neither Premium nor Deluxe is active in the sample."
+  },
+  "memoryPreviewBoth": "Premium + Deluxe",
+  "@memoryPreviewBoth": {
+    "description": "Developer memory preview ownership option; independent Premium and Deluxe are both active only in the sample."
+  },
+  "memoryPreviewLive": "진행 중인 이야기",
+  "@memoryPreviewLive": {
+    "description": "Developer memory preview sample scenario with populated events, profiles, and relationships."
+  },
+  "memoryPreviewFresh": "새 월드",
+  "@memoryPreviewFresh": {
+    "description": "Developer memory preview sample scenario with no generated memory; not an action that creates a real World."
+  },
+  "memoryPreviewDepartures": "이야기를 떠난 인물",
+  "@memoryPreviewDepartures": {
+    "description": "Developer memory preview scenario showing departed and deceased characters in a separate group."
+  },
+  "memoryPreviewPhone": "휴대폰 레이아웃",
+  "@memoryPreviewPhone": {
+    "description": "Developer memory preview layout toggle between World capsules and MiniPhone character detail layout."
+  },
+  "memoryPreviewMemberships": "멤버십 카드",
+  "@memoryPreviewMemberships": {
+    "description": "Developer memory preview button to view the isolated sliding Premium/Deluxe subscription design and Me cards."
+  },
+  "memoryMembershipMonthlyGems": "매월 최대 {amount}개의 젬",
+  "@memoryMembershipMonthlyGems": {
+    "description": "Subscription sliding membership card: compact maximum monthly Gems allowance heading above the Pink/Red Gems breakdown, from Subscribe design. amount is a preformatted allowance. Deluxe draft amounts remain restricted to explicit Developer previews; this label does not confirm a production entitlement.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipPeriod": "{period, select, year{/ 년} other{/ 월}}",
+  "@memoryMembershipPeriod": {
+    "description": "Subscription and locked-memory upsell plan cards: short billing period suffix beside a displayed catalog price. period is year for an annual plan, otherwise monthly. Keep both ICU select branches. Developer draft prices remain preview-only; the suffix does not define a SKU or enable billing.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipBilledAnnually": "연간 청구",
+  "@memoryMembershipBilledAnnually": {
+    "description": "Subscription and locked-memory upsell Yearly plan card: billing cadence note below the annual price, without repeating the amount. Used for catalog-backed plans or explicit Developer draft previews; does not confirm availability or enable Deluxe billing."
+  },
+  "memoryMembershipDeluxeProfileOffer": "매월 최대 {amount}개의 젬과 자동으로 업데이트되는 기억.",
+  "@memoryMembershipDeluxeProfileOffer": {
+    "description": "Me compact Deluxe membership card from MeMember design: maximum monthly Gems and self-updating memory teaser. amount is a preformatted allowance.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryKeyEventsSoFar": "{count, plural, =0{지금까지 주요 사건 {count}개} =1{지금까지 주요 사건 {count}개} other{지금까지 주요 사건 {count}개}}",
+  "@memoryKeyEventsSoFar": {
+    "description": "Small line above the locked Timeline placeholder in the World sheet: how many key events the story already holds, without showing them.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryMembershipBenefitTimeline": "타임라인: 주요 사건을 순서대로",
+  "@memoryMembershipBenefitTimeline": {
+    "description": "Deluxe subscription card, benefit row: Timeline is the Recap view listing the story's key events in the order they happened."
+  },
+  "memoryMembershipBenefitCast": "등장인물: 계속 업데이트되는 모두의 프로필",
+  "@memoryMembershipBenefitCast": {
+    "description": "Deluxe subscription card, benefit row: Cast is the section with a self-updating profile for each character in the story."
+  },
+  "memoryMembershipBenefitBonds": "관계: 서로를 어떻게 생각하는지",
+  "@memoryMembershipBenefitBonds": {
+    "description": "Deluxe subscription card, benefit row: Bonds is the section showing how characters feel about the player and about one another."
   }
 }

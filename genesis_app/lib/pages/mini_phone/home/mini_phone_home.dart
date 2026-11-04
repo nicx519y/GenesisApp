@@ -1,5 +1,10 @@
 import '../settings/wallpaper/mini_phone_wallpaper_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../../app/bootstrap/app_services_scope.dart';
+import '../../../app/debug/world_memory_debug_preview.dart';
+import '../../../components/world_memory/world_memory_models.dart';
+import '../../../icons/custom_icon_assets.dart';
 import '../../../app/config/genesis_image_config.dart';
 import '../shared/mini_phone_toast.dart';
 import '../../../l10n/genesis_localizations.dart';
@@ -15,6 +20,16 @@ import '../settings/wallpaper/mini_phone_wallpaper_controller.dart';
 import '../settings/wallpaper/mini_phone_wallpaper_background.dart';
 import '../shared/mini_phone_ui.dart';
 import 'mini_phone_notifications.dart';
+
+// Outline glyphs for the apps that are not open yet, as drawn in the design.
+const _cameraGlyph =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/></svg>';
+const _mapsGlyph =
+    '<svg viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.8a5.4 5.4 0 0 0-5.4 5.4c0 4 5.4 8.9 5.4 8.9s5.4-4.9 5.4-8.9A5.4 5.4 0 0 0 9 1.8z"/><path d="M9 5.2a2 2 0 1 0 0 4 2 2 0 1 0 0-4z"/></svg>';
+const _calendarGlyph =
+    '<svg viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.4a6.6 6.6 0 1 0 0 13.2 6.6 6.6 0 1 0 0-13.2z"/><path d="M9 5.4 V9 L11.6 10.6"/></svg>';
+const _lockGlyph =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>';
 
 class MiniPhoneHome extends StatefulWidget {
   const MiniPhoneHome({
@@ -785,40 +800,177 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
     ),
   );
 
-  Widget _lockedHomeApps(double size) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _lockedApp(
-          context.l10n.miniPhoneCamera,
-          Icons.camera_alt_rounded,
-          size,
-        ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _homeApp(
-              'music-musical-note',
-              context.l10n.miniPhoneMusic,
-              MiniPhoneScreen.music,
-              size: size,
+  Widget _lockedHomeApps(double size) {
+    final apps = <Widget>[
+      _lockedApp(context.l10n.miniPhoneCamera, _cameraGlyph, size),
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _homeApp(
+            'music-musical-note',
+            context.l10n.miniPhoneMusic,
+            MiniPhoneScreen.music,
+            size: size,
+          ),
+          const SizedBox(height: 7),
+          _homeAppLabel(context.l10n.miniPhoneMusic, size),
+        ],
+      ),
+      _lockedApp(context.l10n.miniPhoneMaps, _mapsGlyph, size),
+      _lockedApp(context.l10n.miniPhoneCalendar, _calendarGlyph, size),
+      _memoryHomeApp(
+        context.l10n.worldRecap,
+        MiniPhoneScreen.recap,
+        'assets/mini_phone/icons/memory-recap.svg',
+        size,
+      ),
+      _memoryHomeApp(
+        context.l10n.memoryCast,
+        MiniPhoneScreen.cast,
+        'assets/mini_phone/icons/memory-cast.svg',
+        size,
+      ),
+      _memoryHomeApp(
+        context.l10n.memoryBonds,
+        MiniPhoneScreen.bonds,
+        'assets/mini_phone/icons/memory-bonds.svg',
+        size,
+      ),
+    ];
+    const columns = 4;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        children: [
+          for (var start = 0; start < apps.length; start += columns) ...[
+            if (start > 0) const SizedBox(height: 18),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = start; i < start + columns; i++) ...[
+                  if (i > start) const SizedBox(width: 12),
+                  Expanded(
+                    child: i < apps.length
+                        ? Center(child: apps[i])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 7),
-            _homeAppLabel(context.l10n.miniPhoneMusic, size),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _memoryHomeApp(
+    String label,
+    MiniPhoneScreen target,
+    String icon,
+    double size,
+  ) {
+    final membership = AppServicesScope.maybeOf(context)?.membership;
+    final section = switch (target) {
+      MiniPhoneScreen.cast => WorldMemorySection.cast,
+      MiniPhoneScreen.bonds => WorldMemorySection.bonds,
+      _ => WorldMemorySection.recap,
+    };
+    Widget tile({
+      required bool premium,
+      required bool deluxe,
+      int updates = 0,
+    }) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          button: true,
+          label: label,
+          child: GestureDetector(
+            key: ValueKey('mini-phone-app-${target.name}'),
+            onTap: () => widget.onLaunch(
+              target,
+              target,
+              () => widget.onNavigate(target),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AppLaunchSource(
+                  id: target,
+                  borderRadius: 17,
+                  surfaceColor: const Color(0xFF232228),
+                  preview: Center(
+                    child: SvgPicture.asset(icon, width: 33, height: 33),
+                  ),
+                  child: Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF232228),
+                      borderRadius: BorderRadius.circular(17),
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(icon, width: 33, height: 33),
+                    ),
+                  ),
+                ),
+                if (target == MiniPhoneScreen.recap
+                    ? !premium && !deluxe
+                    : !deluxe)
+                  Positioned(
+                    right: -3,
+                    top: -3,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF36343B),
+                        shape: BoxShape.circle,
+                      ),
+                      child: SvgPicture.asset(
+                        target == MiniPhoneScreen.recap
+                            ? proCrownGoldIconAsset
+                            : 'assets/icons/memory_crown_deluxe.svg',
+                        width: 15,
+                        height: 11,
+                      ),
+                    ),
+                  )
+                else if (updates > 0)
+                  Positioned(right: -4, top: -4, child: MiniBadge(updates)),
+              ],
+            ),
+          ),
         ),
-        _lockedApp(context.l10n.miniPhoneMaps, Icons.map_rounded, size),
-        _lockedApp(
-          context.l10n.miniPhoneCalendar,
-          Icons.calendar_month_rounded,
-          size,
-        ),
+        const SizedBox(height: 7),
+        _homeAppLabel(label, size),
       ],
-    ),
-  );
-  Widget _lockedApp(String label, IconData icon, double size) => Semantics(
+    );
+    return ValueListenableBuilder<WorldMemoryDebugPreview>(
+      valueListenable: worldMemoryDebugPreview,
+      builder: (context, _, _) {
+        final preview = activeWorldMemoryDebugPreview;
+        if (preview != null) {
+          return tile(
+            premium: preview.premium,
+            deluxe: preview.deluxe,
+            updates: preview.updatesFor(section),
+          );
+        }
+        if (membership == null) return tile(premium: false, deluxe: false);
+        return ListenableBuilder(
+          listenable: membership.state,
+          builder: (context, _) => tile(
+            premium: membership.state.value.isVip == true,
+            deluxe: false,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _lockedApp(String label, String glyph, double size) => Semantics(
     label: context.l10n.miniPhoneLockedApp(name: label),
     button: true,
     child: GestureDetector(
@@ -841,7 +993,9 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                   color: const Color(0xFF232228),
                   borderRadius: BorderRadius.circular(17),
                 ),
-                child: Center(child: Icon(icon, size: 33, color: miniWhite)),
+                child: Center(
+                  child: SvgPicture.string(glyph, width: 33, height: 33),
+                ),
               ),
               Positioned(
                 right: -3,
@@ -849,34 +1003,36 @@ class _MiniPhoneHomeState extends State<MiniPhoneHome> {
                 child: Container(
                   width: 20,
                   height: 20,
+                  alignment: Alignment.center,
                   decoration: const BoxDecoration(
                     color: Color(0xFF36343B),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.lock_rounded,
-                    size: 12,
-                    color: miniWhite,
-                  ),
+                  child: SvgPicture.string(_lockGlyph, width: 11, height: 11),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 7),
-          _homeAppLabel(label, size),
+          _homeAppLabel(label, size, locked: true),
         ],
       ),
     ),
   );
 
-  Widget _homeAppLabel(String label, double iconSize) => SizedBox(
-    width: iconSize + 8,
-    child: Text(
-      label,
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: miniStyle(12),
-    ),
-  );
+  Widget _homeAppLabel(String label, double iconSize, {bool locked = false}) =>
+      SizedBox(
+        width: iconSize + 8,
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: miniStyle(12).copyWith(
+            height: 15 / 12,
+            letterSpacing: 0,
+            color: locked ? const Color(0x8CFFFFFF) : null,
+          ),
+        ),
+      );
 }

@@ -35,23 +35,32 @@ import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
 import '../ui/navigation/genesis_dark_page_route.dart';
 import '../components/chat/shared/chat_ui.dart';
+import '../components/gems/memory_membership_style.dart';
 import '../components/gems/purchase_session_builder.dart';
+import '../pages/me/developer_global_memory_preview.dart';
 
 export '../app/membership/subscription_analytics.dart' show SubscriptionSource;
 
 class GemWalletRouteArgs {
-  const GemWalletRouteArgs.subscription(this.subscriptionSource)
-    : showSubscription = true,
-      gemsSource = null;
+  const GemWalletRouteArgs.subscription(
+    this.subscriptionSource, {
+    this.membershipTier,
+  }) : showSubscription = true,
+       gemsSource = null;
   const GemWalletRouteArgs.gems(this.gemsSource)
     : showSubscription = false,
+      membershipTier = null,
       subscriptionSource = SubscriptionSource.unknown;
   final bool showSubscription;
+
+  /// The membership card to open on; left out, the lead card.
+  final MemoryMembershipTier? membershipTier;
   final SubscriptionSource subscriptionSource;
   final String? gemsSource;
 }
 
 sealed class RouteNames {
+  static const globalMemoryPreview = '/developer/global-memory';
   static const language = '/language';
   static const shell = '/';
   static const home = '/home';
@@ -527,6 +536,7 @@ sealed class AppRouter {
       RouteNames.follows => 'FollowsPage',
       RouteNames.legal => 'LegalDocumentPage',
       RouteNames.gemWallet => 'GemWalletPage',
+      RouteNames.globalMemoryPreview => 'DeveloperGlobalMemoryPreview',
       RouteNames.gemRecords => 'GemRecordsPage',
       RouteNames.memoryModel => 'MemoryModelPage',
       RouteNames.pageNotFound => 'PageNotFoundPage',
@@ -537,6 +547,11 @@ sealed class AppRouter {
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case RouteNames.globalMemoryPreview:
+        return GenesisDarkPageRoute<void>(
+          settings: settings,
+          builder: (_) => const DeveloperGlobalMemoryPreview(),
+        );
       case RouteNames.language:
         return GenesisDarkPageRoute<void>(
           settings: settings,
@@ -751,6 +766,7 @@ sealed class AppRouter {
               return GemWalletPage(
                 showBuyGems: showBuyGems,
                 showSubscriptionInitially: showSubscription,
+                initialMembershipTier: purchaseArgs?.membershipTier,
                 subscriptionTracking: tracking,
                 gemsSource: purchaseArgs?.gemsSource,
               );

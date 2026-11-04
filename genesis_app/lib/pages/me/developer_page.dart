@@ -23,7 +23,7 @@ import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/membership_debug_override.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
-import '../../app/debug/world_recap_debug_preview.dart';
+import '../../app/debug/world_memory_debug_preview.dart';
 import '../../app/debug/purchase_toast_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
@@ -1225,21 +1225,44 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           ),
         ),
         const SizedBox(height: _itemGap),
-        ValueListenableBuilder<WorldRecapDebugPreview>(
-          valueListenable: worldRecapDebugPreview,
-          builder: (context, preview, _) => GenesisPrimaryButton(
-            key: const ValueKey<String>('developer-world-recap-preview'),
-            label: GenesisL10n.current.developerRecapSetting(
-              mode: preview.label,
+        if (kDebugMode) ...[
+          ValueListenableBuilder<WorldMemoryDebugPreview>(
+            valueListenable: worldMemoryDebugPreview,
+            builder: (context, preview, _) => Column(
+              children: [
+                GenesisPrimaryButton(
+                  key: const ValueKey<String>('developer-world-memory-tier'),
+                  label:
+                      '${GenesisL10n.current.memoryPreviewTitle}: '
+                      '${preview.membership.label}',
+                  onPressed: _chooseWorldMemoryMembership,
+                  backgroundColor: GenesisColors.darkFaintFill,
+                  foregroundColor: GenesisColors.darkTextPrimary,
+                ),
+                const SizedBox(height: _itemGap),
+                GenesisPrimaryButton(
+                  key: const ValueKey<String>('developer-world-memory-story'),
+                  label:
+                      '${GenesisL10n.current.memoryPreviewTitle}: '
+                      '${preview.story.label}',
+                  onPressed: _chooseWorldMemoryStory,
+                  backgroundColor: GenesisColors.darkFaintFill,
+                  foregroundColor: GenesisColors.darkTextPrimary,
+                ),
+              ],
             ),
-            onPressed: _chooseWorldRecapPreview,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            key: const ValueKey('developer-global-memory-preview'),
+            label: GenesisL10n.current.memoryPreviewTitle,
+            onPressed: () =>
+                Navigator.of(context).pushNamed(RouteNames.globalMemoryPreview),
             backgroundColor: GenesisColors.darkFaintFill,
-            disabledBackgroundColor: GenesisColors.darkFaintFill,
-            disabledForegroundColor: GenesisColors.darkTextTertiary,
             foregroundColor: GenesisColors.darkTextPrimary,
           ),
-        ),
-        const SizedBox(height: _itemGap),
+          const SizedBox(height: _itemGap),
+        ],
         GenesisPrimaryButton(
           label: 'Creating',
           onPressed: _showCreatingWaitOverlayPreview,

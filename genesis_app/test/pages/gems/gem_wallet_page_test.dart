@@ -18,6 +18,7 @@ import 'package:genesis_flutter_android/components/common/genesis_action_box.dar
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_bottom_sheet.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_state.dart';
+import 'package:genesis_flutter_android/components/gems/memory_membership_style.dart';
 import 'package:genesis_flutter_android/components/gems/wallet_purchase_tabs.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
@@ -417,7 +418,14 @@ void main() {
             ),
           );
           if (swipe) {
-            await tester.drag(pages, Offset(subscriptionFirst ? -330 : 330, 0));
+            // Membership cards take their own horizontal drags, so leaving
+            // Subscription by swipe starts from the plans below them.
+            await tester.dragFrom(
+              subscriptionFirst
+                  ? tester.getBottomRight(pages) - const Offset(30, 170)
+                  : tester.getCenter(pages),
+              Offset(subscriptionFirst ? -330 : 330, 0),
+            );
           } else {
             await tester.tap(otherTab);
           }
@@ -431,7 +439,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [subscriptionFirst ? 2 : 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
           );
           expect(
             telemetry.events
@@ -461,7 +469,7 @@ void main() {
               billing.startCount,
               billing.storeRecoveryCount,
             ],
-            [subscriptionFirst ? 3 : 2, 2, 1, 1, 1, 1],
+            [2, 2, 1, 1, 1, 1],
           );
           // Returning to the foreground while Subscription is selected must
           // not issue background Gems page requests, even after visiting Gems.
@@ -502,6 +510,7 @@ void main() {
           theme: GenesisTheme.light(),
           scrollBehavior: const GenesisScrollBehavior(),
           home: GemWalletPage(
+            initialMembershipTier: MemoryMembershipTier.premium,
             membershipProductsLoader: loadTestMembershipOffers,
             walletStore: wallet,
             productsLoader: (_) async => [],
@@ -511,6 +520,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('membership-subscribe-premium')),
+      );
       await tester.pumpAndSettle();
       final tabs = find.byKey(const ValueKey('wallet-purchase-tabs'));
       final intro = find.byKey(const ValueKey('pro-introduction'));
@@ -597,6 +610,7 @@ void main() {
           theme: GenesisTheme.light(),
           scrollBehavior: const GenesisScrollBehavior(),
           home: GemWalletPage(
+            initialMembershipTier: MemoryMembershipTier.premium,
             membershipProductsLoader: loadTestMembershipOffers,
             walletStore: wallet,
             billingService: billing,
@@ -623,15 +637,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      final monthlyPlan = find.byKey(
+        const ValueKey('membership-premium-monthly'),
+      );
+      await tester.ensureVisible(monthlyPlan);
+      await tester.pumpAndSettle();
+      await tester.tap(monthlyPlan);
       await tester.pumpAndSettle();
       expect(find.text(r'Monthly: $9.99'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
-      await tester.pump();
-      expect(find.text('Pro subscriptions are coming soon.'), findsNothing);
-      await tester.pump(const Duration(seconds: 3));
       final pages = find.byKey(const ValueKey('wallet-purchase-pages'));
-      final swipe = await tester.startGesture(tester.getCenter(pages));
+      // Membership cards take their own horizontal drags; plans do not.
+      final swipe = await tester.startGesture(tester.getCenter(monthlyPlan));
       await swipe.moveBy(const Offset(-40, 0));
       await tester.pump(const Duration(milliseconds: 16));
       await swipe.moveBy(const Offset(-100, 0));
@@ -697,6 +713,7 @@ void main() {
           theme: GenesisTheme.light(),
           scrollBehavior: const GenesisScrollBehavior(),
           home: GemWalletPage(
+            initialMembershipTier: MemoryMembershipTier.premium,
             membershipProductsLoader: loadTestMembershipOffers,
             walletStore: wallet,
             productsLoader: (_) => products.future,
@@ -713,24 +730,35 @@ void main() {
       for (
         var frame = 0;
         frame < 10 &&
-            find.byKey(const ValueKey('pro-plan-yearly')).evaluate().isEmpty;
+            find
+                .byKey(const ValueKey('membership-premium-yearly'))
+                .evaluate()
+                .isEmpty;
         frame++
       ) {
         await tester.pump(const Duration(milliseconds: 16));
       }
-      expect(find.byKey(const ValueKey('pro-plan-yearly')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('membership-premium-yearly')),
+        findsOneWidget,
+      );
       products.completeError(StateError('offline'));
       tasks.completeError(StateError('offline'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      final monthlyPlan = find.byKey(
+        const ValueKey('membership-premium-monthly'),
+      );
+      await tester.ensureVisible(monthlyPlan);
+      await tester.pumpAndSettle();
+      await tester.tap(monthlyPlan);
       await tester.pumpAndSettle();
       expect(find.text(r'Monthly: $9.99'), findsOneWidget);
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('pro-subscribe-button')))
-            .bottom,
-        lessThan(568),
+      final subscribe = find.byKey(
+        const ValueKey('membership-subscribe-premium'),
       );
+      await tester.ensureVisible(subscribe);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(subscribe).bottom, lessThan(568));
       expect(tester.takeException(), isNull);
     },
   );

@@ -36,6 +36,26 @@ void main() {
   tearDown(() => cache.dispose());
 
   test(
+    'scope change clears closed-sheet data and invalidates old requests',
+    () async {
+      cache.bindScope(('services', 1));
+      final first = cache.refresh('w1', loader.call);
+      loader.pending[0].complete(page('account one'));
+      await first;
+      cache.bindScope(('services', 1));
+      expect(cache.items.single.body, 'account one');
+      final pending = cache.refresh('w1', loader.call);
+      cache.bindScope(('services', 2));
+      expect(cache.hasLoaded, isFalse);
+      expect(cache.items, isEmpty);
+      loader.pending[1].complete(page('stale result'));
+      await pending;
+      expect(cache.items, isEmpty);
+      expect(cache.hasLoaded, isFalse);
+    },
+  );
+
+  test(
     'refresh deduplicates, preserves cache, replaces old pages on success',
     () async {
       final first = cache.refresh('w1', loader.call);

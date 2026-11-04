@@ -52,6 +52,7 @@ class ProSubscriptionContent extends StatefulWidget {
   const ProSubscriptionContent({
     super.key,
     this.productsLoader,
+    this.initialPlanCode = 'pro_yearly',
     this.catalog,
     this.purchaseHandler,
     this.purchaseService,
@@ -72,6 +73,10 @@ class ProSubscriptionContent extends StatefulWidget {
   });
 
   final MembershipCatalogLoader? productsLoader;
+
+  /// Presentation-only entry selection; all eligibility and checkout checks
+  /// remain owned by the existing purchase flow.
+  final String initialPlanCode;
   final MembershipCatalog? catalog;
   final Future<void> Function(MembershipProduct)? purchaseHandler;
   final MembershipPurchaseService? purchaseService;
@@ -159,6 +164,9 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   @override
   void initState() {
     super.initState();
+    _plan = widget.initialPlanCode == 'pro_monthly'
+        ? _ProPlan.monthly
+        : _ProPlan.yearly;
     WidgetsBinding.instance.addObserver(this);
   }
 

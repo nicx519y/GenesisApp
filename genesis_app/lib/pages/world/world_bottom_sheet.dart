@@ -27,9 +27,10 @@ import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
-import '../../app/debug/world_recap_debug_preview.dart';
+import '../../app/debug/world_memory_debug_preview.dart';
 import 'world_recap_cache.dart';
-import 'world_recap_section.dart';
+import 'world_memory_host.dart';
+import '../../components/world_memory/world_memory.dart';
 import 'world_sections.dart';
 import '../chat/location_chat_page.dart'
     show
@@ -52,8 +53,25 @@ class WorldBottomTags extends StatelessWidget {
   final bool recapUnread;
   final bool showDetailUnreadDot;
 
+  bool _memoryPreviewUnread(WorldBottomSheetKind kind) {
+    final section = switch (kind) {
+      WorldBottomSheetKind.recap => WorldMemorySection.recap,
+      WorldBottomSheetKind.cast => WorldMemorySection.cast,
+      WorldBottomSheetKind.bonds => WorldMemorySection.bonds,
+      _ => null,
+    };
+    if (section == null) return false;
+    return (activeWorldMemoryDebugPreview?.updatesFor(section) ?? 0) > 0;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<WorldMemoryDebugPreview>(
+        valueListenable: worldMemoryDebugPreview,
+        builder: (context, _, _) => _buildTags(context),
+      );
+
+  Widget _buildTags(BuildContext context) {
     final items = worldBottomTagItemsFor(context.l10n);
     return Container(
       height: worldMainTabsHeight,
@@ -87,7 +105,8 @@ class WorldBottomTags extends StatelessWidget {
                         recapUnread &&
                             entry.$2.kind == WorldBottomSheetKind.recap ||
                         showDetailUnreadDot &&
-                            entry.$2.kind == WorldBottomSheetKind.detail,
+                            entry.$2.kind == WorldBottomSheetKind.detail ||
+                        _memoryPreviewUnread(entry.$2.kind),
                     onTap: () => onTap(entry.$2.kind),
                   ),
                   if (entry.$1 != items.length - 1) const SizedBox(width: 8),
@@ -255,7 +274,7 @@ class WorldSingleSectionBottomSheetState
   List<Map<String, dynamic>>? _cachedCharacterPositions;
   List<Map<String, dynamic>>? _cachedUserPositions;
   String _cachedLocationListCurrentUid = '';
-  WorldBottomSheetKind? _lastSelectedKind;
+  static const double _sheetContentMinLayoutHeight = 240;
   bool _accessDismissalScheduled = false;
   bool _historyDragDismissAllowed = false;
   bool _historyDragBlockedForGesture = false;
@@ -271,13 +290,6 @@ class WorldSingleSectionBottomSheetState
               !history.hasOlder;
     return !allowed || _historyDragBlockedForGesture;
   }
-
-  /// Made once, so the recap sees one steady source rather than a new one on
-  /// every rebuild of the sheet.
-  late final Listenable _recapMembershipChanges = Listenable.merge([
-    widget.services.membership.state,
-    worldRecapDebugPreview,
-  ]);
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -329,7 +341,6 @@ class WorldSingleSectionBottomSheetState
     worldNewContentDebugSettings.listenable.addListener(
       _handleWorldNewContentDebugSettingsChanged,
     );
-    _refreshRecapOnEntry();
     if (!_canAccess(_selection.kind)) _dismissForRestrictedSection();
   }
 
@@ -426,43 +437,11 @@ class WorldSingleSectionBottomSheetState
       if (mounted) setState(() {});
       return;
     }
-    _refreshRecapOnEntry();
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
     _animateToSelectionPage();
     if (mounted) setState(() {});
-  }
-
-  void _refreshRecapOnEntry() {
-    final kind = _selection.kind;
-    final entered =
-        kind == WorldBottomSheetKind.recap && _lastSelectedKind != kind;
-    _lastSelectedKind = kind;
-    if (!entered) return;
-    if (!shouldConnectWorldChatroom(_currentWorld.relationStatus)) return;
-    final worldId = _currentWorld.worldId;
-    // Recap is a Worldo Premium feature: nothing is fetched for anyone else.
-    _checkRecapMembership((isVip) {
-      if (isVip != true || !mounted) return;
-      unawaited(
-        widget.recapCache.refresh(
-          worldId,
-          widget.services.api.getWorldRecentSummary,
-        ),
-      );
-    });
-  }
-
-  /// Membership as the recap sees it: a developer preview may stand in for
-  /// the real answer in debug builds.
-  void _checkRecapMembership(ValueChanged<bool?> callback) {
-    final forced = worldRecapForcedMembership;
-    if (forced != null) {
-      scheduleMicrotask(() => callback(forced));
-      return;
-    }
-    widget.services.membership.checkVip(callback);
   }
 
   int _pageForKind(WorldBottomSheetKind kind) {
@@ -647,20 +626,6 @@ class WorldSingleSectionBottomSheetState
     );
   }
 
-  Widget _buildCastSectionPage(ScrollController scrollController) {
-    final world = _currentWorld;
-    return WorldCharacterListView(
-      storageKey: 'world-cast-section-bottom-sheet',
-      characters: world.characters,
-      currentUid: widget.currentUid,
-      emptyText: GenesisL10n.current.worldDetailNoCharactersYet,
-      subtitleBuilder: worldCharacterDescriptionText,
-      subtitleColor: GenesisColors.darkTextSecondary,
-      showCharacterDetails: true,
-      controller: scrollController,
-    );
-  }
-
   Widget _buildLocationsSectionPage(ScrollController scrollController) {
     final locationData = _locationListDataForCurrentWorld();
     return ScrollConfiguration(
@@ -786,21 +751,27 @@ class WorldSingleSectionBottomSheetState
         currentUid: widget.currentUid,
         active: _selection.kind == WorldBottomSheetKind.history,
       ),
-      WorldBottomSheetKind.recap => WorldRecapSection(
-        cache: widget.recapCache,
-        load: widget.services.api.getWorldRecentSummary,
-        scrollController: scrollController,
-        expandedContentHeight:
-            (_sheetHostHeight * _sheetMaxChildSize - worldSheetHeaderHeight)
-                .clamp(0.0, double.infinity),
-        onBenefitsPullDown: _handleSheetDragDelta,
-        active: _selection.kind == WorldBottomSheetKind.recap,
-        checkVip: _checkRecapMembership,
-        membershipChanges: _recapMembershipChanges,
+      WorldBottomSheetKind.recap ||
+      WorldBottomSheetKind.cast ||
+      WorldBottomSheetKind.bonds => WorldMemoryHost(
+        key: ValueKey((
+          'memory',
+          _currentWorld.worldId,
+          widget.currentUid,
+          kind,
+        )),
+        services: widget.services,
         worldId: _currentWorld.worldId,
+        section: switch (kind) {
+          WorldBottomSheetKind.cast => WorldMemorySection.cast,
+          WorldBottomSheetKind.bonds => WorldMemorySection.bonds,
+          _ => WorldMemorySection.recap,
+        },
+        cache: widget.recapCache,
+        scrollController: scrollController,
+        active: _selection.kind == kind,
       ),
       WorldBottomSheetKind.status => _buildStatusSectionPage(scrollController),
-      WorldBottomSheetKind.cast => _buildCastSectionPage(scrollController),
     };
   }
 
@@ -809,7 +780,7 @@ class WorldSingleSectionBottomSheetState
   }
 
   Widget _buildSheetContent(ScrollController sheetScrollController) {
-    return ScrollConfiguration(
+    final pages = ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: PageView.builder(
         controller: _pageController,
@@ -823,6 +794,23 @@ class WorldSingleSectionBottomSheetState
           return _buildSheetPage(kind, scrollController);
         },
       ),
+    );
+    // Collapsing squeezes this area towards nothing. Pages keep a workable
+    // height and are clipped, so their fixed tabs never overflow on the way.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final height = box.maxHeight < _sheetContentMinLayoutHeight
+            ? _sheetContentMinLayoutHeight
+            : box.maxHeight;
+        return ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topCenter,
+            minHeight: height,
+            maxHeight: height,
+            child: pages,
+          ),
+        );
+      },
     );
   }
 
@@ -1113,30 +1101,29 @@ class WorldSingleSectionSheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: worldSheetHeaderHeight,
-      child: Stack(
+      child: Column(
         children: [
-          Positioned(
-            top: worldSheetPageIndicatorTopOffset,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: WorldSheetPageIndicator(
-                pageController: pageController,
-                pageCount: pageCount,
+          SizedBox(
+            height: 22,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                top: worldSheetPageIndicatorTopOffset,
+              ),
+              child: Center(
+                child: WorldSheetPageIndicator(
+                  pageController: pageController,
+                  pageCount: pageCount,
+                ),
               ),
             ),
           ),
-          Positioned(
-            left: 24,
-            right: 24,
-            top: 15,
-            child: SizedBox(
-              height: 28,
+          SizedBox(
+            height: 44,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  WorldSheetHeaderIcon(item: item),
-                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       item.label,
@@ -1144,15 +1131,21 @@ class WorldSingleSectionSheetHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: GenesisColors.darkTextPrimary,
-                        fontSize: 16,
-                        height: 1,
+                        fontSize: 20,
+                        height: 28 / 20,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: 0,
                         decoration: TextDecoration.none,
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  GenesisDarkCloseButton(onPressed: onClose),
+                  GenesisDarkCloseButton(
+                    onPressed: onClose,
+                    size: 36,
+                    glyphSize: 16,
+                    background: const Color(0x14FFFFFF),
+                  ),
                 ],
               ),
             ),
@@ -1169,12 +1162,12 @@ class WorldSheetPageIndicator extends StatelessWidget {
     required this.pageCount,
   });
 
-  static const double _activeWidth = 26;
-  static const double _inactiveWidth = 4;
+  static const double _activeWidth = 22;
+  static const double _inactiveWidth = 6;
   static const double _segmentGap = 5;
-  static const double _height = 4;
+  static const double _height = 6;
   static const Color _activeColor = GenesisColors.darkHandleActive;
-  static const Color _inactiveColor = GenesisColors.darkHandleInactive;
+  static const Color _inactiveColor = Color(0x59FFFFFF);
 
   final PageController pageController;
   final int pageCount;
@@ -1236,32 +1229,9 @@ class _WorldSheetPageIndicatorSegment extends StatelessWidget {
           WorldSheetPageIndicator._activeColor,
           progress,
         ),
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BorderRadius.circular(3),
       ),
     );
-  }
-}
-
-class WorldSheetHeaderIcon extends StatelessWidget {
-  const WorldSheetHeaderIcon({required this.item});
-
-  final WorldBottomTagItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final asset = item.asset;
-    if (asset != null) {
-      return SvgPicture.asset(
-        asset,
-        width: 20,
-        height: 20,
-        colorFilter: const ColorFilter.mode(
-          GenesisColors.darkTextSecondary,
-          BlendMode.srcIn,
-        ),
-      );
-    }
-    return Icon(item.icon, size: 20, color: GenesisColors.darkTextSecondary);
   }
 }
 

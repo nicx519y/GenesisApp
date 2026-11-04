@@ -5,34 +5,41 @@ import '../tokens/genesis_colors.dart';
 
 /// Standard circular close action for dark sheets and panels.
 class GenesisDarkCloseButton extends StatelessWidget {
-  const GenesisDarkCloseButton({super.key, required this.onPressed});
+  const GenesisDarkCloseButton({
+    super.key,
+    required this.onPressed,
+    this.size = dimension,
+    this.glyphSize = iconSize,
+    this.background = GenesisColors.darkFaintFill,
+  });
 
   static const double dimension = 28;
   static const double iconSize = 17;
 
   final VoidCallback? onPressed;
+  final double size;
+  final double glyphSize;
+  final Color background;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
-      dimension: dimension,
+      dimension: size,
       child: IconButton(
-        tooltip: GenesisL10n
-            .current
-            .commonClose,
+        tooltip: GenesisL10n.current.commonClose,
         onPressed: onPressed,
         style: IconButton.styleFrom(
           padding: EdgeInsets.zero,
-          minimumSize: const Size.square(dimension),
-          maximumSize: const Size.square(dimension),
+          minimumSize: Size.square(size),
+          maximumSize: Size.square(size),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: GenesisColors.darkFaintFill,
-          disabledBackgroundColor: GenesisColors.darkFaintFill,
+          backgroundColor: background,
+          disabledBackgroundColor: background,
           foregroundColor: GenesisColors.darkTextPrimary,
           disabledForegroundColor: GenesisColors.darkTextTertiary,
           shape: const CircleBorder(),
         ),
-        icon: const Icon(Icons.close_rounded, size: iconSize),
+        icon: Icon(Icons.close_rounded, size: glyphSize),
       ),
     );
   }

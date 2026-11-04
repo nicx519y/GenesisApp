@@ -3736,4 +3736,285 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Impossibile salvare le scelte sulla privacy. Riprova.';
+
+  @override
+  String get memoryRecap => 'Riepilogo';
+
+  @override
+  String get memoryCast => 'Personaggi';
+
+  @override
+  String get memoryBonds => 'Legami';
+
+  @override
+  String get memoryTimeline => 'Cronologia';
+
+  @override
+  String get memorySummary => 'Riassunto';
+
+  @override
+  String get memoryTimelinePitch =>
+      'Gli eventi chiave della tua storia, chi era presente e quando sono avvenuti si aggiornano automaticamente mentre giochi. Tutto ciò che trovi qui viene salvato nella memoria, così i personaggi ricordano quello che è successo.';
+
+  @override
+  String get memorySummaryPitch =>
+      'Un riassunto di tutta la tua storia, riscritto automaticamente mentre giochi. L’AI lo tiene a mente, così i personaggi ricordano quello che è successo.';
+
+  @override
+  String get memoryCastPitch =>
+      'I profili di tutti i personaggi della storia si completano automaticamente mentre giochi. I personaggi ricordano questi dettagli in ogni scena e conversazione.';
+
+  @override
+  String get memoryBondsPitch =>
+      'Ciò che ogni personaggio prova per te e per gli altri si aggiorna automaticamente mentre giochi. I personaggi portano con sé questi sentimenti in ogni scena e conversazione.';
+
+  @override
+  String get memoryStorySoFar => 'La storia finora';
+
+  @override
+  String get memoryTimelineEmptyTitle => 'Ancora nessun evento chiave';
+
+  @override
+  String get memoryTimelineEmptyBody =>
+      'Gli eventi chiave appariranno qui man mano che la tua storia si sviluppa. La memoria si aggiorna ogni 5 turni.';
+
+  @override
+  String memoryKeyEventsSoFar({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count eventi chiave finora',
+      one: '$count evento chiave finora',
+      zero: '$count eventi chiave finora',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get memorySummaryEmptyTitle => 'La storia è appena iniziata';
+
+  @override
+  String get memoryCastSetupNote =>
+      'I profili partono dalle impostazioni iniziali del mondo e si completano man mano che la storia rivela nuovi dettagli.';
+
+  @override
+  String get memoryCastEmpty =>
+      'I personaggi appariranno qui quando la tua storia avrà inizio.';
+
+  @override
+  String get memoryHowTheySeeYou => 'Come ti vedono';
+
+  @override
+  String get memoryBetweenThem => 'Tra di loro';
+
+  @override
+  String get memoryToYouEmpty =>
+      'Nessuno si è ancora fatto un’idea di te. Comparirà qui appena qualcuno lo farà.';
+
+  @override
+  String get memoryBetweenEmpty =>
+      'Non è ancora registrato alcun legame tra i personaggi.';
+
+  @override
+  String get memoryBasics => 'Informazioni di base';
+
+  @override
+  String get memoryAbout => 'Sul personaggio';
+
+  @override
+  String get memoryStory => 'Storia';
+
+  @override
+  String get memoryRightNow => 'In questo momento';
+
+  @override
+  String get memoryNow => 'Attività attuale';
+
+  @override
+  String get memoryRecent => 'Attività recenti';
+
+  @override
+  String get memoryTowardYou => 'Verso di te';
+
+  @override
+  String get memoryLastSeen => 'Ultima apparizione';
+
+  @override
+  String get memoryLeftTheStory => 'Fuori dalla storia';
+
+  @override
+  String get memoryLeft => 'Ha lasciato la storia';
+
+  @override
+  String get memoryDeceased => 'Decesso';
+
+  @override
+  String get memoryStatus => 'Stato';
+
+  @override
+  String get memoryAge => 'Età';
+
+  @override
+  String get memoryGender => 'Genere';
+
+  @override
+  String get memoryOrientation => 'Orientamento sessuale';
+
+  @override
+  String get memoryAppearance => 'Aspetto';
+
+  @override
+  String get memoryPersonality => 'Personalità';
+
+  @override
+  String get memoryBackground => 'Passato';
+
+  @override
+  String get memoryLikesDislikes => 'Gusti e avversioni';
+
+  @override
+  String get memoryBoundaries => 'Limiti';
+
+  @override
+  String get memoryGoodToKnow => 'Da sapere';
+
+  @override
+  String get memoryArc => 'Evoluzione del personaggio';
+
+  @override
+  String get memoryDefiningMoment => 'Momento decisivo';
+
+  @override
+  String get memoryUpdated => 'Aggiornato';
+
+  @override
+  String get memoryNew => 'Nuovo';
+
+  @override
+  String get memoryYou => 'Tu';
+
+  @override
+  String get memoryCharacters => 'Personaggi';
+
+  @override
+  String get memoryLocked => 'Bloccato';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Fino a $amount Gemme al mese';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ anno',
+      'other': '/ mese',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Fatturazione annuale';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Fino a $amount Gemme al mese e una memoria che si aggiorna da sola.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Ottieni un riepilogo completo di ogni colpo di scena, scelta e personaggio, riscritto mentre giochi, e fino a 3.500 Gemme al mese.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Ottieni Cronologia, Personaggi e Legami: una memoria che si aggiorna mentre giochi e che i personaggi ricordano, oltre a un massimo di 18.000 Gemme al mese.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Una memoria che si aggiorna da sola mentre giochi.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe non è ancora disponibile.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'Consulta i piani e i prezzi attuali di Premium per abbonarti.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Anteprima del design · prezzi e vantaggi non confermati';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'Visualizza i dettagli di $membership';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Cronologia, Personaggi e Legami: eventi chiave, profili e sentimenti di ciascuno';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Cronologia: ogni evento chiave, in ordine';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Personaggi: un profilo vivo di ognuno';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Legami: cosa prova ognuno per gli altri';
+
+  @override
+  String get memoryMembershipRememberBenefit => 'I personaggi ricordano tutto';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Riepilogo della storia che l’AI ricorda oltre la memoria';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Ispirazione illimitata';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Modifiche illimitate';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Distintivo esclusivo di $membership';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Ricarica di Gemme';
+
+  @override
+  String get memoryPreviewTitle => 'Anteprima della memoria globale';
+
+  @override
+  String get memoryPreviewNotice => 'Storia di esempio · solo anteprima';
+
+  @override
+  String get memoryPreviewFree => 'Nessun abbonamento';
+
+  @override
+  String get memoryPreviewBoth => 'Premium + Deluxe';
+
+  @override
+  String get memoryPreviewLive => 'Storia in corso';
+
+  @override
+  String get memoryPreviewFresh => 'Nuovo Mondo';
+
+  @override
+  String get memoryPreviewDepartures =>
+      'Personaggi che hanno lasciato la storia';
+
+  @override
+  String get memoryPreviewPhone => 'Layout del telefono';
+
+  @override
+  String get memoryPreviewMemberships => 'Schede di abbonamento';
 }

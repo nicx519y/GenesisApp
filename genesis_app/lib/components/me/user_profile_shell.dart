@@ -427,7 +427,25 @@ class _UserProfileContentState extends State<UserProfileContent>
                                   widget.displayNameListenable,
                             ),
                           ),
-                          if (widget.displayNameTrailing == null &&
+                          if (data.isSelf &&
+                              activeWorldMemoryDebugPreview != null) ...[
+                            if (activeWorldMemoryDebugPreview!.deluxe) ...[
+                              const SizedBox(width: 6),
+                              SvgPicture.asset(
+                                'assets/icons/memory_crown_deluxe.svg',
+                                width: 24,
+                                height: 17,
+                              ),
+                            ],
+                            if (activeWorldMemoryDebugPreview!.premium) ...[
+                              const SizedBox(width: 6),
+                              ProMembershipBadge.beside(
+                                fontSize: MediaQuery.textScalerOf(
+                                  context,
+                                ).scale(20),
+                              ),
+                            ],
+                          ] else if (widget.displayNameTrailing == null &&
                               !data.deleted &&
                               data.membershipStatus == 1) ...[
                             const SizedBox(width: 6),
@@ -482,12 +500,7 @@ class _UserProfileContentState extends State<UserProfileContent>
           ),
           if (data.isSelf) ...[
             const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _MembershipEntry(
-                stateListenable: widget.membershipStateListenable,
-              ),
-            ),
+            _MembershipEntry(stateListenable: widget.membershipStateListenable),
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -727,15 +740,45 @@ class _MembershipEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final listenable =
         stateListenable ?? AppServicesScope.maybeOf(context)?.membership.state;
-    if (listenable == null) return const ProfileMembershipCard();
-    return ValueListenableBuilder<MembershipAccessState>(
-      valueListenable: listenable,
-      builder: (context, state, _) => ProfileMembershipCard(
-        isActive: state.isVip == true,
-        isExpired: state.isExpired,
-        membershipExpiresAt: state.membership?.expiresAt?.toLocal(),
-        blueBalanceCent: state.membership?.blueGemsCent,
+    void open(MemoryMembershipTier tier) => Navigator.of(context).pushNamed(
+      RouteNames.gemWallet,
+      arguments: GemWalletRouteArgs.subscription(
+        SubscriptionSource.meMembership,
+        membershipTier: tier,
       ),
+    );
+    Widget cards(MembershipAccessState state) {
+      return MemoryMembershipProfileCarousel(
+        premiumActive: state.isVip == true,
+        premiumExpired: state.isExpired,
+        premiumExpiry: state.membership?.expiresAt?.toLocal(),
+        deluxeActive: false,
+        onPremiumSubscribe: () => open(MemoryMembershipTier.premium),
+        onDeluxeSubscribe: () => open(MemoryMembershipTier.deluxe),
+      );
+    }
+
+    return ValueListenableBuilder<WorldMemoryDebugPreview>(
+      valueListenable: worldMemoryDebugPreview,
+      builder: (context, _, _) {
+        final preview = activeWorldMemoryDebugPreview;
+        if (preview != null) {
+          return MemoryMembershipProfileCarousel(
+            key: ValueKey(preview.membership),
+            premiumActive: preview.premium,
+            deluxeActive: preview.deluxe,
+            premiumExpiry: preview.premiumExpiry,
+            deluxeExpiry: preview.deluxeExpiry,
+            onPremiumSubscribe: () => open(MemoryMembershipTier.premium),
+            onDeluxeSubscribe: () => open(MemoryMembershipTier.deluxe),
+          );
+        }
+        if (listenable == null) return cards(const MembershipAccessState());
+        return ValueListenableBuilder<MembershipAccessState>(
+          valueListenable: listenable,
+          builder: (context, state, _) => cards(state),
+        );
+      },
     );
   }
 }

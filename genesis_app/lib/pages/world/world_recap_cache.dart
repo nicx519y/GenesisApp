@@ -24,6 +24,15 @@ class WorldRecapCache extends ChangeNotifier {
   int _revision = 0;
   bool _disposed = false;
   bool _refreshAfterCurrent = false;
+  Object? _scope;
+
+  /// A shared World cache may outlive its sheet. Bind before reading it so
+  /// account changes while the sheet was closed also invalidate old responses.
+  void bindScope(Object scope) {
+    if (_scope == scope) return;
+    clear();
+    _scope = scope;
+  }
 
   /// A push can arrive while the entry refresh is still in flight. Fetch once
   /// more afterward so that response cannot hide the newly saved summary.

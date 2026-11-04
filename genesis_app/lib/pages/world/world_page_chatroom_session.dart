@@ -33,6 +33,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
     _worldChatroom = service;
     _historyViewCache.attach(service);
     _miniPhoneSession.data?.attach(service);
+    _miniPhoneSession.bindSummaryUpdates(service.summaryUpdates);
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
     _worldChatroomFailureSub = bindChatroomFailureToast(
       context,

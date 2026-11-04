@@ -3737,4 +3737,285 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Impossible d’enregistrer vos choix de confidentialité. Veuillez réessayer.';
+
+  @override
+  String get memoryRecap => 'Récapitulatif';
+
+  @override
+  String get memoryCast => 'Personnages';
+
+  @override
+  String get memoryBonds => 'Liens';
+
+  @override
+  String get memoryTimeline => 'Chronologie';
+
+  @override
+  String get memorySummary => 'Résumé';
+
+  @override
+  String get memoryTimelinePitch =>
+      'Les événements clés de votre histoire, les personnes présentes et le moment où ils ont eu lieu sont mis à jour automatiquement pendant que vous jouez. Tout ce qui figure ici est enregistré dans la mémoire pour que les personnages se souviennent de ce qui s’est passé.';
+
+  @override
+  String get memorySummaryPitch =>
+      'Un résumé de toute votre histoire, réécrit automatiquement pendant que vous jouez. L’AI le garde à l’esprit pour que les personnages se souviennent de ce qui s’est passé.';
+
+  @override
+  String get memoryCastPitch =>
+      'Les profils de tous les personnages de l’histoire se complètent automatiquement pendant que vous jouez. Les personnages se souviennent de ces détails dans chaque scène et chaque conversation.';
+
+  @override
+  String get memoryBondsPitch =>
+      'Les sentiments de chaque personnage envers vous et envers les autres sont mis à jour automatiquement pendant que vous jouez. Les personnages conservent ces sentiments dans chaque scène et chaque conversation.';
+
+  @override
+  String get memoryStorySoFar => 'L’histoire jusqu’ici';
+
+  @override
+  String get memoryTimelineEmptyTitle => 'Pas encore d’événements clés';
+
+  @override
+  String get memoryTimelineEmptyBody =>
+      'Les événements clés apparaîtront ici au fil de votre histoire. La mémoire se met à jour tous les 5 tours.';
+
+  @override
+  String memoryKeyEventsSoFar({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count événements clés pour l’instant',
+      one: '$count événement clé pour l’instant',
+      zero: '$count événement clé pour l’instant',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get memorySummaryEmptyTitle => 'L’histoire ne fait que commencer';
+
+  @override
+  String get memoryCastSetupNote =>
+      'Les profils reposent sur les paramètres initiaux du monde et se complètent à mesure que l’histoire en révèle davantage.';
+
+  @override
+  String get memoryCastEmpty =>
+      'Les personnages apparaîtront ici lorsque votre histoire commencera.';
+
+  @override
+  String get memoryHowTheySeeYou => 'Leur regard sur vous';
+
+  @override
+  String get memoryBetweenThem => 'Entre eux';
+
+  @override
+  String get memoryToYouEmpty =>
+      'Personne ne s’est encore fait une opinion sur vous. Elle apparaîtra ici dès que ce sera le cas.';
+
+  @override
+  String get memoryBetweenEmpty =>
+      'Aucun lien entre les personnages n’est encore enregistré.';
+
+  @override
+  String get memoryBasics => 'Informations de base';
+
+  @override
+  String get memoryAbout => 'À propos du personnage';
+
+  @override
+  String get memoryStory => 'Histoire';
+
+  @override
+  String get memoryRightNow => 'En ce moment';
+
+  @override
+  String get memoryNow => 'Activité actuelle';
+
+  @override
+  String get memoryRecent => 'Activité récente';
+
+  @override
+  String get memoryTowardYou => 'Envers vous';
+
+  @override
+  String get memoryLastSeen => 'Dernière apparition';
+
+  @override
+  String get memoryLeftTheStory => 'Personnages ayant quitté l’histoire';
+
+  @override
+  String get memoryLeft => 'A quitté l’histoire';
+
+  @override
+  String get memoryDeceased => 'Décès';
+
+  @override
+  String get memoryStatus => 'Statut';
+
+  @override
+  String get memoryAge => 'Âge';
+
+  @override
+  String get memoryGender => 'Genre';
+
+  @override
+  String get memoryOrientation => 'Orientation sexuelle';
+
+  @override
+  String get memoryAppearance => 'Apparence';
+
+  @override
+  String get memoryPersonality => 'Personnalité';
+
+  @override
+  String get memoryBackground => 'Passé';
+
+  @override
+  String get memoryLikesDislikes => 'Goûts et aversions';
+
+  @override
+  String get memoryBoundaries => 'Limites';
+
+  @override
+  String get memoryGoodToKnow => 'Bon à savoir';
+
+  @override
+  String get memoryArc => 'Évolution du personnage';
+
+  @override
+  String get memoryDefiningMoment => 'Moment décisif';
+
+  @override
+  String get memoryUpdated => 'Mis à jour';
+
+  @override
+  String get memoryNew => 'Nouveau';
+
+  @override
+  String get memoryYou => 'Vous';
+
+  @override
+  String get memoryCharacters => 'Personnages';
+
+  @override
+  String get memoryLocked => 'Verrouillé';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Jusqu’à $amount Gemmes par mois';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ an',
+      'other': '/ mois',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Facturation annuelle';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Jusqu’à $amount Gemmes par mois et une mémoire qui se met à jour automatiquement.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Profitez d’un récapitulatif complet de chaque rebondissement, choix et personnage, réécrit au fil de votre partie, et recevez jusqu’à 3 500 Gemmes par mois.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Profitez de Chronologie, Personnages et Liens : une mémoire qui se met à jour au fil de votre partie et dont les personnages se souviennent. Recevez aussi jusqu’à 18 000 Gemmes par mois.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Une mémoire qui se met à jour toute seule pendant que vous jouez.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe n’est pas encore disponible.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'Consultez les offres et les prix actuels de Premium pour vous abonner.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Aperçu du design · prix et avantages non confirmés';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'Voir les détails de $membership';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Chronologie, Personnages et Liens : événements clés, profils et sentiments de chacun';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Chronologie : chaque événement clé, dans l’ordre';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Personnages : un profil vivant de chacun';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Liens : ce que chacun ressent pour les autres';
+
+  @override
+  String get memoryMembershipRememberBenefit =>
+      'Les personnages se souviennent de tout';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Récapitulatif de l’histoire dont l’AI se souvient au-delà de la mémoire';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Inspiration illimitée';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Modifications illimitées';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Badge exclusif $membership';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Recharge de Gemmes';
+
+  @override
+  String get memoryPreviewTitle => 'Aperçu de la mémoire globale';
+
+  @override
+  String get memoryPreviewNotice => 'Histoire d’exemple · aperçu uniquement';
+
+  @override
+  String get memoryPreviewFree => 'Aucun abonnement';
+
+  @override
+  String get memoryPreviewBoth => 'Premium + Deluxe';
+
+  @override
+  String get memoryPreviewLive => 'Histoire en cours';
+
+  @override
+  String get memoryPreviewFresh => 'Nouveau Monde';
+
+  @override
+  String get memoryPreviewDepartures => 'Personnages ayant quitté l’histoire';
+
+  @override
+  String get memoryPreviewPhone => 'Disposition du téléphone';
+
+  @override
+  String get memoryPreviewMemberships => 'Cartes d’abonnement';
 }

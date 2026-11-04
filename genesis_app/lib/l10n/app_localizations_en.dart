@@ -3674,4 +3674,283 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Unable to save privacy choices. Please try again.';
+
+  @override
+  String get memoryRecap => 'Recap';
+
+  @override
+  String get memoryCast => 'Cast';
+
+  @override
+  String get memoryBonds => 'Bonds';
+
+  @override
+  String get memoryTimeline => 'Timeline';
+
+  @override
+  String get memorySummary => 'Summary';
+
+  @override
+  String get memoryTimelinePitch =>
+      'The key events of your story, who was there and when, updated automatically as you play. Everything here goes into memory, so characters remember what happened.';
+
+  @override
+  String get memorySummaryPitch =>
+      'One running summary of your whole story, rewritten automatically as you play. The AI keeps it in mind, so characters remember what happened.';
+
+  @override
+  String get memoryCastPitch =>
+      'Profiles of everyone in the story, filled in automatically as you play. Characters remember these details in every scene and chat.';
+
+  @override
+  String get memoryBondsPitch =>
+      'How everyone feels about you and about each other, updated automatically as you play. Characters carry these feelings into every scene and chat.';
+
+  @override
+  String get memoryStorySoFar => 'The story so far';
+
+  @override
+  String get memoryTimelineEmptyTitle => 'No key events yet';
+
+  @override
+  String get memoryTimelineEmptyBody =>
+      'Key events appear here as your story unfolds. Memory checks in every 5 turns.';
+
+  @override
+  String memoryKeyEventsSoFar({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count key events so far',
+      one: '1 key event so far',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get memorySummaryEmptyTitle => 'The story is just beginning';
+
+  @override
+  String get memoryCastSetupNote =>
+      'Profiles start from the world setup and fill in as the story reveals more.';
+
+  @override
+  String get memoryCastEmpty =>
+      'Characters will appear here as your story begins.';
+
+  @override
+  String get memoryHowTheySeeYou => 'How they see you';
+
+  @override
+  String get memoryBetweenThem => 'Between them';
+
+  @override
+  String get memoryToYouEmpty =>
+      'Nobody has formed a view of you yet. It shows up here once someone does.';
+
+  @override
+  String get memoryBetweenEmpty =>
+      'No relationships between characters are recorded yet.';
+
+  @override
+  String get memoryBasics => 'Basics';
+
+  @override
+  String get memoryAbout => 'About';
+
+  @override
+  String get memoryStory => 'Story';
+
+  @override
+  String get memoryRightNow => 'Right now';
+
+  @override
+  String get memoryNow => 'Now';
+
+  @override
+  String get memoryRecent => 'Recent';
+
+  @override
+  String get memoryTowardYou => 'Toward you';
+
+  @override
+  String get memoryLastSeen => 'Last seen';
+
+  @override
+  String get memoryLeftTheStory => 'Left the story';
+
+  @override
+  String get memoryLeft => 'Left';
+
+  @override
+  String get memoryDeceased => 'Deceased';
+
+  @override
+  String get memoryStatus => 'Status';
+
+  @override
+  String get memoryAge => 'Age';
+
+  @override
+  String get memoryGender => 'Gender';
+
+  @override
+  String get memoryOrientation => 'Orientation';
+
+  @override
+  String get memoryAppearance => 'Appearance';
+
+  @override
+  String get memoryPersonality => 'Personality';
+
+  @override
+  String get memoryBackground => 'Background';
+
+  @override
+  String get memoryLikesDislikes => 'Likes & dislikes';
+
+  @override
+  String get memoryBoundaries => 'Boundaries';
+
+  @override
+  String get memoryGoodToKnow => 'Good to know';
+
+  @override
+  String get memoryArc => 'Arc';
+
+  @override
+  String get memoryDefiningMoment => 'Defining moment';
+
+  @override
+  String get memoryUpdated => 'Updated';
+
+  @override
+  String get memoryNew => 'New';
+
+  @override
+  String get memoryYou => 'You';
+
+  @override
+  String get memoryCharacters => 'Characters';
+
+  @override
+  String get memoryLocked => 'Locked';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Up to $amount Gems Monthly';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ year',
+      'other': '/ month',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Billed annually';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Up to $amount Gems monthly, plus self-updating memory.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Get a full recap of every twist, choice and character, rewritten as you play, plus up to 3,500 Gems every month.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Get Timeline, Cast and Bonds, a memory that updates as you play and that characters remember, plus up to 18,000 Gems every month.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Memory that updates itself as you play.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe is not available yet.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'View current Premium plans and prices to subscribe.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Design preview · prices and benefits are not confirmed';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'View $membership details';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Timeline, Cast and Bonds: key events, profiles, how everyone feels';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Timeline: every key event, in order';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Cast: a living profile of everyone';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Bonds: how everyone feels about each other';
+
+  @override
+  String get memoryMembershipRememberBenefit => 'Characters remember all of it';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Story Recap the AI Remembers beyond Memory';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Unlimited Inspirations';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Unlimited Editing';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Exclusive $membership Badge';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Gem Recharge';
+
+  @override
+  String get memoryPreviewTitle => 'Global memory preview';
+
+  @override
+  String get memoryPreviewNotice => 'Sample story · preview only';
+
+  @override
+  String get memoryPreviewFree => 'No subscriptions';
+
+  @override
+  String get memoryPreviewBoth => 'Premium + Deluxe';
+
+  @override
+  String get memoryPreviewLive => 'Story in progress';
+
+  @override
+  String get memoryPreviewFresh => 'New World';
+
+  @override
+  String get memoryPreviewDepartures => 'Characters who left';
+
+  @override
+  String get memoryPreviewPhone => 'Phone layout';
+
+  @override
+  String get memoryPreviewMemberships => 'Membership cards';
 }

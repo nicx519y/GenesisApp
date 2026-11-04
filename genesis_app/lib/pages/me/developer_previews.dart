@@ -87,17 +87,38 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     if (chosen != null) membershipDebugOverride.value = chosen;
   }
 
-  /// Picks which recap state the World sheet shows, until the app restarts.
-  Future<void> _chooseWorldRecapPreview() async {
+  /// Picks whose memberships the memory entries show, until the app restarts.
+  Future<void> _chooseWorldMemoryMembership() async {
     final chosen = await _chooseDebugOption(
-      title: GenesisL10n.current.developerRecapPreview,
-      note: GenesisL10n.current.developerRecapPreviewDescription,
-      keyPrefix: 'world-recap-preview',
-      options: WorldRecapDebugPreview.values,
-      current: worldRecapDebugPreview.value,
+      title: GenesisL10n.current.memoryPreviewTitle,
+      note: GenesisL10n.current.memoryPreviewNotice,
+      keyPrefix: 'world-memory-membership',
+      options: WorldMemoryDebugMembership.values,
+      current: worldMemoryDebugPreview.value.membership,
       label: (option) => option.label,
     );
-    if (chosen != null) worldRecapDebugPreview.value = chosen;
+    if (chosen != null) {
+      worldMemoryDebugPreview.value = worldMemoryDebugPreview.value.copyWith(
+        membership: chosen,
+      );
+    }
+  }
+
+  /// Picks which sample story the memory entries show, until the app restarts.
+  Future<void> _chooseWorldMemoryStory() async {
+    final chosen = await _chooseDebugOption(
+      title: GenesisL10n.current.memoryPreviewTitle,
+      note: GenesisL10n.current.memoryPreviewNotice,
+      keyPrefix: 'world-memory-story',
+      options: WorldMemoryDebugStory.values,
+      current: worldMemoryDebugPreview.value.story,
+      label: (option) => option.label,
+    );
+    if (chosen != null) {
+      worldMemoryDebugPreview.value = worldMemoryDebugPreview.value.copyWith(
+        story: chosen,
+      );
+    }
   }
 
   /// One of a debug setting's [options], the [current] one in bold.

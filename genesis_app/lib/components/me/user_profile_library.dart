@@ -28,7 +28,9 @@ import '../gems/gem_assets.dart';
 import '../gems/gem_balance_text.dart';
 import '../gems/pro_colors.dart';
 import '../gems/pro_membership_badge.dart';
-import '../gems/profile_membership_card.dart';
+import '../../app/debug/world_memory_debug_preview.dart';
+import '../gems/memory_membership_carousel.dart';
+import '../gems/memory_membership_style.dart';
 import 'profile_collection_list.dart';
 
 part 'user_profile_shell.dart';

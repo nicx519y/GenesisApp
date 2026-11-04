@@ -2,6 +2,7 @@ import '../../../platform/session/user_session_store.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/bootstrap/app_services_scope.dart';
+import '../../../network/chatroom/chatroom_models.dart';
 import '../../../network/models/music.dart';
 import '../../../network/models/world.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
@@ -52,6 +53,12 @@ class MiniPhoneSession {
   final MiniPhoneMusicService music;
   final MiniPhoneMusicLease? _musicLease;
   final MiniPhoneStore? data;
+  final _summaryUpdates = ValueNotifier<int>(0);
+  Listenable get summaryUpdates => _summaryUpdates;
+  StreamSubscription<ChatroomWorldSummaryUpdated>? _summarySubscription;
+  int _summaryBindingRevision = 0;
+  int? _summaryAccountGeneration;
+  final _seenSummaryGenerations = <int>{};
   String get clockTime => data?.clockTime ?? '';
   String get entryClockTime => clockTime.isEmpty ? '18:05' : clockTime;
   late final MiniPhonePostDraft? postDraft = data == null
@@ -64,6 +71,37 @@ class MiniPhoneSession {
   bool get isDisposed => _disposed;
   MiniPhoneScreen modelReturnScreen = MiniPhoneScreen.chat;
   final modelSettings = MiniPhoneModelSettings();
+
+  /// The World owner passes its existing Socket projection, including on reconnect.
+  /// The memory host owns reads/entitlements; this never connects or joins.
+  void bindSummaryUpdates(Stream<ChatroomWorldSummaryUpdated> updates) {
+    if (_disposed) return;
+    final binding = ++_summaryBindingRevision;
+    unawaited(_summarySubscription?.cancel());
+    _summarySubscription = updates.listen((event) {
+      if (binding == _summaryBindingRevision) _onSummaryUpdated(event);
+    });
+  }
+
+  void _onSummaryUpdated(ChatroomWorldSummaryUpdated event) {
+    final store = data;
+    if (_disposed ||
+        store == null ||
+        store.requests.disposed ||
+        event.worldId != worldId ||
+        store.uid == null ||
+        store.uid!.isEmpty ||
+        event.userId != store.uid) {
+      return;
+    }
+    if (_summaryAccountGeneration != store.accountGeneration) {
+      _summaryAccountGeneration = store.accountGeneration;
+      _seenSummaryGenerations.clear();
+    }
+    if (_seenSummaryGenerations.add(event.generation)) {
+      _summaryUpdates.value++;
+    }
+  }
 
   void ensureMusicCatalog() {
     if (!_disposed && _musicLoader != null) {
@@ -85,6 +123,11 @@ class MiniPhoneSession {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _summaryBindingRevision++;
+    unawaited(_summarySubscription?.cancel());
+    _summarySubscription = null;
+    _summaryUpdates.dispose();
+    _seenSummaryGenerations.clear();
     modelSettings.dispose();
     if (_musicLease != null) {
       _musicLease.release();
