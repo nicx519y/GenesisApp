@@ -5079,5 +5079,50 @@
   "miniPhoneCameraStyle": "Style",
   "@miniPhoneCameraStyle": {
     "description": "MiniPhone Camera compose page: short caption below the bottom-left template thumbnail before any photo style is selected. Tapping opens the existing horizontal template selector."
+  },
+  "miniPhoneCameraPreviewNotice": "Aperçu uniquement · Aucune Gemme utilisée. Les images d’exemple ne sont pas enregistrées dans votre Monde.",
+  "@miniPhoneCameraPreviewNotice": {
+    "description": "MiniPhone Camera: short notice on the camera page and heading for the local preview section in Photos. Explicitly describes a frontend-only local simulation: concurrent photo tasks use sample images, make no backend calls, consume no Gems, and write neither World history nor real album assets. Preserve the preview-only, no-charge, and not-saved meanings."
+  },
+  "miniPhoneCameraPreviewStarted": "La création de la photo a commencé. Vous pouvez en prendre une autre.",
+  "@miniPhoneCameraPreviewStarted": {
+    "description": "MiniPhone Camera: toast immediately after submitting a local mock photo task, while the camera remains available to start another concurrent task. This is a frontend-only simulation, not confirmation of a backend generation request or a saved photo."
+  },
+  "miniPhoneCameraGeneratingCount": "{count} en cours de création",
+  "@miniPhoneCameraGeneratingCount": {
+    "description": "MiniPhone Camera: compact caption on the Photos album entry showing how many concurrent local simulated photo tasks are currently generating. Count is an integer number of pending preview tasks, not real backend jobs or saved album assets; preserve the count and ongoing status.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneCameraCandid": "Sur le vif",
+  "@miniPhoneCameraCandid": {
+    "description": "MiniPhone Camera style selector: short label for a naturally captured, unposed photo of only the selected characters sharing a moment. The Taiwan Traditional Chinese label must be 抓拍, matching the user-provided source image filename."
+  },
+  "miniPhoneCameraLivePhoto": "Photo vivante",
+  "@miniPhoneCameraLivePhoto": {
+    "description": "MiniPhone Camera style selector: short style label for a static still photo capturing a spontaneous gesture with a subtle sense of motion. This is not video or the Apple Live Photo feature. The Taiwan Traditional Chinese label must be 實況照片, matching the user-provided source image filename."
+  },
+  "miniPhoneCameraCandidPrompt": "Une photo prise sur le vif montrant uniquement les personnages sélectionnés, saisis naturellement au cours d’un moment partagé. Conservez leur apparence et leurs tenues, avec une composition sans poses et un décor issu de leur monde. N’ajoutez aucune autre personne.",
+  "@miniPhoneCameraCandidPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted when the Candid style is selected. Preserve all constraints: only selected characters, naturally captured shared moment, unposed composition, setting from their world, unchanged appearance and outfits, and no extra people."
+  },
+  "miniPhoneCameraLivePhotoPrompt": "Une photo fixe pleine de vie montrant uniquement les personnages sélectionnés, capturant un geste spontané avec une subtile impression de mouvement. Conservez leur apparence et leurs tenues, ainsi qu’un décor issu de leur monde. N’ajoutez aucune autre personne.",
+  "@miniPhoneCameraLivePhotoPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people."
+  },
+  "miniPhoneCameraPeopleLimit": "Choisissez jusqu’à 5 personnes.",
+  "@miniPhoneCameraPeopleLimit": {
+    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+  },
+  "miniPhoneCameraFailureRefund": "La génération a échoué. Si des Gemmes ont été prélevées, elles seront remboursées.",
+  "@miniPhoneCameraFailureRefund": {
+    "description": "MiniPhone Camera Debug preview: text in the failed photo placeholder design. Actual billing and backend generation are not connected; keep the conditional meaning of any Gems charged and do not imply that a charge occurred or a refund has already completed."
+  },
+  "miniPhoneCameraPreviewPostNotice": "Aperçu uniquement. Cette photo d’exemple ne peut pas être publiée dans votre Monde.",
+  "@miniPhoneCameraPreviewPostNotice": {
+    "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
   }
 }

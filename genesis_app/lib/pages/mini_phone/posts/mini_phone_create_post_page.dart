@@ -207,11 +207,22 @@ class _MiniPhoneCreatePostPageState extends State<MiniPhoneCreatePostPage> {
                 child: CustomPaint(
                   painter: MiniPhoneUploadBorder(),
                   child: InkWell(
-                    onTap: postDraft.locked || postDraft.preparing
+                    onTap:
+                        postDraft.isCameraPreview ||
+                            postDraft.locked ||
+                            postDraft.preparing
                         ? null
                         : _chooseLivePhoto,
                     borderRadius: BorderRadius.circular(13),
-                    child: postDraft.photo != null
+                    child: postDraft.previewAsset != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.asset(
+                              postDraft.previewAsset!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : postDraft.photo != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(13),
                             child: Image(
@@ -288,6 +299,13 @@ class _MiniPhoneCreatePostPageState extends State<MiniPhoneCreatePostPage> {
               ),
             ],
           ),
+          if (postDraft.isCameraPreview) ...[
+            const SizedBox(height: 12),
+            Text(
+              context.l10n.miniPhoneCameraPreviewPostNotice,
+              style: miniStyle(12, FontWeight.w400, miniSecondary),
+            ),
+          ],
         ],
       ),
     ),

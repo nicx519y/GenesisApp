@@ -3787,6 +3787,20 @@ class AppLocalizationsEs extends AppLocalizations {
       'Una foto a la altura de los ojos en la que aparezcan únicamente los personajes seleccionados, tomada por alguien fuera del encuadre. Mantén visibles a todos los personajes seleccionados, con poses relajadas y expresiones naturales en un entorno de su mundo. Tanto quien toma la foto como la cámara deben quedar fuera del encuadre: sin espejo y sin un brazo extendido para una selfie. Conserva su apariencia y su ropa. No agregues otras personas.';
 
   @override
+  String get miniPhoneCameraCandid => 'Espontánea';
+
+  @override
+  String get miniPhoneCameraLivePhoto => 'Foto con vida';
+
+  @override
+  String get miniPhoneCameraCandidPrompt =>
+      'Una foto espontánea que muestre únicamente a los personajes seleccionados, capturados de forma natural mientras comparten un momento. Conserva su apariencia y su ropa, con una composición sin poses y un escenario de su mundo. No agregues a otras personas.';
+
+  @override
+  String get miniPhoneCameraLivePhotoPrompt =>
+      'Una foto estática llena de vida que muestre únicamente a los personajes seleccionados, capturando un gesto espontáneo con una sutil sensación de movimiento. Conserva su apariencia y su ropa, y utiliza un escenario de su mundo. No agregues a otras personas.';
+
+  @override
   String get miniPhoneCameraTakePhoto => 'Tomar foto';
 
   @override
@@ -3858,10 +3872,34 @@ class AppLocalizationsEs extends AppLocalizations {
   String get miniPhoneCameraFreeTrial => 'Prueba gratis';
 
   @override
+  String get miniPhoneCameraPreviewNotice =>
+      'Solo vista previa · No se usan Gemas. Las imágenes de muestra no se guardan en tu Mundo.';
+
+  @override
+  String get miniPhoneCameraPreviewStarted =>
+      'La creación de la foto comenzó. Puedes tomar otra.';
+
+  @override
+  String miniPhoneCameraGeneratingCount({required int count}) {
+    return 'Generando: $count';
+  }
+
+  @override
   String miniPhoneCameraFreePrice({
     required String originalPrice,
     required String price,
   }) {
     return '$originalPrice $price Gemas / foto';
   }
+
+  @override
+  String get miniPhoneCameraPeopleLimit => 'Elige hasta 5 personas.';
+
+  @override
+  String get miniPhoneCameraFailureRefund =>
+      'La generación falló. Si se cobraron Gemas, se reembolsarán.';
+
+  @override
+  String get miniPhoneCameraPreviewPostNotice =>
+      'Solo es una vista previa. Esta foto de ejemplo no se puede publicar en tu Mundo.';
 }

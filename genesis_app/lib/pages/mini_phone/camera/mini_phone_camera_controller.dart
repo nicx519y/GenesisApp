@@ -4,10 +4,12 @@ import '../../../network/api_exception.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_requests.dart';
 import 'mini_phone_camera_models.dart';
+import 'mini_phone_camera_templates.dart';
 
 /// Owns only the camera draft and presentation. The adapter owns generation,
 /// real request identities, retries and all message/album synchronization.
 class MiniPhoneCameraController extends ChangeNotifier {
+  static const maxPeople = 5;
   MiniPhoneCameraController({
     required this.requests,
     required MiniPhoneCameraScope scope,
@@ -23,6 +25,30 @@ class MiniPhoneCameraController extends ChangeNotifier {
   List<PhonePerson> _people = const [];
   final Set<String> _selected = {};
   String _prompt = '';
+  MiniPhoneCameraTemplate? _selectedTemplate;
+  MiniPhoneCameraTemplate? get selectedTemplate => _selectedTemplate;
+  void setTemplate(MiniPhoneCameraTemplate value) {
+    if (!_contextCurrent ||
+        _phase != MiniPhoneCameraPhase.compose ||
+        value == _selectedTemplate) {
+      return;
+    }
+    _selectedTemplate = value;
+    notifyListeners();
+  }
+
+  CameraPhotoRatio _photoRatio = CameraPhotoRatio.portrait;
+  CameraPhotoRatio get photoRatio => _photoRatio;
+  void setPhotoRatio(CameraPhotoRatio value) {
+    if (!_contextCurrent ||
+        _phase != MiniPhoneCameraPhase.compose ||
+        value == _photoRatio) {
+      return;
+    }
+    _photoRatio = value;
+    notifyListeners();
+  }
+
   MiniPhoneCameraPhase _phase = MiniPhoneCameraPhase.compose;
   MiniPhoneCameraResult? _result;
   MiniPhoneCameraResult? _sourceResult;
@@ -86,7 +112,9 @@ class MiniPhoneCameraController extends ChangeNotifier {
   void togglePerson(PhonePerson person) {
     if (_disposed || _closed || _phase != MiniPhoneCameraPhase.compose) return;
     if (!_people.any((value) => value.key == person.key)) return;
-    if (!_selected.remove(person.key)) _selected.add(person.key);
+    if (!_selected.remove(person.key) && _selected.length < maxPeople) {
+      _selected.add(person.key);
+    }
     _failure = null;
     notifyListeners();
   }
@@ -106,6 +134,8 @@ class MiniPhoneCameraController extends ChangeNotifier {
       scope: _scope,
       participants: selectedPeople,
       prompt: _prompt.trim(),
+      photoRatio: _photoRatio,
+      templateId: _selectedTemplate?.name,
     );
     final cancellation = MiniPhoneCameraCancellation(
       () => _contextCurrent && _version == version,
@@ -198,6 +228,8 @@ class MiniPhoneCameraController extends ChangeNotifier {
     _selected.clear();
     _people = const [];
     _prompt = '';
+    _photoRatio = CameraPhotoRatio.portrait;
+    _selectedTemplate = null;
     _result = null;
     _sourceResult = null;
     _resultRequest = null;

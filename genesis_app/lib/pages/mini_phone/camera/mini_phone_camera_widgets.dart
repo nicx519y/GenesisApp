@@ -384,11 +384,11 @@ class MiniPhoneCameraTemplateSheet extends StatelessWidget {
   const MiniPhoneCameraTemplateSheet({
     super.key,
     required this.strings,
-    required this.prompt,
+    this.selectedTemplate,
     required this.onSelected,
   });
   final MiniPhoneCameraStrings strings;
-  final String prompt;
+  final MiniPhoneCameraTemplate? selectedTemplate;
   final ValueChanged<MiniPhoneCameraTemplate> onSelected;
 
   @override
@@ -431,7 +431,7 @@ class MiniPhoneCameraTemplateSheet extends StatelessWidget {
                           child: MiniPhoneCameraTemplateChoice(
                             template: template,
                             strings: strings,
-                            selected: prompt == template.prompt(strings),
+                            selected: selectedTemplate == template,
                             onTap: () => onSelected(template),
                           ),
                         ),

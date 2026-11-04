@@ -5079,5 +5079,50 @@
   "miniPhoneCameraStyle": "風格",
   "@miniPhoneCameraStyle": {
     "description": "MiniPhone Camera compose page: short caption below the bottom-left template thumbnail before any photo style is selected. Tapping opens the existing horizontal template selector."
+  },
+  "miniPhoneCameraPreviewNotice": "僅供預覽 · 不消耗寶石。範例圖片不會儲存到你的世界。",
+  "@miniPhoneCameraPreviewNotice": {
+    "description": "MiniPhone Camera: short notice on the camera page and heading for the local preview section in Photos. Explicitly describes a frontend-only local simulation: concurrent photo tasks use sample images, make no backend calls, consume no Gems, and write neither World history nor real album assets. Preserve the preview-only, no-charge, and not-saved meanings."
+  },
+  "miniPhoneCameraPreviewStarted": "已開始製作照片，你可以繼續拍下一張。",
+  "@miniPhoneCameraPreviewStarted": {
+    "description": "MiniPhone Camera: toast immediately after submitting a local mock photo task, while the camera remains available to start another concurrent task. This is a frontend-only simulation, not confirmation of a backend generation request or a saved photo."
+  },
+  "miniPhoneCameraGeneratingCount": "{count} 張生成中",
+  "@miniPhoneCameraGeneratingCount": {
+    "description": "MiniPhone Camera: compact caption on the Photos album entry showing how many concurrent local simulated photo tasks are currently generating. Count is an integer number of pending preview tasks, not real backend jobs or saved album assets; preserve the count and ongoing status.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "miniPhoneCameraCandid": "抓拍",
+  "@miniPhoneCameraCandid": {
+    "description": "MiniPhone Camera style selector: short label for a naturally captured, unposed photo of only the selected characters sharing a moment. The Taiwan Traditional Chinese label must be 抓拍, matching the user-provided source image filename."
+  },
+  "miniPhoneCameraLivePhoto": "實況照片",
+  "@miniPhoneCameraLivePhoto": {
+    "description": "MiniPhone Camera style selector: short style label for a static still photo capturing a spontaneous gesture with a subtle sense of motion. This is not video or the Apple Live Photo feature. The Taiwan Traditional Chinese label must be 實況照片, matching the user-provided source image filename."
+  },
+  "miniPhoneCameraCandidPrompt": "一張只包含所選角色的抓拍照片，自然捕捉他們共度某個時刻的模樣。保留角色的外貌與服裝，以不刻意擺拍的構圖呈現，場景取自他們的世界。請勿加入其他人物。",
+  "@miniPhoneCameraCandidPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted when the Candid style is selected. Preserve all constraints: only selected characters, naturally captured shared moment, unposed composition, setting from their world, unchanged appearance and outfits, and no extra people."
+  },
+  "miniPhoneCameraLivePhotoPrompt": "一張只包含所選角色、充滿活力的靜態照片，捕捉自然流露的動作，帶有細微的動感。保留角色的外貌與服裝，場景取自他們的世界。請勿加入其他人物。",
+  "@miniPhoneCameraLivePhotoPrompt": {
+    "description": "MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people."
+  },
+  "miniPhoneCameraPeopleLimit": "最多可選擇 5 人。",
+  "@miniPhoneCameraPeopleLimit": {
+    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+  },
+  "miniPhoneCameraFailureRefund": "生成失敗。若有扣除寶石，將予以退還。",
+  "@miniPhoneCameraFailureRefund": {
+    "description": "MiniPhone Camera Debug preview: text in the failed photo placeholder design. Actual billing and backend generation are not connected; keep the conditional meaning of any Gems charged and do not imply that a charge occurred or a refund has already completed."
+  },
+  "miniPhoneCameraPreviewPostNotice": "僅供預覽。這張範例照片無法發布到你的世界。",
+  "@miniPhoneCameraPreviewPostNotice": {
+    "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
   }
 }

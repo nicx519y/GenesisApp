@@ -26,9 +26,13 @@ final _strings = MiniPhoneCameraStrings(
   povSelfie: 'POV selfie',
   mirrorSelfie: 'Mirror selfie',
   byFriend: 'By a friend',
+  candid: 'Candid',
+  livePhoto: 'Live photo',
   povSelfiePrompt: 'Selfie prompt for only the selected people.',
   mirrorSelfiePrompt: 'Mirror prompt for only the selected people.',
   byFriendPrompt: 'Friend prompt for only the selected people.',
+  candidPrompt: 'Candid prompt for only the selected people.',
+  livePhotoPrompt: 'Live still photo prompt for only the selected people.',
   takePhoto: 'Take photo',
   tryAgain: 'Try again',
   pricePerPhoto: (price) => '$price Gems / photo',
@@ -147,7 +151,7 @@ void main() {
   );
 
   testWidgets(
-    'template fills editable prompt and editing clears its selection',
+    'template selection preserves the description and survives editing',
     (tester) async {
       await size(tester, const Size(350, 740));
       await tester.pumpWidget(app());
@@ -160,7 +164,8 @@ void main() {
       await tester.ensureVisible(template);
       await tester.tap(template);
       await tester.pumpAndSettle();
-      expect(camera.prompt, _strings.povSelfiePrompt);
+      expect(camera.prompt, isEmpty);
+      expect(camera.selectedTemplate, MiniPhoneCameraTemplate.povSelfie);
       expect(find.byType(BottomSheet), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('mini-phone-camera-templates')),
@@ -180,11 +185,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<MiniPhoneCameraTemplateChoice>(template).selected,
-        isFalse,
+        isTrue,
       );
       expect(tester.takeException(), isNull);
-      Navigator.of(tester.element(template)).pop();
+      await tester.tap(find.byType(MiniPhoneCameraTemplateChoice).at(1));
       await tester.pumpAndSettle();
+      expect(camera.prompt, 'Edited template');
+      expect(camera.selectedTemplate, MiniPhoneCameraTemplate.mirrorSelfie);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -295,7 +302,7 @@ void main() {
   });
 
   testWidgets(
-    'templates scroll horizontally and selecting the last fills then closes',
+    'templates scroll horizontally and selecting the last preserves prompt',
     (tester) async {
       await size(tester, const Size(350, 740));
       await tester.pumpWidget(app());
@@ -310,11 +317,12 @@ void main() {
         tester.widget<SingleChildScrollView>(scroll).scrollDirection,
         Axis.horizontal,
       );
-      await tester.drag(scroll, const Offset(-250, 0));
+      await tester.drag(scroll, const Offset(-550, 0));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(MiniPhoneCameraTemplateChoice).last);
       await tester.pumpAndSettle();
-      expect(camera.prompt, _strings.byFriendPrompt);
+      expect(camera.prompt, isEmpty);
+      expect(camera.selectedTemplate, MiniPhoneCameraTemplate.livePhoto);
       expect(find.byType(BottomSheet), findsNothing);
       expect(camera.selectedPeople, isEmpty);
       expect(camera.result, isNull);
@@ -670,10 +678,10 @@ void main() {
       }
       await tester.pump();
       final portraits = find.byType(MiniPhoneCameraFocusedPerson);
-      expect(portraits, findsNWidgets(8));
+      expect(portraits, findsNWidgets(5));
       final frameRect = tester.getRect(frame);
       final portraitRows = <int>{};
-      for (var index = 0; index < 8; index++) {
+      for (var index = 0; index < 5; index++) {
         final rect = tester.getRect(portraits.at(index));
         expect(frameRect.contains(rect.topLeft), isTrue);
         expect(frameRect.contains(rect.bottomRight), isTrue);
@@ -687,7 +695,7 @@ void main() {
         portraitRows.add(rect.top.round());
       }
       expect(portraitRows.length, greaterThan(1));
-      expect(find.text('8 selected'), findsOneWidget);
+      expect(find.text('5 selected'), findsOneWidget);
       expect(find.text('1'), findsNothing);
       expect(camera.result, isNull);
       expect(tester.takeException(), isNull);

@@ -10,7 +10,9 @@ import '../state/mini_phone_store.dart';
 /// Keeps an in-flight Post independent of the phone's visible route.
 class MiniPhonePostDraft extends ChangeNotifier {
   static const maxCharacters = 500;
-  MiniPhonePostDraft(this.store) : _generation = store.accountGeneration {
+  MiniPhonePostDraft(this.store)
+    : isCameraPreview = false,
+      _generation = store.accountGeneration {
     store.addListener(_accountChanged);
     store.ready.then((_) {
       if (_disposed || text.isNotEmpty) return;
@@ -23,7 +25,16 @@ class MiniPhonePostDraft extends ChangeNotifier {
     });
   }
 
+  /// Isolated local composition for a simulated Camera photo. Never writes.
+  MiniPhonePostDraft.cameraPreview(this.store, this.previewAsset)
+    : isCameraPreview = true,
+      _generation = store.accountGeneration {
+    store.addListener(_accountChanged);
+  }
+
   final MiniPhoneStore store;
+  final bool isCameraPreview;
+  String? previewAsset;
   int _generation;
   bool _disposed = false;
   String text = '';
@@ -33,8 +44,10 @@ class MiniPhonePostDraft extends ChangeNotifier {
   bool preparing = false;
   bool submitting = false;
 
-  bool get locked => submitting || store.unresolved('post:new');
+  bool get locked =>
+      submitting || (!isCameraPreview && store.unresolved('post:new'));
   bool get canSubmit =>
+      !isCameraPreview &&
       !submitting &&
       !preparing &&
       text.trim().isNotEmpty &&
@@ -49,6 +62,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
     if (_generation == store.accountGeneration) return;
     _generation = store.accountGeneration;
     text = '';
+    previewAsset = null;
     photo = null;
     uploadedUrl = error = null;
     preparing = submitting = false;
@@ -68,7 +82,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
   }
 
   Future<void> choose(Future<ProcessedUploadImage?> Function() prepare) async {
-    if (locked || preparing) return;
+    if (isCameraPreview || locked || preparing) return;
     final generation = store.accountGeneration;
     preparing = true;
     error = null;

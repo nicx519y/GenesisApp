@@ -86,6 +86,7 @@ Future<void> showGenesisImageViewer(
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   GenesisImageViewerSource? source,
   ValueChanged<int>? onImageViewed,
+  Widget Function(BuildContext context, int index)? bottomBuilder,
 }) {
   final urls = <String>[];
   final previews = <ImageProvider<Object>?>[];
@@ -125,6 +126,7 @@ Future<void> showGenesisImageViewer(
         previewImageProviders: previews,
         initialIndex: startIndex,
         onImageViewed: onImageViewed,
+        bottomBuilder: bottomBuilder,
         maxDevicePixelRatio: maxDevicePixelRatio,
       );
     },
@@ -149,6 +151,7 @@ class GenesisImageViewerOverlay extends StatefulWidget {
     this.previewImageProviders = const <ImageProvider<Object>?>[],
     this.initialIndex = 0,
     this.onImageViewed,
+    this.bottomBuilder,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
@@ -156,6 +159,7 @@ class GenesisImageViewerOverlay extends StatefulWidget {
   final List<ImageProvider<Object>?> previewImageProviders;
   final int initialIndex;
   final ValueChanged<int>? onImageViewed;
+  final Widget Function(BuildContext context, int index)? bottomBuilder;
   final double maxDevicePixelRatio;
 
   @override
@@ -352,6 +356,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
               child: Stack(
                 children: [
                   Positioned.fill(
+                    bottom: widget.bottomBuilder == null ? 0 : 80,
                     child: Transform.translate(
                       key: const ValueKey(
                         'genesis-image-viewer-drag-translation',
@@ -429,7 +434,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 0,
+                      bottom: widget.bottomBuilder == null ? 0 : 72,
                       child: SafeArea(
                         top: false,
                         minimum: const EdgeInsets.only(bottom: 16),
@@ -437,6 +442,16 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
                           count: widget.imageUrls.length,
                           currentIndex: _currentIndex,
                         ),
+                      ),
+                    ),
+                  if (widget.bottomBuilder != null)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 12,
+                      child: SafeArea(
+                        top: false,
+                        child: widget.bottomBuilder!(context, _currentIndex),
                       ),
                     ),
                 ],

@@ -3784,6 +3784,20 @@ class AppLocalizationsPt extends AppLocalizations {
       'Uma foto na altura dos olhos em que apareçam apenas os personagens selecionados, tirada por alguém fora do enquadramento. Mantenha todos os personagens selecionados visíveis, com poses relaxadas e expressões naturais em um cenário do mundo deles. Quem tira a foto e a câmera ficam fora do enquadramento: sem espelho e sem braço estendido para selfie. Preserve a aparência e as roupas dos personagens. Não adicione outras pessoas.';
 
   @override
+  String get miniPhoneCameraCandid => 'Espontânea';
+
+  @override
+  String get miniPhoneCameraLivePhoto => 'Foto com vida';
+
+  @override
+  String get miniPhoneCameraCandidPrompt =>
+      'Uma foto espontânea apenas dos personagens selecionados, capturados naturalmente enquanto compartilham um momento. Mantenha a aparência e as roupas deles, com uma composição sem poses e um cenário do mundo deles. Não adicione outras pessoas.';
+
+  @override
+  String get miniPhoneCameraLivePhotoPrompt =>
+      'Uma foto estática cheia de vida apenas dos personagens selecionados, capturando um gesto espontâneo com uma sutil sensação de movimento. Mantenha a aparência e as roupas deles e use um cenário do mundo deles. Não adicione outras pessoas.';
+
+  @override
   String get miniPhoneCameraTakePhoto => 'Tirar foto';
 
   @override
@@ -3856,10 +3870,34 @@ class AppLocalizationsPt extends AppLocalizations {
   String get miniPhoneCameraFreeTrial => 'Teste grátis';
 
   @override
+  String get miniPhoneCameraPreviewNotice =>
+      'Apenas prévia · Nenhuma Gema é usada. As imagens de exemplo não são salvas no seu Mundo.';
+
+  @override
+  String get miniPhoneCameraPreviewStarted =>
+      'A criação da foto começou. Você pode tirar outra.';
+
+  @override
+  String miniPhoneCameraGeneratingCount({required int count}) {
+    return 'Gerando: $count';
+  }
+
+  @override
   String miniPhoneCameraFreePrice({
     required String originalPrice,
     required String price,
   }) {
     return '$originalPrice $price Gemas / foto';
   }
+
+  @override
+  String get miniPhoneCameraPeopleLimit => 'Escolha até 5 pessoas.';
+
+  @override
+  String get miniPhoneCameraFailureRefund =>
+      'A geração falhou. Se houver cobrança de Gemas, elas serão reembolsadas.';
+
+  @override
+  String get miniPhoneCameraPreviewPostNotice =>
+      'Apenas uma prévia. Esta foto de exemplo não pode ser publicada no seu Mundo.';
 }

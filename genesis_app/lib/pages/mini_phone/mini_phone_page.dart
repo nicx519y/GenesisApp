@@ -286,6 +286,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         _miniResume.accountGeneration != null &&
         _miniResume.accountGeneration != phone!.accountGeneration;
     if (accountChanged) {
+      _miniResume.photosReturnScreen = MiniPhoneScreen.home;
       _miniResume.liveContact = null;
       _miniResume.livePostId = null;
     }
@@ -469,6 +470,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       if (!_launchTransition.open()) return;
     }
     if (next == MiniPhoneScreen.models) _miniModelReturnScreen = screen;
+    if (next == MiniPhoneScreen.photos && navigation != 'back') {
+      _miniResume.photosReturnScreen = screen == MiniPhoneScreen.camera
+          ? MiniPhoneScreen.camera
+          : MiniPhoneScreen.home;
+    }
     _update(() {
       screen = next;
     });
@@ -541,6 +547,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         _close();
       case MiniPhoneScreen.models:
         _go(_miniModelReturnScreen, source: 'back', navigation: 'back');
+      case MiniPhoneScreen.photos:
+        _go(_miniResume.photosReturnScreen, source: 'back', navigation: 'back');
       case MiniPhoneScreen.chat:
         if (widget.initialContact != null) {
           _close();
@@ -548,8 +556,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           _go(MiniPhoneScreen.messages, source: 'back', navigation: 'back');
         }
       case MiniPhoneScreen.comments:
-      case MiniPhoneScreen.create:
         _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back');
+      case MiniPhoneScreen.create:
+        _go(
+          _session.composingCameraPhoto
+              ? MiniPhoneScreen.photos
+              : MiniPhoneScreen.posts,
+          source: 'back',
+          navigation: 'back',
+        );
       default:
         _go(MiniPhoneScreen.home, source: 'back', navigation: 'back');
     }
@@ -694,8 +709,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ..._pageStack(_miniModelReturnScreen),
           MiniPhoneScreen.models,
         ],
+        MiniPhoneScreen.create when _session.composingCameraPhoto => [
+          ..._pageStack(MiniPhoneScreen.photos),
+          destination,
+        ],
         MiniPhoneScreen.comments ||
         MiniPhoneScreen.create => [MiniPhoneScreen.posts, destination],
+        MiniPhoneScreen.photos
+            when _miniResume.photosReturnScreen == MiniPhoneScreen.camera =>
+          [MiniPhoneScreen.camera, MiniPhoneScreen.photos],
         _ => [destination],
       };
 
@@ -744,6 +766,14 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ? _emptyApp(destination)
           : MiniPhonePhotosPage(
               store: phone!,
+              previewJobs: _session.cameraPreview,
+              onUsePreviewInPost: (asset) {
+                if (!mounted || _closing || screen != MiniPhoneScreen.photos) {
+                  return;
+                }
+                _session.composeCameraPhoto(asset);
+                _go(MiniPhoneScreen.create, source: 'camera_photo');
+              },
               header: _navigation(context.l10n.miniPhonePhotos),
             ),
     MiniPhoneScreen.camera => _cameraPage(),
@@ -813,6 +843,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       people: data.people.values.toList(growable: false),
       strings: miniPhoneCameraStrings(context),
       controller: controller,
+      previewJobs: _session.cameraPreview,
       coverImageUrl: GenesisImageResourceRegistry.resolve(
         data.cameraWorldDetail?.cover ?? '',
       ).displayUrl,
@@ -827,13 +858,24 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         final revision = data.accountGeneration;
         final uid = data.uid;
         if (uid == null) return;
+        final preview = _session.cameraPreview;
+        final capture = MiniPhoneCameraRequest(
+          scope: controller.scope,
+          participants: controller.selectedPeople,
+          prompt: controller.prompt.trim(),
+          photoRatio: controller.photoRatio,
+          templateId: controller.selectedTemplate?.name,
+        );
+        if (preview != null && capture.participants.isEmpty) return;
+        final sample =
+            controller.selectedTemplate ?? MiniPhoneCameraTemplate.povSelfie;
         final confirmed = await confirmCameraMoment(
           context,
           preferenceScope:
               '${Uri.encodeComponent(data.namespace)}:${Uri.encodeComponent(uid)}',
-          // While generation is not wired, this action previews its explanation
-          // even if it was remembered from the chat entry.
-          forceShow: true,
+          // The mock queue can remember confirmation; release still only
+          // previews the explanation until a real generation adapter exists.
+          forceShow: preview == null,
         );
         if (!mounted ||
             _closing ||
@@ -843,7 +885,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
             !confirmed) {
           return;
         }
-        showMiniPhoneToast(context, context.l10n.miniPhoneComingSoon);
+        if (preview != null) {
+          preview.submit(capture, sampleAsset: sample.assetPath);
+        } else {
+          showMiniPhoneToast(context, context.l10n.miniPhoneComingSoon);
+        }
       },
       selfPersonKey: data.people.values
           .where((person) => data.playerCharIds.contains(person.id))
@@ -873,7 +919,10 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _ => context.l10n.miniPhonePosts,
     }),
     onBack: _back,
-    onCreate: () => _go(MiniPhoneScreen.create),
+    onCreate: () {
+      _session.composingCameraPhoto = false;
+      _go(MiniPhoneScreen.create);
+    },
     onPublished: () =>
         _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back'),
     onOpenPost: _openLivePost,
