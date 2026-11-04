@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/genesis_l10n.dart';
+import '../components/auth/startup_login_gate.dart';
 import '../components/gems/subscription_tracking_scope.dart';
 import '../app/membership/subscription_analytics.dart';
 import '../app/bootstrap/app_services_scope.dart';
@@ -27,6 +28,7 @@ import '../pages/chat/chat_page.dart';
 import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
 import '../pages/me/follows_page.dart';
+import '../pages/me/force_login_page.dart';
 import '../pages/me/language_page.dart';
 import '../pages/me/user_info_page.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
@@ -52,6 +54,7 @@ class GemWalletRouteArgs {
 }
 
 sealed class RouteNames {
+  static const forceLogin = '/force_login';
   static const language = '/language';
   static const shell = '/';
   static const home = '/home';
@@ -507,6 +510,7 @@ class _FollowsRouteArgs {
 sealed class AppRouter {
   static String pageClassNameForRouteName(String? routeName) {
     return switch (routeName) {
+      RouteNames.forceLogin => 'ForceLoginPage',
       RouteNames.home => 'AppShellPage',
       RouteNames.origin => 'AppShellPage',
       RouteNames.originWorld => 'OriginWorldPage',
@@ -535,8 +539,13 @@ sealed class AppRouter {
     };
   }
 
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+  static Route<dynamic> onGenerateRoute(
+    RouteSettings settings, {
+    bool checkStartupLogin = false,
+  }) {
     switch (settings.name) {
+      case RouteNames.forceLogin:
+        return createForceLoginRoute(settings: settings);
       case RouteNames.language:
         return GenesisDarkPageRoute<void>(
           settings: settings,
@@ -548,7 +557,18 @@ sealed class AppRouter {
             : 0;
         return GenesisDarkPageRoute<void>(
           settings: settings,
-          builder: (_) => AppShellPage(initialIndex: initialIndex),
+          builder: (context) {
+            if (!checkStartupLogin) {
+              return AppShellPage(initialIndex: initialIndex);
+            }
+            final services = AppServicesScope.of(context);
+            return StartupLoginGate(
+              config: services.appGlobalConfig,
+              sessionStore: services.sessionStore,
+              sessionRevision: services.sessionRevision,
+              builder: (_) => AppShellPage(initialIndex: initialIndex),
+            );
+          },
         );
       case RouteNames.origin:
         return GenesisDarkPageRoute<void>(

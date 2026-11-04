@@ -3,6 +3,7 @@ enum LoginSource {
   unknown('from_unknown'),
   home('from_home'),
   me('from_me'),
+  forceLogin('from_force_login'),
   personalization('from_personalization'),
   membershipPurchase('from_membership_purchase'),
   membershipClaim('from_membership_claim'),

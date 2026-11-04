@@ -13,6 +13,7 @@ class AppGlobalConfig {
     this.language = '',
     this.showOpeningSheet = false,
     this.showPersonalizationForm = false,
+    this.forceLogin = false,
     this.privacyConsentEnabled = false,
     this.apiTraceSamplingRate = 0,
     this.ratingPromptMessageCount = 0,
@@ -24,6 +25,7 @@ class AppGlobalConfig {
       ratingPromptMessageCount: asInt(json['rating_prompt_message_count']),
       showOpeningSheet: asBool(json['show_opening_sheet']),
       showPersonalizationForm: json['show_personalization_form'] == true,
+      forceLogin: json['force_login'] == true,
       privacyConsentEnabled: json['privacy_consent_enabled'] == true,
       apiTraceSamplingRate: _samplingRate(json['api_trace_sampling_rate']),
     );
@@ -35,6 +37,9 @@ class AppGlobalConfig {
   final String language;
   final bool showOpeningSheet;
   final bool showPersonalizationForm;
+
+  /// Requires signed-out users to log in before the initial main page opens.
+  final bool forceLogin;
   final bool privacyConsentEnabled;
   final double apiTraceSamplingRate;
 }

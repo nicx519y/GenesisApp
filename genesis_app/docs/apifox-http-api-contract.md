@@ -1107,6 +1107,7 @@ Query：
 - `rating_prompt_message_count`: integer；评价引导的消息数量阈值，按本次需求约定为 `20`，`0` 表示关闭。客户端在大于 0 时按本机用户累计 Location Chat 发送成功消息，达到阈值后记为待弹出，离开 Location Chat／World Detail／Worldo Detail 后自动展示一次；同一条消息重试去重。字段缺失或无效时默认 `0`。
 - `language`: string，可为空；当前设备的设置语言。启动时非空有效值覆盖系统语言；为空或请求失败继续使用系统语言。
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
+- `force_login`: boolean；启动强制登录配置，默认 `false`。仅严格 boolean `true` 开启，缺失、`null` 或类型错误按 `false` 处理。启动和主页面展示不等待 Config；仅在已有 Config 请求成功返回后判断：false 不处理，true 且已有登录 UID 不处理，true 且未登录则打开与 Me 未登录页共用视图的全屏登录路由，无底部 Tab、不可返回绕过。登录成功沿用现有登录提交及登录页完成方式，不增加后续跳转、填表或列表加载逻辑。请求失败不处理，不增加占位页、接口请求或重试。客户端不自行进行 AB 分桶。
 - `show_personalization_form`: boolean；仅控制新用户填表入口，默认 `false`。启动 Config 结束后仍请求 personalization 校准推荐偏好；只有确认此字段为 boolean `true` 且当前身份 `completed=false` 才按现有前台/登录/弹窗互斥规则显示表单。Config 失败、字段缺失、`null` 或类型错误均不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
 - `api_trace_sampling_rate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
 
@@ -1118,6 +1119,7 @@ Query：
     "rating_prompt_message_count": 20,
     "show_opening_sheet": false,
     "show_personalization_form": true,
+    "force_login": false,
     "api_trace_sampling_rate": 1.0
   }
 }

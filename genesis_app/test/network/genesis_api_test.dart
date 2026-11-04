@@ -376,7 +376,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"show_opening_sheet":true,"show_personalization_form":true}}',
+            '{"err_no":0,"err_msg":"succ","data":{"show_opening_sheet":true,"show_personalization_form":true,"force_login":true}}',
       ),
     );
     final api = _apiWith(
@@ -398,6 +398,7 @@ void main() {
     expect(apiTransport.lastRequest!.bodyBytes, isNull);
     expect(config['show_opening_sheet'], isTrue);
     expect(config['show_personalization_form'], isTrue);
+    expect(config['force_login'], isTrue);
   });
 
   test('v1 app config omits uid for an anonymous startup', () async {

@@ -828,6 +828,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         'language': _deviceLanguages[deviceId] ?? '',
         'show_opening_sheet': false,
         'show_personalization_form': true,
+        'force_login': false,
         'privacy_consent_enabled': false,
         'rating_prompt_message_count': 20,
         'api_trace_sampling_rate': 1.0,
