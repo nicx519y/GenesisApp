@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../components/auth/login_guard.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
+import '../../ui/components/genesis_bottom_navigation.dart';
 import '../../components/auth/login_route_completion.dart';
 import '../../components/auth/login_submission_state.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -36,6 +38,18 @@ class ForceLoginPage extends StatefulWidget {
 class _ForceLoginPageState extends State<ForceLoginPage>
     with LoginSubmissionState<ForceLoginPage> {
   bool _completionScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'force_login',
+      );
+    });
+  }
 
   @override
   void onLoginSubmissionChanged() {
@@ -92,6 +106,7 @@ class _ForceLoginPageState extends State<ForceLoginPage>
       body: Stack(
         children: [
           SignedOutMeView(
+            loginActionsBottomSpacing: GenesisBottomNavigation.defaultHeight,
             loggingInProvider: loginSubmittingProvider,
             onLogin: (provider) => unawaited(_login(provider)),
           ),
