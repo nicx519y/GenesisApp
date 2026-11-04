@@ -35,6 +35,20 @@ class ForceLoginPage extends StatefulWidget {
 
 class _ForceLoginPageState extends State<ForceLoginPage>
     with LoginSubmissionState<ForceLoginPage> {
+  bool _completionScheduled = false;
+
+  @override
+  void onLoginSubmissionChanged() {
+    if (!loginSubmissionSucceeded || _completionScheduled) return;
+    _completionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _completionScheduled = false;
+      if (loginSubmissionSucceeded) completeLoginRoute(context, true);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
   Future<void> _login(IdentityProvider provider) => submitLogin(provider, (
     submission,
   ) async {
@@ -49,7 +63,6 @@ class _ForceLoginPageState extends State<ForceLoginPage>
       if (!mounted || !submission.isActive) return;
       if (ok) {
         submission.markSucceeded();
-        completeLoginRoute(context, true);
       } else if (mounted) {
         showGenesisToast(
           context,

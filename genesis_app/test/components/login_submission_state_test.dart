@@ -12,8 +12,63 @@ import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/login_submission_controller.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 import 'package:genesis_flutter_android/pages/me/developer_forced_login_preview.dart';
+import 'package:genesis_flutter_android/pages/me/force_login_page.dart';
 
 void main() {
+  for (final covered in [false, true]) {
+    testWidgets('shared login closes forced login, covered=$covered', (
+      tester,
+    ) async {
+      final services = _Services();
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            navigatorKey: navigator,
+            home: const Scaffold(body: Text('original page')),
+          ),
+        ),
+      );
+      final completed = navigator.currentState!.push<bool>(
+        createForceLoginRoute(
+          settings: const RouteSettings(name: '/force_login'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (covered) {
+        navigator.currentState!.push<void>(
+          MaterialPageRoute(
+            builder: (_) => const Scaffold(body: Text('Settings probe')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        navigator.currentState!.push<void>(
+          MaterialPageRoute(
+            builder: (_) => const Scaffold(body: Text('Account probe')),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      services.loginSubmission.markSucceeded();
+      await tester.pumpAndSettle();
+      expect(await completed, isTrue);
+      expect(find.byType(ForceLoginPage, skipOffstage: false), findsNothing);
+      if (covered) {
+        expect(find.text('Account probe'), findsOneWidget);
+        navigator.currentState!.pop();
+        await tester.pumpAndSettle();
+        expect(find.text('Settings probe'), findsOneWidget);
+        navigator.currentState!.pop();
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('original page'), findsOneWidget);
+      expect(navigator.currentState!.canPop(), isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('developer login preview is isolated from app login results', (
     tester,
   ) async {

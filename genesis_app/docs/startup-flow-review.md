@@ -85,3 +85,5 @@ Config／UserInfo 失败后仍释放商品等待，沿用已有缓存／系统�
 首次启动路由保留原 `/home` 和 initialIndex，StartupLoginGate 仅监听既有 Config 请求结果，始终直接构建原主页面。Config 请求中主页面正常展示，不显示额外加载占位，不影响原有 SDK 初始化、隐私／ATT、会话监听与列表请求。Config 成功返回后，force_login=false 不处理；true 且已有登录 UID 不处理；true 且未登录时打开 `/force_login` 全屏登录路由，复用 SignedOutMeView，无底部 Tab、不可返回绕过。取消或失败保留页面并允许重试；成功沿用现有登录提交和登录页完成方式，不增加后续跳转，也不调整表单、订阅、签到和列表逻辑。登录入口来源为 from_force_login。
 
 只有确认 force_login=true 后的身份判断和登录页展示期间，才通过独立登录占用标记避免其他自动弹窗叠加；Config 请求期间不占用弹窗流程。登录页结束后释放占用，继续原有处理。没有新增配置请求、商品请求或列表请求，配置失败不处理。
+
+强制登录页监听共享登录成功状态，Settings／Account 等其他入口登录成功同样结束强制登录。页面在顶部时正常关闭，被上层路由覆盖时只移除自己的路由，保留 Account／Settings 等页面，避免返回后再次落入登录界面。
