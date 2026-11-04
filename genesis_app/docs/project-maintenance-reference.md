@@ -96,6 +96,8 @@ Gateway 接入规则：
 
 余额弹窗统一由 `GenesisApi` 响应入口和 `ChatroomClient` 接收入口上报到 `AppServices.balancePrompts`，`GenesisApp` 根部的 `GemBalancePromptHost` 展示。新业务使用这两个公共网络入口即可自动接入，无需页面绑定；业务层仍负责失败状态与草稿回滚。控制器验证请求／连接凭证，合并同时触发，后台延迟到前台，账号／环境切换丢弃旧提示。仅结构化 `3001`／`21001`、异步 `failure.code=insufficient_balance` 与 `balance_low` 触发，不匹配错误文案；Tick 保留 `tick_no_balance` 埋点。
 
+`GenesisApp` 根部构建必须订阅 `AppServicesScope` 的服务替换；切换环境后将余额弹窗、资料填写和购买登录组件更新到新服务，再释放旧服务。不得只读取服务快照，避免重新登录后的余额提示仍绑定已释放的控制器。
+
 Chatroom WebSocket/HTTP 另有独立契约：
 
 - WebSocket 文档：`docs/chatroom-websocket-api.md`
