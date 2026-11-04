@@ -32,6 +32,34 @@ class _AsyncFailingTelemetrySink extends _CapturingTelemetrySink {
 }
 
 void main() {
+  test('subscription entry is preserved in Gems success projection', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+    final source = BillingPurchaseSource.fromSubscriptionEntry(
+      'from_home_membership',
+    );
+    expect(source.value, 'from_subscription_tab[from_home_membership]');
+    expect(BillingPurchaseSource.fromEntry(source.value), source);
+    expect(
+      BillingPurchaseSource.fromSubscriptionEntry('from_unknown'),
+      BillingPurchaseSource.unknown,
+    );
+    expect(
+      BillingPurchaseSource.fromEntry('from_subscription_tab[from_me_gems]'),
+      BillingPurchaseSource.unknown,
+    );
+    const GenesisBillingAnalytics().track(
+      'purchase_success',
+      properties: {
+        'source': source.value,
+        'store_product_id': 'sku',
+        'transaction_id': 'tx',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(sink.events.single.collectPayload?['object1'], source.value);
+  });
+
   test(
     'Gems skipped success has monitor projection and no extra data',
     () async {

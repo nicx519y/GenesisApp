@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/attribution/adjust_device_registration.dart';
 import '../../app/membership/subscription_analytics.dart';
+import '../../platform/billing/billing_models.dart';
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/membership/membership_access_store.dart';
@@ -31,10 +32,12 @@ class PurchaseOptionsSheet extends StatefulWidget {
     this.subscriptionTracking,
     this.subscriptionSource = SubscriptionSource.unknown,
     this.onFirstBuyGems,
+    this.gemsSource = BillingPurchaseSource.unknown,
     this.attributionRegistration,
   });
 
   final WidgetBuilder gemsBuilder;
+  final BillingPurchaseSource gemsSource;
   final PurchaseSheetTab initialTab;
   final bool showBuyGems;
   final MembershipCatalogLoader? membershipProductsLoader;
@@ -85,7 +88,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
           pageId: widget.analyticsPageId,
           source: initialTab == PurchaseSheetTab.subscription
               ? widget.subscriptionSource
-              : SubscriptionSource.buyGemsTab,
+              : SubscriptionSource.fromGemsEntry(widget.gemsSource),
         );
     _gemsVisited = initialTab == PurchaseSheetTab.buyGems;
     _subscriptionVisited = initialTab == PurchaseSheetTab.subscription;

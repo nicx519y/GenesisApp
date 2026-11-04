@@ -8,7 +8,12 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
                   SubscriptionTracking.recovery(
                     '${provider.name}:attempt:${record.requestId}',
                   ))
-              .copyWith(storeProductId: record.product.storeProductId);
+              .copyWith(
+                storeProductId: record.product.storeProductId,
+                basePlanId: provider == MembershipProvider.google
+                    ? record.product.basePlanId
+                    : '',
+              );
 
   SubscriptionTracking _trackingForClaim(MembershipGuestClaimRecord claim) {
     final purchase = _claimPurchase(claim);

@@ -4,7 +4,7 @@
 
 ## 订阅事件
 
-订阅失败事件 `subscription_failed`（含超时）使用 `action_type=monitor`，新增 `subscription_success_skipped` 同样使用 `monitor`，`ext_data` 留空；其余订阅事件使用 `action_type=pay_event`。`object1` 是原入口来源，购买相关事件的 `object2` 统一表述为「商店 productId」（内部字段 `store_product_id`）（页面曝光留空，旧记录无法取得时留空），`object3` 按下表填写。公共 UID 使用事件入队时的身份；登录后的 claim 事件不能反推购买时是否为游客。
+订阅失败事件 `subscription_failed`（含超时）使用 `action_type=monitor`，新增 `subscription_success_skipped` 同样使用 `monitor`，`ext_data` 留空；其余订阅事件使用 `action_type=pay_event`。`object1` 是原入口来源，购买相关事件的 `object2` Android 使用 `base_plan_id`（如 premium-monthly／premium-yearly），iOS 使用 `store_product_id`<br>例：`premium_monthly`（页面曝光留空，旧记录无法取得时留空），`object3` 按下表填写。公共 UID 使用事件入队时的身份；登录后的 claim 事件不能反推购买时是否为游客。
 
 | action | object3 | 触发时机 |
 | --- | --- | --- |
@@ -33,7 +33,7 @@
 
 原始商店错误保存在 `ext_data`，完整规则见 [支付失败监控诊断](payment-failure-monitoring.md)。
 
-重复 purchased 回调按平台和本笔交易身份去重；pending 后转 purchased 时才记录 success。普通 restored 和无当前购买凭据的历史订单不计新购买。打点失败不阻断 report、登录、claim 或页面状态。`object2` 只承载商店商品 ID，不承载内部操作 ID 或购买凭据。
+重复 purchased 回调按平台和本笔交易身份去重；pending 后转 purchased 时才记录 success。普通 restored 和无当前购买凭据的历史订单不计新购买。打点失败不阻断 report、登录、claim 或页面状态。`object2` 在 Android 承载基础方案 ID、iOS 承载 `store_product_id`<br>例：`premium_monthly`，不承载内部操作 ID 或购买凭据。
 
 来源缺失、无法识别或为 `from_unknown` 时，统一跳过订阅事件上报（含曝光、点击、成功、失败、pending、超时及 claim 结果）。购买处理、凭据 report 和权益流程照常执行；Gems 打点不受影响。
 
@@ -56,3 +56,14 @@
 | receipt_missing | purchased 回调缺少必要购买凭据。 |
 | duplicate_transaction | 本笔交易已统计过成功。 |
 | duplicate_tracking | 本次购买 tracking 已统计过成功。 |
+
+### object1 跨 Tab 来源约定
+
+原始入口：
+
+- `from_me_gems`
+- `from_tick_no_balance`
+- `from_msg_low_balance`
+- `from_msg_no_balance`
+
+规则：回到最初打开的 Tab，恢复原始入口；进入另一侧 Tab，使用 `Tab来源[原始入口]`。

@@ -441,6 +441,9 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final tracking = _tracking.click(
       isYearly: offer.product.isYearly,
       storeProductId: offer.product.storeProductId,
+      basePlanId: offer.product.provider == MembershipProvider.google
+          ? offer.product.basePlanId
+          : '',
     );
     final access = _membership?.state.value ?? const MembershipAccessState();
     if (membershipIsSubscribedToSelectedPlan(offer.product, access)) {

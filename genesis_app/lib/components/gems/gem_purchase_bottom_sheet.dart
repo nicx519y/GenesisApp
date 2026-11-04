@@ -75,6 +75,7 @@ Future<void> showGemPurchaseBottomSheet(
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
         analyticsPageId: analyticsPageId,
+        gemsSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
         gemsBuilder: (_) => GemPurchaseBottomSheet(
           purchaseSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
           productsLoader: resolvedProductsLoader,
@@ -116,11 +117,15 @@ Future<void> showSubscriptionPurchaseBottomSheet(
           analyticsPageId: analyticsPageId,
           subscriptionSource: source,
           subscriptionTracking: subscriptionTracking,
-          onFirstBuyGems: () => _trackGemPurchaseSheetShow('subscription_tab'),
+          onFirstBuyGems: () => _trackGemPurchaseSheetShow(
+            BillingPurchaseSource.fromSubscriptionEntry(source.value).value,
+          ),
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
-                  purchaseSource: BillingPurchaseSource.subscriptionTab,
+                  purchaseSource: BillingPurchaseSource.fromSubscriptionEntry(
+                    source.value,
+                  ),
                   productsLoader: services.gemStoreCatalog.loadForEntry,
                   catalog: services.gemStoreCatalog,
                   walletStore: services.gemWallet,

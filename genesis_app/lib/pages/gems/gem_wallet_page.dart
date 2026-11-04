@@ -196,8 +196,15 @@ class _GemWalletPageState extends State<GemWalletPage>
           surface: SubscriptionSurface.page,
           source: _subscriptionVisited
               ? widget.subscriptionSource
-              : SubscriptionSource.buyGemsTab,
+              : SubscriptionSource.fromGemsEntry(
+                  BillingPurchaseSource.fromEntry(widget.gemsSource),
+                ),
         );
+    _gemsPurchaseSource = _subscriptionVisited
+        ? BillingPurchaseSource.fromSubscriptionEntry(
+            _subscriptionTracking.source.value,
+          )
+        : BillingPurchaseSource.fromEntry(widget.gemsSource);
     _gemsVisited = !_subscriptionVisited;
     _purchaseTabs = TabController(
       length: widget.showBuyGems ? 2 : 1,
@@ -312,12 +319,7 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   bool get _hasPageData => _products != null || _taskGroups != null;
 
-  BillingPurchaseSource get _gemsPurchaseSource =>
-      BillingPurchaseSource.fromEntry(
-        widget.showSubscriptionInitially || !widget.showBuyGems
-            ? 'subscription_tab'
-            : widget.gemsSource,
-      );
+  late final BillingPurchaseSource _gemsPurchaseSource;
 
   void _trackBuyGemsPageView() {
     if (_gemsPurchaseSource == BillingPurchaseSource.unknown) return;

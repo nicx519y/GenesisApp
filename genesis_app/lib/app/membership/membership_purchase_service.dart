@@ -409,6 +409,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         SubscriptionTracking.recovery('${provider.name}:attempt:$attemptId');
     _attemptTracking[attemptId] = _attemptTracking[attemptId]!.copyWith(
       storeProductId: product.storeProductId,
+      basePlanId: provider == MembershipProvider.google
+          ? product.basePlanId
+          : '',
     );
     if (_busy || (otherPurchaseBusy?.call() ?? false)) {
       _trackPreparationFailure(

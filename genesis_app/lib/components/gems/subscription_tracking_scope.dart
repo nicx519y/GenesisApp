@@ -23,6 +23,7 @@ class SubscriptionPageTracking {
   SubscriptionTracking click({
     required bool isYearly,
     String storeProductId = '',
+    String basePlanId = '',
   }) {
     show();
     return analytics.click(
@@ -31,6 +32,7 @@ class SubscriptionPageTracking {
       source,
       isYearly: isYearly,
       storeProductId: storeProductId,
+      basePlanId: basePlanId,
     );
   }
 }

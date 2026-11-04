@@ -17,10 +17,23 @@ enum SubscriptionSource {
   onboarding('from_onboarding'),
   buyGemsTab('from_buy_gems_tab'),
   worldRecap('from_world_recap'),
+  buyGemsFromMeGems('from_buy_gems_tab[from_me_gems]'),
+  buyGemsFromTickNoBalance('from_buy_gems_tab[from_tick_no_balance]'),
+  buyGemsFromMsgLowBalance('from_buy_gems_tab[from_msg_low_balance]'),
+  buyGemsFromMsgNoBalance('from_buy_gems_tab[from_msg_no_balance]'),
   unknown('from_unknown');
 
   const SubscriptionSource(this.value);
   final String value;
+
+  static SubscriptionSource fromGemsEntry(BillingPurchaseSource source) =>
+      switch (source) {
+        BillingPurchaseSource.meGems => buyGemsFromMeGems,
+        BillingPurchaseSource.tickNoBalance => buyGemsFromTickNoBalance,
+        BillingPurchaseSource.msgLowBalance => buyGemsFromMsgLowBalance,
+        BillingPurchaseSource.msgNoBalance => buyGemsFromMsgNoBalance,
+        _ => unknown,
+      };
 
   static SubscriptionSource parse(Object? value) => values.firstWhere(
     (source) => source.value == value,
@@ -42,6 +55,7 @@ class SubscriptionTracking {
     required this.id,
     this.source = SubscriptionSource.unknown,
     this.storeProductId = '',
+    this.basePlanId = '',
     this.pending = const [],
     this.successEventId,
   });
@@ -52,17 +66,22 @@ class SubscriptionTracking {
   final String id;
   final SubscriptionSource source;
   final String storeProductId;
+  final String basePlanId;
+  String get analyticsProductId =>
+      basePlanId.isNotEmpty ? basePlanId : storeProductId;
   final List<String> pending;
   final String? successEventId;
 
   SubscriptionTracking copyWith({
     String? storeProductId,
+    String? basePlanId,
     List<String>? pending,
     String? successEventId,
   }) => SubscriptionTracking(
     id: id,
     source: source,
     storeProductId: storeProductId ?? this.storeProductId,
+    basePlanId: basePlanId ?? this.basePlanId,
     pending: pending ?? this.pending,
     successEventId: successEventId ?? this.successEventId,
   );
@@ -71,6 +90,7 @@ class SubscriptionTracking {
     'id': id,
     'source': source.value,
     'store_product_id': storeProductId,
+    'base_plan_id': basePlanId,
     'pending': pending,
     if (successEventId != null) 'success_event_id': successEventId,
   };
@@ -84,6 +104,9 @@ class SubscriptionTracking {
     return SubscriptionTracking(
       id: json['id'] as String,
       source: SubscriptionSource.parse(json['source']),
+      basePlanId: json['base_plan_id'] is String
+          ? json['base_plan_id'] as String
+          : '',
       storeProductId: json['store_product_id'] is String
           ? json['store_product_id'] as String
           : '',
@@ -177,16 +200,18 @@ class SubscriptionAnalytics {
     SubscriptionSource source, {
     required bool isYearly,
     String storeProductId = '',
+    String basePlanId = '',
   }) {
     final tracking = SubscriptionTracking(
       id: newBillingAttemptId(),
       source: source,
       storeProductId: storeProductId,
+      basePlanId: basePlanId,
     );
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_purchase_click',
-        storeProductId,
+        tracking.analyticsProductId,
         isYearly ? 'yearly' : 'monthly',
         object1: source.value,
       ),
@@ -209,7 +234,7 @@ class SubscriptionAnalytics {
       _emit(
         SubscriptionAnalyticsEvent(
           'subscription_failed',
-          tracking.storeProductId,
+          tracking.analyticsProductId,
           classification.object3,
           object1: tracking.source.value,
           extData: encodePaymentFailureDiagnostics({
@@ -247,7 +272,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_failed',
-        tracking.storeProductId,
+        tracking.analyticsProductId,
         '${stage}_failed[reason=timeout]',
         object1: tracking.source.value,
         extData: encodePaymentFailureDiagnostics({
@@ -279,7 +304,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_pending',
-        tracking.storeProductId,
+        tracking.analyticsProductId,
         reason,
         object1: tracking.source.value,
         eventId: subscriptionEventId('pending:${tracking.id}:$reason'),
@@ -311,7 +336,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_success',
-        tracking.storeProductId,
+        tracking.analyticsProductId,
         orderId,
         object1: tracking.source.value,
         eventId: eventId,
@@ -333,7 +358,7 @@ class SubscriptionAnalytics {
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_success_skipped',
-        tracking.storeProductId,
+        tracking.analyticsProductId,
         reason,
         object1: tracking.source.value,
       ),
@@ -343,7 +368,7 @@ class SubscriptionAnalytics {
   void claim(SubscriptionTracking tracking, String result) => _emit(
     SubscriptionAnalyticsEvent(
       'subscription_claim_result',
-      tracking.storeProductId,
+      tracking.analyticsProductId,
       result,
       object1: tracking.source.value,
     ),

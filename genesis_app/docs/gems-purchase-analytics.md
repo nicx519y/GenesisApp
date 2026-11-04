@@ -27,7 +27,7 @@
 
 - **from_msg_no_balance**：消息余额不足入口
 
-- **from_subscription_tab**：从订阅页／订阅弹层切换到 Gems 标签
+- **from_subscription_tab[原始入口]**：从订阅页／订阅弹层切换到 Gems 标签，方括号中保留首次进入的业务来源（详见跨 Tab 来源约定）。
 
 - **入口继承**：曝光、点击、pending、失败和成功沿用同一业务入口；页面／弹层类型仅在曝光 object3。未知入口 from_unknown 不上报 Gems 事件，不阻断购买。旧 buy_gems_page／buy_gems_sheet 枚举仅兼容内部旧调用，正式 UI 已传业务入口。
 
@@ -86,3 +86,18 @@
 | account_mismatch | 回调账号归属校验未通过。 |
 | receipt_missing | purchased 回调缺少必要的购买凭据。 |
 | duplicate_transaction | 本笔交易已统计过成功。 |
+
+### object1 跨 Tab 来源约定
+
+原始入口：
+
+- `from_home_membership`
+- `from_me_membership`
+- `from_me_pink_gems`
+- `from_daily_check_in`
+- `from_chat_feature_quota`
+- `from_chat_edit_save_quota`
+- `from_onboarding`
+- `from_world_recap`
+
+规则：回到最初打开的 Tab，恢复原始入口；进入另一侧 Tab，使用 `Tab来源[原始入口]`。

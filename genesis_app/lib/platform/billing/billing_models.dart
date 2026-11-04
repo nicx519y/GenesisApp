@@ -52,17 +52,43 @@ enum BillingPurchaseSource {
   msgLowBalance,
   msgNoBalance,
   subscriptionTab,
+  subscriptionFromHomeMembership,
+  subscriptionFromMeMembership,
+  subscriptionFromMePinkGems,
+  subscriptionFromDailyCheckIn,
+  subscriptionFromChatFeatureQuota,
+  subscriptionFromChatEditSaveQuota,
+  subscriptionFromOnboarding,
+  subscriptionFromWorldRecap,
   unknown;
 
-  static BillingPurchaseSource fromEntry(String? entry) =>
-      switch (entry?.trim()) {
-        'me_gems' || 'from_me_gems' => meGems,
-        'tick_no_balance' || 'from_tick_no_balance' => tickNoBalance,
-        'msg_low_balance' || 'from_msg_low_balance' => msgLowBalance,
-        'msg_no_balance' || 'from_msg_no_balance' => msgNoBalance,
-        'subscription_tab' || 'from_subscription_tab' => subscriptionTab,
+  static BillingPurchaseSource fromSubscriptionEntry(String entry) =>
+      switch (entry) {
+        'from_home_membership' => subscriptionFromHomeMembership,
+        'from_me_membership' => subscriptionFromMeMembership,
+        'from_me_pink_gems' => subscriptionFromMePinkGems,
+        'from_daily_check_in' => subscriptionFromDailyCheckIn,
+        'from_chat_feature_quota' => subscriptionFromChatFeatureQuota,
+        'from_chat_edit_save_quota' => subscriptionFromChatEditSaveQuota,
+        'from_onboarding' => subscriptionFromOnboarding,
+        'from_world_recap' => subscriptionFromWorldRecap,
         _ => unknown,
       };
+
+  static BillingPurchaseSource fromEntry(String? entry) {
+    final raw = entry?.trim() ?? '';
+    for (final source in values) {
+      if (source.value == raw) return source;
+    }
+    return switch (raw) {
+      'me_gems' => meGems,
+      'tick_no_balance' => tickNoBalance,
+      'msg_low_balance' => msgLowBalance,
+      'msg_no_balance' => msgNoBalance,
+      'subscription_tab' => subscriptionTab,
+      _ => unknown,
+    };
+  }
 }
 
 extension BillingPurchaseSourceValue on BillingPurchaseSource {
@@ -74,6 +100,22 @@ extension BillingPurchaseSourceValue on BillingPurchaseSource {
     BillingPurchaseSource.msgLowBalance => 'from_msg_low_balance',
     BillingPurchaseSource.msgNoBalance => 'from_msg_no_balance',
     BillingPurchaseSource.subscriptionTab => 'from_subscription_tab',
+    BillingPurchaseSource.subscriptionFromHomeMembership =>
+      'from_subscription_tab[from_home_membership]',
+    BillingPurchaseSource.subscriptionFromMeMembership =>
+      'from_subscription_tab[from_me_membership]',
+    BillingPurchaseSource.subscriptionFromMePinkGems =>
+      'from_subscription_tab[from_me_pink_gems]',
+    BillingPurchaseSource.subscriptionFromDailyCheckIn =>
+      'from_subscription_tab[from_daily_check_in]',
+    BillingPurchaseSource.subscriptionFromChatFeatureQuota =>
+      'from_subscription_tab[from_chat_feature_quota]',
+    BillingPurchaseSource.subscriptionFromChatEditSaveQuota =>
+      'from_subscription_tab[from_chat_edit_save_quota]',
+    BillingPurchaseSource.subscriptionFromOnboarding =>
+      'from_subscription_tab[from_onboarding]',
+    BillingPurchaseSource.subscriptionFromWorldRecap =>
+      'from_subscription_tab[from_world_recap]',
     BillingPurchaseSource.unknown => 'from_unknown',
   };
 }

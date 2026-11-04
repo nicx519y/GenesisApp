@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
+import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
 
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,42 @@ import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import '../support/membership_fixtures.dart';
 
 void main() {
+  for (final initial in PurchaseSheetTab.values) {
+    testWidgets('tab round trips preserve original source for $initial', (
+      tester,
+    ) async {
+      final expected = initial == PurchaseSheetTab.buyGems
+          ? 'from_buy_gems_tab[from_msg_no_balance]'
+          : 'from_home_membership';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PurchaseOptionsSheet(
+              initialTab: initial,
+              gemsSource: BillingPurchaseSource.msgNoBalance,
+              subscriptionSource: SubscriptionSource.homeMembership,
+              subscriptionBuilder: (_) => Builder(
+                builder: (context) => Text(
+                  SubscriptionTrackingScope.maybeOf(context)!.source.value,
+                ),
+              ),
+              gemsBuilder: (_) => const Text('Original Gems tab'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
+        await tester.pumpAndSettle();
+        expect(find.text(expected), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
+        await tester.pumpAndSettle();
+        expect(find.text('Original Gems tab'), findsOneWidget);
+      }
+    });
+  }
+
   testWidgets('purchase sheet stays visible while registration is pending', (
     tester,
   ) async {

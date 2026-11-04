@@ -55,6 +55,62 @@ void main() {
       expect(events.last.object3, 'duplicate_tracking');
     },
   );
+  test(
+    'Android subscription carries base plan through all event types and persistence',
+    () {
+      final clicked = analytics.click(
+        'page',
+        SubscriptionSurface.page,
+        SubscriptionSource.meMembership,
+        isYearly: false,
+        storeProductId: 'premium',
+        basePlanId: 'premium-monthly',
+      );
+      final restored = SubscriptionTracking.fromJson(clicked.toJson())!;
+      analytics.pending(restored, 'store_callback_pending');
+      analytics.failed(restored, 'canceled');
+      analytics.timeout(restored, 'prepare');
+      analytics.success(restored, 'google', 'tx');
+      analytics.successSkipped(restored, 'duplicate_transaction');
+      analytics.claim(restored, 'completed');
+      expect(events, hasLength(7));
+      expect(events.map((e) => e.object2), everyElement('premium-monthly'));
+      expect(restored.storeProductId, 'premium');
+    },
+  );
+  test(
+    'Gems origins form validated non-nested subscription sources and survive persistence',
+    () {
+      for (final source in [
+        BillingPurchaseSource.meGems,
+        BillingPurchaseSource.tickNoBalance,
+        BillingPurchaseSource.msgLowBalance,
+        BillingPurchaseSource.msgNoBalance,
+      ]) {
+        final sub = SubscriptionSource.fromGemsEntry(source);
+        expect(sub.value, 'from_buy_gems_tab[${source.value}]');
+        final tracking = SubscriptionTracking(id: source.value, source: sub);
+        final restored = SubscriptionTracking.fromJson(tracking.toJson())!;
+        analytics.pending(restored, 'store_callback_pending');
+        analytics.success(restored, 'google', source.value);
+        expect(events.last.object1, sub.value);
+      }
+      expect(
+        SubscriptionSource.parse('from_buy_gems_tab[from_unknown]'),
+        SubscriptionSource.unknown,
+      );
+      expect(
+        SubscriptionSource.parse('from_buy_gems_tab[from_home_membership]'),
+        SubscriptionSource.unknown,
+      );
+      expect(
+        SubscriptionSource.parse(
+          'from_buy_gems_tab[from_subscription_tab[from_home_membership]]',
+        ),
+        SubscriptionSource.unknown,
+      );
+    },
+  );
   setUp(() {
     events = [];
     analytics = SubscriptionAnalytics(sink: events.add);
@@ -338,7 +394,12 @@ void main() {
       );
       expect(failed, hasLength(1));
       expect(failed.single.object1, 'from_me_membership');
-      expect(failed.single.object2, h.product().storeProductId);
+      expect(
+        failed.single.object2,
+        h.product().provider == MembershipProvider.google
+            ? h.product().basePlanId
+            : h.product().storeProductId,
+      );
       expect(failed.single.object3, startsWith('${stage}_failed['));
       expect(h.reports, isEmpty);
     });
@@ -447,7 +508,13 @@ void main() {
       expect(events[1].object3, 'report_failed[reason=network_error]');
       expect(events.last.object3, 'duplicate_transaction');
       expect(
-        events.every((e) => e.object2 == h.product().storeProductId),
+        events.every(
+          (e) =>
+              e.object2 ==
+              (h.product().provider == MembershipProvider.google
+                  ? h.product().basePlanId
+                  : h.product().storeProductId),
+        ),
         isTrue,
       );
       expect(events.last.object1, 'from_me_membership');
@@ -492,7 +559,12 @@ void main() {
         'subscription_pending',
         'subscription_success',
       ]);
-      expect(events.last.object2, h.product().storeProductId);
+      expect(
+        events.last.object2,
+        h.product().provider == MembershipProvider.google
+            ? h.product().basePlanId
+            : h.product().storeProductId,
+      );
       expect(events.last.object1, 'from_me_membership');
     },
   );
@@ -552,7 +624,12 @@ void main() {
         'subscription_success',
         'subscription_claim_result',
       ]);
-      expect(events.last.object2, h.product().storeProductId);
+      expect(
+        events.last.object2,
+        h.product().provider == MembershipProvider.google
+            ? h.product().basePlanId
+            : h.product().storeProductId,
+      );
       expect(events.last.object1, 'from_me_membership');
       expect(events.last.object3, 'completed');
     },
