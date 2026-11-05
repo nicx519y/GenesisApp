@@ -126,6 +126,7 @@ void main() {
         sourceTracking.id,
         SubscriptionSurface.page,
         sourceTracking.source,
+        MembershipType.premium,
       );
       analytics.click(
         sourceTracking.id,
@@ -270,6 +271,7 @@ void main() {
         'edit-page',
         SubscriptionSurface.sheet,
         SubscriptionSource.chatEditSaveQuota,
+        MembershipType.deluxe,
       );
       final click = analytics.click(
         'edit-page',
@@ -282,7 +284,7 @@ void main() {
         events.every((e) => e.object1 == 'from_chat_edit_save_quota'),
         isTrue,
       );
-      expect(events.first.object2, isEmpty);
+      expect(events.first.object2, 'Deluxe');
       expect(events.first.object3, 'subscription_sheet');
       expect(
         SubscriptionSource.parse('from_chat_edit_save_quota'),
@@ -298,11 +300,13 @@ void main() {
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.dailyCheckIn,
+        MembershipType.premium,
       );
       analytics.pageShow(
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.dailyCheckIn,
+        MembershipType.deluxe,
       );
       final first = analytics.click(
         'page',
@@ -320,7 +324,8 @@ void main() {
       expect(first.id, isNot(second.id));
       expect(events.first.action, 'subscription_page_show');
       expect(events.first.object1, 'from_daily_check_in');
-      expect(events.every((event) => event.object2.isEmpty), isTrue);
+      expect(events.first.object2, 'Premium');
+      expect(events.skip(1).every((event) => event.object2.isEmpty), isTrue);
       expect(events.first.object3, 'subscription_sheet');
       expect(events[1].action, 'subscription_purchase_click');
       expect(events[1].object1, 'from_daily_check_in');

@@ -445,6 +445,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       return;
     }
     final tracking = _tracking.click(
+      membershipType: _type,
       isYearly: offer.product.isYearly,
       storeProductId: offer.product.storeProductId,
       basePlanId: offer.product.provider == MembershipProvider.google
@@ -537,8 +538,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Widget _buildExposure(BuildContext context) => SubscriptionExposure(
     key: ValueKey('subscription-exposure-${_tracking.pageId}'),
     onVisible: () {
-      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return false;
-      _tracking.show();
+      if (!mounted || _loading || ModalRoute.of(context)?.isCurrent == false) {
+        return false;
+      }
+      _tracking.show(_type);
       return true;
     },
     child: _buildContent(context),

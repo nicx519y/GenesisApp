@@ -4,11 +4,11 @@
 
 ## 订阅事件
 
-订阅失败事件 `subscription_failed`（含超时）使用 `action_type=monitor`，新增 `subscription_success_skipped` 同样使用 `monitor`，`ext_data` 留空；其余订阅事件使用 `action_type=pay_event`。`object1` 是原入口来源，购买相关事件的 `object2` Android 使用 `base_plan_id`（如 premium-monthly／premium-yearly），iOS 使用 `store_product_id`<br>例：`premium_monthly`（页面曝光留空，旧记录无法取得时留空），`object3` 按下表填写。公共 UID 使用事件入队时的身份；登录后的 claim 事件不能反推购买时是否为游客。
+订阅失败事件 `subscription_failed`（含超时）使用 `action_type=monitor`，新增 `subscription_success_skipped` 同样使用 `monitor`，`ext_data` 留空；其余订阅事件使用 `action_type=pay_event`。`object1` 是原入口来源，购买相关事件的 `object2` Android 使用 `base_plan_id`（如 premium-monthly／premium-yearly），iOS 使用 `store_product_id`<br>例：`premium_monthly`（旧记录无法取得时留空），`object3` 按下表填写。公共 UID 使用事件入队时的身份；登录后的 claim 事件不能反推购买时是否为游客。
 
 | action | object3 | 触发时机 |
 | --- | --- | --- |
-| `subscription_page_show` | `subscription_page` / `subscription_sheet` | 订阅内容首次实际可见。 |
+| `subscription_page_show` | `subscription_page` / `subscription_sheet` | 每次打开只报一次。初始会员卡可见时，`object2` 填 `Premium` 或 `Deluxe`。 |
 | `subscription_purchase_click` | `yearly` / `monthly` | 可用购买按钮被点击并进入购买流程。 |
 | `subscription_pending` | `store_callback_pending` | 商店明确返回 pending；不发送 report。 |
 | `subscription_success` | 本笔商店交易号；缺失时为空 | 当前购买回调 purchased 时记录，不等待 report；Apple 还要求回调 appAccountToken 为有效 UUID 且与本次购买 UUID 一致，缺失或不匹配不记录。 |
