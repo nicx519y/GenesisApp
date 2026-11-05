@@ -506,4 +506,4 @@ HTTP 映射层的图片规则：
 
 ## LocationChat 聊天生图（2026-11-04）
 
-拍照询价、提交、恢复、失败展示周期和 Inbox 精确定位的实现入口与规则见 [聊天生图接入](chat-photo-client-integration.md)。照片不参与回复候选、等待锁或 Regenerate/Edit；历史失败仅在 LocationChat 视图过滤，World History 展示三态。
+拍照询价、提交、恢复、失败展示周期和 Inbox 精确定位的实现入口与规则见 [聊天生图接入](chat-photo-client-integration.md)。卡内照片参与整卡展示与 Regenerate 收起，图片状态不参与文字等待锁；live_photo 不可通过文字 Edit 修改或删除。卡内照片三态展示，旧独立照片保持原访问周期过滤。

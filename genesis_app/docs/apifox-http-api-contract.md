@@ -1142,6 +1142,7 @@ Apifox 可选 Header：
 
 - `info*`: `OriginDetailInfo`
 - `stats*`: `OriginStats`
+- `precharacter*`: object|null；包含字符串 `name/personality/identity/bio/avatar`，其中 `avatar` 是头像 URL 字符串。缺失、null 或字段格式错误表示无预设；空对象或缺少字段时对应字段为空字符串。服务端按当前详情语言返回，译文缺失不回退原文预设。
 - `init_location_group*`: `OriginInitLocationGroup|null`
 - `characters*`: `OriginDetailCharacter[]`
 - `locations*`: `Location[]`，本接口不包含 `location_description`
@@ -1424,6 +1425,8 @@ Query：
 `preset_character_override` 只能用于 preset 模式，并且至少包含一个允许覆盖的字段；custom 模式携带时服务端忽略。
 
 2026-10-29 详情页推荐角色与用户卡合并：推荐角色保留原 `char_id`，名字为空或 `{{user}}` 时补用户名，图片为空时独立补用户头像；其余角色顺序保持。推荐卡编辑和补齐资料通过 preset override 提交；无推荐角色的用户身份仍使用 `custom_role`。Origin 模板和用户资料均不回写。开场预览按推荐角色 ID 使用自己的消息气泡；进入 Launch 页面后仅实际选择的 preset ID 被视为用户。
+
+2026-11-05 自定义首卡预填：有推荐角色时保持上述逻辑，不使用 `precharacter`；无推荐角色时，自定义首卡优先整体使用 `origin/detail.precharacter`，缺失或 null 才回退用户资料。预设对象中的空字段保持为空，不逐项混入用户资料；`bio` 对应 Setting。用户在当前页保存的编辑优先于初始预填，profile 异步加载不会覆盖预设；Launch 通过 `custom_role` 提交当前卡片内容，不生成 preset 角色 ID，不回写模板或用户资料。
 
 Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；草稿、本地编辑和详情预览保留全文及原 `goal`，请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
 
@@ -2952,3 +2955,7 @@ Source: supplied `wallpaper.md` contract.
 - `GET /aitown-chat/api/v1/phone/photo/options?world_id=...`：整数 `price_cent`、`free_status=available|used`、动态 `styles[].name/label/demo_image_url`。
 - `POST /aitown-chat/api/v1/phone/photo/create`：仅 `client_request_id/world_id/character_ids/aspect_ratio/style` 与可选 `prompt`；响应 `source=camera/world_id/photo`，不传报价锁定字段、地点或聊天消息身份。
 - camera 结果复用共享 PhotoTask 状态，成功仅要求真实 `asset_id/image_url/description`；相册字段为 `desc`。请求和错误/恢复规则见 [小手机拍照接入](mini-phone-camera-integration.md) 与 [服务端契约](mini-phone-camera-api-2026-11-04.md)。
+
+### 2026-11-05 候选卡生图增量
+
+聊天 photo/create 增加 conversation_round_id（十进制字符串）和可选 card_id（int64 数字）；候选受理不含正式消息游标。cards.messages 包含 live_photo，图片任务状态独立于文字 generation_state。2073 表示同卡图片生成中，2072 表示正式来源变化需刷新。接口、选卡联动与通知字段见 [候选卡生图契约](2026-11-05-card-photo-client-changes.md)。小手机 Camera 接口不变。

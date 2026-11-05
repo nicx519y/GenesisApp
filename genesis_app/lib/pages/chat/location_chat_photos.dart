@@ -4,6 +4,7 @@ extension _LocationChatPhotos on _LocationChatPanelState {
   void _resetPhotoVisit() {
     _photoVisitService?.releaseMessageWindow(_photoNavigationOwner);
     _photoReveal = null;
+    _photoCardPreview = null;
     _photoArrivalRequests.clear();
     _photoVisit++;
     _photoVisitService = null;
@@ -84,7 +85,17 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         isCurrent: current,
       );
       if (!mounted || !current()) return;
-      if (window == null) {
+      final cardMessage = target.cardId == null || window == null
+          ? null
+          : await _replyController?.revealPhotoCard(
+              target.locationId,
+              target.roundId,
+              target.cardId!,
+              target.globalMessageId,
+              isCurrent: current,
+            );
+      if (!mounted || !current()) return;
+      if (window == null || (target.cardId != null && cardMessage == null)) {
         showGenesisToast(
           context,
           context.l10n.chatPhotoUnavailable,
@@ -96,9 +107,14 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         );
         return;
       }
-      final message = window.messages.firstWhere(
-        (m) => m.globalMessageId == target.globalMessageId,
-      );
+      final message =
+          cardMessage ??
+          window.messages.firstWhere(
+            (m) => m.globalMessageId == target.globalMessageId,
+          );
+      if (target.cardId != null) {
+        _photoCardPreview = (roundId: target.roundId, cardId: target.cardId!);
+      }
       _olderMessagesCursor = window.messages.first.locationMessageId;
       _hasMoreOlderMessages = window.hasMore;
       _olderMessagesExhaustedByRemote = !window.hasMore;
@@ -107,7 +123,9 @@ extension _LocationChatPhotos on _LocationChatPanelState {
       _setLocationChatState(
         () => _photoReveal = (
           generation: navigation,
-          localId: locationChatMessageLocalId(message),
+          localId: target.cardId == null
+              ? locationChatMessageLocalId(message)
+              : 'reply:${widget.worldId}:${widget.locationId}:${target.roundId}:${target.cardId}:${target.globalMessageId}',
         ),
       );
     } catch (error) {
@@ -131,6 +149,17 @@ extension _LocationChatPhotos on _LocationChatPanelState {
 
   bool _photoVisible(WorldChatroomMessage message) {
     final photo = message.photo;
+    if (photo != null &&
+        (_replyController
+                ?.stateForRound(
+                  widget.locationId,
+                  message.conversationRoundNumber,
+                )
+                ?.formalReplyMessages
+                .any((m) => m.globalMessageId == message.globalMessageId) ??
+            false)) {
+      return true;
+    }
     return _photoVisibility.includes(
       photo,
       liveRevision: photo == null
@@ -167,8 +196,36 @@ extension _LocationChatPhotos on _LocationChatPanelState {
       if (!current() || uid == null) return;
       FocusManager.instance.primaryFocus?.unfocus();
       final environment = services.config.chatroomHttpBaseUrl;
-      final store = ChatPhotoRequestStore(environment, uid, world, location);
+      var store = ChatPhotoRequestStore(environment, uid, world, location);
+      // Preserve legacy uncertain writes exactly; all new writes target a card.
       var pending = await store.read();
+      // Resolve an acknowledged legacy write before choosing a new card target.
+      // Otherwise clearing it below would leave a new write without card IDs.
+      if (pending != null &&
+          (service.state.messagesByLocation[location] ??
+                  const <WorldChatroomMessage>[])
+              .any((m) => m.photo?.requestId == pending!.requestId)) {
+        await store.clear(pending.requestId);
+        pending = null;
+      }
+      if (!current()) return;
+      final controller = _replyController;
+      if (controller == null) return;
+      final target = pending == null
+          ? await controller.preparePhotoTarget(location)
+          : null;
+      if (!current()) return;
+      if (target != null) {
+        store = ChatPhotoRequestStore(
+          environment,
+          uid,
+          world,
+          location,
+          roundId: target.roundId,
+          cardId: target.cardId,
+        );
+        pending = await store.read();
+      }
       if (!mounted || !current()) return;
       // A canonical echo can acknowledge a write whose HTTP response was lost.
       if (pending != null &&
@@ -179,6 +236,15 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         pending = null;
       }
       if (!mounted || !current()) return;
+      if (pending == null &&
+          target != null &&
+          (controller
+                  .stateForRound(location, target.roundId)
+                  ?.messagesForCard(target.cardId)
+                  .any((m) => m.photo?.status == ChatPhotoStatus.generating) ??
+              false)) {
+        return;
+      }
       final confirmed = await confirmCameraMoment(
         context,
         preferenceScope:
@@ -193,6 +259,8 @@ extension _LocationChatPhotos on _LocationChatPanelState {
             requestId: ChatPhotoRequestStore.newId(),
             worldId: world,
             locationId: location,
+            roundId: target?.roundId,
+            cardId: target?.cardId,
           );
       await store.save(request);
       if (!mounted || !current()) return;
@@ -211,6 +279,20 @@ extension _LocationChatPhotos on _LocationChatPanelState {
       } on ApiException catch (error) {
         if (error.kind == ApiExceptionKind.business) {
           await store.clear(request.requestId);
+          if (!mounted || !current()) return;
+          if ((error.code == 2072 || error.code == 2073) &&
+              request.cardId != null) {
+            await controller.refreshPhotoCard(
+              location,
+              request.roundId!,
+              request.cardId!,
+            );
+          }
+          if (error.code == 2072) {
+            await controller.clearCardsCache(location);
+            await controller.restoreLocationCards(location);
+            await service.refreshLocationHistory(locationId: location);
+          }
           if (!mounted || !current()) return;
           if (error.code == 10001 ||
               error.code == 3001 ||

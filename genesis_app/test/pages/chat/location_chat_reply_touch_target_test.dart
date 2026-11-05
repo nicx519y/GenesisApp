@@ -37,6 +37,7 @@ void main() {
       messages: const [],
       onExpandedChanged: (_) => calls.add('inspiration'),
     ),
+    cameraState: LocationChatReplyActionState.idle,
     onTakePhoto: () => calls.add('take-photo'),
   );
 
@@ -205,6 +206,7 @@ void main() {
                   state: LocationChatReplyActionState.idle,
                   onInvoke: () {},
                 ),
+                cameraState: LocationChatReplyActionState.idle,
                 onTakePhoto: () => opens++,
               ),
             ),

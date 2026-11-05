@@ -2,8 +2,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_controls_snapshot.dart';
 
-const _all = (regenerate: true, goOn: true, edit: true, inspiration: true);
-const _none = (regenerate: false, goOn: false, edit: false, inspiration: false);
+const _all = (
+  regenerate: true,
+  goOn: true,
+  edit: true,
+  inspiration: true,
+  camera: true,
+);
+const _none = (
+  regenerate: false,
+  goOn: false,
+  edit: false,
+  inspiration: false,
+  camera: false,
+);
 
 LocationChatReplyControlsSnapshot _resolve({
   bool hidden = false,
@@ -17,7 +29,7 @@ LocationChatReplyControlsSnapshot _resolve({
 }) => resolveLocationChatReplyControls(
   hidden: hidden,
   blocked: blocked,
-  showWhenUnavailable: prepared,
+  showWhenUnavailable: prepared ? _all : _none,
   supported: supported,
   canInvoke: _all,
   busy: busy,
@@ -65,6 +77,38 @@ void main() {
     },
   );
 
+  test('new submission shows busy while a card refresh is settling', () {
+    final gate = LocationChatReplyControlsRenderGate();
+    gate.resolve(
+      (actions: _resolve(), visible: true),
+      backendPending: false,
+      presentationSettled: true,
+    );
+    const cameraOnly = (
+      regenerate: false,
+      goOn: false,
+      edit: false,
+      inspiration: false,
+      camera: true,
+    );
+    final submitting = (
+      actions: _resolve(busy: cameraOnly, active: cameraOnly),
+      visible: true,
+    );
+    final rendered = gate.resolve(
+      submitting,
+      backendPending: false,
+      presentationSettled: false,
+    );
+    expect(rendered.actions.camera, LocationChatReplyActionState.busy);
+    expect([
+      rendered.actions.regenerate,
+      rendered.actions.goOn,
+      rendered.actions.edit,
+      rendered.actions.inspiration,
+    ], everyElement(LocationChatReplyActionState.disabled));
+  });
+
   test('same-frame terminal arrival never keeps old actions clickable', () {
     final gate = LocationChatReplyControlsRenderGate();
     final complete = (actions: _resolve(), visible: true);
@@ -79,6 +123,7 @@ void main() {
       held.actions.goOn,
       held.actions.edit,
       held.actions.inspiration,
+      held.actions.camera,
     ], everyElement(LocationChatReplyActionState.disabled));
     expect(held.actions.canExplainRegenerateLimit, isFalse);
     gate.reset();
@@ -128,6 +173,7 @@ void main() {
           goOn: false,
           edit: true,
           inspiration: false,
+          camera: false,
         ),
       );
       expect(result.edit, LocationChatReplyActionState.idle);
@@ -143,7 +189,13 @@ void main() {
       final result = _resolve(
         blocked: true,
         supported: _none,
-        busy: (regenerate: false, goOn: true, edit: false, inspiration: false),
+        busy: (
+          regenerate: false,
+          goOn: true,
+          edit: false,
+          inspiration: false,
+          camera: false,
+        ),
       );
       expect(result.goOn, LocationChatReplyActionState.busy);
       expect(result.edit, LocationChatReplyActionState.none);
@@ -155,12 +207,19 @@ void main() {
     () {
       final result = _resolve(
         rendered: true,
-        busy: (regenerate: true, goOn: false, edit: false, inspiration: false),
+        busy: (
+          regenerate: true,
+          goOn: false,
+          edit: false,
+          inspiration: false,
+          camera: false,
+        ),
         active: (
           regenerate: true,
           goOn: false,
           edit: false,
           inspiration: false,
+          camera: false,
         ),
       );
       expect(result.regenerate, LocationChatReplyActionState.disabled);
@@ -187,6 +246,7 @@ void main() {
             goOn: false,
             edit: true,
             inspiration: false,
+            camera: false,
           ),
         ).canExplainRegenerateLimit,
         isFalse,
@@ -201,6 +261,7 @@ void main() {
       result.goOn,
       result.edit,
       result.inspiration,
+      result.camera,
     ], everyElement(LocationChatReplyActionState.none));
     expect(result.canExplainRegenerateLimit, isFalse);
   });
@@ -215,12 +276,14 @@ void main() {
         prepared.goOn,
         prepared.edit,
         prepared.inspiration,
+        prepared.camera,
       ], everyElement(LocationChatReplyActionState.disabled));
       expect([
         legacy.regenerate,
         legacy.goOn,
         legacy.edit,
         legacy.inspiration,
+        legacy.camera,
       ], everyElement(LocationChatReplyActionState.none));
     },
   );

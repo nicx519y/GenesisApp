@@ -521,7 +521,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ChatroomLocationEntry? get _preparedEntry => _usesPreparedEntry
       ? _service?.entryForLocation(widget.locationId).value
       : null;
+  ({int roundId, int cardId})? _photoCardPreview;
   ChatroomReplyRoundState? get _displayReplyState {
+    final preview = _photoCardPreview;
+    if (preview != null) {
+      return _replyController?.stateForRound(
+        widget.locationId,
+        preview.roundId,
+      );
+    }
     final retainedRoundId = _deferredTickPresentationRoundId;
     if (retainedRoundId != null) {
       final retained = _replyController?.stateForRound(
@@ -626,7 +634,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   _LocationChatReplyConnectionAction? _replyConnectionAction;
   int? _replyConnectionActionRoundId;
   int _replyConnectionActionGeneration = 0;
-  ({bool regenerate, bool edit, bool inspiration})? _goOnPreAckCapabilities;
   Set<int> _replyRegenerationBaselineCardIds = const <int>{};
   bool _replyRegenerationHasRenderedContent = false;
   _LocationChatRegenerateAnalyticsAttempt? _regenerateAnalyticsAttempt;
@@ -937,13 +944,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ) {
     if (pendingSources.isEmpty) return false;
     return messages.any((message) {
-      if (message.text.trim().isEmpty) return false;
+      if (message.photo != null || message.text.trim().isEmpty) return false;
       final round = int.tryParse(message.roundId);
       if (round == null) return false;
       return pendingSources.any(
-        (source) =>
-            source.goOnRoundId == round ||
-            (source.goOnRoundId == null && round > source.roundId),
+        // A later independent message (notably an existing photo description)
+        // cannot identify this Go On response. Keep its own button busy until
+        // the receipt supplies the exact destination round.
+        (source) => source.goOnRoundId == round,
       );
     });
   }
@@ -963,6 +971,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return messages.any(
       (message) =>
           message.localId.startsWith(candidatePrefix) &&
+          message.photo == null &&
           message.text.trim().isNotEmpty,
     );
   }

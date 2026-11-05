@@ -252,7 +252,15 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             replyActionsVisible: renderedControls.visible,
             onTakePhoto: _takeScenePhoto,
             takingPhoto: _takingScenePhoto,
+            cameraState: actions.camera,
             photoArrivalRequestIds: Set.of(_photoArrivalRequests),
+            photoArrivalTaskIds: {
+              for (final message in displayMessages)
+                if (message.photo != null &&
+                    (_service?.photoLiveRevision(message.photo!.taskId) ?? 0) >
+                        _photoVisibility.liveBaseline)
+                  message.photo!.taskId,
+            },
             replyPresentationRevision:
                 replyPresentationState?.presentationRevision ?? 0,
             replyCards: _replyProjection.cards(
@@ -384,7 +392,9 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
   }
 
   bool _isVisibleEnterConversationContent(ChatMessageVm message) {
-    if (message.isUserEnterLocation || message.isAiContentDisclaimer) {
+    if (message.photo != null ||
+        message.isUserEnterLocation ||
+        message.isAiContentDisclaimer) {
       return false;
     }
     return message.text.trim().isNotEmpty ||

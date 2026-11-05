@@ -751,6 +751,14 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       if (!mounted || profileRole == null) {
         return _OriginLocationChatSendResult.notLaunched;
       }
+      if (profileRole.name.trim().isEmpty) {
+        showGenesisToast(
+          context,
+          GenesisL10n.current.enterNameValidation,
+          brightness: Brightness.dark,
+        );
+        return _OriginLocationChatSendResult.notLaunched;
+      }
       roleSelection = OriginRoleLaunchSelection.custom(profileRole);
       telemetryRoleId = 'current_user';
     } else {

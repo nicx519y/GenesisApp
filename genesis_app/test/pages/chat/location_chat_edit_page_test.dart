@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_feature_quota_models.dart';
 import 'dart:async';
 
@@ -80,6 +81,48 @@ Future<void> openEditor(
 }
 
 void main() {
+  testWidgets('card photo stays read-only and cannot replace the last text', (
+    tester,
+  ) async {
+    await openEditor(
+      tester,
+      onSave: (_) async {},
+      messages: [
+        message('reply', round: '2', text: 'Original reply.'),
+        ChatMessageVm(
+          localId: 'photo',
+          roundId: '2',
+          senderId: '',
+          senderName: '',
+          text: '',
+          isMe: false,
+          senderType: 'live_photo',
+          messageType: 'image',
+          status: 'sent',
+          photo: const ChatPhoto(
+            taskId: 'task',
+            requestId: 'request',
+            status: ChatPhotoStatus.failed,
+            failureCode: 'generation_failed',
+          ),
+        ),
+      ],
+    );
+    expect(find.byType(ChatImageMessage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('location-chat-edit-delete-photo')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('location-chat-edit-delete-reply')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('At least one message must remain.'), findsOneWidget);
+    expect(find.byType(ChatImageMessage), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('ordinary narrator bubble has no editor outline', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

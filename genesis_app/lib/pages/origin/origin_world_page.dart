@@ -208,6 +208,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
   ValueListenable<int>? _userInfoRevisionListenable;
   OriginCustomRoleDraft? _cachedProfileRole;
+  OriginCustomRoleDraft? _cachedPrecharacterRole;
   OriginCustomRoleDraft? _localProfileRoleOverride;
   int _profileRoleRevision = 0;
   OriginCustomRoleDraft? _localRecommendedRoleOverride;
@@ -242,7 +243,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   OriginCustomRoleDraft? get _openingProfileRole =>
-      _recommendedRole?.role ?? _localProfileRoleOverride ?? _cachedProfileRole;
+      _recommendedRole?.role ??
+      _localProfileRoleOverride ??
+      _cachedPrecharacterRole ??
+      _cachedProfileRole;
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
@@ -337,6 +341,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _preloadedProfileRoleAvatarKeys.clear();
       _roleAvatarSnapshots.clear(notify: false);
       _origin = null;
+      _cachedPrecharacterRole = null;
       _initialLoadError = null;
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
@@ -601,6 +606,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           _renderStage != _OriginWorldPageRenderStage.content;
       setState(() {
         _origin = origin;
+        final precharacter = origin.precharacter;
+        _cachedPrecharacterRole = precharacter == null
+            ? null
+            : OriginCustomRoleDraft(
+                name: precharacter.name,
+                avatarUrl: precharacter.avatar,
+                identity: precharacter.identity,
+                personality: precharacter.personality,
+                bio: precharacter.bio,
+              );
         _activeChatLocation = _refreshedLocationChatDescriptor(origin);
         _initialLoadError = null;
         if (shouldStageInitialContent) {
@@ -766,16 +781,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _precacheRoleCardAvatarImages(OriginDetail origin) {
+    final openingRole = _openingProfileRole;
+    if (openingRole != null) _precacheProfileRoleAvatar(openingRole);
     final mediaQuery = MediaQuery.maybeOf(context);
     if (mediaQuery == null) return;
     final urls = origin.characters
         .map(
-          (character) => selectGenesisImageUrl(
+          (character) => _originRoleCardAvatarUrl(
+            context,
             _resolveAssetUrl(character.avatar),
-            logicalWidth: _OriginSetupRoleSection._cardWidth,
-            logicalHeight: _OriginSetupRoleSection._cardWidth,
-            devicePixelRatio: mediaQuery.devicePixelRatio,
-          ).trim(),
+          ),
         )
         .where((url) => url.isNotEmpty && !url.startsWith('assets/'))
         .toSet();

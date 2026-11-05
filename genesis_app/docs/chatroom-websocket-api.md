@@ -1178,3 +1178,7 @@ HTTP V2 messages 历史项同样可携带 `gateway_request_id`、`attempt_no`。
 ## 2026-11-04 live_photo 与 photo result
 
 `live_photo` 为独立照片消息，`payload.photo` 包含 generating/succeeded/failed；同地点消息 ID 更新同一气泡，终态不被迟到生成中覆盖。`phone.photo.result` 按 source 分流：chat 更新聊天照片，camera 更新 MiniPhone 独立任务；camera 的成功 image 无 chat_global_message_id，不产生聊天消息或分页水位。结果以 event_id 去重，结果先到时按 task_id 关联。详情见 [聊天生图接入](chat-photo-client-integration.md)。
+
+### 2026-11-05 卡内 live_photo
+
+有 payload.card_id 的 live_photo 是私有候选更新，带 card_message_index，不要求正式 message_id/location_message_id，也不得推进正式历史游标。无 card_id 的事件继续更新正式视图。phone.photo.result 可带本人卡片 card_id；候选和正式图即使 global_message_id 相同也分别更新。完整增量见 [候选卡生图契约](2026-11-05-card-photo-client-changes.md)。

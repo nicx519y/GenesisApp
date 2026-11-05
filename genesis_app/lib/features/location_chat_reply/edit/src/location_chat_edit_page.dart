@@ -48,6 +48,8 @@ ChatMessageVm _copyLocationChatMessageText(
   senderName: message.senderName,
   avatarUrl: message.avatarUrl,
   imageUrl: message.imageUrl,
+  photo: message.photo,
+  messageType: message.messageType,
   timelinePayload: message.timelinePayload,
   isPlayerControlledRole: message.isPlayerControlledRole,
   text: text,
@@ -225,7 +227,10 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
 
   void _deleteMessage(String id) {
     if (!_canDelete) return;
-    if (_messages.length <= 1) {
+    final target = _messages.where((m) => m.localId == id).firstOrNull;
+    if (target == null || target.photo != null) return;
+    if (_messages.length <= 1 ||
+        (!target.isImage && _messages.where((m) => !m.isImage).length <= 1)) {
       showGenesisToast(context, _locationChatEditMinimumMessageToast);
       return;
     }
@@ -250,7 +255,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
     FocusManager.instance.primaryFocus?.unfocus();
     final result = _draft();
     final hasRemainingMessage = _messages.any((message) {
-      if (message.isImage) return true;
+      if (message.isImage) return false;
       return (result.texts[message.localId] ?? message.text).trim().isNotEmpty;
     });
     if (!hasRemainingMessage) {
@@ -400,21 +405,23 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
                                   ),
                                 ),
                               ),
-                              Positioned(
-                                right: _messages[index].isImage ? 4 : 0,
-                                top: _messages[index].isImage ? 12 : 0,
-                                child: GenesisDeleteButton(
-                                  enabled: _canDelete,
-                                  buttonKey: ValueKey(
-                                    'location-chat-edit-delete-${_messages[index].localId}',
+                              if (_messages[index].photo == null)
+                                Positioned(
+                                  right: _messages[index].isImage ? 4 : 0,
+                                  top: _messages[index].isImage ? 12 : 0,
+                                  child: GenesisDeleteButton(
+                                    enabled: _canDelete,
+                                    buttonKey: ValueKey(
+                                      'location-chat-edit-delete-${_messages[index].localId}',
+                                    ),
+                                    decorationKey: ValueKey(
+                                      'location-chat-edit-delete-decoration-${_messages[index].localId}',
+                                    ),
+                                    onPressed: () => _deleteMessage(
+                                      _messages[index].localId,
+                                    ),
                                   ),
-                                  decorationKey: ValueKey(
-                                    'location-chat-edit-delete-decoration-${_messages[index].localId}',
-                                  ),
-                                  onPressed: () =>
-                                      _deleteMessage(_messages[index].localId),
                                 ),
-                              ),
                             ],
                           ),
                         ),

@@ -5,9 +5,13 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
     if (_disposed || _historyChanges.isClosed) return;
     final changed = switch (event) {
       ChatroomLivePhotoMessage e =>
-        e.message.worldId == _worldId && e.message.errNo == 0,
+        e.message.worldId == _worldId &&
+            e.message.errNo == 0 &&
+            e.message.payload['card_id'] == null,
       ChatroomPhotoResult e =>
-        e.message.worldId == _worldId && e.source == 'chat',
+        e.message.worldId == _worldId &&
+            e.source == 'chat' &&
+            e.message.payload['card_id'] == null,
       ChatroomMessageEvent e =>
         e.ok &&
             e.worldId == _worldId &&
@@ -52,7 +56,29 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
   Future<void> _applySocketEvent(ChatroomEvent event) async {
     switch (event) {
       case ChatroomLivePhotoMessage e:
-        if (e.message.worldId == _worldId && e.message.errNo == 0) {
+        if (e.message.worldId == _worldId &&
+            e.message.errNo == 0 &&
+            e.message.payload['card_id'] != null) {
+          if (!_photoLiveRevisions.containsKey(e.photo.taskId)) {
+            _photoLiveRevisions[e.photo.taskId] = ++_photoRevision;
+          }
+          if (_storageOwnerUid.isNotEmpty) {
+            await ChatPhotoJobStore(
+              _api.chatroomHttp.cacheNamespace,
+              _storageOwnerUid,
+              _worldId,
+              e.message.locationId,
+            ).update({
+              ...e.message.toJson(),
+              'card_id': e.message.payload['card_id'],
+            });
+          }
+        }
+        if (e.message.worldId == _worldId &&
+            e.message.errNo == 0 &&
+            e.message.payload['card_id'] == null &&
+            (e.message.messageId ?? 0) > 0 &&
+            (e.message.locationMessageId ?? 0) > 0) {
           acceptLivePhoto(
             WorldChatroomMessage.fromHttpMessage(
               ChatroomHttpMessage.fromV2Message(e.message),

@@ -9,9 +9,12 @@ class ChatPhotoRequestStore {
     String environment,
     String uid,
     String world,
-    String location,
-  ) : key =
-          'chat-photo-request-v1:${jsonEncode([environment, uid, world, location])}';
+    String location, {
+    int? roundId,
+    int? cardId,
+  }) : key = cardId == null
+           ? 'chat-photo-request-v1:${jsonEncode([environment, uid, world, location])}'
+           : 'chat-photo-request-v2:${jsonEncode([environment, uid, world, location, roundId, cardId])}';
   final String key;
   Future<ChatPhotoRequest?> read() async {
     final value = (await SharedPreferences.getInstance()).getString(key);
@@ -67,6 +70,10 @@ class ChatPhotoJobStore {
           jsonDecode(preferences.getString(key)!) as Map,
         ),
     ];
+  }
+
+  Future<void> remove(String taskId) async {
+    await (await SharedPreferences.getInstance()).remove('$prefix$taskId');
   }
 
   Future<void> update(

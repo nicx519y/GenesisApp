@@ -19,6 +19,7 @@ import 'world_chatroom_service.dart' show WorldChatroomMessage;
 
 part 'chatroom_reply_performance.dart';
 part 'chatroom_reply_snapshots.dart';
+part 'chatroom_reply_photos.dart';
 
 part '../../features/location_chat_reply/regenerate/src/chatroom_regenerate_action.dart';
 part '../../features/location_chat_reply/go_on/src/chatroom_go_on_action.dart';
@@ -227,6 +228,29 @@ class ChatroomReplyRoundState {
   bool get supportsGoOn => _baseEligible;
   bool get supportsEdit => _baseEligible && _supportsEditing;
   bool get supportsInspiration => _baseEligible && !_roundFailed;
+  bool get supportsPhoto =>
+      _baseEligible &&
+      _isOwnSupportedRound &&
+      (!confirmed || selectedCardId > 0);
+  bool get canTakePhoto =>
+      supportsPhoto &&
+      _eligible &&
+      !busy &&
+      !frozen &&
+      !generating &&
+      !goOnPending &&
+      (!hasCardGroup || _completeCard(viewedCard)) &&
+      (!confirmed || viewedCardId == selectedCardId) &&
+      !displayedMessages.any(
+        (m) => m.photo?.status == ChatPhotoStatus.generating,
+      ) &&
+      !(viewedCard?.messages.any(
+            (m) =>
+                ChatPhoto.tryParse(m.message.payload['photo'])?.status ==
+                ChatPhotoStatus.generating,
+          ) ??
+          false);
+
   bool get canGoOn =>
       _eligible &&
       !busy &&
@@ -330,9 +354,21 @@ class ChatroomReplyRoundState {
       for (final message in formalReplyMessages)
         if (message.globalMessageId > 0) message.globalMessageId: message,
     };
-    return selected!.messages.every((candidate) {
+    final selectedPhotos = selected!.messages
+        .where((m) => m.message.type == 'live_photo')
+        .map((m) => m.globalMessageId)
+        .toSet();
+    final formalPhotos = formalReplyMessages
+        .where((m) => m.photo != null)
+        .map((m) => m.globalMessageId)
+        .toSet();
+    if (!setEquals(selectedPhotos, formalPhotos)) return false;
+    return selected.messages.every((candidate) {
       final formal = formalById[candidate.globalMessageId];
-      return formal != null && formal.content == candidate.content;
+      return formal != null &&
+          formal.content == candidate.content &&
+          formal.photo ==
+              ChatPhoto.tryParse(candidate.message.payload['photo']);
     });
   }
 
@@ -365,7 +401,7 @@ class ChatroomReplyRoundState {
             card.cardId > 0 &&
             !card.isOriginal &&
             !previousCardIds.contains(card.cardId) &&
-            card.messages.any((message) => message.content.trim().isNotEmpty),
+            card.messages.any(_cardMessageHasReplyContent),
       );
 
   bool hasCandidateChunk(int cardId) =>
@@ -375,10 +411,7 @@ class ChatroomReplyRoundState {
           ) ??
           false) ||
       (_authoritativeCards.contains(cardId) &&
-          (_card(
-                cardId,
-              )?.messages.any((message) => message.content.trim().isNotEmpty) ??
-              false));
+          (_card(cardId)?.messages.any(_cardMessageHasReplyContent) ?? false));
 
   ChatroomLlmCard? _card(int id) {
     for (final card in _cards) {
@@ -483,6 +516,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   }
 
   /// Connection/input availability has no message-content dependency.
+  final Map<(String, int, int), int> _photoQueries = {};
   void refreshAvailability() => _notify();
 
   ChatroomReplyRoundState? stateFor(String locationId) =>
@@ -603,8 +637,16 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     if (_disposed) return;
     _active[locationId] = {...activeRoundIds};
     final groups = <int, List<WorldChatroomMessage>>{};
+    final replyRounds = messages
+        .where(_isReply)
+        .map((m) => m.conversationRoundNumber)
+        .toSet();
     for (final message in messages) {
-      if (message.businessType == 'live_photo') continue;
+      // Independent legacy photo rounds remain outside reply capabilities.
+      if (message.businessType == 'live_photo' &&
+          !replyRounds.contains(message.conversationRoundNumber)) {
+        continue;
+      }
       final round = message.conversationRoundNumber;
       if (message.locationId != locationId || round <= 0) continue;
       groups.putIfAbsent(round, () => []).add(message);
@@ -635,6 +677,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
           activeRoundIds.contains(entry.key) ||
           entry.value.any((m) => m.streaming);
       for (final message in entry.value) {
+        if (message.businessType == 'live_photo') continue;
         _mergeRoundMetadata(
           state,
           // A canonical Tick carries its own type and round identity. The
@@ -1541,6 +1584,37 @@ class ChatroomReplyActionsController extends ChangeNotifier {
 
   void _receiveEvent(ChatroomEvent event) {
     if (_disposed) return;
+    if (event is ChatroomLivePhotoMessage &&
+        event.message.payload['card_id'] != null) {
+      final message = event.message;
+      if (message.worldId == worldId && message.errNo == 0) {
+        final state = _state(message.locationId, message.conversationRoundId!);
+        _background(state, () => acceptCardPhoto(message));
+      }
+      return;
+    }
+    if (event is ChatroomPhotoResult &&
+        event.source == 'chat' &&
+        event.cardId != null) {
+      if (event.message.worldId == worldId) {
+        final known =
+            [for (final location in locationIds) ...statesFor(location)]
+                .where((s) => s.cards.any((c) => c.cardId == event.cardId))
+                .firstOrNull;
+        final round = event.roundId ?? known?.roundId;
+        final location = event.locationId.isNotEmpty
+            ? event.locationId
+            : known?.locationId;
+        if (round != null && location != null && location.isNotEmpty) {
+          final state = _state(location, round);
+          _background(
+            state,
+            () => refreshPhotoCard(location, round, event.cardId!),
+          );
+        }
+      }
+      return;
+    }
     if (event is ChatroomAiStreamStart ||
         event is ChatroomAiStreamChunk ||
         event is ChatroomAiStreamEnd) {
@@ -2633,6 +2707,7 @@ class _CandidateMessage {
 bool _isReply(WorldChatroomMessage message) =>
     !const {
       'user',
+      'live_photo',
       'tick',
       'user_enter_location',
       'characters_moved',
@@ -2645,10 +2720,12 @@ bool _messageHasRenderableOutput(WorldChatroomMessage message) =>
     message.content.trim().isNotEmpty;
 bool _isRenderableReply(WorldChatroomMessage message) =>
     _isReply(message) && _messageHasRenderableOutput(message);
+bool _cardMessageHasReplyContent(ChatroomLlmCardMessage message) =>
+    message.message.type != 'live_photo' && message.content.trim().isNotEmpty;
 bool _cardHasRenderableOrPendingContent(ChatroomLlmCard card) =>
     !_terminal(card.generationState) ||
     (card.generationState == ChatroomCardGenerationState.succeeded &&
-        card.messages.any((message) => message.content.trim().isNotEmpty));
+        card.messages.any(_cardMessageHasReplyContent));
 int _lastCompleteCardId(Iterable<ChatroomLlmCard> cards) {
   ChatroomLlmCard? last;
   for (final card in cards) {
@@ -2664,7 +2741,7 @@ bool _terminal(ChatroomCardGenerationState state) =>
 bool _completeCard(ChatroomLlmCard? card) =>
     card != null &&
     card.generationState == ChatroomCardGenerationState.succeeded &&
-    card.messages.any((message) => message.content.trim().isNotEmpty);
+    card.messages.any(_cardMessageHasReplyContent);
 LlmAttempt? _candidateAttempt(
   ChatroomLlmCardMessage message,
   LlmAttempt? previous,

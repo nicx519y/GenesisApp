@@ -756,6 +756,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.replyActionsVisible = true,
     this.onTakePhoto,
     this.takingPhoto = false,
+    this.cameraState = LocationChatReplyActionState.none,
     this.replyPresentationRevision = 0,
     this.replyStatus,
     this.replyCards = const [],
@@ -795,6 +796,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.historyReveal,
     this.historyRevealAlignTop = false,
     this.photoArrivalRequestIds = const {},
+    this.photoArrivalTaskIds = const {},
     this.onHistoryRevealSettled,
     this.expandedHistoryHeaders = const {},
     this.pinnedHistoryHeaderBuilder,
@@ -831,6 +833,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final ({int generation, String localId})? historyReveal;
   final bool historyRevealAlignTop;
   final Set<String> photoArrivalRequestIds;
+  // Live task identities are available even when broadcasts omit request IDs.
+  final Set<String> photoArrivalTaskIds;
   final VoidCallback? onHistoryRevealSettled;
 
   /// Expanded message ID -> its section's first message ID.
@@ -907,6 +911,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final bool replyActionsVisible;
   final VoidCallback? onTakePhoto;
   final bool takingPhoto;
+  final LocationChatReplyActionState cameraState;
 
   /// Change only for explicit card switches, never for streaming text updates.
   final int replyPresentationRevision;
@@ -1042,7 +1047,9 @@ class _LocationChatAnchoredMessageListState
   bool _layoutSnapshotIsArchive = false;
   String? _positioningIdentity;
   String? _lastWaitingOperation;
+  String? _lastPhotoPositionOperation;
   final _photoArrivals = <String, AnimationController>{};
+  final _readyPhotoArrivals = <String>{};
   final _photoPreparations = <String, Completer<void>>{};
   bool _photoTickersEnabled = true;
 
@@ -1067,12 +1074,32 @@ class _LocationChatAnchoredMessageListState
     final retained = _inputMessages.map((message) => message.localId).toSet();
     for (final entry in _photoArrivals.entries) {
       if ((all || !retained.contains(entry.key)) && !entry.value.isCompleted) {
+        _readyPhotoArrivals.remove(entry.key);
         entry.value.value = 1;
       }
     }
     if (all) {
       for (final preparation in _photoPreparations.values) {
         if (!preparation.isCompleted) preparation.complete();
+      }
+    }
+  }
+
+  void _readyPhotoArrival(String localId) {
+    if (!mounted || _photoArrivals[localId]?.isCompleted != false) return;
+    setState(() => _readyPhotoArrivals.add(localId));
+  }
+
+  void _startVisiblePhotoArrivals() {
+    if (_readyPhotoArrivals.isEmpty) return;
+    // declareTasks must run first: an incoming photo can wait behind a stream
+    // with its entire row unmounted. Do not spend its arrival clock in that queue.
+    for (final message in _renderedMessages) {
+      if (_readyPhotoArrivals.contains(message.localId) &&
+          !ChatStreamingEffects.isQueuedOf(context, _streamIdentity(message))) {
+        _readyPhotoArrivals.remove(message.localId);
+        final animation = _photoArrivals[message.localId];
+        if (animation != null && !animation.isCompleted) animation.forward();
       }
     }
   }
@@ -1750,13 +1777,20 @@ class _LocationChatAnchoredMessageListState
         : arrivingPhoto == null
         ? _waitingIdentity(widget)
         : 'photo:${arrivingPhoto.localId}';
-    if (identity == null ||
-        !widget.active ||
-        identity == _lastWaitingOperation) {
+    final lastOperation = positioningPhoto
+        ? _lastPhotoPositionOperation
+        : _lastWaitingOperation;
+    if (identity == null || !widget.active || identity == lastOperation) {
       onPositioned?.call();
       return;
     }
-    _lastWaitingOperation = identity;
+    // Photo positioning must not invalidate the completed reply's preparation.
+    // The action slot still checks that reply identity to decide its height.
+    if (positioningPhoto) {
+      _lastPhotoPositionOperation = identity;
+    } else {
+      _lastWaitingOperation = identity;
+    }
     _heldReplyPrefixAnchor = null;
     final coordinator = widget.coordinator;
     if (!coordinator.canPositionWaitingReply) {
@@ -1841,7 +1875,7 @@ class _LocationChatAnchoredMessageListState
     void finishPreparation() {
       onPositioned?.call();
       if (mounted && arrivingPhoto != null) {
-        _photoArrivals[arrivingPhoto.localId]?.forward();
+        _readyPhotoArrival(arrivingPhoto.localId);
       }
       if (!mounted || _positioningIdentity != identity) return;
       setState(() {
@@ -2756,8 +2790,8 @@ class _LocationChatAnchoredMessageListState
           return;
         }
         coordinator.prepareWaitingReplyPosition();
-        if (_lastWaitingOperation == 'photo-request:$request') {
-          _lastWaitingOperation = null;
+        if (_lastPhotoPositionOperation == 'photo-request:$request') {
+          _lastPhotoPositionOperation = null;
         }
         setState(
           () => _scheduleWaitingPosition(
@@ -2771,13 +2805,17 @@ class _LocationChatAnchoredMessageListState
     // A locally requested photo may arrive over WS before create returns, or
     // enter the projection just before its request is registered. The latter
     // still needs a single arrival rather than being treated as old history.
-    // Reserve and position before expanding the same row.
+    // Local requests reserve and position before expanding the same row.
+    // Other live tasks expand in place, including broadcasts without a request.
     for (final message in _inputMessages) {
-      final request = message.photo?.requestId;
+      final photo = message.photo;
+      final request = photo?.requestId;
+      final localRequest = widget.photoArrivalRequestIds.contains(request);
+      final liveTask = widget.photoArrivalTaskIds.contains(photo?.taskId);
       if (!widget.active ||
           !_photoTickersEnabled ||
           request == null ||
-          !widget.photoArrivalRequestIds.contains(request) ||
+          (!localRequest && !liveTask) ||
           _photoArrivals.containsKey(message.localId) ||
           (_previousReceiptIds.contains(_receiptIdentity(message)) &&
               !photoDispatchRequests.contains(request))) {
@@ -2795,10 +2833,10 @@ class _LocationChatAnchoredMessageListState
       if (preparation != null) {
         unawaited(
           preparation.future.then((_) {
-            if (mounted) animation.forward();
+            _readyPhotoArrival(message.localId);
           }),
         );
-      } else if (widget.replyWaitingPositioningEnabled) {
+      } else if (localRequest && widget.replyWaitingPositioningEnabled) {
         final coordinator = widget.coordinator;
         final generation = coordinator.commandGeneration;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2806,7 +2844,7 @@ class _LocationChatAnchoredMessageListState
           if (!widget.active ||
               widget.coordinator != coordinator ||
               generation != coordinator.commandGeneration) {
-            animation.forward();
+            _readyPhotoArrival(message.localId);
             return;
           }
           coordinator.prepareWaitingReplyPosition();
@@ -2818,7 +2856,7 @@ class _LocationChatAnchoredMessageListState
           );
         });
       } else {
-        animation.forward();
+        _readyPhotoArrivals.add(message.localId);
       }
     }
     if (widget.waitingPositionIdentity != null && !widget.oldestEdgeLoading) {
@@ -3520,6 +3558,7 @@ class _LocationChatAnchoredMessageListState
             ),
       ]);
     }
+    _startVisiblePhotoArrivals();
     final style = widget.style ?? ChatUiStyleConfig.standard;
     final hasOldestEdgeContent =
         widget.topTitle.trim().isNotEmpty ||
@@ -4550,7 +4589,7 @@ class _LocationChatAnchoredMessageListState
                     actionToolbarKey: _replyActionToolbarKey,
                     paginationKey: _replyPaginationKey,
                     onTakePhoto: widget.onTakePhoto,
-                    takingPhoto: widget.takingPhoto,
+                    cameraState: widget.cameraState,
                     actionsHidden: _photoActionsHidden,
                     inspirationFeature: widget.inspirationFeature,
                     editFeature: widget.editFeature,

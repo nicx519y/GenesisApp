@@ -35,6 +35,37 @@ Map<String, Object?> _photoEnvelope(String status) => {
 };
 void _photoServiceTests() {
   test(
+    'private card photo events never enter formal history or cursors',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final before = service.state.messagesByLocation;
+      final history = <String>[];
+      final sub = service.historyChanges.listen(history.add);
+      addTearDown(sub.cancel);
+      final envelope = _photoEnvelope('generating')
+        ..remove('message_id')
+        ..remove('location_message_id');
+      envelope['payload'] = {
+        'card_id': 9902,
+        'card_message_index': 3,
+        'content': '',
+        'photo': _photo('generating'),
+      };
+      socket.serverFrame('live_photo', envelope);
+      await _waitFor(() => service.photoLiveRevision('photo-task') > 0);
+      expect(service.state.messagesByLocation, before);
+      expect(history, isEmpty);
+    },
+  );
+
+  test(
     'camera result is deduplicated without chat messages, rounds or history',
     () async {
       final socket = _FakeChatroomSocket();
@@ -82,45 +113,48 @@ void _photoServiceTests() {
   );
 
   for (final cached in [false, true]) {
-    test(
-      'photo navigation loads a continuous window to an old target cached=$cached',
-      () async {
-        final http = _PhotoHistoryTransport();
-        final service = await _service(
-          socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
-          httpTransport: http,
-          useV2Protocol: true,
-          refreshInitialSnapshotOnConnect: false,
-        );
-        addTearDown(service.dispose);
-        await service.connect(worldId: 'world-1', identity: _identity());
-        if (cached) {
-          service.acceptLivePhoto(
-            WorldChatroomMessage.fromHttpMessage(
-              ChatroomHttpMessage.fromV2Json({
-                'type': 'live_photo',
-                ..._photoEnvelope('succeeded'),
-              }),
-            ),
+    for (final privateCard in [false, true]) {
+      test(
+        'photo navigation loads a continuous window to an old target cached=$cached private=$privateCard',
+        () async {
+          final http = _PhotoHistoryTransport();
+          final service = await _service(
+            socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+            httpTransport: http,
+            useV2Protocol: true,
+            refreshInitialSnapshotOnConnect: false,
           );
-        }
-        final result = await service.loadPhotoNavigationWindow(
-          const ChatPhotoTarget(
-            locationId: 'loc-1',
-            roundId: 88,
-            globalMessageId: 880,
-          ),
-          owner: Object(),
-          isCurrent: () => true,
-        );
-        expect(result, isNotNull);
-        final ids = result!.messages.map((m) => m.locationMessageId).toList();
-        expect(ids, containsAll(List.generate(241, (i) => i + 80)));
-        expect(ids.last, 320);
-        expect(http.roundRequests, cached ? 0 : 1);
-        expect(http.pageCursors, containsAll([0, 221, 121]));
-      },
-    );
+          addTearDown(service.dispose);
+          await service.connect(worldId: 'world-1', identity: _identity());
+          if (cached) {
+            service.acceptLivePhoto(
+              WorldChatroomMessage.fromHttpMessage(
+                ChatroomHttpMessage.fromV2Json({
+                  'type': 'live_photo',
+                  ..._photoEnvelope('succeeded'),
+                }),
+              ),
+            );
+          }
+          final result = await service.loadPhotoNavigationWindow(
+            ChatPhotoTarget(
+              cardId: privateCard ? 9902 : null,
+              locationId: 'loc-1',
+              roundId: 88,
+              globalMessageId: privateCard ? 999999 : 880,
+            ),
+            owner: Object(),
+            isCurrent: () => true,
+          );
+          expect(result, isNotNull);
+          final ids = result!.messages.map((m) => m.locationMessageId).toList();
+          expect(ids, containsAll(List.generate(241, (i) => i + 80)));
+          expect(ids.last, 320);
+          expect(http.roundRequests, cached ? 0 : 1);
+          expect(http.pageCursors, containsAll([0, 221, 121]));
+        },
+      );
+    }
   }
   test(
     'photo navigation cancellation never publishes its isolated target round',

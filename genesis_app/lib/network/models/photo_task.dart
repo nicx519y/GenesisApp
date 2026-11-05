@@ -52,13 +52,21 @@ class PhotoTask {
     if (status == null) throw const FormatException('Invalid photo status');
     final image = value['image'];
     final failure = value['failure'];
-    if (status == PhotoTaskStatus.generating &&
-        (image != null || failure != null)) {
+    if (status == PhotoTaskStatus.generating && failure != null) {
       throw const FormatException('Invalid generating photo');
     }
-    if (status == PhotoTaskStatus.succeeded) {
-      if (image is! Map || failure != null || image['description'] is! String) {
-        throw const FormatException('Invalid successful photo');
+    if (status == PhotoTaskStatus.failed &&
+        (failure is! Map ||
+            failure['code'] is! String ||
+            (failure['message'] != null && failure['message'] is! String))) {
+      throw const FormatException('Invalid failed photo');
+    }
+    if (status == PhotoTaskStatus.succeeded && failure != null) {
+      throw const FormatException('Invalid successful photo');
+    }
+    if (image != null || status == PhotoTaskStatus.succeeded) {
+      if (image is! Map || image['description'] is! String) {
+        throw const FormatException('Invalid photo image');
       }
       final url = image['image_url'];
       final uri = url is String ? Uri.tryParse(url) : null;
@@ -71,6 +79,10 @@ class PhotoTask {
         taskId: task,
         requestId: request as String? ?? '',
         status: status,
+        failureCode: failure is Map ? failure['code'] as String : '',
+        failureMessage: failure is Map
+            ? failure['message'] as String? ?? ''
+            : '',
         imageUrl: url as String,
         description: image['description'] as String,
         assetId: photoTaskId(image['asset_id']),
@@ -78,13 +90,6 @@ class PhotoTask {
             ? photoTaskId(image['chat_global_message_id'])
             : null,
       );
-    }
-    if (status == PhotoTaskStatus.failed &&
-        (image != null ||
-            failure is! Map ||
-            failure['code'] is! String ||
-            (failure['message'] != null && failure['message'] is! String))) {
-      throw const FormatException('Invalid failed photo');
     }
     return PhotoTask(
       taskId: task,
@@ -133,7 +138,7 @@ class PhotoTask {
     'task_id': taskId,
     'client_request_id': requestId,
     'status': status.name,
-    'image': status == PhotoTaskStatus.succeeded
+    'image': imageUrl.isNotEmpty
         ? {
             'asset_id': assetId,
             'image_url': imageUrl,

@@ -109,6 +109,7 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     return messages.any(
       (message) =>
           message.roundId == roundId &&
+          message.photo == null &&
           !message.isMe &&
           (message.senderType == 'character' ||
               message.senderType == 'ai' ||

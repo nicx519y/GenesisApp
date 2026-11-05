@@ -22,4 +22,15 @@ class ChatroomPhotoResult extends ChatroomEvent {
   final ChatroomV2Message message;
   final String source, eventId, title, summary;
   final ChatPhoto? photo;
+  int? get cardId => message.payload['card_id'] == null
+      ? null
+      : chatPhotoId(message.payload['card_id']);
+  int? get roundId =>
+      message.conversationRoundId ??
+      (message.payload['conversation_round_id'] == null
+          ? null
+          : chatPhotoId(message.payload['conversation_round_id']));
+  String get locationId => message.locationId.isNotEmpty
+      ? message.locationId
+      : asString(message.payload['location_id']);
 }

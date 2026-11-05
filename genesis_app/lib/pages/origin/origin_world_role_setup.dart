@@ -1078,6 +1078,10 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                     onInteractionActiveChanged: onInternalInteractionChanged,
                     width: 64,
                     height: 64,
+                    previewUrlBuilder: (url) => buildGenesisCdnResizeUrl(
+                      _resolveAssetUrl(url),
+                      width: 128,
+                    ),
                     iconSize: 24,
                     borderRadius: GenesisAvatarRadii.character,
                     cropSize: originCharacterAvatarUploadSize,

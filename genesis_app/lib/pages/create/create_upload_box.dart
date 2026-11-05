@@ -34,6 +34,7 @@ class CreateUploadBox extends StatefulWidget {
     this.emptyIconColor = GenesisColors.createAdd,
     this.emptyLabelColor = createFormMuted,
     this.previewMaxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+    this.previewUrlBuilder,
   });
 
   final TextEditingController controller;
@@ -64,6 +65,9 @@ class CreateUploadBox extends StatefulWidget {
   final Color emptyIconColor;
   final Color emptyLabelColor;
   final double previewMaxDevicePixelRatio;
+
+  /// Changes only the displayed URL; the controller keeps the upload source.
+  final String Function(String url)? previewUrlBuilder;
 
   @override
   State<CreateUploadBox> createState() => _CreateUploadBoxState();
@@ -199,7 +203,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       widget.emptyLabelColor,
                     )
                   : _Preview(
-                      imageUrl: imageUrl,
+                      imageUrl:
+                          widget.previewUrlBuilder?.call(imageUrl) ?? imageUrl,
                       imageBytes: _previewBytes,
                       isUploading: _isUploading,
                       isProcessing: _isUploadProcessing,

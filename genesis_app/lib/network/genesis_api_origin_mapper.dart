@@ -437,6 +437,10 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
         ? asJsonMap(origin['metric'])
         : const <String, dynamic>{},
     coverResource: coverResource,
+    precharacter: OriginPrecharacter.fromJsonOrNull(
+      raw['precharacter'],
+      resolveAvatarUrl: (url) => _resolveImageAssetUrl(url),
+    ),
     initLocationGroup: OriginInitLocationGroup.fromJsonOrNull(
       raw['init_location_group'] ?? origin['init_location_group'],
     ),

@@ -1,8 +1,5 @@
-import '../../../l10n/genesis_l10n.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-import '../../../icons/custom_icon_assets.dart';
-import '../shared/reply_feature_button.dart';
 import '../shared/reply_action_state.dart';
 
 export 'src/chatroom_inspiration_controller.dart'
@@ -45,31 +42,4 @@ final class LocationChatInspirationFeature {
   final ValueChanged<bool>? onExpandedChanged;
   final ValueChanged<String>? onSend;
   final ValueChanged<String>? onEdit;
-}
-
-class LocationChatInspirationButton extends StatelessWidget {
-  const LocationChatInspirationButton({
-    super.key,
-    required this.feature,
-    required this.expanded,
-    required this.onToggle,
-    this.onBeforeInvoke,
-  });
-
-  final LocationChatInspirationFeature feature;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final VoidCallback? onBeforeInvoke;
-
-  @override
-  Widget build(BuildContext context) => LocationChatReplyFeatureButton(
-    label: GenesisL10n
-        .current
-        .chatInspiration,
-    iconAsset: inspirationIconAsset,
-    expanded: expanded,
-    state: feature.state,
-    onTap: onToggle,
-    onBeforeInvoke: onBeforeInvoke,
-  );
 }

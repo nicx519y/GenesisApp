@@ -56,6 +56,7 @@ class ChatImageMessage extends StatelessWidget {
 
   Widget _photoCard(BuildContext context, double maxWidth) {
     final photo = message.photo!;
+    final hasImage = photo.imageUrl.isNotEmpty;
     final succeeded = photo.status == ChatPhotoStatus.succeeded;
     final failed = photo.status == ChatPhotoStatus.failed;
     final width = math.min(maxWidth, 280.0);
@@ -82,7 +83,7 @@ class ChatImageMessage extends StatelessWidget {
               aspectRatio: 2 / 3,
               child: ColoredBox(
                 color: chatNarratorMessageBackgroundColor(style),
-                child: succeeded
+                child: hasImage
                     ? GenesisImageViewerSourceAnchor(
                         previewImageProvider: preview,
                         fit: BoxFit.cover,
@@ -133,7 +134,19 @@ class ChatImageMessage extends StatelessWidget {
               ),
             ),
           ),
-          if (succeeded && photo.description.isNotEmpty)
+          if (hasImage && !succeeded)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                failed
+                    ? (photo.failureMessage.isEmpty
+                          ? context.l10n.chatPhotoFailed
+                          : photo.failureMessage)
+                    : context.l10n.chatPhotoGenerating,
+                style: const TextStyle(color: GenesisColors.darkTextSecondary),
+              ),
+            ),
+          if (hasImage && photo.description.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(

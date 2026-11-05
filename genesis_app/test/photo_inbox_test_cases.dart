@@ -19,6 +19,7 @@ void photoInboxTests() {
               'created_at': '2026-11-04T01:00:00Z',
               'photo_target': {
                 'source': source,
+                if (source == 'chat') 'card_id': 9902,
                 if (source == 'camera' && success)
                   'asset_id': '9007199254740993',
                 'location_id': 'location-photo',
@@ -82,6 +83,7 @@ void photoInboxTests() {
             } else {
               final target = args['initial_photo_target'] as ChatPhotoTarget;
               expect(target.locationId, 'location-photo');
+              expect(target.cardId, 9902);
               expect(target.roundId, 9007199254740993);
               expect(target.globalMessageId, 9007199254740995);
             }

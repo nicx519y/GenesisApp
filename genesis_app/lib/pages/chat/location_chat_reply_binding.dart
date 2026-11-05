@@ -31,7 +31,6 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _replyConnectionActionGeneration++;
     _replyConnectionAction = null;
     _replyConnectionActionRoundId = null;
-    _goOnPreAckCapabilities = null;
     _replyRegenerationBaselineCardIds = const <int>{};
     _replyRegenerationHasRenderedContent = false;
     _lastReplyStatusError = null;
@@ -172,23 +171,11 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         locationChatBubbleLayoutSettings.value.replyWaitingPositioningEnabled;
     if (positioningEnabled) _scrollCoordinator.prepareWaitingReplyPosition();
     _setReplyControlsState(() {
+      _photoCardPreview = null;
       _preparingReplyAction = true;
       _waitingPositionOperation++;
       _waitingPositionClientMsgId = null;
       _replyRequestLoading = true;
-      if (!regenerating) {
-        // Card confirmation can remove a capability before Go On is accepted.
-        // Keep the clicked toolbar's slots until the ACK replaces all four.
-        _goOnPreAckCapabilities = (
-          // At the card limit Regenerate remains visible but disabled. Preserve
-          // that slot too: confirmation clears both support and limit state.
-          regenerate:
-              (replyState?.supportsRegenerate ?? false) ||
-              (replyState?.regenerateLimitReached ?? false),
-          edit: replyState?.supportsEdit ?? false,
-          inspiration: replyState?.supportsInspiration ?? false,
-        );
-      }
       _replyLoadingForRegeneration = regenerating;
       if (regenerating) {
         _replyRegenerationDispatchRevision++;
@@ -221,14 +208,6 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         _setReplyControlsState(() {
           _preparingReplyAction = false;
           _replyRequestLoading = false;
-          if (!regenerating &&
-              !controller
-                  .statesFor(location)
-                  .any(
-                    (state) => state.goOnPending && state.goOnRoundId == null,
-                  )) {
-            _goOnPreAckCapabilities = null;
-          }
         });
       }
     }

@@ -169,10 +169,20 @@ class ChatroomV2Message {
       }
     }
     if (type == 'live_photo') {
+      final payload = _optionalJsonMap(json['payload']);
+      final candidate = json['card_id'] != null || payload['card_id'] != null;
+      if (candidate) {
+        llmCardInt(json['card_id'] ?? payload['card_id']);
+        if (json['message_id'] != null || json['location_message_id'] != null) {
+          throw const FormatException(
+            'Candidate photo cannot have formal cursors',
+          );
+        }
+      }
       for (final key in [
         'global_message_id',
-        'message_id',
-        'location_message_id',
+        if (!candidate) 'message_id',
+        if (!candidate) 'location_message_id',
         'conversation_round_id',
       ]) {
         if (json[key] is! int) {

@@ -46,9 +46,10 @@ void main() {
   });
 
   test('shared hosts contain no feature action implementation', () {
-    final page = File(
+    final page = [
       '$root/lib/pages/chat/location_chat_page.dart',
-    ).readAsStringSync();
+      '$root/lib/pages/chat/location_chat_message_viewport.dart',
+    ].map((path) => File(path).readAsStringSync()).join('\n');
     final controller = File(
       '$root/lib/network/chatroom/chatroom_reply_actions_controller.dart',
     ).readAsStringSync();
@@ -65,6 +66,10 @@ void main() {
     expect(page, contains('inspirationFeature:'));
     expect(page, isNot(contains('controller.regenerate(')));
     expect(page, isNot(contains('controller.goOn(')));
+    expect(actionHost, contains('LocationChatReplyActionButtons('));
+    for (final button in ['Regenerate', 'GoOn', 'Edit', 'Inspiration']) {
+      expect(actionHost, isNot(contains('LocationChat${button}Button(')));
+    }
 
     expect(controller, isNot(contains('Future<void> regenerate(')));
     expect(controller, isNot(contains('Future<ChatroomGoOnReceipt> goOn(')));

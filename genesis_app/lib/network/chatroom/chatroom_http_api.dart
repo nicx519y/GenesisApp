@@ -40,7 +40,10 @@ class ChatroomHttpApi {
     if (request.requestId.isEmpty ||
         request.requestId.length > 128 ||
         request.worldId.isEmpty ||
-        request.locationId.isEmpty) {
+        request.locationId.isEmpty ||
+        (request.roundId != null && request.roundId! <= 0) ||
+        (request.cardId != null &&
+            (request.cardId! <= 0 || request.roundId == null))) {
       throw ArgumentError('Invalid photo request');
     }
     final json = await _client.post<Object?>(
@@ -58,7 +61,9 @@ class ChatroomHttpApi {
       final receipt = ChatPhotoReceipt.fromJson(asJsonMap(data));
       if (receipt.worldId != request.worldId ||
           receipt.locationId != request.locationId ||
-          receipt.photo.requestId != request.requestId) {
+          receipt.photo.requestId != request.requestId ||
+          receipt.cardId != request.cardId ||
+          (request.roundId != null && receipt.roundId != request.roundId)) {
         throw const FormatException('Mismatched photo receipt');
       }
       return receipt;

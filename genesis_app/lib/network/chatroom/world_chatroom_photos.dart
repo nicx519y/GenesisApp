@@ -36,9 +36,10 @@ extension WorldChatroomPhotos on WorldChatroomService {
     };
     var roundCursor = 0;
     var found = cached.values.any(
-      (m) =>
-          m.globalMessageId == target.globalMessageId &&
-          m.photo?.status == ChatPhotoStatus.succeeded,
+      (m) => (target.cardId != null
+          ? m.conversationRoundNumber == target.roundId
+          : m.globalMessageId == target.globalMessageId &&
+                m.photo?.status == ChatPhotoStatus.succeeded),
     );
     while (!found && current()) {
       final page = await _api.chatroomHttp.getMessages(
@@ -51,10 +52,11 @@ extension WorldChatroomPhotos on WorldChatroomService {
       );
       if (!current()) return null;
       found = page.messages.any(
-        (m) =>
-            m.globalMessageId == target.globalMessageId &&
-            ChatPhoto.tryParse(m.payload['photo'])?.status ==
-                ChatPhotoStatus.succeeded,
+        (m) => (target.cardId != null
+            ? m.conversationRoundId == target.roundId
+            : m.globalMessageId == target.globalMessageId &&
+                  ChatPhoto.tryParse(m.payload['photo'])?.status ==
+                      ChatPhotoStatus.succeeded),
       );
       if (found || !page.hasMore) break;
       final ids = page.messages
@@ -90,9 +92,10 @@ extension WorldChatroomPhotos on WorldChatroomService {
         }
       }
       if (collected.values.any(
-        (m) =>
-            m.globalMessageId == target.globalMessageId &&
-            m.photo?.status == ChatPhotoStatus.succeeded,
+        (m) => (target.cardId != null
+            ? m.conversationRoundNumber == target.roundId
+            : m.globalMessageId == target.globalMessageId &&
+                  m.photo?.status == ChatPhotoStatus.succeeded),
       )) {
         final messages = collected.values.toList()
           ..sort((a, b) => a.locationMessageId.compareTo(b.locationMessageId));
@@ -117,16 +120,60 @@ extension WorldChatroomPhotos on WorldChatroomService {
     ChatPhotoRequest? request,
   }) async {
     if (_disposed || receipt.worldId != _worldId) return;
+    if (receipt.cardId != null) {
+      if (_storageOwnerUid.isNotEmpty) {
+        await ChatPhotoJobStore(
+          _api.chatroomHttp.cacheNamespace,
+          _storageOwnerUid,
+          _worldId,
+          receipt.locationId,
+        ).update({
+          ...receipt.toMessageJson(),
+          'card_id': receipt.cardId,
+        }, request: request);
+      }
+      _photoLiveRevisions[receipt.photo.taskId] = ++_photoRevision;
+      await replyActions?.refreshPhotoCard(
+        receipt.locationId,
+        receipt.roundId,
+        receipt.cardId!,
+      );
+      return;
+    }
     final message = WorldChatroomMessage.fromHttpMessage(
       ChatroomHttpMessage.fromV2Json(receipt.toMessageJson()),
     );
-    acceptLivePhoto(message);
+    acceptLivePhoto(message, authoritative: true);
     await _rememberPhotoJob(message, request: request, failOnError: true);
   }
 
-  void acceptLivePhoto(WorldChatroomMessage message) {
+  void acceptLivePhoto(
+    WorldChatroomMessage message, {
+    bool authoritative = false,
+  }) {
     if (_disposed || message.photo == null) return;
     final photo = message.photo!;
+    final resident =
+        (_state.messagesByLocation[message.locationId] ??
+                const <WorldChatroomMessage>[])
+            .where(
+              (m) =>
+                  m.globalMessageId == message.globalMessageId &&
+                  m.photo != null,
+            )
+            .firstOrNull;
+    if (!authoritative &&
+        resident != null &&
+        resident.photo!.taskId != photo.taskId) {
+      unawaited(
+        refreshLocationHistory(locationId: message.locationId).catchError((
+          Object error,
+        ) {
+          _logChatroomSocketEvent('photo task reconciliation failed: $error');
+        }),
+      );
+      return;
+    }
     final existing =
         (_state.messagesByLocation[message.locationId] ??
                 const <WorldChatroomMessage>[])
@@ -146,10 +193,12 @@ extension WorldChatroomPhotos on WorldChatroomService {
   void _applyPhotoResult(ChatroomPhotoResult event) {
     final photo = event.photo!;
     _photoTerminals[photo.taskId] = photo;
-    final matches = _state.messagesByLocation.values
-        .expand((messages) => messages)
-        .where((message) => message.photo?.taskId == photo.taskId)
-        .toList();
+    final matches = event.message.payload['card_id'] != null
+        ? const <WorldChatroomMessage>[]
+        : _state.messagesByLocation.values
+              .expand((messages) => messages)
+              .where((message) => message.photo?.taskId == photo.taskId)
+              .toList();
     for (final message in matches) {
       acceptLivePhoto(
         message.copyWith(
@@ -227,8 +276,43 @@ extension WorldChatroomPhotos on WorldChatroomService {
           world,
           locationId,
         ).read();
+        for (final job in jobs.where((j) => j['card_id'] != null)) {
+          await replyActions?.refreshPhotoCard(
+            locationId,
+            chatPhotoId(job['conversation_round_id']),
+            chatPhotoId(job['card_id']),
+          );
+          if (_disposed ||
+              world != _worldId ||
+              generation != _messageSyncGeneration) {
+            return;
+          }
+          final oldPhoto = ChatPhoto.fromJson(
+            (job['raw_payload'] ?? job['payload'] as Map)['photo'],
+          );
+          final current = replyActions
+              ?.stateForRound(
+                locationId,
+                chatPhotoId(job['conversation_round_id']),
+              )
+              ?.messagesForCard(chatPhotoId(job['card_id']));
+          if (current != null &&
+              !current.any(
+                (m) =>
+                    m.photo?.taskId == oldPhoto.taskId &&
+                    m.photo?.terminal == false,
+              )) {
+            await ChatPhotoJobStore(
+              _api.chatroomHttp.cacheNamespace,
+              _storageOwnerUid,
+              world,
+              locationId,
+            ).remove(oldPhoto.taskId);
+          }
+        }
         rounds.addAll(
           jobs
+              .where((j) => j['card_id'] == null)
               .map(WorldChatroomMessage.fromStorageJson)
               .where((m) => m.photo?.status == ChatPhotoStatus.generating)
               .map((m) => m.conversationRoundNumber)
@@ -236,6 +320,23 @@ extension WorldChatroomPhotos on WorldChatroomService {
         );
       } catch (error) {
         _logChatroomSocketEvent('photo task restore failed: $error');
+      }
+      for (final state
+          in replyActions?.statesFor(locationId) ??
+              <ChatroomReplyRoundState>[]) {
+        for (final card in state.cards) {
+          if (card.messages.any(
+            (m) =>
+                ChatPhoto.tryParse(m.message.payload['photo'])?.status ==
+                ChatPhotoStatus.generating,
+          )) {
+            await replyActions?.refreshPhotoCard(
+              locationId,
+              state.roundId,
+              card.cardId,
+            );
+          }
+        }
       }
       for (final round in rounds) {
         var since = 0;

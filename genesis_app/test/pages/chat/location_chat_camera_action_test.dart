@@ -11,6 +11,100 @@ import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.d
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
 void main() {
+  for (final senderType in ['image', 'nar_pic']) {
+    testWidgets(
+      'image toolbar follows conversation capabilities: $senderType',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        var submitting = false;
+        var message = ChatMessageVm(
+          localId: 'output',
+          senderId: 'nar_pic',
+          senderName: '',
+          senderType: senderType,
+          text: '',
+          isMe: false,
+          status: 'sent',
+        );
+        Widget tree() => MaterialApp(
+          home: Scaffold(
+            body: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              topTitle: '',
+              style: kLocationChatStyle,
+              messages: [message],
+              replyActionsIdentity: 'round',
+              replyActionsMessageId: 'output',
+              cameraState: submitting
+                  ? LocationChatReplyActionState.busy
+                  : LocationChatReplyActionState.idle,
+              onTakePhoto: () {},
+              regenerateFeature: LocationChatRegenerateFeature(
+                state: LocationChatReplyActionState.idle,
+                onInvoke: () {},
+              ),
+              editFeature: LocationChatEditFeature(
+                state: LocationChatReplyActionState.idle,
+                onInvoke: () {},
+              ),
+              goOnFeature: LocationChatGoOnFeature(
+                state: LocationChatReplyActionState.idle,
+                onInvoke: () {},
+              ),
+              inspirationFeature: const LocationChatInspirationFeature(
+                state: LocationChatReplyActionState.idle,
+                messages: [],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        final regenerate = find.bySemanticsLabel('Regenerate');
+        final edit = find.bySemanticsLabel('Edit');
+        final camera = find.byKey(const ValueKey('location-chat-take-photo'));
+        expect(regenerate, findsOneWidget);
+        expect(edit, findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('location-chat-go-on')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('location-chat-inspiration')),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<LocationChatReplyFeatureButton>(camera).state,
+          LocationChatReplyActionState.idle,
+        );
+        submitting = true;
+        await tester.pumpWidget(tree());
+        expect(
+          tester.widget<LocationChatReplyFeatureButton>(camera).state,
+          LocationChatReplyActionState.busy,
+        );
+        expect(regenerate, findsOneWidget);
+        expect(edit, findsOneWidget);
+        submitting = false;
+        message = ChatMessageVm(
+          localId: 'output',
+          senderId: 'char',
+          senderName: 'Character',
+          senderType: 'char',
+          text: 'A later text reply.',
+          isMe: false,
+          status: 'sent',
+        );
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        expect(regenerate, findsOneWidget);
+        expect(edit, findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
   testWidgets('camera cannot open a toolbar without a server reply identity', (
     tester,
   ) async {
@@ -39,6 +133,7 @@ void main() {
                   senderType: 'char',
                 ),
               ],
+              cameraState: LocationChatReplyActionState.idle,
               onTakePhoto: () => captured++,
             ),
           ),
@@ -84,6 +179,7 @@ void main() {
                 state: LocationChatReplyActionState.idle,
                 messages: [],
               ),
+              cameraState: LocationChatReplyActionState.idle,
               onTakePhoto: () => opens++,
             ),
           ),
@@ -109,7 +205,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(action, findsNothing);
+    expect(find.bySemanticsLabel('Camera'), findsNothing);
   });
 
   testWidgets('camera create is busy and disables every other reply icon', (
@@ -119,7 +215,9 @@ void main() {
       home: Scaffold(
         body: LocationChatReplyActions(
           style: kLocationChatStyle,
-          takingPhoto: submitting,
+          cameraState: submitting
+              ? LocationChatReplyActionState.busy
+              : LocationChatReplyActionState.idle,
           onTakePhoto: () {},
           regenerateFeature: LocationChatRegenerateFeature(
             state: LocationChatReplyActionState.idle,
@@ -181,55 +279,42 @@ void main() {
   });
 
   for (final state in LocationChatReplyActionState.values) {
-    testWidgets('camera follows regenerate availability: ${state.name}', (
-      tester,
-    ) async {
-      var captured = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: LocationChatReplyActions(
-              style: kLocationChatStyle,
-              regenerateFeature: LocationChatRegenerateFeature(
-                state: state,
-                onInvoke: () {},
-                onLimitReached: () {},
+    testWidgets(
+      'camera uses its public state without a Regenerate fallback: ${state.name}',
+      (tester) async {
+        var captured = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: LocationChatReplyActions(
+                style: kLocationChatStyle,
+                cameraState: state,
+                onTakePhoto: () => captured++,
               ),
-              onTakePhoto: () => captured++,
             ),
           ),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-      final camera = find.byKey(const ValueKey('location-chat-take-photo'));
-      if (state == LocationChatReplyActionState.none) {
-        expect(camera, findsNothing);
-      } else {
-        final button = tester.widget<LocationChatReplyFeatureButton>(camera);
-        expect(
-          button.state,
-          state == LocationChatReplyActionState.busy
-              ? LocationChatReplyActionState.disabled
-              : state,
         );
-        expect(
-          find.descendant(
-            of: camera,
-            matching: find.byType(CircularProgressIndicator),
-          ),
-          findsNothing,
-        );
-        if (state == LocationChatReplyActionState.idle) {
-          await tester.tap(camera);
-          expect(captured, 1);
+        await tester.pump(const Duration(milliseconds: 300));
+        final camera = find.byKey(const ValueKey('location-chat-take-photo'));
+        if (state == LocationChatReplyActionState.none) {
+          expect(find.bySemanticsLabel('Camera'), findsNothing);
         } else {
-          expect(button.onTap, isNull);
-          expect(button.onDisabledTap, isNull);
+          final button = tester.widget<LocationChatReplyFeatureButton>(camera);
+          expect(button.state, state);
+          expect(
+            find.descendant(
+              of: camera,
+              matching: find.byType(CircularProgressIndicator),
+            ),
+            state == LocationChatReplyActionState.busy
+                ? findsOneWidget
+                : findsNothing,
+          );
           await tester.tap(camera);
-          expect(captured, 0);
+          expect(captured, state == LocationChatReplyActionState.idle ? 1 : 0);
         }
-      }
-    });
+      },
+    );
   }
 
   for (final busyFeature in ['regenerate', 'goOn', 'edit', 'inspiration']) {
@@ -265,6 +350,7 @@ void main() {
                   : LocationChatReplyActionState.none,
               messages: const [],
             ),
+            cameraState: LocationChatReplyActionState.idle,
             onTakePhoto: () => captured++,
           ),
         ),

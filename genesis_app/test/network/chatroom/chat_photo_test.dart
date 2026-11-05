@@ -59,6 +59,94 @@ Map<String, Object?> photoJson(String status) => {
 };
 void main() {
   test(
+    'candidate photo request, receipt, card query and WS have no formal cursors',
+    () {
+      const request = ChatPhotoRequest(
+        requestId: 'request',
+        worldId: 'w',
+        locationId: 'l',
+        roundId: 101,
+        cardId: 9902,
+      );
+      expect(request.toJson()['conversation_round_id'], '101');
+      expect(ChatPhotoRequest.fromJson(request.toJson()).cardId, 9902);
+      final receipt = ChatPhotoReceipt.fromJson({
+        'source': 'chat',
+        'world_id': 'w',
+        'location_id': 'l',
+        'conversation_round_id': '101',
+        'card_id': 9902,
+        'global_message_id': '8002',
+        'photo': photoJson('generating'),
+      });
+      expect(receipt.messageId, 0);
+      final event = ChatroomV2Message.fromJson(receipt.toMessageJson());
+      expect(event.payload['card_id'], 9902);
+      final cardMessage = ChatroomLlmCardMessage.fromJson({
+        ...receipt.toMessageJson(),
+        'card_id': 9902,
+        'card_message_index': 3,
+      });
+      expect(cardMessage.content, '');
+      expect(
+        ChatPhotoTarget.tryParse({
+          'source': 'chat',
+          'location_id': 'l',
+          'conversation_round_id': '101',
+          'card_id': 9902,
+          'chat_global_message_id': '8002',
+        })!.cardId,
+        9902,
+      );
+    },
+  );
+  test(
+    'regenerating and failed photo retain the previous successful image',
+    () {
+      for (final status in ['generating', 'failed']) {
+        final photo = ChatPhoto.fromJson({
+          ...photoJson(status),
+          'image': photoJson('succeeded')['image'],
+        });
+        expect(photo.imageUrl, 'https://example.com/a.png');
+        expect(ChatPhoto.fromJson(photo.toJson()), photo);
+      }
+    },
+  );
+  test(
+    'uncertain card requests are isolated and preserve original parameters',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final a = ChatPhotoRequestStore(
+        'dev',
+        'u',
+        'w',
+        'l',
+        roundId: 101,
+        cardId: 1,
+      );
+      final b = ChatPhotoRequestStore(
+        'dev',
+        'u',
+        'w',
+        'l',
+        roundId: 101,
+        cardId: 2,
+      );
+      const request = ChatPhotoRequest(
+        requestId: 'request',
+        worldId: 'w',
+        locationId: 'l',
+        roundId: 101,
+        cardId: 1,
+      );
+      await a.save(request);
+      expect((await a.read())!.toJson(), request.toJson());
+      expect(await b.read(), isNull);
+    },
+  );
+
+  test(
     'photo model parses all three contract positions and absent failure text',
     () {
       final photo = photoJson('failed');

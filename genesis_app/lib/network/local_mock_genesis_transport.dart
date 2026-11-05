@@ -430,7 +430,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, dynamic> body,
   ) async {
     if (method == 'GET' && path == 'aitown-chat/api/v1/message/photo/price') {
-      return _v1Ok({'price_cent': 3000});
+      return _v1Ok({'price_cent': 2000});
     }
     if (method == 'POST' && path == 'aitown-chat/api/v1/message/photo/create') {
       final id = body['client_request_id'];
@@ -443,7 +443,23 @@ class LocalMockGenesisTransport implements HttpTransport {
           world.isEmpty ||
           location is! String ||
           location.isEmpty ||
-          body.length != 3) {
+          body.keys.any(
+            (key) => !const {
+              'client_request_id',
+              'world_id',
+              'location_id',
+              'conversation_round_id',
+              'card_id',
+            }.contains(key),
+          ) ||
+          (body['conversation_round_id'] != null &&
+              (body['conversation_round_id'] is! String ||
+                  int.tryParse(body['conversation_round_id'] as String) ==
+                      null)) ||
+          (body['card_id'] != null &&
+              (body['card_id'] is! int ||
+                  (body['card_id'] as int) <= 0 ||
+                  body['conversation_round_id'] == null))) {
         return _v1BusinessError(1001, 'Invalid photo parameters');
       }
       final previous = _photoRequests[id];
@@ -452,6 +468,12 @@ class LocalMockGenesisTransport implements HttpTransport {
           return _v1BusinessError(2062, 'Photo request parameters changed');
         }
         return _v1Ok(previous.$2);
+      }
+      if (body['card_id'] != null) {
+        return _error(
+          501,
+          'Candidate card photo generation is not simulated by the local transport',
+        );
       }
       final photo = <String, Object?>{
         'task_id': 'mock-photo-$id',
@@ -3567,6 +3589,7 @@ class _MockState {
         ])
           if (info.containsKey(key)) key: info[key],
       },
+      'precharacter': origin['precharacter'],
       'init_location_group': _originContractInitLocationGroup(origin),
       'characters': _originEditCharacters(
         origin,
@@ -5501,6 +5524,7 @@ class _MockState {
   Map<String, dynamic> _originDetailPayload(Map<String, dynamic> origin) {
     return {
       'origin': _v1OriginPayload(origin),
+      'precharacter': origin['precharacter'],
       'character_list': _originEditCharacters(origin),
       'metric': _deepCopyMap(kMockV1Metric),
       'location_list': _originEditLocations(origin),

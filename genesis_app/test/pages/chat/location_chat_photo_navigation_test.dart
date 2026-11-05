@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
@@ -8,6 +9,190 @@ import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
 void main() {
+  for (final dispatchAtSubmission in [true, false]) {
+    testWidgets(
+      'photo positioning preserves the completed send toolbar: $dispatchAtSubmission',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        var rows = [_text('before')];
+        var requests = dispatchAtSubmission ? <String>{} : {'request'};
+        var submitting = false;
+        Widget tree() => MaterialApp(
+          home: Scaffold(
+            body: AnimatedBuilder(
+              animation: coordinator,
+              builder: (_, _) => LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: rows,
+                topTitle: '',
+                style: kLocationChatStyle,
+                waitingPositionIdentity: 'completed-send',
+                replyActionsIdentity: 'reply-round',
+                replyActionsMessageId: 'before',
+                cameraState: submitting
+                    ? LocationChatReplyActionState.busy
+                    : LocationChatReplyActionState.idle,
+                onTakePhoto: () {},
+                takingPhoto: submitting,
+                photoArrivalRequestIds: requests,
+                regenerateFeature: LocationChatRegenerateFeature(
+                  state: LocationChatReplyActionState.idle,
+                  onInvoke: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        final actions = find.byType(LocationChatReplyActions);
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        expect(actions, findsOneWidget);
+        if (dispatchAtSubmission) {
+          submitting = true;
+          requests = {'request'};
+          await tester.pumpWidget(tree());
+          for (var frame = 0; frame < 40; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          expect(actions, findsOneWidget);
+          expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
+        }
+        rows = [...rows, _photo()];
+        submitting = false;
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        expect(actions, findsOneWidget);
+        expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
+        expect(
+          tester.widget<LocationChatReplyActions>(actions).actionsHidden,
+          isFalse,
+        );
+        for (final status in [
+          ChatPhotoStatus.failed,
+          ChatPhotoStatus.succeeded,
+        ]) {
+          rows.last.photo = ChatPhoto(
+            taskId: 'task',
+            requestId: 'request',
+            status: status,
+            imageUrl: status == ChatPhotoStatus.succeeded
+                ? 'assets/images/map_default/location_default.webp'
+                : '',
+          );
+          await tester.pumpWidget(tree());
+          await tester.pumpAndSettle();
+          expect(actions, findsOneWidget);
+          expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
+        }
+        coordinator.beginHistoryNavigation();
+        await tester.pumpAndSettle();
+        expect(actions, findsOneWidget);
+        coordinator.prepareWaitingReplyPosition();
+        await tester.pumpAndSettle();
+        expect(actions, findsOneWidget);
+        expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  testWidgets('queued photo expands only after the preceding reply drains', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final reply = _text('reply')..status = 'streaming';
+    var rows = [reply];
+    Widget tree() => MaterialApp(
+      home: Scaffold(
+        body: ChatStreamingEffects(
+          deferIncomingMessages: true,
+          settings: LocationChatBubbleLayoutSettings.defaults,
+          child: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
+            messages: rows,
+            photoArrivalRequestIds: const {'request'},
+            topTitle: '',
+            style: kLocationChatStyle,
+            replyWaitingPositioningEnabled: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(tree());
+    await tester.pump(const Duration(milliseconds: 100));
+    rows = [reply, _photo()];
+    await tester.pumpWidget(tree());
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(find.byType(ChatImageMessage), findsNothing);
+    reply.status = 'sent';
+    await tester.pumpWidget(tree());
+    final arrival = find.byKey(const ValueKey('photo-arrival-photo'));
+    for (var i = 0; arrival.evaluate().isEmpty && i < 90; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(arrival, findsOneWidget);
+    expect(tester.getSize(arrival).height, 0);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSize(arrival).height, inExclusiveRange(0, 400));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(arrival).height, greaterThan(400));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final requestId in ['', 'another-viewer-request']) {
+    testWidgets('live photo expands by task identity: "$requestId"', (
+      tester,
+    ) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final photo = ChatMessageVm(
+        localId: 'photo',
+        senderId: '',
+        senderName: '',
+        senderType: 'image',
+        text: '',
+        isMe: false,
+        status: 'sent',
+        photo: ChatPhoto(
+          taskId: 'task',
+          requestId: requestId,
+          status: ChatPhotoStatus.generating,
+        ),
+      );
+      var rows = [_text('before')];
+      Widget tree() => MaterialApp(
+        home: Scaffold(
+          body: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
+            messages: rows,
+            photoArrivalTaskIds: const {'task'},
+            topTitle: '',
+            style: kLocationChatStyle,
+            replyWaitingPositioningEnabled: false,
+          ),
+        ),
+      );
+      await tester.pumpWidget(tree());
+      await tester.pumpAndSettle();
+      rows = [...rows, photo];
+      await tester.pumpWidget(tree());
+      final arrival = find.byKey(const ValueKey('photo-arrival-photo'));
+      expect(tester.getSize(arrival).height, 0);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getSize(arrival).height, inExclusiveRange(0, 400));
+      await tester.pumpAndSettle();
+      final completeHeight = tester.getSize(arrival).height;
+      expect(completeHeight, greaterThan(400));
+      await tester.pumpWidget(tree());
+      expect(tester.getSize(arrival).height, completeHeight);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets(
     'photo toolbar remains visible during small drags after expansion',
     (tester) async {
@@ -31,6 +216,7 @@ void main() {
                   style: kLocationChatStyle,
                   replyActionsMessageId: rows.last.localId,
                   replyActionsIdentity: 'round',
+                  cameraState: LocationChatReplyActionState.idle,
                   onTakePhoto: () {},
                   regenerateFeature: LocationChatRegenerateFeature(
                     state: LocationChatReplyActionState.idle,
@@ -100,6 +286,7 @@ void main() {
               photoArrivalRequestIds: requests,
               topTitle: '',
               style: kLocationChatStyle,
+              cameraState: LocationChatReplyActionState.idle,
               onTakePhoto: () {},
               replyActionsMessageId: rows.last.localId,
               replyActionsIdentity: 'round',
@@ -201,6 +388,7 @@ void main() {
                 style: kLocationChatStyle,
                 replyActionsMessageId: 'before',
                 replyActionsIdentity: 'round',
+                cameraState: LocationChatReplyActionState.idle,
                 onTakePhoto: () {},
                 regenerateFeature: LocationChatRegenerateFeature(
                   state: LocationChatReplyActionState.idle,
@@ -301,6 +489,9 @@ void main() {
                     topTitle: '',
                     style: kLocationChatStyle,
                     takingPhoto: submitting,
+                    cameraState: submitting
+                        ? LocationChatReplyActionState.busy
+                        : LocationChatReplyActionState.idle,
                     onTakePhoto: () {},
                     replyActionsMessageId: 'before-19',
                     replyActionsIdentity: 'round',

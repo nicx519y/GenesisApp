@@ -153,6 +153,7 @@ class ChatMessageVm {
       (int.tryParse(roundId) ?? 0) <= 0;
 
   bool get isImage =>
+      photo != null ||
       senderType == 'image' ||
       senderType == 'nar_pic' ||
       imageUrl.trim().isNotEmpty;

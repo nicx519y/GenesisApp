@@ -1098,7 +1098,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     bool preferIncomingContent = false,
   }) {
     if (incoming.photo != null && existing.photo != null) {
-      final photo = existing.photo!.terminal && !incoming.photo!.terminal
+      final photo =
+          existing.photo!.taskId == incoming.photo!.taskId &&
+              existing.photo!.terminal &&
+              !incoming.photo!.terminal
           ? existing.photo!
           : incoming.photo!;
       return incoming.copyWith(

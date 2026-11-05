@@ -399,6 +399,195 @@ ChatroomLlmCardGenerationEnd _terminal(
 );
 
 void main() {
+  ChatroomLlmCard withPhoto(
+    int cardId,
+    String status, {
+    String task = 'photo-1',
+  }) {
+    final card = _card(cardId, index: cardId == 101 ? 1 : 2);
+    return ChatroomLlmCard.fromJson({
+      ...card.rawJson,
+      'messages': [
+        ...card.rawJson['messages'] as List,
+        {
+          'type': 'live_photo',
+          'world_id': 'w',
+          'location_id': 'l',
+          'conversation_round_id': _round,
+          'card_id': cardId,
+          'card_message_index': 5,
+          'global_message_id': _messageId + 9,
+          'sender_type': 'live_photo',
+          'message_type': 'image',
+          'payload': {
+            'content': '',
+            'photo': {
+              'task_id': task,
+              'status': status,
+              if (status == 'succeeded')
+                'image': {
+                  'asset_id': 1,
+                  'image_url': 'https://example.com/photo.png',
+                  'description': 'Photo',
+                  'chat_global_message_id': '${_messageId + 9}',
+                },
+              if (status == 'failed') 'failure': {'code': 'generation_failed'},
+            },
+          },
+        },
+      ],
+    }, conversationRoundId: _round);
+  }
+
+  for (final status in ['generating', 'succeeded', 'failed']) {
+    test(
+      'card photo $status participates in display but not text edit operations',
+      () async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        h.api.cards = _cards([withPhoto(101, status)]);
+        await h.controller.restoreLocationCards('l');
+        expect(h.state.displayedMessages.last.photo!.status.name, status);
+        expect(h.state.generating, isFalse);
+        expect(h.state.canRegenerate, isTrue);
+        final target = await h.controller.prepareEditor('l');
+        await expectLater(
+          h.controller.save(target, [
+            ChatroomLlmMessageOperation.delete(globalMessageId: _messageId + 9),
+          ]),
+          throwsStateError,
+        );
+        await expectLater(
+          h.controller.save(target, [
+            ChatroomLlmMessageOperation.delete(globalMessageId: _messageId),
+            ChatroomLlmMessageOperation.delete(globalMessageId: _messageId + 1),
+          ]),
+          throwsStateError,
+        );
+      },
+    );
+  }
+  test(
+    'photo target follows viewed card and late completion does not switch cards',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        withPhoto(101, 'generating'),
+        _card(102, index: 2),
+      ]);
+      await h.controller.restoreLocationCards('l');
+      await h.controller.browse('l', 1);
+      final target = await h.controller.preparePhotoTarget('l');
+      expect(target.cardId, 102);
+      h.api.cards = _cards([withPhoto(101, 'succeeded'), _card(102, index: 2)]);
+      await h.controller.refreshPhotoCard('l', _round, 101);
+      expect(h.state.viewedCardId, 102);
+      expect(h.state.displayedMessages.any((m) => m.photo != null), isFalse);
+      expect(h.state.messagesForCard(101).last.photo!.status.name, 'succeeded');
+      final old = h.state.messagesForCard(101).last;
+      h.controller.observeMessages('l', [
+        _formal(),
+        old.copyWith(locationMessageId: _messageId + 9),
+      ]);
+      expect(h.state.formalReplyMessages.any((m) => m.photo != null), isTrue);
+      expect(h.state.canRegenerate, isTrue);
+    },
+  );
+  test(
+    'late photo updates old card without changing frozen snapshot or new text',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([withPhoto(101, 'generating')]);
+      await h.controller.restoreLocationCards('l');
+      final frozen = h.controller.snapshotForPresentation('l')!;
+      h.session.regenerateHandler = () async => const ChatroomCardRegeneration(
+        conversationRoundId: _round,
+        originalCardId: 101,
+        cardId: 102,
+        generationState: ChatroomCardGenerationState.generating,
+        billing: ChatroomCardBilling(
+          status: ChatroomCardBillingStatus.notRequired,
+        ),
+      );
+      await h.controller.regenerate('l');
+      h.controller.receiveEvent(_stream('start'));
+      h.controller.receiveEvent(_stream('chunk', content: 'New reply'));
+      h.api.cards = _cards([
+        withPhoto(101, 'succeeded'),
+        _card(102, index: 2, generation: 'generating'),
+      ]);
+      await h.controller.refreshPhotoCard('l', _round, 101);
+      expect(h.state.viewedCardId, 102);
+      expect(h.state.generating, isTrue);
+      expect(h.state.displayedMessages.single.content, 'New reply');
+      expect(h.state.displayedMessages.any((m) => m.photo != null), isFalse);
+      expect(h.state.messagesForCard(101).last.photo!.status.name, 'succeeded');
+      expect(frozen.messagesForCard(101).last.photo!.status.name, 'generating');
+      h.api.cards = _cards([
+        withPhoto(101, 'succeeded'),
+        _card(102, index: 2, content: 'New reply'),
+      ]);
+      h.controller.receiveEvent(_stream('end', content: 'New reply', seq: 2));
+      h.controller.receiveEvent(_terminal('succeeded'));
+      await _settle();
+      await h.controller.browse('l', -1);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.displayedMessages.last.photo!.status.name, 'succeeded');
+    },
+  );
+
+  test(
+    'confirmed selected card can create photos without Regenerate eligibility',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards(
+        [_card(101), _card(102, index: 2)],
+        confirmed: true,
+        selected: 102,
+      );
+      await h.controller.restoreLocationCards('l');
+      expect(h.state.canRegenerate, isFalse);
+      expect(h.state.supportsPhoto, isTrue);
+      expect(h.state.canTakePhoto, isTrue);
+      expect((await h.controller.preparePhotoTarget('l')).cardId, 102);
+      h.api.cards = _cards(
+        [_card(101), withPhoto(102, 'generating')],
+        confirmed: true,
+        selected: 102,
+      );
+      await h.controller.refreshPhotoCard('l', _round, 102);
+      expect(h.state.canTakePhoto, isFalse);
+      expect(h.state.canGoOn, isTrue);
+      expect(h.state.canEdit, isTrue);
+    },
+  );
+  test(
+    'unknown photo task is resolved from cards and cannot regress the active task',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      final current = withPhoto(101, 'generating', task: 'new-task');
+      h.api.cards = _cards([current]);
+      await h.controller.restoreLocationCards('l');
+      final stale = withPhoto(101, 'succeeded', task: 'old-task').messages.last;
+      await h.controller.acceptCardPhoto(
+        ChatroomV2Message.fromJson({
+          ...stale.rawJson,
+          'payload': {
+            ...stale.message.payload,
+            'card_id': 101,
+            'card_message_index': 5,
+          },
+        }),
+      );
+      expect(h.state.displayedMessages.last.photo!.taskId, 'new-task');
+      expect(h.state.displayedMessages.last.photo!.status.name, 'generating');
+    },
+  );
+
   test(
     'disposed reply controller drops shared gate listeners before late save failure',
     () async {
