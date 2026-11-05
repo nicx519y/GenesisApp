@@ -4766,9 +4766,9 @@ void main() {
 
     for (final expectation in const <(double, int)>[
       (1, 1080),
-      (2, 1440),
-      (3, 1440),
-      (4, 1440),
+      (2, 2160),
+      (3, 2160),
+      (4, 2160),
     ]) {
       clearGenesisMessageImageSizeCache();
       tester.view.devicePixelRatio = expectation.$1;
@@ -4801,7 +4801,7 @@ void main() {
       final image = tester.widget<ChatThumbnailImage>(
         find.byType(ChatThumbnailImage),
       );
-      expect(image.maxWidth, 750);
+      expect(image.maxWidth, 800);
       final provider = tester
           .widgetList<Image>(
             find.descendant(
@@ -4879,20 +4879,30 @@ void main() {
     expect(await placeholderColor(kLocationChatStyle), const Color(0x80151517));
   });
 
-  testWidgets('location chat image keeps only the avatar-side inset', (
+  testWidgets('location chat image aligns with both outer avatar edges', (
     WidgetTester tester,
   ) async {
-    final style = kLocationChatStyle;
-
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 400,
-            child: Padding(
-              padding: style.messageListPadding,
-              child: ChatMessageRow(
-                message: ChatMessageVm(
+            child: ChatMessageList(
+              controller: controller,
+              topTitle: '',
+              style: kLocationChatStyle,
+              messages: [
+                ChatMessageVm(
+                  localId: 'role-avatar',
+                  senderId: 'role',
+                  senderName: 'Role',
+                  text: 'Role message',
+                  isMe: false,
+                  status: 'sent',
+                ),
+                ChatMessageVm(
                   localId: 'location-image-width',
                   senderId: 'nar_pic',
                   senderName: 'Narrator',
@@ -4902,9 +4912,15 @@ void main() {
                   isMe: false,
                   status: 'sent',
                 ),
-                showDateDivider: false,
-                style: style,
-              ),
+                ChatMessageVm(
+                  localId: 'user-avatar',
+                  senderId: 'user',
+                  senderName: 'User',
+                  text: 'User message',
+                  isMe: true,
+                  status: 'sent',
+                ),
+              ],
             ),
           ),
         ),
@@ -4914,9 +4930,18 @@ void main() {
     final image = tester.widget<ChatThumbnailImage>(
       find.byType(ChatThumbnailImage),
     );
-    final imageContentWidth =
-        400 - style.messageListPadding.horizontal - style.avatarSideSpacerWidth;
-    expect(image.maxWidth, closeTo(imageContentWidth, 0.01));
+    expect(image.maxWidth, 380);
+    final bounds = tester.getRect(find.byType(ChatThumbnailImage));
+    final roleAvatar = find.descendant(
+      of: find.byType(ChatOtherMessageBubble),
+      matching: find.byType(ChatAvatar),
+    );
+    final userAvatar = find.descendant(
+      of: find.byType(ChatSelfMessageBubble),
+      matching: find.byType(ChatAvatar),
+    );
+    expect(bounds.left, tester.getTopLeft(roleAvatar).dx);
+    expect(bounds.right, tester.getTopRight(userAvatar).dx);
   });
 
   testWidgets('resolved remote image keeps its geometry when rebuilt', (
@@ -5007,14 +5032,14 @@ void main() {
       'square',
       'assets/images/default_list_image.png',
     );
-    expect(square, const Size.square(250));
+    expect(square, const Size.square(300));
 
     final portrait = await pumpImage(
       'portrait',
       'assets/images/map_default/root_default.webp',
     );
-    expect(portrait.width, closeTo(250, 0.01));
-    expect(portrait.height, closeTo(250 * 1536 / 1024, 0.01));
+    expect(portrait.width, closeTo(300, 0.01));
+    expect(portrait.height, closeTo(300 * 1536 / 1024, 0.01));
 
     final small = await pumpImage(
       'small',
@@ -5093,8 +5118,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('chat-image-message-image-later')),
+    await tester.tapAt(
+      tester.getTopLeft(
+            find.byKey(
+              const ValueKey<String>('chat-image-message-image-later'),
+            ),
+          ) +
+          const Offset(20, 20),
     );
     await tester.pumpAndSettle();
 

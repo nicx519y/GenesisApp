@@ -51,8 +51,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       if (!mounted ||
           !foreground ||
           (ModalRoute.of(context)?.isCurrent != true &&
-              !_miniPhoneSession.hasForegroundRoute &&
-              !_presentingPhotoResult)) {
+              !_miniPhoneSession.hasForegroundRoute)) {
         return;
       }
       final services = AppServicesScope.read(context);
@@ -67,48 +66,38 @@ extension _WorldPageChatroomSession on _WorldPageState {
                 revision == services.sessionRevision.value &&
                 (WidgetsBinding.instance.lifecycleState == null ||
                     WidgetsBinding.instance.lifecycleState ==
-                        AppLifecycleState.resumed);
+                        AppLifecycleState.resumed) &&
+                (ModalRoute.of(context)?.isCurrent == true ||
+                    _miniPhoneSession.hasForegroundRoute);
             await services.balancePrompts.waitUntilIdle();
-            if (!mounted ||
-                !current() ||
-                (ModalRoute.of(context)?.isCurrent != true &&
-                    !_miniPhoneSession.hasForegroundRoute)) {
+            if (!mounted || !current()) return;
+            final release = services.balancePrompts.holdPresentation();
+            try {
+              final banner = showGenesisPushBanner(
+                context: context,
+                title: event.title,
+                message: event.summary,
+              );
+              _photoResultBanner = banner;
+              await banner.closed;
+            } finally {
+              _photoResultBanner = null;
+              release();
+            }
+            if (!current() ||
+                event.photo?.failureCode != 'insufficient_balance') {
               return;
             }
-            _presentingPhotoResult = true;
-            try {
-              final release = services.balancePrompts.holdPresentation();
-              try {
-                await showGenesisActionBox<void>(
-                  context: context,
-                  title: event.title,
-                  content: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(event.summary, textAlign: TextAlign.center),
-                  ),
-                  actions: const [],
-                  cancelLabel: context.l10n.okAction,
-                );
-              } finally {
-                release();
-              }
-              if (!current() ||
-                  event.photo?.failureCode != 'insufficient_balance') {
-                return;
-              }
-              final token = await services.sessionStore.readAuthToken();
-              if (!current()) return;
-              await services.balancePrompts.reportAndWait(
-                GemBalanceAlert(
-                  kind: GemBalanceAlertKind.insufficient,
-                  occurrenceKey:
-                      '${event.source}-photo:${event.message.worldId}:${event.photo!.taskId}',
-                ),
-                token,
-              );
-            } finally {
-              _presentingPhotoResult = false;
-            }
+            final token = await services.sessionStore.readAuthToken();
+            if (!current()) return;
+            await services.balancePrompts.reportAndWait(
+              GemBalanceAlert(
+                kind: GemBalanceAlertKind.insufficient,
+                occurrenceKey:
+                    '${event.source}-photo:${event.message.worldId}:${event.photo!.taskId}',
+              ),
+              token,
+            );
           })
           .catchError((Object error, StackTrace stack) {
             debugPrint('[ChatPhoto] result presentation failed: $error');
@@ -239,6 +228,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
   Future<void> _detachWorldChatroomForAuthentication(
     WorldChatroomService? service,
   ) async {
+    _photoResultBanner?.dismiss();
+    _photoResultBanner = null;
     _historyViewCache.detachSource();
     await _worldChatroomSub?.cancel();
     await _worldChatroomFailureSub?.cancel();
@@ -593,6 +584,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
   }
 
   void _stopWorldChatroom() {
+    _photoResultBanner?.dismiss();
+    _photoResultBanner = null;
     final chatroom = _worldChatroom;
     _historyViewCache.detachSource();
     if (chatroom == null) return;

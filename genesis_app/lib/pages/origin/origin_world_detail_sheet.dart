@@ -458,34 +458,6 @@ class _OriginDetailDraggableSheetState
     }
   }
 
-  void _beginProfileRoleEditing() {
-    if (_roleEditorInteraction.beginEditing()) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _roleEditorInteraction.beginEditing();
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
-  }
-
-  void _handleProfileRoleFocusChanged(bool hasFocus) {
-    _roleEditorInteraction.handleFieldFocusChanged(hasFocus);
-  }
-
-  void _handleProfileRoleInternalInteractionChanged(bool active) {
-    _roleEditorInteraction.setInternalInteractionActive(active);
-  }
-
-  void _resumeProfileRoleAfterInternalInteraction(VoidCallback resume) {
-    _roleEditorInteraction.resumeAfterInternalInteraction(resume);
-  }
-
-  void _confirmProfileRoleEditing(OriginCustomRoleDraft draft) {
-    _roleEditorInteraction.confirmEditing(draft);
-  }
-
-  void _cancelProfileRoleEditing() {
-    _roleEditorInteraction.cancelEditing();
-  }
-
   void _handleCollapsedRoleDragStart(DragStartDetails details) {
     _cancelExtentSettleWait();
     _extentCommandGeneration += 1;
@@ -1227,7 +1199,6 @@ class _OriginDetailDraggableSheetState
     return AnimatedBuilder(
       animation: Listenable.merge([_roleEditing, _roleEditorTransitionActive]),
       builder: (context, _) {
-        final roleEditing = _roleEditing.value;
         final roleEditorTransitionActive = _roleEditorTransitionActive.value;
         return KeyedSubtree(
           key: const ValueKey<String>('origin-detail-sheet-page-Opening'),
@@ -1441,21 +1412,10 @@ class _OriginDetailDraggableSheetState
                                                     widget.locationChatRole.id,
                                                 onSelectedRoleChanged: widget
                                                     .onSelectLocationChatRole,
-                                                onSaveProfileRole:
-                                                    _confirmProfileRoleEditing,
                                                 profileCardPositionKey:
                                                     _profileRoleCardPositionKey,
-                                                profileRoleEditing: roleEditing,
-                                                onBeginProfileRoleEditing:
-                                                    _beginProfileRoleEditing,
-                                                onCancelProfileRoleEditing:
-                                                    _cancelProfileRoleEditing,
-                                                onProfileRoleFocusChanged:
-                                                    _handleProfileRoleFocusChanged,
-                                                onProfileRoleInternalInteractionChanged:
-                                                    _handleProfileRoleInternalInteractionChanged,
-                                                onResumeProfileRoleInternalInteraction:
-                                                    _resumeProfileRoleAfterInternalInteraction,
+                                                editorInteraction:
+                                                    _roleEditorInteraction,
                                               ),
                                             ),
                                           ),

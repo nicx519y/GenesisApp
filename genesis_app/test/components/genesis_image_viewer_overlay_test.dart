@@ -462,7 +462,98 @@ void main() {
     );
   });
 
-  testWidgets('image zoom resets after paging away and back', (tester) async {
+  for (final count in [1, 2]) {
+    testWidgets('zoomed viewer pans with one finger across $count images', (
+      tester,
+    ) async {
+      await _pumpViewerHost(tester, [_firstImage, if (count > 1) _secondImage]);
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final interactive = find.byKey(
+        const ValueKey('genesis-image-viewer-interactive-0'),
+      );
+      final controller = tester
+          .widget<InteractiveViewer>(interactive)
+          .transformationController!;
+      await _pinchViewer(tester, startRadius: 40, endRadius: 100);
+      expect(controller.value.getMaxScaleOnAxis(), greaterThan(1));
+
+      for (final delta in [const Offset(-160, 0), const Offset(0, 100)]) {
+        final before = controller.value.getTranslation();
+        await tester.drag(interactive, delta);
+        await tester.pumpAndSettle();
+        final after = controller.value.getTranslation();
+        if (delta.dx != 0) {
+          expect(after.x, lessThan(before.x));
+        } else {
+          expect(after.y, greaterThan(before.y));
+        }
+        expect(find.byType(GenesisImageViewerOverlay), findsOneWidget);
+        expect(
+          tester
+              .widget<PageView>(
+                find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+              )
+              .controller!
+              .page,
+          0,
+        );
+      }
+
+      await _pinchViewer(tester, startRadius: 100, endRadius: 20);
+      expect(controller.value.getMaxScaleOnAxis(), closeTo(1, 0.001));
+      if (count > 1) {
+        await tester.drag(interactive, const Offset(-500, 0));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<PageView>(
+                find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+              )
+              .controller!
+              .page,
+          1,
+        );
+      }
+    });
+  }
+
+  testWidgets('zoomed image pans from the iOS back-swipe edge', (tester) async {
+    await _pumpViewerHost(tester, const [
+      _firstImage,
+      _secondImage,
+    ], platform: TargetPlatform.iOS);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final interactive = find.byKey(
+      const ValueKey('genesis-image-viewer-interactive-0'),
+    );
+    final controller = tester
+        .widget<InteractiveViewer>(interactive)
+        .transformationController!;
+    await _pinchViewer(tester, startRadius: 40, endRadius: 100);
+    expect(
+      tester.widget<InteractiveViewer>(interactive).transformationController,
+      same(controller),
+    );
+    final before = controller.value.getTranslation().x;
+    final edge = Offset(10, tester.getCenter(interactive).dy);
+    await tester.dragFrom(edge, const Offset(120, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(GenesisImageViewerOverlay), findsOneWidget);
+    expect(controller.value.getTranslation().x, greaterThan(before));
+
+    await _pinchViewer(tester, startRadius: 100, endRadius: 20);
+    await tester.dragFrom(edge, const Offset(120, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(GenesisImageViewerOverlay), findsNothing);
+  });
+
+  testWidgets('image zoom resets after navigating away and back', (
+    tester,
+  ) async {
     await _pumpViewerHost(tester, const [_firstImage, _secondImage]);
 
     await tester.tap(find.text('Open'));
@@ -478,10 +569,12 @@ void main() {
     );
     expect(firstViewer.transformationController!.value.entry(0, 0), 2);
 
-    await tester.drag(
-      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
-      const Offset(-500, 0),
-    );
+    final pageController = tester
+        .widget<PageView>(
+          find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+        )
+        .controller!;
+    pageController.jumpToPage(1);
     await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const ValueKey('genesis-image-viewer-page-view')),
@@ -656,11 +749,32 @@ void main() {
     final restoredPageView = tester.widget<PageView>(
       find.byKey(const ValueKey('genesis-image-viewer-page-view')),
     );
-    expect(
-      restoredPageView.physics,
-      isNot(isA<NeverScrollableScrollPhysics>()),
-    );
+    expect(restoredPageView.physics, isA<NeverScrollableScrollPhysics>());
   });
+}
+
+Future<void> _pinchViewer(
+  WidgetTester tester, {
+  required double startRadius,
+  required double endRadius,
+}) async {
+  final center = tester.getCenter(
+    find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+  );
+  final first = await tester.startGesture(center - Offset(startRadius, 0));
+  final second = await tester.startGesture(center + Offset(startRadius, 0));
+  await tester.pump();
+  // Cross the gesture slop before measuring scale changes.
+  final direction = endRadius > startRadius ? 1.0 : -1.0;
+  await first.moveTo(center - Offset(startRadius + direction * 20, 0));
+  await second.moveTo(center + Offset(startRadius + direction * 20, 0));
+  await tester.pump();
+  await first.moveTo(center - Offset(endRadius, 0));
+  await second.moveTo(center + Offset(endRadius, 0));
+  await tester.pump();
+  await first.up();
+  await second.up();
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpViewerHost(
@@ -670,10 +784,12 @@ Future<void> _pumpViewerHost(
       const <ImageProvider<Object>>[],
   int initialIndex = 0,
   double? maxDevicePixelRatio,
+  TargetPlatform? platform,
   Widget Function(BuildContext, int)? bottomBuilder,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      theme: platform == null ? null : ThemeData(platform: platform),
       home: AnnotatedRegion<SystemUiOverlayStyle>(
         value: kGenesisDefaultSystemUiOverlayStyle,
         child: Scaffold(

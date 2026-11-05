@@ -253,6 +253,14 @@ Validation for this scheduling change:
   settings first returns to that chat. Chats opened inside MiniPhone retain their
   existing Messages return path.
 
+- World History Sheet character avatars use the same direct-chat entry with
+  `source=world_history_avatar`. The sender ID must match the current World's
+  full `characters` roster; the current user's role (`player_uid`) and own
+  messages are excluded. The sheet inherits the World-owned MiniPhone session,
+  so header Back, system Back and iOS swipe back return to the retained archive
+  and its reading position without inserting a Messages page. Repeated taps
+  while opening are ignored. This entry does not join a location.
+
 - Opening MiniPhone warms the first pages of Messages, Posts (including authors), and Photos concurrently in the world-owned session cache. Opening directly to an app shares that app entry request with warm-up. Each later app entry refreshes its own first page once (Posts revalidates the selected filter's already loaded window as described below), keeping cached content visible until success and retaining it on failure. Closing/reopening keeps the cache and warms it again; account/world/environment isolation is unchanged. Posts/Photos pull-to-refresh, author changes and scroll pagination remain explicit requests. Messages lists and DM conversations do not offer pull-to-refresh; entry synchronization, automatic message synchronization and history pagination remain available. Timers, pushes, reconnects, foreground recovery, read receipts and writes do not refresh these app lists. Home/unread summaries remain independent; per-request DM status recovery and foreground chat history are separate from app-list refresh. Liking uses the queried post detail for the visible interaction state instead of reloading Feed.
 
 - Page/list reads show no standalone loading icons in Messages, Posts, comments,
@@ -750,7 +758,9 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 
 ### Required client behavior
 
-- 角色私聊在历史加载到最早一条后，于列表顶部复用公共 AI 虚构内容提示；Posts 在作者筛选栏下、首条帖子上方展示同一提示，随列表滚动。提示只用于展示，不进入消息／帖子存储、未读或分页游标。
+- Messages 收到的真实 AI／其他玩家消息长按显示 Copy / Report，与 LocationChat 共用消息菜单、复制 Toast 和举报浮层；本人消息、本地开场提示与 AI 免责声明不新增菜单。消息投影保留 `messageId`／`senderType`，不将手机 ID 填入 `globalMessageId`。手机举报按已确认的客户端约定提交 `target_type=message`、`target_id=message_id` 的十进制字符串；该 ID 属于手机独立消息空间，服务端准确定位手机消息仍待真实联调验收。
+
+- 角色私聊在历史加载到最早一条后，于消息列表最顶部复用公共 AI 虚构内容提示，位于日期／Private chat 标题及开场提示上方，随列表滚动；Posts 在作者筛选栏下、首条帖子上方展示同一提示，随列表滚动。提示只用于展示，不进入消息／帖子存储、未读或分页游标。
 - 私聊最早消息 ID 随本地消息缓存保存；重进时若当前展示窗口覆盖该边界，首帧即显示提示，不等待页面初始化或远端刷新。窗口只恢复最近 50 条、最早消息已被裁剪或尚无可靠边界时，不把当前窗口首条误认为会话第一条；首次查询到末页后再确认。接口已明确的虚拟空会话可直接判断为空。
 
 - iOS 返回层级：Messages／Posts／Photos／Music／Settings 从屏幕前缘侧滑回桌面，由 AppLaunchTransitionHost 按拖动距离驱动与点击返回相同的图标收起路径；松手超过阈值／向返回方向快速滑动则完成，否则回弹，系统取消指针也必须回弹。原始入口不可见／恢复打开时，仍沿用返回按钮的淡出回退。不叠加 Cupertino 横移或二次收起，手指未抬起不提前导航。私聊回 Messages，评论／发帖回 Posts，模型设置回打开它的页面，子页保持原生横向侧滑。内部 Navigator 为普通入口保留透明桌面基底路由，桌面只有一个真实实例，不新增虚假页面埋点。桌面再侧滑退出手机；LocationChat 直达私聊不补桌面／Messages 层，原生侧滑回调用页。关闭按钮始终退出整个手机，和侧滑交错不得误退下层页面。受控测试不替代 iPhone 真机手势验收。

@@ -734,7 +734,14 @@ class _LocationChatReplyActionToolbarState
                   padding: EdgeInsets.only(
                     left:
                         widget.style.avatarSize + widget.style.avatarBubbleGap,
-                    right: GenesisSpacing.page,
+                    // Align the camera icon's visible edge with self bubbles,
+                    // allowing for the icon's inset inside its layout slot.
+                    right:
+                        widget.style.avatarSize +
+                        widget.style.avatarBubbleGap -
+                        (LocationChatReplyActions.buttonSize -
+                                LocationChatReplyActions.iconSize) /
+                            2,
                   ),
                   child: SizedBox(
                     height: LocationChatReplyActions.buttonSize,

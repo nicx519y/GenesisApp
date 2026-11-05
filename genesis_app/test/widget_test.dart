@@ -20927,6 +20927,189 @@ void main() {
     },
   );
 
+  for (final inLocation in [false, true]) {
+    for (final recommended in [false, true]) {
+      testWidgets(
+        'Origin shared role cards ${inLocation ? 'Location' : 'Opening'} '
+        '${recommended ? 'recommended' : 'custom'} edit inline and truncate details',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+          addTearDown(tester.view.reset);
+          const identity = 'Identity 1\nIdentity 2\nIdentity 3\nIdentity 4';
+          const personality =
+              'Personality 1\nPersonality 2\nPersonality 3\nPersonality 4';
+          const setting = 'Setting 1\nSetting 2\nSetting 3\nSetting 4';
+          const goal = 'Goal 1\nGoal 2\nGoal 3\nGoal 4';
+          final transport = _RecordingV1ListTransport(
+            originPrecharacter: const {
+              'name': 'Player',
+              'identity': identity,
+              'personality': personality,
+              'bio': setting,
+              'avatar': '',
+            },
+            originCharacters: [
+              {
+                'char_id': 'c_player',
+                'name': 'Player',
+                'identity': identity,
+                'brief': personality,
+                'description': setting,
+                'goal': goal,
+                'avatar': '',
+                'is_recommend': recommended ? 1 : 0,
+                'initial_location_id': 'l_o_test_1',
+              },
+            ],
+          );
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: await _testServices(
+                transport: transport,
+                useMock: false,
+                initialAuthToken: 'token',
+              ),
+              child: MaterialApp(
+                home: OriginWorldPage(
+                  oid: 'o_test_1',
+                  originId: 0,
+                  showOpeningSheetOnEntry: !inLocation,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (inLocation) {
+            await tester.tap(find.text('Detail Location'), warnIfMissed: false);
+            await tester.pumpAndSettle();
+          }
+          final host = inLocation
+              ? find.byKey(
+                  const ValueKey<String>('origin-location-chat-l_o_test_1'),
+                )
+              : find.byKey(
+                  const ValueKey<String>('origin-detail-sheet-page-Opening'),
+                );
+          Finder inside(String key) => find.descendant(
+            of: host,
+            matching: find.byKey(ValueKey<String>(key)),
+          );
+          final id = recommended ? 'c_player' : 'current-user';
+          final card = inside('origin-setup-role-card-frame-$id');
+          await tester.ensureVisible(card);
+          await tester.pumpAndSettle();
+          tester
+              .widget<GestureDetector>(
+                inside('origin-setup-role-card-body-toggle-$id'),
+              )
+              .onTap!();
+          await tester.pumpAndSettle();
+          final details = inside('origin-setup-role-details-$id');
+          for (final value in [
+            identity,
+            personality,
+            setting,
+            if (recommended) goal,
+          ]) {
+            final text = find.descendant(
+              of: details,
+              matching: find.text(value),
+            );
+            expect(text, findsOneWidget);
+            expect(tester.widget<Text>(text).maxLines, 3);
+            expect(tester.widget<Text>(text).overflow, TextOverflow.ellipsis);
+            final paragraph = tester.renderObject<RenderParagraph>(
+              find.descendant(of: text, matching: find.byType(RichText)),
+            );
+            expect(paragraph.didExceedMaxLines, isTrue);
+          }
+
+          final edit = inside('origin-setup-role-edit-$id');
+          tester.widget<InkWell>(edit).onTap!();
+          await tester.pumpAndSettle();
+          final editor = inside('origin-setup-role-inline-editor-$id');
+          expect(editor, findsOneWidget);
+          expect(find.byType(BottomSheet), findsNothing);
+          for (final entry in {
+            'identity': identity,
+            'brief': personality,
+            'setting': setting,
+          }.entries) {
+            expect(
+              tester
+                  .widget<TextField>(
+                    inside('origin-setup-role-inline-${entry.key}-$id'),
+                  )
+                  .controller!
+                  .text,
+              entry.value,
+            );
+          }
+          tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+          await tester.pumpAndSettle();
+          final cardBottom = tester.getRect(card).bottom;
+          expect(cardBottom, lessThanOrEqualTo(844 - 260 - 29));
+          final composerVisibility = tester.widget<IgnorePointer>(
+            inside(
+              inLocation
+                  ? 'origin-location-composer-role-edit-visibility'
+                  : 'origin-opening-composer-role-edit-visibility',
+            ),
+          );
+          expect(composerVisibility.ignoring, isTrue);
+          await tester.enterText(
+            inside('origin-setup-role-inline-name-$id'),
+            'Edited player',
+          );
+          tester.widget<InkWell>(edit).onTap!();
+          await tester.pump();
+          tester.view.viewInsets = FakeViewPadding.zero;
+          await tester.pumpAndSettle();
+          expect(editor, findsNothing);
+
+          final dynamic openingSheet = tester.widget(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget.runtimeType.toString() ==
+                  '_OriginDetailDraggableSheet',
+            ),
+          );
+          final savedRole = openingSheet.profileRole as OriginCustomRoleDraft;
+          expect(savedRole.name, 'Edited player');
+          expect(savedRole.identity, identity);
+          expect(savedRole.personality, personality);
+          expect(savedRole.bio, setting);
+
+          tester.widget<InkWell>(edit).onTap!();
+          await tester.pumpAndSettle();
+          final name = inside('origin-setup-role-inline-name-$id');
+          expect(
+            tester.widget<TextField>(name).controller!.text,
+            'Edited player',
+          );
+          await tester.enterText(name, 'Discard this change');
+          tester
+              .widget<TapRegion>(inside('origin-setup-role-tap-region-$id'))
+              .onTapOutside!(const PointerDownEvent(position: Offset.zero));
+          await tester.pumpAndSettle();
+          expect(editor, findsNothing);
+          tester.widget<InkWell>(edit).onTap!();
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<TextField>(name).controller!.text,
+            'Edited player',
+          );
+          expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        },
+      );
+    }
+  }
+
   testWidgets('Origin map location composer stays above the iOS keyboard', (
     WidgetTester tester,
   ) async {
@@ -31968,7 +32151,7 @@ void main() {
     expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     final pushBanner = find.byKey(
-      const ValueKey<String>('world-update-push-banner'),
+      const ValueKey<String>('genesis-push-banner'),
     );
     expect(
       find.descendant(
@@ -32068,7 +32251,7 @@ void main() {
     expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     final pushBanner = find.byKey(
-      const ValueKey<String>('world-update-push-banner'),
+      const ValueKey<String>('genesis-push-banner'),
     );
     expect(
       find.descendant(
@@ -37984,7 +38167,7 @@ void main() {
         ),
       );
       final pushBanner = find.byKey(
-        const ValueKey<String>('world-update-push-banner'),
+        const ValueKey<String>('genesis-push-banner'),
       );
       final eligiblePushText = find.descendant(
         of: pushBanner,
@@ -38012,7 +38195,7 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 250));
       await tester.tap(
-        find.byKey(const ValueKey<String>('world-update-push-tap-target')),
+        find.byKey(const ValueKey<String>('genesis-push-tap-target')),
       );
       await tester.pump();
       await tester.pumpAndSettle();
@@ -38108,7 +38291,7 @@ void main() {
       ),
     );
     final pushText = find.descendant(
-      of: find.byKey(const ValueKey<String>('world-update-push-banner')),
+      of: find.byKey(const ValueKey<String>('genesis-push-banner')),
       matching: find.textContaining('New S3 Location'),
     );
     for (

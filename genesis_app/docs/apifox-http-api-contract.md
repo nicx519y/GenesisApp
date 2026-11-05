@@ -2337,6 +2337,8 @@ query：
 - `target_id*`: string，举报对象业务 id；`message` 当前按 `global_message_id` 原样记录，不做存在性校验
 - `content*`: string，举报内容；服务端 trim 后不能为空，最长 1000 字符
 
+客户端 MiniPhone 接入约定（2026-11-05）：手机消息复用此接口，提交 `target_type=message`、`target_id=手机 message_id 的十进制字符串`。该 ID 与 LocationChat 的 `global_message_id` 属于不同消息空间，不做客户端互转；此约定已确认用于客户端接入，服务端准确定位手机消息仍待真实联调验收，不将受控测试视为后端已支持的证据。
+
 请求示例：
 
 ```json

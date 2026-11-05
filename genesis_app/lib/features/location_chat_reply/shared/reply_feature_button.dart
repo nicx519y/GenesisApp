@@ -1,4 +1,5 @@
 import '../../../l10n/genesis_l10n.dart';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -62,21 +63,35 @@ class _ReplyActionButtonsState extends State<LocationChatReplyActionButtons> {
               widget.buttons.any((button) => button.id == id),
         )
         .toList(growable: false);
-    return Row(
-      key: const ValueKey('location-chat-reply-actions-four-icons'),
-      children: [
-        for (final (index, id) in leftActions.indexed) ...[
-          if (index > 0)
-            const SizedBox(
-              width:
-                  LocationChatReplyActionButtons.centerSpacing -
-                  LocationChatReplyFeatureButton.layoutSize,
-            ),
-          _slot(id, state),
-        ],
-        const Spacer(),
-        _slot(LocationChatReplyActionId.camera, state),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const slotSize = LocationChatReplyFeatureButton.layoutSize;
+        const preferredGap =
+            LocationChatReplyActionButtons.centerSpacing - slotSize;
+        // Keep the camera aligned on narrow viewports without overflowing the
+        // row; normal widths retain the existing left-action spacing.
+        final gap = leftActions.length < 2
+            ? 0.0
+            : math.min(
+                preferredGap,
+                math.max(
+                  0.0,
+                  (constraints.maxWidth - (leftActions.length + 1) * slotSize) /
+                      (leftActions.length - 1),
+                ),
+              );
+        return Row(
+          key: const ValueKey('location-chat-reply-actions-four-icons'),
+          children: [
+            for (final (index, id) in leftActions.indexed) ...[
+              if (index > 0) SizedBox(width: gap),
+              _slot(id, state),
+            ],
+            const Spacer(),
+            _slot(LocationChatReplyActionId.camera, state),
+          ],
+        );
+      },
     );
   }
 

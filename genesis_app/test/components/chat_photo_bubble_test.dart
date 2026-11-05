@@ -25,10 +25,13 @@ void main() {
       addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
       await tester.pumpWidget(_photoHost());
       await tester.pump();
-      expect(tester.getSize(find.byType(AspectRatio)), const Size(280, 420));
+      const width = 390.0;
+      final size = tester.getSize(find.byType(AspectRatio));
+      expect(size.width, closeTo(width, .001));
+      expect(size.height, closeTo(width * 1.5, .001));
       expect(
         requests.single,
-        'https://cdn.worldo.ai/photo.png?x-oss-process=image/resize,w_720/format,webp',
+        'https://cdn.worldo.ai/photo.png?x-oss-process=image/resize,w_1080/format,webp',
       );
       // Loading tiles cannot open a viewer using a null/default preview.
       await tester.tap(find.byType(AspectRatio));
@@ -58,7 +61,8 @@ void main() {
         (160.0, 360),
         (170.0, 360),
         (200.0, 720),
-        (280.0, 720),
+        (320.0, 720),
+        (400.0, 1080),
       ]) {
         await tester.pumpWidget(_photoHost(availableWidth: entry.$1));
         await tester.pump();
@@ -73,12 +77,12 @@ void main() {
           'https://cdn.worldo.ai/photo.png?x-oss-process=image/resize,w_${entry.$2}/format,webp',
         );
         if (previous != null) {
-          final sameTier = entry.$1 == 170 || entry.$1 == 280;
+          final sameTier = entry.$1 == 170 || entry.$1 == 320;
           expect(provider == previous, sameTier);
         }
         previous = provider;
       }
-      expect(providers.length, 2);
+      expect(providers.length, 3);
       pending.complete(ImageInfo(image: _frame(20, 30)));
       await tester.pump();
       await tester.pumpWidget(const SizedBox.shrink());
@@ -127,8 +131,7 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 160));
         final middle = tester.getRect(flight);
-        expect(middle.width, greaterThan(sourceRect.width));
-        expect(middle.width, lessThan(390));
+        expect(middle.width, closeTo(390, .001));
         PaintingBinding.instance.imageCache.clear();
         PaintingBinding.instance.imageCache.clearLiveImages();
         await tester.pump(const Duration(milliseconds: 200));
@@ -240,6 +243,51 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'only successful photo cards dispatch long press without opening',
+    (tester) async {
+      var presses = 0;
+      for (final status in ChatPhotoStatus.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 200,
+                child: ChatImageMessage(
+                  message: ChatMessageVm(
+                    localId: 'photo-$status',
+                    senderId: 'image',
+                    senderName: '',
+                    text: '',
+                    isMe: false,
+                    status: 'sent',
+                    photo: ChatPhoto(
+                      taskId: 'task',
+                      requestId: '',
+                      status: status,
+                      imageUrl: status == ChatPhotoStatus.succeeded
+                          ? 'assets/images/map_default/location_default.webp'
+                          : '',
+                    ),
+                  ),
+                  style: kLocationChatStyle,
+                  onLongPressStart: (_) => presses++,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final before = presses;
+        await tester.longPress(find.byType(AspectRatio));
+        await tester.pump();
+        expect(presses - before, status == ChatPhotoStatus.succeeded ? 1 : 0);
+        expect(find.byType(GenesisImageViewerOverlay), findsNothing);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }
 
 ui.Image _frame(int width, int height) {
@@ -254,30 +302,28 @@ ui.Image _frame(int width, int height) {
 
 Widget _photoHost({double? availableWidth}) => MaterialApp(
   home: Scaffold(
-    body: SizedBox(
-      width: availableWidth == null
-          ? null
-          : availableWidth +
-                kLocationChatStyle.avatarSideSpacerWidth +
-                kLocationChatStyle.systemMessageMargin.right,
-      child: ChatImageMessage(
-        message: ChatMessageVm(
-          localId: 'photo',
-          senderId: '',
-          senderName: '',
-          isMe: false,
-          status: 'sent',
-          senderType: 'image',
-          text: '',
-          imageUrl: 'https://cdn.worldo.ai/photo.png',
-          photo: const ChatPhoto(
-            taskId: 'task',
-            requestId: '',
-            status: ChatPhotoStatus.succeeded,
+    body: SingleChildScrollView(
+      child: SizedBox(
+        width: availableWidth,
+        child: ChatImageMessage(
+          message: ChatMessageVm(
+            localId: 'photo',
+            senderId: '',
+            senderName: '',
+            isMe: false,
+            status: 'sent',
+            senderType: 'image',
+            text: '',
             imageUrl: 'https://cdn.worldo.ai/photo.png',
+            photo: const ChatPhoto(
+              taskId: 'task',
+              requestId: '',
+              status: ChatPhotoStatus.succeeded,
+              imageUrl: 'https://cdn.worldo.ai/photo.png',
+            ),
           ),
+          style: kLocationChatStyle,
         ),
-        style: kLocationChatStyle,
       ),
     ),
   ),

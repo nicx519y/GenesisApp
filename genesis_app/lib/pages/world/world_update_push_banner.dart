@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
-import '../../ui/tokens/genesis_blur.dart';
+import '../../components/common/genesis_push_banner.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -18,8 +18,8 @@ import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_image_resource.dart';
 
-const worldUpdatePushDisplayDuration = Duration(seconds: 5);
-const worldUpdatePushTransitionDuration = Duration(milliseconds: 220);
+const worldUpdatePushDisplayDuration = genesisPushBannerDisplayDuration;
+const worldUpdatePushTransitionDuration = genesisPushBannerTransitionDuration;
 const worldUpdatePushAvatarPreloadTimeout = Duration(seconds: 2);
 const _worldUpdatePushLeadingSize = 48.0;
 
@@ -59,7 +59,6 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
       <String, Future<bool>>{};
   late final AnimationController _transitionController;
   late final CurvedAnimation _transitionAnimation;
-  late final Animation<Offset> _slideAnimation;
   WorldContentUpdateNotice? _activeNotice;
   Timer? _dismissTimer;
   var _activationScheduled = false;
@@ -79,10 +78,6 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1.2),
-      end: Offset.zero,
-    ).animate(_transitionAnimation);
     if (widget.revision > 0) {
       _accept(widget.notices);
       _scheduleActivationAfterBuild();
@@ -320,18 +315,15 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
           ? const SizedBox.shrink(
               key: ValueKey<String>('world-update-push-empty'),
             )
-          : FadeTransition(
-              opacity: _transitionAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: _WorldUpdatePushBanner(
-                  key: ValueKey<String>(notice.occurrenceKey),
-                  notice: notice,
-                  characterAvatarImageReady: _activeCharacterAvatarImageReady,
-                  onTap: widget.onNoticeTap == null
-                      ? null
-                      : _handleActiveNoticeTap,
-                ),
+          : GenesisPushBannerTransition(
+              animation: _transitionAnimation,
+              child: _WorldUpdatePushBanner(
+                key: ValueKey<String>(notice.occurrenceKey),
+                notice: notice,
+                characterAvatarImageReady: _activeCharacterAvatarImageReady,
+                onTap: widget.onNoticeTap == null
+                    ? null
+                    : _handleActiveNoticeTap,
               ),
             ),
     );
@@ -355,22 +347,14 @@ class _WorldUpdatePushBanner extends StatelessWidget {
     final isLocation = notice.kind == WorldContentUpdateKind.location;
     final name = notice.name.trim().isEmpty
         ? (isLocation
-              ? GenesisL10n
-                    .current
-                    .homeUnknownLocation
-              : GenesisL10n
-                    .current
-                    .homeUnknownCharacter)
+              ? GenesisL10n.current.homeUnknownLocation
+              : GenesisL10n.current.homeUnknownCharacter)
         : notice.name.trim();
     final contextLabel = notice.contextLabel.trim();
     final detail = contextLabel.isEmpty ? name : '$name · $contextLabel';
     final category = isLocation
-        ? GenesisL10n
-              .current
-              .homeNewPlaceEmerged
-        : GenesisL10n
-              .current
-              .homeNewCharacterAppeared;
+        ? GenesisL10n.current.homeNewPlaceEmerged
+        : GenesisL10n.current.homeNewCharacterAppeared;
     final detailText = Text.rich(
       TextSpan(
         text: name,
@@ -399,114 +383,38 @@ class _WorldUpdatePushBanner extends StatelessWidget {
         height: 1.25,
       ),
     );
-    return Semantics(
-      container: true,
-      liveRegion: true,
-      label: '$category: $detail',
-      child: DecoratedBox(
-        key: const ValueKey<String>('world-update-push-shadow'),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x99000000),
-              blurRadius: 24,
-              offset: Offset(0, 8),
+    return GenesisPushBanner(
+      title: category,
+      semanticsLabel: '$category: $detail',
+      onTap: onTap,
+      leading: isLocation
+          ? null
+          : GenesisCharacterAvatar(
+              key: const ValueKey<String>('world-update-push-character-avatar'),
+              url: characterAvatarImageReady ? notice.avatarUrl : '',
+              name: name,
+              size: _worldUpdatePushLeadingSize,
+              borderRadius: 8,
+              showFallbackWhileLoading: false,
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: BackdropFilter(
-            key: const ValueKey<String>('world-update-push-backdrop-blur'),
-            filterConfig: const ImageFilterConfig.blur(
-              sigmaX: GenesisBlur.strong,
-              sigmaY: GenesisBlur.strong,
-              bounded: false,
-            ),
-            child: Material(
-              key: const ValueKey<String>('world-update-push-banner'),
-              color: const Color(0x33FFFFFF),
-              borderRadius: BorderRadius.circular(12),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                key: const ValueKey<String>('world-update-push-tap-target'),
-                canRequestFocus: false,
-                onTap: onTap,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(isLocation ? 16 : 8, 8, 12, 8),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: _worldUpdatePushLeadingSize,
+      detail: isLocation
+          ? Row(
+              children: [
+                const ExcludeSemantics(
+                  child: Icon(
+                    Icons.place_outlined,
+                    key: ValueKey<String>(
+                      'world-update-push-location-name-icon',
                     ),
-                    child: Row(
-                      children: [
-                        if (!isLocation) ...[
-                          GenesisCharacterAvatar(
-                            key: const ValueKey<String>(
-                              'world-update-push-character-avatar',
-                            ),
-                            url: characterAvatarImageReady
-                                ? notice.avatarUrl
-                                : '',
-                            name: name,
-                            size: _worldUpdatePushLeadingSize,
-                            borderRadius: 8,
-                            showFallbackWhileLoading: false,
-                          ),
-                          const SizedBox(width: 10),
-                        ],
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                category,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: GenesisTypography.fontFamily,
-                                  fontFamilyFallback:
-                                      GenesisTypography.fontFamilyFallback,
-                                  color: GenesisColors.darkTextSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              if (isLocation)
-                                Row(
-                                  children: [
-                                    const ExcludeSemantics(
-                                      child: Icon(
-                                        Icons.place_outlined,
-                                        key: ValueKey<String>(
-                                          'world-update-push-location-name-icon',
-                                        ),
-                                        size: 14,
-                                        color: GenesisColors.darkTextPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Expanded(child: detailText),
-                                  ],
-                                )
-                              else
-                                detailText,
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                    size: 14,
+                    color: GenesisColors.darkTextPrimary,
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
+                const SizedBox(width: 2),
+                Expanded(child: detailText),
+              ],
+            )
+          : detailText,
     );
   }
 }

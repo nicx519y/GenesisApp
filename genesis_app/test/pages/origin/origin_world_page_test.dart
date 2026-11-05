@@ -1583,6 +1583,13 @@ void main() {
       expect(avatar.imageUrl, avatarAsset);
       expect(find.byType(ChatAvatar), findsOneWidget);
       expect(find.byType(ChatImageMessage), findsOneWidget);
+      final viewport = tester.getRect(find.byType(LocationChatPanel));
+      final imageBounds = tester.getRect(find.byType(ChatThumbnailImage));
+      expect(imageBounds.left, tester.getTopLeft(find.byType(ChatAvatar)).dx);
+      expect(
+        imageBounds.right,
+        viewport.right - kLocationChatStyle.messageListPadding.right,
+      );
     },
   );
 

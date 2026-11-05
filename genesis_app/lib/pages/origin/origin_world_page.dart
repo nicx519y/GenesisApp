@@ -160,7 +160,10 @@ bool originOpeningDialogueShouldFullyCacheForTesting({
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
 class _OriginWorldPageState extends State<OriginWorldPage>
-    with LanguageDataRefresh<OriginWorldPage> {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        LanguageDataRefresh<OriginWorldPage> {
   bool _lastOriginFetchSucceeded = false;
   @override
   bool get languageRefreshSucceeded => _lastOriginFetchSucceeded;
@@ -170,6 +173,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _setPreviewChatLocation(_OriginLocationChatDescriptor location) {
+    _previewRoleEditorInteraction.reset();
     _locationRoleFocusGeneration += 1;
     _locationComposerFocused.value = false;
     setState(() => _activeChatLocation = location);
@@ -235,11 +239,22 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  bool _previewRoleEditing = false;
+  late final _OriginRoleEditorInteractionController
+  _previewRoleEditorInteraction;
+  bool get _previewRoleEditing => _previewRoleEditorInteraction.editing;
   final GlobalKey _previewRoleCardPositionKey = GlobalKey();
-  void _setPreviewRoleEditing(bool editing) {
-    if (!mounted || editing == _previewRoleEditing) return;
-    setState(() => _previewRoleEditing = editing);
+
+  void _handlePreviewRoleEditorChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (mounted && _activeChatLocation != null) {
+      _previewRoleEditorInteraction.handleKeyboardMetrics(
+        _previewKeyboardInset(),
+      );
+    }
   }
 
   OriginCustomRoleDraft? get _openingProfileRole =>
@@ -322,6 +337,20 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _previewRoleEditorInteraction =
+        _OriginRoleEditorInteractionController(
+            vsync: this,
+            readKeyboardInset: _previewKeyboardInset,
+            readKeyboardSafeAreaInset: _previewKeyboardSafeAreaInset,
+            readLayout: _readPreviewRoleEditorLayout,
+            onCommit: (role) => _saveProfileRoleLocally(
+              role,
+              profileRevision: _profileRoleRevision,
+            ),
+          )
+          ..attachScrollController(_locationPreviewScrollController)
+          ..addListener(_handlePreviewRoleEditorChanged);
     _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
@@ -369,7 +398,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _localProfileRoleOverride = null;
       _localRecommendedRoleOverride = null;
       _localRecommendedCharacterId = null;
-      _previewRoleEditing = false;
+      _previewRoleEditorInteraction.reset();
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
@@ -406,6 +435,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _tilemapRestorationController.dispose();
     _tilemapOverlayOcclusionController.dispose();
     _detailSheetRaisedNotifier.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _previewRoleEditorInteraction
+      ..removeListener(_handlePreviewRoleEditorChanged)
+      ..dispose();
     _locationPreviewScrollController.dispose();
     _locationComposerFocused.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
@@ -426,7 +459,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _resolvedRecommendedProfile = null;
       _resolvedRecommendedEdit = null;
       _resolvedRecommendedRole = null;
-      _previewRoleEditing = false;
+      _previewRoleEditorInteraction.reset();
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesData = null;
@@ -896,7 +929,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (_activeChatLocation == null || _launching) return;
     _locationRoleFocusGeneration += 1;
     _locationComposerFocused.value = false;
-    _previewRoleEditing = false;
+    _previewRoleEditorInteraction.reset();
     setState(() => _activeChatLocation = null);
   }
 

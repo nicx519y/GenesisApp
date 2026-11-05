@@ -286,6 +286,7 @@ List<Widget> _originInitialDialogueSlivers(
     final row = ChatMessageRow(
       key: ValueKey<String>(message.localId),
       message: message,
+      applyListHorizontalPadding: true,
       showDateDivider: false,
       style: messageStyle,
       selfMessageBubbleMaxWidthCap: bubbleWidthCaps.selfMessage,
@@ -315,9 +316,9 @@ List<Widget> _originInitialDialogueSlivers(
     SliverPadding(
       key: const ValueKey<String>('origin-opening-dialogue'),
       padding: EdgeInsets.fromLTRB(
-        padding.left,
         0,
-        padding.right,
+        0,
+        0,
         originOpeningDialogueRoleGapForTesting,
       ),
       sliver: cacheAllMessages

@@ -151,6 +151,58 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
   bool? _reportedDragDismissAllowed;
   bool _metadataReady = false;
   int _messageAppVersion = 0;
+  bool _openingCharacterChat = false;
+  late final ChatMessageTap _avatarTapHandler = _handleAvatarTap;
+
+  void _handleAvatarTap(ChatMessageVm message) {
+    unawaited(_openCharacterChat(message));
+  }
+
+  Future<void> _openCharacterChat(ChatMessageVm message) async {
+    if (_openingCharacterChat || !_requestsEnabled || message.isMe) return;
+    final characterId = message.senderId.trim();
+    if (characterId.isEmpty) return;
+    final character = widget.world.characters.where((character) {
+      return _firstMapString(character, const [
+            'char_id',
+            'character_id',
+            'id',
+          ]).trim() ==
+          characterId;
+    }).firstOrNull;
+    if (character == null) return;
+    final playerUid = _firstMapString(character, const ['player_uid']).trim();
+    if (widget.currentUid.isNotEmpty && playerUid == widget.currentUid) return;
+    final name = _firstMapString(character, const [
+      'name',
+      'char_name',
+      'role_nickname',
+      'role_name',
+      'character_name',
+    ]);
+    final avatar = _firstMapImageUrl(character, const [
+      'avatar_url',
+      'avatar',
+      'image',
+    ]);
+    _openingCharacterChat = true;
+    try {
+      await PagePresentationScope.runCovered(context, () async {
+        await showMiniPhone(
+          context,
+          worldId: widget.worldId,
+          initialContact: PhonePerson(
+            characterId,
+            name.isEmpty ? message.senderName : name,
+            avatar,
+          ),
+          entrySource: 'world_history_avatar',
+        );
+      });
+    } finally {
+      _openingCharacterChat = false;
+    }
+  }
 
   AppServices? _services;
   PagePresentationController? _presentation;
@@ -415,6 +467,7 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 viewportCache: _cache.viewport,
                 captureReadingAnchorOnDragStart: true,
                 messages: messages,
+                onAvatarTap: _avatarTapHandler,
                 readOnlyArchive: true,
                 topTitle: '',
                 oldestEdgeNotice: showAiDisclaimer

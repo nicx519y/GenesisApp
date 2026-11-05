@@ -64,6 +64,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(actions, findsOneWidget);
         expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
+        final viewport = tester.getRect(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        final imageBounds = tester.getRect(find.byType(AspectRatio));
+        expect(
+          imageBounds.left,
+          viewport.left + kLocationChatStyle.messageListPadding.left,
+        );
+        expect(
+          imageBounds.right,
+          viewport.right - kLocationChatStyle.messageListPadding.right,
+        );
         expect(
           tester.widget<LocationChatReplyActions>(actions).actionsHidden,
           isFalse,
@@ -84,6 +96,15 @@ void main() {
           await tester.pumpAndSettle();
           expect(actions, findsOneWidget);
           expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
+          final imageBounds = tester.getRect(find.byType(AspectRatio));
+          expect(
+            imageBounds.left,
+            viewport.left + kLocationChatStyle.messageListPadding.left,
+          );
+          expect(
+            imageBounds.right,
+            viewport.right - kLocationChatStyle.messageListPadding.right,
+          );
         }
         coordinator.beginHistoryNavigation();
         await tester.pumpAndSettle();
@@ -137,9 +158,12 @@ void main() {
     expect(arrival, findsOneWidget);
     expect(tester.getSize(arrival).height, 0);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(tester.getSize(arrival).height, inExclusiveRange(0, 400));
+    final expandedHeight =
+        tester.getSize(find.byType(AspectRatio)).height +
+        kLocationChatStyle.rowBottomPadding;
+    expect(tester.getSize(arrival).height, inExclusiveRange(0, expandedHeight));
     await tester.pumpAndSettle();
-    expect(tester.getSize(arrival).height, greaterThan(400));
+    expect(tester.getSize(arrival).height, closeTo(expandedHeight, .001));
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -183,10 +207,16 @@ void main() {
       final arrival = find.byKey(const ValueKey('photo-arrival-photo'));
       expect(tester.getSize(arrival).height, 0);
       await tester.pump(const Duration(milliseconds: 100));
-      expect(tester.getSize(arrival).height, inExclusiveRange(0, 400));
+      final expandedHeight =
+          tester.getSize(find.byType(AspectRatio)).height +
+          kLocationChatStyle.rowBottomPadding;
+      expect(
+        tester.getSize(arrival).height,
+        inExclusiveRange(0, expandedHeight),
+      );
       await tester.pumpAndSettle();
       final completeHeight = tester.getSize(arrival).height;
-      expect(completeHeight, greaterThan(400));
+      expect(completeHeight, closeTo(expandedHeight, .001));
       await tester.pumpWidget(tree());
       expect(tester.getSize(arrival).height, completeHeight);
       await tester.pumpWidget(const SizedBox());
@@ -726,7 +756,9 @@ void main() {
           body: Align(
             alignment: Alignment.topLeft,
             child: SizedBox(
-              width: 390,
+              // Keep the photo shorter than the viewport to exercise bottom
+              // clamping when there are no messages after it.
+              width: 320,
               height: 600,
               child: AnimatedBuilder(
                 animation: coordinator,

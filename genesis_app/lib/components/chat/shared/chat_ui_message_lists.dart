@@ -38,16 +38,22 @@ class ChatMessageList extends StatelessWidget {
       reverse: reverse,
       keyboardDismissBehavior:
           keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
-      padding: style.messageListPadding,
+      padding: style.messageListPadding.copyWith(left: 0, right: 0),
       itemCount: messages.length + 1,
       itemBuilder: (context, index) {
         final titleIndex = reverse ? messages.length : 0;
         if (index == titleIndex) {
-          return ChatOldestEdgeContent(
-            topTitle: topTitle,
-            notice: oldestEdgeNotice,
-            loading: oldestEdgeLoading,
-            style: style,
+          return Padding(
+            padding: EdgeInsets.only(
+              left: style.messageListPadding.left,
+              right: style.messageListPadding.right,
+            ),
+            child: ChatOldestEdgeContent(
+              topTitle: topTitle,
+              notice: oldestEdgeNotice,
+              loading: oldestEdgeLoading,
+              style: style,
+            ),
           );
         }
 
@@ -57,6 +63,7 @@ class ChatMessageList extends StatelessWidget {
         return ChatMessageRow(
           key: ValueKey(current.localId),
           message: current,
+          applyListHorizontalPadding: true,
           imageViewerMessages: messages,
           style: style,
           onMessageLongPressStart: onMessageLongPressStart,
@@ -109,19 +116,13 @@ class ChatOldestEdgeContent extends StatelessWidget {
       );
     }
 
+    final hasTopTitle = topTitle.trim().isNotEmpty;
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ChatTopTitle(name: topTitle, style: style),
-        AiContentDisclaimer(
-          text: normalizedNotice,
-          padding: EdgeInsets.fromLTRB(
-            20,
-            topTitle.trim().isEmpty ? 0 : 4,
-            20,
-            16,
-          ),
-        ),
+        if (!hasTopTitle) SizedBox(height: style.topTitleEmptyHeight),
+        AiContentDisclaimer(text: normalizedNotice),
+        if (hasTopTitle) _ChatTopTitle(name: topTitle, style: style),
       ],
     );
     if (!loading) return content;

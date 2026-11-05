@@ -23,6 +23,7 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/common/genesis_push_banner.dart';
 import '../../components/common/page_presentation_scope.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
@@ -164,7 +165,7 @@ class _WorldPageState extends State<WorldPage>
   StreamSubscription<ChatroomWorldSummaryUpdated>? _worldSummaryUpdateSub;
   StreamSubscription<ChatroomPhotoResult>? _photoResultSub;
   Future<void> _photoResultQueue = Future.value();
-  bool _presentingPhotoResult = false;
+  GenesisPushBannerHandle? _photoResultBanner;
   int _photoResultEpoch = 0;
   bool _initialPhotoTargetAssigned = false;
   bool _initialCameraTargetConsumed = false;
@@ -623,6 +624,8 @@ class _WorldPageState extends State<WorldPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       _photoResultEpoch++;
+      _photoResultBanner?.dismiss();
+      _photoResultBanner = null;
       _tilemapViewSaveTimer?.cancel();
       _persistTilemapView();
     }
@@ -630,6 +633,8 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
+    _photoResultBanner?.dismiss();
+    _photoResultBanner = null;
     WidgetsBinding.instance.removeObserver(this);
     _tilemapViewSaveTimer?.cancel();
     _persistTilemapView();
