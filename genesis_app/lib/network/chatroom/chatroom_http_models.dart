@@ -123,7 +123,13 @@ class ChatroomHttpMessage {
           }
         : const <String, dynamic>{};
     return ChatroomHttpMessage(
-      payload: tickPayload,
+      businessType: asString(json['type']),
+      payload: json['type'] == 'live_photo'
+          ? {
+              'content': asString(json['content']),
+              'photo': ChatPhoto.fromJson(json['photo']).toJson(),
+            }
+          : tickPayload,
       v2TickPayload: isTick
           ? ChatroomV2TickPayload.fromJson(tickPayload)
           : null,

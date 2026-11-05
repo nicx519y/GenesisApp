@@ -39,6 +39,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_reply_action_storage.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/inspiration/inspiration.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
+import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_feature_button.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
@@ -125,6 +126,382 @@ _LocationChatCollectSink _captureLocationChatCollect() {
 }
 
 void main() {
+  for (final prepared in [false, true]) {
+    for (final photoStatus in <String?>[
+      null,
+      'generating',
+      'succeeded',
+      'failed',
+    ]) {
+      for (final rejected in photoStatus == null ? [false] : [false, true]) {
+        testWidgets(
+          'Regenerate keeps the submitted toolbar until a new bubble: $prepared photo=$photoStatus rejected=$rejected',
+          (tester) async {
+            final backend = _LocationChatReplyHttpTransport();
+            final harness = await _mountCompletedReplyActionPanel(
+              tester,
+              backend: backend,
+              usePreparedEntry: prepared,
+              sendInitialMessage: true,
+            );
+            if (photoStatus != null) {
+              final photo = <String, Object?>{
+                'task_id': 'original-card-photo',
+                'status': photoStatus,
+                if (photoStatus == 'succeeded')
+                  'image': {
+                    'asset_id': 1,
+                    'image_url': 'https://example.com/photo.png',
+                    'description': 'Original card photo',
+                    'chat_global_message_id': '90400',
+                  },
+                if (photoStatus == 'failed')
+                  'failure': {'code': 'generation_failed'},
+              };
+              final row = <String, Object?>{
+                ...backend._messageJson(
+                  400,
+                  'live_photo',
+                  '',
+                  '',
+                  roundId: 301,
+                ),
+                'message_type': 'image',
+                'payload': {'content': '', 'photo': photo},
+              };
+              backend.messages.add(row);
+              backend.cards.add(
+                backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+              );
+              (backend.cards.first['messages'] as List).add({
+                ...row
+                  ..remove('message_id')
+                  ..remove('location_message_id'),
+                'card_id': 501,
+                'card_message_index': 3,
+              });
+              var refreshed = false;
+              unawaited(
+                harness.service.replyActions!
+                    .refreshPhotoCard('location-current', 301, 501)
+                    .then((_) => refreshed = true),
+              );
+              await _pumpUntilLocationChatTest(tester, () => refreshed);
+              await tester.pumpAndSettle();
+              expect(find.byType(ChatImageMessage), findsOneWidget);
+            }
+            void expectPendingToolbar() {
+              expect(_replyActionLoading('Regenerate'), findsOneWidget);
+              for (final label in ['Go on', 'Edit', 'Inspiration', 'Camera']) {
+                final button = find.bySemanticsLabel(label);
+                expect(
+                  button,
+                  findsOneWidget,
+                  reason: '$label must stay visible before a new bubble',
+                );
+                expect(
+                  tester.widget<Semantics>(button).properties.enabled,
+                  isFalse,
+                );
+              }
+            }
+
+            await tester.ensureVisible(find.bySemanticsLabel('Regenerate'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.bySemanticsLabel('Regenerate'));
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket
+                  .replyActionFrames('regenerate_llm_card')
+                  .isNotEmpty,
+            );
+            for (var frame = 0; frame < 40; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expectPendingToolbar();
+            }
+            if (photoStatus != null) {
+              await _pumpUntilLocationChatTest(
+                tester,
+                () =>
+                    tester
+                        .getSize(
+                          find.byKey(
+                            const ValueKey(
+                              'reply-card-regenerate-collapse-viewport',
+                            ),
+                          ),
+                        )
+                        .height <
+                    0.1,
+              );
+            }
+            if (rejected) {
+              harness.socket.serverReplyActionAck(
+                'regenerate_llm_card',
+                roundId: 301,
+                errNo: 5001,
+                errMsg: 'Rejected',
+              );
+              await _pumpUntilLocationChatTest(
+                tester,
+                () => _replyActionLoading('Regenerate').evaluate().isEmpty,
+              );
+              await tester.pumpAndSettle();
+              expect(find.byType(ChatImageMessage), findsOneWidget);
+              expect(
+                tester.getSize(find.byType(ChatImageMessage)).height,
+                greaterThan(0),
+              );
+              await _disposeEnterConversationPanel(tester, harness.service);
+              expect(tester.takeException(), isNull);
+              return;
+            }
+            backend.beginCandidate();
+            harness.socket.serverReplyActionAck(
+              'regenerate_llm_card',
+              roundId: 301,
+              payload: const {
+                'regeneration': {
+                  'conversation_round_id': 301,
+                  'original_card_id': 501,
+                  'card_id': 502,
+                  'generation_state': 'generating',
+                  'billing': {'status': 'reserved'},
+                },
+              },
+            );
+            harness.socket.serverWaitingConversationRound(roundId: 301);
+            harness.socket.serverCandidateStream(streamType: 'start');
+            for (var frame = 0; frame < 40; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expectPendingToolbar();
+            }
+            harness.socket.serverCandidateStream(
+              streamType: 'chunk',
+              content: 'A new bubble.',
+              seq: 1,
+            );
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => find.text('A new bubble.').evaluate().isNotEmpty,
+            );
+            expect(_replyActionLoading('Regenerate'), findsNothing);
+            if (photoStatus != null) {
+              expect(find.byType(ChatImageMessage), findsNothing);
+            }
+            await _disposeEnterConversationPanel(tester, harness.service);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+  testWidgets('Go On after a photo stays busy until its own receipt', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+      modelWorldId: 'world-current',
+      sendInitialMessage: true,
+    );
+    harness.service.acceptLivePhoto(
+      WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromV2Json({
+          'type': 'live_photo',
+          'sender_type': 'live_photo',
+          'conversation_type': 'live_photo',
+          'message_type': 'image',
+          'world_id': 'world-current',
+          'location_id': 'location-current',
+          'conversation_round_id': 303,
+          'global_message_id': 90303,
+          'message_id': 303,
+          'location_message_id': 303,
+          'payload': {
+            'photo': {
+              'task_id': 'existing-photo',
+              'status': 'succeeded',
+              'image': {
+                'asset_id': 1,
+                'chat_global_message_id': 90303,
+                'image_url': 'https://example.com/photo.webp',
+                'description': 'An already completed photo.',
+              },
+            },
+          },
+        }),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final goOn = find.bySemanticsLabel('Go on');
+    await tester.ensureVisible(goOn);
+    await tester.pumpAndSettle();
+    final goOnRect = tester.getRect(goOn);
+    await tester.tap(goOn);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+    );
+    for (var frame = 0; frame < 30; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(_replyActionLoading('Go on'), findsOneWidget);
+      expect(tester.getRect(goOn).left, goOnRect.left);
+      for (final label in ['Inspiration', 'Camera']) {
+        final button = find.bySemanticsLabel(label);
+        expect(button, findsOneWidget);
+        expect(tester.widget<Semantics>(button).properties.enabled, isFalse);
+      }
+    }
+    expect(harness.socket.replyActionFrames('go_on'), hasLength(1));
+    harness.socket.serverReplyActionAck('go_on', roundId: 401);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find
+          .byKey(const ValueKey('location-chat-ack-loading-dots'))
+          .evaluate()
+          .isNotEmpty,
+    );
+    await _disposeEnterConversationPanel(tester, harness.service);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('photo submission restores its toolbar without a scroll', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final backend = _LocationChatReplyHttpTransport()
+      ..photoBarrier = Completer<void>();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+      modelWorldId: 'world-current',
+      sendInitialMessage: true,
+    );
+    backend.cards.add(
+      backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+    );
+    expect(
+      tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .waitingPositionIdentity,
+      isNotNull,
+    );
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(
+      'chat-photo-confirmation-v2:${Uri.encodeComponent(harness.services.config.chatroomHttpBaseUrl)}:user-1',
+      true,
+    );
+    final camera = find.byKey(const ValueKey('location-chat-take-photo'));
+    expect(camera.hitTestable(), findsOneWidget);
+    await tester.tap(camera);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => backend.photoRequests.isNotEmpty,
+    );
+    expect(
+      tester.widget<LocationChatReplyFeatureButton>(camera).state,
+      LocationChatReplyActionState.busy,
+    );
+    backend.photoBarrier!.complete();
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages
+          .any((message) => message.photo != null),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<LocationChatReplyActions>(
+            find.byType(LocationChatReplyActions),
+          )
+          .actionsHidden,
+      isFalse,
+    );
+    expect(camera, findsOneWidget);
+    expect(tester.getSize(camera).height, 32);
+    expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
+    expect(find.bySemanticsLabel('Edit'), findsOneWidget);
+    await _disposeEnterConversationPanel(tester, harness.service);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('live photo without request ID expands in the actual panel', (
+    tester,
+  ) async {
+    final harness = await _connectedLocationChatTestService();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          theme: GenesisTheme.dark(),
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            messageQueueInitializationCovered: true,
+            leaveOnInactive: false,
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.joinedLocationId == 'location-current',
+    );
+    await tester.pumpAndSettle();
+    final message = WorldChatroomMessage.fromHttpMessage(
+      ChatroomHttpMessage.fromV2Json({
+        'type': 'live_photo',
+        'sender_type': 'live_photo',
+        'conversation_type': 'live_photo',
+        'message_type': 'image',
+        'world_id': 'world-current',
+        'location_id': 'location-current',
+        'conversation_round_id': 401,
+        'global_message_id': 401,
+        'message_id': 401,
+        'location_message_id': 401,
+        'payload': {
+          'photo': {'task_id': 'live-task', 'status': 'generating'},
+        },
+      }),
+    );
+    harness.service.acceptLivePhoto(message);
+    final arrival = find.byWidgetPredicate(
+      (widget) =>
+          widget is SizeTransition &&
+          widget.key.toString().contains('photo-arrival-'),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => arrival.evaluate().isNotEmpty,
+    );
+    expect(tester.getSize(arrival).height, 0);
+    var height = 0.0;
+    for (var frame = 0; height == 0 && frame < 90; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      height = tester.getSize(arrival).height;
+    }
+    expect(height, inExclusiveRange(0, 400));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(arrival).height, greaterThan(400));
+    harness.service.acceptLivePhoto(message);
+    await tester.pump();
+    expect(tester.getSize(arrival).height, greaterThan(400));
+    await _disposeEnterConversationPanel(tester, harness.service);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final accepted in [false, true]) {
     testWidgets(
       'hidden panel retains wait; destroyed panel releases subscriptions accepted=$accepted',
@@ -978,7 +1355,7 @@ void main() {
           'location_id': 'location-current',
           'global_message_id': 1001,
           'message_id': 1001,
-          'location_message_id': 104,
+          'location_message_id': 304,
           'conversation_round_id': 801,
           'conversation_type': 'phone_characters_moved',
           'sender_type': 'phone_characters_moved',
@@ -2202,6 +2579,7 @@ void main() {
         streamType: 'llm_chunk',
         roundId: 401,
         messageId: 402,
+        locationMessageId: 303,
         seq: 1,
         content: 'A short reply.',
         conversationType: 'go_on',
@@ -2227,6 +2605,7 @@ void main() {
         streamType: 'llm_chunk',
         roundId: 401,
         messageId: 402,
+        locationMessageId: 303,
         seq: 2,
         content: '\nMore content.' * 40,
         conversationType: 'go_on',
@@ -2234,11 +2613,17 @@ void main() {
       await _pumpUntilLocationChatTest(
         tester,
         () => coordinator.hasMessageContentBelowViewport,
-        step: const Duration(milliseconds: 16),
+        step: const Duration(milliseconds: 32),
       );
       await tester.pump();
       expect(position.pixels, closeTo(held, 0.1));
       expect(find.byKey(notice), findsNothing);
+      expect(
+        harness.service.state.messagesByLocation['location-current']!
+            .singleWhere((m) => m.globalMessageId == 90402)
+            .streaming,
+        true,
+      );
       final currentList = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
@@ -12007,6 +12392,103 @@ void main() {
     await service.dispose();
   });
 
+  for (final source in ['Send', 'Go on']) {
+    for (final attempt in [false, true]) {
+      testWidgets(
+        'prepared $source reply restores toolbar from WebSocket only attempt=$attempt',
+        (tester) async {
+          final backend = _LocationChatReplyHttpTransport();
+          final harness = await _mountCompletedReplyActionPanel(
+            tester,
+            backend: backend,
+            usePreparedEntry: true,
+          );
+          final type = source == 'Send' ? 'user_message' : 'go_on';
+          if (source == 'Send') {
+            final composer = tester.widget<ChatComposer>(
+              find.byType(ChatComposer),
+            );
+            composer.controller.text = 'New conversation';
+            await tester.pump();
+            unawaited(composer.onSend());
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket.sendMessageCount == 1,
+            );
+            final request = harness.socket
+                .replyActionFrames('send_message')
+                .single;
+            harness.socket.serverV2AckForLatestSend(errNo: 0);
+            harness.socket.serverV2UserMessage(
+              messageId: 401,
+              locationMessageId: 303,
+              clientMsgId: request['client_msg_id'] as String,
+              content: 'New conversation',
+              conversationType: type,
+            );
+          } else {
+            await tester.tap(find.bySemanticsLabel('Go on'));
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket.replyActionFrames('go_on').length == 1,
+            );
+            harness.socket.serverReplyActionAck('go_on', roundId: 401);
+          }
+          harness.socket.serverWaitingConversationRound(roundId: 401);
+          final reads = backend.requests
+              .where((r) => r.uri.path.endsWith('/api/v2/messages'))
+              .length;
+          for (final streamType in [
+            'llm_stream_start',
+            'llm_chunk',
+            'llm_stream_end',
+          ]) {
+            harness.socket.serverV2StreamFrame(
+              streamType: streamType,
+              roundId: 401,
+              messageId: 402,
+              locationMessageId: source == 'Send' ? 304 : 303,
+              seq: streamType == 'llm_chunk' ? 1 : null,
+              content: streamType == 'llm_stream_start'
+                  ? ''
+                  : 'A new completed reply.',
+              conversationType: type,
+              attemptNo: attempt ? 1 : null,
+            );
+            await tester.pump();
+          }
+          harness.socket.serverEndConversationRound(
+            roundId: 401,
+            conversationType: type,
+          );
+          await _pumpUntilLocationChatTest(tester, () {
+            final list = tester.widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            );
+            return list.regenerateFeature.enabled &&
+                list.goOnFeature.enabled &&
+                list.editFeature.enabled &&
+                list.inspirationFeature.enabled;
+          });
+          await tester.pumpAndSettle();
+          for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+            expect(find.bySemanticsLabel(label), findsOneWidget);
+          }
+          expect(
+            backend.requests.where(
+              (r) => r.uri.path.endsWith('/api/v2/messages'),
+            ),
+            hasLength(reads),
+            reason: 'Live reply controls must not depend on a history refresh.',
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          unawaited(harness.service.dispose());
+          await tester.pump(const Duration(seconds: 3));
+        },
+      );
+    }
+  }
+
   for (final terminalOnly in [false, true]) {
     testWidgets(
       'Send unlocks with toolbar after queued reveal, terminalOnly=$terminalOnly',
@@ -12096,6 +12578,11 @@ void main() {
             composer().sendEnabled,
             list().editFeature.enabled,
             reason: 'Send and toolbar must unlock on the same frame ($frame).',
+          );
+          expect(
+            list().cameraState,
+            list().editFeature.state,
+            reason: 'Camera must share the conversation render gate ($frame).',
           );
           if (composer().sendEnabled) {
             unlocked = true;
@@ -15680,6 +16167,8 @@ Future<
 _mountCompletedReplyActionPanel(
   WidgetTester tester, {
   required _LocationChatReplyHttpTransport backend,
+  String? modelWorldId,
+  bool sendInitialMessage = false,
   bool usePreparedEntry = false,
   String conversationType = 'user_message',
   String triggerUid = 'user-1',
@@ -15718,6 +16207,7 @@ _mountCompletedReplyActionPanel(
         onGenerateRoute: AppRouter.onGenerateRoute,
         home: LocationChatPanel(
           worldId: 'world-current',
+          modelWorldId: modelWorldId,
           locationId: 'location-current',
           service: harness.service,
           usePreparedEntry: usePreparedEntry,
@@ -15733,6 +16223,22 @@ _mountCompletedReplyActionPanel(
     tester,
     () => harness.service.state.joinedLocationId == 'location-current',
   );
+  var clientMsgId = '';
+  if (sendInitialMessage) {
+    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    composer.controller.text = initialUserText ?? 'message 301';
+    unawaited(composer.onSend());
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.sendMessageCount == 1,
+    );
+    clientMsgId =
+        harness.socket._sentFrames.lastWhere(
+              (frame) => frame['type'] == 'send_message',
+            )['client_msg_id']
+            as String;
+    harness.socket.serverV2AckForLatestSend(errNo: 0);
+  }
   backend.seedReplyRound(
     conversationType: conversationType,
     triggerUid: triggerUid,
@@ -15742,6 +16248,7 @@ _mountCompletedReplyActionPanel(
   }
   harness.socket.serverV2UserMessage(
     messageId: 301,
+    clientMsgId: clientMsgId,
     content: initialUserText,
     conversationType: conversationType,
     triggerUid: triggerUid,
@@ -16099,6 +16606,8 @@ class _LocationChatModelHttpTransport extends _LocationChatReplyHttpTransport {
 }
 
 class _LocationChatReplyHttpTransport implements HttpTransport {
+  Completer<void>? photoBarrier;
+  final photoRequests = <Map<String, dynamic>>[];
   bool? localMember = true;
   bool includeQuotas = false;
   bool quotaMember = false;
@@ -16152,7 +16661,8 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
 
   void beginCandidate() {
     cards.addAll([
-      _cardJson(501, 1, 'succeeded', 'Original reply.'),
+      if (!cards.any((c) => c['card_id'] == 501))
+        _cardJson(501, 1, 'succeeded', 'Original reply.'),
       _cardJson(502, 2, 'generating', ''),
     ]);
   }
@@ -16170,8 +16680,8 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
     'can_edit': generation == 'succeeded',
     'can_delete': generation == 'succeeded',
     'messages': generation != 'succeeded'
-        ? []
-        : [
+        ? <Map<String, Object?>>[]
+        : <Map<String, Object?>>[
             {
               'type': 'character',
               'stream_type': '',
@@ -16305,6 +16815,46 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/message/photo/create')) {
+      final body =
+          jsonDecode(utf8.decode(request.bodyBytes!)) as Map<String, dynamic>;
+      photoRequests.add(body);
+      await photoBarrier?.future;
+      if (body['card_id'] != null) {
+        final card = cards.firstWhere((c) => c['card_id'] == body['card_id']);
+        (card['messages'] as List).add({
+          ..._messageJson(400, 'live_photo', '', '')
+            ..remove('message_id')
+            ..remove('location_message_id'),
+          'card_id': body['card_id'],
+          'card_message_index': 3,
+          'message_type': 'image',
+          'payload': {
+            'content': '',
+            'photo': {
+              'task_id': 'submitted-photo',
+              'client_request_id': body['client_request_id'],
+              'status': 'generating',
+            },
+          },
+        });
+      }
+      return _ok({
+        'source': 'chat',
+        'world_id': body['world_id'],
+        'location_id': body['location_id'],
+        'conversation_round_id': body['conversation_round_id'] ?? 303,
+        'global_message_id': body['card_id'] == null ? 303 : 90400,
+        if (body['card_id'] != null) 'card_id': body['card_id'],
+        if (body['card_id'] == null) 'message_id': 303,
+        if (body['card_id'] == null) 'location_message_id': 303,
+        'photo': {
+          'task_id': 'submitted-photo',
+          'client_request_id': body['client_request_id'],
+          'status': 'generating',
+        },
+      });
+    }
     if (request.uri.path.endsWith('/world/detail')) {
       await worldDetailBarrier?.future;
     }
@@ -16674,6 +17224,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
 
   void serverV2UserMessage({
     required int messageId,
+    int? locationMessageId,
     String messageType = 'text',
     int minAppVersion = 0,
     String clientMsgId = '',
@@ -16689,7 +17240,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'location_id': 'location-current',
       'global_message_id': 90000 + messageId,
       'message_id': messageId,
-      'location_message_id': messageId,
+      'location_message_id': locationMessageId ?? messageId,
       'conversation_round_id': messageId,
       if (conversationType.isNotEmpty) 'conversation_type': conversationType,
       'trigger_uid': triggerUid,
@@ -16846,6 +17397,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
     String content = '',
     String conversationType = '',
     String triggerUid = 'user-1',
+    int? attemptNo,
   }) {
     _serverFrame('character', {
       'stream_type': streamType,
@@ -16857,6 +17409,10 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'message_id': messageId,
       'location_message_id': locationMessageId ?? messageId,
       'conversation_round_id': roundId,
+      if (attemptNo != null) ...{
+        'gateway_request_id': 'reply-$roundId',
+        'attempt_no': attemptNo,
+      },
       if (conversationType.isNotEmpty) 'conversation_type': conversationType,
       'trigger_uid': triggerUid,
       'sender_type': 'character',

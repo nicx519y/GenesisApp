@@ -1369,6 +1369,7 @@ void main() {
     expect(detailInfo['owner_user'], isA<Map>());
     expect(((detail['stats'] as Map)['copy_cnt']), greaterThanOrEqualTo(1000));
     expect(detail['init_location_group'], isNull);
+    expect(detail, containsPair('precharacter', null));
     final detailCharacter = (detail['characters'] as List).first as Map;
     expect(detailCharacter['type'], 'ai');
     expect(detailCharacter['player_uid'], isEmpty);

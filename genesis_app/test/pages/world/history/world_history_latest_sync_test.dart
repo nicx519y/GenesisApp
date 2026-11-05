@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/world_history.dart';
@@ -8,6 +9,66 @@ import 'package:genesis_flutter_android/pages/world/history/world_history_projec
 import 'history_fixtures.dart';
 
 void main() {
+  test(
+    'old resident photo updates without adopting or reconnecting cursor chains',
+    () async {
+      var status = 'generating';
+      final requests = <String?>[];
+      final c = WorldHistoryController(
+        worldId: 'w',
+        fetch:
+            ({required worldId, cursor, limit = 20, cancellationToken}) async {
+              requests.add(cursor);
+              return WorldHistoryPage(
+                worldId: 'w',
+                messages: cursor == null
+                    ? [historyMessage('latest')]
+                    : [
+                        WorldHistoryMessage.fromJson({
+                          ...historyJson('photo'),
+                          'type': 'live_photo',
+                          'message_type': 'image',
+                          'content': '',
+                          'photo': {
+                            'task_id': 't',
+                            'client_request_id': '',
+                            'status': status,
+                            'image': null,
+                            'failure': status == 'failed'
+                                ? {
+                                    'code': 'generation_failed',
+                                    'message': 'Failed',
+                                  }
+                                : null,
+                          },
+                        }),
+                      ],
+                hasMore: cursor == null,
+                cursor: cursor == null ? 'old-page' : '',
+              );
+            },
+      );
+      addTearDown(c.dispose);
+      c.setSyncEnabled(true);
+      c.setActive(true);
+      await c.refresh();
+      await c.loadOlder();
+      expect(
+        c.newestFirst.firstWhere((m) => m.id == 'photo').photo!.status,
+        ChatPhotoStatus.generating,
+      );
+      status = 'failed';
+      await c.syncLatest();
+      expect(
+        c.newestFirst.firstWhere((m) => m.id == 'photo').photo!.status,
+        ChatPhotoStatus.failed,
+      );
+      expect(c.pages, hasLength(2));
+      expect(c.pages[1].requestCursor, 'old-page');
+      expect(requests.where((c) => c == 'old-page'), hasLength(2));
+    },
+  );
+
   test(
     'every message field and location order invalidates row reuse',
     () async {

@@ -12,11 +12,7 @@ class _WorldViewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
-          title: GenesisL10n
-              .current
-              .worldoDetailWorldoBrief,
-        ),
+        _SectionTitle(title: GenesisL10n.current.worldoDetailWorldoBrief),
         const SizedBox(height: 8),
         Text(body, style: _bodyTextStyle),
       ],
@@ -86,15 +82,14 @@ class _OriginPreviewImage extends StatelessWidget {
       ),
     );
     if (viewerUrl.isEmpty) return preview;
-    return GestureDetector(
-      key: const ValueKey<String>('origin-info-cover-viewer'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showGenesisImageViewer(
-        context,
-        imageUrls: [viewerUrl],
-        maxDevicePixelRatio: _maxDevicePixelRatio,
-        previewImageProviders: [
-          genesisImageViewerPreviewProvider(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: GenesisImageViewerSourceAnchor(
+          key: const ValueKey<String>('origin-info-cover-viewer'),
+          previewImageProvider: genesisImageViewerPreviewProvider(
             context,
             imageUrl: imageUrl,
             logicalWidth: width,
@@ -102,9 +97,28 @@ class _OriginPreviewImage extends StatelessWidget {
             fit: BoxFit.cover,
             maxDevicePixelRatio: _maxDevicePixelRatio,
           ),
-        ],
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          borderRadius: BorderRadius.circular(8),
+          onTap: (source) => showGenesisImageViewer(
+            context,
+            source: source,
+            imageUrls: [viewerUrl],
+            maxDevicePixelRatio: _maxDevicePixelRatio,
+            previewImageProviders: [
+              genesisImageViewerPreviewProvider(
+                context,
+                imageUrl: imageUrl,
+                logicalWidth: width,
+                logicalHeight: height,
+                fit: BoxFit.cover,
+                maxDevicePixelRatio: _maxDevicePixelRatio,
+              ),
+            ],
+          ),
+          child: preview,
+        ),
       ),
-      child: preview,
     );
   }
 }
@@ -135,12 +149,8 @@ class _DiscussSection extends StatelessWidget {
   Future<void> _openPostComposer(BuildContext context) async {
     final submitted = await showDiscussPostComposer(
       context: context,
-      title: GenesisL10n
-          .current
-          .worldoDetailNewPost,
-      placeholder: GenesisL10n
-          .current
-          .worldoDetailWritePost,
+      title: GenesisL10n.current.worldoDetailNewPost,
+      placeholder: GenesisL10n.current.worldoDetailWritePost,
       submitter: (content, images) async {
         await AppServicesScope.read(context).api.v1.discuss.post(
           bizId: origin.oid.trim(),
@@ -180,11 +190,9 @@ class _DiscussSection extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _SectionTitle(
-                            title: GenesisL10n.current
-                                .worldoDetailDiscussCount(
-                                  discussCount: (origin.discussCount)
-                                      .toString(),
-                                ),
+                            title: GenesisL10n.current.worldoDetailDiscussCount(
+                              discussCount: (origin.discussCount).toString(),
+                            ),
                           ),
                         ),
                         if (hasDiscussContent)
@@ -193,9 +201,7 @@ class _DiscussSection extends StatelessWidget {
                             behavior: HitTestBehavior.opaque,
                             onTap: () => unawaited(_openDiscussPage(context)),
                             child: Text(
-                              GenesisL10n
-                                  .current
-                                  .worldoDetailViewAll,
+                              GenesisL10n.current.worldoDetailViewAll,
                               style: TextStyle(
                                 fontSize: 10,
                                 height: 1.2,
@@ -419,9 +425,7 @@ List<Widget> _originWorldoBriefSlivers(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                GenesisL10n
-                    .current
-                    .worldoDetailWorldoBrief,
+                GenesisL10n.current.worldoDetailWorldoBrief,
                 key: contentStartKey,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -448,11 +452,11 @@ List<Widget> _originWorldoBriefSlivers(
 }
 
 String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
-  return selectGenesisImageUrl(
-    sourceUrl,
-    logicalWidth: _OriginSetupRoleSection._cardWidth,
-    logicalHeight: _OriginSetupRoleSection._cardWidth,
-    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-    maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
+  final url = GenesisImageResourceRegistry.resolve(sourceUrl).displayUrl;
+  final localAsset = localDefaultMapImageAssetForBackendImageUrl(url);
+  if (localAsset != null) return localAsset;
+  return buildGenesisCdnResizeUrl(
+    url,
+    width: (_OriginSetupRoleSection._cardWidth * 2).ceil(),
   ).trim();
 }

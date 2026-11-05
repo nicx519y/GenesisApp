@@ -50,6 +50,7 @@ abstract class ChatroomMessageStorage {
     required String locationId,
     required List<Map<String, dynamic>> messages,
     int maxMessagesPerLocation = 200,
+    bool Function()? isCurrent,
   });
 
   Future<void> deleteMessagesAtOrBefore({
@@ -207,8 +208,10 @@ class SqfliteChatroomMessageStorage
     required String locationId,
     required List<Map<String, dynamic>> messages,
     int maxMessagesPerLocation = 200,
+    bool Function()? isCurrent,
   }) async {
     final db = await _db;
+    if (isCurrent?.call() == false) return;
     await db.transaction((txn) async {
       for (final message in messages) {
         await _insertMessage(txn, ownerUid, worldId, locationId, message);
@@ -220,6 +223,9 @@ class SqfliteChatroomMessageStorage
         locationId: locationId,
         maxMessages: maxMessagesPerLocation,
       );
+      if (isCurrent?.call() == false) {
+        throw StateError('Stale history transaction');
+      }
     });
   }
 
@@ -506,7 +512,9 @@ class MemoryChatroomMessageStorage
     required String locationId,
     required List<Map<String, dynamic>> messages,
     int maxMessagesPerLocation = 200,
+    bool Function()? isCurrent,
   }) async {
+    if (isCurrent?.call() == false) return;
     final bucket = _bucket(ownerUid, worldId, locationId);
     for (final message in messages) {
       if (_messageId(message) <= 0) continue;

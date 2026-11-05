@@ -243,7 +243,8 @@ class ChatroomLlmCard {
       final content = payload is Map ? payload['content'] : null;
       // A missing/null/blank body is not a candidate message. Ignore it here
       // so one empty row cannot create a bubble or invalidate useful siblings.
-      if (content == null || (content is String && content.trim().isEmpty)) {
+      if (messageJson['type'] != 'live_photo' &&
+          (content == null || (content is String && content.trim().isEmpty))) {
         continue;
       }
       messages.add(ChatroomLlmCardMessage.fromJson(messageJson));

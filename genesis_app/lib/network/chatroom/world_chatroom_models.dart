@@ -300,6 +300,10 @@ class WorldChatroomMessage {
   final LlmAttempt? llmAttempt;
   final Map<String, dynamic> rawPayload;
 
+  ChatPhoto? get photo => businessType == 'live_photo'
+      ? ChatPhoto.tryParse(rawPayload['photo'])
+      : null;
+
   String get businessType {
     final explicit = _businessType.trim().toLowerCase();
     if (explicit.isNotEmpty) return explicit;

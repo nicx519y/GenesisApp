@@ -171,6 +171,7 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     avatarResource: avatarResource,
     tags: asString(raw['identity']),
     tagline: asString(raw['brief']),
+    description: asString(raw['description'], fallback: asString(raw['bio'])),
     goal: asString(raw['goal']),
     currentLocationId: currentLocationId,
     initialLocationId: initialLocationId,

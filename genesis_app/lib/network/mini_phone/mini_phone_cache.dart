@@ -36,6 +36,8 @@ class MiniPhoneCache {
   final bindings = <String, int>{};
   // Transport attempts share one stable local bubble identity.
   final retryRoots = <String, String>{};
+  // Confirmed by reaching the final server history page; 0 means empty.
+  final historyStartIds = <int, int>{};
   List<PhoneSession> sessions = [];
   int revision = 0, unknownUnread = 0;
   bool hasHomeBaseline = false;
@@ -256,6 +258,9 @@ class MiniPhoneCache {
     },
     'bindings': Map<String, int>.of(bindings),
     'retry_roots': Map<String, String>.of(retryRoots),
+    'history_start_ids': {
+      for (final e in historyStartIds.entries) '${e.key}': e.value,
+    },
     'events': seenEvents.toList(),
     'delivered_ids': deliveredIds.toList(),
     'revision': revision,
@@ -286,6 +291,7 @@ class MiniPhoneCache {
     restore('session_counts', cache.sessionCounts);
     restore('session_count_through', cache.sessionCountThrough);
     restore('session_revisions', cache.sessionRevisions);
+    restore('history_start_ids', cache.historyStartIds);
     for (final e in phoneMap(json['pending_reads'] ?? {}).entries) {
       cache.pendingReads[int.parse(e.key)] = MiniPhoneReadIntent.fromJson(
         phoneMap(e.value),

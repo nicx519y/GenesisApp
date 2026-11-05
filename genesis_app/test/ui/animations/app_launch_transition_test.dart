@@ -294,6 +294,27 @@ void main() {
     },
   );
 
+  testWidgets('switching app root retargets the next close without reopening', (
+    tester,
+  ) async {
+    await mount(tester);
+    expect(controller.setCloseSource('fallback'), isFalse);
+    controller.open(sourceId: 'icon');
+    await tester.pumpAndSettle();
+    expect(controller.setCloseSource('fallback'), isTrue);
+    expect(controller.status, AppLaunchTransitionStatus.open);
+    expect(initialized, 1);
+    expect(disposed, 0);
+    controller.close();
+    expect(controller.setCloseSource('icon'), isFalse);
+    await tester.pump();
+    await tester.pump(const Duration(microseconds: 279900));
+    expect(rect(tester).left, closeTo(220, 1));
+    await tester.pumpAndSettle();
+    expect(dismissed, 1);
+    await unmount(tester);
+  });
+
   testWidgets('offscreen origins and restored pages fade without flying', (
     tester,
   ) async {

@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_camera_models.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
@@ -93,6 +95,8 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_view_state.dart';
+import 'package:genesis_flutter_android/pages/world/world_tilemap_view_store.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_location_action.dart';
@@ -189,6 +193,8 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
+
+part 'photo_inbox_test_cases.dart';
 
 Finder _richTextWithPlainText(String text) {
   return find.byWidgetPredicate(
@@ -345,6 +351,14 @@ void _mockEnvironmentSwitchPlatformChannels(WidgetTester tester) {
     messenger.setMockMethodCallHandler(GenesisMethodChannels.device, null);
     messenger.setMockMethodCallHandler(adjustChannel, null);
   });
+}
+
+class _DeferredOriginProfileSessionStore extends MemoryUserSessionStore {
+  Completer<Map<String, dynamic>?>? heldProfileRead;
+
+  @override
+  Future<Map<String, dynamic>?> readUserInfo() =>
+      heldProfileRead?.future ?? super.readUserInfo();
 }
 
 Future<AppServices> _testServices({
@@ -814,6 +828,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
     this.originCharacters,
+    this.originPrecharacter,
     this.originLocations,
     this.originTicks,
     this.myLaunchPresetCharacters,
@@ -859,6 +874,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
   final List<Map<String, Object?>>? originCharacters;
+  final Map<String, Object?>? originPrecharacter;
   final List<Map<String, Object?>>? originLocations;
   final List<Map<String, Object?>>? originTicks;
   final List<Map<String, Object?>>? myLaunchPresetCharacters;
@@ -1494,6 +1510,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   Map<String, Object?> _originDetail(String oid) {
     final fallback = oid.isEmpty ? 'o_test_1' : oid;
     return {
+      'precharacter': originPrecharacter,
       'info': {
         'origin_id': fallback,
         'origin_name': 'Origin detail $fallback',
@@ -2829,6 +2846,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  photoInboxTests();
   for (final scenario in ['refresh', 'second', 'empty', 'background']) {
     final second = scenario == 'second';
     testWidgets(
@@ -13376,6 +13394,14 @@ void main() {
   testWidgets('Origin detail info cover opens image viewer', (
     WidgetTester tester,
   ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/images/default_list_image.png'),
+        tester.element(find.byType(SizedBox).first),
+      ),
+    );
+
     const coverAsset = 'assets/images/default_list_image.png';
     final transport = _RecordingV1ListTransport(originMapUrl: coverAsset);
     await tester.pumpWidget(
@@ -13422,6 +13448,12 @@ void main() {
   testWidgets('Origin detail character portrait opens character image viewer', (
     WidgetTester tester,
   ) async {
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(
+          SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+        );
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+
     final transport = _RecordingV1ListTransport(
       originCharacters: const [
         {
@@ -13430,7 +13462,7 @@ void main() {
           'identity': 'Guide',
           'brief': 'Keeps the path',
           'description': 'First character.',
-          'avatar': 'assets/images/default_list_image.png',
+          'avatar': 'https://cdn.example/portrait.png',
           'is_recommend': 1,
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
@@ -13441,7 +13473,7 @@ void main() {
           'identity': 'Scout',
           'brief': 'Finds the signal',
           'description': 'Second character.',
-          'avatar': 'assets/images/default_list_image.png',
+          'avatar': 'https://cdn.example/portrait.png',
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
         },
@@ -13471,7 +13503,7 @@ void main() {
       find.byKey(const ValueKey<String>('origin-character-recommended-c_iris')),
       findsNothing,
     );
-    tester.widget<GestureDetector>(firstPortrait).onTap?.call();
+    tester.state<GenesisImageViewerSourceAnchorState>(firstPortrait).open();
     await tester.pumpAndSettle();
 
     expect(
@@ -14101,7 +14133,7 @@ void main() {
     expect(expansionEvents(), hasLength(2));
   });
 
-  testWidgets('Origin role avatar CDN sizing uses global image DPR cap', (
+  testWidgets('Origin role avatar CDN sizing uses fixed DPR 2', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 3;
@@ -14156,12 +14188,694 @@ void main() {
     expect(
       sourceProvider.imageUrl,
       'https://cdn.example.com/avatar_1080x1080.jpg'
-      '?x-oss-process=image/resize,w_720/format,webp',
+      '?x-oss-process=image/resize,w_480/format,webp',
     );
-    expect(provider.outputSize, 360);
-    expect(sourceProvider.cacheWidth, 360);
-    expect(sourceProvider.cacheHeight, 360);
+    expect(provider.outputSize, 480);
+    expect(sourceProvider.cacheWidth, 480);
+    expect(sourceProvider.cacheHeight, 480);
   });
+
+  for (final scenario in [
+    'recommended',
+    'precharacter',
+    'empty',
+    'profile',
+    'anonymous',
+  ]) {
+    testWidgets('Origin precharacter first role uses $scenario priority', (
+      tester,
+    ) async {
+      const precharacterAvatar = 'https://cdn.example.com/precharacter.webp';
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+          );
+      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final transport = _RecordingV1ListTransport(
+        originPrecharacter: scenario == 'profile'
+            ? null
+            : scenario == 'empty'
+            ? const {}
+            : {
+                'name': 'Preset player',
+                'identity': 'Preset identity',
+                'personality': 'Preset personality',
+                'bio': 'Preset setting',
+                'avatar': scenario == 'precharacter' ? precharacterAvatar : '',
+              },
+        originCharacters: [
+          {
+            'char_id': 'c_template',
+            'name': scenario == 'recommended' ? '{{user}}' : 'Template role',
+            'avatar': '',
+            'identity': 'Template identity',
+            'brief': 'Template personality',
+            'is_recommend': scenario == 'recommended' ? 1 : 0,
+            'initial_location_id': 'l_o_test_1',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: scenario == 'anonymous' ? null : 'u_mock',
+            initialAuthToken: scenario == 'anonymous' ? null : 'token',
+            initialUserInfo: scenario == 'anonymous'
+                ? null
+                : const {
+                    'uid': 'u_mock',
+                    'name': 'Profile player',
+                    'identity': 'Profile identity',
+                    'bio': 'Profile personality',
+                  },
+          ),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final dynamic sheet = tester.widget(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.runtimeType.toString() == '_OriginDetailDraggableSheet',
+        ),
+      );
+      final role = sheet.profileRole as OriginCustomRoleDraft;
+      final emptyPreset = scenario == 'empty';
+      final isProfile = scenario == 'profile';
+      final isRecommended = scenario == 'recommended';
+      expect(
+        role.name,
+        emptyPreset
+            ? ''
+            : isProfile || isRecommended
+            ? 'Profile player'
+            : 'Preset player',
+      );
+      expect(
+        role.identity,
+        emptyPreset
+            ? ''
+            : isRecommended
+            ? 'Template identity'
+            : isProfile
+            ? 'Profile identity'
+            : 'Preset identity',
+      );
+      expect(
+        role.personality,
+        emptyPreset
+            ? ''
+            : isRecommended
+            ? 'Template personality'
+            : isProfile
+            ? 'Profile personality'
+            : 'Preset personality',
+      );
+      expect(
+        role.bio,
+        emptyPreset || isProfile || isRecommended ? '' : 'Preset setting',
+      );
+      expect(
+        role.avatarUrl,
+        scenario == 'precharacter' ? precharacterAvatar : '',
+      );
+      final id = isRecommended ? 'c_template' : 'current-user';
+      expect(
+        find.byKey(ValueKey<String>('origin-setup-role-card-frame-$id')),
+        findsOneWidget,
+      );
+      final cards = tester.widget<PageView>(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+      );
+      expect(cards.childrenDelegate.estimatedChildCount, isRecommended ? 1 : 2);
+      tester
+          .widget<InkWell>(
+            find.byKey(ValueKey<String>('origin-setup-role-edit-$id')),
+          )
+          .onTap!();
+      await tester.pumpAndSettle();
+      for (final entry in {
+        'name': role.name,
+        'identity': role.identity,
+        'brief': role.personality,
+        'setting': role.bio,
+      }.entries) {
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(
+                  ValueKey<String>('origin-setup-role-inline-${entry.key}-$id'),
+                ),
+              )
+              .controller!
+              .text,
+          entry.value,
+        );
+      }
+      if (scenario == 'precharacter') {
+        final upload = find.byKey(
+          const ValueKey<String>(
+            'origin-setup-role-inline-avatar-current-user',
+          ),
+        );
+        expect(
+          tester.widget<CreateUploadBox>(upload).controller.text,
+          precharacterAvatar,
+        );
+        final preview = tester.widget<GenesisStaticNetworkImage>(
+          find.descendant(
+            of: upload,
+            matching: find.byType(GenesisStaticNetworkImage),
+          ),
+        );
+        expect(
+          preview.imageUrl,
+          '$precharacterAvatar?x-oss-process=image/resize,w_128/format,webp',
+        );
+      }
+      if (emptyPreset) {
+        await (sheet.onSendLocationChatMessage as dynamic)(
+          'l_o_test_1',
+          'Cannot launch without a name',
+          ChatMentionCatalog.empty,
+        );
+        expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    });
+  }
+
+  testWidgets(
+    'Origin precharacter edits survive late profile loading and launch as custom role',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final session = _DeferredOriginProfileSessionStore();
+      final transport = _RecordingV1ListTransport(
+        originCharacters: const [],
+        originPrecharacter: const {
+          'name': 'Preset player',
+          'identity': 'Preset identity',
+          'personality': 'Preset personality',
+          'bio': 'Preset setting',
+          'avatar': '',
+        },
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialAuthToken: 'token',
+        sessionStoreOverride: session,
+      );
+      final profileRead = Completer<Map<String, dynamic>?>();
+      session.heldProfileRead = profileRead;
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      dynamic sheet() => tester.widget(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.runtimeType.toString() == '_OriginDetailDraggableSheet',
+        ),
+      );
+      expect(
+        (sheet().profileRole as OriginCustomRoleDraft).name,
+        'Preset player',
+      );
+      final edit = find.byKey(
+        const ValueKey<String>('origin-setup-role-edit-current-user'),
+      );
+      tester.widget<InkWell>(edit).onTap!();
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(
+          const ValueKey<String>('origin-setup-role-inline-name-current-user'),
+        ),
+        'Edited player',
+      );
+      tester.widget<InkWell>(edit).onTap!();
+      await tester.pumpAndSettle();
+      session.heldProfileRead = null;
+      profileRead.complete({'name': 'Late profile', 'bio': 'Late personality'});
+      await tester.pumpAndSettle();
+      expect(
+        (sheet().profileRole as OriginCustomRoleDraft).name,
+        'Edited player',
+      );
+      await (sheet().onSendLocationChatMessage as dynamic)(
+        'l_o_test_1',
+        'Start the adventure',
+        ChatMentionCatalog.empty,
+      );
+      await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+      final payload = transport.decodedBody(
+        transport.requestsFor('/api/v1/origin/launch').single,
+      );
+      expect(payload['preset_character_id'], isNull);
+      expect(payload['custom_role'], {
+        'name': 'Edited player',
+        'identity': 'Preset identity',
+        'personality': 'Preset personality',
+        'bio': 'Preset setting',
+      });
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  for (final saveBeforeSwitch in [true, false]) {
+    testWidgets(
+      'Origin account revision clears ${saveBeforeSwitch ? 'saved' : 'active'} recommended edits before profile reload',
+      (WidgetTester tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final session = _DeferredOriginProfileSessionStore();
+        final transport = _RecordingV1ListTransport(
+          originCharacters: const [
+            {
+              'char_id': 'c_recommended',
+              'name': '{{user}}',
+              'avatar': '',
+              'is_recommend': 1,
+              'identity': 'Scout',
+              'brief': 'Curious',
+              'description': 'Template setting',
+              'goal': 'Template goal',
+              'initial_location_id': 'l_o_test_1',
+            },
+          ],
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_first',
+              initialAuthToken: 'backend-token',
+              sessionStoreOverride: session,
+              initialUserInfo: const {
+                'uid': 'u_first',
+                'name': 'First account',
+              },
+            ),
+            child: MaterialApp(
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: const OriginWorldPage(
+                oid: 'o_test_1',
+                originId: 0,
+                showOpeningSheetOnEntry: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        dynamic sheet() => tester.widget(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType.toString() == '_OriginDetailDraggableSheet',
+          ),
+        );
+        OriginCustomRoleDraft role() =>
+            sheet().profileRole as OriginCustomRoleDraft;
+        final edit = find.byKey(
+          const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+        );
+        final name = find.byKey(
+          const ValueKey<String>('origin-setup-role-inline-name-c_recommended'),
+        );
+        final bio = find.byKey(
+          const ValueKey<String>(
+            'origin-setup-role-inline-setting-c_recommended',
+          ),
+        );
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        final cardFinder = find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == '_OriginSetupRoleCard',
+        );
+        final oldCardState = tester.state(cardFinder);
+        final oldCard = tester.widget(cardFinder) as dynamic;
+        final lateSave =
+            oldCard.onEditedRoleChanged as ValueChanged<OriginCustomRoleDraft>;
+        await tester.enterText(name, 'First private edit');
+        await tester.enterText(bio, 'First private setting');
+        if (saveBeforeSwitch) {
+          await tester.tap(edit);
+          await tester.pumpAndSettle();
+          expect(role().name, 'First private edit');
+        }
+
+        // Keep the new profile read pending to inspect the account boundary.
+        final newProfile = Completer<Map<String, dynamic>?>();
+        session.heldProfileRead = newProfile;
+        await session.saveUid('u_second');
+        await session.saveUserInfo(const {
+          'uid': 'u_second',
+          'name': 'Second account',
+        });
+        await tester.pumpAndSettle();
+        expect(
+          role().name,
+          '',
+          reason:
+              'Old cached profile cannot fill the new account while its read is pending.',
+        );
+        expect(role().bio, 'Template setting');
+        expect(
+          oldCardState.mounted,
+          isFalse,
+          reason:
+              'The same preset ID must receive a fresh edit form on account revision.',
+        );
+        expect(
+          find.byKey(
+            const ValueKey<String>(
+              'origin-setup-role-inline-editor-c_recommended',
+            ),
+          ),
+          findsNothing,
+        );
+
+        session.heldProfileRead = null;
+        newProfile.complete(const {
+          'uid': 'u_second',
+          'name': 'Second account',
+        });
+        await tester.pumpAndSettle();
+        expect(role().name, 'Second account');
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(name).controller!.text,
+          'Second account',
+        );
+        expect(
+          tester.widget<TextField>(bio).controller!.text,
+          'Template setting',
+        );
+        // A delayed callback from the first user's disposed editor must not
+        // commit even while the second user's editor is active again.
+        lateSave(
+          const OriginCustomRoleDraft(
+            name: 'Late first account',
+            bio: 'Late private setting',
+          ),
+        );
+        await tester.pump();
+        expect(role().name, 'Second account');
+        expect(role().bio, 'Template setting');
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        await (sheet().onSendLocationChatMessage as dynamic)(
+          'l_o_test_1',
+          'Second account launch',
+          ChatMentionCatalog.empty,
+        );
+        await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+        final payload = transport.decodedBody(
+          transport.requestsFor('/api/v1/origin/launch').single,
+        );
+        expect(payload['preset_character_id'], 'c_recommended');
+        expect(
+          payload['preset_character_override'],
+          containsPair('name', 'Second account'),
+        );
+        expect(
+          payload['preset_character_override'],
+          containsPair('bio', 'Template setting'),
+        );
+        expect(jsonEncode(payload), isNot(contains('First private')));
+        expect(jsonEncode(payload), isNot(contains('Late private')));
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets(
+    'Origin inline recommended avatar cancel restores focus and scrolling',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final setting = List.filled(30, 'Original setting line.\n').join();
+      final transport = _RecordingV1ListTransport(
+        originCharacters: [
+          {
+            'char_id': 'c_recommended',
+            'name': 'Recommended player',
+            'avatar': '',
+            'is_recommend': 1,
+            'identity': 'Scout',
+            'brief': 'Curious',
+            'description': setting,
+            'initial_location_id': 'l_o_test_1',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Detail Location').first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      final roleSection = find.byKey(
+        const ValueKey<String>('origin-location-role-cards-visibility'),
+      );
+      expect(roleSection, findsOneWidget);
+      final edit = find.descendant(
+        of: roleSection,
+        matching: find.byKey(
+          const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+        ),
+      );
+      tester.widget<InkWell>(edit).onTap!();
+      await tester.pumpAndSettle();
+      final identity = find.descendant(
+        of: roleSection,
+        matching: find.byKey(
+          const ValueKey<String>(
+            'origin-setup-role-inline-identity-c_recommended',
+          ),
+        ),
+      );
+      final identityField = tester.widget<TextField>(identity);
+      identityField.focusNode!.requestFocus();
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      await tester.pumpAndSettle();
+      final scroll = find.descendant(
+        of: roleSection,
+        matching: find.byKey(
+          const ValueKey<String>(
+            'origin-setup-role-inline-editor-scroll-c_recommended',
+          ),
+        ),
+      );
+      final controller = tester
+          .widget<SingleChildScrollView>(scroll)
+          .controller!;
+      expect(controller.position.maxScrollExtent, greaterThan(100));
+      controller.jumpTo(24);
+      await tester.pump();
+      final offsetBeforePicker = controller.offset;
+      final avatar = find.descendant(
+        of: roleSection,
+        matching: find.byKey(
+          const ValueKey<String>(
+            'origin-setup-role-inline-avatar-c_recommended',
+          ),
+        ),
+      );
+      final upload = tester.widget<CreateUploadBox>(avatar);
+      // Match CreateUploadBox's picker lifecycle, including its cancellation
+      // finally path, without invoking an OS gallery in the widget test.
+      upload.onInteractionActiveChanged!(true);
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(identityField.focusNode!.hasFocus, isFalse);
+      expect(
+        tester.widget<SingleChildScrollView>(scroll).physics,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+      tester.testTextInput.hide();
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+      upload.onInteractionActiveChanged!(
+        false,
+      ); // Gallery canceled: no new URL.
+      await tester.pump();
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      for (var frame = 0; frame < 16; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SingleChildScrollView>(scroll).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'Canceling the gallery must release the editor scroll freeze.',
+      );
+      expect(identityField.focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(controller.offset, closeTo(offsetBeforePicker, 0.1));
+      expect(tester.widget<CreateUploadBox>(avatar).controller.text, isEmpty);
+      final beforeDrag = controller.offset;
+      await tester.drag(scroll, const Offset(0, -100));
+      await tester.pumpAndSettle();
+      expect(controller.offset, greaterThan(beforeDrag));
+      expect(identityField.controller!.text, 'Scout');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'Origin merged role edits full Setting and scrolls without duplicating profile',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final setting = List.filled(180, 'Original setting line.\n').join();
+      final transport = _RecordingV1ListTransport(
+        originCharacters: [
+          {
+            'char_id': 'c_regular',
+            'name': 'Other role',
+            'avatar': '',
+            'initial_location_id': 'l_o_test_1',
+          },
+          {
+            'char_id': 'c_recommended',
+            'name': '{{user}}',
+            'avatar': '',
+            'is_recommend': 1,
+            'identity': 'Scout',
+            'brief': 'Curious',
+            'description': setting,
+            'goal': 'Original goal',
+            'initial_location_id': 'l_o_test_1',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+            initialUserInfo: const {'uid': 'u_mock', 'name': 'Profile player'},
+          ),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-setup-role-card-frame-current-user'),
+        ),
+        findsNothing,
+      );
+      final cards = tester.widget<PageView>(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+      );
+      expect(cards.childrenDelegate.estimatedChildCount, 2);
+      final edit = find.byKey(
+        const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+      );
+      expect(edit, findsOneWidget);
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      final name = find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-name-c_recommended'),
+      );
+      final bio = find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-inline-setting-c_recommended',
+        ),
+      );
+      expect(tester.widget<TextField>(name).controller!.text, 'Profile player');
+      expect(tester.widget<TextField>(bio).controller!.text, setting);
+      final scroll = find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-inline-editor-scroll-c_recommended',
+        ),
+      );
+      final controller = tester
+          .widget<SingleChildScrollView>(scroll)
+          .controller!;
+      expect(
+        tester.widget<SingleChildScrollView>(scroll).physics,
+        isA<ClampingScrollPhysics>(),
+      );
+      final before = controller.offset;
+      await tester.drag(scroll, const Offset(0, -120));
+      await tester.pumpAndSettle();
+      expect(controller.offset, greaterThan(before));
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'origin-setup-role-inline-editor-c_recommended',
+          ),
+        ),
+        findsOneWidget,
+      );
+      await tester.enterText(bio, 'Edited complete setting');
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      // Reopening the same card reads the saved full-text draft.
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(bio).controller!.text,
+        'Edited complete setting',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('Origin opening puts the recommended role first and marks it', (
     WidgetTester tester,
@@ -14264,7 +14978,7 @@ void main() {
       find.byKey(
         const ValueKey<String>('origin-setup-role-edit-c_recommended'),
       ),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-edit-c_regular')),
@@ -14856,7 +15570,7 @@ void main() {
       );
       expect(
         tester.widget<SingleChildScrollView>(inlineEditorScroll).physics,
-        isA<NeverScrollableScrollPhysics>(),
+        isA<ClampingScrollPhysics>(),
       );
       for (final field in tester.widgetList<TextField>(
         find.descendant(of: editor, matching: find.byType(TextField)),
@@ -14883,8 +15597,8 @@ void main() {
       );
       expect(
         inlineEditorScrollPosition.pixels,
-        closeTo(inlineEditorOffsetBeforeDrag, 0.01),
-        reason: 'The inline role editor must not scroll from user gestures.',
+        greaterThan(inlineEditorOffsetBeforeDrag),
+        reason: 'The whole inline role editor must scroll from user gestures.',
       );
       expect(
         tester.widget<TextField>(nameField).controller?.text,
@@ -34354,6 +35068,102 @@ void main() {
     });
   });
 
+  for (final savedLocation in ['l_w_test_1_child', 'deleted']) {
+    testWidgets(
+      'world tilemap restores saved location $savedLocation before first map load',
+      (tester) async {
+        final transport = _RecordingV1ListTransport(
+          worldRelationStatus: 'anonymous',
+          worldDefinitionVersion: 2,
+        );
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+        );
+        final store = WorldTilemapViewStore(
+          namespace:
+              '${services.config.effectiveApiEnvironment}|${services.platformConfig.apiBaseUrl}',
+          uid: 'u_mock',
+          worldId: 'w_test_1',
+        );
+        await store.save(
+          TilemapViewState(
+            initialLocationId: 'root',
+            currentLocationId: savedLocation,
+            locationTrail: ['root'],
+            viewportTransforms: {},
+          ),
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: const MaterialApp(
+              home: WorldPage(
+                wid: 'w_test_1',
+                initialDefinitionVersion: 2,
+                initialMapLocationId: 'root',
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final requests = transport.requestsFor('/api/v1/world/map');
+        expect(requests, hasLength(1));
+        expect(
+          requests.single.uri.queryParameters['location_id'],
+          savedLocation == 'deleted' ? 'root' : savedLocation,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        expect(
+          (await store.load())!.currentLocationId,
+          savedLocation == 'deleted' ? 'root' : savedLocation,
+        );
+        if (savedLocation != 'deleted') {
+          final nextServices = await _testServices(
+            transport: transport,
+            useMock: false,
+          );
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: nextServices,
+              child: const MaterialApp(
+                home: WorldPage(
+                  wid: 'w_test_1',
+                  initialDefinitionVersion: 2,
+                  initialMapLocationId: 'root',
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            transport
+                .requestsFor('/api/v1/world/map')
+                .last
+                .uri
+                .queryParameters['location_id'],
+            savedLocation,
+          );
+          await nextServices.sessionStore.saveUid('another-user');
+          nextServices.sessionRevision.value += 1;
+          await tester.pumpAndSettle();
+          expect(
+            transport
+                .requestsFor('/api/v1/world/map')
+                .last
+                .uri
+                .queryParameters['location_id'],
+            'root',
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          expect((await store.load())!.currentLocationId, savedLocation);
+        }
+      },
+    );
+  }
+
   testWidgets(
     'world detail reuses valid default map location from list metadata',
     (WidgetTester tester) async {
@@ -40188,6 +40998,8 @@ class _FailingChatroomClient implements ChatroomClient {
     String? senderId,
     String? senderName,
     bool? autoHeartbeat,
+    void Function(Map<String, Object?> details)? onConnectionDiagnostics,
+    NetworkCancellationToken? cancellationToken,
   }) async {
     throw StateError('test connection failed');
   }
@@ -40281,6 +41093,8 @@ class _FakeChatroomClient implements ChatroomClient {
     String? senderId,
     String? senderName,
     bool? autoHeartbeat,
+    void Function(Map<String, Object?> details)? onConnectionDiagnostics,
+    NetworkCancellationToken? cancellationToken,
   }) async {
     connectCount += 1;
     final resolvedWorldId = worldId;

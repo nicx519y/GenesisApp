@@ -145,6 +145,7 @@ extension WorldChatroomRetention on WorldChatroomService {
       focus: leases.map((l) => l.focus).whereType<Object>().firstOrNull,
     );
     if (identical(selected, messages)) return messages;
+    _queueBaselineRebuilds.add(location);
     final retained = selected.map(locationMessageRetentionKey).toSet();
     final removed =
         messages

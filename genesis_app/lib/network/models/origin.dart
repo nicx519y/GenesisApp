@@ -133,6 +133,44 @@ class OriginSummary {
 }
 
 @immutable
+class OriginPrecharacter {
+  const OriginPrecharacter({
+    this.name = '',
+    this.personality = '',
+    this.identity = '',
+    this.bio = '',
+    this.avatar = '',
+  });
+
+  final String name;
+  final String personality;
+  final String identity;
+  final String bio;
+  final String avatar;
+
+  static OriginPrecharacter? fromJsonOrNull(
+    Object? raw, {
+    String Function(String)? resolveAvatarUrl,
+  }) {
+    if (raw is! Map) return null;
+    const fields = ['name', 'personality', 'identity', 'bio', 'avatar'];
+    for (final field in fields) {
+      if (raw.containsKey(field) && raw[field] is! String) return null;
+    }
+    String text(String field) =>
+        decodeGenesisUgcTextForDisplay(asString(raw[field]));
+    final avatar = asString(raw['avatar']).trim();
+    return OriginPrecharacter(
+      name: text('name'),
+      personality: text('personality'),
+      identity: text('identity'),
+      bio: text('bio'),
+      avatar: avatar.isEmpty ? '' : resolveAvatarUrl?.call(avatar) ?? avatar,
+    );
+  }
+}
+
+@immutable
 class OriginDetail {
   OriginDetail({
     required this.id,
@@ -172,6 +210,7 @@ class OriginDetail {
     this.metric = const <String, dynamic>{},
     this.coverResource = const GenesisImageResource(),
     this.initLocationGroup,
+    this.precharacter,
     this.locationTree = const <LocationTreeNode<OriginLocation>>[],
     ProcessedLocationTree<OriginLocation>? processedLocationTree,
   }) : allLocations = allLocations ?? locations,
@@ -216,6 +255,7 @@ class OriginDetail {
   final Map<String, dynamic> metric;
   final GenesisImageResource coverResource;
   final OriginInitLocationGroup? initLocationGroup;
+  final OriginPrecharacter? precharacter;
   final List<LocationTreeNode<OriginLocation>> locationTree;
   final ProcessedLocationTree<OriginLocation> processedLocationTree;
 
@@ -324,6 +364,7 @@ class OriginDetail {
           ? asJsonMap(info['metric'])
           : const <String, dynamic>{},
       coverResource: coverResource,
+      precharacter: OriginPrecharacter.fromJsonOrNull(json['precharacter']),
       initLocationGroup: OriginInitLocationGroup.fromJsonOrNull(
         json['init_location_group'] ?? info['init_location_group'],
       ),
@@ -518,6 +559,7 @@ class OriginCharacter {
     this.avatarResource = const GenesisImageResource(),
     required this.tags,
     this.tagline = '',
+    this.description = '',
     this.goal = '',
     required this.currentLocationId,
     required this.initialLocationId,
@@ -544,6 +586,9 @@ class OriginCharacter {
   final GenesisImageResource avatarResource;
   final String tags;
   final String tagline;
+
+  /// Complete role setting; independent of the public personality/brief.
+  final String description;
   final String goal;
   final int currentLocationId;
   final int initialLocationId;
@@ -634,6 +679,9 @@ class OriginCharacter {
         asString(json['tags'], fallback: asString(json['identity'])),
       ),
       tagline: decodeGenesisUgcTextForDisplay(asString(json['brief'])),
+      description: decodeGenesisUgcTextForDisplay(
+        asString(json['description'], fallback: asString(json['bio'])),
+      ),
       goal: decodeGenesisUgcTextForDisplay(asString(json['goal'])),
       currentLocationId: currentLocationId,
       initialLocationId: initialLocationId,

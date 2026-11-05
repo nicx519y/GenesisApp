@@ -1144,6 +1144,7 @@ Apifox 可选 Header：
 
 - `info*`: `OriginDetailInfo`
 - `stats*`: `OriginStats`
+- `precharacter*`: object|null；包含字符串 `name/personality/identity/bio/avatar`，其中 `avatar` 是头像 URL 字符串。缺失、null 或字段格式错误表示无预设；空对象或缺少字段时对应字段为空字符串。服务端按当前详情语言返回，译文缺失不回退原文预设。
 - `init_location_group*`: `OriginInitLocationGroup|null`
 - `characters*`: `OriginDetailCharacter[]`
 - `locations*`: `Location[]`，本接口不包含 `location_description`
@@ -1419,11 +1420,19 @@ Query：
 
 - `origin_id*`: string，待 launch 的 origin 业务 id
 - `preset_character_id`: string，origin 角色列表中的 `char_id`
-- `preset_character_override`: object，可选；服务端支持 `name/identity/personality/bio/goal/avatar`，用于覆盖新 world 中绑定原 `char_id` 的角色副本
+- `preset_character_override`: object，可选；当前本地正式后端实际覆盖 `name/identity/personality/avatar`，用于覆盖新 world 中绑定原 `char_id` 的角色副本；`bio/goal` 仅兼容接收且静默忽略（2026-10-29 核对 `components/dto/origin.go` 与 `service/svc_origin/launch_preset_override.go`）。
 - `custom_role`: `WorldCustomRole`
 
 `preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
 `preset_character_override` 只能用于 preset 模式，并且至少包含一个允许覆盖的字段；custom 模式携带时服务端忽略。
+
+2026-10-29 详情页推荐角色与用户卡合并：推荐角色保留原 `char_id`，名字为空或 `{{user}}` 时补用户名，图片为空时独立补用户头像；其余角色顺序保持。推荐卡编辑和补齐资料通过 preset override 提交；无推荐角色的用户身份仍使用 `custom_role`。Origin 模板和用户资料均不回写。开场预览按推荐角色 ID 使用自己的消息气泡；进入 Launch 页面后仅实际选择的 preset ID 被视为用户。
+
+2026-11-05 自定义首卡预填：有推荐角色时保持上述逻辑，不使用 `precharacter`；无推荐角色时，自定义首卡优先整体使用 `origin/detail.precharacter`，缺失或 null 才回退用户资料。预设对象中的空字段保持为空，不逐项混入用户资料；`bio` 对应 Setting。用户在当前页保存的编辑优先于初始预填，profile 异步加载不会覆盖预设；Launch 通过 `custom_role` 提交当前卡片内容，不生成 preset 角色 ID，不回写模板或用户资料。
+
+Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；草稿、本地编辑和详情预览保留全文及原 `goal`，请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
+
+Avatar 入参兼容已按后端 `components/define/image.go:64` 的 `ImageResource.UnmarshalJSON` 核对：URL 字符串和 ImageResource 对象均真实支持；空对象清空头像。覆盖字段省略时继承，显式空文本清空（name 最终不可空）。
 
 `WorldCustomRole`：
 
@@ -1730,6 +1739,8 @@ HTTP 10001 沿用全局登录失效流程，其余非零业务错误通过现有
 ### GET `/aitown-chat/api/v2/messages`
 
 获取指定世界、指定地点的 V2 历史消息。HTTP V2 不读取 `x-app-version`，始终返回完整 V2 DTO；`limit` 默认 20，最大 100。
+
+客户端每次 Socket 首次连接/自动重连成功后，对所有叶子地点限并发 4 同步 `since=0, limit=20`，地图预加载与地点 join 复用当前连接的任务；保留旧缓存并按需补洞。首次同步失败的地点可在后续新正式消息到达时，退避 1/2 秒各额外尝试一次，重复回显不重复触发；缺号补拉最多三次，第 2/3 次分别退避 1/2 秒。有效的新历史结果可更新此前已完成流消息的正文，请求期间的新推送仍受保护。`world_new_message` 不固定拉最新页。轮次元数据直接消费服务端下发值，不因字段缺失单独查询；具体调度及失败边界见 [WebSocket 契约](chatroom-websocket-api.md#地点消息连接同步与恢复)。消息删除不能由最新页缺席推断，完整正式范围仍按下面分页规则替换。
 
 Query：
 
@@ -2442,6 +2453,7 @@ query：
 - `events[].object4*`: string，第四个业务对象；无值传 `""`。接口监控 start 传 `"0"`，终态使用不带单位后缀的整数毫秒字符串记录最终一次实际 transport send 的耗时
 - `events[].ext_data*`: string，扩展信息；无值传 `""`。接口失败传脱敏后的 JSON 字符串，可包含 `reason`、`message`、`native_code`、`cronet_error_code`、`cronet_internal_error_code`、`cronet_immediately_retryable`、`upstream_status`、`upstream_path`、`retry_count`；不得包含请求 header、query、body、完整响应 body 或 stack trace
 - WebSocket 持续断线监控使用 `action_type=monitor`、`action=websocket_disconnect`：object1=World ID，object2=`initial_connect/reconnect`，object3=详细诊断 JSON（cause、最近最多10条 attempt_details，含原始异常、堆栈摘要和可用的关闭信息），object4=上报时具体网络类型（不是耗时）；ext_data 同步包含上述 JSON。连接总耗时实测，DNS/TCP/TLS 分段耗时不可用时不上传对应字段及原因；前台连续15秒首次报，随后每次失败补报；恢复及生命周期规则见 `chatroom-websocket-api.md` 的客户端持续断线监控章节。
+- WebSocket 新消息队列监控使用 `action_type=monitor`，两类 action 为 `location_chat_queue_old_conversation_round` 和 `location_chat_queue_old_location_message_id`。object1=World ID、object2=Location ID、object3=收到的对应 ID、object4=入队前缓存的对应 ID；所有消息 ID 使用十进制字符串。仅检查首次出现的正式推送，正常消息才推进两个缓存，异常仍正常入队；序号冲突也归入第二类，同一消息可分别产生两条事件。ext_data 包含消息身份、收到的 ID、判断前缓存、连接及同步状态和 reason，不含正文；详见 `chatroom-websocket-api.md` 的客户端地点队列异常监控章节。
 - App 生命周期事件使用 `action_type: "event"`：`app_background.object1` 为空；与其配对的 `app_foreground.object1` 为本次后台停留时长，使用不带单位后缀的非负整数毫秒字符串。冷启动不产生 `app_foreground`
 - 客户端接口监控使用 `api_req_start`、`api_req_success`、`api_req_fail_tech`、`api_req_fail_biz`。持续后台轮询接口不产生接口监控事件：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`；`/api/v1/collect` 永久排除。`/api/v1/app/config` 及三个启动关键 Gateway 接口固定上报，其他普通业务接口按启动级采样开关决定。
 
@@ -2568,7 +2580,7 @@ query：
 | `POST /api/v1/origin/update` | 当前 `OriginV1Api.update` 已发送 `origin_id/origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/characters/locations/update_notes/deleted_char_ids/deleted_location_ids`，但尚未暴露新契约中的 `definition_version/map_url/tile_types`；高层 `GenesisApi.updateOrigin` 已兼容轻量 `OriginUpsertResp`。 |
 | `POST /api/v2/origin/create` | 已新增 `OriginV2Api.create` / `GenesisApi.createOriginV2`，完整支持含 `characters[].is_recommend` 的 V1 create body 与 `init_location_group`。Create 页面在同步成功且返回非空 `origin_id` 后立即展示创建成功，不等待异步地图状态；本地 mock 覆盖 definition version 2、Opening 保存与 processing 状态。 |
 | `POST /api/v2/origin/update` | 已新增 `OriginV2Api.update` / `GenesisApi.updateOriginV2`，完整支持含 `characters[].is_recommend` 的 V1 update body、删除列表和完整 `init_location_group`；Edit 页面继续通过 V1 info 等待状态 10。本地 mock 返回递增版本、回显 Opening，并在 info 轮询中确定性模拟 `20 -> 10`。 |
-| `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 使用 `origin_id/preset_character_id/custom_role`；详情页发送 preset 或 custom 二选一 payload，不提供 preset 编辑或 override 调用链，并消费响应 `world_id`。 |
+| `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 使用 `origin_id/preset_character_id/preset_character_override/custom_role`；详情页合并推荐卡，支持本地编辑和 override 调用链；preset/custom 二选一，custom 时不发送 preset override，消费响应 `world_id`。Setting 的 bio 提交当前仅兼容接收、不落库，见本节限制。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
 | `GET /api/v1/discuss/replies` | 已新增 `DiscussV1Api.replies(rootDiscussId,pn,rn)`，query 使用 `root_discuss_id/pn/rn`，响应消费 `list/total/pn/rn`；本地 mock 会按 `root_discuss_id` 过滤并按创建时间倒序分页。 |
 | `POST /api/v1/discuss/post` | `DiscussV1Api.post` 已支持顶级评论与回复统一入口，body 使用 `biz_type/biz_id/content/images/root_discuss_id/parent_discuss_id`，响应消费 `discuss_id/root_discuss_id/level`。 |
@@ -2946,3 +2958,18 @@ Source: supplied `wallpaper.md` contract.
 Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存，Dart 不另建商品详情缓存；不改变服务端商品、购买 report／claim 协议。原生商品缓存不设置固定有效期，仅在当前进程内复用；原生负责主动刷新、失效、并发合并及旧查询失效保护。iOS StoreKit 2 购买复用缓存 Product；Android 保留一次 NOT_FOUND 自动补查，购买条件改变不自动继续收费。流程和诊断字段见 [购买准备](membership-checkout-preparation.md)。
 
 商品刷新时机保持原规则：App 冷启动预加载、进入支付页、购买成功后，重新获取服务端商品并强制查询对应平台商品，覆盖原生缓存；仅在这些刷新之间复用缓存。
+
+## 2026-11-04 聊天生图
+
+新增 GET `/aitown-chat/api/v1/message/photo/price`、POST `/aitown-chat/api/v1/message/photo/create`，复用 ChatroomHttpApi 认证与签名。价格使用整数 cent，创建仅传 `client_request_id/world_id/location_id`，不传 `expected_price_cent`；price 仅供 Sheet 异步展示，历史保留结构化 photo。字段、错误处理及恢复规则见 [聊天生图接入](chat-photo-client-integration.md)。
+
+
+## MiniPhone 相机增量（2026-11-04）
+
+- `GET /aitown-chat/api/v1/phone/photo/options?world_id=...`：整数 `price_cent`、`free_status=available|used`、动态 `styles[].name/label/demo_image_url`。
+- `POST /aitown-chat/api/v1/phone/photo/create`：仅 `client_request_id/world_id/character_ids/aspect_ratio/style` 与可选 `prompt`；响应 `source=camera/world_id/photo`，不传报价锁定字段、地点或聊天消息身份。
+- camera 结果复用共享 PhotoTask 状态，成功仅要求真实 `asset_id/image_url/description`；相册字段为 `desc`。请求和错误/恢复规则见 [小手机拍照接入](mini-phone-camera-integration.md) 与 [服务端契约](mini-phone-camera-api-2026-11-04.md)。
+
+### 2026-11-05 候选卡生图增量
+
+聊天 photo/create 增加 conversation_round_id（十进制字符串）和可选 card_id（int64 数字）；候选受理不含正式消息游标。cards.messages 包含 live_photo，图片任务状态独立于文字 generation_state。2073 表示同卡图片生成中，2072 表示正式来源变化需刷新。接口、选卡联动与通知字段见 [候选卡生图契约](2026-11-05-card-photo-client-changes.md)。小手机 Camera 接口不变。

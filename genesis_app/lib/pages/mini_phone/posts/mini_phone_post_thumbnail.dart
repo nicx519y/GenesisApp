@@ -34,7 +34,7 @@ class MiniPhonePostThumbnail extends StatelessWidget {
   final String imageUrl;
   final void Function(
     ImageProvider<Object> preview,
-    GenesisImageViewerSource? source,
+    GenesisImageViewerSource source,
   )
   onTap;
 

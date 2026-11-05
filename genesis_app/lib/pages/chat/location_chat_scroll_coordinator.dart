@@ -24,6 +24,7 @@ import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../features/location_chat_reply/shared/reply_action_state.dart';
+import '../../features/location_chat_reply/shared/reply_touch_target.dart';
 import '../../ui/tokens/genesis_spacing.dart';
 import 'location_chat_reply_actions.dart';
 import 'location_chat_reply_card_switcher.dart';
@@ -753,6 +754,9 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.replyActionsMessageId,
     this.replyActionsIdentity,
     this.replyActionsVisible = true,
+    this.onTakePhoto,
+    this.takingPhoto = false,
+    this.cameraState = LocationChatReplyActionState.none,
     this.replyPresentationRevision = 0,
     this.replyStatus,
     this.replyCards = const [],
@@ -790,6 +794,10 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.entrySectionMessageId,
     this.hiddenMessageIds = const {},
     this.historyReveal,
+    this.historyRevealAlignTop = false,
+    this.photoArrivalRequestIds = const {},
+    this.photoArrivalTaskIds = const {},
+    this.onHistoryRevealSettled,
     this.expandedHistoryHeaders = const {},
     this.pinnedHistoryHeaderBuilder,
   });
@@ -823,6 +831,11 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   // Presentation only: retain full messages for reply and receipt semantics.
   final Set<String> hiddenMessageIds;
   final ({int generation, String localId})? historyReveal;
+  final bool historyRevealAlignTop;
+  final Set<String> photoArrivalRequestIds;
+  // Live task identities are available even when broadcasts omit request IDs.
+  final Set<String> photoArrivalTaskIds;
+  final VoidCallback? onHistoryRevealSettled;
 
   /// Expanded message ID -> its section's first message ID.
   final Map<String, String> expandedHistoryHeaders;
@@ -896,6 +909,9 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
 
   /// Shows the controls inside the permanent bottom action slot.
   final bool replyActionsVisible;
+  final VoidCallback? onTakePhoto;
+  final bool takingPhoto;
+  final LocationChatReplyActionState cameraState;
 
   /// Change only for explicit card switches, never for streaming text updates.
   final int replyPresentationRevision;
@@ -1008,7 +1024,7 @@ class _TrackedMessageRowState extends State<_TrackedMessageRow> {
 
 class _LocationChatAnchoredMessageListState
     extends State<LocationChatAnchoredMessageList>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final _replyPresentation = LocationChatReplyRetractionController(
     onRetract: _beginAttemptRetraction,
   );
@@ -1031,6 +1047,63 @@ class _LocationChatAnchoredMessageListState
   bool _layoutSnapshotIsArchive = false;
   String? _positioningIdentity;
   String? _lastWaitingOperation;
+  String? _lastPhotoPositionOperation;
+  final _photoArrivals = <String, AnimationController>{};
+  final _readyPhotoArrivals = <String>{};
+  final _photoPreparations = <String, Completer<void>>{};
+  bool _photoTickersEnabled = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _photoTickersEnabled = TickerMode.valuesOf(context).enabled;
+    if (!_photoTickersEnabled) _settlePhotoArrivals(all: true);
+  }
+
+  bool get _photoActionsHidden =>
+      widget.active &&
+      _photoTickersEnabled &&
+      _inputMessages.any((message) {
+        final animation = _photoArrivals[message.localId];
+        return message.photo != null &&
+            animation != null &&
+            !animation.isCompleted;
+      });
+
+  void _settlePhotoArrivals({required bool all}) {
+    final retained = _inputMessages.map((message) => message.localId).toSet();
+    for (final entry in _photoArrivals.entries) {
+      if ((all || !retained.contains(entry.key)) && !entry.value.isCompleted) {
+        _readyPhotoArrivals.remove(entry.key);
+        entry.value.value = 1;
+      }
+    }
+    if (all) {
+      for (final preparation in _photoPreparations.values) {
+        if (!preparation.isCompleted) preparation.complete();
+      }
+    }
+  }
+
+  void _readyPhotoArrival(String localId) {
+    if (!mounted || _photoArrivals[localId]?.isCompleted != false) return;
+    setState(() => _readyPhotoArrivals.add(localId));
+  }
+
+  void _startVisiblePhotoArrivals() {
+    if (_readyPhotoArrivals.isEmpty) return;
+    // declareTasks must run first: an incoming photo can wait behind a stream
+    // with its entire row unmounted. Do not spend its arrival clock in that queue.
+    for (final message in _renderedMessages) {
+      if (_readyPhotoArrivals.contains(message.localId) &&
+          !ChatStreamingEffects.isQueuedOf(context, _streamIdentity(message))) {
+        _readyPhotoArrivals.remove(message.localId);
+        final animation = _photoArrivals[message.localId];
+        if (animation != null && !animation.isCompleted) animation.forward();
+      }
+    }
+  }
+
   String? _waitingAnchorLayoutId;
   bool _waitingPositionPending = false;
   String? _lastEnterHoldIdentity;
@@ -1154,6 +1227,7 @@ class _LocationChatAnchoredMessageListState
   final _readingMarkerOffsets = <String, double>{};
   ({int generation, String localId})? _historyRevealTarget;
   double _historyRevealViewportOffset = 0;
+  int? _settledHistoryReveal;
   final _pinnedHistoryHeader = ValueNotifier<String?>(null);
   final _pinnedHistoryHeaderKey = GlobalKey();
   bool get _revealingHistory =>
@@ -1185,22 +1259,36 @@ class _LocationChatAnchoredMessageListState
     final visitExtent = visitIndex == null
         ? null
         : _entryExtents[_entryKey(visitIndex)];
-    if (visitExtent != null) {
+    if (visitExtent != null && !widget.historyRevealAlignTop) {
       final visitEnd = visitExtent.offset + position.viewportDimension;
       if (visitEnd > contentEnd) contentEnd = visitEnd;
     }
     // Use this layout's content extent, not last frame's maxScrollExtent.
     // A short final segment cannot be top-aligned beyond the actual tail.
-    final maxOffset = (contentEnd - position.viewportDimension).clamp(
-      0.0,
-      double.infinity,
-    );
-    final target = (extent.offset - _historyRevealViewportOffset).clamp(
-      0.0,
-      maxOffset,
-    );
+    final bottomPadding = widget.historyRevealAlignTop
+        ? (widget.style ?? ChatUiStyleConfig.standard).messageListPadding.bottom
+        : 0.0;
+    final maxOffset = (contentEnd + bottomPadding - position.viewportDimension)
+        .clamp(0.0, double.infinity);
+    var desired = extent.offset - _historyRevealViewportOffset;
+    if (widget.historyRevealAlignTop) {
+      final inset = ChatBubbleGeometry.topWithin(
+        _messageLayoutKeys[_messageLayoutId(_renderedMessages[index])]
+            ?.currentContext
+            ?.findRenderObject(),
+      );
+      desired += inset ?? 0;
+    }
+    final target = desired.clamp(0.0, maxOffset);
     _detachedLayoutAnchor = null;
     _anchorRestorePending = false;
+    if ((target - position.pixels).abs() < .5 &&
+        _settledHistoryReveal != _historyRevealTarget!.generation) {
+      _settledHistoryReveal = _historyRevealTarget!.generation;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _revealingHistory) widget.onHistoryRevealSettled?.call();
+      });
+    }
     return target - position.pixels;
   }
 
@@ -1677,27 +1765,58 @@ class _LocationChatAnchoredMessageListState
     });
   }
 
-  void _scheduleWaitingPosition({LocationChatAnchoredMessageList? previous}) {
-    final identity = _waitingIdentity(widget);
-    if (identity == null ||
-        !widget.active ||
-        identity == _lastWaitingOperation) {
+  void _scheduleWaitingPosition({
+    LocationChatAnchoredMessageList? previous,
+    ChatMessageVm? arrivingPhoto,
+    String? photoRequestId,
+    VoidCallback? onPositioned,
+  }) {
+    final positioningPhoto = arrivingPhoto != null || photoRequestId != null;
+    final identity = photoRequestId != null
+        ? 'photo-request:$photoRequestId'
+        : arrivingPhoto == null
+        ? _waitingIdentity(widget)
+        : 'photo:${arrivingPhoto.localId}';
+    final lastOperation = positioningPhoto
+        ? _lastPhotoPositionOperation
+        : _lastWaitingOperation;
+    if (identity == null || !widget.active || identity == lastOperation) {
+      onPositioned?.call();
       return;
     }
-    _lastWaitingOperation = identity;
+    // Photo positioning must not invalidate the completed reply's preparation.
+    // The action slot still checks that reply identity to decide its height.
+    if (positioningPhoto) {
+      _lastPhotoPositionOperation = identity;
+    } else {
+      _lastWaitingOperation = identity;
+    }
     _heldReplyPrefixAnchor = null;
     final coordinator = widget.coordinator;
-    if (!coordinator.canPositionWaitingReply) return;
+    if (!coordinator.canPositionWaitingReply) {
+      onPositioned?.call();
+      return;
+    }
     _positioningIdentity = identity;
     _waitingPositionTargetOffset = null;
     _waitingCorrectionCount = 0;
     _waitingCorrectionTotal = 0;
     final regenerating =
-        widget.replyRegenerationInProgress ||
-        (previous != null &&
-            previous.replyRegenerationDispatchRevision !=
-                widget.replyRegenerationDispatchRevision);
-    final source = regenerating
+        !positioningPhoto &&
+        (widget.replyRegenerationInProgress ||
+            (previous != null &&
+                previous.replyRegenerationDispatchRevision !=
+                    widget.replyRegenerationDispatchRevision));
+    final source = positioningPhoto
+        ? previous?.messages
+              .where(
+                (m) =>
+                    m.localId != arrivingPhoto?.localId &&
+                    (photoRequestId == null ||
+                        m.photo?.requestId != photoRequestId),
+              )
+              .lastOrNull
+        : regenerating
         ? null
         : _inputMessages
                   .where(
@@ -1729,7 +1848,8 @@ class _LocationChatAnchoredMessageListState
     } else {
       _waitingAnchorLayoutId = source == null ? null : _messageLayoutId(source);
     }
-    if (!regenerating &&
+    if (!positioningPhoto &&
+        !regenerating &&
         widget.waitingPositionIdentity != null &&
         widget.waitingPositionClientMsgId == null &&
         _waitingAfterMessageLocalId == null &&
@@ -1753,6 +1873,10 @@ class _LocationChatAnchoredMessageListState
         coordinator.controller.hasClients;
 
     void finishPreparation() {
+      onPositioned?.call();
+      if (mounted && arrivingPhoto != null) {
+        _readyPhotoArrival(arrivingPhoto.localId);
+      }
       if (!mounted || _positioningIdentity != identity) return;
       setState(() {
         _waitingPositionPending = false;
@@ -1770,7 +1894,9 @@ class _LocationChatAnchoredMessageListState
         return;
       }
       final canonicalSend =
-          regenerating || widget.waitingPositionClientMsgId == null
+          positioningPhoto ||
+              regenerating ||
+              widget.waitingPositionClientMsgId == null
           ? null
           : _inputMessages
                 .where(
@@ -1849,7 +1975,10 @@ class _LocationChatAnchoredMessageListState
           },
         );
       }
-      if (!mounted || _positioningIdentity != identity) return;
+      if (!mounted || _positioningIdentity != identity) {
+        finishPreparation();
+        return;
+      }
       if (positioned) {
         // Keyboard dismissal may have enlarged the viewport during animateTo.
         // Finish with the current height, not the pre-animation one.
@@ -2441,6 +2570,14 @@ class _LocationChatAnchoredMessageListState
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
     _updateReplyPresentation();
+    // A canceled visit must not retain an animation barrier on the next visit.
+    _settlePhotoArrivals(
+      all:
+          !widget.active ||
+          oldWidget.coordinator != widget.coordinator ||
+          oldWidget.waitingPositionResetRevision !=
+              widget.waitingPositionResetRevision,
+    );
     if (oldWidget.coordinator != widget.coordinator) {
       _promotedReceiptIdentities.clear();
       _confirmedCandidateContinuities.clear();
@@ -2461,7 +2598,9 @@ class _LocationChatAnchoredMessageListState
       // Preserve the clicked separator's screen position. A pinned header
       // collapses back to the top, rather than restoring an offscreen row.
       _historyRevealViewportOffset =
-          oldExtent == null || !widget.coordinator.controller.hasClients
+          widget.historyRevealAlignTop ||
+              oldExtent == null ||
+              !widget.coordinator.controller.hasClients
           ? 0
           : (oldExtent.offset - widget.coordinator.controller.position.pixels)
                 .clamp(0.0, double.infinity);
@@ -2614,6 +2753,110 @@ class _LocationChatAnchoredMessageListState
         });
       } else {
         _scheduleWaitingPosition(previous: oldWidget);
+      }
+    }
+    // Submission reserves space immediately, without waiting for HTTP or WS.
+    final photoDispatchRequests = {
+      ...widget.photoArrivalRequestIds.difference(
+        oldWidget.photoArrivalRequestIds,
+      ),
+      // Retrying an uncertain submission keeps its original request ID.
+      if (widget.takingPhoto &&
+          !oldWidget.takingPhoto &&
+          widget.photoArrivalRequestIds.isNotEmpty)
+        widget.photoArrivalRequestIds.last,
+    };
+    for (final request in photoDispatchRequests) {
+      final previousPreparation = _photoPreparations[request];
+      if (previousPreparation != null && !previousPreparation.isCompleted) {
+        previousPreparation.complete();
+      }
+      final preparation = Completer<void>();
+      _photoPreparations[request] = preparation;
+      void complete() {
+        if (!preparation.isCompleted) preparation.complete();
+      }
+
+      final coordinator = widget.coordinator;
+      final generation = coordinator.commandGeneration;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !widget.active ||
+            !_photoTickersEnabled ||
+            widget.coordinator != coordinator ||
+            generation != coordinator.commandGeneration ||
+            !widget.replyWaitingPositioningEnabled) {
+          complete();
+          return;
+        }
+        coordinator.prepareWaitingReplyPosition();
+        if (_lastPhotoPositionOperation == 'photo-request:$request') {
+          _lastPhotoPositionOperation = null;
+        }
+        setState(
+          () => _scheduleWaitingPosition(
+            previous: oldWidget,
+            photoRequestId: request,
+            onPositioned: complete,
+          ),
+        );
+      });
+    }
+    // A locally requested photo may arrive over WS before create returns, or
+    // enter the projection just before its request is registered. The latter
+    // still needs a single arrival rather than being treated as old history.
+    // Local requests reserve and position before expanding the same row.
+    // Other live tasks expand in place, including broadcasts without a request.
+    for (final message in _inputMessages) {
+      final photo = message.photo;
+      final request = photo?.requestId;
+      final localRequest = widget.photoArrivalRequestIds.contains(request);
+      final liveTask = widget.photoArrivalTaskIds.contains(photo?.taskId);
+      if (!widget.active ||
+          !_photoTickersEnabled ||
+          request == null ||
+          (!localRequest && !liveTask) ||
+          _photoArrivals.containsKey(message.localId) ||
+          (_previousReceiptIds.contains(_receiptIdentity(message)) &&
+              !photoDispatchRequests.contains(request))) {
+        continue;
+      }
+      final animation = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 420),
+      );
+      _photoArrivals[message.localId] = animation;
+      animation.addStatusListener((status) {
+        if (mounted && status == AnimationStatus.completed) setState(() {});
+      });
+      final preparation = _photoPreparations[request];
+      if (preparation != null) {
+        unawaited(
+          preparation.future.then((_) {
+            _readyPhotoArrival(message.localId);
+          }),
+        );
+      } else if (localRequest && widget.replyWaitingPositioningEnabled) {
+        final coordinator = widget.coordinator;
+        final generation = coordinator.commandGeneration;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (!widget.active ||
+              widget.coordinator != coordinator ||
+              generation != coordinator.commandGeneration) {
+            _readyPhotoArrival(message.localId);
+            return;
+          }
+          coordinator.prepareWaitingReplyPosition();
+          setState(
+            () => _scheduleWaitingPosition(
+              previous: oldWidget,
+              arrivingPhoto: message,
+            ),
+          );
+        });
+      } else {
+        _readyPhotoArrivals.add(message.localId);
       }
     }
     if (widget.waitingPositionIdentity != null && !widget.oldestEdgeLoading) {
@@ -3237,6 +3480,9 @@ class _LocationChatAnchoredMessageListState
 
   @override
   void dispose() {
+    for (final animation in _photoArrivals.values) {
+      animation.dispose();
+    }
     _replyPresentation.dispose();
     widget.coordinator.removeListener(_handleCoordinatorChanged);
     if (identical(widget.coordinator._messageListOwner, this)) {
@@ -3312,6 +3558,7 @@ class _LocationChatAnchoredMessageListState
             ),
       ]);
     }
+    _startVisiblePhotoArrivals();
     final style = widget.style ?? ChatUiStyleConfig.standard;
     final hasOldestEdgeContent =
         widget.topTitle.trim().isNotEmpty ||
@@ -3324,7 +3571,7 @@ class _LocationChatAnchoredMessageListState
       enabled: requiresSecondScroll,
       topPadding: style.messageListPadding.top,
     );
-    return NotificationListener<ChatStreamingLayoutNotification>(
+    final content = NotificationListener<ChatStreamingLayoutNotification>(
       onNotification: (_) {
         _scheduleContentVisibility();
         return true;
@@ -3456,6 +3703,7 @@ class _LocationChatAnchoredMessageListState
         },
       ),
     );
+    return LocationChatReplyTouchScope(child: content);
   }
 
   Widget _buildLazyMessageView({
@@ -3473,7 +3721,8 @@ class _LocationChatAnchoredMessageListState
             .where((entry) {
               if (entry < 0) return true;
               final data = _visibilityRows[entry];
-              return data.localId == _restoringViewport?.localId ||
+              return (_photoArrivals[data.localId]?.isCompleted == false) ||
+                  data.localId == _restoringViewport?.localId ||
                   widget.coordinator.retainedMessageLocalIds.contains(
                     data.localId,
                   ) ||
@@ -3732,6 +3981,7 @@ class _LocationChatAnchoredMessageListState
             ),
       pinned:
           data == null ||
+          (_photoArrivals[data.localId]?.isCompleted == false) ||
           (!_initialViewportReady &&
               !widget.coordinator.isReadingHistory &&
               entry == lastEntry) ||
@@ -4112,6 +4362,7 @@ class _LocationChatAnchoredMessageListState
         shouldShowChatDateDivider(previous?.createdAt, current.createdAt);
     final identity = (
       current,
+      _photoArrivals[current.localId],
       widget.readOnlyArchive ||
           _restoredEntryContent[('timeline', _receiptIdentity(current))] ==
               current.text,
@@ -4170,7 +4421,17 @@ class _LocationChatAnchoredMessageListState
       mountedRows: _mountedMessageRows,
       layoutId: layoutId,
       key: layoutKey,
-      child: widget.messageDecorator?.call(current, previous, row) ?? row,
+      child: _photoArrivals.containsKey(current.localId)
+          ? SizeTransition(
+              key: ValueKey('photo-arrival-${current.localId}'),
+              sizeFactor: _photoArrivals[current.localId]!.drive(
+                CurveTween(curve: Curves.easeOutCubic),
+              ),
+              alignment: Alignment.topCenter,
+              child:
+                  widget.messageDecorator?.call(current, previous, row) ?? row,
+            )
+          : widget.messageDecorator?.call(current, previous, row) ?? row,
     );
     final child = lazy
         ? KeyedSubtree(
@@ -4327,6 +4588,9 @@ class _LocationChatAnchoredMessageListState
                         : null,
                     actionToolbarKey: _replyActionToolbarKey,
                     paginationKey: _replyPaginationKey,
+                    onTakePhoto: widget.onTakePhoto,
+                    cameraState: widget.cameraState,
+                    actionsHidden: _photoActionsHidden,
                     inspirationFeature: widget.inspirationFeature,
                     editFeature: widget.editFeature,
                     regenerateFeature: widget.regenerateFeature,

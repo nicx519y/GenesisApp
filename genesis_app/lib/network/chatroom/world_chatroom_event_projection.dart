@@ -4,6 +4,14 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
   void _notifyHistoryChange(ChatroomEvent event) {
     if (_disposed || _historyChanges.isClosed) return;
     final changed = switch (event) {
+      ChatroomLivePhotoMessage e =>
+        e.message.worldId == _worldId &&
+            e.message.errNo == 0 &&
+            e.message.payload['card_id'] == null,
+      ChatroomPhotoResult e =>
+        e.message.worldId == _worldId &&
+            e.source == 'chat' &&
+            e.message.payload['card_id'] == null,
       ChatroomMessageEvent e =>
         e.ok &&
             e.worldId == _worldId &&
@@ -22,9 +30,73 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
     if (changed) _historyChanges.add(_worldId);
   }
 
-  Future<void> _handleEvent(ChatroomEvent event) async {
-    if (_handleAttemptStream(event)) return;
+  Future<void> _handleEvent(
+    ChatroomEvent event, {
+    int? queueConnectionGeneration,
+  }) async {
+    final ticket = queueConnectionGeneration ?? _messageSyncGeneration;
+    final monitorQueue = !_disposed && ticket == _messageSyncGeneration;
+    if (_handleAttemptStream(event, monitorQueue: monitorQueue)) return;
+    final observations = monitorQueue
+        ? _inspectSocketQueueEvent(event)
+        : const <ChatroomQueueObservation>[];
+    await _applySocketEvent(event);
+    if (!_disposed && ticket == _messageSyncGeneration) {
+      for (final observation in observations) {
+        if (_queueAnomalyMonitor.matchesQueuedMessage(
+          observation.location,
+          observation.message,
+        )) {
+          _queueAnomalyMonitor.commit(observation);
+        }
+      }
+    }
+  }
+
+  Future<void> _applySocketEvent(ChatroomEvent event) async {
     switch (event) {
+      case ChatroomLivePhotoMessage e:
+        if (e.message.worldId == _worldId &&
+            e.message.errNo == 0 &&
+            e.message.payload['card_id'] != null) {
+          if (!_photoLiveRevisions.containsKey(e.photo.taskId)) {
+            _photoLiveRevisions[e.photo.taskId] = ++_photoRevision;
+          }
+          if (_storageOwnerUid.isNotEmpty) {
+            await ChatPhotoJobStore(
+              _api.chatroomHttp.cacheNamespace,
+              _storageOwnerUid,
+              _worldId,
+              e.message.locationId,
+            ).update({
+              ...e.message.toJson(),
+              'card_id': e.message.payload['card_id'],
+            });
+          }
+        }
+        if (e.message.worldId == _worldId &&
+            e.message.errNo == 0 &&
+            e.message.payload['card_id'] == null &&
+            (e.message.messageId ?? 0) > 0 &&
+            (e.message.locationMessageId ?? 0) > 0) {
+          acceptLivePhoto(
+            WorldChatroomMessage.fromHttpMessage(
+              ChatroomHttpMessage.fromV2Message(e.message),
+            ),
+          );
+        }
+      case ChatroomPhotoResult e:
+        if (e.message.worldId == _worldId &&
+            const {'chat', 'camera'}.contains(e.source) &&
+            e.photo != null &&
+            e.photo!.terminal) {
+          if (e.source == 'chat') {
+            _applyPhotoResult(e);
+          } else if (e.eventId.isNotEmpty &&
+              _seenPhotoResults.add('camera:${e.eventId}')) {
+            _photoResults.add(e);
+          }
+        }
       case ChatroomPhoneCharactersMoved e:
         if (e.worldId == _worldId) {
           _applyPhoneCharacterLocations(e);
@@ -337,25 +409,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           unawaited(_scheduleLatestMessagesRefresh());
         }
       case 'world_new_message':
-        _logChatroomSocketEvent(
-          'world_new_message fetch start location=${event.locationId} '
-          'world=$_worldId',
-        );
-        final notificationLocationId = event.locationId.trim();
-        if (notificationLocationId.isNotEmpty) {
-          unawaited(
-            _refreshEventLocationMessages(
-              locationId: notificationLocationId,
-              sourceType: event.eventType,
-            ),
-          );
-        } else {
-          unawaited(_scheduleLatestMessagesRefresh());
-        }
-        _logChatroomSocketEvent(
-          'world_new_message fetch scheduled location=${event.locationId} '
-          'world=$_worldId',
-        );
+        // Archive invalidation is emitted by _notifyHistoryChange. Location
+        // queues receive complete messages directly from the Socket.
+        break;
       case 'tick_start':
         if (event.worldId != _worldId) return;
         _setState(
@@ -1055,7 +1111,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
                 : message.copyWith(locationId: stateLocationId);
           })
           .toList(growable: false);
-      _upsertMessages(hydratedMessages, persist: false);
+      _upsertMessages(hydratedMessages, persist: false, calibrateQueue: true);
       _localHydratedMessageKeys.add(hydrationKey);
       final afterStateCount =
           _state.messagesByLocation[stateLocationId]?.length ?? 0;

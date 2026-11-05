@@ -1,3 +1,5 @@
+import 'chat_photo.dart';
+export 'chat_photo.dart';
 import '../api_client.dart';
 import '../models/world_history.dart';
 import '../api_exception.dart';
@@ -16,6 +18,63 @@ class ChatroomHttpApi {
   ChatroomHttpApi(this._client);
 
   final ApiClient _client;
+  String get cacheNamespace => _client.cacheNamespace;
+
+  Future<int> getPhotoPrice() async {
+    final data = await _getMap(
+      'aitown-chat/api/v1/message/photo/price',
+      {},
+      strictEnvelope: true,
+    );
+    final price = data['price_cent'];
+    if (price is! int || price < 0) {
+      throw ApiException(
+        message: 'Invalid photo price',
+        kind: ApiExceptionKind.response,
+      );
+    }
+    return price;
+  }
+
+  Future<ChatPhotoReceipt> createPhoto(ChatPhotoRequest request) async {
+    if (request.requestId.isEmpty ||
+        request.requestId.length > 128 ||
+        request.worldId.isEmpty ||
+        request.locationId.isEmpty ||
+        (request.roundId != null && request.roundId! <= 0) ||
+        (request.cardId != null &&
+            (request.cardId! <= 0 || request.roundId == null))) {
+      throw ArgumentError('Invalid photo request');
+    }
+    final json = await _client.post<Object?>(
+      'aitown-chat/api/v1/message/photo/create',
+      body: request.toJson(),
+    );
+    if (json is! Map || json['err_no'] is! int) {
+      throw ApiException(
+        message: 'Invalid photo envelope',
+        kind: ApiExceptionKind.response,
+      );
+    }
+    final data = handleV1ResponseErrNo(json);
+    try {
+      final receipt = ChatPhotoReceipt.fromJson(asJsonMap(data));
+      if (receipt.worldId != request.worldId ||
+          receipt.locationId != request.locationId ||
+          receipt.photo.requestId != request.requestId ||
+          receipt.cardId != request.cardId ||
+          (request.roundId != null && receipt.roundId != request.roundId)) {
+        throw const FormatException('Mismatched photo receipt');
+      }
+      return receipt;
+    } catch (error) {
+      throw ApiException(
+        message: 'Invalid photo receipt',
+        kind: ApiExceptionKind.response,
+        error: error,
+      );
+    }
+  }
 
   /// Captured when a real operation starts so observers can reject responses
   /// from an account that was replaced while the request was in flight.

@@ -10,7 +10,9 @@ import '../state/mini_phone_store.dart';
 /// Keeps an in-flight Post independent of the phone's visible route.
 class MiniPhonePostDraft extends ChangeNotifier {
   static const maxCharacters = 500;
-  MiniPhonePostDraft(this.store) : _generation = store.accountGeneration {
+  MiniPhonePostDraft(this.store)
+    : isCameraPreview = false,
+      _generation = store.accountGeneration {
     store.addListener(_accountChanged);
     store.ready.then((_) {
       if (_disposed || text.isNotEmpty) return;
@@ -23,18 +25,42 @@ class MiniPhonePostDraft extends ChangeNotifier {
     });
   }
 
+  MiniPhonePostDraft.cameraPhoto(
+    this.store,
+    String imageUrl, {
+    this.previewImageProvider,
+  }) : isCameraPreview = false,
+       _generation = store.accountGeneration {
+    uploadedUrl = imageUrl;
+    store.addListener(_accountChanged);
+  }
+
+  /// Isolated local composition for a simulated Camera photo. Never writes.
+  MiniPhonePostDraft.cameraPreview(this.store, this.previewAsset)
+    : isCameraPreview = true,
+      _generation = store.accountGeneration {
+    store.addListener(_accountChanged);
+  }
+
   final MiniPhoneStore store;
+  final bool isCameraPreview;
+  String? previewAsset;
   int _generation;
   bool _disposed = false;
   String text = '';
   ProcessedUploadImage? photo;
+
+  /// Reuses the album/viewer's decoded thumbnail; never changes the write URL.
+  ImageProvider<Object>? previewImageProvider;
   String? uploadedUrl;
   String? error;
   bool preparing = false;
   bool submitting = false;
 
-  bool get locked => submitting || store.unresolved('post:new');
+  bool get locked =>
+      submitting || (!isCameraPreview && store.unresolved('post:new'));
   bool get canSubmit =>
+      !isCameraPreview &&
       !submitting &&
       !preparing &&
       text.trim().isNotEmpty &&
@@ -49,7 +75,9 @@ class MiniPhonePostDraft extends ChangeNotifier {
     if (_generation == store.accountGeneration) return;
     _generation = store.accountGeneration;
     text = '';
+    previewAsset = null;
     photo = null;
+    previewImageProvider = null;
     uploadedUrl = error = null;
     preparing = submitting = false;
     notifyListeners();
@@ -62,13 +90,14 @@ class MiniPhonePostDraft extends ChangeNotifier {
   void removePhoto() {
     if (locked || preparing) return;
     photo = null;
+    previewImageProvider = null;
     uploadedUrl = null;
     error = null;
     notifyListeners();
   }
 
   Future<void> choose(Future<ProcessedUploadImage?> Function() prepare) async {
-    if (locked || preparing) return;
+    if (isCameraPreview || locked || preparing) return;
     final generation = store.accountGeneration;
     preparing = true;
     error = null;
@@ -77,6 +106,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       final selected = await prepare();
       if (!_current(generation) || selected == null) return;
       photo = selected;
+      previewImageProvider = null;
       uploadedUrl = null;
     } catch (e) {
       if (_current(generation)) {
@@ -149,6 +179,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       if (!_current(generation) || !ok) return false;
       text = '';
       photo = null;
+      previewImageProvider = null;
       uploadedUrl = null;
       return true;
     } catch (e) {
@@ -170,6 +201,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    previewImageProvider = null;
     store.removeListener(_accountChanged);
     super.dispose();
   }

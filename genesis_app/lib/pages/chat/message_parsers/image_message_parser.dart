@@ -17,8 +17,8 @@ class ImageMessageParser implements LocationChatMessageParser {
       message: message,
       context: context,
       senderType: 'image',
-      text: text,
-      imageUrl: text.trim(),
+      text: message.photo?.description ?? text,
+      imageUrl: message.photo?.imageUrl ?? text.trim(),
     );
   }
 }

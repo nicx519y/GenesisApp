@@ -27,6 +27,63 @@ void main() {
 
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
+  test(
+    'preset launch forwards original ID and explicit override values',
+    () async {
+      final transport = _FakeTransport(
+        (_) => _jsonResponse({
+          'err_no': 0,
+          'data': {'world_id': 'world_merged'},
+        }),
+      );
+      await _originApi(transport).launch(
+        originId: 'origin_1',
+        presetCharacterId: 'char_2',
+        presetCharacterOverride: {
+          'name': 'Player',
+          'identity': '',
+          'personality': 'Curious',
+          'bio': 'Full setting',
+          'avatar': <String, dynamic>{},
+        },
+      );
+      expect(_requestBody(transport.requests.single), {
+        'origin_id': 'origin_1',
+        'preset_character_id': 'char_2',
+        'preset_character_override': {
+          'name': 'Player',
+          'identity': '',
+          'personality': 'Curious',
+          'bio': 'Full setting',
+          'avatar': <String, dynamic>{},
+        },
+      });
+      await _flushAnalytics();
+    },
+  );
+
+  test(
+    'custom launch omits an accidentally supplied preset override',
+    () async {
+      final transport = _FakeTransport(
+        (_) => _jsonResponse({
+          'err_no': 0,
+          'data': {'world_id': 'world_custom'},
+        }),
+      );
+      await _originApi(transport).launch(
+        originId: 'origin_1',
+        customRole: {'name': 'Player', 'bio': 'Full setting'},
+        presetCharacterOverride: {'name': 'Wrong role'},
+      );
+      expect(_requestBody(transport.requests.single), {
+        'origin_id': 'origin_1',
+        'custom_role': {'name': 'Player', 'bio': 'Full setting'},
+      });
+      await _flushAnalytics();
+    },
+  );
+
   test('preset launch records launch and explicit successful world', () async {
     final transport = _FakeTransport(
       (_) => _jsonResponse({

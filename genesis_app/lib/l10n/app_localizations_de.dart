@@ -3739,4 +3739,217 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Deine Datenschutzeinstellungen konnten nicht gespeichert werden. Versuche es erneut.';
+
+  @override
+  String get miniPhoneCameraInThePhoto => 'Auf dem Foto';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Personen ausgewählt',
+      one: '1 Person ausgewählt',
+      zero: 'Niemand ausgewählt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => 'Stil';
+
+  @override
+  String get miniPhoneCameraCastHint =>
+      'Tippe auf die Personen unten, um sie ins Bild zu holen.';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => 'Beschreibe den Moment';
+
+  @override
+  String get miniPhoneCameraPromptHint => 'Wo bist du? Wie ist die Stimmung?';
+
+  @override
+  String get miniPhoneCameraTryTemplate => 'Probiere eine Vorlage';
+
+  @override
+  String get miniPhoneCameraTemplateHint =>
+      'Tippen, um die Beschreibung einzufügen';
+
+  @override
+  String get miniPhoneCameraPovSelfie => 'Selfie mit ausgestrecktem Arm';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => 'Spiegelselfie';
+
+  @override
+  String get miniPhoneCameraByFriend => 'Von einem Freund';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      'Ein Selfie mit ausgestrecktem Arm, das nur die ausgewählten Charaktere zeigt und von einem von ihnen aufgenommen wird. Alle ausgewählten Charaktere sollen vollständig im Bild sein und mit entspanntem, natürlichem Gesichtsausdruck in die Linse schauen. Verwende eine leichte Weitwinkelperspektive, weiches Licht und eine sanft verschwommene Umgebung aus ihrer Welt. Behalte ihr Aussehen und ihre Kleidung bei. Füge keine weiteren Personen hinzu.';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      'Ein ungezwungenes Spiegelselfie, das nur die ausgewählten Charaktere zeigt. Einer hält die Kamera, und alle ausgewählten Charaktere sind im Spiegelbild zu sehen. Zeige einen klar erkennbaren Spiegelrand, natürliche Posen und weiches Innenlicht in einer Umgebung aus ihrer Welt. Behalte ihr Aussehen und ihre Kleidung bei. Füge keine weiteren Personen hinzu.';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      'Ein Foto auf Augenhöhe, das nur die ausgewählten Charaktere zeigt und von jemandem außerhalb des Bildes aufgenommen wird. Alle ausgewählten Charaktere sollen sichtbar sein, mit entspannten Posen und natürlichen Gesichtsausdrücken in einer Umgebung aus ihrer Welt. Die fotografierende Person und die Kamera bleiben außerhalb des Bildes: kein Spiegel und kein ausgestreckter Selfie-Arm. Behalte ihr Aussehen und ihre Kleidung bei. Füge keine weiteren Personen hinzu.';
+
+  @override
+  String get miniPhoneCameraCandid => 'Schnappschuss';
+
+  @override
+  String get miniPhoneCameraLivePhoto => 'Lebendiges Foto';
+
+  @override
+  String get miniPhoneCameraCandidPrompt =>
+      'Ein ungestelltes Foto, das nur die ausgewählten Charaktere zeigt und sie ganz natürlich mitten in einem gemeinsamen Moment einfängt. Behalte ihr Aussehen und ihre Kleidung bei, mit einer ungestellten Bildkomposition und einer Kulisse aus ihrer Welt. Füge keine weiteren Personen hinzu.';
+
+  @override
+  String get miniPhoneCameraLivePhotoPrompt =>
+      'Ein lebendiges Standbild, das nur die ausgewählten Charaktere zeigt und eine spontane Geste mit einem dezenten Eindruck von Bewegung einfängt. Behalte ihr Aussehen und ihre Kleidung bei und verwende eine Kulisse aus ihrer Welt. Füge keine weiteren Personen hinzu.';
+
+  @override
+  String get miniPhoneCameraTakePhoto => 'Foto aufnehmen';
+
+  @override
+  String get miniPhoneCameraTryAgain => 'Erneut versuchen';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '$priceString Gems / Foto';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => 'Dein Foto wird erstellt';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => 'Ein Moment nimmt Gestalt an.';
+
+  @override
+  String get miniPhoneCameraCreatingBody =>
+      'Deine Charaktere und deine Szene kommen zusammen.';
+
+  @override
+  String get miniPhoneCameraGenerationFailed =>
+      'Dieses Foto konnte nicht erstellt werden.';
+
+  @override
+  String get miniPhoneCameraDraftPreserved =>
+      'Deine Charaktere und deine Beschreibung sind noch da. Versuche es erneut.';
+
+  @override
+  String get miniPhoneCameraTakeAnother => 'Weiteres Foto aufnehmen';
+
+  @override
+  String get miniPhoneCameraUseInPost => 'In einem Beitrag verwenden';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => 'Vollständiges Foto öffnen';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => 'Bild nicht verfügbar';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => 'In Fotos gespeichert';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => 'Synchronisierung mit Fotos…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed =>
+      'Synchronisierung mit Fotos fehlgeschlagen. Versuche es erneut.';
+
+  @override
+  String get worldoLaunchSetting => 'Hintergrund';
+
+  @override
+  String get miniPhoneCameraMomentTitle => 'Halte diesen Moment fest';
+
+  @override
+  String get miniPhoneCameraMomentBody =>
+      'Verwandle diese Szene in ein Foto mit deinen Charakteren.';
+
+  @override
+  String get miniPhoneCameraDontAskAgain =>
+      'Nicht erneut fragen. Tippe auf die Kamera, um direkt ein Foto zu generieren.';
+
+  @override
+  String get miniPhoneCameraFreeTrial => 'Kostenlos testen';
+
+  @override
+  String get miniPhoneCameraPreviewNotice =>
+      'Nur Vorschau · Kein Gems-Verbrauch. Beispielbilder werden nicht in deiner Welt gespeichert.';
+
+  @override
+  String get miniPhoneCameraPreviewStarted =>
+      'Die Fotoerstellung wurde gestartet. Du kannst ein weiteres Foto aufnehmen.';
+
+  @override
+  String miniPhoneCameraGeneratingCount({required int count}) {
+    return '$count in Erstellung';
+  }
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '$originalPrice $price Gems / Foto';
+  }
+
+  @override
+  String get miniPhoneCameraPeopleLimit => 'Wähle bis zu 4 Personen.';
+
+  @override
+  String get miniPhoneCameraFailureRefund =>
+      'Die Generierung ist fehlgeschlagen. Falls Gems abgebucht wurden, werden sie zurückerstattet.';
+
+  @override
+  String get miniPhoneCameraPreviewPostNotice =>
+      'Nur eine Vorschau. Dieses Beispielfoto kann nicht in deiner Welt veröffentlicht werden.';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return 'Grundpreis: $price Gems';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      'Dein erstes Foto ist möglicherweise kostenlos. Der Server bestimmt, ob du dafür berechtigt bist und welcher Betrag letztlich berechnet wird.';
+
+  @override
+  String get chatPhotoGenerate => 'Foto generieren';
+
+  @override
+  String get chatPhotoRecover => 'Vorherige Anfrage prüfen';
+
+  @override
+  String get chatPhotoUncertain =>
+      'Die vorherige Fotoanfrage wurde noch nicht bestätigt. Prüfe sie, bevor du ein weiteres Foto aufnimmst.';
+
+  @override
+  String get chatPhotoGenerating => 'Foto wird generiert…';
+
+  @override
+  String get chatPhotoFailed => 'Das Foto konnte nicht generiert werden.';
+
+  @override
+  String get chatPhotoUnavailable => 'Dieses Foto ist nicht mehr verfügbar.';
+
+  @override
+  String get cameraFreeAvailable =>
+      'Dein erstes Foto ist derzeit kostenlos. Ob du berechtigt bist, wird beim Absenden geprüft.';
+
+  @override
+  String get cameraSubmissionUnconfirmed => 'Übermittlung nicht bestätigt';
+
+  @override
+  String get cameraRequestConflict =>
+      'Diese Anfrage steht im Konflikt mit einer früheren Übermittlung. Ihre Angaben können nicht geändert werden.';
 }

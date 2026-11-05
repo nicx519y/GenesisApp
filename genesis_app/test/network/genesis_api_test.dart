@@ -16,6 +16,7 @@ import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/personalization.dart';
+import 'package:genesis_flutter_android/network/models/origin.dart';
 import '../support/personalization_fixtures.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
@@ -2241,6 +2242,68 @@ void main() {
     );
   });
 
+  test('getOrigin maps precharacter and resolves its avatar URL', () async {
+    final raw = <String, Object?>{
+      'name': 'Preset player',
+      'personality': 'Curious',
+      'identity': 'Explorer',
+      'bio': 'A complete\nbackground',
+      'avatar': 'uploads/preset.webp',
+    };
+    final transport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'data': {
+            'info': {'origin_id': 'o_1'},
+            'precharacter': raw,
+          },
+        }),
+      ),
+    );
+    final origin = await _apiWith(transport, transport).getOrigin('o_1');
+    final role = origin.precharacter!;
+    expect(role.name, 'Preset player');
+    expect(role.personality, 'Curious');
+    expect(role.identity, 'Explorer');
+    expect(role.bio, 'A complete\nbackground');
+    expect(role.avatar, resolveAssetUrl('uploads/preset.webp'));
+    expect(transport.requests, hasLength(1));
+    expect(transport.lastRequest!.uri.path, '/api/v1/origin/detail');
+  });
+
+  test(
+    'origin precharacter preserves empty objects and rejects invalid fields',
+    () {
+      for (final raw in <Object?>[
+        null,
+        '',
+        [],
+        {'name': 1},
+        {'avatar': {}},
+      ]) {
+        expect(
+          OriginDetail.fromJson({'precharacter': raw}).precharacter,
+          isNull,
+        );
+      }
+      expect(OriginDetail.fromJson({}).precharacter, isNull);
+      final empty = OriginDetail.fromJson({'precharacter': {}}).precharacter!;
+      expect(empty.name, isEmpty);
+      expect(empty.personality, isEmpty);
+      expect(empty.identity, isEmpty);
+      expect(empty.bio, isEmpty);
+      expect(empty.avatar, isEmpty);
+      final partial = OriginDetail.fromJson({
+        'precharacter': {'name': 'Only name'},
+      }).precharacter!;
+      expect(partial.name, 'Only name');
+      expect(partial.bio, isEmpty);
+    },
+  );
+
   test('getOrigin maps the complete v1 origin detail contract', () async {
     final apiTransport = _FakeTransport(
       handler: (request) => TransportResponse(
@@ -2453,6 +2516,7 @@ void main() {
     expect(origin.connectCount, 24);
     expect(origin.locationCount, 25);
     expect(origin.maxTickCount, 26);
+    expect(origin.precharacter, isNull);
     expect(origin.tags, ['adventure', 'school']);
     expect(origin.initLocationGroup?.locationId, 'loc_1');
     expect(

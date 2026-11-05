@@ -26,6 +26,7 @@ import 'tilemap_model.dart';
 import 'tilemap_renderer.dart';
 import 'tilemap_settings_button_visibility.dart';
 import 'tilemap_settings_store.dart';
+import 'tilemap_view_state.dart';
 
 export 'tilemap_renderer.dart' show TilemapOverlayOcclusionController;
 
@@ -57,6 +58,38 @@ LinearGradient tilemapBottomEdgeFadeGradient({
 }
 
 class TilemapRestorationController extends ChangeNotifier {
+  VoidCallback? onViewStateChanged;
+
+  TilemapViewState? get viewState => _currentLocationId.isEmpty
+      ? null
+      : TilemapViewState(
+          initialLocationId: _initialLocationId,
+          currentLocationId: _currentLocationId,
+          locationTrail: _locationTrail,
+          viewportTransforms: _viewportTransforms,
+        );
+
+  /// Restore before mounting the map so its first request uses this location.
+  void restoreWorldView({
+    required String worldId,
+    required TilemapViewState state,
+  }) {
+    _ensureScope(
+      scopeKey: 'world:${worldId.trim()}',
+      initialLocationId: state.initialLocationId,
+    );
+    _currentLocationId = state.currentLocationId;
+    _locationTrail
+      ..clear()
+      ..addAll(state.locationTrail);
+    _viewportTransforms
+      ..clear()
+      ..addAll({
+        for (final entry in state.viewportTransforms.entries)
+          entry.key: entry.value.clone(),
+      });
+  }
+
   String _scopeKey = '';
   String _initialLocationId = '';
   String _currentLocationId = '';
@@ -92,6 +125,7 @@ class TilemapRestorationController extends ChangeNotifier {
 
   @override
   void dispose() {
+    onViewStateChanged = null;
     _clearMapPrefetches();
     super.dispose();
   }
@@ -309,6 +343,7 @@ class TilemapRestorationController extends ChangeNotifier {
     _locationTrail
       ..clear()
       ..addAll(locationTrail);
+    onViewStateChanged?.call();
   }
 
   Matrix4? _viewportTransform({
@@ -328,6 +363,7 @@ class TilemapRestorationController extends ChangeNotifier {
   }) {
     _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
     _viewportTransforms[mapId] = transform.clone();
+    onViewStateChanged?.call();
   }
 
   void _clearViewportTransform({

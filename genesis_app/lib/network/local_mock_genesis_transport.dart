@@ -28,6 +28,8 @@ class LocalMockGenesisTransport implements HttpTransport {
   final _musicLikes = <String, Set<String>>{};
   final _historySnapshots = <String, (String, List<Map<String, dynamic>>)>{};
   int _historySnapshotSequence = 0;
+  final _photoRequests =
+      <String, (Map<String, dynamic>, Map<String, dynamic>)>{};
 
   @visibleForTesting
   void seedChatroomPhoneMovementMessage({
@@ -166,6 +168,27 @@ class LocalMockGenesisTransport implements HttpTransport {
         });
       }
       final phonePath = apiPath.substring('aitown-chat/api/v1/phone/'.length);
+      if (method == 'GET' && phonePath == 'photo/options') {
+        return _ok({
+          'err_no': 0,
+          'data': {
+            'world_id': query['world_id'],
+            'price_cent': 3000,
+            'free_status': 'used',
+            'styles': [
+              {'name': 'Selfie', 'label': 'selfie', 'demo_image_url': ''},
+            ],
+          },
+        });
+      }
+      if (method == 'POST' && phonePath == 'photo/create') {
+        // Local mock cannot complete a real generation or create an album asset.
+        return _ok({
+          'err_no': 1001,
+          'err_msg': 'Photo generation is unavailable in the local mock.',
+          'data': {},
+        });
+      }
       if (method == 'GET' && phonePath == 'post/authors') {
         return _ok({
           'err_no': 0,
@@ -406,6 +429,91 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'aitown-chat/api/v1/message/photo/price') {
+      return _v1Ok({'price_cent': 2000});
+    }
+    if (method == 'POST' && path == 'aitown-chat/api/v1/message/photo/create') {
+      final id = body['client_request_id'];
+      final world = body['world_id'];
+      final location = body['location_id'];
+      if (id is! String ||
+          id.isEmpty ||
+          id.length > 128 ||
+          world is! String ||
+          world.isEmpty ||
+          location is! String ||
+          location.isEmpty ||
+          body.keys.any(
+            (key) => !const {
+              'client_request_id',
+              'world_id',
+              'location_id',
+              'conversation_round_id',
+              'card_id',
+            }.contains(key),
+          ) ||
+          (body['conversation_round_id'] != null &&
+              (body['conversation_round_id'] is! String ||
+                  int.tryParse(body['conversation_round_id'] as String) ==
+                      null)) ||
+          (body['card_id'] != null &&
+              (body['card_id'] is! int ||
+                  (body['card_id'] as int) <= 0 ||
+                  body['conversation_round_id'] == null))) {
+        return _v1BusinessError(1001, 'Invalid photo parameters');
+      }
+      final previous = _photoRequests[id];
+      if (previous != null) {
+        if (!mapEquals(previous.$1, body)) {
+          return _v1BusinessError(2062, 'Photo request parameters changed');
+        }
+        return _v1Ok(previous.$2);
+      }
+      if (body['card_id'] != null) {
+        return _error(
+          501,
+          'Candidate card photo generation is not simulated by the local transport',
+        );
+      }
+      final photo = <String, Object?>{
+        'task_id': 'mock-photo-$id',
+        'client_request_id': id,
+        'status': 'generating',
+        'image': null,
+        'failure': null,
+      };
+      final row = _state._newChatroomMessage(
+        worldId: world,
+        locationId: location,
+        conversationRoundId: ++_state._chatroomRoundSeq,
+        roundOrder: 0,
+        senderType: 'live_photo',
+        senderId: '',
+        senderName: '',
+        userId: '',
+        conversationType: 'live_photo',
+        content: '',
+        messageType: 'image',
+        businessType: 'live_photo',
+        v2Payload: {'content': '', 'photo': photo},
+      );
+      _state._chatroomMessages.add(row);
+      final result = <String, dynamic>{
+        'source': 'chat',
+        'world_id': world,
+        'location_id': location,
+        for (final key in [
+          'conversation_round_id',
+          'global_message_id',
+          'message_id',
+          'location_message_id',
+        ])
+          key: '${row[key]}',
+        'photo': photo,
+      };
+      _photoRequests[id] = (Map.of(body), result);
+      return _v1Ok(result);
+    }
     if (method == 'GET' && path == 'aitown-chat/api/v1/world/history') {
       final worldId = query['world_id'] ?? '';
       final limit = int.tryParse(query['limit'] ?? '20');
@@ -971,6 +1079,14 @@ class LocalMockGenesisTransport implements HttpTransport {
         'world_id': _state.launchV1World(
           '${body['origin_id'] ?? body['oid'] ?? ''}',
           presetCharacterId: '${body['preset_character_id'] ?? ''}',
+          presetCharacterOverride: body['preset_character_override'] is Map
+              ? Map<String, dynamic>.from(
+                  body['preset_character_override'] as Map,
+                )
+              : null,
+          customRole: body['custom_role'] is Map
+              ? Map<String, dynamic>.from(body['custom_role'] as Map)
+              : null,
         ),
       });
     }
@@ -1972,44 +2088,65 @@ class _MockState {
         .toSet()
         .toList();
     final refs = locations.take(2).toList();
-    return List.generate(
-      45,
-      (index) => {
-        'global_message_id': '9007199254740993$index',
-        'tick': (44 - index) ~/ 5,
-        'sub_tick': 0,
-        'type': index % 5 == 0 ? 'tick' : 'narrator',
-        'sender_id': index % 5 == 0 ? 'tick' : 'narrator',
-        'sender_name': '',
-        'user_id': null,
-        'message_type': 'text',
-        'content': index % 5 == 0
-            ? jsonEncode({
-                'current_time': 'Day 1',
-                'global': 'Archive chapter $index',
-                'global_status': null,
-                'story_events': [
-                  if (refs.isNotEmpty)
-                    {
-                      'location_id': refs.first,
-                      'timestamp': 'Day 1',
-                      'visibility': 'public',
-                      'visible_to': null,
-                      'text': 'Archive event $index',
-                      'clue': '',
-                      'cast': null,
-                      'status': null,
-                    },
-                ],
-                'characters_moved': [],
-              })
-            : 'Archive message $index',
-        'min_app_version': 0,
-        'current_time': 'Day 1',
-        'created_at': '2026-10-19T12:00:00+08:00',
-        'location_refs': index % 5 == 0 ? refs : refs.take(1).toList(),
-      },
-    );
+    return [
+      for (final row in _chatroomMessagesForWorld(
+        worldId,
+      ).reversed.where((m) => m['type'] == 'live_photo'))
+        {
+          'global_message_id': '${row['global_message_id']}',
+          'type': 'live_photo',
+          'sender_id': '',
+          'sender_name': '',
+          'user_id': null,
+          'message_type': 'image',
+          'content': row['content'],
+          'photo': (row['v2_payload'] as Map)['photo'],
+          'min_app_version': 0,
+          'current_time': '',
+          'created_at': row['created_at'],
+          'location_refs': [row['location_id']],
+          'tick': 0,
+          'sub_tick': 0,
+        },
+      ...List.generate(
+        45,
+        (index) => {
+          'global_message_id': '9007199254740993$index',
+          'tick': (44 - index) ~/ 5,
+          'sub_tick': 0,
+          'type': index % 5 == 0 ? 'tick' : 'narrator',
+          'sender_id': index % 5 == 0 ? 'tick' : 'narrator',
+          'sender_name': '',
+          'user_id': null,
+          'message_type': 'text',
+          'content': index % 5 == 0
+              ? jsonEncode({
+                  'current_time': 'Day 1',
+                  'global': 'Archive chapter $index',
+                  'global_status': null,
+                  'story_events': [
+                    if (refs.isNotEmpty)
+                      {
+                        'location_id': refs.first,
+                        'timestamp': 'Day 1',
+                        'visibility': 'public',
+                        'visible_to': null,
+                        'text': 'Archive event $index',
+                        'clue': '',
+                        'cast': null,
+                        'status': null,
+                      },
+                  ],
+                  'characters_moved': [],
+                })
+              : 'Archive message $index',
+          'min_app_version': 0,
+          'current_time': 'Day 1',
+          'created_at': '2026-10-19T12:00:00+08:00',
+          'location_refs': index % 5 == 0 ? refs : refs.take(1).toList(),
+        },
+      ),
+    ];
   }
 
   Map<String, dynamic> chatroomWorldMessages(String worldId) {
@@ -3453,6 +3590,7 @@ class _MockState {
         ])
           if (info.containsKey(key)) key: info[key],
       },
+      'precharacter': origin['precharacter'],
       'init_location_group': _originContractInitLocationGroup(origin),
       'characters': _originEditCharacters(
         origin,
@@ -3705,9 +3843,50 @@ class _MockState {
     };
   }
 
-  String launchV1World(String oid, {String? presetCharacterId}) {
+  String launchV1World(
+    String oid, {
+    String? presetCharacterId,
+    Map<String, dynamic>? presetCharacterOverride,
+    Map<String, dynamic>? customRole,
+  }) {
     if (oid.isNotEmpty) _v1World['oid'] = oid;
     final charId = (presetCharacterId ?? '').trim();
+    final characters = _originEditCharacters(
+      _findV1Origin(oid),
+    ).map(_deepCopyMap).toList();
+    for (final character in characters) {
+      if ('${character['char_id'] ?? character['character_id']}' != charId) {
+        continue;
+      }
+      final override = presetCharacterOverride ?? const <String, dynamic>{};
+      for (final field in ['name', 'identity', 'personality', 'avatar']) {
+        if (override.containsKey(field)) character[field] = override[field];
+      }
+      if (override.containsKey('personality')) {
+        character['tagline'] = override['personality'];
+      }
+      character['player_uid'] = _v1User['uid'];
+      // Current backend intentionally ignores bio overrides and clears bio/goal.
+      character['description'] = '';
+      character['bio'] = '';
+      character['goal'] = '';
+    }
+    if (charId.isEmpty && customRole != null) {
+      var suffix = 1;
+      final ids = characters
+          .map((item) => '${item['char_id'] ?? item['character_id']}')
+          .toSet();
+      while (ids.contains('char_$suffix')) {
+        suffix++;
+      }
+      characters.add({
+        ..._deepCopyMap(customRole),
+        'char_id': 'char_$suffix',
+        'type': 'custom',
+        'player_uid': _v1User['uid'],
+      });
+    }
+    _v1World['_launch_characters'] = characters;
     if (oid.isNotEmpty && charId.isNotEmpty) {
       _v1PresetLaunchHistoryByOrigin.putIfAbsent(
         oid,
@@ -3878,7 +4057,9 @@ class _MockState {
     final world = _findV1World(wid);
     return {
       'world': _deepCopyMap(world),
-      'character_list': kMockV1Characters.map(_deepCopyMap).toList(),
+      'character_list': _launchWorldCharacters(
+        world,
+      ).map(_deepCopyMap).toList(),
       'metric': _deepCopyMap(kMockV1Metric),
       'location_list': kMockV1Locations.map(_deepCopyMap).toList(),
       'tick_list': kMockV1Ticks.map(_deepCopyMap).toList(),
@@ -3904,7 +4085,9 @@ class _MockState {
         ),
       },
       'relation_status': _v1WorldRelationStatus(world),
-      'characters': kMockV1Characters.map(_contractCharacter).toList(),
+      'characters': _launchWorldCharacters(
+        world,
+      ).map(_contractCharacter).toList(),
       'locations': kMockV1Locations.map(_contractLocation).toList(),
       'ticks': _v1WorldTicks(world).map(_deepCopyMap).toList(),
     };
@@ -3912,6 +4095,17 @@ class _MockState {
 
   Map<String, dynamic> v1WorldContractInfo(String? worldId) {
     return _v1WorldContractItem(_findV1World(worldId));
+  }
+
+  List<Map<String, dynamic>> _launchWorldCharacters(
+    Map<String, dynamic> world,
+  ) {
+    final characters = world['_launch_characters'];
+    return characters is List
+        ? characters
+              .map((item) => Map<String, dynamic>.from(item as Map))
+              .toList()
+        : kMockV1Characters;
   }
 
   Map<String, dynamic> v1WorldMap(String worldId, String locationId) {
@@ -5331,6 +5525,7 @@ class _MockState {
   Map<String, dynamic> _originDetailPayload(Map<String, dynamic> origin) {
     return {
       'origin': _v1OriginPayload(origin),
+      'precharacter': origin['precharacter'],
       'character_list': _originEditCharacters(origin),
       'metric': _deepCopyMap(kMockV1Metric),
       'location_list': _originEditLocations(origin),

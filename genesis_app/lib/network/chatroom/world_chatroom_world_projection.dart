@@ -423,6 +423,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     if (_disposed) return;
     final previousState = _state;
     _state = state;
+    _syncQueueAnomalyIndexes(previousState, state);
     // Socket Tick events and World-page updates must own the same local wait.
     if (state.inputBlocked != previousState.inputBlocked) {
       if (state.inputBlocked) {
@@ -449,6 +450,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     _syncEntrySnapshots();
     _publishLocationMessageChanges(previousState, state);
     if (!_states.isClosed) _states.add(state);
+    _scheduleConnectionLocationSync();
   }
 
   void _publishLocationMessageChanges(

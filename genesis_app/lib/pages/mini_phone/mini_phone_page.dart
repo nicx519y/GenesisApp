@@ -1,3 +1,7 @@
+import '../../network/mini_phone/mini_phone_camera_models.dart';
+import '../../network/api_exception.dart';
+import '../../utils/api_error_message.dart';
+import 'camera/mini_phone_camera_tasks.dart';
 import '../../l10n/genesis_localizations.dart';
 import 'settings/mini_phone_settings_page.dart';
 import 'home/mini_phone_home.dart';
@@ -29,6 +33,10 @@ import 'music/mini_phone_music.dart';
 import 'settings/mini_phone_model_settings_page.dart';
 import 'session/mini_phone_session.dart';
 import 'session/mini_phone_screen.dart';
+import 'camera/mini_phone_camera.dart';
+import 'camera_l10n.dart';
+import 'camera_moment_confirmation.dart';
+import 'photos/mini_phone_photo_projection.dart';
 
 /// Opens the MiniPhone attached to a live World session.
 Future<void> showMiniPhone(
@@ -37,6 +45,8 @@ Future<void> showMiniPhone(
   PhonePerson? initialContact,
   String worldId = '',
   String entrySource = 'unknown',
+  String initialCameraPrompt = '',
+  PhoneCameraTarget? initialCameraTarget,
   MemoryModelPageCache? modelCache,
   MiniPhoneSession? session,
 }) async {
@@ -66,7 +76,8 @@ Future<void> showMiniPhone(
 
   phone.modelSettings.configure(worldId: worldId, loader: loadCatalog);
   try {
-    if (initialContact != null && phone.data != null) {
+    if ((initialContact != null || initialCameraTarget != null) &&
+        phone.data != null) {
       // Resolve the account before its initial notification can clear the target.
       await phone.data!.localReady;
       if (!context.mounted || phone.isDisposed) return;
@@ -81,6 +92,8 @@ Future<void> showMiniPhone(
           initialScreen: initialScreen ?? phone.resume.screen,
           initialContact: initialContact,
           entrySource: entrySource,
+          initialCameraPrompt: initialCameraPrompt,
+          initialCameraTarget: initialCameraTarget,
           isRestored:
               initialScreen == null &&
               initialContact == null &&
@@ -148,6 +161,8 @@ class MiniPhonePage extends StatefulWidget {
     super.key,
     this.initialScreen = MiniPhoneScreen.home,
     this.initialContact,
+    this.initialCameraTarget,
+    this.initialCameraPrompt = '',
     this.entrySource = 'unknown',
     this.isRestored = false,
     this.worldId = '',
@@ -159,6 +174,8 @@ class MiniPhonePage extends StatefulWidget {
   /// Route-local observation only; no private messages enter the World stream.
   final MiniPhoneScreen initialScreen;
   final PhonePerson? initialContact;
+  final PhoneCameraTarget? initialCameraTarget;
+  final String initialCameraPrompt;
   final String entrySource;
   final bool isRestored;
   final String worldId;
@@ -175,6 +192,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   int? livePostId;
   MiniPhonePostDraft get postDraft => _session.postDraft!;
   String? _phoneOwner;
+  int? _cameraOptionsGeneration;
+  bool _cameraSeedApplied = false;
+  final _cameraAlbumProjection = MiniPhonePhotoProjection();
 
   MiniPhoneMusicService get _music => _session.music;
   MiniPhoneResume get _miniResume => _session.resume;
@@ -276,6 +296,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         _miniResume.accountGeneration != null &&
         _miniResume.accountGeneration != phone!.accountGeneration;
     if (accountChanged) {
+      _miniResume.photosReturnScreen = MiniPhoneScreen.home;
       _miniResume.liveContact = null;
       _miniResume.livePostId = null;
     }
@@ -292,6 +313,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _launchTransition = AppLaunchTransitionController(
       initiallyOpen: screen != MiniPhoneScreen.home,
     );
+    _pendingCameraTarget = widget.initialCameraTarget;
     liveContact = widget.initialContact ?? _miniResume.liveContact;
     livePostId = _miniResume.livePostId;
     _phoneOwner = phone?.uid;
@@ -300,6 +322,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (phone != null) {
       phone!.phoneVisible = true;
       unawaited(phone!.retryInitialization());
+      unawaited(_refreshCameraOptionsForAccount());
       phone!.localReady.then((_) {
         if (!mounted) return;
         // Warm the other apps without waiting for their network requests.
@@ -314,6 +337,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           unawaited(phone!.refreshAlbum());
         }
         _loadLiveScreen(screen);
+        unawaited(phone!.recoverCameraResults());
       });
     }
     final services =
@@ -386,6 +410,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _session.presentationVisible = TickerMode.valuesOf(context).enabled;
     if (phone != null) {
       phone!.phoneVisible = ModalRoute.isCurrentOf(context) ?? true;
     }
@@ -393,6 +418,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
 
   @override
   void dispose() {
+    _session.presentationVisible = false;
     phone?.analytics.endOpen(_analyticsOpenId);
     _launchTransition.dispose();
     _miniResume.accountGeneration = phone?.accountGeneration;
@@ -401,6 +427,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     _miniResume.livePostId = livePostId;
     phone?.removeListener(_changed);
     _session.postDraft?.removeListener(_changed);
+    _session.camera?.close();
     if (phone != null) {
       phone!.phoneVisible = false;
       phone!.activeCharId = null;
@@ -436,6 +463,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     if (mounted) {
       _notifyPhoneErrors();
       if (identityChanged) {
+        unawaited(_refreshCameraOptionsForAccount());
         _update(() {});
         _trackPage(source: 'restore', navigation: 'replace');
       }
@@ -458,6 +486,11 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       if (!_launchTransition.open()) return;
     }
     if (next == MiniPhoneScreen.models) _miniModelReturnScreen = screen;
+    if (next == MiniPhoneScreen.photos && navigation != 'back') {
+      _miniResume.photosReturnScreen = screen == MiniPhoneScreen.camera
+          ? MiniPhoneScreen.camera
+          : MiniPhoneScreen.home;
+    }
     _update(() {
       screen = next;
     });
@@ -530,6 +563,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         _close();
       case MiniPhoneScreen.models:
         _go(_miniModelReturnScreen, source: 'back', navigation: 'back');
+      case MiniPhoneScreen.photos:
+        _go(_miniResume.photosReturnScreen, source: 'back', navigation: 'back');
       case MiniPhoneScreen.chat:
         if (widget.initialContact != null) {
           _close();
@@ -537,8 +572,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           _go(MiniPhoneScreen.messages, source: 'back', navigation: 'back');
         }
       case MiniPhoneScreen.comments:
-      case MiniPhoneScreen.create:
         _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back');
+      case MiniPhoneScreen.create:
+        _go(
+          _session.composingCameraPhoto
+              ? MiniPhoneScreen.photos
+              : MiniPhoneScreen.posts,
+          source: 'back',
+          navigation: 'back',
+        );
       default:
         _go(MiniPhoneScreen.home, source: 'back', navigation: 'back');
     }
@@ -579,7 +621,8 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         child: Scaffold(
           backgroundColor: miniBackground,
           resizeToAvoidBottomInset:
-              !(phone != null && screen == MiniPhoneScreen.chat),
+              !(screen == MiniPhoneScreen.camera ||
+                  (phone != null && screen == MiniPhoneScreen.chat)),
           body: Stack(
             children: [
               Positioned.fill(
@@ -628,7 +671,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
                                       destination == _pageStack(screen).first,
                                   child: ColoredBox(
                                     color: miniBackground,
-                                    child: _screen(destination),
+                                    child: _routeScreen(destination),
                                   ),
                                 ),
                             ],
@@ -655,6 +698,23 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     );
   }
 
+  Widget _routeScreen(MiniPhoneScreen destination) {
+    final page = _screen(destination);
+    if (widget.initialContact != null ||
+        destination != _pageStack(screen).first) {
+      return page;
+    }
+    // System back reaches the internal Navigator before the outer PopScope.
+    // Keep the app root mounted while the launch host shrinks it home.
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && screen == destination) _back();
+      },
+      child: page,
+    );
+  }
+
   List<MiniPhoneScreen> _pageStack(MiniPhoneScreen destination) =>
       switch (destination) {
         MiniPhoneScreen.chat => [
@@ -665,8 +725,15 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ..._pageStack(_miniModelReturnScreen),
           MiniPhoneScreen.models,
         ],
+        MiniPhoneScreen.create when _session.composingCameraPhoto => [
+          ..._pageStack(MiniPhoneScreen.photos),
+          destination,
+        ],
         MiniPhoneScreen.comments ||
         MiniPhoneScreen.create => [MiniPhoneScreen.posts, destination],
+        MiniPhoneScreen.photos
+            when _miniResume.photosReturnScreen == MiniPhoneScreen.camera =>
+          [MiniPhoneScreen.camera, MiniPhoneScreen.photos],
         _ => [destination],
       };
 
@@ -715,8 +782,25 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           ? _emptyApp(destination)
           : MiniPhonePhotosPage(
               store: phone!,
+              tasks: phone!.cameraTasks,
+              active: screen == MiniPhoneScreen.photos,
+              target: _pendingCameraTarget,
+              onTargetHandled: () {
+                _pendingCameraTarget = null;
+              },
+              onUsePhotoInPost: (asset, preview) {
+                if (!mounted || _closing || screen != MiniPhoneScreen.photos) {
+                  return;
+                }
+                _session.composeCameraPhoto(
+                  asset,
+                  previewImageProvider: preview,
+                );
+                _go(MiniPhoneScreen.create, source: 'camera_photo');
+              },
               header: _navigation(context.l10n.miniPhonePhotos),
             ),
+    MiniPhoneScreen.camera => _cameraPage(),
     MiniPhoneScreen.settings => MiniPhoneSettingsPage(
       session: _session,
       wallpaper: wallpaper,
@@ -743,6 +827,111 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     ),
   };
 
+  Widget _cameraPage() {
+    final data = phone;
+    final controller = _session.camera;
+    if (data == null || controller == null) {
+      return _panel(context.l10n.miniPhoneCamera, const SizedBox.shrink());
+    }
+    // Refresh camera inputs without rebuilding the phone's Navigator or routes.
+    return ListenableBuilder(
+      listenable: data,
+      builder: (_, _) => _cameraSnapshot(data, controller),
+    );
+  }
+
+  Widget _cameraSnapshot(
+    MiniPhoneStore data,
+    MiniPhoneCameraController controller,
+  ) {
+    controller.bindScope(
+      MiniPhoneCameraScope(
+        environment: data.namespace,
+        accountId: data.uid ?? '',
+        worldId: data.worldId,
+      ),
+      // The rebuilt page receives the new scope; do not notify during build.
+      notify: false,
+    );
+    final initialPrompt = !_cameraSeedApplied && data.uid != null
+        ? widget.initialCameraPrompt
+        : '';
+    if (data.uid != null) _cameraSeedApplied = true;
+    final album = _cameraAlbumProjection.resolve(
+      data.album,
+      data.worldCoverImageKeys,
+    );
+    return MiniPhoneCameraPage(
+      key: ValueKey(('camera', data.accountGeneration)),
+      header: _navigation(context.l10n.miniPhoneCamera),
+      people: data.people.values.toList(growable: false),
+      strings: miniPhoneCameraStrings(context),
+      controller: controller,
+      tasks: data.cameraTasks,
+      onReloadOptions: _loadCameraOptions,
+      coverImageUrl: GenesisImageResourceRegistry.resolve(
+        data.cameraWorldDetail?.cover ?? '',
+      ).displayUrl,
+      initialPrompt: initialPrompt,
+      onOpenAlbum: () => _go(MiniPhoneScreen.photos, source: 'camera'),
+      albumLabel: context.l10n.miniPhonePhotos,
+      albumThumbnailUrl: album.firstOrNull?.thumbnail.trim().isNotEmpty == true
+          ? album.first.thumbnail
+          : album.firstOrNull?.image,
+      onCaptureRequested: () async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        final revision = data.accountGeneration;
+        final uid = data.uid;
+        if (uid == null) return;
+        final tasks = data.cameraTasks;
+        final capture = PhoneCameraRequest(
+          requestId: MiniPhoneCameraTasks.newRequestId(),
+          worldId: data.worldId,
+          characterIds: controller.selectedPeople.map((p) => p.id),
+          prompt: controller.prompt.trim(),
+          aspectRatio: controller.photoRatio.label,
+          style: tasks.selectedStyle ?? '',
+        );
+        bool current() =>
+            mounted &&
+            !_closing &&
+            !_session.isDisposed &&
+            screen == MiniPhoneScreen.camera &&
+            revision == data.accountGeneration;
+        if (tasks.hasConflict(capture)) {
+          throw ApiException(
+            message: context.l10n.genericError,
+            serverErrMsg: context.l10n.cameraRequestConflict,
+            kind: ApiExceptionKind.business,
+            code: 2062,
+          );
+        }
+        if (tasks.unresolved(capture) == null) {
+          // A phone-entry refresh must not hold a capture with usable cache.
+          final options = tasks.options;
+          if (!current() || options == null) return;
+          if (!options.styles.any((s) => s.label == capture.style)) {
+            showMiniPhoneToast(context, context.l10n.genericError);
+            return;
+          }
+          final confirmed = await confirmCameraMoment(
+            context,
+            preferenceScope:
+                '${Uri.encodeComponent(data.namespace)}:${Uri.encodeComponent(uid)}',
+            priceCent: options.priceCent,
+            cameraFreeAvailable: options.freeAvailable,
+          );
+          if (!current() || !confirmed) return;
+        }
+        await tasks.submit(capture);
+      },
+      selfPersonKey: data.people.values
+          .where((person) => data.playerCharIds.contains(person.id))
+          .firstOrNull
+          ?.key,
+    );
+  }
+
   Widget _emptyApp(MiniPhoneScreen destination) => _panel(switch (destination) {
     MiniPhoneScreen.messages ||
     MiniPhoneScreen.chat => context.l10n.miniPhoneMessages,
@@ -764,9 +953,18 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
       _ => context.l10n.miniPhonePosts,
     }),
     onBack: _back,
-    onCreate: () => _go(MiniPhoneScreen.create),
-    onPublished: () =>
-        _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back'),
+    onCreate: () {
+      _session.composingCameraPhoto = false;
+      _go(MiniPhoneScreen.create);
+    },
+    onPublished: () {
+      if (_session.composingCameraPhoto) {
+        _session.composingCameraPhoto = false;
+        _launchApp = MiniPhoneScreen.posts;
+        _launchTransition.setCloseSource(MiniPhoneScreen.posts);
+      }
+      _go(MiniPhoneScreen.posts, source: 'back', navigation: 'back');
+    },
     onOpenPost: _openLivePost,
   );
 
@@ -825,6 +1023,43 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
     subtitle: subtitle,
     footer: footer,
   );
+  Future<void> _refreshCameraOptionsForAccount() async {
+    final data = phone;
+    if (data == null) return;
+    final generation = data.accountGeneration;
+    await data.localReady;
+    if (!mounted ||
+        _closing ||
+        _session.isDisposed ||
+        generation != data.accountGeneration ||
+        data.uid == null ||
+        _cameraOptionsGeneration == generation) {
+      return;
+    }
+    // This State is one phone opening. A new opening refreshes the existing
+    // World/account cache; ordinary app navigation keeps using that cache.
+    _cameraOptionsGeneration = generation;
+    await _loadCameraOptions();
+  }
+
+  Future<void> _loadCameraOptions() async {
+    final data = phone;
+    if (data == null || data.uid == null) return;
+    final generation = data.accountGeneration;
+    try {
+      await data.cameraTasks.loadOptions();
+    } catch (error) {
+      if (mounted &&
+          !_closing &&
+          screen == MiniPhoneScreen.camera &&
+          generation == data.accountGeneration) {
+        showMiniPhoneToast(context, apiErrorMessage(error));
+      }
+    }
+  }
+
+  PhoneCameraTarget? _pendingCameraTarget;
+
   void _loadLiveScreen(MiniPhoneScreen next) {
     final data = phone!;
     data.activeCharId = next == MiniPhoneScreen.chat ? liveContact?.id : null;
@@ -895,7 +1130,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           'like:$livePostId',
         ],
         MiniPhoneScreen.create => ['post:new'],
-        MiniPhoneScreen.photos => ['album'],
+        MiniPhoneScreen.photos => ['album', 'cameraRecovery'],
         _ => <String>[],
       },
     ];

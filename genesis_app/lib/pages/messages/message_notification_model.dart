@@ -3,6 +3,8 @@ part of 'message_category_list_page.dart';
 class _NotificationItem {
   const _NotificationItem({
     required this.id,
+    this.photoTarget,
+    this.cameraTarget,
     required this.block,
     required this.type,
     required this.senderName,
@@ -71,6 +73,12 @@ class _NotificationItem {
     ]);
     return _NotificationItem(
       id: asString(json['notification_id'], fallback: asString(json['id'])),
+      photoTarget: ChatPhotoTarget.tryParse(json['photo_target']),
+      cameraTarget: PhoneCameraTarget.tryParse(
+        json['photo_target'],
+        worldId: bizId,
+        taskId: asString(json['obj_id']),
+      ),
       block: block,
       type: type,
       senderName: _firstNonEmpty([
@@ -167,6 +175,13 @@ class _NotificationItem {
     );
   }
 
+  final ChatPhotoTarget? photoTarget;
+  final PhoneCameraTarget? cameraTarget;
+  bool get isPhoto => type == 'photo_succeeded' || type == 'photo_failed';
+  bool get canOpenPhoto =>
+      type == 'photo_succeeded' &&
+      (photoTarget != null || cameraTarget != null) &&
+      !worldDeleted;
   final String id;
   final String block;
   final String type;
@@ -198,6 +213,8 @@ class _NotificationItem {
   }) {
     return _NotificationItem(
       id: id,
+      photoTarget: photoTarget,
+      cameraTarget: cameraTarget,
       block: block,
       type: type,
       senderName: senderName,
@@ -226,7 +243,7 @@ class _NotificationItem {
   bool get isJoinRequestReview => type == 'world_apply_review';
 
   bool get isJoinRequest {
-    if (isJoinRequestReview) return false;
+    if (isJoinRequestReview || isPhoto) return false;
     return type == 'world_apply' || block == 'world_apply';
   }
 

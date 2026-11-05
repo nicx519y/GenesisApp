@@ -26,6 +26,7 @@ extension ChatroomReplySnapshots on ChatroomReplyActionsController {
           .._locallyStalledStream = source._locallyStalledStream
           .._sendReleased = source._sendReleased
           .._roundFailed = source._roundFailed
+          .._error = source._error
           .._generating = source.generating
           .._busy = source._busy
           .._frozen = source._frozen

@@ -27,7 +27,9 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         cardId ?? (state.showCandidates ? state.viewedCardId : null);
     final card = targetCardId == null ? null : state._card(targetCardId);
     final messages = card == null
-        ? state._formal.where(_isReply).toList()
+        ? state._formal
+              .where((m) => _isReply(m) || m.businessType == 'live_photo')
+              .toList()
         : card.messages.map(_candidateToWorld).toList();
     return ChatroomReplyEditorTarget(
       worldId: worldId,
@@ -338,13 +340,29 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
           !messages.containsKey(operation.globalMessageId)) {
         throw ArgumentError(GenesisL10n.current.chatEditTargetHasChanged);
       }
+      if (messages[operation.globalMessageId]!.businessType == 'live_photo') {
+        throw StateError(GenesisL10n.current.chatMessageNotEditable);
+      }
       if (operation.action == ChatroomLlmMessageAction.delete) {
         deletes++;
       } else if (messages[operation.globalMessageId]!.messageType == 'image') {
         throw StateError(GenesisL10n.current.chatMessageNotEditable);
       }
     }
-    if (messages.isNotEmpty && deletes == messages.length) {
+    final editable = messages.values
+        .where((m) => m.businessType != 'live_photo')
+        .toList();
+    final remainingText = editable.where(
+      (m) =>
+          m.messageType != 'image' &&
+          !operations.any(
+            (op) =>
+                op.globalMessageId == m.globalMessageId &&
+                op.action == ChatroomLlmMessageAction.delete,
+          ),
+    );
+    if (editable.isNotEmpty &&
+        (deletes == editable.length || remainingText.isEmpty)) {
       throw StateError(_minimumReplyMessageError);
     }
   }

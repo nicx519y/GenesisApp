@@ -51,10 +51,42 @@ class _NotificationListItem extends StatelessWidget {
     }
 
     final content = InkWell(
-      onTap: onTap,
+      onTap: item.isPhoto && !item.canOpenPhoto ? null : onTap,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
-      child: item.isJoinRequest || item.isJoinRequestReview
+      child: item.isPhoto
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.photo_outlined,
+                  color: GenesisColors.darkTextSecondary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.content,
+                        style: const TextStyle(
+                          color: GenesisColors.darkTextPrimary,
+                        ),
+                      ),
+                      if (item.createdAt != null)
+                        Text(
+                          formatGenesisTimestamp(item.createdAt!),
+                          style: const TextStyle(
+                            color: GenesisColors.darkTextSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : item.isJoinRequest || item.isJoinRequestReview
           ? _JoinRequestListItem(item: item)
           : _CommentNotificationListItem(item: item),
     );
@@ -143,9 +175,7 @@ class _JoinRequestListItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          GenesisL10n
-              .current
-              .inboxJoinRequest,
+          GenesisL10n.current.inboxJoinRequest,
           style: TextStyle(
             color: GenesisColors.darkTextPrimary,
             fontSize: 14,

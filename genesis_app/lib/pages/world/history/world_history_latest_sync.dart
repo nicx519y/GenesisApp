@@ -72,6 +72,10 @@ extension WorldHistoryLatestSync on WorldHistoryController {
             _sameHistoryRows(previous.messages, page.messages) &&
             previous.hasMore == page.hasMore;
         _latestPage = page;
+        await _refreshResidentPhotos(page, token, generation);
+        if (_disposed || generation != _syncGeneration || token.isCancelled) {
+          return;
+        }
         hasPendingLatest =
             !_sameHistoryRows(_firstPageSnapshot ?? const [], page.messages) ||
             _pages.first.hasMore != page.hasMore;
@@ -99,6 +103,72 @@ extension WorldHistoryLatestSync on WorldHistoryController {
       }
     }());
     return completion.future;
+  }
+
+  Future<void> _refreshResidentPhotos(
+    WorldHistoryPage head,
+    NetworkCancellationToken token,
+    int generation,
+  ) async {
+    final chain = _chainRevision;
+    final pending = _resident.entries
+        .where(
+          (entry) => entry.value.any(
+            (m) => m.photo?.status == ChatPhotoStatus.generating,
+          ),
+        )
+        .map((e) => e.key)
+        .toList();
+    var changed = false;
+    for (final index in pending) {
+      if (_disposed ||
+          token.isCancelled ||
+          generation != _syncGeneration ||
+          chain != _chainRevision) {
+        return;
+      }
+      final slot = _pages[index];
+      final page = slot.requestCursor == null
+          ? head
+          : await fetch(
+              worldId: worldId,
+              cursor: slot.requestCursor,
+              limit: 20,
+              cancellationToken: token,
+            );
+      if (_disposed ||
+          token.isCancelled ||
+          generation != _syncGeneration ||
+          chain != _chainRevision) {
+        return;
+      }
+      page.validate(worldId, slot.requestCursor);
+      final current = _resident[index];
+      if (current == null) continue;
+      final updates = {for (final row in page.messages) row.id: row};
+      var pageChanged = false;
+      final rows = current
+          .map((old) {
+            final next = updates[old.id];
+            if (old.photo?.status == ChatPhotoStatus.generating &&
+                next?.photo != null &&
+                !_sameHistoryMessage(old, next!)) {
+              pageChanged = true;
+              return next;
+            }
+            return old;
+          })
+          .toList(growable: false);
+      if (pageChanged) {
+        _setResident(index, List.unmodifiable(rows));
+        if (index == 0) _firstPageSnapshot = List.unmodifiable(rows);
+        changed = true;
+      }
+    }
+    if (changed) {
+      _indexResidents();
+      revision++;
+    }
   }
 
   void _adoptLatest() {
@@ -168,6 +238,7 @@ bool _sameHistoryMessage(WorldHistoryMessage x, WorldHistoryMessage y) =>
         x.userId == y.userId &&
         x.messageType == y.messageType &&
         x.content == y.content &&
+        x.photoFingerprint == y.photoFingerprint &&
         x.minAppVersion == y.minAppVersion &&
         x.currentTime == y.currentTime &&
         x.createdAt == y.createdAt &&

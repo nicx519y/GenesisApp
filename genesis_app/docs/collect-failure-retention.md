@@ -85,4 +85,6 @@ flutter build apk --release --flavor production --target-platform android-arm64 
 
 ## LocationChat 超时事件
 
+地点队列异常同样复用现有 Collect 队列，使用 `monitor / location_chat_queue_old_conversation_round` 和 `monitor / location_chat_queue_old_location_message_id`。不增加专用上传器或定时器，上报失败不影响消息入队；字段、首次出现及 ID 缓存规则见 [WebSocket 队列异常监控](chatroom-websocket-api.md#客户端地点队列异常监控collect)。
+
 LocationChat 统一超时通过同一 collect 队列上报，`action_type=chat_timeout`、`action=location_chat_send_lock_timeout`。上报失败不影响本地释放，不新增专用上传计时器。场景、`object1` 至 `object4`、`ext_data` 与去重口径见 [统一超时机制与埋点表](location-chat-send-gate.md#collect-埋点表)。

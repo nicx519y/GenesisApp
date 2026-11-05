@@ -7,12 +7,31 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../components/origin/origin_item_cover_throttled_image_provider.dart';
+import '../../network/api_exception.dart';
 import '../../utils/genesis_display_text.dart';
 import 'telemetry_upload_policy.dart';
 
 @visibleForTesting
 bool shouldRecordFirebaseFlutterError(FlutterErrorDetails details) =>
     details.exception is! OriginItemCoverLoadCancelledException;
+
+/// Contains this expected request failure if a detached task lets it escape.
+/// The original request still fails; no clock value or successful result is
+/// fabricated, and unrelated errors continue through the existing handler.
+@visibleForTesting
+bool handleGatewayTimeSyncError(
+  Object error,
+  StackTrace stack, {
+  required void Function(Object, StackTrace) recordNonFatal,
+}) {
+  if (error is! ApiException ||
+      error.kind != ApiExceptionKind.gatewayAuth ||
+      error.clientFailureCode != ApiClientFailureCode.gatewayTimeSync) {
+    return false;
+  }
+  recordNonFatal(error, stack);
+  return true;
+}
 
 @visibleForTesting
 bool isFirebaseFlutterErrorFatal(FlutterErrorDetails details) {
@@ -157,6 +176,13 @@ class FirebaseCrashReporting {
   static void _installPlatformErrorHandler() {
     final previous = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
+      if (handleGatewayTimeSyncError(
+        error,
+        stack,
+        recordNonFatal: recordNonFatal,
+      )) {
+        return true;
+      }
       if (!_enabled) return previous?.call(error, stack) ?? true;
       unawaited(
         recordFirebaseCrashlyticsBestEffort(

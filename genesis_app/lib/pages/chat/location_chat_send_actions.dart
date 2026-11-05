@@ -832,6 +832,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       return false;
     }
     final hasOlderCursor = _oldestLocationMessageId(source) > 0;
+    if (hasOlderCursor) {
+      // Local readiness can precede the first network page. A real cursor
+      // supersedes the earlier empty/cursorless local baseline.
+      _olderMessagesExhaustedByCursorlessContent = false;
+    }
     if (!hasOlderCursor && source.isNotEmpty) {
       _olderMessagesExhaustedByCursorlessContent = true;
     }

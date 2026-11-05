@@ -5503,7 +5503,7 @@ abstract class AppLocalizations {
   /// **'Comments'**
   String get miniPhoneComments;
 
-  /// MiniPhone home: locked camera app label.
+  /// MiniPhone camera app title/home label and LocationChat photo-action accessibility label
   ///
   /// In en, this message translates to:
   /// **'Camera'**
@@ -6144,6 +6144,345 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unable to save privacy choices. Please try again.'**
   String get privacyChoicesSaveError;
+
+  /// MiniPhone Camera compose page: heading above the selectable characters who will appear in the generated photo.
+  ///
+  /// In en, this message translates to:
+  /// **'In the photo'**
+  String get miniPhoneCameraInThePhoto;
+
+  /// MiniPhone Camera compose page: white glass status pill with a dot at the top inside the viewfinder, showing the number of selected participants; zero explicitly means no one is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No one selected} =1{1 selected} other{{count} selected}}'**
+  String miniPhoneCameraSelectedCount({required int count});
+
+  /// MiniPhone Camera compose page: short caption below the bottom-left template thumbnail before any photo style is selected. Tapping opens the existing horizontal template selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get miniPhoneCameraStyle;
+
+  /// MiniPhone Camera compose page: centered instruction under the dashed plus box inside the empty viewfinder, inviting the user to select characters from the strip below.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the people below to bring them into the frame.'**
+  String get miniPhoneCameraCastHint;
+
+  /// MiniPhone Camera compose page: label above the editable photo-generation prompt describing the scene and mood.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the moment'**
+  String get miniPhoneCameraDescribeMoment;
+
+  /// MiniPhone Camera compose page: placeholder in the empty scene prompt, inviting a setting and mood for the selected characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Where are you? What’s the mood?'**
+  String get miniPhoneCameraPromptHint;
+
+  /// MiniPhone Camera compose page: heading above the three photo prompt templates; selecting one fills the editable prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a template'**
+  String get miniPhoneCameraTryTemplate;
+
+  /// MiniPhone Camera compose page: helper text explaining that tapping a template inserts its full description into the editable photo prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to fill the prompt'**
+  String get miniPhoneCameraTemplateHint;
+
+  /// MiniPhone Camera template card: short name for an arm’s-length selfie taken by one of the selected characters, with all selected characters in frame.
+  ///
+  /// In en, this message translates to:
+  /// **'POV selfie'**
+  String get miniPhoneCameraPovSelfie;
+
+  /// MiniPhone Camera template card: short name for a photo of the selected characters reflected in a mirror.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror selfie'**
+  String get miniPhoneCameraMirrorSelfie;
+
+  /// MiniPhone Camera template card: short name for a photo taken by someone outside the frame, rather than a selfie.
+  ///
+  /// In en, this message translates to:
+  /// **'By a friend'**
+  String get miniPhoneCameraByFriend;
+
+  /// MiniPhone Camera: complete editable prompt inserted by the POV selfie template. Preserve all constraints: only selected characters, one takes the selfie, everyone fully visible and looking into the lens, relaxed natural expressions, slight wide angle, soft light, gently blurred world setting, unchanged appearance/outfits, no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'An arm’s-length selfie featuring only the selected characters, taken by one of them. Keep every selected character fully in frame, looking into the lens with relaxed, natural expressions. Slight wide-angle perspective, soft light, and a gently blurred setting from their world. Keep their appearance and outfits. Do not add extra people.'**
+  String get miniPhoneCameraPovSelfiePrompt;
+
+  /// MiniPhone Camera: complete editable prompt inserted by the mirror selfie template. Preserve all constraints: only selected characters, one holds the camera, everyone visible in the reflection, clear mirror edge, natural poses, soft indoor light, world setting, unchanged appearance/outfits, no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'A casual mirror selfie featuring only the selected characters. One holds the camera, and all selected characters are visible in the reflection. Show a clear mirror edge, natural poses, and soft indoor light in a setting from their world. Keep their appearance and outfits. Do not add extra people.'**
+  String get miniPhoneCameraMirrorSelfiePrompt;
+
+  /// MiniPhone Camera: complete editable prompt inserted by the By a friend template. Preserve all constraints: eye-level photo, only selected characters, photographer outside the frame, everyone visible with relaxed poses/natural expressions, world setting, photographer/camera off-screen, no mirror/selfie arm, unchanged appearance/outfits, no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'An eye-level photo of only the selected characters, taken by someone outside the frame. Keep every selected character visible, with relaxed poses and natural expressions in a setting from their world. The photographer and camera stay off-screen: no mirror and no outstretched selfie arm. Keep their appearance and outfits. Do not add extra people.'**
+  String get miniPhoneCameraByFriendPrompt;
+
+  /// MiniPhone Camera style selector: short label for a naturally captured, unposed photo of only the selected characters sharing a moment. The Taiwan Traditional Chinese label must be 抓拍, matching the user-provided source image filename.
+  ///
+  /// In en, this message translates to:
+  /// **'Candid'**
+  String get miniPhoneCameraCandid;
+
+  /// MiniPhone Camera style selector: short style label for a static still photo capturing a spontaneous gesture with a subtle sense of motion. This is not video or the Apple Live Photo feature. The Taiwan Traditional Chinese label must be 實況照片, matching the user-provided source image filename.
+  ///
+  /// In en, this message translates to:
+  /// **'Live photo'**
+  String get miniPhoneCameraLivePhoto;
+
+  /// MiniPhone Camera: complete editable prompt inserted when the Candid style is selected. Preserve all constraints: only selected characters, naturally captured shared moment, unposed composition, setting from their world, unchanged appearance and outfits, and no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'A candid photo of only the selected characters, caught naturally in the middle of a shared moment. Keep their appearance and outfits, with an unposed composition and a setting from their world. Do not add extra people.'**
+  String get miniPhoneCameraCandidPrompt;
+
+  /// MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people.
+  ///
+  /// In en, this message translates to:
+  /// **'A lively still photo of only the selected characters, capturing a spontaneous gesture with a subtle sense of motion. Keep their appearance and outfits and a setting from their world. Do not add extra people.'**
+  String get miniPhoneCameraLivePhotoPrompt;
+
+  /// MiniPhone Camera compose page: primary action to request a photo using the selected participants and entered prompt; not the device camera shutter.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo'**
+  String get miniPhoneCameraTakePhoto;
+
+  /// MiniPhone Camera compose page: primary action to retry photo generation after a failure, retaining selected characters and prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get miniPhoneCameraTryAgain;
+
+  /// MiniPhone Camera primary action: Gems cost per generated photo, shown only when a real quote is available; price is the numeric quote, never an illustrative fixed amount.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} Gems / photo'**
+  String miniPhoneCameraPricePerPhoto({required double price});
+
+  /// MiniPhone Camera generation page: status overlay on the photo area while a generation request is running.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating your photo'**
+  String get miniPhoneCameraCreatingPhoto;
+
+  /// MiniPhone Camera generation page: reassuring heading while the selected scene is being turned into a photo.
+  ///
+  /// In en, this message translates to:
+  /// **'A moment in the making.'**
+  String get miniPhoneCameraCreatingTitle;
+
+  /// MiniPhone Camera generation page: supporting text explaining that the selected characters and described scene are being combined in the photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Bringing your characters and scene together.'**
+  String get miniPhoneCameraCreatingBody;
+
+  /// MiniPhone Camera compose page: error heading after photo generation fails; the draft remains available for retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t create this photo.'**
+  String get miniPhoneCameraGenerationFailed;
+
+  /// MiniPhone Camera compose page: failure explanation confirming selected characters and the editable prompt were preserved and inviting a retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Your characters and prompt are still here. Please try again.'**
+  String get miniPhoneCameraDraftPreserved;
+
+  /// MiniPhone Camera result page: primary action to return to composing another photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Take another'**
+  String get miniPhoneCameraTakeAnother;
+
+  /// MiniPhone Camera result page: action to attach the generated photo to a new MiniPhone post draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Use in a post'**
+  String get miniPhoneCameraUseInPost;
+
+  /// MiniPhone Camera result page: accessibility label on the generated photo button that opens the full-size image viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Open full photo'**
+  String get miniPhoneCameraOpenPhoto;
+
+  /// MiniPhone Camera result page: fallback label when the generated photo image cannot be displayed.
+  ///
+  /// In en, this message translates to:
+  /// **'Image unavailable'**
+  String get miniPhoneCameraImageUnavailable;
+
+  /// MiniPhone Camera result page: status after the generated photo is confirmed in the MiniPhone Photos album, not the device photo library.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to Photos'**
+  String get miniPhoneCameraSavedToPhotos;
+
+  /// MiniPhone Camera result page: status while refreshing the MiniPhone Photos album to confirm the generated photo; does not claim it is saved yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing with Photos…'**
+  String get miniPhoneCameraSyncingPhotos;
+
+  /// MiniPhone Camera result page: album confirmation failed; photo generation may have succeeded, so this is a MiniPhone Photos synchronization error, not a generation failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t sync with Photos. Please try again.'**
+  String get miniPhoneCameraPhotoSyncFailed;
+
+  /// Origin detail merged recommended role card editor: label for the character background/relationships (bio), editable only in the newly launched World.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting'**
+  String get worldoLaunchSetting;
+
+  /// Shared photo explanation bottom sheet title, opened from the LocationChat camera action or the MiniPhone Camera shutter: capture the current scene, including the latest reply scene in LocationChat. Shown on first use and reopenable in the current preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture this moment'**
+  String get miniPhoneCameraMomentTitle;
+
+  /// Shared photo explanation bottom sheet body for the LocationChat camera action and the MiniPhone Camera shutter: turn the current scene into a photo with the characters, including the latest reply scene in LocationChat; same explanation at both entry points, with no prices or free trial claims.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn this scene into a photo with your characters.'**
+  String get miniPhoneCameraMomentBody;
+
+  /// Photo explanation checkbox below the Free trial button, shared by LocationChat and MiniPhone Camera: explains skipping confirmation and generating directly next time. Environment/account-scoped preference is saved on confirmation; current frontend preview deliberately reopens the explanation until generation is connected. Do not add a Settings promise because no Settings control exists yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Don’t ask next time. Tap the camera to generate a photo directly.'**
+  String get miniPhoneCameraDontAskAgain;
+
+  /// Primary photo explanation button in LocationChat and MiniPhone Camera. The user-requested frontend design shows a free trial at zero Gems per photo. Generation is not connected yet; this confirms the explanation only, never charges, creates an image, or grants a real backend trial. Keep the button short.
+  ///
+  /// In en, this message translates to:
+  /// **'Free trial'**
+  String get miniPhoneCameraFreeTrial;
+
+  /// MiniPhone Camera: short notice on the camera page and heading for the local preview section in Photos. Explicitly describes a frontend-only local simulation: concurrent photo tasks use sample images, make no backend calls, consume no Gems, and write neither World history nor real album assets. Preserve the preview-only, no-charge, and not-saved meanings.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview only · No Gems used. Sample images are not saved to your World.'**
+  String get miniPhoneCameraPreviewNotice;
+
+  /// MiniPhone Camera: toast immediately after submitting a local mock photo task, while the camera remains available to start another concurrent task. This is a frontend-only simulation, not confirmation of a backend generation request or a saved photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo started. You can take another.'**
+  String get miniPhoneCameraPreviewStarted;
+
+  /// MiniPhone Camera: compact caption on the Photos album entry showing how many concurrent local simulated photo tasks are currently generating. Count is an integer number of pending preview tasks, not real backend jobs or saved album assets; preserve the count and ongoing status.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} generating'**
+  String miniPhoneCameraGeneratingCount({required int count});
+
+  /// Compact price chip above Free trial in the shared Camera explanation: originalPrice is crossed out (30 from the user's supplied reference image), followed by price (0). These are frontend preview figures, not server billing or granted trial entitlements. Preserve both rich-text placeholders and their localizable order.
+  ///
+  /// In en, this message translates to:
+  /// **'{originalPrice} {price} Gems / photo'**
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  });
+
+  /// MiniPhone Camera: toast when selecting a fifth character; a photo supports at most four characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose up to 4 people.'**
+  String get miniPhoneCameraPeopleLimit;
+
+  /// MiniPhone Camera Debug preview: text in the failed photo placeholder design. Actual billing and backend generation are not connected; keep the conditional meaning of any Gems charged and do not imply that a charge occurred or a refund has already completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Generation failed. Any Gems charged will be refunded.'**
+  String get miniPhoneCameraFailureRefund;
+
+  /// MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview only. This sample photo cannot be published to your world.'**
+  String get miniPhoneCameraPreviewPostNotice;
+
+  /// LocationChat photo confirmation sheet: server base price; not a guarantee of the final charge.
+  ///
+  /// In en, this message translates to:
+  /// **'Base price: {price} Gems'**
+  String chatPhotoBasePrice({required String price});
+
+  /// LocationChat photo confirmation sheet: the price endpoint does not return free eligibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Your first photo may be free. Eligibility and the final charge are determined by the server.'**
+  String get chatPhotoPriceExplanation;
+
+  /// LocationChat photo confirmation sheet: submit a new photo generation request.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate photo'**
+  String get chatPhotoGenerate;
+
+  /// LocationChat photo confirmation sheet: explicitly resend the identical uncertain request to recover its outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Check previous request'**
+  String get chatPhotoRecover;
+
+  /// LocationChat: submission timed out or its response was lost; this does not mean generation failed.
+  ///
+  /// In en, this message translates to:
+  /// **'The previous photo request has not been confirmed. Check it before taking another photo.'**
+  String get chatPhotoUncertain;
+
+  /// Chat photo message: accepted generation is in progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating photo…'**
+  String get chatPhotoGenerating;
+
+  /// Chat photo message: fallback when a failed task has no user-facing failure message.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t generate the photo.'**
+  String get chatPhotoFailed;
+
+  /// LocationChat: an Inbox photo target could not be found in its original location.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo is no longer available.'**
+  String get chatPhotoUnavailable;
+
+  /// MiniPhone Camera price explanation: current free eligibility is shared with chat photos and may change before submission; do not promise a free charge.
+  ///
+  /// In en, this message translates to:
+  /// **'Your first photo is currently free. Eligibility is confirmed when you submit.'**
+  String get cameraFreeAvailable;
+
+  /// MiniPhone Photos task tile: HTTP submission has no confirmed receipt yet; this is not a generation failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Submission not confirmed'**
+  String get cameraSubmissionUnconfirmed;
+
+  /// MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID.
+  ///
+  /// In en, this message translates to:
+  /// **'This request conflicts with an earlier submission. Its details cannot be changed.'**
+  String get cameraRequestConflict;
 }
 
 class _AppLocalizationsDelegate

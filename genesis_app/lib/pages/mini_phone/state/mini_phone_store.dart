@@ -1,3 +1,5 @@
+import '../../../utils/api_error_message.dart';
+import '../camera/mini_phone_camera_tasks.dart';
 import '../../../network/chat_send_gate.dart';
 import '../../../l10n/genesis_l10n.dart';
 import '../messages/mini_phone_messages_controller.dart';
@@ -36,6 +38,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     required this.loadWorld,
     required this.accountRevision,
     this.loadUser,
+    this.loadCameraNotices,
     this.networkAvailabilityCheck = hasDeviceNetworkConnection,
     this.chatConnectionReady,
     DateTime Function()? sendWaitClock,
@@ -87,6 +90,22 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     worldId: worldId,
     requests: requests,
   );
+  late final MiniPhoneCameraTasks cameraTasks = MiniPhoneCameraTasks(
+    api: api,
+    worldId: worldId,
+    namespace: namespace,
+    requests: requests,
+    pending: pending,
+    saveJournal: _save,
+    onChanged: _notify,
+    onSuccess: () {
+      cameraTasks.confirmAlbum(album);
+      if (albumVisible && foreground) unawaited(refreshAlbum());
+    },
+  );
+  StreamSubscription<ChatroomPhotoResult>? _cameraResults;
+  final _earlyCameraResults = <ChatroomPhotoResult>[];
+  final Future<Map<String, dynamic>> Function(int page)? loadCameraNotices;
   final MiniPhoneApi api;
   final Future<bool> Function() networkAvailabilityCheck;
   final bool Function()? chatConnectionReady;
@@ -226,6 +245,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   String worldName = '', currentTime = '';
   WorldMapStyle? mapStyle;
   bool worldDetailLoaded = false;
+  // Read-only input for Camera composition, populated by the existing refresh.
+  WorldDetail? cameraWorldDetail;
   final worldCoverImageKeys = <String>{};
   String get clockTime =>
       RegExp(
@@ -407,7 +428,13 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         jsonEncode(pending.values.map((w) => w.toJson()).toList())) {
       unawaited(_save());
     }
+    cameraTasks.restored();
     _hydrated = true;
+    unawaited(recoverCameraResults());
+    for (final event in _earlyCameraResults) {
+      if (event.photo != null) cameraTasks.accept(event.photo!);
+    }
+    _earlyCameraResults.clear();
     if (!_localReady.isCompleted) _localReady.complete();
     final early = List<ChatroomPhoneEvent>.of(_earlyEvents);
     _earlyEvents.clear();
@@ -470,9 +497,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     sessions = [];
     posts = [];
     photosController.reset();
+    cameraTasks.reset();
+    _earlyCameraResults.clear();
     worldCoverImageKeys.clear();
     mapStyle = null;
     worldDetailLoaded = false;
+    cameraWorldDetail = null;
     currentTime = '';
     notifications = null;
     people.clear();
@@ -558,6 +588,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     worldName = w.name;
     mapStyle = w.mapStyle;
     worldDetailLoaded = true;
+    cameraWorldDetail = w;
     worldCoverImageKeys
       ..clear()
       ..addAll(GenesisImageResourceRegistry.resolve(w.cover).keys);
@@ -788,8 +819,12 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> refreshNotifications({int pn = 1}) =>
       postsController.refreshNotifications(pn: pn);
 
-  Future<bool> refreshAlbum({bool next = false}) =>
-      photosController.refresh(next: next);
+  Future<bool> refreshAlbum({bool next = false}) async {
+    final generation = _generation;
+    final result = await photosController.refresh(next: next);
+    if (result && _current(generation)) cameraTasks.confirmAlbum(album);
+    return result;
+  }
 
   Future<bool> _prepareDmSend(
     String key,
@@ -1128,6 +1163,21 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     _chatroomService = service;
     _events?.cancel();
     _states?.cancel();
+    _cameraResults?.cancel();
+    final cameraGeneration = _generation;
+    _cameraResults = service.photoResults.listen((event) {
+      if (!_current(cameraGeneration) ||
+          event.source != 'camera' ||
+          event.message.worldId != worldId ||
+          event.photo == null) {
+        return;
+      }
+      if (!_hydrated) {
+        _earlyCameraResults.add(event);
+        return;
+      }
+      cameraTasks.accept(event.photo!);
+    });
     final generation = _generation;
     _events = service.phoneEvents.listen((event) {
       if (_current(generation)) receive(event);
@@ -1135,7 +1185,10 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     _wasConnected = false;
     _states = service.states.listen((state) {
       if (!_current(generation)) return;
-      if (state.connected && !_wasConnected) scheduleRefresh();
+      if (state.connected && !_wasConnected) {
+        scheduleRefresh();
+        unawaited(recoverCameraResults());
+      }
       if (!state.connected && _wasConnected && pending.isNotEmpty) {
         for (final write in pending.values) {
           if (write.kind == 'dm' && !write.rejected) write.uncertain = true;
@@ -1284,6 +1337,21 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
       if (_current(g)) {
         _postRefreshing = false;
         if (_postDirty) _schedulePostRefresh();
+      }
+    }
+  }
+
+  Future<void> recoverCameraResults() async {
+    final fetch = loadCameraNotices;
+    if (!_hydrated || !foreground || fetch == null) return;
+    final generation = _generation;
+    try {
+      await cameraTasks.reconcileInbox(fetch, album);
+      if (_current(generation)) errors.remove('cameraRecovery');
+    } catch (error) {
+      if (_current(generation)) {
+        errors['cameraRecovery'] = apiErrorMessage(error);
+        _notify();
       }
     }
   }
@@ -1455,6 +1523,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     if (foreground) {
       dmSendGate.reconcile();
       scheduleRefresh();
+      unawaited(recoverCameraResults());
       if (_postDirty) _schedulePostRefresh();
       unawaited(postsController.retryDeferredReads());
     } else {
@@ -1484,6 +1553,8 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     _replyPollTimer?.cancel();
     _events?.cancel();
     _states?.cancel();
+    unawaited(_cameraResults?.cancel());
+    cameraTasks.dispose();
     super.dispose();
   }
 }

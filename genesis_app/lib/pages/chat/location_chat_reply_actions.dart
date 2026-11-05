@@ -11,6 +11,7 @@ import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../features/location_chat_reply/shared/reply_action_state.dart';
+import '../../features/location_chat_reply/shared/reply_feature_button.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -51,6 +52,9 @@ class LocationChatReplyActions extends StatefulWidget {
     this.reservedLoadingIndicator,
     this.actionsExpanded = true,
     this.paginationExpanded,
+    this.onTakePhoto,
+    this.cameraState = LocationChatReplyActionState.none,
+    this.actionsHidden = false,
     this.actionToolbarKey,
     this.paginationKey,
   });
@@ -77,6 +81,9 @@ class LocationChatReplyActions extends StatefulWidget {
   final Widget? reservedLoadingIndicator;
   final bool actionsExpanded;
   final bool? paginationExpanded;
+  final VoidCallback? onTakePhoto;
+  final LocationChatReplyActionState cameraState;
+  final bool actionsHidden;
   final Key? actionToolbarKey;
   final Key? paginationKey;
   final ChatUiStyleConfig style;
@@ -96,11 +103,12 @@ class LocationChatReplyActions extends StatefulWidget {
   /// Animate the toolbar's height while keeping its buttons hidden until open.
   static const actionCollapseAnimationEnabled = true;
 
-  static const double buttonSize = 32;
-  static const double iconSize = 17;
-  static const double centerSpacing = 50;
-  // Account for the icon's inset inside its button when spacing the row.
-  static const double contentBottomGap = 12 - (buttonSize - iconSize) / 2;
+  static const double buttonSize = LocationChatReplyFeatureButton.layoutSize;
+  static const double iconSize = LocationChatReplyFeatureButton.iconSize;
+  static const double centerSpacing =
+      LocationChatReplyActionButtons.centerSpacing;
+  // Keep the external content gap independent of the larger touch targets.
+  static const double contentBottomGap = 4.5;
 
   @override
   State<LocationChatReplyActions> createState() =>
@@ -164,48 +172,68 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
     final paginationVisible =
         !hasWaitingIndicator && widget.cardCount > 1 && !widget.cardsConfirmed;
     final prompt = _visibleQuotaPrompt();
-    final actionButtons = <Widget>[
-      if (widget.reservedLoadingIndicator == null)
-        if (widget.loadingIndicator case final indicator?) indicator,
-      if (!hasWaitingIndicator) ...[
-        if (_regenerate.state != LocationChatReplyActionState.none)
-          LocationChatRegenerateButton(
-            key: const ValueKey('location-chat-regenerate'),
-            feature: _regenerate,
-            onBeforeInvoke: () {
-              _setEditPromptExpanded(false);
-              _setInspirationExpanded(false);
-            },
-          ),
-        if (_goOn.state != LocationChatReplyActionState.none)
-          LocationChatGoOnButton(
-            key: const ValueKey('location-chat-go-on'),
-            feature: _goOn,
-            onBeforeInvoke: () {
-              _setEditPromptExpanded(false);
-              _setInspirationExpanded(false);
-            },
-          ),
-        if (_edit.state != LocationChatReplyActionState.none)
-          LocationChatEditButton(
-            key: const ValueKey('location-chat-edit'),
-            feature: _edit,
-            onBeforeInvoke: () {
-              _setEditPromptExpanded(true);
-              _setInspirationPromptExpanded(false);
-              _setInspirationExpanded(false);
-            },
-          ),
-        if (_inspiration.state != LocationChatReplyActionState.none)
-          LocationChatInspirationButton(
-            key: const ValueKey('location-chat-inspiration'),
-            feature: _inspiration,
-            expanded: _inspirationExpanded,
-            onBeforeInvoke: () => _setEditPromptExpanded(false),
-            onToggle: _invokeInspiration,
-          ),
-      ],
-    ];
+    final toolbarState = LocationChatReplyToolbarState({
+      LocationChatReplyActionId.regenerate: _regenerate.state,
+      LocationChatReplyActionId.goOn: _goOn.state,
+      LocationChatReplyActionId.edit: _edit.state,
+      LocationChatReplyActionId.inspiration: _inspiration.state,
+      LocationChatReplyActionId.camera: widget.cameraState,
+    });
+    final Widget? actionButtons = hasWaitingIndicator
+        ? (widget.reservedLoadingIndicator == null
+              ? widget.loadingIndicator
+              : null)
+        : LocationChatReplyActionButtons(
+            state: toolbarState,
+            buttons: [
+              LocationChatReplyActionButton(
+                id: LocationChatReplyActionId.regenerate,
+                label: context.l10n.chatRegenerate,
+                iconAsset: regenerateIconAsset,
+                onTap: _regenerate.onInvoke,
+                onDisabledTap: _regenerate.onLimitReached,
+                onBeforeInvoke: () {
+                  _setEditPromptExpanded(false);
+                  _setInspirationExpanded(false);
+                },
+              ),
+              LocationChatReplyActionButton(
+                id: LocationChatReplyActionId.goOn,
+                label: context.l10n.chatGo,
+                iconAsset: goOnIconAsset,
+                onTap: _goOn.onInvoke,
+                onBeforeInvoke: () {
+                  _setEditPromptExpanded(false);
+                  _setInspirationExpanded(false);
+                },
+              ),
+              LocationChatReplyActionButton(
+                id: LocationChatReplyActionId.edit,
+                label: context.l10n.chatEdit,
+                iconAsset: editSquareIconAsset,
+                onTap: _edit.onInvoke,
+                onBeforeInvoke: () {
+                  _setEditPromptExpanded(true);
+                  _setInspirationPromptExpanded(false);
+                  _setInspirationExpanded(false);
+                },
+              ),
+              LocationChatReplyActionButton(
+                id: LocationChatReplyActionId.inspiration,
+                label: context.l10n.chatInspiration,
+                iconAsset: inspirationIconAsset,
+                expanded: _inspirationExpanded,
+                onTap: _invokeInspiration,
+                onBeforeInvoke: () => _setEditPromptExpanded(false),
+              ),
+              LocationChatReplyActionButton(
+                id: LocationChatReplyActionId.camera,
+                label: context.l10n.miniPhoneCamera,
+                iconAsset: cameraIconAsset,
+                onTap: widget.onTakePhoto,
+              ),
+            ],
+          );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -218,13 +246,19 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               paginationVisible,
           pagination: paginationVisible ? _buildPagination(context) : null,
         ),
-        _LocationChatReplyActionToolbar(
-          key: widget.actionToolbarKey,
-          expanded: widget.actionsExpanded && actionButtons.isNotEmpty,
-          animateChanges: widget.loadingIndicator == null,
-          style: style,
-          actions: actionButtons,
-          reservedIndicator: widget.reservedLoadingIndicator,
+        Visibility(
+          visible: !widget.actionsHidden,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: _LocationChatReplyActionToolbar(
+            key: widget.actionToolbarKey,
+            expanded: widget.actionsExpanded,
+            animateChanges: widget.loadingIndicator == null,
+            style: style,
+            actions: actionButtons,
+            reservedIndicator: widget.reservedLoadingIndicator,
+          ),
         ),
         LocationChatInspirationReplies(
           key: widget.inspirationListKey,
@@ -323,9 +357,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           IconButton(
             key: const ValueKey('location-chat-reply-previous-card'),
             style: paginationButtonStyle,
-            tooltip: GenesisL10n
-                .current
-                .chatPreviousReply,
+            tooltip: GenesisL10n.current.chatPreviousReply,
             onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
                 ? widget.onPreviousCard
                 : null,
@@ -349,9 +381,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           IconButton(
             key: const ValueKey('location-chat-reply-next-card'),
             style: paginationButtonStyle,
-            tooltip: GenesisL10n
-                .current
-                .chatNextReply,
+            tooltip: GenesisL10n.current.chatNextReply,
             onPressed:
                 widget.cardSwitchEnabled &&
                     widget.cardIndex < widget.cardCount - 1
@@ -609,7 +639,7 @@ class _LocationChatReplyActionToolbar extends StatefulWidget {
   final bool expanded;
   final bool animateChanges;
   final ChatUiStyleConfig style;
-  final List<Widget> actions;
+  final Widget? actions;
   final Widget? reservedIndicator;
 
   @override
@@ -622,9 +652,9 @@ class _LocationChatReplyActionToolbarState
     with SingleTickerProviderStateMixin {
   late final AnimationController _expansionController;
   late final CurvedAnimation _expansion;
-  List<Widget> _displayedActions = const [];
+  Widget? _displayedActions;
 
-  bool get _wantsOpen => widget.expanded && widget.actions.isNotEmpty;
+  bool get _wantsOpen => widget.expanded && widget.actions != null;
 
   @override
   void initState() {
@@ -639,7 +669,7 @@ class _LocationChatReplyActionToolbarState
     );
     _expansionController.addStatusListener(_onExpansionStatus);
     if (_wantsOpen) {
-      _displayedActions = List<Widget>.unmodifiable(widget.actions);
+      _displayedActions = widget.actions;
       _expansionController.value = 1;
     }
   }
@@ -649,9 +679,7 @@ class _LocationChatReplyActionToolbarState
     super.didUpdateWidget(oldWidget);
     if (!widget.animateChanges || (!oldWidget.animateChanges && !_wantsOpen)) {
       _expansionController.stop();
-      _displayedActions = _wantsOpen
-          ? List<Widget>.unmodifiable(widget.actions)
-          : const [];
+      _displayedActions = _wantsOpen ? widget.actions : null;
       _expansionController.value = _wantsOpen ? 1 : 0;
       return;
     }
@@ -661,20 +689,28 @@ class _LocationChatReplyActionToolbarState
   void _syncExpansion() {
     if (!_wantsOpen) {
       if (LocationChatReplyActions.actionCollapseAnimationEnabled) {
-        if (!_expansionController.isDismissed) _expansionController.reverse();
+        if (!_expansionController.isDismissed &&
+            _expansionController.status != AnimationStatus.reverse) {
+          _expansionController.reverse();
+        }
       } else {
-        _displayedActions = const [];
+        _displayedActions = null;
         _expansionController.value = 0;
       }
       return;
     }
-    _displayedActions = List<Widget>.unmodifiable(widget.actions);
-    _expansionController.forward();
+    _displayedActions = widget.actions;
+    // Scrolling rebuilds the sliver every frame. Restarting the same direction
+    // resets the animation clock instead of preserving the current transition.
+    if (!_expansionController.isCompleted &&
+        _expansionController.status != AnimationStatus.forward) {
+      _expansionController.forward();
+    }
   }
 
   void _onExpansionStatus(AnimationStatus status) {
     if (status != AnimationStatus.dismissed || !mounted || _wantsOpen) return;
-    setState(() => _displayedActions = const []);
+    setState(() => _displayedActions = null);
   }
 
   @override
@@ -686,7 +722,7 @@ class _LocationChatReplyActionToolbarState
 
   @override
   Widget build(BuildContext context) {
-    final toolbar = _displayedActions.isEmpty
+    final toolbar = _displayedActions == null
         ? const SizedBox.shrink()
         : AnimatedBuilder(
             animation: _expansionController,
@@ -698,48 +734,34 @@ class _LocationChatReplyActionToolbarState
                   padding: EdgeInsets.only(
                     left:
                         widget.style.avatarSize + widget.style.avatarBubbleGap,
+                    right: GenesisSpacing.page,
                   ),
                   child: SizedBox(
                     height: LocationChatReplyActions.buttonSize,
-                    child: Row(
-                      key: const ValueKey(
-                        'location-chat-reply-actions-four-icons',
-                      ),
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        for (
-                          var index = 0;
-                          index < _displayedActions.length;
-                          index++
-                        ) ...[
-                          if (index > 0)
-                            const SizedBox(
-                              width:
-                                  LocationChatReplyActions.centerSpacing -
-                                  LocationChatReplyActions.buttonSize,
-                            ),
-                          _displayedActions[index],
-                        ],
-                      ],
-                    ),
+                    child: _displayedActions,
                   ),
                 ),
               ),
             ),
             builder: (context, child) => _expansionController.isDismissed
                 ? const SizedBox.shrink()
+                : _wantsOpen && _expansionController.isCompleted
+                ? SizedBox(
+                    key: const ValueKey(
+                      'location-chat-reply-actions-transition',
+                    ),
+                    height: LocationChatReplyActions.buttonSize,
+                    child: child,
+                  )
                 : SizeTransition(
                     key: const ValueKey(
                       'location-chat-reply-actions-transition',
                     ),
                     sizeFactor: _expansion,
                     alignment: Alignment.bottomLeft,
-                    child: _wantsOpen && _expansionController.isCompleted
-                        ? child
-                        : const SizedBox(
-                            height: LocationChatReplyActions.buttonSize,
-                          ),
+                    child: const SizedBox(
+                      height: LocationChatReplyActions.buttonSize,
+                    ),
                   ),
           );
     final indicator = widget.reservedIndicator;

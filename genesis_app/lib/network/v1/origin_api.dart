@@ -159,6 +159,8 @@ class OriginV1Api extends V1ApiResource {
   /// ```json
   /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":1779184800,"definition_version":2,"language":"zh-Hans","current_time":"Day 1, 08:30","owner_uid":"string","owner_name":"string","owner_user":{},"brief":"string","tags":[],"metric":{},"created_at":0,"cover":{},"map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"init_location_group":{"location_id":"loc_1","initial_dialogue":[]},"characters":[{"char_id":"string","type":"ai","is_recommend":0}],"locations":[{"location_id":"string","location_summary":"string"}],"ticks":[{"tick_id":"string","tick_no":1,"sub_tick_no":1,"status":50,"tick_result":{"current_time":"string","narrator":"string","paragraphs":[]},"created_at":0}]}}
   /// ```
+  /// `data.precharacter` is nullable and contains string fields
+  /// `name/personality/identity/bio/avatar` for the custom-role initial values.
   Future<Map<String, dynamic>> detail({String? originId, String? oid}) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
     if (resolvedOriginId.isEmpty) {
@@ -335,6 +337,7 @@ class OriginV1Api extends V1ApiResource {
     String? originId,
     String? oid,
     String? presetCharacterId,
+    Map<String, dynamic>? presetCharacterOverride,
     Map<String, dynamic>? customRole,
   }) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
@@ -362,6 +365,7 @@ class OriginV1Api extends V1ApiResource {
     return _launchValidated(
       originId: resolvedOriginId,
       presetCharacterId: presetCharacterId,
+      presetCharacterOverride: hasPreset ? presetCharacterOverride : null,
       customRole: customRole,
       roleType: roleType,
     );
@@ -370,6 +374,7 @@ class OriginV1Api extends V1ApiResource {
   Future<Map<String, dynamic>> _launchValidated({
     required String originId,
     required String? presetCharacterId,
+    required Map<String, dynamic>? presetCharacterOverride,
     required Map<String, dynamic>? customRole,
     required String roleType,
   }) async {
@@ -378,6 +383,7 @@ class OriginV1Api extends V1ApiResource {
       body: v1Body({
         'origin_id': originId,
         'preset_character_id': presetCharacterId,
+        'preset_character_override': presetCharacterOverride,
         'custom_role': customRole,
       }),
     );

@@ -1,8 +1,5 @@
-import '../../../l10n/genesis_l10n.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-import '../../../icons/custom_icon_assets.dart';
-import '../shared/reply_feature_button.dart';
 import '../shared/reply_action_state.dart';
 
 /// Public invocation contract for regenerating the current reply.
@@ -20,27 +17,4 @@ final class LocationChatRegenerateFeature extends LocationChatReplyAction {
       super.disabled();
 
   final VoidCallback? onLimitReached;
-}
-
-class LocationChatRegenerateButton extends StatelessWidget {
-  const LocationChatRegenerateButton({
-    super.key,
-    required this.feature,
-    this.onBeforeInvoke,
-  });
-
-  final LocationChatRegenerateFeature feature;
-  final VoidCallback? onBeforeInvoke;
-
-  @override
-  Widget build(BuildContext context) => LocationChatReplyFeatureButton(
-    label: GenesisL10n
-        .current
-        .chatRegenerate,
-    iconAsset: regenerateIconAsset,
-    state: feature.state,
-    onDisabledTap: feature.onLimitReached,
-    onTap: feature.invocation,
-    onBeforeInvoke: onBeforeInvoke,
-  );
 }

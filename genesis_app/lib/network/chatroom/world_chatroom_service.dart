@@ -17,11 +17,13 @@ import '../models/location_tree.dart';
 import '../models/world.dart';
 import 'chatroom_client.dart';
 import 'chatroom_disconnect_monitor.dart';
+import 'chatroom_queue_anomaly_monitor.dart';
 import 'chatroom_connection_controller.dart';
 import 'chatroom_http_models.dart';
 import 'chatroom_message_type.dart';
 import 'chatroom_message_storage.dart';
 import 'chatroom_models.dart';
+import 'chat_photo_request_store.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_reply_actions_controller.dart';
 import 'chatroom_reply_action_storage.dart';
@@ -32,8 +34,11 @@ export 'chatroom_reply_actions_controller.dart';
 import 'chatroom_timeline_payload.dart';
 
 part 'world_chatroom_connection.dart';
+part 'world_chatroom_photos.dart';
 part 'world_chatroom_entry.dart';
 part 'world_chatroom_history_repository.dart';
+part 'world_chatroom_sync.dart';
+part 'world_chatroom_queue_monitor.dart';
 part 'world_chatroom_message_mutations.dart';
 part 'world_chatroom_event_projection.dart';
 part 'world_chatroom_message_reducer.dart';
@@ -46,6 +51,7 @@ part 'world_chatroom_stream_watchdog.dart';
 const _maxMessagesPerLocation = 200;
 const _maxRecoverableLocationMessageGap = 50;
 const _maxLocationMessageGapFillAttempts = 3;
+const _maxLiveLocationSyncRetries = 2;
 const _defaultLocationQueueInitConcurrency = 4;
 const _transientCharactersMovedMessageIdBase = 0x10000000000000;
 const _transientCharactersMovedRoundPrefix = 'ws-event:';
@@ -192,6 +198,7 @@ class WorldChatroomService {
     ChatroomReplyActionStorage? replyActionStorage,
     ChatroomInspirationStorage? inspirationStorage,
     ChatroomDisconnectMonitor? disconnectMonitor,
+    ChatroomQueueAnomalyMonitor? queueAnomalyMonitor,
     LocationChatSendGate? sendGate,
     DateTime Function()? sendGateClock,
   }) : sendGate =
@@ -203,6 +210,8 @@ class WorldChatroomService {
            ),
        _ownsSendGate = sendGate == null,
        _disconnectMonitor = disconnectMonitor,
+       _queueAnomalyMonitor =
+           queueAnomalyMonitor ?? ChatroomQueueAnomalyMonitor(),
        _api = api,
        _client = client,
        _replyActionStorage = replyActionStorage,
@@ -216,10 +225,36 @@ class WorldChatroomService {
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
   final _entryChannels = <String, ValueNotifier<ChatroomLocationEntry>>{};
+  final ChatroomQueueAnomalyMonitor _queueAnomalyMonitor;
+  final _queueBaselineRebuilds = <String>{};
+  final _queueIdentityChanges = <String>{};
   final _entryLocalReads = <(String, _HistoryTicket), Future<void>>{};
-  final _entryNetworkReads = <(String, int, _HistoryTicket), Future<void>>{};
+  final _entryNetworkReads = <(String, int, int), Future<void>>{};
   final _entryPreloads = <(String, _HistoryTicket), Future<void>>{};
   final _entryNetworkVerified = <String, _HistoryTicket>{};
+  int _messageSyncGeneration = 0;
+  NetworkCancellationToken _messageSyncCancellation =
+      NetworkCancellationToken();
+  final _connectionSyncAttempted = <String>{};
+  final _failedLocationSyncs = <String, _HistoryTicket>{};
+  final _liveLocationSyncRetries = <(String, int), Future<void>>{};
+  final _liveLocationSyncRetryCounts = <String, int>{};
+  int _messageReadsActive = 0;
+  int _liveMessageRevision = 0;
+  final _liveMessageRevisions = <(String, Object), int>{};
+  final _messageReadWaiters = Queue<Completer<void>>();
+  final _gapRepairs = <(String, int), Future<void>>{};
+  final _gapRepairPending = <(String, int)>{};
+  final _releasedLocationGaps = <String>{};
+
+  /// Changes whenever the Socket supplying the message queues changes.
+  int get messageSyncGeneration => _messageSyncGeneration;
+
+  Set<String> releasedLocationMessageGapKeys(String locationId) =>
+      _releasedGapKeysFor(locationId);
+
+  Future<void> repairLocationMessageGaps(String locationId) =>
+      _requestLocationGapRepair(locationId);
   final _entryLocalReady = <String>{};
   final _entryReadDepth = <(String, _HistoryTicket), int>{};
   final _entryReadErrors = <(String, _HistoryTicket), Object>{};
@@ -459,6 +494,22 @@ class WorldChatroomService {
   /// World IDs whose archive may have changed; never canonical History rows.
   Stream<String> get historyChanges => _historyChanges.stream;
   bool _historyConnectedOnce = false;
+  final _photoResults = StreamController<ChatroomPhotoResult>.broadcast();
+  Stream<ChatroomPhotoResult> get photoResults => _photoResults.stream;
+  final _photoConfirmedReads = <String>{};
+  bool photoConfirmedByHistory(String task) =>
+      _photoConfirmedReads.contains(task);
+  final _photoLiveRevisions = <String, int>{};
+  int _photoRevision = 0;
+  int get photoRevision => _photoRevision;
+  int photoLiveRevision(String taskId) => _photoLiveRevisions[taskId] ?? 0;
+  final _photoKnownTasks = <String>{};
+  final _photoTerminals = <String, ChatPhoto>{};
+  final _seenPhotoResults = <String>{};
+  Future<void> _photoJournalWrites = Future.value();
+  final _photoRecoveries = <String, Future<void>>{};
+  final photoSubmittingLocations = <String>{};
+  ChatPhotoTarget? photoNavigationTarget;
   final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
   Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -818,6 +869,14 @@ class WorldChatroomService {
     final resolvedRoundId = conversationRoundId.trim();
     if (resolvedLocationId.isEmpty || resolvedRoundId.isEmpty) return;
     _bindStreamWatch(resolvedLocationId, resolvedRoundId);
+    // The watchdog rejects older rounds. Their late waiting events must not
+    // replace the current round while retaining a different round's deadline.
+    final watch = _streamWatches[resolvedLocationId];
+    if (watch != null &&
+        watch.roundId.isNotEmpty &&
+        watch.roundId != resolvedRoundId) {
+      return;
+    }
     if (_streamLocallyEnded(resolvedLocationId, resolvedRoundId) ||
         (_streamWatches[resolvedLocationId]?.operation.finished ?? false)) {
       return;
@@ -999,8 +1058,10 @@ class WorldChatroomService {
     _rememberClosedConversationRound(locationId, current.conversationRoundId);
     final watch = _streamWatches[locationId];
     if (watch != null &&
-        (watch.clientMsgId == current.clientMsgId ||
-            watch.roundId == current.conversationRoundId)) {
+        ((watch.clientMsgId.isNotEmpty &&
+                watch.clientMsgId == current.clientMsgId) ||
+            (watch.roundId.isNotEmpty &&
+                watch.roundId == current.conversationRoundId))) {
       watch.operation.finish();
     }
     final next = <String, ConversationRoundState>{
@@ -1100,8 +1161,23 @@ class WorldChatroomService {
     final nextWorldId = worldId.trim();
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
+      final previousIdentity = _identity;
+      final world = _state.world;
+      if (previousIdentity != null) _userDisconnected = true;
       abandonConnectionWait();
       _retryAttempts = 0;
+      _queueAnomalyMonitor.clear();
+      _queueBaselineRebuilds.clear();
+      _queueIdentityChanges.clear();
+      if (previousIdentity != null) {
+        await _detachSession(disconnect: true);
+        _desiredLocationId = '';
+        _lastUserEnterLocationCommandId = '';
+        _pendingUserEnterLocationCommandId = '';
+        _clearAllConversationRounds();
+        _setState(const WorldChatroomState());
+        if (world?.worldId == nextWorldId) applyWorldSnapshot(world!);
+      }
       _historyConnectedOnce = false;
       _replyActionsController?.dispose();
       _replyActionsController = null;
@@ -1117,6 +1193,14 @@ class WorldChatroomService {
       _cacheEvictedRanges.clear();
       _publishedContentUpdateOccurrences.clear();
       _seenSummaryUpdates.clear();
+      _photoTerminals.clear();
+      _photoKnownTasks.clear();
+      _seenPhotoResults.clear();
+      _photoConfirmedReads.clear();
+      _photoLiveRevisions.clear();
+      _photoRecoveries.clear();
+      photoSubmittingLocations.clear();
+      _photoRevision++;
       _phoneMovementGlobalIdsByCharacter.clear();
       _reportedFailureOccurrences.clear();
     }
@@ -1288,7 +1372,7 @@ class WorldChatroomService {
       }
     }
     if (updateState && messages.isNotEmpty) {
-      _upsertMessages(messages, persist: false);
+      _upsertMessages(messages, persist: false, calibrateQueue: true);
     }
     if (LocationChatDebugSlice.enabled) {
       LocationChatDebugSlice.recordEvent(
@@ -1384,7 +1468,7 @@ class WorldChatroomService {
     if (_worldId.isEmpty || latestLimit <= 0) return;
     final ids = _orderedNonEmpty(
       locationIds ?? _leafLocationIdsForCurrentWorld(),
-    );
+    ).where(_shouldStoreMessageForLocation).toList(growable: false);
     if (ids.isEmpty) return;
     final stopwatch = _chatroomHydrateMetricsEnabled
         ? (Stopwatch()..start())
@@ -1409,6 +1493,7 @@ class WorldChatroomService {
     final waiting = <Future<void>>[];
     for (final location in ids) {
       final ticket = _historyTicket(location);
+      if (_entryNetworkVerified[location] == ticket) continue;
       final key = (location, ticket);
       final existing = _entryPreloads[key];
       if (existing != null) {
@@ -1448,6 +1533,7 @@ class WorldChatroomService {
         },
       );
       await Future.wait(waiting);
+      await Future.wait(ids.map(repairLocationMessageGaps));
     } finally {
       for (final entry in preloads.entries) {
         if (!entry.value.isCompleted) entry.value.complete();
@@ -1749,9 +1835,15 @@ class WorldChatroomService {
       // A cached history page is one logical update. Publishing every row
       // separately makes the chat reconcile and rebuild the growing list up
       // to [limit] times during a single upward pagination request.
-      _upsertMessages(localMessages, persist: false, protectIncoming: true);
+      _upsertMessages(
+        localMessages,
+        persist: false,
+        protectIncoming: true,
+        calibrateQueue: true,
+      );
     }
 
+    final liveRevision = _liveMessageRevision;
     final response = await _api.chatroomHttp.getMessages(
       worldId: _worldId,
       locationId: resolvedLocationId,
@@ -1762,6 +1854,7 @@ class WorldChatroomService {
       resolvedLocationId,
       response.messages,
       ticket: ticket,
+      liveRevision: liveRevision,
     );
     checkCurrent();
     for (final message in response.messages) {
@@ -1832,6 +1925,12 @@ class WorldChatroomService {
     _localMessageCacheGeneration += 1;
     _localHydratedMessageKeys.clear();
     _localHydratingMessageFutures.clear();
+    _queueBaselineRebuilds.clear();
+    _queueIdentityChanges.clear();
+    _queueAnomalyMonitor.reset(
+      worldId: _worldId,
+      connectionGeneration: _messageSyncGeneration,
+    );
     _setState(
       _state.copyWith(
         worldMessages: const <WorldChatroomMessage>[],
@@ -1853,6 +1952,7 @@ class WorldChatroomService {
 
   Future<void> dispose() async {
     if (_disposed) return;
+    _queueAnomalyMonitor.clear();
     _sendReleases.clear();
     _retentionLeases.clear();
     _cacheEvictedRanges.clear();
@@ -1886,6 +1986,7 @@ class WorldChatroomService {
     _latestWorldMessagesRefreshPending = false;
     await disconnect();
     await _phoneEvents.close();
+    await _photoResults.close();
     await _states.close();
     await _historyChanges.close();
     await _failures.close();

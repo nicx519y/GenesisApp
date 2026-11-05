@@ -9,7 +9,10 @@ import '../../ui/components/genesis_static_network_image.dart';
 import 'genesis_modal_routes.dart';
 import 'genesis_image_viewer_transition.dart';
 export 'genesis_image_viewer_transition.dart'
-    show GenesisImageViewerSource, GenesisImageViewerSourceAnchor;
+    show
+        GenesisImageViewerSource,
+        GenesisImageViewerSourceAnchor,
+        GenesisImageViewerSourceAnchorState;
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_safe_area.dart';
 
@@ -26,7 +29,7 @@ GenesisImageViewerPrecacheImage? debugGenesisImageViewerPrecacheImage;
 const SystemUiOverlayStyle _kGenesisImageViewerSystemUiOverlayStyle =
     kGenesisLightSystemUiOverlayStyle;
 
-ImageProvider<Object>? genesisImageViewerPreviewProvider(
+ImageProvider<Object> genesisImageViewerPreviewProvider(
   BuildContext context, {
   required String imageUrl,
   double? logicalWidth,
@@ -35,7 +38,9 @@ ImageProvider<Object>? genesisImageViewerPreviewProvider(
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
 }) {
   final url = imageUrl.trim();
-  if (url.isEmpty) return null;
+  if (url.isEmpty) {
+    throw ArgumentError.value(imageUrl, 'imageUrl', 'Must not be empty');
+  }
   if (url.startsWith('assets/')) return AssetImage(url);
   final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
   return GenesisStaticNetworkImageProvider(
@@ -54,7 +59,7 @@ ImageProvider<Object>? genesisImageViewerPreviewProvider(
   );
 }
 
-ImageProvider<Object>? genesisImageViewerListPreviewProvider(
+ImageProvider<Object> genesisImageViewerListPreviewProvider(
   BuildContext context, {
   required String source,
   required double? logicalWidth,
@@ -80,15 +85,16 @@ ImageProvider<Object>? genesisImageViewerListPreviewProvider(
 Future<void> showGenesisImageViewer(
   BuildContext context, {
   required List<String> imageUrls,
-  List<ImageProvider<Object>?> previewImageProviders =
-      const <ImageProvider<Object>?>[],
+  List<ImageProvider<Object>> previewImageProviders =
+      const <ImageProvider<Object>>[],
   int initialIndex = 0,
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
-  GenesisImageViewerSource? source,
+  required GenesisImageViewerSource source,
   ValueChanged<int>? onImageViewed,
+  Widget Function(BuildContext context, int index)? bottomBuilder,
 }) {
   final urls = <String>[];
-  final previews = <ImageProvider<Object>?>[];
+  final previews = <ImageProvider<Object>>[];
   for (var index = 0; index < imageUrls.length; index += 1) {
     final url = imageUrls[index].trim();
     if (url.isEmpty) continue;
@@ -96,35 +102,47 @@ Future<void> showGenesisImageViewer(
     previews.add(
       index < previewImageProviders.length
           ? previewImageProviders[index]
-          : null,
+          : genesisImageViewerPreviewProvider(
+              context,
+              imageUrl: _selectViewerPreviewImageUrl(
+                url,
+                fullImageUrl: url,
+                devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                maxDevicePixelRatio: maxDevicePixelRatio,
+              ),
+            ),
     );
   }
-  if (urls.isEmpty) return Future<void>.value();
-
-  final startIndex = initialIndex.clamp(0, urls.length - 1);
-  if (source != null && previews[startIndex] == null) {
-    previews[startIndex] = source.previewImageProvider;
+  if (urls.isEmpty) {
+    source.previewImage.dispose();
+    return Future<void>.value();
   }
 
+  final startIndex = initialIndex.clamp(0, urls.length - 1);
+  if (!source.isValid) {
+    source.previewImage.dispose();
+    throw ArgumentError.value(source, 'source', 'Must have valid image bounds');
+  }
+  previews[startIndex] = source.previewImageProvider;
+
   final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-  final animateSource = source != null && source.isValid && !reducedMotion;
+  final animateSource = !reducedMotion;
   if (animateSource) source.onOpeningChanged?.call(true);
 
-  final opened = showGenesisGeneralDialog<void>(
-    context: context,
+  final route = RawDialogRoute<void>(
     barrierDismissible: false,
     barrierColor: Colors.transparent,
     transitionDuration: reducedMotion
         ? Duration.zero
-        : animateSource
-        ? genesisImageViewerOpenDuration
-        : const Duration(milliseconds: 120),
+        : genesisImageViewerOpenDuration,
     pageBuilder: (context, animation, secondaryAnimation) {
       return GenesisImageViewerOverlay(
         imageUrls: urls,
+        source: source,
         previewImageProviders: previews,
         initialIndex: startIndex,
         onImageViewed: onImageViewed,
+        bottomBuilder: bottomBuilder,
         maxDevicePixelRatio: maxDevicePixelRatio,
       );
     },
@@ -133,29 +151,48 @@ Future<void> showGenesisImageViewer(
         return GenesisImageViewerOpenTransition(
           animation: animation,
           source: source,
+          bottomInset: bottomBuilder == null
+              ? 0
+              : 40 +
+                    (urls.length > 1 ? 16 + 18 : 0) +
+                    MediaQuery.paddingOf(
+                      context,
+                    ).bottom.clamp(16, double.infinity),
           child: child,
         );
       }
       return FadeTransition(opacity: animation, child: child);
     },
   );
-  return opened.whenComplete(() => source?.onOpeningChanged?.call(false));
+  // A push future completes when pop starts. Keep the frame alive through the
+  // entire reverse transition and release it only after the route is removed.
+  unawaited(route.completed.whenComplete(source.previewImage.dispose));
+  return Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push<void>(route).whenComplete(() {
+    source.onOpeningChanged?.call(false);
+  });
 }
 
 class GenesisImageViewerOverlay extends StatefulWidget {
   const GenesisImageViewerOverlay({
     super.key,
     required this.imageUrls,
-    this.previewImageProviders = const <ImageProvider<Object>?>[],
+    required this.source,
+    this.previewImageProviders = const <ImageProvider<Object>>[],
     this.initialIndex = 0,
     this.onImageViewed,
+    this.bottomBuilder,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final List<String> imageUrls;
-  final List<ImageProvider<Object>?> previewImageProviders;
+  final List<ImageProvider<Object>> previewImageProviders;
+  final GenesisImageViewerSource source;
   final int initialIndex;
   final ValueChanged<int>? onImageViewed;
+  final Widget Function(BuildContext context, int index)? bottomBuilder;
   final double maxDevicePixelRatio;
 
   @override
@@ -175,6 +212,19 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   bool _pinchGestureActive = false;
   Offset? _dragStart;
   double _dragOffsetY = 0;
+  bool _dismissing = false;
+
+  void _dismiss() {
+    // Pointer, edge-swipe and close callbacks may overlap during the reverse
+    // transition. Only the viewer may be popped, never its underlying page.
+    if (_dismissing ||
+        !mounted ||
+        !(ModalRoute.isCurrentOf(context) ?? false)) {
+      return;
+    }
+    _dismissing = true;
+    Navigator.of(context).pop();
+  }
 
   @override
   void initState() {
@@ -276,7 +326,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     final shouldDismiss = _dragOffsetY >= _dismissDragDistance;
     _dragStart = null;
     if (shouldDismiss) {
-      Navigator.of(context).pop();
+      _dismiss();
       return;
     }
     if (_dragOffsetY == 0) return;
@@ -314,7 +364,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: _kGenesisImageViewerSystemUiOverlayStyle,
         child: GenesisEdgeSwipeBack(
-          onBack: () => Navigator.of(context).pop(),
+          onBack: _dismiss,
           child: Material(
             key: const ValueKey('genesis-image-viewer-surface'),
             color: Color.lerp(
@@ -352,41 +402,75 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Transform.translate(
-                      key: const ValueKey(
-                        'genesis-image-viewer-drag-translation',
-                      ),
-                      offset: Offset(0, _dragOffsetY),
-                      child: Transform.scale(
-                        key: const ValueKey(
-                          'genesis-image-viewer-drag-transform',
-                        ),
-                        scale: dragScale,
-                        child: PageView.builder(
-                          key: const ValueKey('genesis-image-viewer-page-view'),
-                          controller: _pageController,
-                          physics: _pinchGestureActive
-                              ? const NeverScrollableScrollPhysics()
-                              : null,
-                          itemCount: widget.imageUrls.length,
-                          onPageChanged: _handlePageChanged,
-                          itemBuilder: (context, index) {
-                            return _ViewerPageSlot(
-                              viewportFraction: _pageViewportFraction,
-                              child: _ViewerImage(
-                                index: index,
-                                url: widget.imageUrls[index],
-                                previewImageProvider:
-                                    index < widget.previewImageProviders.length
-                                    ? widget.previewImageProviders[index]
-                                    : null,
-                                controller: _transformationControllers[index],
-                                maxDevicePixelRatio: widget.maxDevicePixelRatio,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Transform.translate(
+                            key: const ValueKey(
+                              'genesis-image-viewer-drag-translation',
+                            ),
+                            offset: Offset(0, _dragOffsetY),
+                            child: Transform.scale(
+                              key: const ValueKey(
+                                'genesis-image-viewer-drag-transform',
                               ),
-                            );
-                          },
+                              scale: dragScale,
+                              child: PageView.builder(
+                                key: const ValueKey(
+                                  'genesis-image-viewer-page-view',
+                                ),
+                                controller: _pageController,
+                                physics: _pinchGestureActive
+                                    ? const NeverScrollableScrollPhysics()
+                                    : null,
+                                itemCount: widget.imageUrls.length,
+                                onPageChanged: _handlePageChanged,
+                                itemBuilder: (context, index) {
+                                  return _ViewerPageSlot(
+                                    viewportFraction: _pageViewportFraction,
+                                    child: _ViewerImage(
+                                      index: index,
+                                      url: widget.imageUrls[index],
+                                      previewImage: index == widget.initialIndex
+                                          ? widget.source.previewImage
+                                          : null,
+                                      previewImageProvider:
+                                          index <
+                                              widget
+                                                  .previewImageProviders
+                                                  .length
+                                          ? widget.previewImageProviders[index]
+                                          : null,
+                                      controller:
+                                          _transformationControllers[index],
+                                      maxDevicePixelRatio:
+                                          widget.maxDevicePixelRatio,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (widget.bottomBuilder != null)
+                          SafeArea(
+                            top: false,
+                            minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                widget.bottomBuilder!(context, _currentIndex),
+                                if (widget.imageUrls.length > 1) ...[
+                                  const SizedBox(height: 16),
+                                  _ViewerPageDots(
+                                    count: widget.imageUrls.length,
+                                    currentIndex: _currentIndex,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   Positioned(
@@ -418,14 +502,15 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
                                 color: Colors.white,
                                 size: 22,
                               ),
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: _dismiss,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                  if (widget.imageUrls.length > 1)
+                  if (widget.imageUrls.length > 1 &&
+                      widget.bottomBuilder == null)
                     Positioned(
                       left: 0,
                       right: 0,
@@ -497,6 +582,7 @@ class _ViewerImage extends StatelessWidget {
     required this.index,
     required this.url,
     required this.previewImageProvider,
+    required this.previewImage,
     required this.controller,
     required this.maxDevicePixelRatio,
   });
@@ -504,6 +590,7 @@ class _ViewerImage extends StatelessWidget {
   final int index;
   final String url;
   final ImageProvider<Object>? previewImageProvider;
+  final ImageInfo? previewImage;
   final TransformationController controller;
   final double maxDevicePixelRatio;
 
@@ -530,6 +617,7 @@ class _ViewerImage extends StatelessWidget {
                   index: index,
                   url: url,
                   previewImageProvider: previewImageProvider,
+                  previewImage: previewImage,
                   fit: BoxFit.fitWidth,
                   maxDevicePixelRatio: maxDevicePixelRatio,
                 ),
@@ -586,6 +674,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
     required this.index,
     required this.url,
     required this.previewImageProvider,
+    required this.previewImage,
     required this.fit,
     required this.maxDevicePixelRatio,
   });
@@ -593,6 +682,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
   final int index;
   final String url;
   final ImageProvider<Object>? previewImageProvider;
+  final ImageInfo? previewImage;
   final BoxFit fit;
   final double maxDevicePixelRatio;
 
@@ -651,7 +741,18 @@ class _ProgressiveImageByUrl extends StatelessWidget {
           );
         }
 
-        final preview = explicitPreviewProvider == null
+        final capturedFrame = previewImage;
+        final preview = capturedFrame != null
+            ? KeyedSubtree(
+                key: ValueKey('genesis-image-viewer-preview-$index'),
+                child: RawImage(
+                  image: capturedFrame.image,
+                  scale: capturedFrame.scale,
+                  width: logicalWidth,
+                  fit: fit,
+                ),
+              )
+            : explicitPreviewProvider == null
             ? _buildViewerImage(
                 key: ValueKey('genesis-image-viewer-preview-$index'),
                 imageUrl: previewImageUrl,

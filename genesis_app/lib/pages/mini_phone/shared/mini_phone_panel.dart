@@ -6,7 +6,9 @@ Widget miniPhonePanel(
   Widget body, {
   String? subtitle,
   Widget? footer,
+  bool maintainBottomViewPadding = false,
 }) => SafeArea(
+  maintainBottomViewPadding: maintainBottomViewPadding,
   child: Column(
     children: [
       header,

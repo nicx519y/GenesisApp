@@ -114,6 +114,7 @@ class ApiClient {
        _retryPolicy = retryPolicy;
 
   final Uri _baseUri;
+  String get cacheNamespace => _baseUri.toString();
   final Map<String, String> _defaultHeaders;
   final ApiResponseProcessor _responseProcessor;
   final RequestHeaderProvider? _requestHeaderProvider;

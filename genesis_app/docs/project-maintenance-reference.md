@@ -133,6 +133,8 @@ WebSocket 当前协议规则：
 - `OriginWorldPage`：Origin 详情/预览页，不等同于已加入 world。复用 `WorldDetailsPageScaffold`、`WorldDetailsShell`、`WorldMap`、`WorldTickEventItem`；Launch 通过 `showOriginRoleLaunchSheet` 选择角色后创建/进入 world。Origin inline chat 是 launch-only 预览，不应显示真实连接状态。
 - `WorldPage`：监听账号会话变更，登录后重新读取当前 UID 和 World Detail，以服务端 `relation_status` 更新底部操作；交互登录不自动申请或 Tick。旧账号详情响应不得覆盖新会话，进行中的详情请求结束后补做会话刷新；同时释放旧聊天室和小手机会话，重新获取当前账号的音乐租约，避免引用已释放的播放器。已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
 - `LocationChatPage`：地点聊天室页。页面可以从 world drill-down 打开，但只有 leaf location 才允许 `join`/`leave`。非 leaf 只展示页面/地图层级，不产生聊天室副作用。
+- World History Sheet 在历史加载到最早一条后，于列表顶部复用公共 AI 虚构内容提示；提示随历史滚动，仅用于展示，不进入历史投影或分页游标。
+- World 的 v2 Tilemap 使用 `WorldTilemapViewStore` 在设备本地按环境、账号、WID 保存最后浏览的地图地点、返回层级路径及各层平移／缩放状态。重新进入先读取记录并用最新地点树校验，首个地图请求直接加载保存地点；失效记录回退现有默认入口，列表的默认地图元数据不覆盖有效浏览记录。视口变化合并保存，退出页面或切到后台立即保存；账号切换重建地图恢复上下文，不影响地点聊天的 join／leave 规则。
 - LocationChat 模型入口在页面激活且有真实 `modelWorldId` 时读取用户模型缓存；编码或名称缺失时先复用当前 World 的模型目录，没有目录再查询 `/api/v1/gem/model/list`。编码缺失时使用响应的 `selected_model_code`，同步保存编码及名称；有完整用户模型缓存时不额外请求，未激活或无完整登录会话时不查询，迟到响应不覆盖后续选择或其他账号。
 - `ChatPage`：私信会话页。会话列表和消息缓存由 `DirectMessageConversationStore`、`DirectMessageMessageStore` 以及 `lib/network/direct_message_database.dart` 管理。
 - `MessagesPage`：消息中心。负责未读 summary、通知分组、私信入口和 mark-read 刷新；通知列表页是 `MessageCategoryListPage`。
@@ -331,7 +333,7 @@ HTTP 映射层的图片规则：
 - 需要透明度变体时，从对应 token 派生，若已有对应语义 token（如 `darkCardBackground`），直接引用该 token；不得用变体替代规定的三级文字颜色。
 - 不创建肉眼接近的背景色或文字透明度。纯白 `#FFFFFF` 不作为深色内容区常规文字颜色，除非设计明确要求更高强调层级；输入区域和浮动操作菜单按后文专项规范执行。
 
-- 深色页面的命名路由和直接 `Navigator.push` 统一使用 `GenesisDarkPageRoute<T>`（`lib/ui/navigation/genesis_dark_page_route.dart`）。它为 Android 进入、退出和被覆盖时的转场显式提供 `darkBackground`，避免转场读取页面局部 Theme 之外的浅色背景；保留平台返回手势及路由结果类型。
+- 深色页面的命名路由和直接 `Navigator.push` 统一使用 `GenesisDarkPageRoute<T>`（`lib/ui/navigation/genesis_dark_page_route.dart`）。它为 Android 进入、退出和被覆盖时的转场显式提供 `darkBackground`，避免转场读取页面局部 Theme 之外的浅色背景；保留平台返回手势及路由结果类型。嵌套 Navigator 的路由仅在所有外层路由同为当前页时才启用返回手势；根部大图或弹窗覆盖期间，不得由底层子页抢占 Android predictive back 或 iOS 侧滑。
 
 ### 红色层级规范
 
@@ -503,3 +505,7 @@ HTTP 映射层的图片规则：
 - Manifest 存在不代表原生启动异常已修复。Samsung Android 13 冷启动、后台启动和覆盖安装，以及 Android 15 输入法仍需单独真机验证。上线后按新版本使用量核对 24 小时和 7 天事件，不能把旧包事件或新包暂未上报当作结论。
 
 - Chat 与 MiniPhone 收到关联发送请求的余额不足失败后，移除本人气泡并将正文恢复到空输入框，不显示失败感叹号，不覆盖新草稿；公共 Toast 与充值面板继续统一展示。MiniPhone AI 源消息仅异步 completed 后写本地聊天库，pending/generating/failed 不写；恢复请求日志与聊天库分离。服务端是否保留源消息仍由正式服务端契约决定。
+
+## LocationChat 聊天生图（2026-11-04）
+
+拍照询价、提交、恢复、失败展示周期和 Inbox 精确定位的实现入口与规则见 [聊天生图接入](chat-photo-client-integration.md)。卡内照片参与整卡展示与 Regenerate 收起，图片状态不参与文字等待锁；live_photo 不可通过文字 Edit 修改或删除。卡内照片三态展示，旧独立照片保持原访问周期过滤。

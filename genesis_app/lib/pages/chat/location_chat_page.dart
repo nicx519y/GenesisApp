@@ -1,3 +1,6 @@
+import '../../network/chatroom/chat_photo_request_store.dart';
+import 'location_chat_photo_visibility.dart';
+import '../../utils/api_error_message.dart';
 import '../../network/chatroom/location_chat_send_gate.dart';
 import '../world/history/world_history_controller.dart';
 import '../world/history/world_history_projection.dart';
@@ -37,6 +40,7 @@ import '../../app/membership/chatroom_feature_quota_store.dart';
 import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
@@ -119,6 +123,7 @@ part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_message_viewport.dart';
 part 'location_chat_private_return.dart';
+part 'location_chat_photos.dart';
 part 'location_chat_shared.dart';
 part '../world/world_chat_history_section.dart';
 part '../world/world_chat_history_loader.dart';
@@ -134,7 +139,6 @@ const Duration _locationChatBackgroundFadeDuration = Duration(
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
-const int _locationChatMessageGapMaxAttempts = 3;
 const double _locationChatOlderMessagesTriggerExtent = 180;
 const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
 const String _locationChatDefaultBackgroundAsset =
@@ -517,7 +521,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ChatroomLocationEntry? get _preparedEntry => _usesPreparedEntry
       ? _service?.entryForLocation(widget.locationId).value
       : null;
+  ({int roundId, int cardId})? _photoCardPreview;
   ChatroomReplyRoundState? get _displayReplyState {
+    final preview = _photoCardPreview;
+    if (preview != null) {
+      return _replyController?.stateForRound(
+        widget.locationId,
+        preview.roundId,
+      );
+    }
     final retainedRoundId = _deferredTickPresentationRoundId;
     if (retainedRoundId != null) {
       final retained = _replyController?.stateForRound(
@@ -622,7 +634,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   _LocationChatReplyConnectionAction? _replyConnectionAction;
   int? _replyConnectionActionRoundId;
   int _replyConnectionActionGeneration = 0;
-  ({bool regenerate, bool edit, bool inspiration})? _goOnPreAckCapabilities;
   Set<int> _replyRegenerationBaselineCardIds = const <int>{};
   bool _replyRegenerationHasRenderedContent = false;
   _LocationChatRegenerateAnalyticsAttempt? _regenerateAnalyticsAttempt;
@@ -798,13 +809,21 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
-  final Map<String, int> _messageGapFillAttempts = <String, int>{};
-  final Set<String> _releasedMessageGapKeys = <String>{};
   bool _deferredVisibleMessageGapFill = false;
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
   bool _openingModelPage = false;
   bool _openingCharacterChat = false;
+  bool _takingScenePhoto = false;
+  final _photoArrivalRequests = <String>{};
+  WorldChatroomService? _photoVisitService;
+  int _photoVisit = 0;
+  int? _photoVisitSessionRevision;
+  LocationChatPhotoVisibility _photoVisibility = LocationChatPhotoVisibility(
+    liveBaseline: 0,
+  );
+  ({int generation, String localId})? _photoReveal;
+  final _photoNavigationOwner = Object();
 
   Future<void> _openCharacterChat(ChatMessageVm message) async {
     if (_openingCharacterChat || !widget.active || message.isMe) return;
@@ -925,13 +944,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ) {
     if (pendingSources.isEmpty) return false;
     return messages.any((message) {
-      if (message.text.trim().isEmpty) return false;
+      if (message.photo != null || message.text.trim().isEmpty) return false;
       final round = int.tryParse(message.roundId);
       if (round == null) return false;
       return pendingSources.any(
-        (source) =>
-            source.goOnRoundId == round ||
-            (source.goOnRoundId == null && round > source.roundId),
+        // A later independent message (notably an existing photo description)
+        // cannot identify this Go On response. Keep its own button busy until
+        // the receipt supplies the exact destination round.
+        (source) => source.goOnRoundId == round,
       );
     });
   }
@@ -951,6 +971,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return messages.any(
       (message) =>
           message.localId.startsWith(candidatePrefix) &&
+          message.photo == null &&
           message.text.trim().isNotEmpty,
     );
   }
@@ -1014,6 +1035,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleViewportCoordinatorChanged() {
     if (!mounted) return;
+    if (_photoReveal != null &&
+        _photoReveal!.generation != _scrollCoordinator.commandGeneration) {
+      // Preserve the complete target-to-latest window while positioning. Once
+      // the user takes control, normal bounded history retention resumes.
+      _photoReveal = null;
+      _service?.releaseMessageWindow(_photoNavigationOwner);
+    }
     final visibleMessageLocalIds =
         _scrollCoordinator.messageLocalIdsIntersectingViewport;
     _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);
@@ -1161,6 +1189,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _resetPhotoVisit();
     _pageSendReleases.clear();
     _replySendReleases.clear();
     _pageSendGate?.removeListener(_onSendGateChanged);
@@ -1206,6 +1235,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (state == AppLifecycleState.resumed && widget.active) {
       _pageSendGate?.reconcile();
       _service?.reconcileLocationStreamWait(widget.locationId);
+      unawaited(_service?.recoverPhotos(widget.locationId));
     }
   }
 
@@ -1257,6 +1287,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.locationId == widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
+    if (changedChatTarget || becameInactive) _resetPhotoVisit();
     if (becameActive) {
       _lastActiveOccupants = null;
       _exitRetainedOccupants = null;
@@ -1342,8 +1373,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _initialLatestMessagesRefresh = null;
           _messageGapFillKeys.clear();
           _messageGapFillBeforeLocationMessageIds.clear();
-          _messageGapFillAttempts.clear();
-          _releasedMessageGapKeys.clear();
           _deferredVisibleMessageGapFill = false;
           _prepareConnection();
         }),

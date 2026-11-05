@@ -28,6 +28,7 @@ Dock 位置保留旧的本地存储键，避免整理命名后丢失已有位置
 | `home/` | 桌面、世界时钟、通知卡片、展开布局与 Home 自身滚动状态 |
 | `messages/` | 会话列表、私聊 UI、消息投影、历史分页、回复状态及持久化已读 |
 | `posts/` | `mini_phone_posts_page.dart` 仅装配；Feed、评论、创建使用独立页面，共用帖子内容组件；作者栏按需构建，草稿继续归 Session |
+| `camera/` | 相机草稿、真实任务控制器、风格选择与任务相册投影；任务使用 Store 共用写日志，不创建聊天消息 |
 | `photos/` | 相册页面、请求控制器、按相册/封面变化缓存的展示投影和缩略图策略 |
 | `music/` | 音乐页面、Home 卡片、播放器、点赞、播放进度及公共音乐组件 |
 | `settings/` | 设置页、AI 模型设置页面与会话内模型设置控制器 |
@@ -62,3 +63,5 @@ flutter analyze --no-pub lib/pages/mini_phone lib/network/mini_phone
 - [历史开发记录](../../../docs/history/mini-phone-development-notes.md)
 
 受控测试、真实后端联调、Android / iOS 真机验收分别记录；历史验证结果不能替代本次验收。
+
+拍照接口、失败展示和 Inbox 资产定位见 [Camera 接入](../../../docs/mini-phone-camera-integration.md)。

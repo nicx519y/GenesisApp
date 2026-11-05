@@ -11,6 +11,7 @@ import '../posts/mini_phone_post_draft.dart';
 import '../settings/mini_phone_model_settings.dart';
 import '../state/mini_phone_store.dart';
 import 'mini_phone_screen.dart';
+import '../camera/mini_phone_camera.dart';
 
 /// Owned by a World route, shared by its map, location chats and MiniPhone route.
 class MiniPhoneSession {
@@ -40,6 +41,8 @@ class MiniPhoneSession {
               readUid: services.sessionStore.readLoginUid,
               loadWorld: () => services.api.getWorld(worldId),
               loadUser: services.api.getUser,
+              loadCameraNotices: (page) => services.api.v1.messages
+                  .notifications(block: 'world_apply', pn: page, rn: 100),
               accountRevision: services.sessionRevision,
             ),
       musicLease: worldId.isEmpty
@@ -57,11 +60,45 @@ class MiniPhoneSession {
   late final MiniPhonePostDraft? postDraft = data == null
       ? null
       : MiniPhonePostDraft(data!);
+  MiniPhonePostDraft? cameraPostDraft;
+  bool composingCameraPhoto = false;
+  MiniPhonePostDraft? get activePostDraft =>
+      composingCameraPhoto ? cameraPostDraft : postDraft;
+
+  void composeCameraPhoto(
+    String asset, {
+    ImageProvider<Object>? previewImageProvider,
+  }) {
+    if (data == null || _disposed) return;
+    cameraPostDraft?.dispose();
+    cameraPostDraft = MiniPhonePostDraft.cameraPhoto(
+      data!,
+      asset,
+      previewImageProvider: previewImageProvider,
+    );
+    composingCameraPhoto = true;
+  }
+
   final Future<MusicCatalog> Function()? _musicLoader;
+  late final MiniPhoneCameraController? camera = data == null
+      ? null
+      : MiniPhoneCameraController(
+          requests: data!.requests,
+          selections: data!.cameraTasks.selections,
+          scope: MiniPhoneCameraScope(
+            environment: data!.namespace,
+            accountId: data!.uid ?? '',
+            worldId: worldId,
+          ),
+        );
   final resume = MiniPhoneResume();
   final _routes = <Route<dynamic>, NavigatorState>{};
   bool _disposed = false;
   bool get isDisposed => _disposed;
+  bool presentationVisible = false;
+  bool get hasForegroundRoute =>
+      !_disposed &&
+      _routes.keys.any((r) => r.isCurrent || r.isActive && presentationVisible);
   MiniPhoneScreen modelReturnScreen = MiniPhoneScreen.chat;
   final modelSettings = MiniPhoneModelSettings();
 
@@ -91,7 +128,9 @@ class MiniPhoneSession {
     } else {
       music.dispose();
     }
+    camera?.dispose();
     postDraft?.dispose();
+    cameraPostDraft?.dispose();
     data?.dispose();
     final routes = _routes.entries.toList().reversed.toList();
     _routes.clear();
@@ -128,6 +167,7 @@ class MiniPhoneSessionScope extends InheritedWidget {
 }
 
 class MiniPhoneResume {
+  MiniPhoneScreen photosReturnScreen = MiniPhoneScreen.home;
   int? accountGeneration;
   MiniPhoneScreen screen = MiniPhoneScreen.home;
   int homePage = 0;

@@ -15,7 +15,7 @@ class ChatThumbnailImage extends StatefulWidget {
   final double maxWidth;
   final Color placeholderColor;
   final BorderRadiusGeometry borderRadius;
-  final ValueChanged<ImageProvider<Object>?>? onTap;
+  final ValueChanged<GenesisImageViewerSource>? onTap;
   final GestureLongPressStartCallback? onLongPressStart;
 
   @override
@@ -174,11 +174,21 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
       );
     }
 
+    final onTap = widget.onTap;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap == null ? null : () => widget.onTap!(provider),
       onLongPressStart: widget.onLongPressStart,
-      child: thumbnail,
+      child: onTap != null && provider != null && !_failed
+          ? GenesisImageViewerSourceAnchor(
+              previewImageProvider: provider,
+              fit: BoxFit.contain,
+              borderRadius: widget.borderRadius.resolve(
+                Directionality.of(context),
+              ),
+              onTap: onTap,
+              child: thumbnail,
+            )
+          : thumbnail,
     );
   }
 

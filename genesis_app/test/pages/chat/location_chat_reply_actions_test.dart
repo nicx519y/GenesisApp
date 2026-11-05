@@ -7,6 +7,8 @@ import 'package:genesis_flutter_android/features/location_chat_reply/go_on/go_on
 import 'package:genesis_flutter_android/features/location_chat_reply/inspiration/inspiration.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
+import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_feature_button.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
@@ -23,6 +25,7 @@ const _inspirationReplies = [
 
 Widget _replyActions({
   required ChatUiStyleConfig style,
+  bool actionsExpanded = true,
   LocationChatInspirationFeature? inspirationFeature,
   List<String> inspirationMessages = const [],
   ValueChanged<String>? onInspirationSend,
@@ -50,6 +53,7 @@ Widget _replyActions({
   double? selfMessageBubbleMaxWidthCap,
 }) => LocationChatReplyActions(
   style: style,
+  actionsExpanded: actionsExpanded,
   regenerateFeature: LocationChatRegenerateFeature(
     onInvoke: onRegenerate,
     state:
@@ -98,6 +102,310 @@ Widget _replyActions({
 );
 
 void main() {
+  test('all submissions retain visibility until a new bubble is present', () {
+    final available = LocationChatReplyToolbarState({
+      for (final id in LocationChatReplyActionId.values)
+        id: LocationChatReplyActionState.idle,
+    });
+    for (final active in LocationChatReplyActionId.values) {
+      final presentation = LocationChatReplyToolbarPresentation();
+      presentation.resolve(available);
+      final transient = LocationChatReplyToolbarState({
+        active: LocationChatReplyActionState.busy,
+      });
+      for (var frame = 0; frame < 3; frame++) {
+        final displayed = presentation.resolve(transient);
+        for (final id in LocationChatReplyActionId.values) {
+          expect(
+            displayed[id],
+            id == active
+                ? LocationChatReplyActionState.busy
+                : LocationChatReplyActionState.disabled,
+          );
+        }
+      }
+      final nextBubble = presentation.resolve(
+        transient.withState(active, LocationChatReplyActionState.disabled),
+      );
+      for (final id in LocationChatReplyActionId.values.where(
+        (id) => id != active,
+      )) {
+        expect(nextBubble[id], LocationChatReplyActionState.none);
+      }
+    }
+    final image = available.withHidden({
+      LocationChatReplyActionId.regenerate,
+      LocationChatReplyActionId.edit,
+    });
+    final presentation = LocationChatReplyToolbarPresentation();
+    presentation.resolve(image);
+    final submitted = presentation.resolve(
+      available.withBusy(LocationChatReplyActionId.goOn),
+    );
+    expect(
+      submitted[LocationChatReplyActionId.regenerate],
+      LocationChatReplyActionState.none,
+    );
+    expect(
+      submitted[LocationChatReplyActionId.edit],
+      LocationChatReplyActionState.none,
+    );
+    expect(
+      submitted[LocationChatReplyActionId.goOn],
+      LocationChatReplyActionState.busy,
+    );
+    final failed = presentation.resolve(image);
+    expect(
+      failed[LocationChatReplyActionId.goOn],
+      LocationChatReplyActionState.idle,
+    );
+    final photo = LocationChatReplyToolbarPresentation();
+    photo.resolve(available, visibilityContext: 'text');
+    final receivedPhoto = photo.resolve(
+      image.withBusy(LocationChatReplyActionId.camera),
+      visibilityContext: 'image',
+    );
+    expect(
+      receivedPhoto[LocationChatReplyActionId.regenerate],
+      LocationChatReplyActionState.none,
+    );
+    expect(
+      receivedPhoto[LocationChatReplyActionId.edit],
+      LocationChatReplyActionState.none,
+    );
+    expect(
+      receivedPhoto[LocationChatReplyActionId.camera],
+      LocationChatReplyActionState.busy,
+    );
+  });
+
+  testWidgets('common state API owns busy exclusivity and hidden slots', (
+    tester,
+  ) async {
+    final available = LocationChatReplyToolbarState({
+      for (final id in LocationChatReplyActionId.values)
+        id: LocationChatReplyActionState.idle,
+    });
+    var state = available;
+    var calls = 0;
+    Widget tree() => MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 390,
+          child: LocationChatReplyActionButtons(
+            state: state,
+            buttons: [
+              for (final id in LocationChatReplyActionId.values)
+                LocationChatReplyActionButton(
+                  id: id,
+                  label: id.name,
+                  iconAsset: cameraIconAsset,
+                  onTap: () => calls++,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(tree());
+    final positions = {
+      for (final id in LocationChatReplyActionId.values)
+        id: tester.getRect(find.bySemanticsLabel(id.name)),
+    };
+    for (final busyId in LocationChatReplyActionId.values) {
+      state = available.withState(busyId, LocationChatReplyActionState.busy);
+      await tester.pumpWidget(tree());
+      // Temporary capability loss must not remove submitted toolbar slots.
+      state = LocationChatReplyToolbarState({
+        busyId: LocationChatReplyActionState.busy,
+      });
+      await tester.pumpWidget(tree());
+      for (final id in LocationChatReplyActionId.values) {
+        final button = find.bySemanticsLabel(id.name);
+        expect(tester.getRect(button), positions[id]);
+        expect(tester.widget<Semantics>(button).properties.enabled, isFalse);
+        expect(
+          tester.widget<Semantics>(button).properties.liveRegion,
+          id == busyId,
+        );
+        await tester.tap(button, warnIfMissed: false);
+      }
+      expect(calls, 0);
+      state = available;
+      await tester.pumpWidget(tree());
+      for (final id in LocationChatReplyActionId.values) {
+        expect(
+          tester
+              .widget<Semantics>(find.bySemanticsLabel(id.name))
+              .properties
+              .enabled,
+          isTrue,
+        );
+      }
+    }
+    for (final hiddenId in LocationChatReplyActionId.values) {
+      state = available.withState(hiddenId, LocationChatReplyActionState.none);
+      await tester.pumpWidget(tree());
+      expect(find.bySemanticsLabel(hiddenId.name), findsNothing);
+      for (final id in LocationChatReplyActionId.values.where(
+        (id) => id != hiddenId,
+      )) {
+        final shifted =
+            id != LocationChatReplyActionId.camera && hiddenId.index < id.index;
+        expect(
+          tester.getRect(find.bySemanticsLabel(id.name)),
+          positions[id]!.shift(Offset(shifted ? -50 : 0, 0)),
+        );
+      }
+    }
+  });
+
+  testWidgets(
+    'hidden left actions release space while camera stays right-aligned',
+    (tester) async {
+      var mask = 15;
+      LocationChatReplyActionState state(int bit) => mask & bit == 0
+          ? LocationChatReplyActionState.none
+          : LocationChatReplyActionState.idle;
+      Widget tree() => MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: LocationChatReplyActions(
+              style: kLocationChatStyle,
+              regenerateFeature: LocationChatRegenerateFeature(
+                state: state(1),
+                onInvoke: () {},
+              ),
+              goOnFeature: LocationChatGoOnFeature(
+                state: state(2),
+                onInvoke: () {},
+              ),
+              editFeature: LocationChatEditFeature(
+                state: state(4),
+                onInvoke: () {},
+              ),
+              inspirationFeature: LocationChatInspirationFeature(
+                state: state(8),
+                messages: const [],
+              ),
+              cameraState: LocationChatReplyActionState.idle,
+              onTakePhoto: () {},
+            ),
+          ),
+        ),
+      );
+      const labels = ['Regenerate', 'Go on', 'Edit', 'Inspiration'];
+      await tester.pumpWidget(tree());
+      final original = {
+        for (final label in labels)
+          label: tester.getRect(find.bySemanticsLabel(label)),
+      };
+      final toolbar = find.byKey(
+        const ValueKey('location-chat-reply-actions-transition'),
+      );
+      final height = tester.getSize(toolbar).height;
+      final camera = tester.getRect(find.bySemanticsLabel('Camera'));
+      for (mask = 0; mask < 16; mask++) {
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        expect(tester.getSize(toolbar).height, height);
+        expect(tester.getRect(find.bySemanticsLabel('Camera')), camera);
+        var visibleIndex = 0;
+        for (var index = 0; index < labels.length; index++) {
+          final button = find.bySemanticsLabel(labels[index]);
+          if (mask & (1 << index) == 0) {
+            expect(button, findsNothing);
+          } else {
+            expect(
+              tester.getRect(button),
+              original[labels.first]!.shift(Offset(visibleIndex * 50, 0)),
+            );
+            visibleIndex++;
+          }
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'toolbar expansion completes during repeated unchanged scroll rebuilds',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      var expanded = false;
+      Widget host() => MaterialApp(
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: scroll,
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+              SliverLayoutBuilder(
+                builder: (_, _) => SliverToBoxAdapter(
+                  child: LocationChatReplyActions(
+                    style: kLocationChatStyle,
+                    actionsExpanded: expanded,
+                    cameraState: LocationChatReplyActionState.idle,
+                    onTakePhoto: () {},
+                    regenerateFeature: LocationChatRegenerateFeature(
+                      state: LocationChatReplyActionState.idle,
+                      onInvoke: () {},
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpWidget(host());
+      scroll.jumpTo(scroll.position.maxScrollExtent - 20);
+      await tester.pumpAndSettle();
+      for (final open in [true, false]) {
+        expanded = open;
+        await tester.pumpWidget(host());
+        for (var frame = 0; frame < 20; frame++) {
+          scroll.jumpTo(scroll.offset + (frame.isEven ? 1 : -1));
+          await tester.pump(const Duration(milliseconds: 16));
+          if (open && frame == 5) {
+            final transition = tester.widget<SizeTransition>(
+              find.byKey(
+                const ValueKey('location-chat-reply-actions-transition'),
+              ),
+            );
+            final clock =
+                (transition.sizeFactor as CurvedAnimation).parent
+                    as AnimationController;
+            expect(
+              clock.lastElapsedDuration,
+              greaterThan(Duration.zero),
+              reason:
+                  'Same-direction scroll rebuilds must not reset the animation clock',
+            );
+          }
+        }
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+          open ? findsOneWidget : findsNothing,
+        );
+        if (open) {
+          expect(
+            tester
+                .getSize(
+                  find.byKey(
+                    const ValueKey('location-chat-reply-actions-transition'),
+                  ),
+                )
+                .height,
+            32,
+          );
+        }
+      }
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   for (final remaining in [0, 1, 2, 3]) {
     testWidgets(
       'free quota prompts stay visible with $remaining uses and use secondary red',
@@ -532,7 +840,7 @@ void main() {
     expect(find.byKey(const ValueKey('inspiration-get-more')), findsNothing);
   });
 
-  testWidgets('default members invoke actions with independent availability', (
+  testWidgets('shared busy state blocks other action invocations', (
     tester,
   ) async {
     final calls = <String>[];
@@ -558,7 +866,9 @@ void main() {
       expect(tester.getSize(find.bySemanticsLabel(action)), const Size(32, 32));
     }
     for (final action in ['Regenerate', 'Go on', 'Edit']) {
-      await tester.tap(find.bySemanticsLabel(action));
+      await tester.tapAt(
+        tester.getTopLeft(find.bySemanticsLabel(action)) + const Offset(2, 2),
+      );
       await tester.pump();
     }
     expect(calls, ['regenerate', 'goOn', 'edit']);
@@ -568,7 +878,16 @@ void main() {
     );
     await tester.pumpWidget(host(busy: true));
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.bySemanticsLabel('Go on'), findsNothing);
+    for (final action in ['Go on', 'Edit', 'Inspiration']) {
+      expect(find.bySemanticsLabel(action), findsOneWidget);
+      expect(
+        tester
+            .widget<Semantics>(find.bySemanticsLabel(action))
+            .properties
+            .enabled,
+        isFalse,
+      );
+    }
     expect(
       tester
           .widget<Semantics>(find.bySemanticsLabel('Regenerate'))
@@ -576,11 +895,11 @@ void main() {
           .value,
       'Loading',
     );
-    for (final action in ['Regenerate', 'Edit']) {
+    for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
       await tester.tap(find.bySemanticsLabel(action));
       await tester.pump();
     }
-    expect(calls, ['regenerate', 'goOn', 'edit', 'edit']);
+    expect(calls, ['regenerate', 'goOn', 'edit']);
     await tester.pumpWidget(host());
     expect(find.byType(CircularProgressIndicator), findsNothing);
     await tester.tap(find.bySemanticsLabel('Regenerate'));
@@ -593,6 +912,7 @@ void main() {
     tester,
   ) async {
     Widget host({
+      bool expanded = false,
       bool regenerateEnabled = false,
       bool goOnEnabled = false,
       bool editEnabled = false,
@@ -602,6 +922,7 @@ void main() {
       home: Scaffold(
         body: _replyActions(
           style: kLocationChatStyle,
+          actionsExpanded: expanded,
           onRegenerate: () {},
           onGoOn: () {},
           onEditReply: () {},
@@ -630,7 +951,12 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
     await tester.pumpWidget(
-      host(regenerateBusy: true, editEnabled: true, inspirationEnabled: true),
+      host(
+        expanded: true,
+        regenerateBusy: true,
+        editEnabled: true,
+        inspirationEnabled: true,
+      ),
     );
     expect(find.byKey(transitionKey), findsOneWidget);
     expect(tester.getSize(find.byKey(transitionKey)).height, 0);
@@ -646,7 +972,7 @@ void main() {
     expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.bySemanticsLabel('Go on'), findsNothing);
-    expect(find.byKey(const ValueKey('location-chat-go-on')), findsNothing);
+    expect(find.bySemanticsLabel('Go on'), findsNothing);
     expect(find.bySemanticsLabel('Edit'), findsOneWidget);
     expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
 
@@ -664,7 +990,7 @@ void main() {
     );
     expect(
       editLeft.dx - regenerateLeft.dx,
-      LocationChatReplyActions.centerSpacing,
+      LocationChatReplyActions.centerSpacing * 2,
     );
     expect(
       inspirationLeft.dx - editLeft.dx,
@@ -688,13 +1014,13 @@ void main() {
     expect(find.byKey(transitionKey), findsNothing);
 
     // Reversing an unfinished transition must not reveal buttons early.
-    await tester.pumpWidget(host(editEnabled: true));
+    await tester.pumpWidget(host(expanded: true, editEnabled: true));
     await tester.pump(const Duration(milliseconds: 80));
     expect(find.byKey(toolbarKey), findsNothing);
     await tester.pumpWidget(host());
     await tester.pump(const Duration(milliseconds: 30));
     expect(find.byKey(toolbarKey), findsNothing);
-    await tester.pumpWidget(host(editEnabled: true));
+    await tester.pumpWidget(host(expanded: true, editEnabled: true));
     await tester.pump(const Duration(milliseconds: 30));
     expect(find.byKey(toolbarKey), findsNothing);
     await tester.pumpAndSettle();
@@ -705,14 +1031,19 @@ void main() {
     tester,
   ) async {
     var calls = 0;
-    Widget host(LocationChatReplyActionState regenerateState) => MaterialApp(
+    Widget host(
+      LocationChatReplyActionState regenerateState, {
+      bool editBusy = true,
+    }) => MaterialApp(
       home: Scaffold(
         body: _replyActions(
           style: kLocationChatStyle,
           onRegenerate: () => calls++,
           regenerateState: regenerateState,
           goOnState: LocationChatReplyActionState.none,
-          editState: LocationChatReplyActionState.busy,
+          editState: editBusy
+              ? LocationChatReplyActionState.busy
+              : LocationChatReplyActionState.idle,
           inspirationFeature: const LocationChatInspirationFeature(
             messages: [],
             state: LocationChatReplyActionState.idle,
@@ -742,7 +1073,7 @@ void main() {
     expect(
       tester.getTopLeft(find.bySemanticsLabel('Edit')).dx -
           tester.getTopLeft(regenerate).dx,
-      LocationChatReplyActions.centerSpacing,
+      LocationChatReplyActions.centerSpacing * 2,
     );
     expect(
       tester.getTopLeft(find.bySemanticsLabel('Inspiration')).dx -
@@ -754,6 +1085,10 @@ void main() {
     expect(calls, 0);
 
     await tester.pumpWidget(host(LocationChatReplyActionState.idle));
+    expect(tester.widget<Semantics>(regenerate).properties.enabled, isFalse);
+    await tester.pumpWidget(
+      host(LocationChatReplyActionState.idle, editBusy: false),
+    );
     expect(tester.widget<Semantics>(regenerate).properties.enabled, isTrue);
     expect(
       tester

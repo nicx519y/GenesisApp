@@ -3544,4 +3544,206 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get privacyChoicesSaveError => 'プライバシー設定を保存できませんでした。もう一度お試しください。';
+
+  @override
+  String get miniPhoneCameraInThePhoto => '写真に写る人物';
+
+  @override
+  String miniPhoneCameraSelectedCount({required int count}) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count人選択中',
+      one: '1人選択中',
+      zero: '誰も選択されていません',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get miniPhoneCameraStyle => 'スタイル';
+
+  @override
+  String get miniPhoneCameraCastHint => '下の人物をタップして、フレームに入れましょう。';
+
+  @override
+  String get miniPhoneCameraDescribeMoment => 'この瞬間を描写';
+
+  @override
+  String get miniPhoneCameraPromptHint => 'どんな場所？どんな雰囲気？';
+
+  @override
+  String get miniPhoneCameraTryTemplate => 'テンプレートを試す';
+
+  @override
+  String get miniPhoneCameraTemplateHint => 'タップして説明を入力';
+
+  @override
+  String get miniPhoneCameraPovSelfie => '手を伸ばして自撮り';
+
+  @override
+  String get miniPhoneCameraMirrorSelfie => '鏡越しの自撮り';
+
+  @override
+  String get miniPhoneCameraByFriend => '友達が撮影';
+
+  @override
+  String get miniPhoneCameraPovSelfiePrompt =>
+      '選択したキャラクターのうち1人が、腕を伸ばして撮影した自撮り写真。写るのは選択したキャラクターだけにしてください。選択した全員をフレーム内にしっかり収め、リラックスした自然な表情でレンズを見つめるようにしてください。少し広角の視点と柔らかな光を使い、キャラクターたちのワールドの風景を背景にして、背景には軽くぼかしをかけてください。外見と服装はそのままにしてください。ほかの人物を追加しないでください。';
+
+  @override
+  String get miniPhoneCameraMirrorSelfiePrompt =>
+      '選択したキャラクターだけが写る、気取らない鏡越しの自撮り写真。1人がカメラを持ち、選択した全員が鏡の中に映るようにしてください。鏡の縁をはっきりと写し、自然なポーズと柔らかな室内の光を使って、キャラクターたちのワールドの一場面を表現してください。外見と服装はそのままにしてください。ほかの人物を追加しないでください。';
+
+  @override
+  String get miniPhoneCameraByFriendPrompt =>
+      'フレームの外にいる人物が目線の高さで撮影した、選択したキャラクターだけの写真。選択した全員が見えるようにし、キャラクターたちのワールドの風景の中で、リラックスしたポーズと自然な表情を見せるようにしてください。撮影者とカメラは画面に入れず、鏡や自撮りのために伸ばした腕も写さないでください。外見と服装はそのままにしてください。ほかの人物を追加しないでください。';
+
+  @override
+  String get miniPhoneCameraCandid => 'スナップ';
+
+  @override
+  String get miniPhoneCameraLivePhoto => '躍動感のある写真';
+
+  @override
+  String get miniPhoneCameraCandidPrompt =>
+      '選択したキャラクターだけが写る、自然なスナップ写真。ともに過ごすひとときを、ありのままに捉えてください。外見と服装は変えず、ポーズを決めない自然な構図で、キャラクターたちのワールドにある場所を舞台にしてください。他の人物は追加しないでください。';
+
+  @override
+  String get miniPhoneCameraLivePhotoPrompt =>
+      '選択したキャラクターだけが写る、生き生きとした静止写真。自然なしぐさを捉え、ほのかな動きを感じさせてください。外見と服装は変えず、キャラクターたちのワールドにある場所を舞台にしてください。他の人物は追加しないでください。';
+
+  @override
+  String get miniPhoneCameraTakePhoto => '写真を撮る';
+
+  @override
+  String get miniPhoneCameraTryAgain => 'もう一度試す';
+
+  @override
+  String miniPhoneCameraPricePerPhoto({required double price}) {
+    final intl.NumberFormat priceNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String priceString = priceNumberFormat.format(price);
+
+    return '1枚あたり$priceStringジェム';
+  }
+
+  @override
+  String get miniPhoneCameraCreatingPhoto => '写真を作成中';
+
+  @override
+  String get miniPhoneCameraCreatingTitle => 'この瞬間を、写真に。';
+
+  @override
+  String get miniPhoneCameraCreatingBody => 'キャラクターとシーンをひとつにしています。';
+
+  @override
+  String get miniPhoneCameraGenerationFailed => '写真を作成できませんでした。';
+
+  @override
+  String get miniPhoneCameraDraftPreserved =>
+      '選択したキャラクターと説明はそのまま残っています。もう一度お試しください。';
+
+  @override
+  String get miniPhoneCameraTakeAnother => 'もう1枚撮る';
+
+  @override
+  String get miniPhoneCameraUseInPost => '投稿に使う';
+
+  @override
+  String get miniPhoneCameraOpenPhoto => '写真全体を開く';
+
+  @override
+  String get miniPhoneCameraImageUnavailable => '画像を表示できません';
+
+  @override
+  String get miniPhoneCameraSavedToPhotos => 'フォトに保存済み';
+
+  @override
+  String get miniPhoneCameraSyncingPhotos => 'フォトと同期中…';
+
+  @override
+  String get miniPhoneCameraPhotoSyncFailed => 'フォトと同期できませんでした。もう一度お試しください。';
+
+  @override
+  String get worldoLaunchSetting => '設定';
+
+  @override
+  String get miniPhoneCameraMomentTitle => 'この瞬間を写真に';
+
+  @override
+  String get miniPhoneCameraMomentBody => 'このシーンを、キャラクターたちが写る写真にしましょう。';
+
+  @override
+  String get miniPhoneCameraDontAskAgain => '次回から確認せず、カメラをタップすると直接写真を生成します。';
+
+  @override
+  String get miniPhoneCameraFreeTrial => '無料で試す';
+
+  @override
+  String get miniPhoneCameraPreviewNotice =>
+      'プレビューのみ · ジェムは消費されません。サンプル画像はワールドに保存されません。';
+
+  @override
+  String get miniPhoneCameraPreviewStarted => '写真の生成を開始しました。続けて次の写真を撮れます。';
+
+  @override
+  String miniPhoneCameraGeneratingCount({required int count}) {
+    return '$count枚を生成中';
+  }
+
+  @override
+  String miniPhoneCameraFreePrice({
+    required String originalPrice,
+    required String price,
+  }) {
+    return '$originalPrice $price ジェム／枚';
+  }
+
+  @override
+  String get miniPhoneCameraPeopleLimit => '最大4人まで選べます。';
+
+  @override
+  String get miniPhoneCameraFailureRefund => '生成に失敗しました。ジェムが差し引かれていた場合は返還されます。';
+
+  @override
+  String get miniPhoneCameraPreviewPostNotice =>
+      'プレビュー専用です。このサンプル写真は自分のワールドに投稿できません。';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return '基本料金：$price ジェム';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      '初回の写真は無料になる場合があります。無料の対象かどうかと実際の請求額はサーバーで判定されます。';
+
+  @override
+  String get chatPhotoGenerate => '写真を生成';
+
+  @override
+  String get chatPhotoRecover => '前のリクエストを確認';
+
+  @override
+  String get chatPhotoUncertain =>
+      '前の写真リクエストはまだ確認できていません。次の写真を撮る前に結果を確認してください。';
+
+  @override
+  String get chatPhotoGenerating => '写真を生成中…';
+
+  @override
+  String get chatPhotoFailed => '写真を生成できませんでした。';
+
+  @override
+  String get chatPhotoUnavailable => 'この写真は表示できなくなりました。';
+
+  @override
+  String get cameraFreeAvailable => '現在、初回の撮影は無料です。無料の対象かどうかは送信時に確定します。';
+
+  @override
+  String get cameraSubmissionUnconfirmed => '送信の確認が取れていません';
+
+  @override
+  String get cameraRequestConflict => 'このリクエストは以前の送信内容と競合しています。内容は変更できません。';
 }

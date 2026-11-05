@@ -782,24 +782,6 @@ bool _locationChatGapIsReleased(
   return releasedGapKeys.contains(_locationChatMessageGapKey(locationId, gap));
 }
 
-bool _isLocationChatMessageGapFilled(
-  List<WorldChatroomMessage> messages,
-  _LocationChatMessageGap gap,
-) {
-  final ids = messages
-      .where((message) => message.locationMessageId > 0)
-      .map((message) => message.locationMessageId)
-      .toSet();
-  for (
-    var id = gap.lowerLocationMessageId + 1;
-    id < gap.upperLocationMessageId;
-    id += 1
-  ) {
-    if (!ids.contains(id)) return false;
-  }
-  return true;
-}
-
 String _locationChatMessageGapKey(
   String locationId,
   _LocationChatMessageGap gap,

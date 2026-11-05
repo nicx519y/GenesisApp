@@ -1,3 +1,4 @@
+import '../../network/mini_phone/mini_phone_camera_models.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../components/gems/pro_user_name.dart';
@@ -18,6 +19,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
+import '../../network/chatroom/chat_photo.dart';
 import '../../network/json_utils.dart';
 import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
@@ -375,6 +377,22 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage>
   }
 
   void _openNotification(_NotificationItem item) {
+    if (item.isPhoto) {
+      if (!item.canOpenPhoto) return;
+      Navigator.of(context).pushNamed(
+        RouteNames.world,
+        arguments: {
+          'wid': item.bizId,
+          if (item.photoTarget != null) ...{
+            'initial_location_id': item.photoTarget!.locationId,
+            'initial_photo_target': item.photoTarget,
+          },
+          if (item.cameraTarget != null)
+            'initial_camera_target': item.cameraTarget,
+        },
+      );
+      return;
+    }
     if (item.isJoinRequest) {
       unawaited(_openJoinRequestActions(item));
       return;

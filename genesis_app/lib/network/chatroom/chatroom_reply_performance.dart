@@ -73,13 +73,16 @@ class _ReplyRoundPerformance {
   List<WorldChatroomMessage> formalMessages(ChatroomReplyRoundState state) {
     if (!identical(_formalSource, state._formal)) {
       _formalSource = state._formal;
-      formalTailMessageId = state._formal.fold<int>(
-        0,
-        (tail, message) =>
-            message.locationMessageId > tail ? message.locationMessageId : tail,
-      );
+      formalTailMessageId = state._formal
+          .where((m) => m.businessType != 'live_photo')
+          .fold<int>(
+            0,
+            (tail, message) => message.locationMessageId > tail
+                ? message.locationMessageId
+                : tail,
+          );
       final messages = state._formal
-          .where(_isRenderableReply)
+          .where((m) => _isRenderableReply(m) || m.businessType == 'live_photo')
           .toList(growable: false);
       if (!listEquals(messages, _formalMessages)) {
         _formalMessages = List.unmodifiable(messages);

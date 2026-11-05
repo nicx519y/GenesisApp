@@ -63,6 +63,8 @@ Gateway 签名 header 由 `GatewayRequestSigner` 在发送前统一注入：
 
 如果本地私钥签名或公钥读取失败，会清除注册信息、重置原生 key，并重走 challenge/register。
 
+若时间同步失败异常从异步任务逃逸到 `PlatformDispatcher.onError`，全局处理器仅对结构化 `ApiExceptionKind.gatewayAuth` 且 `clientFailureCode=gatewayTimeSync (1305)` 的异常静默接住并返回已处理；Crashlytics 启用时保留 Non-fatal 诊断，不添加用户可见提示，不继续传给此前的全局错误处理器。其他异常仍按原规则处理。此兜底不改变原请求的失败结果、签名要求或重试时机，不伪造同步成功。
+
 ## 接口监控
 
 以下三个启动关键 Gateway 接口固定生成独立的 `api_req_start` 和单一终态，不受 `api_trace_sampling_rate` 影响：

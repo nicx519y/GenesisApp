@@ -99,6 +99,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.launchedPresetRoles,
     required this.onEnterLaunchedWorld,
     required this.profileRole,
+    required this.profileRoleRevision,
     required this.onSaveProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
@@ -121,6 +122,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final List<OriginMyLaunchPresetCharacter>? launchedPresetRoles;
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
+  final int profileRoleRevision;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final ValueChanged<String> onSelectLocationChatRole;
@@ -248,7 +250,10 @@ class _OriginDetailDraggableSheetState
     WidgetsBinding.instance.addObserver(this);
     _isRaised = widget.initiallyExpanded;
     _sheetController = DraggableScrollableController();
-    _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
+    _initialDialoguePreview = _originFirstInitialDialoguePreview(
+      widget.origin,
+      recommendedRole: widget.profileRole,
+    );
     _sheetInteraction = _OriginWorldSheetInteractionController(
       vsync: this,
       canPrepareKeyboard: () => mounted && !widget.autoExpansionPending,
@@ -296,12 +301,22 @@ class _OriginDetailDraggableSheetState
   @override
   void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.origin, widget.origin)) {
+    if (oldWidget.profileRoleRevision != widget.profileRoleRevision) {
+      _roleEditorInteraction.reset();
+    }
+    final recommendedPreviewChanged =
+        oldWidget.profileRole != widget.profileRole &&
+        OriginRecommendedRole.resolve(widget.origin.characters) != null;
+    if (!identical(oldWidget.origin, widget.origin) ||
+        recommendedPreviewChanged) {
       _invalidateOpeningDialogueWarmup();
       final originChanged = oldWidget.origin.oid != widget.origin.oid;
-      _sheetInteraction.resetForContentChange(resetPage: originChanged);
+      if (!identical(oldWidget.origin, widget.origin)) {
+        _sheetInteraction.resetForContentChange(resetPage: originChanged);
+      }
       _initialDialoguePreview = _originFirstInitialDialoguePreview(
         widget.origin,
+        recommendedRole: widget.profileRole,
       );
       if (originChanged) {
         _roleEditorInteraction.reset();
@@ -1416,6 +1431,12 @@ class _OriginDetailDraggableSheetState
                                                     widget.activeLaunchSource !=
                                                     null,
                                                 profileRole: widget.profileRole,
+                                                profileRoleRevision:
+                                                    widget.profileRoleRevision,
+                                                mergedCharacter:
+                                                    OriginRecommendedRole.resolve(
+                                                      widget.origin.characters,
+                                                    )?.character,
                                                 selectedRoleId:
                                                     widget.locationChatRole.id,
                                                 onSelectedRoleChanged: widget

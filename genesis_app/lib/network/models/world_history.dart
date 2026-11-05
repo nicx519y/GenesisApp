@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../chatroom/chat_photo.dart';
 
 /// The world archive has its own contract; IDs and cursors are opaque strings.
 class WorldHistoryPage {
@@ -50,6 +51,7 @@ class WorldHistoryMessage {
   WorldHistoryMessage({
     required this.id,
     required this.type,
+    this.photo,
     required this.senderId,
     required this.senderName,
     this.userId,
@@ -69,6 +71,9 @@ class WorldHistoryMessage {
       messageType,
       content,
       currentTime;
+  final ChatPhoto? photo;
+  String get photoFingerprint =>
+      photo == null ? '' : jsonEncode(photo!.toJson());
   final String? userId;
   final int minAppVersion;
   final DateTime createdAt;
@@ -100,6 +105,9 @@ class WorldHistoryMessage {
     return WorldHistoryMessage(
       id: _string(json, 'global_message_id', nonempty: true),
       type: _string(json, 'type'),
+      photo: json['type'] == 'live_photo'
+          ? ChatPhoto.fromJson(json['photo'])
+          : null,
       senderId: _string(json, 'sender_id'),
       senderName: _string(json, 'sender_name'),
       userId: userId as String?,

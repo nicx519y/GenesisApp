@@ -51,6 +51,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
     final awaitingGoOn =
         !tickSuperseded && acceptedGoOn != null && !goOnContentIsRendering;
     final operations = (
+      camera: _takingScenePhoto,
       regenerate:
           _replyConnectionAction ==
               _LocationChatReplyConnectionAction.regenerate ||
@@ -70,35 +71,45 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
           _inspirationQuotaChecking ||
           _inspirationLoading,
     );
-    final preAck = operations.goOn && !awaitingGoOn
-        ? _goOnPreAckCapabilities
-        : null;
     final blocked = _replyActionsBlockedFor(goOnPending: pending.isNotEmpty);
     final inspirationState = _usesPreparedEntry
         ? _displayReplyState
         : _replyController?.stateFor(widget.locationId);
     return (
       actions: resolveLocationChatReplyControls(
-        hidden: tickSuperseded || awaitingGoOn,
+        hidden:
+            tickSuperseded ||
+            awaitingGoOn ||
+            (_photoCardPreview != null &&
+                (replyState?.roundId != _photoCardPreview!.roundId ||
+                    (presentationState?.confirmed == true &&
+                        presentationState?.selectedCardId !=
+                            _photoCardPreview!.cardId))),
         blocked: blocked,
-        showWhenUnavailable: _usesPreparedEntry,
+        showWhenUnavailable: (
+          regenerate: _usesPreparedEntry,
+          goOn: _usesPreparedEntry,
+          edit: _usesPreparedEntry,
+          inspiration: _usesPreparedEntry,
+          // A card's existing background photo task disables its camera slot.
+          camera: true,
+        ),
         supported: (
-          regenerate:
-              preAck?.regenerate ?? replyState?.supportsRegenerate ?? false,
+          camera: replyState?.supportsPhoto ?? false,
+          regenerate: replyState?.supportsRegenerate ?? false,
           goOn: replyState?.supportsGoOn ?? false,
-          edit: preAck?.edit ?? replyState?.supportsEdit ?? false,
-          inspiration:
-              preAck?.inspiration ??
-              inspirationState?.supportsInspiration ??
-              false,
+          edit: replyState?.supportsEdit ?? false,
+          inspiration: inspirationState?.supportsInspiration ?? false,
         ),
         canInvoke: (
+          camera: replyState?.canTakePhoto ?? false,
           regenerate: replyState?.canStartRegenerate ?? false,
           goOn: replyState?.canStartGoOn ?? false,
           edit: replyState?.canStartEdit ?? false,
           inspiration: replyState?.canStartInspiration ?? false,
         ),
         busy: (
+          camera: operations.camera,
           regenerate:
               (regenerationState?.generatingBlocksSend ?? false) ||
               operations.regenerate,

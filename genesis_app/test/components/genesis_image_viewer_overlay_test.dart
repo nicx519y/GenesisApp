@@ -134,6 +134,50 @@ void main() {
     expect(imageRect.right, closeTo(pageRect.right, 0.001));
   });
 
+  for (final count in [1, 2]) {
+    testWidgets(
+      'viewer lays out a tall footer above $count image dots and safe area',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(bottom: 34);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPadding);
+        await _pumpViewerHost(
+          tester,
+          [_firstImage, if (count > 1) _secondImage],
+          bottomBuilder: (_, _) => const SizedBox(
+            key: ValueKey('footer-action'),
+            height: 80,
+            child: Center(child: Text('Action')),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final footer = tester.getRect(
+          find.byKey(const ValueKey('footer-action')),
+        );
+        final image = tester.getRect(
+          find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+        );
+        expect(image.bottom, footer.top);
+        final dots = find.byKey(
+          const ValueKey('genesis-image-viewer-page-dots'),
+        );
+        if (count > 1) {
+          final dotsRect = tester.getRect(dots);
+          expect(dotsRect.top - footer.bottom, 16);
+          expect(dotsRect.bottom, 640 - 34);
+        } else {
+          expect(dots, findsNothing);
+          expect(footer.bottom, 640 - 34);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('multi image viewer keeps each page full width while paging', (
     tester,
   ) async {
@@ -226,10 +270,10 @@ void main() {
           '?old_query=true&x-oss-process=image/resize,w_2160/format,webp';
       const expectedFullUrl =
           'https://cdn.example.com/first-xl.png$expectedSuffix';
-      final previewImage = tester.widget<GenesisStaticNetworkImage>(
+      final previewImage = tester.widget<RawImage>(
         find.descendant(
           of: find.byKey(const ValueKey('genesis-image-viewer-preview-0')),
-          matching: find.byType(GenesisStaticNetworkImage),
+          matching: find.byType(RawImage),
         ),
       );
       final fullImage = tester.widget<GenesisStaticNetworkImage>(
@@ -241,7 +285,16 @@ void main() {
             .first,
       );
 
-      expect(previewImage.imageUrl, small);
+      expect(previewImage.image, isNotNull);
+      final viewer = tester.widget<GenesisImageViewerOverlay>(
+        find.byType(GenesisImageViewerOverlay),
+      );
+      expect(
+        (viewer.source.previewImageProvider
+                as GenesisStaticNetworkImageProvider)
+            .imageUrl,
+        small,
+      );
       expect(fullImage.imageUrl, expectedFullUrl);
       expect(preloadedUrls, <String>[expectedFullUrl]);
     },
@@ -258,10 +311,10 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
-    final previewImage = tester.widget<GenesisStaticNetworkImage>(
+    final previewImage = tester.widget<RawImage>(
       find.descendant(
         of: find.byKey(const ValueKey('genesis-image-viewer-preview-0')),
-        matching: find.byType(GenesisStaticNetworkImage),
+        matching: find.byType(RawImage),
       ),
     );
     final fullImage = tester.widget<GenesisStaticNetworkImage>(
@@ -273,7 +326,15 @@ void main() {
           .first,
     );
 
-    expect(previewImage.imageUrl, thumbnail);
+    expect(previewImage.image, isNotNull);
+    final viewer = tester.widget<GenesisImageViewerOverlay>(
+      find.byType(GenesisImageViewerOverlay),
+    );
+    expect(
+      (viewer.source.previewImageProvider as GenesisStaticNetworkImageProvider)
+          .imageUrl,
+      thumbnail,
+    );
     expect(
       fullImage.imageUrl,
       'https://cdn.example.com/legacy.png'
@@ -299,14 +360,74 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
-    final previewImage = tester.widget<Image>(
+    final previewImage = tester.widget<RawImage>(
       find.descendant(
         of: find.byKey(const ValueKey('genesis-image-viewer-preview-0')),
-        matching: find.byType(Image),
+        matching: find.byType(RawImage),
       ),
     );
-    expect(identical(previewImage.image, previewProvider), isTrue);
+    final viewer = tester.widget<GenesisImageViewerOverlay>(
+      find.byType(GenesisImageViewerOverlay),
+    );
+    expect(
+      identical(viewer.source.previewImageProvider, previewProvider),
+      isTrue,
+    );
+    expect(
+      identical(previewImage.image, viewer.source.previewImage.image),
+      isTrue,
+    );
   });
+
+  testWidgets(
+    'viewer and adjacent preload share tiered URLs across viewport widths',
+    (tester) async {
+      final preloaded = <GenesisStaticNetworkImageProvider>[];
+      debugGenesisImageViewerPrecacheImage = (provider, _) async {
+        if (provider is GenesisStaticNetworkImageProvider) {
+          preloaded.add(provider);
+        }
+      };
+      addTearDown(() => debugGenesisImageViewerPrecacheImage = null);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      tester.view.devicePixelRatio = 2;
+      for (final entry in const [(390.0, 1080), (400.0, 1080), (550.0, 2160)]) {
+        tester.view.physicalSize = Size(entry.$1 * 2, 1600);
+        preloaded.clear();
+        await _pumpViewerHost(tester, const [
+          'https://cdn.example.com/tier.png',
+          'https://cdn.example.com/tier.png',
+        ]);
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final full = find.byKey(const ValueKey('genesis-image-viewer-full-0'));
+        final networkImage = tester.widget<GenesisStaticNetworkImage>(
+          find
+              .descendant(
+                of: full,
+                matching: find.byType(GenesisStaticNetworkImage),
+              )
+              .first,
+        );
+        expect(
+          networkImage.imageUrl,
+          'https://cdn.example.com/tier.png?x-oss-process=image/resize,w_${entry.$2}/format,webp',
+        );
+        expect(preloaded.single.imageUrl, networkImage.imageUrl);
+        final displayed = tester
+            .widget<Image>(
+              find.descendant(of: full, matching: find.byType(Image)).first,
+            )
+            .image;
+        expect(displayed, preloaded.single);
+        await tester.tap(
+          find.byKey(const ValueKey('genesis-image-viewer-close')),
+        );
+        await tester.pumpAndSettle();
+      }
+    },
+  );
 
   testWidgets('viewer honors the caller image DPR policy', (tester) async {
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -545,10 +666,11 @@ void main() {
 Future<void> _pumpViewerHost(
   WidgetTester tester,
   List<String> imageUrls, {
-  List<ImageProvider<Object>?> previewImageProviders =
-      const <ImageProvider<Object>?>[],
+  List<ImageProvider<Object>> previewImageProviders =
+      const <ImageProvider<Object>>[],
   int initialIndex = 0,
   double? maxDevicePixelRatio,
+  Widget Function(BuildContext, int)? bottomBuilder,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -561,8 +683,16 @@ Future<void> _pumpViewerHost(
                 onPressed: () => showGenesisImageViewer(
                   context,
                   imageUrls: imageUrls,
+                  source: _source(
+                    context,
+                    imageUrls[initialIndex.clamp(0, imageUrls.length - 1)],
+                    previewImageProviders.isEmpty
+                        ? null
+                        : previewImageProviders[initialIndex],
+                  ),
                   previewImageProviders: previewImageProviders,
                   initialIndex: initialIndex,
+                  bottomBuilder: bottomBuilder,
                   maxDevicePixelRatio:
                       maxDevicePixelRatio ??
                       GenesisImageConfig.maxDevicePixelRatio,
@@ -574,5 +704,35 @@ Future<void> _pumpViewerHost(
         ),
       ),
     ),
+  );
+}
+
+GenesisImageViewerSource _source(
+  BuildContext context,
+  String url,
+  ImageProvider<Object>? provider,
+) {
+  final small = GenesisImageResourceRegistry.resolve(url).smUrl;
+  final previewUrl =
+      url.startsWith('assets/') || url.contains('x-oss-process=image/resize')
+      ? url
+      : small.isNotEmpty
+      ? small
+      : resizeGenesisImageUrl(
+          url,
+          logicalWidth: 120,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        );
+  final recorder = ui.PictureRecorder();
+  Canvas(recorder).drawColor(Colors.pink, BlendMode.src);
+  final picture = recorder.endRecording();
+  final frame = picture.toImageSync(16, 24);
+  picture.dispose();
+  return GenesisImageViewerSource(
+    rect: const Rect.fromLTWH(20, 20, 80, 120),
+    previewImageProvider:
+        provider ??
+        genesisImageViewerPreviewProvider(context, imageUrl: previewUrl),
+    previewImage: ImageInfo(image: frame),
   );
 }

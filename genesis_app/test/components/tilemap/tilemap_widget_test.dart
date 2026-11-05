@@ -14,6 +14,7 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_view_state.dart';
 import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_map_exit_location_button.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
@@ -1655,6 +1656,92 @@ void main() {
         ),
         isTrue,
       );
+    },
+  );
+
+  testWidgets(
+    'Tilemap restores serialized hierarchy and viewport in a new controller',
+    (tester) async {
+      final transport = _LocationTilemapTransport({
+        'root': _locationTilemapData('branch', assetName: 'root'),
+        'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+      });
+      var services = _servicesWithTransport(transport);
+      final branch = _locationNode(
+        'branch',
+        children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+      );
+      var controller = TilemapRestorationController();
+      Widget page() => AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.world(
+              worldId: 'w_1',
+              locationNodes: [branch],
+              restorationController: controller,
+              relatedMapPreloadingEnabled: false,
+              tileImageLoader: _completeTileImageLoad,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(page());
+      for (var i = 0; i < 7; i++) {
+        await tester.pump();
+      }
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+      for (var i = 0; i < 7; i++) {
+        await tester.pump();
+      }
+      final renderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      final transform = Matrix4.identity()
+        ..translateByDouble(30, 40, 0, 1)
+        ..scaleByDouble(2, 2, 1, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      // The disposed renderer reports its final transform; emulate a saved view
+      // after that report to verify the exact transform on the next renderer.
+      renderer.onTransformChanged!(transform);
+      final snapshot = TilemapViewState.fromJson(
+        jsonDecode(jsonEncode(controller.viewState!.toJson())),
+      )!;
+      controller.dispose();
+      controller = TilemapRestorationController()
+        ..restoreWorldView(worldId: 'w_1', state: snapshot);
+      services = _servicesWithTransport(transport);
+      transport.requests.clear();
+      await tester.pumpWidget(page());
+      for (var i = 0; i < 7; i++) {
+        await tester.pump();
+      }
+      final restored = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      expect(restored.config.id, 'world:w_1:branch');
+      expect(restored.initialTransform!.storage, transform.storage);
+      expect(
+        transport.requests.first.uri.queryParameters['location_id'],
+        'branch',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        findsOneWidget,
+      );
+      await tester.tap(_tilemapExitButtonFinder());
+      for (var i = 0; i < 7; i++) {
+        await tester.pump();
+      }
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:root',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
     },
   );
 

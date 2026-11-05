@@ -56,10 +56,12 @@ extension _WorldChatroomConnection on WorldChatroomService {
         _disconnectMonitor?.succeeded(monitorAttempt);
       }
       _session = session;
+      _resetQueueAnomalyMonitor();
       _attachSession(session, monitorAttempt: monitorAttempt);
       if (_historyConnectedOnce) _historyChanges.add(_worldId);
       _historyConnectedOnce = true;
       _setState(_state.copyWith(connected: true));
+      _startHeartbeat();
       if (_refreshInitialSnapshotOnConnect) {
         await _refreshInitialSnapshot();
       }
@@ -222,14 +224,11 @@ extension _WorldChatroomConnection on WorldChatroomService {
         _session == session &&
         _desiredLocationId == location &&
         _state.joinedLocationId == location;
-    final ticket = _historyTicket(location);
-    final preload = _entryPreloads[(location, ticket)];
-    if (preload != null) await preload;
-    if (!stillJoined() || !_historyIsCurrent(location, ticket)) return;
-    // Disk readiness alone is not proof of a successful network preload.
-    if (_entryNetworkVerified[location] != ticket) {
-      await refreshLocationHistory(locationId: location);
+    if (_historyRefreshes[location]?.token.isCancelled == true) {
+      _restartPendingHistory(location);
     }
+    await initializeLeafLocationQueues(locationIds: [location]);
+    if (stillJoined()) await recoverPhotos(location);
     if (!stillJoined()) return;
     await replyActions?.restoreLocationCards(location, reloadCards: false);
   }
@@ -295,22 +294,29 @@ extension _WorldChatroomConnection on WorldChatroomService {
       }
     }
     _prepareWorldRefreshForQueuedEvent(event);
-    _eventQueue = _eventQueue.then((_) => _handleEvent(event)).catchError((
-      Object error,
-    ) {
-      _recordFailure(
-        ChatroomFailureEvent(
-          code: 'event_handle_failed',
-          message: 'Something went wrong',
-          sourceType: chatroomEventType(event),
-          cause: error,
-        ),
-      );
-    });
+    final queueConnectionGeneration = _messageSyncGeneration;
+    _eventQueue = _eventQueue
+        .then(
+          (_) => _handleEvent(
+            event,
+            queueConnectionGeneration: queueConnectionGeneration,
+          ),
+        )
+        .catchError((Object error) {
+          _recordFailure(
+            ChatroomFailureEvent(
+              code: 'event_handle_failed',
+              message: 'Something went wrong',
+              sourceType: chatroomEventType(event),
+              cause: error,
+            ),
+          );
+        });
     unawaited(_eventQueue);
   }
 
   Future<void> _detachSession({required bool disconnect}) async {
+    _invalidateMessageSync();
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     final session = _session;

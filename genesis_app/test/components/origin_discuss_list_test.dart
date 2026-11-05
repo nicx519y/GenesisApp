@@ -706,6 +706,14 @@ void main() {
   testWidgets('thumbnail tap opens image viewer when configured', (
     tester,
   ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/images/map_default/root_default.webp'),
+        tester.element(find.byType(SizedBox).first),
+      ),
+    );
+
     final controller = OriginDiscussListController()
       ..configure(
         oid: 'o_alpha',
@@ -736,7 +744,13 @@ void main() {
       );
 
     await controller.loadInitialIfNeeded();
-    await tester.pumpWidget(_host(controller, imageTapOpensViewer: true));
+    await tester.pumpWidget(
+      _host(
+        controller,
+        imageTapOpensViewer: true,
+        services: _servicesWithTransport(_FakeTransport((_) async => _ok())),
+      ),
+    );
 
     await tester.tap(
       find.byKey(

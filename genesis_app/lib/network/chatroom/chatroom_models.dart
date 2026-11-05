@@ -1,3 +1,5 @@
+import 'chat_photo.dart';
+export 'chat_photo.dart';
 import '../../utils/llm_generation.dart';
 import '../gem_balance_alert.dart';
 import '../mini_phone/mini_phone_models.dart';
@@ -12,6 +14,7 @@ import 'chatroom_timeline_payload.dart';
 
 export 'chatroom_llm_cards.dart';
 part 'chatroom_card_events.dart';
+part 'chat_photo_events.dart';
 part 'chatroom_phone_events.dart';
 part '../../features/location_chat_reply/go_on/src/chatroom_go_on_models.dart';
 
@@ -164,6 +167,30 @@ class ChatroomV2Message {
           );
         }
       }
+    }
+    if (type == 'live_photo') {
+      final payload = _optionalJsonMap(json['payload']);
+      final candidate = json['card_id'] != null || payload['card_id'] != null;
+      if (candidate) {
+        llmCardInt(json['card_id'] ?? payload['card_id']);
+        if (json['message_id'] != null || json['location_message_id'] != null) {
+          throw const FormatException(
+            'Candidate photo cannot have formal cursors',
+          );
+        }
+      }
+      for (final key in [
+        'global_message_id',
+        if (!candidate) 'message_id',
+        if (!candidate) 'location_message_id',
+        'conversation_round_id',
+      ]) {
+        if (json[key] is! int) {
+          throw const FormatException('V2 photo IDs must be integers');
+        }
+        chatPhotoId(json[key]);
+      }
+      ChatPhoto.fromJson((json['payload'] as Map)['photo']);
     }
     if (type == 'llm_message_updated' || type == 'phone_characters_moved') {
       for (final key in [
@@ -2682,6 +2709,8 @@ class ChatroomMessageHandlers {
   void handle(ChatroomEvent event) {
     onEvent?.call(event);
     switch (event) {
+      case ChatroomLivePhotoMessage():
+      case ChatroomPhotoResult():
       case ChatroomLlmGenerationState():
         break;
       case ChatroomPhoneCharactersMoved():
@@ -2788,6 +2817,8 @@ ChatroomEvent chatroomLegacyEventFromEnvelope(ChatroomEnvelope envelope) {
 /// `type`. This prevents character/narrator stream frames from being mistaken
 /// for complete canonical messages.
 ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
+  if (message.type == 'live_photo') return ChatroomLivePhotoMessage(message);
+  if (message.type == 'phone.photo.result') return ChatroomPhotoResult(message);
   if (message.type == 'llm_generation_state') {
     return ChatroomLlmGenerationState.fromV2Message(message);
   }
@@ -2884,6 +2915,10 @@ ChatroomEvent chatroomEventFromEnvelope(
 
 String chatroomEventType(ChatroomEvent event) {
   switch (event) {
+    case ChatroomLivePhotoMessage():
+      return 'live_photo';
+    case ChatroomPhotoResult():
+      return 'phone.photo.result';
     case ChatroomLlmGenerationState():
       return 'llm_generation_state';
     case ChatroomPhoneCharactersMoved():

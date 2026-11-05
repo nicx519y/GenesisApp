@@ -60,7 +60,7 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
 - `stream_type` 是独立路由轴，只允许 `""`、`llm_stream_start`、`llm_chunk`、`llm_stream_end`。解析时必须先路由 `stream_type`，再路由 `type`。
 - V2 ID 使用全称 `global_message_id/message_id/location_message_id`。旧别名只存在于 legacy adapter。
 - `trigger_uid` 是轮次触发用户 UID，位于顶层并在同轮 user/character/narrator、LLM start/chunk/end、waiting/end 和候选私有流中保持一致；opening、Tick 及无可用触发者的控制事件为字符串空值。UID 原样保存并精确比较，缺失、`null` 或非字符串兼容为空，不能由 `user_id/sender_id/type/round id` 补齐。
-- `conversation_type` 是可选顶层字符串，取值包括 `user_message/user_enter_location/go_on/opening/tick`。地点历史可同时返回两个字段；实时 WS 当前只保证 opening 下发该字段，因此收到非空 `trigger_uid` 时协议解析不要求 `conversation_type` 同时存在。
+- `conversation_type` 是可选顶层字符串，取值包括 `user_message/user_enter_location/go_on/opening/tick`。当前服务端保证按轮次业务语义完整下发 `conversation_type/trigger_uid`，HTTP 历史同样保留这组字段。客户端直接消费服务端值，不主动查询补齐；协议解析仍兼容旧数据字段缺省。
 - `current_time` 是消息产生时的世界时间元数据，位于顶层；客户端暂时兼容旧数据放在 `payload.current_time` 的情况。
 - 元数据位于顶层，业务正文、Tick 内容和流式 `seq/content` 位于 `payload`。
 - `payload`、整数 `err_no` 和字符串 `err_msg` 是统一字段。未知扩展字段可以忽略，但 payload 非 object、未知 `stream_type` 或未知业务 `type` 是单帧协议错误。
@@ -154,6 +154,15 @@ V2 `send_message` 顶层显式发送 `message_type: "text" | "narration"`，正�
 }
 ```
 
+## 地点消息连接同步与恢复
+
+- 每次成功建立 Socket 后先订阅消息，再由 `WorldChatroomService` 后台同步所有叶子地点的最新 20 条（V2 messages，`since=0, limit=20`），并发上限 4；不等待 join，不阻塞心跳和实时接收。详情/地点树迟到时等待快照，新叶子地点出现时补同步。
+- 自动重连建立新的连接代次。当前代次的连接同步、地图预加载和地点 join 复用地点任务及成功记录；失败保留缓存且不记为成功，其他地点继续。该地点之后收到新的正式消息（含首次完成的流消息）时触发合并的恢复任务，每地点每连接最多额外尝试 2 次，分别退避 1 秒和 2 秒；重复回显、普通流片段及 HTTP 回填不触发恢复。重新进入该地点可主动重试，新连接重置次数，不进行周期轮询。
+- 保留旧消息并按身份合并、按正数地点游标排序；请求期间收到的新消息及流式进展不得被旧响应覆盖。有效的新 HTTP 历史查询可更新较早已完成流消息的正文和正式游标，保留其展示身份；Socket 重复回显继续沿用原有最终流合并规则。账号、World、连接或历史代次失效后，旧响应不能提交队列和缓存。历史范围替换优先于最新页同步，失效最新页等范围刷新完成后重新校验。
+- 正式消息入队和 HTTP 合并均由服务层触发共享补洞，未打开地点聊天也执行；页面复用同一任务。先完成该地点的连接最新页读取，再处理缺口。缺失不超过 50 条最多补查 3 次，首次立即查询，第 2/3 次分别等待 1/2 秒；等待后重新检查缺口，已被推送填齐则跳过请求，断线/账号/World 或历史代次变化后不再提交旧任务。超过阈值舍弃缺口以前的旧区段；若旧区段含活跃流或被阅读窗口保留，则先放行缺口并交给现有保留/淘汰策略管理，避免撤下正在显示的消息。主动内存淘汰区段按分页加载。失败缺口在本连接内放行、不无限重试，新连接重新检查。
+- 服务端负责完整下发轮次元数据。消息入队、`world_new_message`、轮次结束和地点 join 均不触发补字段查询；客户端只消费 Socket、正常历史同步和既有缓存中实际收到的字段，保留现有资格及冲突校验。`world_new_message` 仅使独立 World History 档案失效，不请求地点最新页；轮次结束只结束对应等待状态。
+- 最新 20 条是恢复起点，不代表完整历史。保留旧缓存时，不保证校准最新页以外断线期间的编辑/删除；最新页未返回某条记录不能直接判为删除。正式编辑/删除仍使用范围替换。
+
 ## V2 ACK 与 canonical echo
 
 ```json
@@ -188,7 +197,7 @@ V2 ACK 只表示服务端收到并受理了对应命令。客户端内部 API �
 
 普通 typed message 保留 `businessType/streamType/minAppVersion/rawPayload`。地点级 Tick 另暴露 `v2TickPayload` 与 `isV2LocationTick`；`ChatroomV2TickPayload` 保存 `current_time/tick_no/sub_tick_no/global/story_events/characters_moved`，也支持历史纯文本 `payload.content` 回退。`tick_no=0` 和 `sub_tick_no=0` 都是有效值，不能用正数判断字段是否存在。
 
-Location Chat 对最新 conversation 的四个回复功能集中判断资格：本人触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 仅当前登录 UID 等于 World 详情的 `owner_uid` 时可用 Go On、Edit、灵感回复（创建者信息缺失时不可用）；`user_enter_location` 仅本人触发时可用 Go On、Edit、灵感回复；`tick` 对任何用户开放 Go On、灵感回复，不要求本人触发或 World 创建者身份，Regenerate、Edit 不可用。正式 `type=tick` 消息只要携带有效的正数 `conversation_round_id`，即可识别为 Tick 回复来源；不要求 `conversation_type`、同轮 AI 回复或轮次结束事件。其余用户触发的正常对话，以及缺失、未知或冲突元数据均不可用。普通实时轮次只有 `trigger_uid` 而缺少 `conversation_type` 时等待正常历史刷新，不主动查历史，也不从本地动作推断。Tick 直接以正式消息的类型和轮次识别。资格之上仍保留最新轮次、轮次非生成中（非 Tick 仍要求已完成且有正式 AI 回复）、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛；Enter、Tick、Opening 的灵感请求不传候选 `card_id`。
+Location Chat 对最新 conversation 的四个回复功能集中判断资格：本人触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 仅当前登录 UID 等于 World 详情的 `owner_uid` 时可用 Go On、Edit、灵感回复（创建者信息缺失时不可用）；`user_enter_location` 仅本人触发时可用 Go On、Edit、灵感回复；`tick` 对任何用户开放 Go On、灵感回复，不要求本人触发或 World 创建者身份，Regenerate、Edit 不可用。正式 `type=tick` 消息只要携带有效的正数 `conversation_round_id`，即可识别为 Tick 回复来源；不要求 `conversation_type`、同轮 AI 回复或轮次结束事件。其余用户触发的正常对话，以及缺失、未知或冲突元数据均不可用。客户端直接使用服务端下发的轮次字段，不主动补查，也不从本地动作推断；旧数据缺失字段时继续按现有资格规则处理。Tick 直接以正式消息的类型和轮次识别。资格之上仍保留最新轮次、轮次非生成中（非 Tick 仍要求已完成且有正式 AI 回复）、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛；Enter、Tick、Opening 的灵感请求不传候选 `card_id`。
 
 V2 只把地点级 `type=tick` 当作 canonical Tick：
 
@@ -239,7 +248,7 @@ LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_ty
 
 `balance_low` 的 Gems 余额只使用 `payload.balance_cent`。该字段必须是 JSON 整数 cent；缺失或类型不合法时，本帧按协议错误隔离。业务模型保存原始 cent，用户可见余额由统一 Gems 格式化工具转换为固定一位小数。
 
-V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_message` 或 `characters_moved` 带 `location_id` 时只调用 `/aitown-chat/api/v2/messages` 刷新该地点；缺少地点时对当前世界的叶子地点做限并发 V2 刷新。这条 runtime 链路不调用 `/aitown-chat/internal/world/messages` 或 legacy `/aitown-chat/api/messages`。
+V2 地点聊天不跟随控制通知中的 legacy `detail_url`。`world_new_message` 只使独立 World History 档案失效，不补查轮次元数据、不固定刷新最新页，也不因地点缺省而刷新全世界。`characters_moved` 的旧通知兼容仍保留 canonical HTTP 回填：带地点时刷新该地点，无地点时限并发刷新叶子地点。这些链路均不调用 internal world messages 或 legacy messages 接口。
 
 #### MiniPhone 私聊角色移动正式消息（2026-10-21）
 
@@ -285,7 +294,7 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 {"type":"ack","world_id":"world_001","location_id":"loc_001","conversation_round_id":102,"client_msg_id":"go-on-001","payload":{"billing":{"price":1,"price_cent":120,"pricing_version":"round_v3"}},"err_no":0,"err_msg":""}
 ```
 
-成功返回 `ChatroomGoOnReceipt`，包含世界、地点、来源轮次、新轮次、请求 ID 和可选 `ChatroomRoundBilling`。匹配世界/地点并验证新轮次后，ACK 即完成 Future；不等待用户消息回显或三层正式消息 ID。`receiptConversationRoundId` 与历史消息元数据分开，不改变 `hasCanonicalMessageMetadata`。billing 不要求候选专用 status；缺失价格不补造，精确费用取 price_cent（示例 1.20 Gem），接口不刷新或增减钱包。Location Chat 的 Go On 在 ACK、结束或不确定结果前后都不主动拉取正式历史；正式历史只由 `conversation_range_updated` 更新，连接初始化/重连的系统级同步除外。
+成功返回 `ChatroomGoOnReceipt`，包含世界、地点、来源轮次、新轮次、请求 ID 和可选 `ChatroomRoundBilling`。匹配世界/地点并验证新轮次后，ACK 即完成 Future；不等待用户消息回显或三层正式消息 ID。`receiptConversationRoundId` 与历史消息元数据分开，不改变 `hasCanonicalMessageMetadata`。billing 不要求候选专用 status；缺失价格不补造，精确费用取 price_cent（示例 1.20 Gem），接口不刷新或增减钱包。Location Chat 的 Go On 不因 ACK 或不确定结果主动拉取正式历史；正式历史范围更新由 `conversation_range_updated` 驱动，连接初始化/重连及缺号补洞沿用系统级同步。成功轮次结束不主动查询历史或补齐轮次字段。
 
 **Go On 的 client_msg_id 不提供业务幂等。** ACK 超时、发送异常、断线均返回异常且绝不自动重发/重连补发；超时代表结果不明，不能据此判断服务器未受理。迟到 ACK 仍通过 events 暴露。后续业务恢复须按新轮次查询历史，无 ACK 时没有按请求 ID 查询受理结果的接口。未知请求关联与迟到结果恢复由客户端统一 Send 管理器及回复控制器维护，不新增服务端查询接口。
 
@@ -635,7 +644,7 @@ Flutter 解析器忽略 envelope 和 `payload` 中未识别的扩展字段，但
 | `tick_done` | 外部 tick 服务调用 unlock 接口 | 用户可以发送消息 |
 | `world_change` | Tick 完成后世界发生变更 | 调用 `/api/v1/world/detail?world_id=xxx` 拉取世界详情 |
 | `user_location_change` | 玩家 join/leave 或收到 `tick_start` | 调用 `/aitown-chat/api/ulocation?world_id=xxx` 拉取玩家位置 |
-| `world_new_message` | 世界某地点产生新对话 | Flutter 忽略 legacy `detail_url`：有 `location_id` 时调用 `/aitown-chat/api/v2/messages` 刷新该地点，无地点时限并发刷新当前世界的叶子地点 |
+| `world_new_message` | 世界某地点产生新对话 | 仅使独立 World History 档案失效，不拉取地点消息或补查轮次元数据 |
 
 `SystemNotifyPayload`：
 
@@ -1093,6 +1102,25 @@ Reply events support generating (nullable failure) and failed. Messages carry
 request-correlated reply_status/failure for HTTP recovery; pushes have no offline
 replay guarantee. Player peers do not emit AI reply-state events.
 
+## 客户端地点队列异常监控（Collect）
+
+`WorldChatroomService` 在串行处理 WebSocket 消息时，由 `ChatroomQueueAnomalyMonitor` 检查首次出现的正式消息；不依赖 World/LocationChat 页面是否打开。每地点缓存 `latestConversationRoundId/latestLocationMessageId`，入队前直接比较，不为每条推送扫描队列求最大值。只有整条消息未命中任何异常，才在既有入队处理成功后推进有效 ID；任一异常命中时两个缓存均不推进，消息仍沿用原有合并、排序、持久化及补洞规则。
+
+| action_type | action | object1 | object2 | object3 | object4 |
+| --- | --- | --- | --- | --- | --- |
+| monitor | location_chat_queue_old_conversation_round | World ID | Location ID | 收到的轮次 ID | 判断前的缓存轮次 |
+| monitor | location_chat_queue_old_location_message_id | World ID | Location ID | 收到的地点序号 | 判断前的缓存地点序号 |
+
+收到的正数 `conversation_round_id` 小于缓存轮次，产生第一类事件；正数 `location_message_id` 小于缓存地点序号，或实际队列中同序号已被不同消息占用，产生第二类事件。两个条件独立，同一消息可产生两条事件。同轮追加、序号向前跳跃不属于这两类异常；缺失或非正数比较字段只跳过对应检查。
+
+身份优先使用正数 `global_message_id`，双方都有且不同就认定为不同消息，不使用地点序号将其视为重复。全局 ID 不足时再按有效 `client_msg_id/message_id` 匹配。当前队列内已存在的消息以及当前连接最近 1024 条已观察身份不重复检查，所以正常流式分片、结束帧和重复回显不报；缺少正式消息身份的临时帧暂不检测。HTTP、本地恢复、分页、补洞、控制事件、候选流、编辑和范围替换不触发上报；错误、失效 attempt 和已删除消息沿用原有过滤。
+
+初始化及重连在首条推送前从保留队列建立基线。成功的 HTTP/本地正式消息读取可校准；范围替换、删除、丢弃旧区段或实际缓存裁剪时重建，当前连接已判异常的队列身份不因重建被提升为正常基线，除非之后由 HTTP/本地读取明确校准。普通异常入队不会触发重建。账号、World、连接代次、主动清缓存重置观察身份；账号/World 切换或清缓存同时清除基线。
+
+`ext_data` 为 JSON：`incoming_conversation_round_id/incoming_location_message_id`、`cached_conversation_round_id/cached_location_message_id`、`global_message_id/message_id/client_msg_id`、`type/stream_type/gateway_request_id/attempt_no`、`queue_count/connection_generation`、`connected/reconnecting/latest_sync_verified` 和 `reason`。reason 为 `less_than_cached_latest` 或 `same_cursor_different_message`；若地点序号同时倒退且冲突，优先记录冲突原因，缓存值仍保留用于判断倒退。所有消息 ID 按十进制字符串记录，避免 int64 精度丢失；不记录正文、完整队列或请求头。通过既有 Collect 持久化队列上传，两类事件独立尝试，上报失败不影响入队，不触发历史请求或用户提示。
+
+诊断 JSON 保持在 4000 字符内，避免 Collect 的 4096 字符截断破坏 JSON。异常过长的 client/request/type 字符串按需截短并附 `metadata_truncated=true`；数值消息 ID 字符串保持完整。
+
 ## 客户端持续断线监控（Collect）
 
 `WorldChatroomService` 每轮首次实际发起建连或已有连接断开时开始恢复观察，生成 recovery_id。首次连接不算重试；首次失败或断开后，前5次重试失败等待间隔为2秒，第5次之后为5秒；成功清零。本次完整建连流程（会话读取、头准备、Gateway签名、WS握手）单次截止5秒，仅本截止器产生ChatroomConnectDeadlineExceeded并记为卡住；底层主动返回的TimeoutException保留原始错误，按明确失败计数和常规间隔重试，超时立即开始下一次尝试，不额外叠加重试等待。复用取消令牌，超时/主动取消/切换身份后，迟到准备工作不能发起握手，迟到socket立即关闭，生产IO握手通过独立HttpClient强制关闭实现取消，不中断其他连接。join、历史加载不纳入建连截止时间。
@@ -1149,3 +1177,11 @@ HTTP V2 messages 历史项同样可携带 `gateway_request_id`、`attempt_no`。
 普通流退场动画不暂停、不重置统一管理器的 5 秒流式期限；只有当前生成尝试的新有效 start／chunk 才刷新流活动。已本地超时的轮次不重新锁住发送。无展示消费者时不等待动画回执；候选同样使用统一超时释放，正常只读恢复仍保留。服务端生成重试通知不会让客户端发送新的生成、计费或取消请求。
 
 本次不接入 generation-status HTTP 查询，也不因 `end_conversation_round` 新增历史刷新。该事件继续沿用现有轮次结束职责，不用作本次生成成功判据。服务端新字段和事件的实际启用仍需联调确认。
+
+## 2026-11-04 live_photo 与 photo result
+
+`live_photo` 为独立照片消息，`payload.photo` 包含 generating/succeeded/failed；同地点消息 ID 更新同一气泡，终态不被迟到生成中覆盖。`phone.photo.result` 按 source 分流：chat 更新聊天照片，camera 更新 MiniPhone 独立任务；camera 的成功 image 无 chat_global_message_id，不产生聊天消息或分页水位。结果以 event_id 去重，结果先到时按 task_id 关联。详情见 [聊天生图接入](chat-photo-client-integration.md)。
+
+### 2026-11-05 卡内 live_photo
+
+有 payload.card_id 的 live_photo 是私有候选更新，带 card_message_index，不要求正式 message_id/location_message_id，也不得推进正式历史游标。无 card_id 的事件继续更新正式视图。phone.photo.result 可带本人卡片 card_id；候选和正式图即使 global_message_id 相同也分别更新。完整增量见 [候选卡生图契约](2026-11-05-card-photo-client-changes.md)。

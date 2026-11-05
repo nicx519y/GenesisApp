@@ -342,10 +342,18 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
         .firstOrNull;
     _reportBackground(location?.imageUrl ?? '');
     final hasFailure = _worldHistory.failed;
+    final showAiDisclaimer =
+        locationChatShouldShowAiContentDisclaimerForTesting(
+          initialContentReady: _worldHistory.ready,
+          hasMoreOlderMessages: _worldHistory.hasMore,
+          loadingOlderMessages: _worldHistory.loading,
+        );
     final body = !_worldHistory.ready || messages.isEmpty
         ? CustomScrollView(
             controller: widget.scrollController,
             slivers: [
+              if (showAiDisclaimer)
+                const SliverToBoxAdapter(child: AiContentDisclaimer()),
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
@@ -409,6 +417,9 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 messages: messages,
                 readOnlyArchive: true,
                 topTitle: '',
+                oldestEdgeNotice: showAiDisclaimer
+                    ? context.l10n.commonAiDisclaimer
+                    : null,
                 active: _requestsEnabled,
                 initialContentReady: _worldHistory.ready,
                 initialViewportPlaceholder:
@@ -417,7 +428,10 @@ class _WorldChatHistorySectionState extends State<WorldChatHistorySection>
                 replyActionsVisible: false,
                 replyWaitingPositioningEnabled: false,
                 showDateDividers: false,
-                style: kLocationChatStyle,
+                style: kLocationChatStyle.copyWith(
+                  messageListPadding: kLocationChatStyle.messageListPadding
+                      .copyWith(top: 6),
+                ),
                 oldestEdgeLoading: _worldHistory.loading,
                 onOldestEdgeLoadingCollapsed: _worldHistory.ensureVisibleWindow,
                 hiddenMessageIds: _historySections.hidden,
