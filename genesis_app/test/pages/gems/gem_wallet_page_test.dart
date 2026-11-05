@@ -2422,7 +2422,10 @@ void main() {
               },
               taskClaimer: (_) async {
                 claims++;
-                return const GemTaskActionResult(status: 'claimed');
+                return const GemTaskActionResult(
+                  status: 'claimed',
+                  rewardGemsCent: 35000,
+                );
               },
             ),
           ),
@@ -2451,6 +2454,7 @@ void main() {
         expect(reports, status == 'in_progress' ? 1 : 0);
         expect(claims, 1);
         expect(find.text('Check in successful!'), findsOneWidget);
+        expect(find.text('+350'), findsOneWidget);
         await tester.pump(const Duration(seconds: 3));
       },
     );

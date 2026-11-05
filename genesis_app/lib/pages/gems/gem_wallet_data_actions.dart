@@ -286,7 +286,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       if (isDailyCheckIn && mounted) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
-          rewardGemsCent: rewardGemsCent,
+          rewardGemsCent: result.rewardGemsCent ?? rewardGemsCent,
           memberships: memberships,
         );
         unawaited(_refreshTasksAndWallet());
@@ -328,7 +328,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       final successDialog = taskCode == dailyCheckInTaskCode
           ? showDailyCheckInSuccessDialog(
               context,
-              rewardGemsCent: rewardGemsCent,
+              rewardGemsCent: result.rewardGemsCent ?? rewardGemsCent,
               memberships: memberships,
             )
           : showGemTaskSuccessDialog(

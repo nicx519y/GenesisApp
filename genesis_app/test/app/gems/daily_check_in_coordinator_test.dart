@@ -32,7 +32,10 @@ void main() {
                   },
                   claimTask: () async {
                     claimCalls += 1;
-                    return const GemTaskActionResult(status: 'claimed');
+                    return const GemTaskActionResult(
+                      status: 'claimed',
+                      rewardGemsCent: 35000,
+                    );
                   },
                   refreshWallet: () async {
                     refreshCalls += 1;
@@ -47,6 +50,7 @@ void main() {
         await tester.tap(find.text('Login complete'));
         await tester.pumpAndSettle();
         expect(find.text('Check in'), findsOneWidget);
+        expect(find.text('+50'), findsOneWidget);
 
         await tester.tap(find.text('Check in'));
         await tester.pumpAndSettle();
@@ -55,6 +59,7 @@ void main() {
         expect(refreshCalls, 1);
         expect(find.text('Claim'), findsNothing);
         expect(find.text('Check in successful!'), findsOneWidget);
+        expect(find.text('+350'), findsOneWidget);
         _expectTaskClaimedEvent(telemetry, dailyCheckInTaskCode);
 
         await tester.pump(const Duration(seconds: 3));
