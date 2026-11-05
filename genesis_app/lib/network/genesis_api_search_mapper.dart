@@ -101,6 +101,9 @@ SearchUserSummary _userSummaryFromSearchItem(Map<String, dynamic> raw) {
     gender: asString(raw['gender']),
     age: asString(raw['age']),
     membershipStatus: asUserMembershipStatus(raw['membership_status']),
+    membershipDeluxeStatus: asUserMembershipStatus(
+      raw['membership_deluxe_status'],
+    ),
     uid: uid,
     displayName: asString(
       raw['display_name'],

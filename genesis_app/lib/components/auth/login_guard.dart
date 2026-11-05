@@ -80,6 +80,7 @@ Future<bool> loginGenesisWithProvider(
     'gender': user.gender,
     'age': user.age,
     'membership_status': user.membershipStatus,
+    'membership_deluxe_status': user.membershipDeluxeStatus,
     'login_provider': provider.name,
   };
   if (user.nickname.trim().isNotEmpty) {

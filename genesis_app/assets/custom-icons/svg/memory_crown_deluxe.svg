@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="68" viewBox="0 4 96 68"><defs>
+      <linearGradient id="c9k5F1" gradientUnits="userSpaceOnUse" x1="11" y1="70" x2="6" y2="28"><stop offset="0" stop-color="#F7B94A"></stop><stop offset="1" stop-color="#FFE9A6"></stop></linearGradient>
+      <linearGradient id="c9k5F2" gradientUnits="userSpaceOnUse" x1="74" y1="63" x2="48" y2="20"><stop offset="0" stop-color="#FFC9D6"></stop><stop offset="1" stop-color="#FFEFF3"></stop></linearGradient>
+      <linearGradient id="c9k5F3" gradientUnits="userSpaceOnUse" x1="85" y1="70" x2="80" y2="40"><stop offset="0" stop-color="#D9A6FF"></stop><stop offset="1" stop-color="#FFC9D8"></stop></linearGradient>
+      <linearGradient id="c9k5T1" gradientUnits="userSpaceOnUse" x1="16" y1="40" x2="6" y2="28"><stop offset="0" stop-color="#FFD98A"></stop><stop offset="1" stop-color="#FFEFC2"></stop></linearGradient>
+      <linearGradient id="c9k5T2" gradientUnits="userSpaceOnUse" x1="48" y1="8" x2="29" y2="44"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="1" stop-color="#FFFFFF"></stop></linearGradient>
+      <linearGradient id="c9k5T3" gradientUnits="userSpaceOnUse" x1="72" y1="35" x2="67" y2="44"><stop offset="0" stop-color="#FFA9C0"></stop><stop offset="1" stop-color="#FFE6EC"></stop></linearGradient>
+      <linearGradient id="c9k5T4" gradientUnits="userSpaceOnUse" x1="67" y1="44" x2="90" y2="28"><stop offset="0" stop-color="#CFA6FF"></stop><stop offset="1" stop-color="#F3E6FF"></stop></linearGradient>
+      <linearGradient id="c9k5BASE" gradientUnits="userSpaceOnUse" x1="74" y1="63" x2="11" y2="70"><stop offset="0" stop-color="#A77BE0"></stop><stop offset="1" stop-color="#F04156"></stop></linearGradient>
+      </defs>
+      <g>
+      <path fill="#FFE0E7" d="M6,28 L24,35 L48,8 L72,35 L90,28 L85,70 L11,70 Z"></path>
+      <path fill="url(#c9k5F1)" d="M6,28 L16,40 L22,63 L11,70 Z"></path>
+      <path fill="url(#c9k5F2)" d="M16,40 L29,44 L48,20 L67,44 L80,40 L74,63 L22,63 Z"></path>
+      <path fill="url(#c9k5F3)" d="M80,40 L90,28 L85,70 L74,63 Z"></path>
+      <path fill="url(#c9k5T1)" d="M6,28 L24,35 L29,44 L16,40 Z"></path>
+      <path fill="url(#c9k5T2)" d="M24,35 L48,8 L48,20 L29,44 Z"></path>
+      <path fill="url(#c9k5T3)" d="M48,8 L72,35 L67,44 L48,20 Z"></path>
+      <path fill="url(#c9k5T4)" d="M72,35 L90,28 L80,40 L67,44 Z"></path>
+      <path fill="url(#c9k5BASE)" d="M22,63 L74,63 L85,70 L11,70 Z"></path>
+      <path fill="#FFFFFF" fill-opacity=".2" d="M24,35 L48,8 L48,14 L31,40 Z"></path>
+      <path fill="#FFFFFF" fill-opacity=".1" d="M16,40 L29,44 L48,20 L48,26 L30,48 L19,45 Z"></path>
+      </g></svg>

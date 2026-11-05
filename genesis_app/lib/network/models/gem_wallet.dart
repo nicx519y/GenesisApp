@@ -1,7 +1,11 @@
 import '../../utils/gem_amount.dart';
 
 class GemWallet {
-  const GemWallet({required this.balanceCent, this.membership});
+  const GemWallet({
+    required this.balanceCent,
+    this.membership,
+    this.membershipDeluxe,
+  });
 
   factory GemWallet.fromJson(Map<String, dynamic> json) {
     final rawWallet = json['wallet'];
@@ -14,11 +18,15 @@ class GemWallet {
         fieldName: 'wallet.balance_cent',
       ),
       membership: GemWalletMembership.tryParse(json['membership']),
+      membershipDeluxe: GemWalletMembership.tryParse(json['membership_deluxe']),
     );
   }
 
   final int balanceCent;
   final GemWalletMembership? membership;
+  final GemWalletMembership? membershipDeluxe;
+  int get blueGemsCent =>
+      (membership?.blueGemsCent ?? 0) + (membershipDeluxe?.blueGemsCent ?? 0);
 }
 
 class GemWalletMembership {
@@ -55,7 +63,13 @@ class GemWalletMembership {
     );
     if (status is! int ||
         !const [0, 1, 2].contains(status) ||
-        !const ['', 'pro_monthly', 'pro_yearly'].contains(plan) ||
+        !const [
+          '',
+          'pro_monthly',
+          'pro_yearly',
+          'deluxe_monthly',
+          'deluxe_yearly',
+        ].contains(plan) ||
         (expiry != null && (expiry is! int || expiry < 0)) ||
         autoRenew is! bool ||
         blue < 0) {

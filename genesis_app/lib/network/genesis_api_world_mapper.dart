@@ -258,6 +258,9 @@ OriginUserInfo _originUserInfoFromV1(Map<String, dynamic> raw) {
     gender: asString(raw['gender']),
     age: asString(raw['age']),
     membershipStatus: asUserMembershipStatus(raw['membership_status']),
+    membershipDeluxeStatus: asUserMembershipStatus(
+      raw['membership_deluxe_status'],
+    ),
     uid: asString(raw['uid']),
     name: asString(raw['name']),
     avatar: avatarResource.displayUrl,
@@ -385,6 +388,9 @@ Map<String, dynamic>? _worldUserPositionFromV1(Map<String, dynamic> raw) {
     'age': asString(playerUser['age']),
     'membership_status': asUserMembershipStatus(
       playerUser['membership_status'],
+    ),
+    'membership_deluxe_status': asUserMembershipStatus(
+      playerUser['membership_deluxe_status'],
     ),
     'location_id': locationId,
     'deleted': entityDeleted(

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../network/models/gem_wallet.dart';
+import '../../network/models/membership_order_product.dart';
 import '../debug/membership_debug_override.dart';
 import '../gems/gem_wallet_store.dart';
 
@@ -16,17 +17,33 @@ class MembershipAccessState {
     this.status = MembershipAccessStatus.unknown,
     this.ownerUid,
     this.membership,
+    this.membershipDeluxe,
+    this.premiumActive,
+    this.deluxeActive,
     this.isRefreshing = false,
     this.lastError,
     this.isExpired = false,
+    this.isDeluxeExpired = false,
   });
 
   final MembershipAccessStatus status;
   final String? ownerUid;
   final GemWalletMembership? membership;
+  final GemWalletMembership? membershipDeluxe;
+  GemWalletMembership? membershipFor(MembershipType type) =>
+      type == MembershipType.deluxe ? membershipDeluxe : membership;
+  final bool? premiumActive;
+  final bool? deluxeActive;
+  bool activeFor(MembershipType type) {
+    final value = membershipFor(type);
+    return (type == MembershipType.deluxe ? deluxeActive : premiumActive) ??
+        (status == MembershipAccessStatus.active && value?.status == 1);
+  }
+
   final bool isRefreshing;
   final Object? lastError;
   final bool isExpired;
+  final bool isDeluxeExpired;
 
   /// Unknown must not be presented as a confirmed non-member.
   bool? get isVip => switch (status) {
@@ -109,6 +126,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
   String? _ownerUid;
   bool _sessionKnown = false;
   GemWalletMembership? _membership;
+  GemWalletMembership? _membershipDeluxe;
   GemWalletState? _lastWalletResponse;
   GemWalletState? _lastWalletFailure;
   GemWalletState? _observedResponse;
@@ -300,44 +318,71 @@ class MembershipAccessStore with WidgetsBindingObserver {
     _lastWalletResponse = snapshot;
     _lastWalletFailure = null;
     _membership = snapshot.membership;
+    _membershipDeluxe = snapshot.membershipDeluxe;
     _receivedAt = _observedAt;
     _lastError = null;
     _retryAfter = null;
     _failures = 0;
-    if (_membership == null || _status() == MembershipAccessStatus.unknown) {
+    if (_status() == MembershipAccessStatus.unknown) {
       _failed(StateError('Membership information unavailable'));
     }
     _scheduleCacheExpiry();
   }
 
   Duration get _cacheAge =>
-      _membership?.status == 1 &&
-          (_membership?.expiresAt == null || serverNow() == null)
+      ((_membership?.status == 1 &&
+              (_membership?.expiresAt == null || serverNow() == null)) ||
+          (_membershipDeluxe?.status == 1 &&
+              (_membershipDeluxe?.expiresAt == null || serverNow() == null)))
       ? shortCacheAge
       : maxCacheAge;
 
-  MembershipAccessStatus _status({bool allowStale = false}) {
-    if (_disposed || !_sessionKnown) return MembershipAccessStatus.unknown;
-    if (_ownerUid == null) return MembershipAccessStatus.inactive;
-    final membership = _membership;
-    if (membership == null ||
-        _receivedAt == null ||
-        (!allowStale && _elapsed() - _receivedAt! >= _cacheAge)) {
-      return MembershipAccessStatus.unknown;
+  bool _active(GemWalletMembership? value) =>
+      _groupStatus(value) == MembershipAccessStatus.active;
+
+  /// Both groups use the same validity rule. A missing Deluxe summary remains
+  /// compatible with older responses; a missing Premium summary stays unknown.
+  MembershipAccessStatus _groupStatus(
+    GemWalletMembership? membership, {
+    bool optional = false,
+  }) {
+    if (membership == null) {
+      return optional
+          ? MembershipAccessStatus.inactive
+          : MembershipAccessStatus.unknown;
     }
     if (membership.status != 1) return MembershipAccessStatus.inactive;
     final expiry = membership.expiresAt;
     final now = serverNow();
-    if (expiry == null || now == null) {
-      return MembershipAccessStatus.unknown;
-    }
+    if (expiry == null || now == null) return MembershipAccessStatus.unknown;
     return expiry.isAfter(now)
         ? MembershipAccessStatus.active
         : MembershipAccessStatus.inactive;
   }
 
-  bool get _isExpired {
-    final membership = _membership;
+  MembershipAccessStatus _status({bool allowStale = false}) {
+    if (_disposed || !_sessionKnown) return MembershipAccessStatus.unknown;
+    if (_ownerUid == null) return MembershipAccessStatus.inactive;
+    if (_receivedAt == null ||
+        (!allowStale && _elapsed() - _receivedAt! >= _cacheAge)) {
+      return MembershipAccessStatus.unknown;
+    }
+    final groups = [
+      _groupStatus(_membership),
+      _groupStatus(_membershipDeluxe, optional: true),
+    ];
+    if (groups.contains(MembershipAccessStatus.active)) {
+      return MembershipAccessStatus.active;
+    }
+    if (groups.contains(MembershipAccessStatus.unknown)) {
+      return MembershipAccessStatus.unknown;
+    }
+    return MembershipAccessStatus.inactive;
+  }
+
+  bool get _isExpired => _expired(_membership);
+
+  bool _expired(GemWalletMembership? membership) {
     final expiry = membership?.expiresAt;
     // A missing expiry means the account has no subscription history. Some
     // compatible wallet payloads still carry status=2 in that case; don't
@@ -350,7 +395,10 @@ class MembershipAccessStore with WidgetsBindingObserver {
 
   void _scheduleCacheExpiry() {
     _cacheTimer?.cancel();
-    if (_receivedAt == null || _membership == null) return;
+    if (_receivedAt == null ||
+        (_membership == null && _membershipDeluxe == null)) {
+      return;
+    }
     final cacheRemaining = _cacheAge - (_elapsed() - _receivedAt!);
     if (cacheRemaining > Duration.zero) {
       _cacheTimer = Timer(cacheRemaining, _publish);
@@ -384,9 +432,13 @@ class MembershipAccessStore with WidgetsBindingObserver {
         status: status ?? _status(),
         ownerUid: _ownerUid,
         membership: _membership,
+        premiumActive: _active(_membership),
+        membershipDeluxe: _membershipDeluxe,
+        deluxeActive: _active(_membershipDeluxe),
         isRefreshing: refreshing,
         lastError: _lastError,
         isExpired: _isExpired,
+        isDeluxeExpired: _expired(_membershipDeluxe),
       );
 
   /// The membership forced from the Developer panel, or null to use the
@@ -447,6 +499,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
   void _clearSnapshot() {
     _cacheTimer?.cancel();
     _membership = null;
+    _membershipDeluxe = null;
     _receivedAt = null;
     _lastWalletResponse = null;
     _lastWalletFailure = null;

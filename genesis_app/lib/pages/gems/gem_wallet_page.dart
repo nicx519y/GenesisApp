@@ -1,3 +1,5 @@
+import '../../components/gems/memory_membership_style.dart';
+import '../../network/models/membership_order_product.dart';
 import '../../platform/session/app_background_resume.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
@@ -63,6 +65,7 @@ typedef DiscordLauncher = Future<bool> Function(Uri uri);
 class GemWalletPage extends StatefulWidget {
   const GemWalletPage({
     super.key,
+    this.initialMembershipType,
     this.showSubscriptionInitially = false,
     this.showBuyGems = true,
     this.subscriptionSource = SubscriptionSource.unknown,
@@ -80,6 +83,7 @@ class GemWalletPage extends StatefulWidget {
   });
 
   final GemProductsLoader? productsLoader;
+  final MembershipType? initialMembershipType;
   final MembershipCatalogLoader? membershipProductsLoader;
   final bool showSubscriptionInitially;
   final bool showBuyGems;
@@ -349,6 +353,8 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   bool get _isProductRefreshBlocking => _blockingProductRefresh;
 
+  Color? _membershipColor;
+
   Widget _buildPurchasePage(BuildContext context) {
     return GenesisDarkTheme(
       child: PopScope(
@@ -357,7 +363,12 @@ class _GemWalletPageState extends State<GemWalletPage>
           backgroundColor: GenesisColors.darkBackground,
           appBar: GenesisBackAppBar(
             pageName: GenesisL10n.current.gemsBuy,
-            titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
+            titleWidget: WalletPurchaseTabs(
+              controller: _purchaseTabs,
+              membershipColor: _membershipColor,
+              membershipCatalog: _membershipServices?.membershipCatalog,
+              initialMembershipType: widget.initialMembershipType,
+            ),
             titleSideInset: 56,
             actions: [
               if (widget.showBuyGems)
@@ -396,6 +407,16 @@ class _GemWalletPageState extends State<GemWalletPage>
                           child: PurchaseCatalogEntry(
                             revision: _subscriptionEntryRevision,
                             child: ProSubscriptionContent(
+                              onMembershipTypeChanged: (type) {
+                                if (mounted &&
+                                    _membershipColor != type.accent) {
+                                  setState(
+                                    () => _membershipColor = type.accent,
+                                  );
+                                }
+                              },
+                              initialMembershipType:
+                                  widget.initialMembershipType,
                               refreshMembershipOnOpen: false,
                               closeOnPurchaseSuccess: true,
                               horizontalInset: 16,

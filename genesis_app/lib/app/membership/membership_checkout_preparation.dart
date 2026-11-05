@@ -88,14 +88,17 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
   Future<_CheckoutIdentity> _prepareCheckoutIdentity(
     String? uid,
     MembershipProductList products,
+    MembershipType type,
   ) async {
     final guest = uid == null
-        ? products.lastAccountUuid == null
+        ? products.accountUuidFor(type) == null
               ? await _timedCheckoutPreparation('prepare_guest', prepareGuest)
-              : MembershipGuestIdentity(accountUuid: products.lastAccountUuid!)
+              : MembershipGuestIdentity(
+                  accountUuid: products.accountUuidFor(type)!,
+                )
         : null;
     final uuid =
-        products.lastAccountUuid ??
+        products.accountUuidFor(type) ??
         guest?.accountUuid ??
         await _timedCheckoutPreparation<String>(
           'load_account_uuid',

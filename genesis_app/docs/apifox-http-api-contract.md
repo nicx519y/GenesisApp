@@ -2946,3 +2946,15 @@ Source: supplied `wallpaper.md` contract.
 Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存，Dart 不另建商品详情缓存；不改变服务端商品、购买 report／claim 协议。原生商品缓存不设置固定有效期，仅在当前进程内复用；原生负责主动刷新、失效、并发合并及旧查询失效保护。iOS StoreKit 2 购买复用缓存 Product；Android 保留一次 NOT_FOUND 自动补查，购买条件改变不自动继续收费。流程和诊断字段见 [购买准备](membership-checkout-preparation.md)。
 
 商品刷新时机保持原规则：App 冷启动预加载、进入支付页、购买成功后，重新获取服务端商品并强制查询对应平台商品，覆盖原生缓存；仅在这些刷新之间复用缓存。
+
+
+### Deluxe 独立会员扩展（2026-11-04）
+
+- `/api/v1/membership/products` 保留 Premium `list`，新增同结构 `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
+- Premium 使用 `last_account_uuid`，Deluxe 使用 `last_account_uuid_deluxe`，禁止跨组回退购买身份；两项均不持久化到展示缓存。
+- `plan_code` 新增 `deluxe_monthly`、`deluxe_yearly`；两组商品统一查询平台，商店价格与币种白名单沿用现有实现。
+- `/api/v1/gem/wallet` 新增 `membership_deluxe`，结构与原 `membership` 一致。Me 粉钻为两项 `blue_gems_cent` 相加；不通过状态或余额推断另一组会员。
+- 公开用户资料增加 `membership_deluxe_status`，解析、映射、复制和已有资料缓存透传；仅各自整数 1 显示对应本地徽章。
+- 购买报告、认领、恢复继续使用原接口和已验证平台凭据；订单模型支持新套餐，不新增另一套购买服务或支付事件名称。
+
+详细接入说明见 [Deluxe 会员接入](deluxe-membership-integration.md)。

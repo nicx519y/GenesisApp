@@ -1045,6 +1045,7 @@ class ChatroomOnlineUser {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
   });
 
   final String userId;
@@ -1053,6 +1054,7 @@ class ChatroomOnlineUser {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
 
   factory ChatroomOnlineUser.fromPayload(Map<String, dynamic> payload) {
     return ChatroomOnlineUser(
@@ -1062,6 +1064,9 @@ class ChatroomOnlineUser {
       gender: asString(payload['gender']),
       age: asString(payload['age']),
       membershipStatus: asUserMembershipStatus(payload['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        payload['membership_deluxe_status'],
+      ),
     );
   }
 }

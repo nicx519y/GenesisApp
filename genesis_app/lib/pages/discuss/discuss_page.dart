@@ -520,6 +520,9 @@ class _DiscussOriginSummary extends StatelessWidget {
                 membershipStatus: originator.isEmpty
                     ? 0
                     : origin.ownerUser.membershipStatus,
+                membershipDeluxeStatus: originator.isEmpty
+                    ? 0
+                    : origin.ownerUser.membershipDeluxeStatus,
                 fontSize: 12,
                 deleted: origin.ownerDeleted,
                 child: Text(

@@ -1,3 +1,7 @@
+import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
+import 'package:genesis_flutter_android/components/gems/memory_membership_style.dart';
+import 'package:genesis_flutter_android/network/models/membership_product.dart';
+import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'dart:async';
 import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
@@ -22,6 +26,79 @@ import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import '../support/membership_fixtures.dart';
 
 void main() {
+  testWidgets(
+    'membership indicator follows Deluxe and interpolates in the sheet',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final offers = [
+        for (final deluxe in [false, true])
+          for (final yearly in [false, true])
+            MembershipOffer(
+              product: MembershipProduct.fromJson({
+                ...membershipProduct(yearly: yearly).toJson(),
+                if (deluxe)
+                  'plan_code': yearly ? 'deluxe_yearly' : 'deluxe_monthly',
+                if (deluxe) 'store_product_id': 'test_deluxe',
+              }),
+            ),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.dark(),
+          home: Scaffold(
+            body: PurchaseOptionsSheet(
+              initialTab: PurchaseSheetTab.subscription,
+              membershipProductsLoader: () async =>
+                  MembershipCatalogData(offers: offers, hasPurchased: true),
+              gemsBuilder: (_) => const Text('Gems content'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Color color() =>
+          (tester.widget<TabBar>(find.byType(TabBar)).indicator!
+                  as GenesisFixedUnderlineIndicator)
+              .color;
+      expect(color(), MemoryMembershipTier.deluxe.accent);
+      final cards = find.byKey(const ValueKey('membership-subscription-pages'));
+      await tester.drag(cards, const Offset(200, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(color(), isNot(MemoryMembershipTier.deluxe.accent));
+      expect(color(), isNot(MemoryMembershipTier.premium.accent));
+      await tester.pumpAndSettle();
+      expect(color(), MemoryMembershipTier.premium.accent);
+      await tester.drag(cards, const Offset(-200, 0));
+      await tester.pumpAndSettle();
+      expect(color(), MemoryMembershipTier.deluxe.accent);
+      final controller = tester
+          .widget<WalletPurchaseTabs>(find.byType(WalletPurchaseTabs))
+          .controller;
+      controller.animateTo(1);
+      await tester.pumpAndSettle();
+      controller.animateTo(0, duration: const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        color(),
+        Color.lerp(
+          MemoryMembershipTier.deluxe.accent,
+          GenesisColors.redPrimary,
+          controller.animation!.value,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(color(), MemoryMembershipTier.deluxe.accent);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   for (final initial in PurchaseSheetTab.values) {
     testWidgets('tab round trips preserve original source for $initial', (
       tester,

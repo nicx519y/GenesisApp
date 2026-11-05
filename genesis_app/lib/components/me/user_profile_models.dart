@@ -35,6 +35,7 @@ class UserProfileData {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.origins,
     required this.worlds,
   });
@@ -50,6 +51,7 @@ class UserProfileData {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final List<UserProfileOriginItem> origins;
   final List<UserProfileWorldItem> worlds;
 
@@ -65,6 +67,7 @@ class UserProfileData {
     String? gender,
     String? age,
     int? membershipStatus,
+    int? membershipDeluxeStatus,
     List<UserProfileOriginItem>? origins,
     List<UserProfileWorldItem>? worlds,
   }) {
@@ -80,6 +83,8 @@ class UserProfileData {
       gender: gender ?? this.gender,
       age: age ?? this.age,
       membershipStatus: membershipStatus ?? this.membershipStatus,
+      membershipDeluxeStatus:
+          membershipDeluxeStatus ?? this.membershipDeluxeStatus,
       origins: origins ?? this.origins,
       worlds: worlds ?? this.worlds,
     );

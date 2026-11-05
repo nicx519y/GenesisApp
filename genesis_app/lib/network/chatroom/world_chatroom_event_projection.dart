@@ -778,6 +778,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           gender: user.gender,
           age: user.age,
           membershipStatus: user.membershipStatus,
+          membershipDeluxeStatus: user.membershipDeluxeStatus,
           name: _firstNonEmpty([existing?.name, user.userName, id]),
           avatarUrl: _firstNonEmpty([existing?.avatarUrl, user.avatar]),
           type: WorldChatroomEntityType.player,
@@ -878,6 +879,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       gender: entity.gender,
       age: entity.age,
       membershipStatus: entity.membershipStatus,
+      membershipDeluxeStatus: entity.membershipDeluxeStatus,
       name: entity.name,
       avatarUrl: entity.avatarUrl,
       type: entity.type,
@@ -944,6 +946,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       'gender': asString(user['gender']),
       'age': asString(user['age']),
       'membership_status': asUserMembershipStatus(user['membership_status']),
+      'membership_deluxe_status': asUserMembershipStatus(
+        user['membership_deluxe_status'],
+      ),
     };
   }
 

@@ -40,7 +40,7 @@ class MembershipCatalogCache {
       final prices = <String, MembershipStorePrice>{};
       final cachedPrices = json['store_prices'];
       if (cachedPrices is Map) {
-        for (final product in products.products) {
+        for (final product in products.allProducts) {
           try {
             final entry = cachedPrices[product.planCode];
             if (entry is! Map ||
@@ -91,7 +91,7 @@ class MembershipCatalogCache {
       ...products.toJson(),
       'cached_at': DateTime.now().toUtc().toIso8601String(),
       'store_prices': {
-        for (final product in products.products)
+        for (final product in products.allProducts)
           if (prices[product.planCode] case final price?)
             product.planCode: {
               'store_product_id': product.storeProductId,

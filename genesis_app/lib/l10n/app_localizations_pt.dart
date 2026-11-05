@@ -3727,4 +3727,103 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Não foi possível salvar as opções de privacidade. Tente novamente.';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Até $amount Gemas por mês';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ ano',
+      'other': '/ mês',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Cobrança anual';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Até $amount Gemas por mês, além de memória que se atualiza sozinha.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Tenha uma retrospectiva completa de cada reviravolta, escolha e personagem, reescrita enquanto você joga, além de até 3.500 Gemas por mês.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Tenha Linha do tempo, Personagens e Vínculos: uma memória que se atualiza enquanto você joga e que os personagens lembram, além de até 18.000 Gemas por mês.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Uma memória que se atualiza sozinha enquanto você joga.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe ainda não está disponível.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'Confira os planos e preços atuais do Premium para assinar.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Prévia do design · preços e benefícios não confirmados';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'Ver detalhes de $membership';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Linha do tempo, Personagens e Vínculos: acontecimentos importantes, perfis e sentimentos de cada personagem';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Linha do tempo: cada acontecimento principal, em ordem';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Personagens: um perfil vivo de cada um';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Vínculos: o que cada um sente pelos outros';
+
+  @override
+  String get memoryMembershipRememberBenefit =>
+      'Os personagens se lembram de tudo';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Retrospectiva da história que a AI lembra além da memória';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Inspiração ilimitada';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Edição ilimitada';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Distintivo exclusivo de $membership';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Recarga de Gemas';
+
+  @override
+  String get mePurchasingDeluxe => 'Comprando Deluxe…';
+
+  @override
+  String get meWorldoDeluxeSubscription =>
+      'Sua assinatura Worldo Deluxe já está ativa.';
 }

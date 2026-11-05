@@ -1,5 +1,8 @@
 enum MembershipProvider { apple, google }
 
+/// Independent subscriptions; neither membership implies the other.
+enum MembershipType { premium, deluxe }
+
 /// Stable order identity. Catalog prices and eligibility are not receipt data.
 class MembershipOrderProduct {
   const MembershipOrderProduct({
@@ -20,7 +23,13 @@ class MembershipOrderProduct {
     final storeId = json['store_product_id'];
     final basePlan = json['base_plan_id'] ?? '';
     final offer = json['offer_id'] ?? '';
-    if (!const {'pro_monthly', 'pro_yearly', 'unknown'}.contains(plan) ||
+    if (!const {
+          'pro_monthly',
+          'pro_yearly',
+          'deluxe_monthly',
+          'deluxe_yearly',
+          'unknown',
+        }.contains(plan) ||
         storeId is! String ||
         storeId.trim().isEmpty ||
         basePlan is! String ||
@@ -41,7 +50,10 @@ class MembershipOrderProduct {
   final String storeProductId;
   final String basePlanId;
   final String offerId;
-  bool get isYearly => planCode == 'pro_yearly';
+  MembershipType get membershipType => planCode.startsWith('deluxe_')
+      ? MembershipType.deluxe
+      : MembershipType.premium;
+  bool get isYearly => planCode == 'pro_yearly' || planCode == 'deluxe_yearly';
 
   Map<String, Object?> toOrderJson() => {
     'provider': provider.name,

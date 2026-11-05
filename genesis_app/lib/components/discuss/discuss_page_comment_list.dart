@@ -253,6 +253,7 @@ class _DiscussPageMeta extends StatelessWidget {
   Widget build(BuildContext context) {
     final tappableMeta = ProUserName(
       membershipStatus: item.authorMembershipStatus,
+      membershipDeluxeStatus: item.authorMembershipDeluxeStatus,
       fontSize: 14,
       deleted: item.authorDeleted,
       child: Text(
@@ -638,6 +639,9 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
             membershipStatus: asUserMembershipStatus(
               author?['membership_status'],
             ),
+            membershipDeluxeStatus: asUserMembershipStatus(
+              author?['membership_deluxe_status'],
+            ),
             fontSize: 12,
             deleted: asBool(author?['deleted'] ?? reply['author_deleted']),
           ),
@@ -654,6 +658,11 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
             ProUserBadge.span(
               membershipStatus: asUserMembershipStatus(
                 asOptionalJsonMap(reply['reply_to_user'])['membership_status'],
+              ),
+              membershipDeluxeStatus: asUserMembershipStatus(
+                asOptionalJsonMap(
+                  reply['reply_to_user'],
+                )['membership_deluxe_status'],
               ),
               deleted: entityDeleted(
                 asOptionalJsonMap(reply['reply_to_user'])['deleted'],

@@ -1,3 +1,4 @@
+import 'memory_membership_style.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -159,6 +160,8 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
     if (membership != null) unawaited(membership.refresh());
   }
 
+  Color? _membershipColor;
+
   @override
   Widget build(BuildContext context) {
     return SubscriptionTrackingScope(
@@ -171,7 +174,13 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
             padding: EdgeInsets.zero,
             insetBody: false,
             header: GenesisActionSheetHeader.tabs(
-              tabs: WalletPurchaseTabs(controller: _tabs),
+              tabs: WalletPurchaseTabs(
+                controller: _tabs,
+                membershipColor: _membershipColor,
+                membershipCatalog: AppServicesScope.maybeOf(
+                  context,
+                )?.membershipCatalog,
+              ),
               trailing: widget.headerTrailing,
               showClose: true,
               closeButtonKey: const ValueKey('gem-purchase-sheet-close'),
@@ -188,6 +197,14 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                       child: _subscriptionVisited
                           ? widget.subscriptionBuilder?.call(context) ??
                                 ProSubscriptionContent(
+                                  onMembershipTypeChanged: (type) {
+                                    if (mounted &&
+                                        _membershipColor != type.accent) {
+                                      setState(
+                                        () => _membershipColor = type.accent,
+                                      );
+                                    }
+                                  },
                                   refreshMembershipOnOpen: false,
                                   productsLoader:
                                       widget.membershipProductsLoader,

@@ -7,12 +7,14 @@ class ProUserName extends StatelessWidget {
   const ProUserName({
     super.key,
     required this.membershipStatus,
+    this.membershipDeluxeStatus = 0,
     required this.fontSize,
     required this.child,
     this.deleted = false,
   });
 
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final double fontSize;
   final Widget child;
   final bool deleted;
@@ -25,6 +27,7 @@ class ProUserName extends StatelessWidget {
       Flexible(child: child),
       ProUserBadge(
         membershipStatus: membershipStatus,
+        membershipDeluxeStatus: membershipDeluxeStatus,
         fontSize: fontSize,
         deleted: deleted,
       ),
@@ -37,21 +40,27 @@ class ProUserBadge extends StatelessWidget {
   const ProUserBadge({
     super.key,
     required this.membershipStatus,
+    this.membershipDeluxeStatus = 0,
     required this.fontSize,
     this.deleted = false,
+    this.leadingGap = 4,
   });
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final double fontSize;
   final bool deleted;
+  final double leadingGap;
 
   static WidgetSpan span({
     required int membershipStatus,
+    int membershipDeluxeStatus = 0,
     required double fontSize,
     bool deleted = false,
   }) => WidgetSpan(
     alignment: PlaceholderAlignment.middle,
     child: ProUserBadge(
       membershipStatus: membershipStatus,
+      membershipDeluxeStatus: membershipDeluxeStatus,
       fontSize: fontSize,
       deleted: deleted,
     ),
@@ -59,12 +68,22 @@ class ProUserBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (deleted || membershipStatus != 1) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: ProMembershipBadge.beside(
-        fontSize: MediaQuery.textScalerOf(context).scale(fontSize),
-      ),
+    if (deleted) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (membershipDeluxeStatus == 1) _badge(context, true, leadingGap),
+        if (membershipStatus == 1)
+          _badge(context, false, membershipDeluxeStatus == 1 ? 4 : leadingGap),
+      ],
     );
   }
+
+  Widget _badge(BuildContext context, bool deluxe, double gap) => Padding(
+    padding: EdgeInsets.only(left: gap),
+    child: ProMembershipBadge.beside(
+      deluxe: deluxe,
+      fontSize: MediaQuery.textScalerOf(context).scale(fontSize),
+    ),
+  );
 }

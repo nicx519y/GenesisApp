@@ -94,6 +94,7 @@ class SearchUserSummary {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
   });
 
   final String uid;
@@ -104,4 +105,5 @@ class SearchUserSummary {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
 }

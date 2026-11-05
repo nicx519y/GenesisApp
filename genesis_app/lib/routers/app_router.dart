@@ -1,3 +1,4 @@
+import '../network/models/membership_order_product.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -42,12 +43,16 @@ import '../components/gems/purchase_session_builder.dart';
 export '../app/membership/subscription_analytics.dart' show SubscriptionSource;
 
 class GemWalletRouteArgs {
-  const GemWalletRouteArgs.subscription(this.subscriptionSource)
-    : showSubscription = true,
-      gemsSource = null;
+  const GemWalletRouteArgs.subscription(
+    this.subscriptionSource, {
+    this.membershipType,
+  }) : showSubscription = true,
+       gemsSource = null;
   const GemWalletRouteArgs.gems(this.gemsSource)
-    : showSubscription = false,
+    : membershipType = null,
+      showSubscription = false,
       subscriptionSource = SubscriptionSource.unknown;
+  final MembershipType? membershipType;
   final bool showSubscription;
   final SubscriptionSource subscriptionSource;
   final String? gemsSource;
@@ -773,6 +778,7 @@ sealed class AppRouter {
                 showSubscriptionInitially: showSubscription,
                 subscriptionTracking: tracking,
                 gemsSource: purchaseArgs?.gemsSource,
+                initialMembershipType: purchaseArgs?.membershipType,
               );
             },
           ),

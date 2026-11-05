@@ -13,7 +13,10 @@ class MembershipPurchaseBlocked implements Exception {
 bool membershipHasSelectedPlan(
   MembershipProduct product,
   MembershipAccessState access,
-) => access.isVip == true && access.membership?.planCode == product.planCode;
+) =>
+    access.isVip == true &&
+    access.activeFor(product.membershipType) &&
+    access.membershipFor(product.membershipType)?.planCode == product.planCode;
 
 /// A selected plan that is active and set to renew is already subscribed.
 ///
@@ -24,7 +27,7 @@ bool membershipIsSubscribedToSelectedPlan(
   MembershipAccessState access,
 ) =>
     membershipHasSelectedPlan(product, access) &&
-    access.membership?.autoRenew == true;
+    access.membershipFor(product.membershipType)?.autoRenew == true;
 
 /// Wallet membership is authoritative; only an active yearly plan blocks monthly.
 bool membershipIsDowngrade(
@@ -33,7 +36,11 @@ bool membershipIsDowngrade(
 ) =>
     !product.isYearly &&
     access.isVip == true &&
-    access.membership?.planCode == 'pro_yearly';
+    access.activeFor(product.membershipType) &&
+    access.membershipFor(product.membershipType)?.planCode ==
+        (product.membershipType == MembershipType.deluxe
+            ? 'deluxe_yearly'
+            : 'pro_yearly');
 
 String membershipPurchaseFailureMessage(
   String reason, {
@@ -42,59 +49,31 @@ String membershipPurchaseFailureMessage(
 }) {
   final message = switch (reason) {
     'downgrade_not_allowed' =>
-      GenesisL10n
-          .current
-          .premiumActiveYearlySubscription,
+      GenesisL10n.current.premiumActiveYearlySubscription,
     'already_subscribed' =>
       product == null
-          ? GenesisL10n
-                .current
-                .premiumAlreadyHaveActive
-          : GenesisL10n.current
-                .premiumReAlreadySubscribedLabel(
-                  label: (product.label).toString(),
-                ),
-    'purchase_processing' =>
-      GenesisL10n
-          .current
-          .premiumPreviousPurchasePending,
+          ? GenesisL10n.current.premiumAlreadyHaveActive
+          : GenesisL10n.current.premiumReAlreadySubscribedLabel(
+              label: (product.label).toString(),
+            ),
+    'purchase_processing' => GenesisL10n.current.premiumPreviousPurchasePending,
     'cross_platform_upgrade_not_allowed' =>
-      GenesisL10n
-          .current
-          .premiumUseOriginalStoreUpgrade,
-    'subscription_requires_action' =>
-      GenesisL10n
-          .current
-          .premiumResolveCurrent,
-    'sale_disabled' =>
-      GenesisL10n
-          .current
-          .premiumPurchaseUnavailable,
+      GenesisL10n.current.premiumUseOriginalStoreUpgrade,
+    'subscription_requires_action' => GenesisL10n.current.premiumResolveCurrent,
+    'sale_disabled' => GenesisL10n.current.premiumPurchaseUnavailable,
     'device_id_required' || 'eligibility_unavailable' =>
-      GenesisL10n
-          .current
-          .premiumUnableVerifyPurchase,
+      GenesisL10n.current.premiumUnableVerifyPurchase,
     'account_mismatch' => membershipAccountIdentifiersMismatchMessage,
-    'invalid_purchase' =>
-      GenesisL10n
-          .current
-          .premiumStoreFailedVerifyPurchase,
-    'product_mismatch' =>
-      GenesisL10n
-          .current
-          .premiumPurchaseDoesNotMatch,
-    'purchase_canceled' =>
-      GenesisL10n
-          .current
-          .premiumMessagePurchaseCanceled,
-    'purchase_revoked' =>
-      GenesisL10n
-          .current
-          .premiumPurchaseRevoked,
+    'invalid_purchase' => GenesisL10n.current.premiumStoreFailedVerifyPurchase,
+    'product_mismatch' => GenesisL10n.current.premiumPurchaseDoesNotMatch,
+    'purchase_canceled' => GenesisL10n.current.premiumMessagePurchaseCanceled,
+    'purchase_revoked' => GenesisL10n.current.premiumPurchaseRevoked,
     _ => GenesisL10n.current.mePurchaseFailed,
   };
   return purchaseToastMessage(
-    message,
+    product?.membershipType == MembershipType.deluxe
+        ? message.replaceAll('Premium', 'Deluxe')
+        : message,
     debugInfo:
         debugInfo ?? purchaseDebugInfo('vip.eligibility', reason: reason),
   );

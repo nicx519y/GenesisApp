@@ -15,6 +15,7 @@ class User {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.createdAt,
   });
 
@@ -27,6 +28,7 @@ class User {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final DateTime? createdAt;
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,9 @@ class User {
       gender: asString(json['gender']),
       age: asString(json['age']),
       membershipStatus: asUserMembershipStatus(json['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        json['membership_deluxe_status'],
+      ),
       id: asInt(json['id']),
       uid: asString(json['uid']),
       did: asString(json['did']),

@@ -364,7 +364,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         final uid = results[2] as String?;
         final products = results[3] as MembershipProductList;
-        final matches = products.products.where(
+        final matches = products.allProducts.where(
           (p) =>
               p.provider == provider &&
               p.planCode == product.planCode &&
@@ -559,7 +559,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           if (!await canContinueForOwner(uid)) {
             throw const BillingPlatformException('checkout_aborted');
           }
-          final matching = fresh.products.where(
+          final matching = fresh.allProducts.where(
             (p) => p.provider == provider && p.planCode == product.planCode,
           );
           if (matching.length != 1 ||
@@ -591,7 +591,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         await recovery.run<void>(
           action: () async {
-            final matches = products.products.where(
+            final matches = products.allProducts.where(
               (p) => p.provider == provider && p.planCode == product.planCode,
             );
             if (matches.length != 1) {
@@ -654,7 +654,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
                 refresh: refreshProduct,
               );
             }(),
-            _prepareCheckoutIdentity(uid, products),
+            _prepareCheckoutIdentity(uid, products, product.membershipType),
           ], eagerError: true);
           if (!await canContinueForOwner(uid)) return;
           final prepared = results[0] as _PreparedMembershipProduct?;

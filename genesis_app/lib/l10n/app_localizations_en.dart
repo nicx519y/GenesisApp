@@ -3674,4 +3674,102 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyChoicesSaveError =>
       'Unable to save privacy choices. Please try again.';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Up to $amount Gems Monthly';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ year',
+      'other': '/ month',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Billed annually';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Up to $amount Gems monthly, plus self-updating memory.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Get a full recap of every twist, choice and character, rewritten as you play, plus up to 3,500 Gems every month.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Get Timeline, Cast and Bonds, a memory that updates as you play and that characters remember, plus up to 18,000 Gems every month.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Memory that updates itself as you play.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe is not available yet.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'View current Premium plans and prices to subscribe.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Design preview · prices and benefits are not confirmed';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'View $membership details';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Timeline, Cast and Bonds: key events, profiles, how everyone feels';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Timeline: every key event, in order';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Cast: a living profile of everyone';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Bonds: how everyone feels about each other';
+
+  @override
+  String get memoryMembershipRememberBenefit => 'Characters remember all of it';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Story Recap the AI Remembers beyond Memory';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Unlimited Inspirations';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Unlimited Editing';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Exclusive $membership Badge';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Gem Recharge';
+
+  @override
+  String get mePurchasingDeluxe => 'Purchasing Deluxe...';
+
+  @override
+  String get meWorldoDeluxeSubscription =>
+      'Your Worldo Deluxe subscription is now active.';
 }

@@ -429,14 +429,15 @@ class _UserProfileContentState extends State<UserProfileContent>
                           ),
                           if (widget.displayNameTrailing == null &&
                               !data.deleted &&
-                              data.membershipStatus == 1) ...[
-                            const SizedBox(width: 6),
-                            ProMembershipBadge.beside(
-                              fontSize: MediaQuery.textScalerOf(
-                                context,
-                              ).scale(20),
+                              (data.membershipStatus == 1 ||
+                                  data.membershipDeluxeStatus == 1))
+                            ProUserBadge(
+                              leadingGap: 6,
+                              membershipStatus: data.membershipStatus,
+                              membershipDeluxeStatus:
+                                  data.membershipDeluxeStatus,
+                              fontSize: 20,
                             ),
-                          ],
                           if (widget.displayNameTrailing != null) ...[
                             const SizedBox(width: 6),
                             widget.displayNameTrailing!,
@@ -482,12 +483,9 @@ class _UserProfileContentState extends State<UserProfileContent>
           ),
           if (data.isSelf) ...[
             const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _MembershipEntry(
-                stateListenable: widget.membershipStateListenable,
-              ),
-            ),
+            // The carousel owns its 16px inset and needs the full viewport to
+            // calculate the source card width and adjacent-card preview.
+            _MembershipEntry(stateListenable: widget.membershipStateListenable),
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -727,15 +725,47 @@ class _MembershipEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final listenable =
         stateListenable ?? AppServicesScope.maybeOf(context)?.membership.state;
-    if (listenable == null) return const ProfileMembershipCard();
-    return ValueListenableBuilder<MembershipAccessState>(
-      valueListenable: listenable,
-      builder: (context, state, _) => ProfileMembershipCard(
-        isActive: state.isVip == true,
-        isExpired: state.isExpired,
-        membershipExpiresAt: state.membership?.expiresAt?.toLocal(),
-        blueBalanceCent: state.membership?.blueGemsCent,
+    void open(MemoryMembershipTier type) => Navigator.of(context).pushNamed(
+      RouteNames.gemWallet,
+      arguments: GemWalletRouteArgs.subscription(
+        SubscriptionSource.meMembership,
+        membershipType: type,
       ),
+    );
+    final services = AppServicesScope.maybeOf(context);
+    String? offerText(MembershipType type) {
+      final offers = services?.membershipCatalog.cached?.offers ?? const [];
+      for (final offer in offers) {
+        if (offer.product.membershipType != type) continue;
+        for (final benefit in offer.product.benefits) {
+          if (benefit.iconKey == 'gem') return benefit.title;
+        }
+      }
+      return null;
+    }
+
+    Widget cards(MembershipAccessState state) =>
+        MemoryMembershipProfileCarousel(
+          hasPurchased:
+              services?.membershipCatalog.cached?.hasPurchased ?? false,
+          premiumOfferText: offerText(MembershipType.premium),
+          deluxeOfferText: offerText(MembershipType.deluxe),
+          premiumActive: state.activeFor(MembershipType.premium),
+          deluxeActive: state.activeFor(MembershipType.deluxe),
+          premiumExpired: state.isExpired,
+          deluxeExpired: state.isDeluxeExpired,
+          premiumExpiry: state.membership?.expiresAt?.toLocal(),
+          deluxeExpiry: state.membershipDeluxe?.expiresAt?.toLocal(),
+          onPremiumSubscribe: () => open(MembershipType.premium),
+          onDeluxeSubscribe: () => open(MembershipType.deluxe),
+        );
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        if (listenable != null) listenable,
+        if (services != null) services.membershipCatalog.displayRevision,
+      ]),
+      builder: (context, _) =>
+          cards(listenable?.value ?? const MembershipAccessState()),
     );
   }
 }
@@ -751,11 +781,8 @@ class _GemsBalanceEntry extends StatelessWidget {
     if (listenable == null) return _buildEntry(context, null, null);
     return ValueListenableBuilder<GemWalletState>(
       valueListenable: listenable,
-      builder: (context, state, _) => _buildEntry(
-        context,
-        state.balanceCent,
-        state.membership?.blueGemsCent,
-      ),
+      builder: (context, state, _) =>
+          _buildEntry(context, state.balanceCent, state.blueGemsCent),
     );
   }
 

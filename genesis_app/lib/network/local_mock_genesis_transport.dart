@@ -1191,6 +1191,9 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok({
         'list': <Object?>[],
         'last_account_uuid': '',
+        'last_account_uuid_deluxe': '',
+        'list_deluxe': <Object?>[],
+        'has_purchased': false,
         'has_subscription_order': false,
       });
     }
@@ -2922,6 +2925,13 @@ class _MockState {
   Map<String, dynamic> v1GemWallet() {
     return {
       'wallet': {'balance_cent': _v1GemBalanceCent},
+      'membership_deluxe': {
+        'membership_status': 0,
+        'plan_code': '',
+        'expires_at': null,
+        'auto_renew': false,
+        'blue_gems_cent': 0,
+      },
       'membership': {
         'membership_status': 0,
         'plan_code': '',

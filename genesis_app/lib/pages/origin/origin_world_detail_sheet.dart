@@ -1880,6 +1880,9 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     membershipStatus: origin.ownerDeleted
                         ? 0
                         : origin.ownerUser.membershipStatus,
+                    membershipDeluxeStatus: origin.ownerDeleted
+                        ? 0
+                        : origin.ownerUser.membershipDeluxeStatus,
                     onTap: ownerUid.isEmpty || origin.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(

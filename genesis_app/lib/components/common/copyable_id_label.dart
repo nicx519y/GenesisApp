@@ -78,6 +78,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
     this.textAlign = TextAlign.left,
     this.trailing,
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     this.trailingIcon,
     this.trailingIconColor = CopyableIdLabel.iconColor,
     this.trailingIconSize = 16,
@@ -92,6 +93,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
   /// Optional content between the label and its navigation/action icon.
   final Widget? trailing;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final IconData? trailingIcon;
   final Color trailingIconColor;
   final double trailingIconSize;
@@ -120,9 +122,10 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (membershipStatus == 1)
+              if (membershipStatus == 1 || membershipDeluxeStatus == 1)
                 ProUserBadge(
                   membershipStatus: membershipStatus,
+                  membershipDeluxeStatus: membershipDeluxeStatus,
                   fontSize: style.fontSize ?? 12,
                 ),
               if (trailing != null) ...[

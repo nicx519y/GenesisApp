@@ -59,6 +59,9 @@ class _JoinRequestDialogContent extends StatelessWidget {
             membershipStatus: item.senderDeleted
                 ? 0
                 : item.senderMembershipStatus,
+            membershipDeluxeStatus: item.senderDeleted
+                ? 0
+                : item.senderMembershipDeluxeStatus,
             subtitle: deletedAwareIdLabel(
               item.senderUid,
               deleted: item.senderDeleted,
@@ -68,9 +71,7 @@ class _JoinRequestDialogContent extends StatelessWidget {
           const SizedBox(height: 4),
           _JoinRequestDialogInfoRow(
             title: item.requestWorldName.isEmpty
-                ? GenesisL10n
-                      .current
-                      .inboxWorld
+                ? GenesisL10n.current.inboxWorld
                 : item.requestWorldName,
             subtitle: deletedAwareIdLabel(
               item.bizId,
@@ -92,12 +93,14 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
   const _JoinRequestDialogInfoRow({
     required this.title,
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.subtitle,
     required this.onTap,
   });
 
   final String title;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final String subtitle;
   final VoidCallback? onTap;
 
@@ -117,6 +120,7 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
                     TextSpan(text: title, style: _notificationNameStyle),
                     ProUserBadge.span(
                       membershipStatus: membershipStatus,
+                      membershipDeluxeStatus: membershipDeluxeStatus,
                       fontSize: 12,
                     ),
                     if (subtitle.trim().isNotEmpty)

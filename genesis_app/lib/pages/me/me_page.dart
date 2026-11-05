@@ -1,7 +1,7 @@
+import '../../components/gems/pro_user_name.dart';
 import '../../components/auth/login_submission_state.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
-import '../../components/gems/pro_membership_badge.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -341,13 +341,15 @@ class _MePageState extends State<MePage>
                           // 50x20 plate box it used to need is gone.
                           displayNameTrailing:
                               !visibleData.deleted &&
-                                  visibleData.membershipStatus == 1
-                              ? ProMembershipBadge.beside(
-                                  key: const ValueKey('me-profile-crown-icon'),
-                                  // The display name renders at 20.
-                                  fontSize: MediaQuery.textScalerOf(
-                                    context,
-                                  ).scale(20),
+                                  (visibleData.membershipStatus == 1 ||
+                                      visibleData.membershipDeluxeStatus == 1)
+                              ? ProUserBadge(
+                                  leadingGap: 0,
+                                  membershipStatus:
+                                      visibleData.membershipStatus,
+                                  membershipDeluxeStatus:
+                                      visibleData.membershipDeluxeStatus,
+                                  fontSize: 20,
                                 )
                               : null,
                           isUpdatingProfileListenable: _isUpdatingProfile,

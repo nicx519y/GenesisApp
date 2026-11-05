@@ -661,6 +661,11 @@ class ServiceRegistry {
                     },
                     ownerUid: state.ownerUid,
                     membership: state.membership,
+                    membershipDeluxe: state.membershipDeluxe,
+                    premiumActive: state.premiumActive,
+                    deluxeActive: state.deluxeActive,
+                    isExpired: state.isExpired,
+                    isDeluxeExpired: state.isDeluxeExpired,
                   ),
                 );
               });

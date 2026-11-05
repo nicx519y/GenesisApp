@@ -7,6 +7,9 @@
 | 场景 | JSON 字段 | Dart 字段 |
 |---|---|---|
 | 钱包 | `wallet.balance_cent` | `GemWallet.balanceCent` |
+| Premium 粉钻 | `membership.blue_gems_cent` | `membership.blueGemsCent` |
+| Deluxe 粉钻 | `membership_deluxe.blue_gems_cent` | `membershipDeluxe.blueGemsCent` |
+| Me 粉钻合计 | 上述两项 cent 相加后格式化 | `GemWalletState.blueGemsCent` |
 | 流水普通宝石（红钻） | `list[].regular_amount_cent` | `GemRecordItem.regularAmountCent` |
 | 流水会员宝石（粉钻） | `list[].membership_amount_cent` | `GemRecordItem.membershipAmountCent` |
 | 商品 | `base_gems_cent`、`bonus_gems_cent` | `baseGemsCent`、`bonusGemsCent` |
