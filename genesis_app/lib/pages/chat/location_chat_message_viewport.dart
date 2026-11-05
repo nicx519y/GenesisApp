@@ -218,6 +218,8 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             messages: displayMessages,
             restoreInitialCompletedContent: true,
             initialContentReady: _initialContentReadyNotified,
+            historyReveal: _photoReveal,
+            historyRevealAlignTop: _photoReveal != null,
             historyGapLoaders: _historyGapLoaders(displayMessages),
             loadingAfterMessageLocalId: loadingAfterMessageLocalId,
             loadingIdentity: _ackLoadingClientMsgId,
@@ -249,6 +251,8 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
                 replyPresentation.replyMessages.lastOrNull?.localId,
             replyActionsVisible: renderedControls.visible,
             onTakePhoto: _takeScenePhoto,
+            takingPhoto: _takingScenePhoto,
+            photoArrivalRequestIds: Set.of(_photoArrivalRequests),
             replyPresentationRevision:
                 replyPresentationState?.presentationRevision ?? 0,
             replyCards: _replyProjection.cards(

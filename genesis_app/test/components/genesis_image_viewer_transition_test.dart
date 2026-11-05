@@ -59,10 +59,13 @@ void main() {
         expect(actual.height, closeTo(expected.height, .01));
         await _capture(tester, probe.captureKey, 'middle-$portrait');
         // Full image has already loaded, but the flight still uses the cached tile.
-        final flyingImage = tester.widget<Image>(
-          find.descendant(of: flight, matching: find.byType(Image)),
+        final flyingImage = tester.widget<RawImage>(
+          find.descendant(of: flight, matching: find.byType(RawImage)),
         );
-        expect(flyingImage.image, probe.provider);
+        final viewer = tester.widget<GenesisImageViewerOverlay>(
+          find.byType(GenesisImageViewerOverlay),
+        );
+        expect(flyingImage.image, viewer.source.previewImage.image);
         await tester.pumpAndSettle();
         expect(flight, findsNothing);
         await _capture(tester, probe.captureKey, 'end-$portrait');

@@ -25,6 +25,16 @@ class MiniPhonePostDraft extends ChangeNotifier {
     });
   }
 
+  MiniPhonePostDraft.cameraPhoto(
+    this.store,
+    String imageUrl, {
+    this.previewImageProvider,
+  }) : isCameraPreview = false,
+       _generation = store.accountGeneration {
+    uploadedUrl = imageUrl;
+    store.addListener(_accountChanged);
+  }
+
   /// Isolated local composition for a simulated Camera photo. Never writes.
   MiniPhonePostDraft.cameraPreview(this.store, this.previewAsset)
     : isCameraPreview = true,
@@ -39,6 +49,9 @@ class MiniPhonePostDraft extends ChangeNotifier {
   bool _disposed = false;
   String text = '';
   ProcessedUploadImage? photo;
+
+  /// Reuses the album/viewer's decoded thumbnail; never changes the write URL.
+  ImageProvider<Object>? previewImageProvider;
   String? uploadedUrl;
   String? error;
   bool preparing = false;
@@ -64,6 +77,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
     text = '';
     previewAsset = null;
     photo = null;
+    previewImageProvider = null;
     uploadedUrl = error = null;
     preparing = submitting = false;
     notifyListeners();
@@ -76,6 +90,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
   void removePhoto() {
     if (locked || preparing) return;
     photo = null;
+    previewImageProvider = null;
     uploadedUrl = null;
     error = null;
     notifyListeners();
@@ -91,6 +106,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       final selected = await prepare();
       if (!_current(generation) || selected == null) return;
       photo = selected;
+      previewImageProvider = null;
       uploadedUrl = null;
     } catch (e) {
       if (_current(generation)) {
@@ -163,6 +179,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
       if (!_current(generation) || !ok) return false;
       text = '';
       photo = null;
+      previewImageProvider = null;
       uploadedUrl = null;
       return true;
     } catch (e) {
@@ -184,6 +201,7 @@ class MiniPhonePostDraft extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    previewImageProvider = null;
     store.removeListener(_accountChanged);
     super.dispose();
   }

@@ -5085,6 +5085,14 @@ void main() {
       ),
     );
 
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage(secondImage),
+        tester.element(find.byType(ChatImageMessage).first),
+      ),
+    );
+    await tester.pumpAndSettle();
+
     await tester.tap(
       find.byKey(const ValueKey<String>('chat-image-message-image-later')),
     );
@@ -5124,6 +5132,14 @@ void main() {
         ),
       ),
     );
+
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage(image),
+        tester.element(find.byType(ChatImageMessage).first),
+      ),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(
       find.byKey(const ValueKey<String>('chat-image-message-standalone-image')),

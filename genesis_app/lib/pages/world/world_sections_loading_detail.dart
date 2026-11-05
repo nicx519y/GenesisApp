@@ -627,23 +627,40 @@ class WorldDetailCoverImage extends StatelessWidget {
       ),
     );
     if (viewerUrl.isEmpty) return preview;
-    return GestureDetector(
-      key: const ValueKey<String>('world-detail-cover-viewer'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showGenesisImageViewer(
-        context,
-        imageUrls: [viewerUrl],
-        previewImageProviders: [
-          genesisImageViewerPreviewProvider(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: GenesisImageViewerSourceAnchor(
+          key: const ValueKey<String>('world-detail-cover-viewer'),
+          previewImageProvider: genesisImageViewerPreviewProvider(
             context,
             imageUrl: imageUrl,
             logicalWidth: width,
             logicalHeight: height,
             fit: BoxFit.cover,
           ),
-        ],
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          borderRadius: GenesisImageRadii.content,
+          onTap: (source) => showGenesisImageViewer(
+            context,
+            source: source,
+            imageUrls: [viewerUrl],
+            previewImageProviders: [
+              genesisImageViewerPreviewProvider(
+                context,
+                imageUrl: imageUrl,
+                logicalWidth: width,
+                logicalHeight: height,
+                fit: BoxFit.cover,
+              ),
+            ],
+          ),
+          child: preview,
+        ),
       ),
-      child: preview,
     );
   }
 }

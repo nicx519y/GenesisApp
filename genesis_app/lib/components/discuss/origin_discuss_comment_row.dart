@@ -185,6 +185,10 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                 _DiscussImageThumbnails(
                   urls: widget.item.imageUrls,
                   onTap: (index) => _handleImageTap(context, index),
+                  onPreviewTap: widget.imageTapOpensViewer
+                      ? (index, source) =>
+                            _openImageViewer(context, index, source)
+                      : null,
                 ),
               ],
               if (widget.showActions) ...[
@@ -213,24 +217,29 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
     );
   }
 
+  void _openImageViewer(
+    BuildContext context,
+    int index,
+    GenesisImageViewerSource source,
+  ) {
+    showGenesisImageViewer(
+      context,
+      source: source,
+      imageUrls: widget.item.imageUrls,
+      previewImageProviders: [
+        for (final url in widget.item.imageUrls)
+          genesisImageViewerListPreviewProvider(
+            context,
+            source: url,
+            logicalWidth: _DiscussImageThumbnail.size,
+            logicalHeight: _DiscussImageThumbnail.size,
+          ),
+      ],
+      initialIndex: index,
+    );
+  }
+
   void _handleImageTap(BuildContext context, int index) {
-    if (widget.imageTapOpensViewer) {
-      showGenesisImageViewer(
-        context,
-        imageUrls: widget.item.imageUrls,
-        previewImageProviders: [
-          for (final url in widget.item.imageUrls)
-            genesisImageViewerListPreviewProvider(
-              context,
-              source: url,
-              logicalWidth: _DiscussImageThumbnail.size,
-              logicalHeight: _DiscussImageThumbnail.size,
-            ),
-        ],
-        initialIndex: index,
-      );
-      return;
-    }
     final itemHandler = widget.onItemReplyTap;
     if (itemHandler != null) {
       itemHandler(widget.item);
@@ -244,10 +253,15 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
 }
 
 class _DiscussImageThumbnails extends StatelessWidget {
-  const _DiscussImageThumbnails({required this.urls, required this.onTap});
+  const _DiscussImageThumbnails({
+    required this.urls,
+    required this.onTap,
+    this.onPreviewTap,
+  });
 
   final List<String> urls;
   final ValueChanged<int> onTap;
+  final void Function(int index, GenesisImageViewerSource source)? onPreviewTap;
 
   @override
   Widget build(BuildContext context) {
@@ -261,6 +275,9 @@ class _DiscussImageThumbnails extends StatelessWidget {
               child: _DiscussImageThumbnail(
                 url: entry.$2,
                 onTap: () => onTap(entry.$1),
+                onPreviewTap: onPreviewTap == null
+                    ? null
+                    : (source) => onPreviewTap!(entry.$1, source),
               ),
             ),
         ],

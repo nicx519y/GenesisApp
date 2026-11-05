@@ -6400,10 +6400,10 @@ abstract class AppLocalizations {
     required String price,
   });
 
-  /// MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people.
+  /// MiniPhone Camera: toast when selecting a fifth character; a photo supports at most four characters.
   ///
   /// In en, this message translates to:
-  /// **'Choose up to 5 people.'**
+  /// **'Choose up to 4 people.'**
   String get miniPhoneCameraPeopleLimit;
 
   /// MiniPhone Camera Debug preview: text in the failed photo placeholder design. Actual billing and backend generation are not connected; keep the conditional meaning of any Gems charged and do not imply that a charge occurred or a refund has already completed.
@@ -6417,6 +6417,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Preview only. This sample photo cannot be published to your world.'**
   String get miniPhoneCameraPreviewPostNotice;
+
+  /// LocationChat photo confirmation sheet: server base price; not a guarantee of the final charge.
+  ///
+  /// In en, this message translates to:
+  /// **'Base price: {price} Gems'**
+  String chatPhotoBasePrice({required String price});
+
+  /// LocationChat photo confirmation sheet: the price endpoint does not return free eligibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Your first photo may be free. Eligibility and the final charge are determined by the server.'**
+  String get chatPhotoPriceExplanation;
+
+  /// LocationChat photo confirmation sheet: submit a new photo generation request.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate photo'**
+  String get chatPhotoGenerate;
+
+  /// LocationChat photo confirmation sheet: explicitly resend the identical uncertain request to recover its outcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Check previous request'**
+  String get chatPhotoRecover;
+
+  /// LocationChat: submission timed out or its response was lost; this does not mean generation failed.
+  ///
+  /// In en, this message translates to:
+  /// **'The previous photo request has not been confirmed. Check it before taking another photo.'**
+  String get chatPhotoUncertain;
+
+  /// Chat photo message: accepted generation is in progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating photo…'**
+  String get chatPhotoGenerating;
+
+  /// Chat photo message: fallback when a failed task has no user-facing failure message.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t generate the photo.'**
+  String get chatPhotoFailed;
+
+  /// LocationChat: an Inbox photo target could not be found in its original location.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo is no longer available.'**
+  String get chatPhotoUnavailable;
+
+  /// MiniPhone Camera price explanation: current free eligibility is shared with chat photos and may change before submission; do not promise a free charge.
+  ///
+  /// In en, this message translates to:
+  /// **'Your first photo is currently free. Eligibility is confirmed when you submit.'**
+  String get cameraFreeAvailable;
+
+  /// MiniPhone Photos task tile: HTTP submission has no confirmed receipt yet; this is not a generation failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Submission not confirmed'**
+  String get cameraSubmissionUnconfirmed;
+
+  /// MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID.
+  ///
+  /// In en, this message translates to:
+  /// **'This request conflicts with an earlier submission. Its details cannot be changed.'**
+  String get cameraRequestConflict;
 }
 
 class _AppLocalizationsDelegate

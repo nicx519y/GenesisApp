@@ -434,6 +434,18 @@ Validation for this scheduling change:
   including query parameters, reuse an uploaded URL on retry until the image
   changes, and retry uncertain posts with their original request ID/content/URL.
   Photos remains a read-only world album; image upload is independent of it.
+  Using an album photo from the viewer passes its existing thumbnail provider
+  to Create post. The 108×144 preview reuses that provider and decoded cache key
+  without loading another image size. Publishing and uncertain retries retain
+  the original album image URL, including its query parameters; they never
+  submit the thumbnail resize URL or upload the album photo again. Replacing,
+  removing or successfully publishing the photo, and account reset, clear the
+  draft's thumbnail reference.
+  After successful album-photo publishing navigates to Posts, update the launch
+  controller's close source to the desktop Posts icon. Button/system back and
+  the iOS root edge gesture then shrink toward Posts, even if the original
+  launch came from Photos or Camera. Returning before publishing keeps the
+  existing album/camera navigation hierarchy.
 - Post detail immediately renders the feed card snapshot (cached detail only
   when no feed item exists), then refreshes detail and complete comments in
   parallel. Each entry shows three static comment skeleton rows until every
@@ -738,6 +750,9 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 
 ### Required client behavior
 
+- 角色私聊在历史加载到最早一条后，于列表顶部复用公共 AI 虚构内容提示；Posts 在作者筛选栏下、首条帖子上方展示同一提示，随列表滚动。提示只用于展示，不进入消息／帖子存储、未读或分页游标。
+- 私聊最早消息 ID 随本地消息缓存保存；重进时若当前展示窗口覆盖该边界，首帧即显示提示，不等待页面初始化或远端刷新。窗口只恢复最近 50 条、最早消息已被裁剪或尚无可靠边界时，不把当前窗口首条误认为会话第一条；首次查询到末页后再确认。接口已明确的虚拟空会话可直接判断为空。
+
 - iOS 返回层级：Messages／Posts／Photos／Music／Settings 从屏幕前缘侧滑回桌面，由 AppLaunchTransitionHost 按拖动距离驱动与点击返回相同的图标收起路径；松手超过阈值／向返回方向快速滑动则完成，否则回弹，系统取消指针也必须回弹。原始入口不可见／恢复打开时，仍沿用返回按钮的淡出回退。不叠加 Cupertino 横移或二次收起，手指未抬起不提前导航。私聊回 Messages，评论／发帖回 Posts，模型设置回打开它的页面，子页保持原生横向侧滑。内部 Navigator 为普通入口保留透明桌面基底路由，桌面只有一个真实实例，不新增虚假页面埋点。桌面再侧滑退出手机；LocationChat 直达私聊不补桌面／Messages 层，原生侧滑回调用页。关闭按钮始终退出整个手机，和侧滑交错不得误退下层页面。受控测试不替代 iPhone 真机手势验收。
 
 - Messages 仅用 `/dm_sessions` 返回条目，按 world_id + char_id 合并分页；多个 ID 为 0 的虚拟条目互不覆盖，跳过历史和已读查询，首次发送取得正数 ID 后替换。已有条目结合接口摘要、送达和历史缓存选取最新消息，并按 delivered_at 倒序、同时间按完整 message_id 倒序排序；聊天页中的更新立即反映到外层列表，不等返回 Messages 或额外拉取会话列表。无消息条目排在有消息条目后，保持服务端相对顺序；不按 current_time 或 updated_at 排序。时间缺失／无效的消息排在时间有效的消息后，两者均无有效时间时回退到消息 ID。
@@ -915,12 +930,16 @@ from controlled Flutter verification.
 
 - AI 私聊本人气泡左侧 loading 仅表示消息提交中；HTTP 成功受理或收到正式源消息后立即消失，不等待 AI 回复完成，pending/generating 不再显示发送 loading。AI 回复等待、Send 限制及超时释放继续独立运行；余额不足终态撤回气泡并恢复草稿，其他失败保留失败态。发送结果未确认时仍保留原有待确认／超时处理，玩家互发不等待 AI 终态。
 
-## Camera frontend (2026-10-30)
+## Camera integration (2026-11-04)
 
-Camera is an unlocked home app. The LocationChat reply toolbar places Camera on the right using the shared action primitive; visibility and availability follow Regenerate. Camera resolves its own action state: while Regenerate, Go on, Edit, or Inspiration is busy, Camera is disabled and keeps its icon rather than showing another action's loading indicator. It opens the explanation in place, not a Camera route. Both entry points currently force the explanation while no backend adapter exists; confirming reports Coming soon. The crossed-out 30 / 0 Gems and Free trial are UI previews, not server entitlements.
+Camera is an unlocked home app. The LocationChat reply toolbar places Camera on the right using the shared action primitive; visibility and availability follow Regenerate. Camera resolves its own action state: while Regenerate, Go on, Edit, or Inspiration is busy, Camera is disabled and keeps its icon rather than showing another action's loading indicator. It opens the explanation in place, not a Camera route. Both entry points now use their own real photo APIs and isolated confirmation preferences. Each MiniPhone opening refreshes price/free eligibility/styles from options in the background and retains the World/account cache. Opening Camera and capturing reuse that cache without waiting for a pending refresh or making another options request. Create carries no price or free-eligibility fields; independent camera tasks do not create chat messages. See [MiniPhone camera integration](mini-phone-camera-integration.md).
 
-The fixed 2:3 viewfinder uses the World cover with strong image blur and a dark scrim. Selection is via the horizontal cast strip; focused portraits are circular, 48px like the strip, with thin white corners. The in-frame count pill and borderless prompt use glass surfaces. Bottom controls are Style, a white shutter and Photos; the style sheet uses standard sheet colors and centered image captions. Keyboard opening hides the cast and controls while retaining geometry. Only the focused prompt lifts above the keyboard top with at least 12 logical pixels of clearance; the photo stays at its original position and size, without scrolling. Keyboard-height and multiline-draft changes recheck the input position, and keyboard dismissal restores it. The prompt retains the keyboard's newline action. There is no additional keyboard accessory bar. Scrolling overflowing text inside the prompt keeps focus and the keyboard open; the outer scroll view must not dismiss editing in response to nested input scroll notifications. Tapping outside the prompt still dismisses editing and preserves the draft. No location selector or All-character popup remains.
+The fixed 2:3 viewfinder uses the World cover with strong image blur and a dark scrim. Selection is via the horizontal cast strip; focused portraits are circular, 48px like the strip, with thin white corners. The in-frame count pill and borderless prompt use glass surfaces. Bottom controls are Style, a white shutter and Photos; the style sheet uses standard sheet colors and centered image captions. Keyboard opening hides the cast and controls while retaining geometry. Camera keeps the system bottom view padding throughout keyboard opening and dismissal so safe-area changes cannot resize or recenter the photo. Only the focused prompt lifts above the keyboard top with at least 12 logical pixels of clearance; the photo stays at its original position and size, without scrolling. Keyboard-height and multiline-draft changes recheck the input position, and keyboard dismissal restores it. The prompt retains the keyboard's newline action. There is no additional keyboard accessory bar. Scrolling overflowing text inside the prompt keeps focus and the keyboard open; the outer scroll view must not dismiss editing in response to nested input scroll notifications. Tapping outside the prompt still dismisses editing and preserves the draft. No location selector or All-character popup remains.
 
-The World MiniPhone session owns the draft. Account/environment/World changes invalidate old context and results; closing cancels in-flight delivery. Camera uses the actual character directory, World cover and album projection without message-derived fallback characters. Generation, status/recovery and authoritative image-message/album contracts remain pending: no transport is injected, no photo is fabricated, and no billing/History/album write occurs. Future adapters must own real request identities and synchronization.
+The World MiniPhone session owns the draft and Store owns durable parallel camera tasks. Closing the camera does not cancel accepted work; account/environment/World changes invalidate old callbacks. Camera uses the actual character directory (1–4 characters), optional prompt, existing five ratios and server style labels. Source=camera results merge by task identity with HTTP receipts and real album assets. Failed Inbox rows are disabled; successful rows locate an asset in the original World album and open its viewer. Real backend billing and device behavior remain acceptance work.
 
 Origin detail's read-only MiniPhone entry remains a proposal with no entry implementation. Current release notes: [Camera and role-card changes](changes/2026-10-30-camera-role-release.md). Historical visual iterations: [camera-viewfinder](changes/2026-10-30-camera-viewfinder.md).
+
+## 2026-11-04 LocationChat 拍照接入边界
+
+LocationChat 已复用拍照说明 Sheet 接入真实聊天生图询价/创建/状态/通知，使用独立的“记住”布尔偏好，跳过 Sheet 时不询价；MiniPhone Camera 另行接入独立相机接口，见 [小手机拍照接入](mini-phone-camera-integration.md)。此前“两个入口都未接入”的记录仅描述旧版本。当前规则见 [聊天生图接入](chat-photo-client-integration.md)。

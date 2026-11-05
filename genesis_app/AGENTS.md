@@ -36,6 +36,7 @@
 
 ## UI 常驻约束
 
+- 所有请求 CDN 图片的场景必须按 DPR 2 使用 CDN URL 缩放：固定展示尺寸使用对应固定像素尺寸（展示尺寸 × 2）的缩放 URL；动态展示尺寸先按展示尺寸 × 2 匹配合理的阶梯尺寸，再生成 CDN 缩放 URL。复用公共 URL 构建入口，不能仅限制本地解码尺寸。
 - 默认使用 `GenesisTheme.dark()`，复用公共颜色、字体、模糊 token 与组件；已有局部浅色、浮动菜单、Toast、NPC 和特殊肖像等例外按专项规则保留。
 - 上传进度复用 `GenesisUploadProgressOverlay`；聊天气泡复用共享 UI 和场景 token；页面短提示复用 `showGenesisToast`，不用 `SnackBar` 替代。
 - 提交中保留原底色、阻止重复提交；已有圆环保留，没有圆环的不新增。普通校验禁用态独立处理。

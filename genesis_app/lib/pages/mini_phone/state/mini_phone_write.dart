@@ -1,3 +1,5 @@
+import '../../../network/models/photo_task.dart';
+
 class PhoneWrite {
   PhoneWrite(
     this.id,
@@ -18,6 +20,11 @@ class PhoneWrite {
           replyTo: j['replyTo'] as int?,
           retryRootId: j['retryRootId'] as String?,
         )
+        ..cameraInAlbum = j['cameraInAlbum'] == true
+        ..cameraConflict = j['cameraConflict'] == true
+        ..cameraPhoto = j['cameraPhoto'] == null
+            ? null
+            : PhotoTask.fromJson(j['cameraPhoto'], requireChatMessageId: false)
         ..accepted = j['accepted'] == true
         ..rejected = j['rejected'] == true
         ..sendReleased = j['sendReleased'] == true
@@ -25,6 +32,9 @@ class PhoneWrite {
   final String id, kind, target, content;
   final String? image, retryRootId;
   final int? replyTo;
+  PhotoTask? cameraPhoto;
+  bool cameraConflict = false;
+  bool cameraInAlbum = false;
   bool accepted = false, uncertain = false, rejected = false;
   // Local unlock is independent of server acceptance and final outcome.
   bool sendReleased = false;
@@ -40,6 +50,9 @@ class PhoneWrite {
     'replyTo': replyTo,
     if (retryRootId != null) 'retryRootId': retryRootId,
     'accepted': accepted,
+    if (cameraConflict) 'cameraConflict': true,
+    if (cameraInAlbum) 'cameraInAlbum': true,
+    if (cameraPhoto != null) 'cameraPhoto': cameraPhoto!.toJson(),
     'rejected': rejected,
     if (sendReleased) 'sendReleased': true,
   };

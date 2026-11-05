@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import '../../../network/http_transport.dart';
 import '../../../network/models/world_history.dart';
+import '../../../network/chatroom/chat_photo.dart';
 import 'world_history_section_participation.dart';
 
 part 'world_history_latest_sync.dart';

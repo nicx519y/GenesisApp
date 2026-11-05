@@ -75,13 +75,17 @@ MiniPhone 的 Toast 通过 `shared/mini_phone_toast.dart` 复用公共组件，�
 
 ## 通用大图浏览与缩略图过渡
 
-统一使用 `showGenesisImageViewer`／`GenesisImageViewerOverlay`。调用方传原图 URL 和实际显示的缩略图 `ImageProvider`（含相同 URL、解码尺寸和 fit），公共组件先复用缩略图缓存，大图加载完成后替换，失败时保留缩略图。
+统一使用 `showGenesisImageViewer`／`GenesisImageViewerOverlay`。入口必须传非空 `GenesisImageViewerSource`，包含实际显示的缩略图 provider、已解码帧和来源位置；可选 `previewImageProviders` 的元素也不得为 null。当前图片在打开动画和大图加载期间直接绘制捕获的小图帧，不依赖重新加载或缓存命中；大图首帧就绪后替换，失败继续保留小图。捕获帧在路由退场结束后释放。
 
-有缩略图来源的入口使用 `GenesisImageViewerSourceAnchor` 包装缩略图，将回调中的 `source` 传给 `showGenesisImageViewer`。包装器基于已缓存帧、实际 `BoxFit` 和 `alignment` 捕获绘制区域，并转换为根 Overlay 坐标；不要把固定图片占位区域中的空白算进起始图片尺寸。
+所有点击小图打开的入口使用 `GenesisImageViewerSourceAnchor` 包装实际图片区域，将回调中的 `source` 传给 `showGenesisImageViewer`。包装器基于已缓存帧、实际 `BoxFit` 和 `alignment` 捕获绘制区域，并转换为根 Overlay 坐标；不要把固定图片占位区域中的空白算进起始图片尺寸。
 
-公共打开动画位于 `genesis_image_viewer_transition.dart`：320ms、`easeOutCubic`，背景逐渐变黑，当前缓存帧从来源位置放大到大图的 fitWidth 布局；横图居中，超长竖图顶端对齐。飞行期间隐藏来源图片但保留布局和缓存，浏览器在下层正常加载大图，动画结束再接管绘制。中途关闭或完成后恢复来源；关闭继续使用通用浏览器现有交互和淡出。没有已加载缩略图／有效来源时保留淡入入口，系统开启减少动态效果时直接打开。业务页面不复制动画。
+公共打开动画位于 `genesis_image_viewer_transition.dart`：320ms、`easeOutCubic`，背景逐渐变黑，当前缓存帧从来源位置放大到大图的 fitWidth 布局；横图居中，超长竖图顶端对齐。飞行期间隐藏来源图片但保留布局和缓存，浏览器在下层正常加载大图，动画结束再接管绘制。中途关闭或完成后恢复来源；关闭继续使用通用浏览器现有交互和淡出。没有已加载缩略图／有效来源时不打开，不允许降级为默认图淡入；通知自动打开相册图片时等待目标缩略图加载后再捕获，失败沿用图片不可用反馈。系统开启减少动态效果时直接打开，仍使用捕获的小图帧。业务页面不复制动画。
+
+大图 URL 按实际展示宽度 × 受限 DPR 经共享 `resizeGenesisImageUrl` 匹配 `45/90/180/360/720/1080/2160` 宽度阶梯，沿用下一较大档规则，不生成任意精确宽度请求；相近宽度落到同一档时复用同一 CDN URL。
 
 多图浏览在打开和当前页变化时预加载前后各一张大图，首尾不循环。预加载按最终页面的完整宽度（不除以 PageView 的分页间隔系数）、同一 DPR 和 CDN 规则选择图片；网络图片的解码宽度及 `BoxFit.fitWidth` 与显示组件一致，以复用同一个内存缓存键。预加载失败不打断浏览或弹出提示。
+
+提供 `bottomBuilder` 时，底部内容与图片区域按实际高度纵向布局：操作在上，多图圆点在下，两者相隔 16 逻辑像素，底部保留安全区且至少留白 16；单图隐藏圆点。关闭按钮、下滑和边缘返回共用一次性关闭入口，动画期间重复回调不得继续退出下层路由。
 
 ## 公共头像与默认头像
 

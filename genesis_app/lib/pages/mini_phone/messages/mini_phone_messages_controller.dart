@@ -126,10 +126,13 @@ class MiniPhoneMessagesController {
       rememberSession(session);
     }
     sessionByChar.addAll(cache.bindings);
-    for (final id in cache.messages.values.map((m) => m.sessionId).toSet()) {
+    for (final id in {
+      ...cache.messages.values.map((m) => m.sessionId),
+      ...cache.historyStartIds.keys,
+    }) {
       final all = cache.history(id);
       messages[id] = all.skip((all.length - 50).clamp(0, all.length)).toList();
-      hasMore['messages:$id'] = true;
+      hasMore['messages:$id'] = !_historyStartVisible(id);
       for (final m in all) {
         if (m.senderType == 'char') sessionByChar[m.senderId] = id;
       }
@@ -291,6 +294,19 @@ class MiniPhoneMessagesController {
   }
 
   int? sessionFor(String charId) => sessionByChar[charId];
+  bool historyStartVisible(String charId) {
+    final id = sessionFor(charId);
+    if (id == null) return knownSessionChars.contains(charId);
+    return hasMore['messages:$id'] == false;
+  }
+
+  bool _historyStartVisible(int id) {
+    final start = cache.historyStartIds[id];
+    if (start == null) return false;
+    if (start == 0) return messages[id]?.isEmpty ?? true;
+    return (messages[id]?.firstOrNull?.id ?? start + 1) <= start;
+  }
+
   List<PhoneMessage> history(String charId) =>
       messages[sessionFor(charId)] ?? const [];
   bool unresolved(String key) =>
@@ -579,7 +595,7 @@ class MiniPhoneMessagesController {
       if (cached.isNotEmpty) {
         cached.sort((a, b) => b.id.compareTo(a.id));
         mergeMessages(id, cached.take(50).toList());
-        hasMore['messages:$id'] = true;
+        hasMore['messages:$id'] = !_historyStartVisible(id);
         requests.notify();
         return true;
       }
@@ -616,12 +632,23 @@ class MiniPhoneMessagesController {
         return PhonePage(recovered, page.total, page.pn, page.rn);
       },
       (page) {
+        if (!page.hasMore) {
+          final ids = [
+            ...cache.history(id).map((m) => m.id),
+            ...?messages[id]?.map((m) => m.id),
+            ...page.list.map((m) => m.id),
+          ];
+          cache.historyStartIds[id] = ids.isEmpty
+              ? 0
+              : ids.reduce((a, b) => a < b ? a : b);
+        }
         mergeMessages(id, page.list);
         pages[key] = page.pn;
         final oldest = messages[id]?.firstOrNull?.id;
         hasMore[key] =
-            page.hasMore ||
-            oldest != null && cache.history(id).any((m) => m.id < oldest);
+            !_historyStartVisible(id) &&
+            (page.hasMore ||
+                oldest != null && cache.history(id).any((m) => m.id < oldest));
       },
       requestKey: '$pn:$next',
     );

@@ -108,6 +108,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
       }
     }
     final updated = apply(current);
+    _queueBaselineRebuilds.add(location);
     _setState(
       _state.copyWith(
         messagesByLocation: {..._state.messagesByLocation, location: updated},
@@ -362,6 +363,10 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         since = next;
       }
       if (!current()) return;
+      final queueCalibration = [
+        ...fetched.values,
+        ...other,
+      ].where((m) => !m.streaming).map(_queueMessageInfo).toList();
       fetched.addEntries(
         request.liveMessages.entries.where(
           (entry) =>
@@ -451,6 +456,8 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         ];
         world.sort(_compareMessages);
         _historyRefreshes.remove(location);
+        _queueAnomalyMonitor.calibrate(location, queueCalibration);
+        _queueBaselineRebuilds.add(location);
         _setState(
           _state.copyWith(
             messagesByLocation: {
@@ -592,6 +599,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     );
     _streamAccumulators.remove(streamKey);
     final streams = {..._state.streamMessagesByKey}..remove(streamKey);
+    _queueBaselineRebuilds.add(location);
     _setState(
       _state.copyWith(
         worldMessages: replace(_state.worldMessages),

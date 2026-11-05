@@ -20,6 +20,7 @@ ChatMessageVm freezeLocationChatReplyMessage(ChatMessageVm message) =>
       senderName: message.senderName,
       avatarUrl: message.avatarUrl,
       imageUrl: message.imageUrl,
+      photo: message.photo,
       timelinePayload: _freezeTimelinePayload(message.timelinePayload),
       isPlayerControlledRole: message.isPlayerControlledRole,
       text: message.text,
@@ -60,6 +61,7 @@ bool locationChatReplyMessagePresentationEqual(
     a.senderName == b.senderName &&
     a.avatarUrl == b.avatarUrl &&
     a.imageUrl == b.imageUrl &&
+    a.photo == b.photo &&
     a.timelinePayload == b.timelinePayload &&
     a.isPlayerControlledRole == b.isPlayerControlledRole &&
     a.text == b.text &&

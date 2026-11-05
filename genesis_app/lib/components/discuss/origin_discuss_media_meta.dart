@@ -1,27 +1,49 @@
 part of 'origin_discuss_library.dart';
 
 class _DiscussImageThumbnail extends StatelessWidget {
-  const _DiscussImageThumbnail({required this.url, required this.onTap});
+  const _DiscussImageThumbnail({
+    required this.url,
+    this.onTap,
+    this.onPreviewTap,
+  });
 
   static const double size = 48;
 
   final String url;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final ValueChanged<GenesisImageViewerSource>? onPreviewTap;
 
   @override
   Widget build(BuildContext context) {
     final imageUrl = url.trim();
 
+    final image = GenesisListImage(
+      imageUrl: imageUrl,
+      width: size,
+      height: size,
+      borderRadius: GenesisImageRadii.content,
+    );
+    final previewTap = onPreviewTap;
+    if (previewTap != null) {
+      return GenesisImageViewerSourceAnchor(
+        key: ValueKey('origin-discuss-image-$imageUrl'),
+        previewImageProvider: genesisImageViewerListPreviewProvider(
+          context,
+          source: imageUrl,
+          logicalWidth: size,
+          logicalHeight: size,
+        ),
+        fit: BoxFit.cover,
+        borderRadius: GenesisImageRadii.content,
+        onTap: previewTap,
+        child: image,
+      );
+    }
     return GestureDetector(
       key: ValueKey('origin-discuss-image-$imageUrl'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: GenesisListImage(
-        imageUrl: imageUrl,
-        width: size,
-        height: size,
-        borderRadius: GenesisImageRadii.content,
-      ),
+      child: image,
     );
   }
 }

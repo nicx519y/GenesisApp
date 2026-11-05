@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_camera_models.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
@@ -92,6 +94,8 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_view_state.dart';
+import 'package:genesis_flutter_android/pages/world/world_tilemap_view_store.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_location_action.dart';
@@ -188,6 +192,8 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
+
+part 'photo_inbox_test_cases.dart';
 
 Finder _richTextWithPlainText(String text) {
   return find.byWidgetPredicate(
@@ -2809,6 +2815,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  photoInboxTests();
   for (final scenario in ['refresh', 'second', 'empty', 'background']) {
     final second = scenario == 'second';
     testWidgets(
@@ -13276,6 +13283,14 @@ void main() {
   testWidgets('Origin detail info cover opens image viewer', (
     WidgetTester tester,
   ) async {
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/images/default_list_image.png'),
+        tester.element(find.byType(SizedBox).first),
+      ),
+    );
+
     const coverAsset = 'assets/images/default_list_image.png';
     final transport = _RecordingV1ListTransport(originMapUrl: coverAsset);
     await tester.pumpWidget(
@@ -13322,6 +13337,12 @@ void main() {
   testWidgets('Origin detail character portrait opens character image viewer', (
     WidgetTester tester,
   ) async {
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(
+          SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+        );
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+
     final transport = _RecordingV1ListTransport(
       originCharacters: const [
         {
@@ -13330,7 +13351,7 @@ void main() {
           'identity': 'Guide',
           'brief': 'Keeps the path',
           'description': 'First character.',
-          'avatar': 'assets/images/default_list_image.png',
+          'avatar': 'https://cdn.example/portrait.png',
           'is_recommend': 1,
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
@@ -13341,7 +13362,7 @@ void main() {
           'identity': 'Scout',
           'brief': 'Finds the signal',
           'description': 'Second character.',
-          'avatar': 'assets/images/default_list_image.png',
+          'avatar': 'https://cdn.example/portrait.png',
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
         },
@@ -13371,7 +13392,7 @@ void main() {
       find.byKey(const ValueKey<String>('origin-character-recommended-c_iris')),
       findsNothing,
     );
-    tester.widget<GestureDetector>(firstPortrait).onTap?.call();
+    tester.state<GenesisImageViewerSourceAnchorState>(firstPortrait).open();
     await tester.pumpAndSettle();
 
     expect(
@@ -14284,7 +14305,9 @@ void main() {
       final identity = find.descendant(
         of: roleSection,
         matching: find.byKey(
-          const ValueKey<String>('origin-setup-role-inline-identity-c_recommended'),
+          const ValueKey<String>(
+            'origin-setup-role-inline-identity-c_recommended',
+          ),
         ),
       );
       final identityField = tester.widget<TextField>(identity);
@@ -14300,7 +14323,9 @@ void main() {
           ),
         ),
       );
-      final controller = tester.widget<SingleChildScrollView>(scroll).controller!;
+      final controller = tester
+          .widget<SingleChildScrollView>(scroll)
+          .controller!;
       expect(controller.position.maxScrollExtent, greaterThan(100));
       controller.jumpTo(24);
       await tester.pump();
@@ -14308,7 +14333,9 @@ void main() {
       final avatar = find.descendant(
         of: roleSection,
         matching: find.byKey(
-          const ValueKey<String>('origin-setup-role-inline-avatar-c_recommended'),
+          const ValueKey<String>(
+            'origin-setup-role-inline-avatar-c_recommended',
+          ),
         ),
       );
       final upload = tester.widget<CreateUploadBox>(avatar);
@@ -14325,7 +14352,9 @@ void main() {
       tester.testTextInput.hide();
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pump();
-      upload.onInteractionActiveChanged!(false); // Gallery canceled: no new URL.
+      upload.onInteractionActiveChanged!(
+        false,
+      ); // Gallery canceled: no new URL.
       await tester.pump();
       await tester.pump();
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
@@ -34652,6 +34681,102 @@ void main() {
       'location_id': 'l_w_test_1',
     });
   });
+
+  for (final savedLocation in ['l_w_test_1_child', 'deleted']) {
+    testWidgets(
+      'world tilemap restores saved location $savedLocation before first map load',
+      (tester) async {
+        final transport = _RecordingV1ListTransport(
+          worldRelationStatus: 'anonymous',
+          worldDefinitionVersion: 2,
+        );
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+        );
+        final store = WorldTilemapViewStore(
+          namespace:
+              '${services.config.effectiveApiEnvironment}|${services.platformConfig.apiBaseUrl}',
+          uid: 'u_mock',
+          worldId: 'w_test_1',
+        );
+        await store.save(
+          TilemapViewState(
+            initialLocationId: 'root',
+            currentLocationId: savedLocation,
+            locationTrail: ['root'],
+            viewportTransforms: {},
+          ),
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: const MaterialApp(
+              home: WorldPage(
+                wid: 'w_test_1',
+                initialDefinitionVersion: 2,
+                initialMapLocationId: 'root',
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final requests = transport.requestsFor('/api/v1/world/map');
+        expect(requests, hasLength(1));
+        expect(
+          requests.single.uri.queryParameters['location_id'],
+          savedLocation == 'deleted' ? 'root' : savedLocation,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        expect(
+          (await store.load())!.currentLocationId,
+          savedLocation == 'deleted' ? 'root' : savedLocation,
+        );
+        if (savedLocation != 'deleted') {
+          final nextServices = await _testServices(
+            transport: transport,
+            useMock: false,
+          );
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: nextServices,
+              child: const MaterialApp(
+                home: WorldPage(
+                  wid: 'w_test_1',
+                  initialDefinitionVersion: 2,
+                  initialMapLocationId: 'root',
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            transport
+                .requestsFor('/api/v1/world/map')
+                .last
+                .uri
+                .queryParameters['location_id'],
+            savedLocation,
+          );
+          await nextServices.sessionStore.saveUid('another-user');
+          nextServices.sessionRevision.value += 1;
+          await tester.pumpAndSettle();
+          expect(
+            transport
+                .requestsFor('/api/v1/world/map')
+                .last
+                .uri
+                .queryParameters['location_id'],
+            'root',
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          expect((await store.load())!.currentLocationId, savedLocation);
+        }
+      },
+    );
+  }
 
   testWidgets(
     'world detail reuses valid default map location from list metadata',

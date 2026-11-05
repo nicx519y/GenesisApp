@@ -76,9 +76,11 @@ class _TaskTile extends StatelessWidget {
       button: success,
       child: Material(
         color: miniRaised,
-        child: InkWell(
-          onTap: success
-              ? () async {
+        child: success
+            ? GenesisImageViewerSourceAnchor(
+                previewImageProvider: AssetImage(task.sampleAsset),
+                fit: BoxFit.cover,
+                onTap: (source) async {
                   final complete = jobs.tasks
                       .where((t) => t.state == CameraPreviewTaskState.succeeded)
                       .toList();
@@ -87,6 +89,7 @@ class _TaskTile extends StatelessWidget {
                   String? postAsset;
                   await showGenesisImageViewer(
                     context,
+                    source: source,
                     imageUrls: complete.map((t) => t.sampleAsset).toList(),
                     initialIndex: index,
                     onImageViewed: (index) =>
@@ -115,95 +118,89 @@ class _TaskTile extends StatelessWidget {
                   if (context.mounted && postAsset != null) {
                     onUseInPost?.call(postAsset!);
                   }
-                }
-              : null,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (success) Image.asset(task.sampleAsset, fit: BoxFit.cover),
-              if (failed)
-                DecoratedBox(
-                  key: const ValueKey('camera-preview-failed-card'),
-                  decoration: BoxDecoration(
-                    color: miniRaised,
-                    border: Border.all(color: miniRed.withValues(alpha: .25)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(7),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.broken_image_outlined,
-                          size: 20,
-                          color: miniRed,
-                        ),
-                        const SizedBox(height: 4),
-                        Flexible(
-                          child: Text(
-                            l10n.miniPhoneCameraFailureRefund,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: miniStyle(
-                              10,
-                              FontWeight.w400,
-                              miniSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (!success && !failed)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: miniWhite,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Flexible(
-                          child: Text(
-                            l10n.miniPhoneCameraCreatingPhoto,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: miniStyle(
-                              12,
-                              FontWeight.w400,
-                              miniSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (success && !task.viewed)
-                const Positioned(
-                  top: 7,
-                  right: 7,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: miniRed,
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox.square(dimension: 7),
-                  ),
-                ),
-            ],
-          ),
-        ),
+                },
+                child: _tileContent(context, success, failed),
+              )
+            : _tileContent(context, success, failed),
       ),
+    );
+  }
+
+  Widget _tileContent(BuildContext context, bool success, bool failed) {
+    final l10n = context.l10n;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (success) Image.asset(task.sampleAsset, fit: BoxFit.cover),
+        if (failed)
+          DecoratedBox(
+            key: const ValueKey('camera-preview-failed-card'),
+            decoration: BoxDecoration(
+              color: miniRaised,
+              border: Border.all(color: miniRed.withValues(alpha: .25)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(7),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.broken_image_outlined,
+                    size: 20,
+                    color: miniRed,
+                  ),
+                  const SizedBox(height: 4),
+                  Flexible(
+                    child: Text(
+                      l10n.miniPhoneCameraFailureRefund,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: miniStyle(10, FontWeight.w400, miniSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (!success && !failed)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: miniWhite,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: Text(
+                      l10n.miniPhoneCameraCreatingPhoto,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: miniStyle(12, FontWeight.w400, miniSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (success && !task.viewed)
+          const Positioned(
+            top: 7,
+            right: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: miniRed, shape: BoxShape.circle),
+              child: SizedBox.square(dimension: 7),
+            ),
+          ),
+      ],
     );
   }
 }

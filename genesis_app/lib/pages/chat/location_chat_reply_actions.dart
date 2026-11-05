@@ -53,6 +53,8 @@ class LocationChatReplyActions extends StatefulWidget {
     this.actionsExpanded = true,
     this.paginationExpanded,
     this.onTakePhoto,
+    this.takingPhoto = false,
+    this.actionsHidden = false,
     this.actionToolbarKey,
     this.paginationKey,
   });
@@ -80,6 +82,8 @@ class LocationChatReplyActions extends StatefulWidget {
   final bool actionsExpanded;
   final bool? paginationExpanded;
   final VoidCallback? onTakePhoto;
+  final bool takingPhoto;
+  final bool actionsHidden;
   final Key? actionToolbarKey;
   final Key? paginationKey;
   final ChatUiStyleConfig style;
@@ -162,15 +166,14 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   LocationChatReplyAction get _takePhoto => LocationChatReplyAction(
     onInvoke: widget.onTakePhoto,
     state: resolveLocationChatReplyActionState(
-      // The current camera action opens a preview; other actions' requests
-      // only disable it and must never supply its loading state.
-      busy: false,
+      // Only the create request owns camera busy state.
+      busy: widget.takingPhoto,
       supported:
           widget.onTakePhoto != null &&
           _regenerate.state != LocationChatReplyActionState.none,
       otherReplyOperationActive:
           _regenerate.busy || _goOn.busy || _edit.busy || _inspiration.loading,
-      canInvoke: _regenerate.invocation != null,
+      canInvoke: !widget.takingPhoto && _regenerate.invocation != null,
       showWhenUnavailable: true,
     ),
   );
@@ -191,7 +194,12 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         if (_regenerate.state != LocationChatReplyActionState.none)
           LocationChatRegenerateButton(
             key: const ValueKey('location-chat-regenerate'),
-            feature: _regenerate,
+            feature: widget.takingPhoto
+                ? const LocationChatRegenerateFeature(
+                    state: LocationChatReplyActionState.disabled,
+                    onInvoke: null,
+                  )
+                : _regenerate,
             onBeforeInvoke: () {
               _setEditPromptExpanded(false);
               _setInspirationExpanded(false);
@@ -200,7 +208,12 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         if (_goOn.state != LocationChatReplyActionState.none)
           LocationChatGoOnButton(
             key: const ValueKey('location-chat-go-on'),
-            feature: _goOn,
+            feature: widget.takingPhoto
+                ? const LocationChatGoOnFeature(
+                    state: LocationChatReplyActionState.disabled,
+                    onInvoke: null,
+                  )
+                : _goOn,
             onBeforeInvoke: () {
               _setEditPromptExpanded(false);
               _setInspirationExpanded(false);
@@ -209,7 +222,12 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         if (_edit.state != LocationChatReplyActionState.none)
           LocationChatEditButton(
             key: const ValueKey('location-chat-edit'),
-            feature: _edit,
+            feature: widget.takingPhoto
+                ? const LocationChatEditFeature(
+                    state: LocationChatReplyActionState.disabled,
+                    onInvoke: null,
+                  )
+                : _edit,
             onBeforeInvoke: () {
               _setEditPromptExpanded(true);
               _setInspirationPromptExpanded(false);
@@ -219,7 +237,12 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         if (_inspiration.state != LocationChatReplyActionState.none)
           LocationChatInspirationButton(
             key: const ValueKey('location-chat-inspiration'),
-            feature: _inspiration,
+            feature: widget.takingPhoto
+                ? const LocationChatInspirationFeature(
+                    state: LocationChatReplyActionState.disabled,
+                    messages: [],
+                  )
+                : _inspiration,
             expanded: _inspirationExpanded,
             onBeforeInvoke: () => _setEditPromptExpanded(false),
             onToggle: _invokeInspiration,
@@ -248,13 +271,19 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               paginationVisible,
           pagination: paginationVisible ? _buildPagination(context) : null,
         ),
-        _LocationChatReplyActionToolbar(
-          key: widget.actionToolbarKey,
-          expanded: widget.actionsExpanded && actionButtons.isNotEmpty,
-          animateChanges: widget.loadingIndicator == null,
-          style: style,
-          actions: actionButtons,
-          reservedIndicator: widget.reservedLoadingIndicator,
+        Visibility(
+          visible: !widget.actionsHidden,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: _LocationChatReplyActionToolbar(
+            key: widget.actionToolbarKey,
+            expanded: widget.actionsExpanded && actionButtons.isNotEmpty,
+            animateChanges: widget.loadingIndicator == null,
+            style: style,
+            actions: actionButtons,
+            reservedIndicator: widget.reservedLoadingIndicator,
+          ),
         ),
         LocationChatInspirationReplies(
           key: widget.inspirationListKey,
@@ -687,7 +716,10 @@ class _LocationChatReplyActionToolbarState
   void _syncExpansion() {
     if (!_wantsOpen) {
       if (LocationChatReplyActions.actionCollapseAnimationEnabled) {
-        if (!_expansionController.isDismissed) _expansionController.reverse();
+        if (!_expansionController.isDismissed &&
+            _expansionController.status != AnimationStatus.reverse) {
+          _expansionController.reverse();
+        }
       } else {
         _displayedActions = const [];
         _expansionController.value = 0;
@@ -695,7 +727,12 @@ class _LocationChatReplyActionToolbarState
       return;
     }
     _displayedActions = List<Widget>.unmodifiable(widget.actions);
-    _expansionController.forward();
+    // Scrolling rebuilds the sliver every frame. Restarting the same direction
+    // resets the animation clock instead of preserving the current transition.
+    if (!_expansionController.isCompleted &&
+        _expansionController.status != AnimationStatus.forward) {
+      _expansionController.forward();
+    }
   }
 
   void _onExpansionStatus(AnimationStatus status) {

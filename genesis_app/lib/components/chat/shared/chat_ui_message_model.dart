@@ -20,6 +20,7 @@ class ChatMessageVm {
     this.avatarUrl = '',
     this.avatarSnapshot,
     this.imageUrl = '',
+    this.photo,
     ChatTimelinePayloadVm? timelinePayload,
     ({ChatTickPayloadVm payload, String currentTime}) Function()? deferredTick,
     this.isPlayerControlledRole = false,
@@ -80,6 +81,7 @@ class ChatMessageVm {
   /// Display-only decoded handoff image; the launching route owns this handle.
   final ui.Image? avatarSnapshot;
   String imageUrl;
+  ChatPhoto? photo;
   ChatTimelinePayloadVm? _timelinePayload;
   ({ChatTickPayloadVm payload, String currentTime}) Function()? _deferredTick;
   final Object? _tickVersion;

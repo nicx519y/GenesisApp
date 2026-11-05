@@ -106,6 +106,7 @@ bool locationChatMessageHasSupportedExplicitV2Envelope(
     return false;
   }
   return switch (locationChatBusinessType(message)) {
+    'live_photo' ||
     'user' ||
     'character' ||
     'system' ||
@@ -127,6 +128,9 @@ bool locationChatMessageHasRenderableBusinessContent(
   }
   final businessType = locationChatBusinessType(message);
   final messageType = normalizeChatroomMessageType(message.messageType);
+  if (businessType == 'live_photo') {
+    return messageType == chatroomImageMessageType && message.photo != null;
+  }
   if (businessType == 'tick') return true;
   if (businessType == chatroomUserEnterLocationSenderType) {
     return message.timelinePayload is ChatroomUserEnterLocationPayload;

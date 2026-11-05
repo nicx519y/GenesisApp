@@ -5113,9 +5113,9 @@
   "@miniPhoneCameraLivePhotoPrompt": {
     "description": "MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people."
   },
-  "miniPhoneCameraPeopleLimit": "Choisissez jusqu’à 5 personnes.",
+  "miniPhoneCameraPeopleLimit": "Choisissez jusqu’à 4 personnes.",
   "@miniPhoneCameraPeopleLimit": {
-    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+    "description": "MiniPhone Camera: toast when selecting a fifth character; a photo supports at most four characters."
   },
   "miniPhoneCameraFailureRefund": "La génération a échoué. Si des Gemmes ont été prélevées, elles seront remboursées.",
   "@miniPhoneCameraFailureRefund": {
@@ -5124,5 +5124,54 @@
   "miniPhoneCameraPreviewPostNotice": "Aperçu uniquement. Cette photo d’exemple ne peut pas être publiée dans votre Monde.",
   "@miniPhoneCameraPreviewPostNotice": {
     "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
+  },
+  "chatPhotoBasePrice": "Prix de base : {price} Gemmes",
+  "@chatPhotoBasePrice": {
+    "description": "LocationChat photo confirmation sheet: server base price; not a guarantee of the final charge.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPhotoPriceExplanation": "Votre première photo peut être gratuite. Le serveur détermine votre admissibilité et le montant final facturé.",
+  "@chatPhotoPriceExplanation": {
+    "description": "LocationChat photo confirmation sheet: the price endpoint does not return free eligibility."
+  },
+  "chatPhotoGenerate": "Générer une photo",
+  "@chatPhotoGenerate": {
+    "description": "LocationChat photo confirmation sheet: submit a new photo generation request."
+  },
+  "chatPhotoRecover": "Vérifier la demande précédente",
+  "@chatPhotoRecover": {
+    "description": "LocationChat photo confirmation sheet: explicitly resend the identical uncertain request to recover its outcome."
+  },
+  "chatPhotoUncertain": "La demande de photo précédente n’a pas encore été confirmée. Vérifiez son état avant de prendre une autre photo.",
+  "@chatPhotoUncertain": {
+    "description": "LocationChat: submission timed out or its response was lost; this does not mean generation failed."
+  },
+  "chatPhotoGenerating": "Génération de la photo…",
+  "@chatPhotoGenerating": {
+    "description": "Chat photo message: accepted generation is in progress."
+  },
+  "chatPhotoFailed": "Impossible de générer la photo.",
+  "@chatPhotoFailed": {
+    "description": "Chat photo message: fallback when a failed task has no user-facing failure message."
+  },
+  "chatPhotoUnavailable": "Cette photo n’est plus disponible.",
+  "@chatPhotoUnavailable": {
+    "description": "LocationChat: an Inbox photo target could not be found in its original location."
+  },
+  "cameraFreeAvailable": "Votre première photo est actuellement gratuite. Votre éligibilité sera confirmée lors de l’envoi.",
+  "@cameraFreeAvailable": {
+    "description": "MiniPhone Camera price explanation: current free eligibility is shared with chat photos and may change before submission; do not promise a free charge."
+  },
+  "cameraSubmissionUnconfirmed": "Envoi non confirmé",
+  "@cameraSubmissionUnconfirmed": {
+    "description": "MiniPhone Photos task tile: HTTP submission has no confirmed receipt yet; this is not a generation failure."
+  },
+  "cameraRequestConflict": "Cette demande est en conflit avec un envoi précédent. Ses détails ne peuvent pas être modifiés.",
+  "@cameraRequestConflict": {
+    "description": "MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID."
   }
 }

@@ -3893,7 +3893,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get miniPhoneCameraPeopleLimit => 'Elige hasta 5 personas.';
+  String get miniPhoneCameraPeopleLimit => 'Elige hasta 4 personas.';
 
   @override
   String get miniPhoneCameraFailureRefund =>
@@ -3902,4 +3902,43 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get miniPhoneCameraPreviewPostNotice =>
       'Solo es una vista previa. Esta foto de ejemplo no se puede publicar en tu Mundo.';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return 'Precio base: $price Gemas';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      'Tu primera foto podría ser gratis. El servidor determina si cumples los requisitos y el cargo final.';
+
+  @override
+  String get chatPhotoGenerate => 'Generar foto';
+
+  @override
+  String get chatPhotoRecover => 'Consultar solicitud anterior';
+
+  @override
+  String get chatPhotoUncertain =>
+      'La solicitud de foto anterior aún no se ha confirmado. Consulta su estado antes de tomar otra foto.';
+
+  @override
+  String get chatPhotoGenerating => 'Generando foto…';
+
+  @override
+  String get chatPhotoFailed => 'No se pudo generar la foto.';
+
+  @override
+  String get chatPhotoUnavailable => 'Esta foto ya no está disponible.';
+
+  @override
+  String get cameraFreeAvailable =>
+      'Tu primera foto es gratis por ahora. La disponibilidad se confirma al enviar la solicitud.';
+
+  @override
+  String get cameraSubmissionUnconfirmed => 'Envío sin confirmar';
+
+  @override
+  String get cameraRequestConflict =>
+      'Esta solicitud entra en conflicto con un envío anterior. No se pueden cambiar sus detalles.';
 }

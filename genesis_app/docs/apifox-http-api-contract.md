@@ -2448,6 +2448,7 @@ query：
 - `events[].object4*`: string，第四个业务对象；无值传 `""`。接口监控 start 传 `"0"`，终态使用不带单位后缀的整数毫秒字符串记录最终一次实际 transport send 的耗时
 - `events[].ext_data*`: string，扩展信息；无值传 `""`。接口失败传脱敏后的 JSON 字符串，可包含 `reason`、`message`、`native_code`、`cronet_error_code`、`cronet_internal_error_code`、`cronet_immediately_retryable`、`upstream_status`、`upstream_path`、`retry_count`；不得包含请求 header、query、body、完整响应 body 或 stack trace
 - WebSocket 持续断线监控使用 `action_type=monitor`、`action=websocket_disconnect`：object1=World ID，object2=`initial_connect/reconnect`，object3=详细诊断 JSON（cause、最近最多10条 attempt_details，含原始异常、堆栈摘要和可用的关闭信息），object4=上报时具体网络类型（不是耗时）；ext_data 同步包含上述 JSON。连接总耗时实测，DNS/TCP/TLS 分段耗时不可用时不上传对应字段及原因；前台连续15秒首次报，随后每次失败补报；恢复及生命周期规则见 `chatroom-websocket-api.md` 的客户端持续断线监控章节。
+- WebSocket 新消息队列监控使用 `action_type=monitor`，两类 action 为 `location_chat_queue_old_conversation_round` 和 `location_chat_queue_old_location_message_id`。object1=World ID、object2=Location ID、object3=收到的对应 ID、object4=入队前缓存的对应 ID；所有消息 ID 使用十进制字符串。仅检查首次出现的正式推送，正常消息才推进两个缓存，异常仍正常入队；序号冲突也归入第二类，同一消息可分别产生两条事件。ext_data 包含消息身份、收到的 ID、判断前缓存、连接及同步状态和 reason，不含正文；详见 `chatroom-websocket-api.md` 的客户端地点队列异常监控章节。
 - App 生命周期事件使用 `action_type: "event"`：`app_background.object1` 为空；与其配对的 `app_foreground.object1` 为本次后台停留时长，使用不带单位后缀的非负整数毫秒字符串。冷启动不产生 `app_foreground`
 - 客户端接口监控使用 `api_req_start`、`api_req_success`、`api_req_fail_tech`、`api_req_fail_biz`。持续后台轮询接口不产生接口监控事件：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`；`/api/v1/collect` 永久排除。`/api/v1/app/config` 及三个启动关键 Gateway 接口固定上报，其他普通业务接口按启动级采样开关决定。
 
@@ -2940,3 +2941,14 @@ Source: supplied `wallpaper.md` contract.
 ## WebSocket 重试成功打点
 
 `monitor / websocket_reconnect_success`：object1=World ID，object2=重试次数（含成功一次，首次连接的初次尝试不计为重试），object3=前台累计恢复毫秒，object4=initial_connect/reconnect；ext_data 含 connect_attempts、duration_unit、duration_scope、success_stage。WS 建联成功即上报，不等待 join/历史；首次直接成功不报，不依赖15秒断线异常门槛。详见 chatroom-websocket-api.md 的 WebSocket 重试成功监控章节。
+
+## 2026-11-04 聊天生图
+
+新增 GET `/aitown-chat/api/v1/message/photo/price`、POST `/aitown-chat/api/v1/message/photo/create`，复用 ChatroomHttpApi 认证与签名。价格使用整数 cent，创建仅传 `client_request_id/world_id/location_id`，不传 `expected_price_cent`；price 仅供 Sheet 异步展示，历史保留结构化 photo。字段、错误处理及恢复规则见 [聊天生图接入](chat-photo-client-integration.md)。
+
+
+## MiniPhone 相机增量（2026-11-04）
+
+- `GET /aitown-chat/api/v1/phone/photo/options?world_id=...`：整数 `price_cent`、`free_status=available|used`、动态 `styles[].name/label/demo_image_url`。
+- `POST /aitown-chat/api/v1/phone/photo/create`：仅 `client_request_id/world_id/character_ids/aspect_ratio/style` 与可选 `prompt`；响应 `source=camera/world_id/photo`，不传报价锁定字段、地点或聊天消息身份。
+- camera 结果复用共享 PhotoTask 状态，成功仅要求真实 `asset_id/image_url/description`；相册字段为 `desc`。请求和错误/恢复规则见 [小手机拍照接入](mini-phone-camera-integration.md) 与 [服务端契约](mini-phone-camera-api-2026-11-04.md)。

@@ -1,9 +1,9 @@
+import 'mini_phone_camera_image.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../network/mini_phone/mini_phone_models.dart';
-import '../shared/mini_phone_controls.dart';
 import '../shared/mini_phone_ui.dart';
 
 const _cameraAvatarSize = 48.0;
@@ -49,7 +49,7 @@ class MiniPhoneCameraCastChoice extends StatelessWidget {
                         color: order > 0 ? miniRed : const Color(0x33FFFFFF),
                       ),
                     ),
-                    child: miniPhonePersonAvatar(
+                    child: miniPhoneCameraPersonAvatar(
                       person,
                       _cameraAvatarSize,
                       radius: _cameraAvatarSize / 2,
@@ -94,7 +94,7 @@ class MiniPhoneCameraFocusedPerson extends StatelessWidget {
         painter: _FocusCorners(),
         child: Padding(
           padding: const EdgeInsets.all(5),
-          child: miniPhonePersonAvatar(
+          child: miniPhoneCameraPersonAvatar(
             person,
             _cameraAvatarSize,
             radius: _cameraAvatarSize / 2,

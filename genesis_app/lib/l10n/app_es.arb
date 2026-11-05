@@ -5113,9 +5113,9 @@
   "@miniPhoneCameraLivePhotoPrompt": {
     "description": "MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people."
   },
-  "miniPhoneCameraPeopleLimit": "Elige hasta 5 personas.",
+  "miniPhoneCameraPeopleLimit": "Elige hasta 4 personas.",
   "@miniPhoneCameraPeopleLimit": {
-    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+    "description": "MiniPhone Camera: toast when selecting a fifth character; a photo supports at most four characters."
   },
   "miniPhoneCameraFailureRefund": "La generación falló. Si se cobraron Gemas, se reembolsarán.",
   "@miniPhoneCameraFailureRefund": {
@@ -5124,5 +5124,54 @@
   "miniPhoneCameraPreviewPostNotice": "Solo es una vista previa. Esta foto de ejemplo no se puede publicar en tu Mundo.",
   "@miniPhoneCameraPreviewPostNotice": {
     "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
+  },
+  "chatPhotoBasePrice": "Precio base: {price} Gemas",
+  "@chatPhotoBasePrice": {
+    "description": "LocationChat photo confirmation sheet: server base price; not a guarantee of the final charge.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPhotoPriceExplanation": "Tu primera foto podría ser gratis. El servidor determina si cumples los requisitos y el cargo final.",
+  "@chatPhotoPriceExplanation": {
+    "description": "LocationChat photo confirmation sheet: the price endpoint does not return free eligibility."
+  },
+  "chatPhotoGenerate": "Generar foto",
+  "@chatPhotoGenerate": {
+    "description": "LocationChat photo confirmation sheet: submit a new photo generation request."
+  },
+  "chatPhotoRecover": "Consultar solicitud anterior",
+  "@chatPhotoRecover": {
+    "description": "LocationChat photo confirmation sheet: explicitly resend the identical uncertain request to recover its outcome."
+  },
+  "chatPhotoUncertain": "La solicitud de foto anterior aún no se ha confirmado. Consulta su estado antes de tomar otra foto.",
+  "@chatPhotoUncertain": {
+    "description": "LocationChat: submission timed out or its response was lost; this does not mean generation failed."
+  },
+  "chatPhotoGenerating": "Generando foto…",
+  "@chatPhotoGenerating": {
+    "description": "Chat photo message: accepted generation is in progress."
+  },
+  "chatPhotoFailed": "No se pudo generar la foto.",
+  "@chatPhotoFailed": {
+    "description": "Chat photo message: fallback when a failed task has no user-facing failure message."
+  },
+  "chatPhotoUnavailable": "Esta foto ya no está disponible.",
+  "@chatPhotoUnavailable": {
+    "description": "LocationChat: an Inbox photo target could not be found in its original location."
+  },
+  "cameraFreeAvailable": "Tu primera foto es gratis por ahora. La disponibilidad se confirma al enviar la solicitud.",
+  "@cameraFreeAvailable": {
+    "description": "MiniPhone Camera price explanation: current free eligibility is shared with chat photos and may change before submission; do not promise a free charge."
+  },
+  "cameraSubmissionUnconfirmed": "Envío sin confirmar",
+  "@cameraSubmissionUnconfirmed": {
+    "description": "MiniPhone Photos task tile: HTTP submission has no confirmed receipt yet; this is not a generation failure."
+  },
+  "cameraRequestConflict": "Esta solicitud entra en conflicto con un envío anterior. No se pueden cambiar sus detalles.",
+  "@cameraRequestConflict": {
+    "description": "MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID."
   }
 }

@@ -9,15 +9,21 @@ class GenesisImageViewerSource {
   const GenesisImageViewerSource({
     required this.rect,
     required this.previewImageProvider,
-    required this.aspectRatio,
+    required this.previewImage,
     this.borderRadius = BorderRadius.zero,
+    this.alignment = Alignment.center,
     this.onOpeningChanged,
   });
 
   final Rect rect;
   final ImageProvider<Object> previewImageProvider;
-  final double aspectRatio;
+
+  /// Owns the captured frame until the viewer route has closed.
+  final ImageInfo previewImage;
+  double get aspectRatio =>
+      previewImage.image.width / previewImage.image.height;
   final BorderRadius borderRadius;
+  final Alignment alignment;
   final ValueChanged<bool>? onOpeningChanged;
 
   bool get isValid =>
@@ -38,19 +44,71 @@ class GenesisImageViewerSourceAnchor extends StatefulWidget {
 
   final ImageProvider<Object> previewImageProvider;
   final Widget child;
-  final ValueChanged<GenesisImageViewerSource?> onTap;
+  final ValueChanged<GenesisImageViewerSource> onTap;
   final BoxFit fit;
   final Alignment alignment;
   final BorderRadius borderRadius;
 
   @override
   State<GenesisImageViewerSourceAnchor> createState() =>
-      _GenesisImageViewerSourceAnchorState();
+      GenesisImageViewerSourceAnchorState();
 }
 
-class _GenesisImageViewerSourceAnchorState
+class GenesisImageViewerSourceAnchorState
     extends State<GenesisImageViewerSourceAnchor> {
   bool _opening = false;
+  ImageStream? _previewStream;
+  ImageStreamListener? _previewListener;
+  ImageInfo? _previewFrame;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolvePreview();
+  }
+
+  @override
+  void didUpdateWidget(covariant GenesisImageViewerSourceAnchor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.previewImageProvider != widget.previewImageProvider) {
+      _resolvePreview();
+    }
+  }
+
+  void _resolvePreview() {
+    _releasePreview();
+    final stream = widget.previewImageProvider.resolve(
+      createLocalImageConfiguration(context),
+    );
+    final listener = ImageStreamListener(
+      (info, _) {
+        _previewFrame?.dispose();
+        _previewFrame = info;
+      },
+      onError: (_, _) {
+        _previewFrame?.dispose();
+        _previewFrame = null;
+      },
+    );
+    _previewStream = stream;
+    _previewListener = listener;
+    stream.addListener(listener);
+  }
+
+  void _releasePreview() {
+    final listener = _previewListener;
+    if (listener != null) _previewStream?.removeListener(listener);
+    _previewListener = null;
+    _previewStream = null;
+    _previewFrame?.dispose();
+    _previewFrame = null;
+  }
+
+  @override
+  void dispose() {
+    _releasePreview();
+    super.dispose();
+  }
 
   void _openingChanged(bool opening) {
     if (mounted && opening != _opening) setState(() => _opening = opening);
@@ -64,45 +122,51 @@ class _GenesisImageViewerSourceAnchorState
     ).overlay?.context.findRenderObject();
     if (box is! RenderBox || !box.hasSize || overlay is! RenderBox) return null;
 
-    // An already displayed frame resolves synchronously from ImageCache. Do not
-    // await decoding/network before opening, or invent geometry for a blank tile.
-    Size? imageSize;
-    final stream = widget.previewImageProvider.resolve(
-      createLocalImageConfiguration(context),
+    // Retain a decoded frame while mounted. Resolving a fresh AssetImage on tap
+    // may obtain its key asynchronously even when its pixels are already cached.
+    final frame = _previewFrame?.clone();
+    if (frame == null) return null;
+    final size = Size(
+      frame.image.width.toDouble(),
+      frame.image.height.toDouble(),
     );
-    final listener = ImageStreamListener((info, _) {
-      imageSize = Size(
-        info.image.width.toDouble(),
-        info.image.height.toDouble(),
-      );
-      info.dispose();
-    }, onError: (_, _) {});
-    stream.addListener(listener);
-    stream.removeListener(listener);
-    final size = imageSize;
-    if (size == null || size.isEmpty || box.size.isEmpty) return null;
+    if (size.isEmpty || box.size.isEmpty) {
+      frame.dispose();
+      return null;
+    }
     final fitted = applyBoxFit(widget.fit, size, box.size);
-    final localRect = widget.alignment.inscribe(
-      fitted.destination,
-      Offset.zero & box.size,
-    );
+    final localRect = widget.alignment
+        .inscribe(fitted.destination, Offset.zero & box.size)
+        .intersect(Offset.zero & box.size);
     final rect = MatrixUtils.transformRect(
       box.getTransformTo(overlay),
       localRect,
     );
-    if (!rect.isFinite || rect.isEmpty) return null;
+    if (!rect.isFinite || rect.isEmpty) {
+      frame.dispose();
+      return null;
+    }
     return GenesisImageViewerSource(
       rect: rect,
       previewImageProvider: widget.previewImageProvider,
-      aspectRatio: size.aspectRatio,
+      previewImage: frame,
       borderRadius: widget.borderRadius,
+      alignment: widget.alignment,
       onOpeningChanged: _openingChanged,
     );
   }
 
+  /// Opens from the measured source for one-shot notification navigation.
+  void open() {
+    if (_opening || !mounted) return;
+    final source = _capture();
+    // A blank/loading thumbnail cannot supply a frame or a valid opening flight.
+    if (source != null) widget.onTap(source);
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: _opening ? null : () => widget.onTap(_capture()),
+    onTap: _opening ? null : open,
     child: Opacity(opacity: _opening ? 0 : 1, child: widget.child),
   );
 }
@@ -115,11 +179,13 @@ class GenesisImageViewerOpenTransition extends StatefulWidget {
     required this.animation,
     required this.source,
     required this.child,
+    this.bottomInset = 0,
   });
 
   final Animation<double> animation;
   final GenesisImageViewerSource source;
   final Widget child;
+  final double bottomInset;
 
   @override
   State<GenesisImageViewerOpenTransition> createState() =>
@@ -172,7 +238,10 @@ class _GenesisImageViewerOpenTransitionState
           // Match the viewer: fitWidth, centered short images, tall images at top.
           final target = Rect.fromLTWH(
             0,
-            math.max(0, (constraints.maxHeight - height) / 2),
+            math.max(
+              0,
+              (constraints.maxHeight - widget.bottomInset - height) / 2,
+            ),
             width,
             height,
           );
@@ -192,11 +261,15 @@ class _GenesisImageViewerOpenTransitionState
                       BorderRadius.zero,
                       progress,
                     )!,
-                    child: Image(
-                      image: widget.source.previewImageProvider,
+                    child: RawImage(
+                      image: widget.source.previewImage.image,
+                      scale: widget.source.previewImage.scale,
                       fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                      errorBuilder: (_, _, _) => const SizedBox.expand(),
+                      alignment: Alignment.lerp(
+                        widget.source.alignment,
+                        Alignment.center,
+                        progress,
+                      )!,
                     ),
                   ),
                 ),

@@ -67,11 +67,10 @@ class OriginDiscussRepliesList extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Text(
-                          GenesisL10n.current
-                              .worldoViewAllRemainingReplyCount(
-                                remainingReplyCount: (remainingReplyCount)
-                                    .toString(),
-                              ),
+                          GenesisL10n.current.worldoViewAllRemainingReplyCount(
+                            remainingReplyCount: (remainingReplyCount)
+                                .toString(),
+                          ),
                           style: const TextStyle(
                             fontSize: 12,
                             height: 1.25,
@@ -146,8 +145,9 @@ class _OriginDiscussReplyImageThumbnails extends StatelessWidget {
         for (final entry in visibleUrls.indexed)
           _OriginDiscussReplyImageThumbnail(
             url: entry.$2,
-            onTap: () => showGenesisImageViewer(
+            onTap: (source) => showGenesisImageViewer(
               context,
+              source: source,
               imageUrls: urls,
               previewImageProviders: [
                 for (final url in urls)
@@ -173,16 +173,23 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
   });
 
   final String url;
-  final VoidCallback onTap;
+  final ValueChanged<GenesisImageViewerSource> onTap;
   static const double _size = 32;
 
   @override
   Widget build(BuildContext context) {
     final imageUrl = url.trim();
 
-    return GestureDetector(
+    return GenesisImageViewerSourceAnchor(
       key: ValueKey('origin-discuss-reply-image-$imageUrl'),
-      behavior: HitTestBehavior.opaque,
+      previewImageProvider: genesisImageViewerListPreviewProvider(
+        context,
+        source: imageUrl,
+        logicalWidth: _size,
+        logicalHeight: _size,
+      ),
+      fit: BoxFit.cover,
+      borderRadius: GenesisImageRadii.content,
       onTap: onTap,
       child: GenesisListImage(
         imageUrl: imageUrl,

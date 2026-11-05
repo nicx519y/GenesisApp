@@ -3706,7 +3706,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get miniPhoneCameraPeopleLimit => '최대 5명까지 선택해 주세요.';
+  String get miniPhoneCameraPeopleLimit => '최대 4명까지 선택할 수 있습니다.';
 
   @override
   String get miniPhoneCameraFailureRefund => '생성에 실패했습니다. 차감된 젬이 있다면 환불됩니다.';
@@ -3714,4 +3714,43 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get miniPhoneCameraPreviewPostNotice =>
       '미리보기 전용입니다. 이 샘플 사진은 내 월드에 게시할 수 없습니다.';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return '기본 가격: $price 젬';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      '첫 사진은 무료일 수 있습니다. 무료 대상 여부와 최종 청구 금액은 서버에서 결정됩니다.';
+
+  @override
+  String get chatPhotoGenerate => '사진 생성';
+
+  @override
+  String get chatPhotoRecover => '이전 요청 확인';
+
+  @override
+  String get chatPhotoUncertain =>
+      '이전 사진 요청이 아직 확인되지 않았습니다. 다른 사진을 찍기 전에 결과를 확인해 주세요.';
+
+  @override
+  String get chatPhotoGenerating => '사진 생성 중…';
+
+  @override
+  String get chatPhotoFailed => '사진을 생성하지 못했습니다.';
+
+  @override
+  String get chatPhotoUnavailable => '이 사진은 더 이상 볼 수 없습니다.';
+
+  @override
+  String get cameraFreeAvailable =>
+      '현재 첫 사진은 무료입니다. 무료 이용 대상 여부는 요청을 보낼 때 확인됩니다.';
+
+  @override
+  String get cameraSubmissionUnconfirmed => '전송 확인 대기 중';
+
+  @override
+  String get cameraRequestConflict =>
+      '이 요청은 이전 전송 내용과 충돌합니다. 요청 내용을 변경할 수 없습니다.';
 }

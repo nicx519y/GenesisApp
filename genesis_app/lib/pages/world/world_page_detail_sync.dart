@@ -103,6 +103,7 @@ extension _WorldPageDetailSync on _WorldPageState {
     _worldChatroom?.applyWorldSnapshot(world);
     _syncWorldChatroomForRelationStatus(world.relationStatus);
     _maybeOpenInitialLocationChat();
+    _maybeOpenInitialCameraPhoto();
     if (shouldStartTracking) {
       _startWorldTickTracking();
     } else if (_worldTickInProgress) {

@@ -1,3 +1,4 @@
+import '../../../network/chatroom/chat_photo.dart';
 import '../../../components/chat/shared/chat_ui.dart';
 import '../../../network/chatroom/world_chatroom_service.dart';
 
@@ -27,6 +28,7 @@ class LocationChatParsedMessage {
   });
 
   final WorldChatroomMessage source;
+  ChatPhoto? get photo => source.photo;
   String get messageType => source.messageType;
   final String localId;
   final String clientMsgId;

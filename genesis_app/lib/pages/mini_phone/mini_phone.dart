@@ -10,3 +10,5 @@ export 'entry/mini_phone_entry_style.dart' show MiniPhoneEntryStyle;
 export 'entry/mini_phone_dock_position.dart'
     show MiniPhoneDockPosition, miniPhoneMapDockPosition;
 export 'music/mini_phone_music_owner.dart' show MiniPhoneMusicOwner;
+
+export 'camera_moment_confirmation.dart' show confirmCameraMoment;

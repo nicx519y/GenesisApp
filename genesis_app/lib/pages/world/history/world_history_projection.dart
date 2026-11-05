@@ -256,7 +256,8 @@ class WorldHistoryProjection {
           character?.name ?? normalizeGenesisUgcTextForDisplay(row.senderName),
       avatarUrl: character?.imageUrl ?? '',
       isPlayerControlledRole: mine || (character?.isPlayerControlled ?? false),
-      text: enter?.text ?? row.content,
+      text: row.photo?.description ?? enter?.text ?? row.content,
+      photo: row.photo,
       currentTime: row.currentTime,
       isMe: mine,
       status: 'sent',
@@ -266,7 +267,9 @@ class WorldHistoryProjection {
       messageType: row.messageType,
       timelinePayload: enter,
       createdAt: row.createdAt,
-      imageUrl: row.messageType == 'image' ? row.content.trim() : '',
+      imageUrl:
+          row.photo?.imageUrl ??
+          (row.messageType == 'image' ? row.content.trim() : ''),
       deferredTick: row.type != 'tick'
           ? null
           : () {

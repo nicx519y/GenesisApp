@@ -9,6 +9,7 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
     bool current() => _historyIsCurrent(locationId, ticket);
     if (!current()) return false;
     final rounds = messages
+        .where((message) => message.businessType != 'live_photo')
         .map((message) => message.conversationRoundNumber)
         .where((round) => round > 0)
         .toSet();
@@ -363,6 +364,7 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
             maxWorldMessageId: maxWorldMessageId,
           );
     });
+    _queueBaselineRebuilds.add(locationId);
     _setState(
       _state.copyWith(
         worldMessages: _state.worldMessages

@@ -7,6 +7,22 @@ class GenesisDarkPageRoute<T> extends MaterialPageRoute<T> {
   GenesisDarkPageRoute({required super.builder, super.settings});
 
   @override
+  bool get popGestureEnabled {
+    if (!super.popGestureEnabled) return false;
+    // A nested route can still be current in its own Navigator while a root
+    // dialog covers the entire app. It must not claim that dialog's Android
+    // predictive-back gesture (or an iOS edge swipe).
+    NavigatorState? ancestorNavigator = navigator;
+    while (ancestorNavigator != null) {
+      final enclosingRoute = ModalRoute.of(ancestorNavigator.context);
+      if (enclosingRoute == null) break;
+      if (!enclosingRoute.isCurrent) return false;
+      ancestorNavigator = enclosingRoute.navigator;
+    }
+    return true;
+  }
+
+  @override
   DelegatedTransitionBuilder? get delegatedTransition =>
       _darkDelegatedTransition;
 

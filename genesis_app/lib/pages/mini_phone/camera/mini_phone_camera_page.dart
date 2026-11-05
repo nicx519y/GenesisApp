@@ -1,3 +1,7 @@
+import 'mini_phone_camera_image.dart';
+import 'mini_phone_camera_tasks.dart';
+import 'mini_phone_camera_style_sheet.dart';
+import '../../../utils/api_error_message.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -8,8 +12,7 @@ import '../../../components/common/genesis_modal_routes.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../../../ui/components/genesis_primary_button.dart';
-import '../../../ui/components/genesis_static_network_image.dart';
-import '../shared/mini_phone_controls.dart';
+import '../../../ui/components/genesis_refresh_indicator.dart';
 import '../shared/mini_phone_panel.dart';
 import '../shared/mini_phone_toast.dart';
 import '../shared/mini_phone_ui.dart';
@@ -46,6 +49,8 @@ class MiniPhoneCameraPage extends StatefulWidget {
     this.albumThumbnailUrl,
     this.coverImageUrl = '',
     this.previewJobs,
+    this.tasks,
+    this.onReloadOptions,
   });
 
   final Widget header;
@@ -63,6 +68,8 @@ class MiniPhoneCameraPage extends StatefulWidget {
   final String? albumThumbnailUrl;
   final String coverImageUrl;
   final MiniPhoneCameraPreviewJobs? previewJobs;
+  final MiniPhoneCameraTasks? tasks;
+  final Future<void> Function()? onReloadOptions;
 
   @override
   State<MiniPhoneCameraPage> createState() => _MiniPhoneCameraPageState();
@@ -84,6 +91,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   final _captureAlbum = GlobalKey();
   final _flights = <({int id, Rect from, Rect to})>[];
   int? _lastPreviewId;
+  int _lastAcceptance = 0;
   String _personLabel(PhonePerson person) =>
       person.key == widget.selfPersonKey ? strings.you : person.name;
 
@@ -95,6 +103,8 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     super.initState();
     _promptFocus.addListener(_promptFocusChanged);
     _attach();
+    _lastAcceptance = widget.tasks?.acceptanceRevision ?? 0;
+    widget.tasks?.addListener(_taskChanged);
     _lastPreviewId = widget.previewJobs?.tasks.firstOrNull?.id;
     widget.previewJobs?.addListener(_previewChanged);
   }
@@ -136,11 +146,17 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     if (widget.initialPrompt.isNotEmpty) camera.setPrompt(widget.initialPrompt);
     _syncPrompt();
     camera.addListener(_changed);
+    unawaited(widget.tasks?.restoreSelections());
   }
 
   @override
   void didUpdateWidget(covariant MiniPhoneCameraPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.tasks != widget.tasks) {
+      oldWidget.tasks?.removeListener(_taskChanged);
+      _lastAcceptance = widget.tasks?.acceptanceRevision ?? 0;
+      widget.tasks?.addListener(_taskChanged);
+    }
     if (oldWidget.previewJobs != widget.previewJobs) {
       oldWidget.previewJobs?.removeListener(_previewChanged);
       _lastPreviewId = widget.previewJobs?.tasks.firstOrNull?.id;
@@ -185,6 +201,32 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     }
   }
 
+  void _taskChanged() {
+    if (!mounted) return;
+    final revision = widget.tasks?.acceptanceRevision ?? 0;
+    if (revision != _lastAcceptance) {
+      _lastAcceptance = revision;
+      if (!MediaQuery.disableAnimationsOf(context) && !_keyboardOpen) {
+        final stage = _captureStage.currentContext?.findRenderObject();
+        final frame = _captureFrame.currentContext?.findRenderObject();
+        final album = _captureAlbum.currentContext?.findRenderObject();
+        if (stage is RenderBox &&
+            frame is RenderBox &&
+            album is RenderBox &&
+            frame.hasSize &&
+            album.hasSize) {
+          _flights.add((
+            id: revision,
+            from:
+                frame.localToGlobal(Offset.zero, ancestor: stage) & frame.size,
+            to: album.localToGlobal(Offset.zero, ancestor: stage) & album.size,
+          ));
+        }
+      }
+    }
+    setState(() {});
+  }
+
   void _previewChanged() {
     if (!mounted) return;
     final task = widget.previewJobs?.tasks.firstOrNull;
@@ -215,6 +257,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   @override
   void dispose() {
     camera.removeListener(_changed);
+    widget.tasks?.removeListener(_taskChanged);
     widget.previewJobs?.removeListener(_previewChanged);
     camera.close(owner: _viewOwner);
     _promptFocus.removeListener(_promptFocusChanged);
@@ -242,6 +285,9 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
                 MiniPhoneCameraPhase.generating => _generating(),
                 MiniPhoneCameraPhase.result => _result(),
               },
+              // Keep the photo geometry unchanged when the keyboard consumes
+              // the system's bottom safe area.
+              maintainBottomViewPadding: true,
               footer: Visibility(
                 visible: !_keyboardOpen,
                 maintainState: true,
@@ -517,6 +563,30 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     final controller = camera;
     final scope = controller.scope;
     final generation = controller.requests.generation;
+    if (widget.tasks case final tasks?) {
+      if (tasks.options == null) {
+        await widget.onReloadOptions?.call();
+        return;
+      }
+      final label = await showGenesisModalBottomSheet<String>(
+        context: context,
+        backgroundColor: miniRaised,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => PhoneCameraStyleSheet(
+          options: tasks.options!,
+          selected: tasks.selectedStyle,
+        ),
+      );
+      if (mounted &&
+          label != null &&
+          controller == camera &&
+          controller.scope == scope &&
+          controller.requests.generation == generation) {
+        tasks.selectStyle(label);
+      }
+      return;
+    }
     final template = await showGenesisModalBottomSheet<MiniPhoneCameraTemplate>(
       context: context,
       backgroundColor: miniRaised,
@@ -541,7 +611,8 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
   Future<void> _requestCapture() async {
     if (_capturePending) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    if (widget.previewJobs != null && camera.selectedPeople.isEmpty) {
+    if ((widget.tasks != null || widget.previewJobs != null) &&
+        camera.selectedPeople.isEmpty) {
       showMiniPhoneToast(context, strings.castHint);
       return;
     }
@@ -551,11 +622,11 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
       final generation = controller.requests.generation;
       try {
         await callback();
-      } catch (_) {
+      } catch (error) {
         if (mounted &&
             camera == controller &&
             controller.requests.generation == generation) {
-          showMiniPhoneToast(context, strings.generationFailed);
+          showMiniPhoneToast(context, apiErrorMessage(error));
         }
       } finally {
         if (mounted) setState(() => _capturePending = false);
@@ -567,9 +638,8 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
 
   Widget _captureControls(String? priceText) {
     final albumUrl = widget.albumThumbnailUrl?.trim();
-    final template = _selectedTemplate ?? MiniPhoneCameraTemplate.values.first;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(26, 10, 26, 28),
+      padding: const EdgeInsets.fromLTRB(26, 10, 26, 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -585,21 +655,20 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
               MiniPhoneCameraThumbnail(
                 key: const ValueKey('mini-phone-camera-templates'),
                 label:
+                    widget.tasks?.style?.name ??
                     _selectedTemplate?.label(strings) ??
                     context.l10n.miniPhoneCameraStyle,
                 onPressed: _chooseTemplate,
                 showSwitch: true,
-                child: Image.asset(
-                  template.assetPath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      const ColoredBox(color: miniRaised),
-                ),
+                child: _albumImage(widget.tasks?.style?.demoImageUrl),
               ),
               MiniPhoneCameraShutter(
                 label: strings.takePhoto,
                 onPressed:
                     !_capturePending &&
+                        (widget.tasks == null ||
+                            widget.tasks!.options != null &&
+                                !widget.tasks!.submitting) &&
                         (widget.onCaptureRequested != null ||
                             (widget.onGenerate != null && camera.canGenerate))
                     ? () => unawaited(_requestCapture())
@@ -607,15 +676,55 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
               ),
               MiniPhoneCameraThumbnail(
                 key: const ValueKey('mini-phone-camera-album'),
-                label: (widget.previewJobs?.pendingCount ?? 0) > 0
+                label:
+                    (widget.tasks?.pendingCount ??
+                            widget.previewJobs?.pendingCount ??
+                            0) >
+                        0
                     ? context.l10n.miniPhoneCameraGeneratingCount(
-                        count: widget.previewJobs!.pendingCount,
+                        count:
+                            widget.tasks?.pendingCount ??
+                            widget.previewJobs!.pendingCount,
                       )
                     : widget.albumLabel ?? context.l10n.miniPhonePhotos,
                 onPressed: widget.onOpenAlbum,
                 child: SizedBox(
                   key: _captureAlbum,
-                  child: widget.previewJobs != null
+                  child: widget.tasks != null
+                      ? Stack(
+                          fit: StackFit.passthrough,
+                          children: [
+                            _albumImage(
+                              widget.tasks!.latestSuccess?.imageUrl ?? albumUrl,
+                            ),
+                            if (widget.tasks!.pendingCount > 0)
+                              const Positioned.fill(
+                                child: ColoredBox(
+                                  color: Colors.black45,
+                                  child: Center(
+                                    child: SizedBox.square(
+                                      dimension: 18,
+                                      child: GenesisLoadingIndicator(
+                                        strokeWidth: 1.5,
+                                        color: miniWhite,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (widget.tasks!.unread)
+                              const Positioned(
+                                right: 3,
+                                top: 3,
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 8,
+                                  color: miniRed,
+                                ),
+                              ),
+                          ],
+                        )
+                      : widget.previewJobs != null
                       ? CameraPreviewAlbumThumbnail(
                           jobs: widget.previewJobs!,
                           fallback: _albumImage(albumUrl),
@@ -625,23 +734,40 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
               ),
             ],
           ),
-          if (priceText != null) ...[
+          if (widget.tasks != null || priceText != null) ...[
             const SizedBox(height: 8),
-            Text(
-              priceText,
-              textAlign: TextAlign.center,
-              style: miniStyle(11, FontWeight.w400, miniTertiary),
-            ),
+            _captureFooterNote(priceText),
           ],
         ],
       ),
     );
   }
 
+  Widget _captureFooterNote(String? priceText) {
+    final style = miniStyle(11, FontWeight.w400, miniTertiary);
+    if (widget.tasks == null) {
+      return Text(priceText!, textAlign: TextAlign.center, style: style);
+    }
+    // Reserve the localized eligibility paragraph before options arrive and
+    // after eligibility changes, so the request never resizes the photo.
+    return Visibility(
+      visible: widget.tasks!.options?.freeAvailable == true,
+      maintainState: true,
+      maintainAnimation: true,
+      maintainSize: true,
+      child: Text(
+        context.l10n.cameraFreeAvailable,
+        textAlign: TextAlign.center,
+        style: style,
+      ),
+    );
+  }
+
   Widget _albumImage(String? albumUrl) => albumUrl == null || albumUrl.isEmpty
       ? const ColoredBox(color: miniRaised)
-      : GenesisStaticNetworkImage(
+      : MiniPhoneCameraImage(
           imageUrl: albumUrl,
+          fixedSize: true,
           fit: BoxFit.cover,
           placeholder: (_) => const ColoredBox(color: miniRaised),
           errorWidget: (_, _) => const ColoredBox(color: miniRaised),
@@ -713,7 +839,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
               alignment: WrapAlignment.center,
               children: [
                 for (final person in camera.selectedPeople)
-                  miniPhonePersonAvatar(person, 28, radius: 8),
+                  miniPhoneCameraPersonAvatar(person, 28, radius: 8),
               ],
             ),
           ],
@@ -740,29 +866,42 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
           Semantics(
             button: true,
             label: strings.openPhoto,
-            child: InkWell(
-              onTap: () => _openPhoto(result),
-              borderRadius: BorderRadius.circular(12),
-              child: ClipRRect(
+            child: LayoutBuilder(
+              builder: (context, bounds) => GenesisImageViewerSourceAnchor(
+                previewImageProvider: genesisImageViewerPreviewProvider(
+                  context,
+                  imageUrl: miniPhoneCameraImageUrl(
+                    result.imageUrl,
+                    logicalWidth: bounds.maxWidth,
+                  ),
+                  logicalWidth: bounds.maxWidth,
+                  logicalHeight: bounds.maxWidth / request.aspectRatio,
+                  fit: BoxFit.contain,
+                ),
+                fit: BoxFit.contain,
+                onTap: (source) => _openPhoto(result, source),
                 borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: request.aspectRatio,
-                  child: ColoredBox(
-                    color: miniRaised,
-                    child: GenesisStaticNetworkImage(
-                      key: ValueKey(result.imageUrl),
-                      imageUrl: result.imageUrl,
-                      fit: BoxFit.contain,
-                      errorWidget: (_, _) => Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                            strings.imageUnavailable,
-                            textAlign: TextAlign.center,
-                            style: miniStyle(
-                              12,
-                              FontWeight.w400,
-                              miniSecondary,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(
+                    aspectRatio: request.aspectRatio,
+                    child: ColoredBox(
+                      color: miniRaised,
+                      child: MiniPhoneCameraImage(
+                        key: ValueKey(result.imageUrl),
+                        imageUrl: result.imageUrl,
+                        fit: BoxFit.contain,
+                        errorWidget: (_, _) => Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              strings.imageUnavailable,
+                              textAlign: TextAlign.center,
+                              style: miniStyle(
+                                12,
+                                FontWeight.w400,
+                                miniSecondary,
+                              ),
                             ),
                           ),
                         ),
@@ -782,7 +921,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    miniPhonePersonAvatar(person, 28, radius: 8),
+                    miniPhoneCameraPersonAvatar(person, 28, radius: 8),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
@@ -816,17 +955,28 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
     );
   }
 
-  void _openPhoto(MiniPhoneCameraResult result) {
+  void _openPhoto(
+    MiniPhoneCameraResult result,
+    GenesisImageViewerSource source,
+  ) {
     if (widget.onOpenPhoto case final callback?) {
+      source.previewImage.dispose();
       callback(result);
     } else {
-      unawaited(showGenesisImageViewer(context, imageUrls: [result.imageUrl]));
+      unawaited(
+        showGenesisImageViewer(
+          context,
+          imageUrls: [result.imageUrl],
+          source: source,
+        ),
+      );
     }
   }
 
   Widget _footer() {
     final price = widget.priceGems;
-    final priceText = price != null && price.isFinite && price >= 0
+    final priceText =
+        widget.tasks == null && price != null && price.isFinite && price >= 0
         ? strings.pricePerPhoto(price)
         : null;
     if (camera.phase == MiniPhoneCameraPhase.compose) {

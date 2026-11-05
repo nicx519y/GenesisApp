@@ -1,3 +1,4 @@
+import '../../network/mini_phone/mini_phone_camera_models.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
@@ -26,6 +27,7 @@ import '../../components/common/page_presentation_scope.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
+import '../../components/tilemap/tilemap_view_state.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/legacy_world_map/legacy_world_map_gesture.dart'
@@ -62,6 +64,7 @@ import 'world_sections.dart';
 import 'world_update_push_banner.dart';
 import 'world_update_push_target.dart';
 import 'world_value_helpers.dart';
+import 'world_tilemap_view_store.dart';
 
 part 'world_page_tabs.dart';
 part 'world_page_chatroom_session.dart';
@@ -70,6 +73,7 @@ part 'world_page_tick_flow.dart';
 part 'world_page_location_chat.dart';
 part 'world_page_sheets.dart';
 part 'world_page_layout.dart';
+part 'world_page_tilemap_view.dart';
 
 class WorldPage extends StatefulWidget {
   const WorldPage({
@@ -88,6 +92,8 @@ class WorldPage extends StatefulWidget {
     this.onRetryInitialLaunch,
     this.initialDefinitionVersion = 0,
     this.initialMapLocationId = '',
+    this.initialPhotoTarget,
+    this.initialCameraTarget,
     this.miniPhoneSession,
   });
 
@@ -105,6 +111,8 @@ class WorldPage extends StatefulWidget {
   final VoidCallback? onRetryInitialLaunch;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
+  final ChatPhotoTarget? initialPhotoTarget;
+  final PhoneCameraTarget? initialCameraTarget;
   final MiniPhoneSession? miniPhoneSession;
 
   @override
@@ -114,7 +122,10 @@ class WorldPage extends StatefulWidget {
 enum _WorldPageRenderStage { framework, detailShell, content }
 
 class _WorldPageState extends State<WorldPage>
-    with TickerProviderStateMixin, LanguageDataRefresh<WorldPage> {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        LanguageDataRefresh<WorldPage> {
   @override
   bool get languageDataLoading => _pollInFlight;
   bool _lastWorldFetchSucceeded = false;
@@ -151,14 +162,27 @@ class _WorldPageState extends State<WorldPage>
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
   StreamSubscription<ChatroomWorldSummaryUpdated>? _worldSummaryUpdateSub;
+  StreamSubscription<ChatroomPhotoResult>? _photoResultSub;
+  Future<void> _photoResultQueue = Future.value();
+  bool _presentingPhotoResult = false;
+  int _photoResultEpoch = 0;
+  bool _initialPhotoTargetAssigned = false;
+  bool _initialCameraTargetConsumed = false;
   Future<void>? _worldChatroomAuthRecovery;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
-  final _tilemapRestorationController = TilemapRestorationController();
-  final GlobalKey _tilemapImplementationKey = GlobalKey(
+  var _tilemapRestorationController = TilemapRestorationController();
+  GlobalKey _tilemapImplementationKey = GlobalKey(
     debugLabel: 'world-detail-tilemap',
   );
+  WorldTilemapViewStore? _tilemapViewStore;
+  TilemapViewState? _savedTilemapView;
+  bool _tilemapViewReady = false;
+  bool _tilemapViewApplied = false;
+  int _tilemapViewGeneration = 0;
+  String _restoredTilemapInitialLocationId = '';
+  Timer? _tilemapViewSaveTimer;
   TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
   late final Future<void> _tilemapVisualModeLoad;
   bool _tilemapVisualModeReady = false;
@@ -405,15 +429,19 @@ class _WorldPageState extends State<WorldPage>
       return;
     }
     final world = _world!;
+    final tilemapViewGeneration = _tilemapViewGeneration;
     await _currentUidLoad;
     if (!mounted ||
+        tilemapViewGeneration != _tilemapViewGeneration ||
         !identical(_world, world) ||
         _renderStage != _WorldPageRenderStage.detailShell) {
       _contentMountScheduled = false;
       return;
     }
+    _restoreTilemapView(world);
     await _precacheCurrentWorldFooterAvatar(world);
     if (!mounted ||
+        tilemapViewGeneration != _tilemapViewGeneration ||
         !identical(_world, world) ||
         _renderStage != _WorldPageRenderStage.detailShell) {
       _contentMountScheduled = false;
@@ -432,6 +460,7 @@ class _WorldPageState extends State<WorldPage>
         timeout: FirebasePerformanceOperation.renderTimeout,
       );
       if (!mounted ||
+          tilemapViewGeneration != _tilemapViewGeneration ||
           !identical(_world, world) ||
           _renderStage != _WorldPageRenderStage.detailShell) {
         unawaited(renderOperation.cancel());
@@ -466,6 +495,7 @@ class _WorldPageState extends State<WorldPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _miniPhoneSession =
         widget.miniPhoneSession ??
         MiniPhoneSession.forWorld(context, widget.wid);
@@ -524,6 +554,9 @@ class _WorldPageState extends State<WorldPage>
   void didUpdateWidget(WorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.wid != widget.wid) {
+      _resetTilemapView();
+      _currentUidLoad = _loadCurrentUid();
+      unawaited(_currentUidLoad);
       _historyViewCache.dispose();
       _miniPhoneSession.dispose();
       _miniPhoneSession = MiniPhoneSession.forWorld(context, widget.wid);
@@ -563,11 +596,16 @@ class _WorldPageState extends State<WorldPage>
 
   void _onWorldSessionChanged() {
     if (!mounted) return;
+    _initialCameraTargetConsumed = true;
     // Account-scoped music and transport have been reset by the services.
     // Replace the World lease so its entry cannot reuse the disposed player.
     _stopWorldChatroom();
     _miniPhoneSession.dispose();
     _setWorldPageState(() {
+      _resetTilemapView();
+      if (_renderStage == _WorldPageRenderStage.content) {
+        _renderStage = _WorldPageRenderStage.detailShell;
+      }
       _miniPhoneSession = MiniPhoneSession.forWorld(context, widget.wid);
     });
     _currentUidLoad = _loadCurrentUid();
@@ -582,7 +620,19 @@ class _WorldPageState extends State<WorldPage>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _photoResultEpoch++;
+      _tilemapViewSaveTimer?.cancel();
+      _persistTilemapView();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _tilemapViewSaveTimer?.cancel();
+    _persistTilemapView();
     _worldSessionServices?.sessionRevision.removeListener(
       _onWorldSessionChanged,
     );
@@ -607,6 +657,7 @@ class _WorldPageState extends State<WorldPage>
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldSummaryUpdateSub?.cancel());
+    unawaited(_photoResultSub?.cancel());
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -715,11 +766,13 @@ class _WorldPageState extends State<WorldPage>
             widget.initialDefinitionVersion == world.definitionVersion
         ? widget.initialMapLocationId
         : '';
-    final initialTilemapLocationId = processedLocationTree
-        .initialTilemapLocationId(
-          syntheticRootId: worldSyntheticRootLocationId,
-          preferredLocationId: preferredInitialMapLocationId,
-        );
+    final initialTilemapLocationId =
+        _restoredTilemapInitialLocationId.isNotEmpty
+        ? _restoredTilemapInitialLocationId
+        : processedLocationTree.initialTilemapLocationId(
+            syntheticRootId: worldSyntheticRootLocationId,
+            preferredLocationId: preferredInitialMapLocationId,
+          );
     final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
     final renderLocationNodes = processedLocationTree.initialMapRenderRoots;

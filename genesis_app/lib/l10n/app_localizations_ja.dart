@@ -3701,7 +3701,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get miniPhoneCameraPeopleLimit => '選択できるのは5人までです。';
+  String get miniPhoneCameraPeopleLimit => '最大4人まで選べます。';
 
   @override
   String get miniPhoneCameraFailureRefund => '生成に失敗しました。ジェムが差し引かれていた場合は返還されます。';
@@ -3709,4 +3709,41 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get miniPhoneCameraPreviewPostNotice =>
       'プレビュー専用です。このサンプル写真は自分のワールドに投稿できません。';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return '基本料金：$price ジェム';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      '初回の写真は無料になる場合があります。無料の対象かどうかと実際の請求額はサーバーで判定されます。';
+
+  @override
+  String get chatPhotoGenerate => '写真を生成';
+
+  @override
+  String get chatPhotoRecover => '前のリクエストを確認';
+
+  @override
+  String get chatPhotoUncertain =>
+      '前の写真リクエストはまだ確認できていません。次の写真を撮る前に結果を確認してください。';
+
+  @override
+  String get chatPhotoGenerating => '写真を生成中…';
+
+  @override
+  String get chatPhotoFailed => '写真を生成できませんでした。';
+
+  @override
+  String get chatPhotoUnavailable => 'この写真は表示できなくなりました。';
+
+  @override
+  String get cameraFreeAvailable => '現在、初回の撮影は無料です。無料の対象かどうかは送信時に確定します。';
+
+  @override
+  String get cameraSubmissionUnconfirmed => '送信の確認が取れていません';
+
+  @override
+  String get cameraRequestConflict => 'このリクエストは以前の送信内容と競合しています。内容は変更できません。';
 }

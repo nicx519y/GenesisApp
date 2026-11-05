@@ -3837,7 +3837,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get miniPhoneCameraPeopleLimit => 'Choose up to 5 people.';
+  String get miniPhoneCameraPeopleLimit => 'Choose up to 4 people.';
 
   @override
   String get miniPhoneCameraFailureRefund =>
@@ -3846,4 +3846,43 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get miniPhoneCameraPreviewPostNotice =>
       'Preview only. This sample photo cannot be published to your world.';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return 'Base price: $price Gems';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      'Your first photo may be free. Eligibility and the final charge are determined by the server.';
+
+  @override
+  String get chatPhotoGenerate => 'Generate photo';
+
+  @override
+  String get chatPhotoRecover => 'Check previous request';
+
+  @override
+  String get chatPhotoUncertain =>
+      'The previous photo request has not been confirmed. Check it before taking another photo.';
+
+  @override
+  String get chatPhotoGenerating => 'Generating photo…';
+
+  @override
+  String get chatPhotoFailed => 'Couldn’t generate the photo.';
+
+  @override
+  String get chatPhotoUnavailable => 'This photo is no longer available.';
+
+  @override
+  String get cameraFreeAvailable =>
+      'Your first photo is currently free. Eligibility is confirmed when you submit.';
+
+  @override
+  String get cameraSubmissionUnconfirmed => 'Submission not confirmed';
+
+  @override
+  String get cameraRequestConflict =>
+      'This request conflicts with an earlier submission. Its details cannot be changed.';
 }

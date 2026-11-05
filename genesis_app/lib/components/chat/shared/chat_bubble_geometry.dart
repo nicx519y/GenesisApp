@@ -6,6 +6,27 @@ import 'package:flutter/widgets.dart';
 class ChatBubbleGeometry extends SingleChildRenderObjectWidget {
   const ChatBubbleGeometry({super.key, required super.child});
 
+  /// Reads only transforms, safe from the parent sliver's layout correction.
+  /// No descendant size is inspected during another render object's layout.
+  static double? topWithin(RenderObject? root) {
+    double? top;
+    void visit(RenderObject node) {
+      if (!node.attached) return;
+      if (node is _RenderBubbleGeometry) {
+        final y = MatrixUtils.transformPoint(
+          node.getTransformTo(root),
+          Offset.zero,
+        ).dy;
+        if (top == null || y < top!) top = y;
+        return;
+      }
+      node.visitChildren(visit);
+    }
+
+    if (root != null) visit(root);
+    return top;
+  }
+
   static Rect? globalBoundsOf(RenderObject? root) {
     Rect? bounds;
     void visit(RenderObject node) {

@@ -55,16 +55,16 @@ void main() {
     camera.setPrompt('  A selected scene  ');
   }
 
-  test('selects at most five people and allows replacing a selection', () {
+  test('selects at most four people and allows replacing a selection', () {
     final people = List.generate(6, (i) => PhonePerson('p$i', 'P$i', ''));
     camera.setPeople(people);
     for (final person in people) {
       camera.togglePerson(person);
     }
-    expect(camera.selectedPeople, people.take(5));
+    expect(camera.selectedPeople, people.take(4));
     camera.togglePerson(people.first);
     camera.togglePerson(people.last);
-    expect(camera.selectedPeople.length, 5);
+    expect(camera.selectedPeople.length, 4);
     expect(camera.selectedPeople, contains(people.last));
     expect(camera.selectedPeople, isNot(contains(people.first)));
   });
@@ -73,7 +73,7 @@ void main() {
       MiniPhoneCameraResult(imageUrl: 'https://camera.test/$suffix.webp');
 
   test(
-    'requires people, nonblank prompt, identity and an actual adapter',
+    'requires people, identity and an actual adapter; empty prompt is valid',
     () async {
       var calls = 0;
       Future<MiniPhoneCameraResult> adapter(
@@ -87,7 +87,8 @@ void main() {
       await camera.generate(adapter);
       camera.togglePerson(_person);
       camera.setPrompt('  ');
-      await camera.generate(adapter);
+      expect(camera.canGenerate, true);
+      await camera.generate(null);
       camera.setPrompt('A scene');
       await camera.generate(null);
       requests.uid = null;

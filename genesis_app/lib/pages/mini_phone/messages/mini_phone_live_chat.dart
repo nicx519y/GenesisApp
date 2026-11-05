@@ -62,6 +62,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
     store.messagesController.restoredBalanceDrafts.remove(widget.person.id);
     final draft = store.waiting(widget.person.id);
     if (draft != null && !draft.accepted) input.text = draft.content;
+    if (store.isLocallyReady) _restoreInitialContent();
     unawaited(
       loadAndroidSdkInt().then((v) {
         if (mounted) setState(() => sdk = v);
@@ -85,10 +86,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
   Future<void> _loadInitialMessages(int generation) async {
     await store.localReady;
     if (!mounted || generation != store.accountGeneration) return;
-    if (store.history(widget.person.id).isNotEmpty) {
-      _syncReplies();
-      setState(() => ready = true);
-    }
+    setState(_restoreInitialContent);
     final id = store.sessionFor(widget.person.id);
     if (id != null &&
         store.foreground &&
@@ -107,6 +105,22 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
           _showOpeningRows = true;
         }
       });
+    }
+  }
+
+  void _restoreInitialContent() {
+    final charId = widget.person.id;
+    if (store.history(charId).isEmpty &&
+        !store.messagesController.historyStartVisible(charId)) {
+      return;
+    }
+    _syncReplies();
+    ready = true;
+    if (_error == null &&
+        store.history(charId).isEmpty &&
+        store.outgoingDm(charId).isEmpty &&
+        store.waiting(charId) == null) {
+      _showOpeningRows = true;
     }
   }
 
@@ -372,6 +386,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
   @override
   Widget build(BuildContext context) {
     final person = widget.person, waiting = store.waiting(person.id);
+    final showAiDisclaimer = store.messagesController.historyStartVisible(
+      person.id,
+    );
     final visibleMessages = store.messagesController
         .displayHistory(person.id)
         .where((m) => !_revealQueue.contains(m.id))
@@ -516,6 +533,9 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
                       context.l10n.miniPhonePrivateConversation,
                     ].where((s) => s.isNotEmpty).join(' · '),
                     initialContentReady: ready,
+                    oldestEdgeNotice: showAiDisclaimer
+                        ? context.l10n.commonAiDisclaimer
+                        : null,
                     restoreInitialCompletedContent: true,
                     replyWaitingPositioningEnabled: false,
                     replyActionsVisible: false,

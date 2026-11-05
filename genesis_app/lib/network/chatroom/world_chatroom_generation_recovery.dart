@@ -118,7 +118,7 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
     }
   }
 
-  bool _handleAttemptStream(ChatroomEvent event) {
+  bool _handleAttemptStream(ChatroomEvent event, {bool monitorQueue = true}) {
     final identity = switch (event) {
       ChatroomAiStreamStart e => e.identity,
       ChatroomAiStreamChunk e => e.identity,
@@ -145,6 +145,9 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
       end: event is ChatroomAiStreamEnd,
     );
     if (attempt == null) return true;
+    final observations = monitorQueue
+        ? _inspectSocketQueueEvent(event)
+        : const <ChatroomQueueObservation>[];
     _observeAttempt(attempt);
     attempt.waitingExpired = _streamLocallyEnded(
       i.locationId,
@@ -231,6 +234,14 @@ extension _WorldChatroomGenerationRecovery on WorldChatroomService {
       persist: event is ChatroomAiStreamEnd,
       socketCurrentTime: accumulator.message.currentTime,
     );
+    for (final observation in observations) {
+      if (_queueAnomalyMonitor.matchesQueuedMessage(
+        observation.location,
+        observation.message,
+      )) {
+        _queueAnomalyMonitor.commit(observation);
+      }
+    }
     return true;
   }
 }

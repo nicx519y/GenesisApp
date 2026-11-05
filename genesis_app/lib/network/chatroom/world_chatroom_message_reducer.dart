@@ -68,6 +68,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       since: 0,
       limit: limit,
     );
+    for (final row in response.messages) {
+      final photo = ChatPhoto.tryParse(row.payload['photo']);
+      if (_historyIsCurrent(locationId, ticket) &&
+          photo != null &&
+          photo.status == ChatPhotoStatus.generating) {
+        _photoConfirmedReads.add(photo.taskId);
+      }
+    }
     final messages = await _mergeFetchedMessages(
       locationId,
       response.messages,
@@ -398,6 +406,23 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
             persist: false,
             protectIncoming: true,
             preferIncomingContent: true,
+          );
+          final retainedIds = worldMessages
+              .map((m) => m.globalMessageId)
+              .toSet();
+          _queueAnomalyMonitor.calibrate(
+            locationId,
+            messages
+                .where((m) => retainedIds.contains(m.globalMessageId))
+                .map(
+                  (m) => ChatroomQueueMessageInfo(
+                    globalMessageId: m.globalMessageId,
+                    messageId: m.messageId,
+                    locationMessageId: m.locationMessageId,
+                    conversationRoundId: m.conversationRoundId,
+                    clientMsgId: m.clientMsgId,
+                  ),
+                ),
           );
         }
       });
@@ -801,6 +826,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     bool persist = true,
     bool protectIncoming = false,
     bool preferIncomingContent = false,
+    bool calibrateQueue = false,
     String socketCurrentTime = '',
     int socketTickNo = 0,
     int socketSubTickNo = 0,
@@ -841,6 +867,22 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           _liveMessageRevisions[key] = revision;
         }
       }
+      final terminal = attached.photo == null
+          ? null
+          : _photoTerminals[attached.photo!.taskId];
+      if (terminal != null && !attached.photo!.terminal) {
+        attached = attached.copyWith(
+          content: terminal.imageUrl,
+          rawPayload: {
+            ...attached.rawPayload,
+            'content': terminal.imageUrl,
+            'photo': terminal.toJson(),
+          },
+        );
+      }
+      if (attached.photo?.terminal == true) {
+        _photoTerminals[attached.photo!.taskId] = attached.photo!;
+      }
       final incoming =
           attached.streaming &&
               _streamLocallyEnded(
@@ -871,6 +913,13 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         preferIncomingContent: preferIncomingContent,
       );
       resolvedMessages.add(message);
+      _rememberPhotoJob(message);
+      if (!_queueAnomalyMonitor.matchesQueuedMessage(
+        message.locationId,
+        _queueMessageInfo(message),
+      )) {
+        _queueIdentityChanges.add(message.locationId);
+      }
       if (persist && !message.streaming && message.globalMessageId > 0) {
         _historyRefreshes[message.locationId]?.liveMessages[message
                 .globalMessageId] =
@@ -940,6 +989,17 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         socketSubTickNo: resolvedSocketSubTickNo,
       ),
     );
+    if (calibrateQueue) {
+      for (final location
+          in resolvedMessages.map((m) => m.locationId).toSet()) {
+        _queueAnomalyMonitor.calibrate(
+          location,
+          resolvedMessages
+              .where((m) => m.locationId == location && !m.streaming)
+              .map(_queueMessageInfo),
+        );
+      }
+    }
     final changedLocationIds = resolvedMessages
         .map((message) => message.locationId.trim())
         .where((locationId) => locationId.isNotEmpty)
@@ -1037,6 +1097,20 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     WorldChatroomMessage incoming, {
     bool preferIncomingContent = false,
   }) {
+    if (incoming.photo != null && existing.photo != null) {
+      final photo = existing.photo!.terminal && !incoming.photo!.terminal
+          ? existing.photo!
+          : incoming.photo!;
+      return incoming.copyWith(
+        content: photo.imageUrl,
+        createdAt: existing.createdAt ?? incoming.createdAt,
+        rawPayload: {
+          ...incoming.rawPayload,
+          'content': photo.imageUrl,
+          'photo': photo.toJson(),
+        },
+      );
+    }
     if (incoming.llmAttempt != null || existing.llmAttempt != null) {
       return incoming;
     }

@@ -47,9 +47,15 @@ class AppLaunchTransitionController extends ChangeNotifier {
   bool open({Object? sourceId}) => _host?._open(sourceId) ?? false;
 
   /// An omitted source uses the last launch source; [fallbackSourceId] is tried
-  /// when that source is gone or clipped. A restored page always fades out.
+  /// when that source is gone or clipped. A restored page fades unless a close
+  /// source has been explicitly set.
   bool close({Object? fallbackSourceId}) =>
       _host?._close(fallbackSourceId) ?? false;
+
+  /// Change the return target after navigation switches to another app root.
+  /// The current page stays open; button and gesture closing share this target.
+  bool setCloseSource(Object sourceId) =>
+      _host?._setCloseSource(sourceId) ?? false;
 
   /// Settle the current transition at its destination, e.g. before an outer
   /// route is dismissed. This controller never manipulates a Navigator.

@@ -61,6 +61,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     List<WorldChatroomMessage> source, {
     WorldChatroomState? identityState,
   }) {
+    _ensurePhotoVisit();
     final realIdentityState = identityState ?? _chatroomState;
     final resolvedIdentityState = widget.retainOpeningPreviewUntilHistory
         ? realIdentityState.copyWith(
@@ -112,7 +113,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final retainedMessageParseCacheKeys = <String>{};
     final visibleSource = <LocationChatParsedMessage>[];
     for (final message in renderWindow.messages) {
-      if (!_messageVersionIsVisible(message)) continue;
+      if (!_messageVersionIsVisible(message) || !_photoVisible(message)) {
+        continue;
+      }
       final isTimelineMessage = isChatroomTimelinePayloadSenderType(
         message.senderType,
       );
@@ -229,6 +232,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
             existing.isPlayerControlledRole != parsed.isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
             existing.imageUrl != parsed.imageUrl ||
+            existing.photo != parsed.photo ||
             existing.timelinePayload != parsed.timelinePayload ||
             existing.messageType != parsed.messageType ||
             existing.text != parsed.text ||
@@ -248,6 +252,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         existing.isPlayerControlledRole = parsed.isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
         existing.imageUrl = parsed.imageUrl;
+        existing.photo = parsed.photo;
         existing.timelinePayload = parsed.timelinePayload;
         existing.messageType = parsed.messageType;
         existing.text = parsed.text;
@@ -272,6 +277,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
           isPlayerControlledRole: parsed.isPlayerControlledRole,
           avatarUrl: parsed.avatarUrl,
           imageUrl: parsed.imageUrl,
+          photo: parsed.photo,
           timelinePayload: parsed.timelinePayload,
           text: parsed.text,
           currentTime: parsed.currentTime,
@@ -732,6 +738,8 @@ LocationChatMessageParser? locationChatMessageParserForTesting(
     message.messageType,
   );
   switch (businessType) {
+    case 'live_photo':
+      return const ImageMessageParser();
     case 'tick':
       return const TickMessageParser();
     case chatroomUserEnterLocationSenderType:

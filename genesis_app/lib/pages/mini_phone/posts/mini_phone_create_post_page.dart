@@ -239,6 +239,17 @@ class _MiniPhoneCreatePostPageState extends State<MiniPhoneCreatePostPage> {
                               ),
                             ),
                           )
+                        : postDraft.previewImageProvider != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image(
+                              key: const ValueKey(
+                                'mini-phone-album-draft-photo',
+                              ),
+                              image: postDraft.previewImageProvider!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
                         : postDraft.uploadedUrl != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(13),

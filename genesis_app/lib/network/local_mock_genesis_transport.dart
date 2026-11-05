@@ -28,6 +28,8 @@ class LocalMockGenesisTransport implements HttpTransport {
   final _musicLikes = <String, Set<String>>{};
   final _historySnapshots = <String, (String, List<Map<String, dynamic>>)>{};
   int _historySnapshotSequence = 0;
+  final _photoRequests =
+      <String, (Map<String, dynamic>, Map<String, dynamic>)>{};
 
   @visibleForTesting
   void seedChatroomPhoneMovementMessage({
@@ -166,6 +168,27 @@ class LocalMockGenesisTransport implements HttpTransport {
         });
       }
       final phonePath = apiPath.substring('aitown-chat/api/v1/phone/'.length);
+      if (method == 'GET' && phonePath == 'photo/options') {
+        return _ok({
+          'err_no': 0,
+          'data': {
+            'world_id': query['world_id'],
+            'price_cent': 3000,
+            'free_status': 'used',
+            'styles': [
+              {'name': 'Selfie', 'label': 'selfie', 'demo_image_url': ''},
+            ],
+          },
+        });
+      }
+      if (method == 'POST' && phonePath == 'photo/create') {
+        // Local mock cannot complete a real generation or create an album asset.
+        return _ok({
+          'err_no': 1001,
+          'err_msg': 'Photo generation is unavailable in the local mock.',
+          'data': {},
+        });
+      }
       if (method == 'GET' && phonePath == 'post/authors') {
         return _ok({
           'err_no': 0,
@@ -406,6 +429,69 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'aitown-chat/api/v1/message/photo/price') {
+      return _v1Ok({'price_cent': 3000});
+    }
+    if (method == 'POST' && path == 'aitown-chat/api/v1/message/photo/create') {
+      final id = body['client_request_id'];
+      final world = body['world_id'];
+      final location = body['location_id'];
+      if (id is! String ||
+          id.isEmpty ||
+          id.length > 128 ||
+          world is! String ||
+          world.isEmpty ||
+          location is! String ||
+          location.isEmpty ||
+          body.length != 3) {
+        return _v1BusinessError(1001, 'Invalid photo parameters');
+      }
+      final previous = _photoRequests[id];
+      if (previous != null) {
+        if (!mapEquals(previous.$1, body)) {
+          return _v1BusinessError(2062, 'Photo request parameters changed');
+        }
+        return _v1Ok(previous.$2);
+      }
+      final photo = <String, Object?>{
+        'task_id': 'mock-photo-$id',
+        'client_request_id': id,
+        'status': 'generating',
+        'image': null,
+        'failure': null,
+      };
+      final row = _state._newChatroomMessage(
+        worldId: world,
+        locationId: location,
+        conversationRoundId: ++_state._chatroomRoundSeq,
+        roundOrder: 0,
+        senderType: 'live_photo',
+        senderId: '',
+        senderName: '',
+        userId: '',
+        conversationType: 'live_photo',
+        content: '',
+        messageType: 'image',
+        businessType: 'live_photo',
+        v2Payload: {'content': '', 'photo': photo},
+      );
+      _state._chatroomMessages.add(row);
+      final result = <String, dynamic>{
+        'source': 'chat',
+        'world_id': world,
+        'location_id': location,
+        for (final key in [
+          'conversation_round_id',
+          'global_message_id',
+          'message_id',
+          'location_message_id',
+        ])
+          key: '${row[key]}',
+        'photo': photo,
+      };
+      _photoRequests[id] = (Map.of(body), result);
+      return _v1Ok(result);
+    }
     if (method == 'GET' && path == 'aitown-chat/api/v1/world/history') {
       final worldId = query['world_id'] ?? '';
       final limit = int.tryParse(query['limit'] ?? '20');
@@ -1979,44 +2065,65 @@ class _MockState {
         .toSet()
         .toList();
     final refs = locations.take(2).toList();
-    return List.generate(
-      45,
-      (index) => {
-        'global_message_id': '9007199254740993$index',
-        'tick': (44 - index) ~/ 5,
-        'sub_tick': 0,
-        'type': index % 5 == 0 ? 'tick' : 'narrator',
-        'sender_id': index % 5 == 0 ? 'tick' : 'narrator',
-        'sender_name': '',
-        'user_id': null,
-        'message_type': 'text',
-        'content': index % 5 == 0
-            ? jsonEncode({
-                'current_time': 'Day 1',
-                'global': 'Archive chapter $index',
-                'global_status': null,
-                'story_events': [
-                  if (refs.isNotEmpty)
-                    {
-                      'location_id': refs.first,
-                      'timestamp': 'Day 1',
-                      'visibility': 'public',
-                      'visible_to': null,
-                      'text': 'Archive event $index',
-                      'clue': '',
-                      'cast': null,
-                      'status': null,
-                    },
-                ],
-                'characters_moved': [],
-              })
-            : 'Archive message $index',
-        'min_app_version': 0,
-        'current_time': 'Day 1',
-        'created_at': '2026-10-19T12:00:00+08:00',
-        'location_refs': index % 5 == 0 ? refs : refs.take(1).toList(),
-      },
-    );
+    return [
+      for (final row in _chatroomMessagesForWorld(
+        worldId,
+      ).reversed.where((m) => m['type'] == 'live_photo'))
+        {
+          'global_message_id': '${row['global_message_id']}',
+          'type': 'live_photo',
+          'sender_id': '',
+          'sender_name': '',
+          'user_id': null,
+          'message_type': 'image',
+          'content': row['content'],
+          'photo': (row['v2_payload'] as Map)['photo'],
+          'min_app_version': 0,
+          'current_time': '',
+          'created_at': row['created_at'],
+          'location_refs': [row['location_id']],
+          'tick': 0,
+          'sub_tick': 0,
+        },
+      ...List.generate(
+        45,
+        (index) => {
+          'global_message_id': '9007199254740993$index',
+          'tick': (44 - index) ~/ 5,
+          'sub_tick': 0,
+          'type': index % 5 == 0 ? 'tick' : 'narrator',
+          'sender_id': index % 5 == 0 ? 'tick' : 'narrator',
+          'sender_name': '',
+          'user_id': null,
+          'message_type': 'text',
+          'content': index % 5 == 0
+              ? jsonEncode({
+                  'current_time': 'Day 1',
+                  'global': 'Archive chapter $index',
+                  'global_status': null,
+                  'story_events': [
+                    if (refs.isNotEmpty)
+                      {
+                        'location_id': refs.first,
+                        'timestamp': 'Day 1',
+                        'visibility': 'public',
+                        'visible_to': null,
+                        'text': 'Archive event $index',
+                        'clue': '',
+                        'cast': null,
+                        'status': null,
+                      },
+                  ],
+                  'characters_moved': [],
+                })
+              : 'Archive message $index',
+          'min_app_version': 0,
+          'current_time': 'Day 1',
+          'created_at': '2026-10-19T12:00:00+08:00',
+          'location_refs': index % 5 == 0 ? refs : refs.take(1).toList(),
+        },
+      ),
+    ];
   }
 
   Map<String, dynamic> chatroomWorldMessages(String worldId) {

@@ -239,16 +239,20 @@ class MiniPhoneUploadBorder extends CustomPainter {
   bool shouldRepaint(covariant MiniPhoneUploadBorder oldDelegate) => false;
 }
 
-Widget miniPhonePersonAvatar(PhonePerson p, double size, {double? radius}) =>
-    p.type == 2
+Widget miniPhonePersonAvatar(
+  PhonePerson p,
+  double size, {
+  double? radius,
+  String? avatarUrl,
+}) => p.type == 2
     ? GenesisCharacterAvatar(
-        url: p.avatar,
+        url: avatarUrl ?? p.avatar,
         name: p.name,
         size: size,
         borderRadius: radius ?? size / 2,
       )
     : GenesisAvatar(
-        url: p.avatar,
+        url: avatarUrl ?? p.avatar,
         name: p.name,
         size: size,
         borderRadius: radius ?? size / 2,

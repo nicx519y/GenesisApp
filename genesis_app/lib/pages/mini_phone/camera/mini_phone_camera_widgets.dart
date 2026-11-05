@@ -1,3 +1,4 @@
+import 'mini_phone_camera_image.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,6 @@ import '../../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../../../ui/tokens/genesis_radii.dart';
 import '../../../ui/tokens/genesis_blur.dart';
-import '../../../ui/components/genesis_static_network_image.dart';
-import '../shared/mini_phone_controls.dart';
 import '../shared/mini_phone_ui.dart';
 import 'mini_phone_camera_strings.dart';
 import 'mini_phone_camera_templates.dart';
@@ -85,7 +84,7 @@ class MiniPhoneCameraViewfinder extends StatelessWidget {
                 sigmaY: GenesisBlur.strong,
                 tileMode: TileMode.clamp,
               ),
-              child: GenesisStaticNetworkImage(
+              child: MiniPhoneCameraImage(
                 key: ValueKey(imageUrl),
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
@@ -324,12 +323,21 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: miniStyle(11, FontWeight.w400, miniSecondary),
+            // Server-provided style names and task counts can wrap after the
+            // first frame. Keep both caption lines in the footer from launch.
+            SizedBox(
+              height:
+                  (MediaQuery.textScalerOf(context).scale(11) *
+                          miniStyle(11).height! *
+                          2)
+                      .ceilToDouble(),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: miniStyle(11, FontWeight.w400, miniSecondary),
+              ),
             ),
           ],
         ),
@@ -492,7 +500,11 @@ class MiniPhoneCameraPersonChoice extends StatelessWidget {
                     ),
                     child: Opacity(
                       opacity: selected ? 1 : .65,
-                      child: miniPhonePersonAvatar(person, 62, radius: 10),
+                      child: miniPhoneCameraPersonAvatar(
+                        person,
+                        62,
+                        radius: 10,
+                      ),
                     ),
                   ),
                   if (selected)
@@ -558,13 +570,7 @@ class MiniPhoneCameraTemplateChoice extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 4 / 5,
-                  child: Image.asset(
-                    template.assetPath,
-                    fit: BoxFit.cover,
-                    excludeFromSemantics: true,
-                    errorBuilder: (_, _, _) =>
-                        const ColoredBox(color: miniRaised),
-                  ),
+                  child: const ColoredBox(color: miniRaised),
                 ),
                 if (selected)
                   const Positioned(

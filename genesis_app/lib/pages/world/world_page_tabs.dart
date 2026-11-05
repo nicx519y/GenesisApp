@@ -177,6 +177,12 @@ extension _WorldPageTabs on _WorldPageState {
       }
     }
     if (!mounted) return;
+    await _loadTilemapView(services, revision, uid);
+    if (!mounted ||
+        !identical(services, _worldSessionServices) ||
+        revision != services.sessionRevision.value) {
+      return;
+    }
     _recentChatStoreUpdatesEnabled = true;
   }
 

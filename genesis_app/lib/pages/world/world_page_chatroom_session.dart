@@ -21,6 +21,10 @@ extension _WorldPageChatroomSession on _WorldPageState {
       sendGate: services.chatSendGate,
       refreshInitialSnapshotOnConnect: false,
     );
+    if (!_initialPhotoTargetAssigned) {
+      service.photoNavigationTarget = widget.initialPhotoTarget;
+      _initialPhotoTargetAssigned = true;
+    }
     final world = _world;
     if (world != null) {
       service.applyWorldSnapshot(world);
@@ -40,6 +44,76 @@ extension _WorldPageChatroomSession on _WorldPageState {
       shouldShow: (failure) => failure.code != 'snapshot_failed',
       onFailure: _handleWorldChatroomFailure,
     );
+    _photoResultSub = service.photoResults.listen((event) {
+      final foreground =
+          WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+      if (!mounted ||
+          !foreground ||
+          (ModalRoute.of(context)?.isCurrent != true &&
+              !_miniPhoneSession.hasForegroundRoute &&
+              !_presentingPhotoResult)) {
+        return;
+      }
+      final services = AppServicesScope.read(context);
+      final revision = services.sessionRevision.value;
+      final epoch = _photoResultEpoch;
+      _photoResultQueue = _photoResultQueue
+          .then((_) async {
+            bool current() =>
+                mounted &&
+                epoch == _photoResultEpoch &&
+                identical(_worldChatroom, service) &&
+                revision == services.sessionRevision.value &&
+                (WidgetsBinding.instance.lifecycleState == null ||
+                    WidgetsBinding.instance.lifecycleState ==
+                        AppLifecycleState.resumed);
+            await services.balancePrompts.waitUntilIdle();
+            if (!mounted ||
+                !current() ||
+                (ModalRoute.of(context)?.isCurrent != true &&
+                    !_miniPhoneSession.hasForegroundRoute)) {
+              return;
+            }
+            _presentingPhotoResult = true;
+            try {
+              final release = services.balancePrompts.holdPresentation();
+              try {
+                await showGenesisActionBox<void>(
+                  context: context,
+                  title: event.title,
+                  content: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(event.summary, textAlign: TextAlign.center),
+                  ),
+                  actions: const [],
+                  cancelLabel: context.l10n.okAction,
+                );
+              } finally {
+                release();
+              }
+              if (!current() ||
+                  event.photo?.failureCode != 'insufficient_balance') {
+                return;
+              }
+              final token = await services.sessionStore.readAuthToken();
+              if (!current()) return;
+              await services.balancePrompts.reportAndWait(
+                GemBalanceAlert(
+                  kind: GemBalanceAlertKind.insufficient,
+                  occurrenceKey:
+                      '${event.source}-photo:${event.message.worldId}:${event.photo!.taskId}',
+                ),
+                token,
+              );
+            } finally {
+              _presentingPhotoResult = false;
+            }
+          })
+          .catchError((Object error, StackTrace stack) {
+            debugPrint('[ChatPhoto] result presentation failed: $error');
+          });
+    });
     _worldSummaryUpdateSub = service.summaryUpdates.listen((event) {
       if (!mounted ||
           !identical(_worldChatroom, service) ||
@@ -169,6 +243,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
     await _worldChatroomSub?.cancel();
     await _worldChatroomFailureSub?.cancel();
     await _worldSummaryUpdateSub?.cancel();
+    await _photoResultSub?.cancel();
+    _photoResultSub = null;
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
     _worldSummaryUpdateSub = null;
@@ -334,6 +410,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
     }
     _maybeOpenInitialLocationChat();
+    _maybeOpenInitialCameraPhoto();
     if (tickStartedFromPush) {
       _setWorldTickInProgress(true);
       _startWorldTickTracking();
@@ -420,6 +497,47 @@ extension _WorldPageChatroomSession on _WorldPageState {
     _stopWorldChatroom();
   }
 
+  void _maybeOpenInitialCameraPhoto() {
+    final target = widget.initialCameraTarget;
+    if (_initialCameraTargetConsumed || target == null || _world == null) {
+      return;
+    }
+    if (target.worldId != widget.wid ||
+        !shouldConnectWorldChatroom(_world!.relationStatus)) {
+      _initialCameraTargetConsumed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showGenesisToast(
+            context,
+            context.l10n.chatPhotoUnavailable,
+            brightness: Brightness.dark,
+          );
+        }
+      });
+      return;
+    }
+    if (_worldChatroom == null) return;
+    _initialCameraTargetConsumed = true;
+    final session = _miniPhoneSession;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await session.data?.localReady;
+      if (!mounted ||
+          session.isDisposed ||
+          !identical(session, _miniPhoneSession) ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      await showMiniPhone(
+        context,
+        worldId: widget.wid,
+        session: session,
+        initialScreen: MiniPhoneScreen.photos,
+        initialCameraTarget: target,
+        entrySource: 'photo_notification',
+      );
+    });
+  }
+
   void _maybeOpenInitialLocationChat() {
     final initialLocationId = _pendingInitialLocationId;
     final world = _world;
@@ -441,6 +559,17 @@ extension _WorldPageChatroomSession on _WorldPageState {
             )
             .firstOrNull;
     if (descriptor == null) {
+      if (_worldChatroom?.photoNavigationTarget != null) {
+        _worldChatroom?.photoNavigationTarget = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showGenesisToast(
+            context,
+            context.l10n.chatPhotoUnavailable,
+            brightness: Brightness.dark,
+          );
+        });
+      }
       _pendingInitialLocationId = '';
       _initialLocationChatEntry = false;
       _locationChatTransitionsEnabled = true;
@@ -470,6 +599,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldSummaryUpdateSub?.cancel());
+    unawaited(_photoResultSub?.cancel());
+    _photoResultSub = null;
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
     _worldSummaryUpdateSub = null;
@@ -498,6 +629,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       await service.connect(worldId: widget.wid, identity: identity);
       if (!mounted || !identical(_worldChatroom, service)) return;
       _maybeOpenInitialLocationChat();
+      _maybeOpenInitialCameraPhoto();
       _scheduleLocationChatPrecache();
     } catch (_) {
       // The service emits failures and keeps reconnecting while desired.

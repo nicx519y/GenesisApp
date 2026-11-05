@@ -16,11 +16,13 @@ import '../models/location_tree.dart';
 import '../models/world.dart';
 import 'chatroom_client.dart';
 import 'chatroom_disconnect_monitor.dart';
+import 'chatroom_queue_anomaly_monitor.dart';
 import 'chatroom_connection_controller.dart';
 import 'chatroom_http_models.dart';
 import 'chatroom_message_type.dart';
 import 'chatroom_message_storage.dart';
 import 'chatroom_models.dart';
+import 'chat_photo_request_store.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_reply_actions_controller.dart';
 import 'chatroom_reply_action_storage.dart';
@@ -31,9 +33,11 @@ export 'chatroom_reply_actions_controller.dart';
 import 'chatroom_timeline_payload.dart';
 
 part 'world_chatroom_connection.dart';
+part 'world_chatroom_photos.dart';
 part 'world_chatroom_entry.dart';
 part 'world_chatroom_history_repository.dart';
 part 'world_chatroom_sync.dart';
+part 'world_chatroom_queue_monitor.dart';
 part 'world_chatroom_message_mutations.dart';
 part 'world_chatroom_event_projection.dart';
 part 'world_chatroom_message_reducer.dart';
@@ -191,6 +195,7 @@ class WorldChatroomService {
     ChatroomReplyActionStorage? replyActionStorage,
     ChatroomInspirationStorage? inspirationStorage,
     ChatroomDisconnectMonitor? disconnectMonitor,
+    ChatroomQueueAnomalyMonitor? queueAnomalyMonitor,
     LocationChatSendGate? sendGate,
     DateTime Function()? sendGateClock,
   }) : sendGate =
@@ -202,6 +207,8 @@ class WorldChatroomService {
            ),
        _ownsSendGate = sendGate == null,
        _disconnectMonitor = disconnectMonitor,
+       _queueAnomalyMonitor =
+           queueAnomalyMonitor ?? ChatroomQueueAnomalyMonitor(),
        _api = api,
        _client = client,
        _replyActionStorage = replyActionStorage,
@@ -213,6 +220,9 @@ class WorldChatroomService {
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
   final _entryChannels = <String, ValueNotifier<ChatroomLocationEntry>>{};
+  final ChatroomQueueAnomalyMonitor _queueAnomalyMonitor;
+  final _queueBaselineRebuilds = <String>{};
+  final _queueIdentityChanges = <String>{};
   final _entryLocalReads = <(String, _HistoryTicket), Future<void>>{};
   final _entryNetworkReads = <(String, int, int), Future<void>>{};
   final _entryPreloads = <(String, _HistoryTicket), Future<void>>{};
@@ -475,6 +485,22 @@ class WorldChatroomService {
   /// World IDs whose archive may have changed; never canonical History rows.
   Stream<String> get historyChanges => _historyChanges.stream;
   bool _historyConnectedOnce = false;
+  final _photoResults = StreamController<ChatroomPhotoResult>.broadcast();
+  Stream<ChatroomPhotoResult> get photoResults => _photoResults.stream;
+  final _photoConfirmedReads = <String>{};
+  bool photoConfirmedByHistory(String task) =>
+      _photoConfirmedReads.contains(task);
+  final _photoLiveRevisions = <String, int>{};
+  int _photoRevision = 0;
+  int get photoRevision => _photoRevision;
+  int photoLiveRevision(String taskId) => _photoLiveRevisions[taskId] ?? 0;
+  final _photoKnownTasks = <String>{};
+  final _photoTerminals = <String, ChatPhoto>{};
+  final _seenPhotoResults = <String>{};
+  Future<void> _photoJournalWrites = Future.value();
+  final _photoRecoveries = <String, Future<void>>{};
+  final photoSubmittingLocations = <String>{};
+  ChatPhotoTarget? photoNavigationTarget;
   final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
   Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -1124,6 +1150,9 @@ class WorldChatroomService {
     final nextWorldId = worldId.trim();
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
+      _queueAnomalyMonitor.clear();
+      _queueBaselineRebuilds.clear();
+      _queueIdentityChanges.clear();
       if (_identity != null) {
         final world = _state.world;
         _userDisconnected = true;
@@ -1151,6 +1180,14 @@ class WorldChatroomService {
       _cacheEvictedRanges.clear();
       _publishedContentUpdateOccurrences.clear();
       _seenSummaryUpdates.clear();
+      _photoTerminals.clear();
+      _photoKnownTasks.clear();
+      _seenPhotoResults.clear();
+      _photoConfirmedReads.clear();
+      _photoLiveRevisions.clear();
+      _photoRecoveries.clear();
+      photoSubmittingLocations.clear();
+      _photoRevision++;
       _phoneMovementGlobalIdsByCharacter.clear();
       _reportedFailureOccurrences.clear();
     }
@@ -1322,7 +1359,7 @@ class WorldChatroomService {
       }
     }
     if (updateState && messages.isNotEmpty) {
-      _upsertMessages(messages, persist: false);
+      _upsertMessages(messages, persist: false, calibrateQueue: true);
     }
     if (LocationChatDebugSlice.enabled) {
       LocationChatDebugSlice.recordEvent(
@@ -1783,7 +1820,12 @@ class WorldChatroomService {
       // A cached history page is one logical update. Publishing every row
       // separately makes the chat reconcile and rebuild the growing list up
       // to [limit] times during a single upward pagination request.
-      _upsertMessages(localMessages, persist: false, protectIncoming: true);
+      _upsertMessages(
+        localMessages,
+        persist: false,
+        protectIncoming: true,
+        calibrateQueue: true,
+      );
     }
 
     final liveRevision = _liveMessageRevision;
@@ -1868,6 +1910,12 @@ class WorldChatroomService {
     _localMessageCacheGeneration += 1;
     _localHydratedMessageKeys.clear();
     _localHydratingMessageFutures.clear();
+    _queueBaselineRebuilds.clear();
+    _queueIdentityChanges.clear();
+    _queueAnomalyMonitor.reset(
+      worldId: _worldId,
+      connectionGeneration: _messageSyncGeneration,
+    );
     _setState(
       _state.copyWith(
         worldMessages: const <WorldChatroomMessage>[],
@@ -1889,6 +1937,7 @@ class WorldChatroomService {
 
   Future<void> dispose() async {
     if (_disposed) return;
+    _queueAnomalyMonitor.clear();
     _sendReleases.clear();
     _retentionLeases.clear();
     _cacheEvictedRanges.clear();
@@ -1921,6 +1970,7 @@ class WorldChatroomService {
     _latestWorldMessagesRefreshPending = false;
     await disconnect();
     await _phoneEvents.close();
+    await _photoResults.close();
     await _states.close();
     await _historyChanges.close();
     await _failures.close();

@@ -44,6 +44,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
         _disconnectMonitor?.succeeded(monitorAttempt);
       }
       _session = session;
+      _resetQueueAnomalyMonitor();
       _attachSession(session, monitorAttempt: monitorAttempt);
       if (_historyConnectedOnce) _historyChanges.add(_worldId);
       _historyConnectedOnce = true;
@@ -209,6 +210,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
       _restartPendingHistory(location);
     }
     await initializeLeafLocationQueues(locationIds: [location]);
+    if (stillJoined()) await recoverPhotos(location);
     if (!stillJoined()) return;
     await replyActions?.restoreLocationCards(location, reloadCards: false);
   }
@@ -274,18 +276,24 @@ extension _WorldChatroomConnection on WorldChatroomService {
       }
     }
     _prepareWorldRefreshForQueuedEvent(event);
-    _eventQueue = _eventQueue.then((_) => _handleEvent(event)).catchError((
-      Object error,
-    ) {
-      _recordFailure(
-        ChatroomFailureEvent(
-          code: 'event_handle_failed',
-          message: 'Something went wrong',
-          sourceType: chatroomEventType(event),
-          cause: error,
-        ),
-      );
-    });
+    final queueConnectionGeneration = _messageSyncGeneration;
+    _eventQueue = _eventQueue
+        .then(
+          (_) => _handleEvent(
+            event,
+            queueConnectionGeneration: queueConnectionGeneration,
+          ),
+        )
+        .catchError((Object error) {
+          _recordFailure(
+            ChatroomFailureEvent(
+              code: 'event_handle_failed',
+              message: 'Something went wrong',
+              sourceType: chatroomEventType(event),
+              cause: error,
+            ),
+          );
+        });
     unawaited(_eventQueue);
   }
 

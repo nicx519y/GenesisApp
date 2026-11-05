@@ -1,16 +1,12 @@
 import 'mini_phone_camera_strings.dart';
 
-/// Style illustrations; Debug may reuse them only as labelled preview results.
+/// Legacy composition presets for adapter previews, without bundled artwork.
 enum MiniPhoneCameraTemplate {
-  povSelfie('selfie'),
-  mirrorSelfie('mirror'),
-  byFriend('friend'),
-  candid('candid'),
-  livePhoto('live');
-
-  const MiniPhoneCameraTemplate(this.assetName);
-  final String assetName;
-  String get assetPath => 'assets/mini_phone/camera-templates/$assetName.jpg';
+  povSelfie,
+  mirrorSelfie,
+  byFriend,
+  candid,
+  livePhoto;
 
   String label(MiniPhoneCameraStrings strings) => switch (this) {
     povSelfie => strings.povSelfie,

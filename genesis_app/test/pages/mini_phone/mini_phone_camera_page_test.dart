@@ -3,16 +3,22 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
+import 'package:genesis_flutter_android/network/mini_phone/mini_phone_camera_models.dart';
+import 'package:genesis_flutter_android/network/models/photo_task.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_style_sheet.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_tasks.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_widgets.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_cast.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_requests.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import '../../support/mini_phone_chat_backend.dart';
 
 final _strings = MiniPhoneCameraStrings(
   inThePhoto: 'In the photo',
@@ -76,9 +82,12 @@ void main() {
     double? price,
     double scale = 1,
     double keyboardInset = 0,
+    double bottomSafeArea = 0,
+    double? imageDevicePixelRatio,
     TargetPlatform? platform,
     VoidCallback? onOpenAlbum,
     Future<void> Function()? onCaptureRequested,
+    MiniPhoneCameraTasks? tasks,
     String? albumThumbnailUrl,
     List<PhonePerson> people = const [_person],
     Widget? header,
@@ -88,8 +97,15 @@ void main() {
     theme: GenesisTheme.dark().copyWith(platform: platform),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
+        devicePixelRatio: imageDevicePixelRatio,
         textScaler: TextScaler.linear(scale),
         viewInsets: EdgeInsets.only(bottom: keyboardInset),
+        viewPadding: MediaQuery.viewPaddingOf(
+          context,
+        ).copyWith(bottom: bottomSafeArea),
+        padding: MediaQuery.paddingOf(context).copyWith(
+          bottom: (bottomSafeArea - keyboardInset).clamp(0.0, double.infinity),
+        ),
       ),
       child: child!,
     ),
@@ -107,6 +123,7 @@ void main() {
         onOpenAlbum: onOpenAlbum,
         albumLabel: 'Photos',
         onCaptureRequested: onCaptureRequested,
+        tasks: tasks,
         albumThumbnailUrl: albumThumbnailUrl,
       ),
     ),
@@ -116,6 +133,314 @@ void main() {
     await tester.binding.setSurfaceSize(value);
     addTearDown(() => tester.binding.setSurfaceSize(null));
   }
+
+  MiniPhoneCameraTasks realTasks(
+    PhoneBackend backend, {
+    String styleImage = '',
+  }) {
+    final tasks =
+        MiniPhoneCameraTasks(
+            api: backend.api,
+            worldId: 'w',
+            requests: camera.requests,
+            pending: {},
+            saveJournal: () async => true,
+            onChanged: () {},
+            onSuccess: () {},
+          )
+          ..options = PhoneCameraOptions.fromJson({
+            'world_id': 'w',
+            'price_cent': 3000,
+            'free_status': 'available',
+            'styles': [
+              {
+                'name': 'Selfie',
+                'label': 'selfie',
+                'demo_image_url': styleImage,
+              },
+              {'name': 'Mirror', 'label': 'mirror', 'demo_image_url': ''},
+            ],
+          });
+    tasks.selectStyle('selfie');
+    addTearDown(tasks.dispose);
+    addTearDown(backend.revision.dispose);
+    return tasks;
+  }
+
+  for (final scenario in [
+    (viewport: const Size(390, 844), scale: 1.0),
+    (viewport: const Size(350, 740), scale: 1.0),
+    (viewport: const Size(350, 740), scale: 2.0),
+  ]) {
+    testWidgets('delayed camera options preserve geometry at $scenario', (
+      tester,
+    ) async {
+      await size(tester, scenario.viewport);
+      final tasks = realTasks(PhoneBackend());
+      tasks.options = null;
+      await tester.pumpWidget(
+        app(tasks: tasks, scale: scenario.scale, bottomSafeArea: 34),
+      );
+      final frame = find.byKey(const ValueKey('mini-phone-camera-viewfinder'));
+      final shutter = find.byKey(const ValueKey('mini-phone-camera-shutter'));
+      final participants = find.byKey(
+        const ValueKey('camera-participants-region'),
+      );
+      final initialFrame = tester.getRect(frame);
+      final initialShutter = tester.getRect(shutter);
+      final initialParticipants = tester.getRect(participants);
+      expect(find.textContaining('Gems'), findsNothing);
+      expect(
+        tester.getSemantics(find.byType(Scaffold)).toStringDeep(),
+        isNot(contains('Your first photo')),
+      );
+
+      // Exercise first load, refreshed eligibility/price, and a style name
+      // that wraps in the same footer which determines the photo's size.
+      for (final freeStatus in ['available', 'used', 'available']) {
+        tasks.options = PhoneCameraOptions.fromJson({
+          'world_id': 'w',
+          'price_cent': freeStatus == 'used' ? 12500 : 3000,
+          'free_status': freeStatus,
+          'styles': [
+            {
+              'name': freeStatus == 'used'
+                  ? 'A long camera style name'
+                  : 'Selfie',
+              'label': 'selfie',
+              'demo_image_url': '',
+            },
+          ],
+        });
+        tasks.selectStyle('selfie');
+        await tester.pump();
+        expect(tester.getRect(frame), initialFrame);
+        expect(tester.getRect(shutter), initialShutter);
+        expect(tester.getRect(participants), initialParticipants);
+        expect(find.textContaining('Gems'), findsNothing);
+        expect(
+          tester.getSemantics(find.byType(Scaffold)).toStringDeep(),
+          freeStatus == 'available'
+              ? contains('Your first photo')
+              : isNot(contains('Your first photo')),
+        );
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('server style selection paints before the sheet closes', (
+    tester,
+  ) async {
+    await size(tester, const Size(390, 844));
+    final tasks = realTasks(PhoneBackend());
+    await tester.pumpWidget(app(tasks: tasks));
+    await tester.tap(find.byKey(const ValueKey('mini-phone-camera-templates')));
+    await tester.pumpAndSettle();
+    bool selected(String name) => tester
+        .widgetList<Semantics>(
+          find.ancestor(of: find.text(name), matching: find.byType(Semantics)),
+        )
+        .any((widget) => widget.properties.selected == true);
+    expect(selected('Selfie'), isTrue);
+    await tester.tap(find.text('Mirror'));
+    await tester.pump();
+    expect(find.byType(PhoneCameraStyleSheet), findsOneWidget);
+    expect(selected('Mirror'), isTrue);
+    expect(selected('Selfie'), isFalse);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(PhoneCameraStyleSheet), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(find.byType(PhoneCameraStyleSheet), findsNothing);
+    expect(tasks.selectedStyle, 'mirror');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final dpr in [1.0, 3.0]) {
+    testWidgets('all camera images request CDN resizing at DPR 2 on DPR $dpr', (
+      tester,
+    ) async {
+      await size(tester, const Size(390, 844));
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(Colors.grey, BlendMode.src);
+      final picture = recorder.endRecording();
+      final image = (await tester.runAsync(() => picture.toImage(40, 60)))!;
+      picture.dispose();
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture(ImageInfo(image: image.clone())),
+          );
+      addTearDown(() {
+        debugGenesisStaticNetworkImageCompleter = null;
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+        image.dispose();
+      });
+      const styleImage =
+          'https://cdn.example/style.png?token=keep&x-oss-process=image/resize,w_999';
+      final tasks = realTasks(PhoneBackend(), styleImage: styleImage);
+      const person = PhonePerson(
+        'person',
+        'Person',
+        'https://cdn.example/avatar.png',
+      );
+      await tester.pumpWidget(
+        app(
+          tasks: tasks,
+          people: [person],
+          imageDevicePixelRatio: dpr,
+          coverImageUrl: 'https://cdn.example/cover.png',
+          albumThumbnailUrl: 'https://cdn.example/album.png',
+        ),
+      );
+      camera.togglePerson(person);
+      await tester.pumpAndSettle();
+      Iterable<GenesisStaticNetworkImage> images(String path) => tester
+          .widgetList<GenesisStaticNetworkImage>(
+            find.byType(GenesisStaticNetworkImage),
+          )
+          .where((image) => Uri.parse(image.imageUrl).path == '/$path.png');
+      void expectResize(String path, String process) {
+        expect(images(path), isNotEmpty);
+        for (final image in images(path)) {
+          expect(
+            Uri.parse(image.imageUrl).queryParameters['x-oss-process'],
+            'image/resize,$process/format,webp',
+          );
+        }
+      }
+
+      expectResize('avatar', 'w_96');
+      expect(images('avatar'), hasLength(2));
+      expectResize('style', 'w_96');
+      expectResize('album', 'w_96');
+      expectResize('cover', 'w_720');
+      expect(
+        Uri.parse(images('style').single.imageUrl).queryParameters['token'],
+        'keep',
+      );
+
+      tasks.accept(
+        const PhotoTask(
+          taskId: 'photo',
+          requestId: 'photo',
+          status: PhotoTaskStatus.succeeded,
+          imageUrl: 'https://cdn.example/result.png',
+          assetId: 1,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expectResize('result', 'w_96');
+      expect(tasks.latestSuccess!.imageUrl, 'https://cdn.example/result.png');
+
+      await tester.tap(
+        find.byKey(const ValueKey('mini-phone-camera-templates')),
+      );
+      await tester.pumpAndSettle();
+      final sheetImages = tester
+          .widgetList<GenesisStaticNetworkImage>(
+            find.descendant(
+              of: find.byType(PhoneCameraStyleSheet),
+              matching: find.byType(GenesisStaticNetworkImage),
+            ),
+          )
+          .where((image) => image.imageUrl.contains('/style.png'));
+      expect(sheetImages, hasLength(1));
+      final sheetUrl = Uri.parse(sheetImages.single.imageUrl);
+      expect(
+        sheetUrl.queryParameters['x-oss-process'],
+        'image/resize,w_248/format,webp',
+      );
+      expect(sheetUrl.queryParameters['token'], 'keep');
+      expect(tasks.style!.demoImageUrl, styleImage);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets(
+    'album loading follows submission and all parallel task results',
+    (tester) async {
+      await size(tester, const Size(390, 844));
+      final backend = PhoneBackend();
+      final tasks = realTasks(backend);
+      final receipt = Completer<Object?>();
+      backend.respond = (r) =>
+          r.uri.path.endsWith('/photo/create') ? receipt.future : null;
+      await tester.pumpWidget(
+        app(
+          tasks: tasks,
+          onOpenAlbum: () {},
+          onCaptureRequested: () => tasks.submit(
+            PhoneCameraRequest(
+              requestId: 'r',
+              worldId: 'w',
+              characterIds: ['person-a'],
+              aspectRatio: '2:3',
+              style: 'selfie',
+            ),
+          ),
+        ),
+      );
+      final album = find.byKey(const ValueKey('mini-phone-camera-album'));
+      final spinner = find.descendant(
+        of: album,
+        matching: find.byType(CircularProgressIndicator),
+      );
+      expect(spinner, findsNothing);
+      camera.togglePerson(_person);
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('mini-phone-camera-shutter')));
+      await tester.pump();
+      expect(spinner, findsOneWidget);
+      receipt.complete(
+        ok({
+          'world_id': 'w',
+          'source': 'camera',
+          'photo': {
+            'task_id': 'task',
+            'client_request_id': 'r',
+            'status': 'generating',
+          },
+        }),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(spinner, findsOneWidget);
+      tasks.accept(
+        const PhotoTask(
+          taskId: 'another',
+          requestId: 'another',
+          status: PhotoTaskStatus.generating,
+        ),
+      );
+      tasks.accept(
+        const PhotoTask(
+          taskId: 'task',
+          requestId: 'r',
+          status: PhotoTaskStatus.failed,
+        ),
+      );
+      await tester.pump();
+      expect(spinner, findsOneWidget);
+      tasks.accept(
+        const PhotoTask(
+          taskId: 'another',
+          requestId: 'another',
+          status: PhotoTaskStatus.succeeded,
+          assetId: 99,
+        ),
+      );
+      await tester.pump();
+      expect(spinner, findsNothing);
+      expect(
+        find.descendant(of: album, matching: find.byIcon(Icons.circle)),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'draft remains editable with no adapter and unknown price is hidden',
@@ -398,6 +723,47 @@ void main() {
     );
   }
 
+  for (final bottomSafeArea in [24.0, 34.0]) {
+    testWidgets(
+      'photo stays fixed through keyboard safe-area changes at $bottomSafeArea',
+      (tester) async {
+        await size(tester, const Size(390, 844));
+        await tester.pumpWidget(app(bottomSafeArea: bottomSafeArea));
+        final frame = find.byKey(
+          const ValueKey('mini-phone-camera-viewfinder'),
+        );
+        final field = find.byType(TextField);
+        for (final ratio in CameraPhotoRatio.values) {
+          camera.setPhotoRatio(ratio);
+          await tester.pumpAndSettle();
+          final originalFrame = tester.getRect(frame);
+          await tester.tap(field);
+          await tester.pump();
+          expect(tester.getRect(frame), originalFrame);
+          for (final inset in [1.0, 80.0, 220.0, 300.0, 360.0, 80.0, 0.0]) {
+            await tester.pumpWidget(
+              app(bottomSafeArea: bottomSafeArea, keyboardInset: inset),
+            );
+            expect(tester.getRect(frame), originalFrame);
+            await tester.pumpAndSettle();
+            expect(tester.getRect(frame), originalFrame);
+            if (inset > 0) {
+              expect(
+                tester.getRect(field).bottom,
+                lessThanOrEqualTo(844 - inset - 8),
+              );
+            }
+          }
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(frame), originalFrame);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets(
       '$platform scrolling the prompt keeps focus and keyboard open',
@@ -570,7 +936,7 @@ void main() {
               ),
             )
             .imageUrl,
-        'https://camera.test/actual-thumbnail.webp',
+        'https://camera.test/actual-thumbnail.webp?x-oss-process=image/resize,w_96/format,webp',
       );
       await tester.pumpWidget(const SizedBox());
     },
@@ -678,10 +1044,10 @@ void main() {
       }
       await tester.pump();
       final portraits = find.byType(MiniPhoneCameraFocusedPerson);
-      expect(portraits, findsNWidgets(5));
+      expect(portraits, findsNWidgets(4));
       final frameRect = tester.getRect(frame);
       final portraitRows = <int>{};
-      for (var index = 0; index < 5; index++) {
+      for (var index = 0; index < 4; index++) {
         final rect = tester.getRect(portraits.at(index));
         expect(frameRect.contains(rect.topLeft), isTrue);
         expect(frameRect.contains(rect.bottomRight), isTrue);
@@ -695,7 +1061,7 @@ void main() {
         portraitRows.add(rect.top.round());
       }
       expect(portraitRows.length, greaterThan(1));
-      expect(find.text('5 selected'), findsOneWidget);
+      expect(find.text('4 selected'), findsOneWidget);
       expect(find.text('1'), findsNothing);
       expect(camera.result, isNull);
       expect(tester.takeException(), isNull);
@@ -746,7 +1112,7 @@ void main() {
       )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
       // A test-only cover lets the render check exercise the real blur layer.
       final bytes = await rootBundle.load(
-        MiniPhoneCameraTemplate.values.first.assetPath,
+        'assets/mini_phone/camera-templates/selfie.webp',
       );
       final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
       coverFixture = (await codec.getNextFrame()).image;

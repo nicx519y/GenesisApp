@@ -1102,6 +1102,25 @@ Reply events support generating (nullable failure) and failed. Messages carry
 request-correlated reply_status/failure for HTTP recovery; pushes have no offline
 replay guarantee. Player peers do not emit AI reply-state events.
 
+## 客户端地点队列异常监控（Collect）
+
+`WorldChatroomService` 在串行处理 WebSocket 消息时，由 `ChatroomQueueAnomalyMonitor` 检查首次出现的正式消息；不依赖 World/LocationChat 页面是否打开。每地点缓存 `latestConversationRoundId/latestLocationMessageId`，入队前直接比较，不为每条推送扫描队列求最大值。只有整条消息未命中任何异常，才在既有入队处理成功后推进有效 ID；任一异常命中时两个缓存均不推进，消息仍沿用原有合并、排序、持久化及补洞规则。
+
+| action_type | action | object1 | object2 | object3 | object4 |
+| --- | --- | --- | --- | --- | --- |
+| monitor | location_chat_queue_old_conversation_round | World ID | Location ID | 收到的轮次 ID | 判断前的缓存轮次 |
+| monitor | location_chat_queue_old_location_message_id | World ID | Location ID | 收到的地点序号 | 判断前的缓存地点序号 |
+
+收到的正数 `conversation_round_id` 小于缓存轮次，产生第一类事件；正数 `location_message_id` 小于缓存地点序号，或实际队列中同序号已被不同消息占用，产生第二类事件。两个条件独立，同一消息可产生两条事件。同轮追加、序号向前跳跃不属于这两类异常；缺失或非正数比较字段只跳过对应检查。
+
+身份优先使用正数 `global_message_id`，双方都有且不同就认定为不同消息，不使用地点序号将其视为重复。全局 ID 不足时再按有效 `client_msg_id/message_id` 匹配。当前队列内已存在的消息以及当前连接最近 1024 条已观察身份不重复检查，所以正常流式分片、结束帧和重复回显不报；缺少正式消息身份的临时帧暂不检测。HTTP、本地恢复、分页、补洞、控制事件、候选流、编辑和范围替换不触发上报；错误、失效 attempt 和已删除消息沿用原有过滤。
+
+初始化及重连在首条推送前从保留队列建立基线。成功的 HTTP/本地正式消息读取可校准；范围替换、删除、丢弃旧区段或实际缓存裁剪时重建，当前连接已判异常的队列身份不因重建被提升为正常基线，除非之后由 HTTP/本地读取明确校准。普通异常入队不会触发重建。账号、World、连接代次、主动清缓存重置观察身份；账号/World 切换或清缓存同时清除基线。
+
+`ext_data` 为 JSON：`incoming_conversation_round_id/incoming_location_message_id`、`cached_conversation_round_id/cached_location_message_id`、`global_message_id/message_id/client_msg_id`、`type/stream_type/gateway_request_id/attempt_no`、`queue_count/connection_generation`、`connected/reconnecting/latest_sync_verified` 和 `reason`。reason 为 `less_than_cached_latest` 或 `same_cursor_different_message`；若地点序号同时倒退且冲突，优先记录冲突原因，缓存值仍保留用于判断倒退。所有消息 ID 按十进制字符串记录，避免 int64 精度丢失；不记录正文、完整队列或请求头。通过既有 Collect 持久化队列上传，两类事件独立尝试，上报失败不影响入队，不触发历史请求或用户提示。
+
+诊断 JSON 保持在 4000 字符内，避免 Collect 的 4096 字符截断破坏 JSON。异常过长的 client/request/type 字符串按需截短并附 `metadata_truncated=true`；数值消息 ID 字符串保持完整。
+
 ## 客户端持续断线监控（Collect）
 
 `WorldChatroomService` 通过独立 `ChatroomDisconnectMonitor` 观察仍被业务需要的连接，不改变重连、join 或历史恢复逻辑。首次实际发起握手后，前台连续 15 秒仍未成功，或已成功连接异常断开后连续 15 秒未恢复，记录一次 `monitor / websocket_disconnect`。握手成功即取消观察，不等待 join/历史；重试不重置起点，无失败回调的连接卡住也覆盖。首次上报后，每次连接失败继续补报详情；握手恢复后清理本轮。主动断开、退出/切换 World、切账号、释放取消；后台取消，回前台仍需连接时重新观察 15 秒。异步网络读取期间恢复或取消会丢弃旧观察，旧 session/attempt 回调不能影响新观察。
@@ -1155,3 +1174,7 @@ HTTP V2 messages 历史项同样可携带 `gateway_request_id`、`attempt_no`。
 普通流退场动画不暂停、不重置统一管理器的 5 秒流式期限；只有当前生成尝试的新有效 start／chunk 才刷新流活动。已本地超时的轮次不重新锁住发送。无展示消费者时不等待动画回执；候选同样使用统一超时释放，正常只读恢复仍保留。服务端生成重试通知不会让客户端发送新的生成、计费或取消请求。
 
 本次不接入 generation-status HTTP 查询，也不因 `end_conversation_round` 新增历史刷新。该事件继续沿用现有轮次结束职责，不用作本次生成成功判据。服务端新字段和事件的实际启用仍需联调确认。
+
+## 2026-11-04 live_photo 与 photo result
+
+`live_photo` 为独立照片消息，`payload.photo` 包含 generating/succeeded/failed；同地点消息 ID 更新同一气泡，终态不被迟到生成中覆盖。`phone.photo.result` 按 source 分流：chat 更新聊天照片，camera 更新 MiniPhone 独立任务；camera 的成功 image 无 chat_global_message_id，不产生聊天消息或分页水位。结果以 event_id 去重，结果先到时按 task_id 关联。详情见 [聊天生图接入](chat-photo-client-integration.md)。

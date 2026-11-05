@@ -7,6 +7,7 @@ class MiniPhonePhotoProjection {
   List<PhoneAlbumAsset>? _album;
   Set<String> _coverKeys = {};
   List<PhoneAlbumAsset> _visible = const [];
+  final aliases = <int, int>{};
 
   List<PhoneAlbumAsset> resolve(
     List<PhoneAlbumAsset> album,
@@ -17,7 +18,8 @@ class MiniPhonePhotoProjection {
     }
     _album = album;
     _coverKeys = Set.of(coverKeys);
-    final seen = <String>{};
+    final seen = <String, int>{};
+    aliases.clear();
     final visible = List<PhoneAlbumAsset>.unmodifiable(
       album.where((asset) {
         final image = asset.image.trim();
@@ -30,7 +32,11 @@ class MiniPhonePhotoProjection {
             localDefaultMapImageAssetForBackendImageUrl(resolved) != null) {
           return false;
         }
-        return seen.add(resource);
+        final representative = seen[resource];
+        aliases[asset.id] = representative ?? asset.id;
+        if (representative != null) return false;
+        seen[resource] = asset.id;
+        return true;
       }),
     );
     if (!listEquals(_visible, visible)) _visible = visible;

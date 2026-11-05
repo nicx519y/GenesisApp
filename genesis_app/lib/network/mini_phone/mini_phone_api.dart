@@ -1,3 +1,5 @@
+import 'mini_phone_camera_models.dart';
+export 'mini_phone_camera_models.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:convert';
 import '../api_client.dart';
@@ -87,6 +89,17 @@ class MiniPhoneApi {
   Future<void> _write(String path, Map<String, dynamic> body) async {
     await _request(path, body, post: true);
   }
+
+  Future<PhoneCameraOptions> cameraOptions(String worldId) async =>
+      PhoneCameraOptions.fromJson(
+        phoneMap(await _request('photo/options', {'world_id': worldId})),
+      );
+
+  Future<PhoneCameraReceipt> createCameraPhoto(
+    PhoneCameraRequest request,
+  ) async => PhoneCameraReceipt.fromJson(
+    phoneMap(await _request('photo/create', request.toJson(), post: true)),
+  );
 
   Future<PhoneHome> home(String worldId) async =>
       PhoneHome.fromJson(await _request('home', {'world_id': worldId}));

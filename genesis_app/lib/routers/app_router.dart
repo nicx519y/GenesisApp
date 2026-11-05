@@ -1,5 +1,7 @@
+import '../network/mini_phone/mini_phone_camera_models.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import '../network/chatroom/chat_photo.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/genesis_l10n.dart';
@@ -255,6 +257,8 @@ class _PostDetailRouteArgs {
 
 class _WorldRouteArgs {
   const _WorldRouteArgs({
+    this.initialPhotoTarget,
+    this.initialCameraTarget,
     required this.wid,
     required this.waitForTick1,
     this.initialWorldDetail,
@@ -271,6 +275,12 @@ class _WorldRouteArgs {
     final args = _RouteArgs(raw);
     final direct = args.directString();
     return _WorldRouteArgs(
+      initialCameraTarget: args.typed<PhoneCameraTarget>(const [
+        'initial_camera_target',
+      ]),
+      initialPhotoTarget: args.typed<ChatPhotoTarget>(const [
+        'initial_photo_target',
+      ]),
       wid: direct.isNotEmpty ? direct : args.string(const ['wid']),
       waitForTick1: args.boolean(const [
         'wait_for_tick1',
@@ -323,6 +333,8 @@ class _WorldRouteArgs {
   final ChatMentionCatalog? initialMentionCatalog;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
+  final ChatPhotoTarget? initialPhotoTarget;
+  final PhoneCameraTarget? initialCameraTarget;
 }
 
 class _ChatRouteArgs {
@@ -604,6 +616,8 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => WorldPage(
             wid: args.wid,
+            initialPhotoTarget: args.initialPhotoTarget,
+            initialCameraTarget: args.initialCameraTarget,
             waitForTick1: args.waitForTick1,
             initialWorldDetail: args.initialWorldDetail,
             initiallyLaunched: args.initiallyLaunched,

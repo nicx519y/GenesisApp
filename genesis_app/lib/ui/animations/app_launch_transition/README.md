@@ -17,8 +17,11 @@ no MiniPhone, network, player, or Navigator dependency.
   navigation effects. A second launch while a page exists is rejected.
 - Call `close(fallbackSourceId: id)` for return to home. The module remeasures the
   original source first, then the fallback. Missing/clipped origins fade; direct
-  entry pages always fade. Internal page navigation is owned by the caller and
+  entry pages fade unless an explicit close source is set. Internal page navigation is owned by the caller and
   can replace `page` without starting a new launch.
+- When navigation switches to a different app root, call
+  `setCloseSource(id)` to use that app's icon for both button and edge-gesture
+  closing. This updates the return target without replaying the opening flight.
 - Listen to controller status for completion, use `finish()` before dismissing
   an outer route, and dispose the controller with its owner.
 - For a page containing a Navigator with a transparent base route, opt into

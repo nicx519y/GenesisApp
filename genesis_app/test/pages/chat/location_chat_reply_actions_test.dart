@@ -98,6 +98,83 @@ Widget _replyActions({
 );
 
 void main() {
+  testWidgets(
+    'toolbar expansion completes during repeated unchanged scroll rebuilds',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      var expanded = false;
+      Widget host() => MaterialApp(
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: scroll,
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+              SliverLayoutBuilder(
+                builder: (_, _) => SliverToBoxAdapter(
+                  child: LocationChatReplyActions(
+                    style: kLocationChatStyle,
+                    actionsExpanded: expanded,
+                    onTakePhoto: () {},
+                    regenerateFeature: LocationChatRegenerateFeature(
+                      state: LocationChatReplyActionState.idle,
+                      onInvoke: () {},
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpWidget(host());
+      scroll.jumpTo(scroll.position.maxScrollExtent - 20);
+      await tester.pumpAndSettle();
+      for (final open in [true, false]) {
+        expanded = open;
+        await tester.pumpWidget(host());
+        for (var frame = 0; frame < 20; frame++) {
+          scroll.jumpTo(scroll.offset + (frame.isEven ? 1 : -1));
+          await tester.pump(const Duration(milliseconds: 16));
+          if (open && frame == 5) {
+            final transition = tester.widget<SizeTransition>(
+              find.byKey(
+                const ValueKey('location-chat-reply-actions-transition'),
+              ),
+            );
+            final clock =
+                (transition.sizeFactor as CurvedAnimation).parent
+                    as AnimationController;
+            expect(
+              clock.lastElapsedDuration,
+              greaterThan(Duration.zero),
+              reason:
+                  'Same-direction scroll rebuilds must not reset the animation clock',
+            );
+          }
+        }
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+          open ? findsOneWidget : findsNothing,
+        );
+        if (open) {
+          expect(
+            tester
+                .getSize(
+                  find.byKey(
+                    const ValueKey('location-chat-reply-actions-transition'),
+                  ),
+                )
+                .height,
+            32,
+          );
+        }
+      }
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   for (final remaining in [0, 1, 2, 3]) {
     testWidgets(
       'free quota prompts stay visible with $remaining uses and use secondary red',

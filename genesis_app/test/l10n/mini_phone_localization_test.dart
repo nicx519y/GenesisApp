@@ -126,7 +126,10 @@ void main() {
     store.dispose();
   });
 
-  testWidgets('French locked home apps fit a narrow screen', (tester) async {
+  testWidgets('French home labels and camera dock fit a narrow screen', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(320, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -173,10 +176,11 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 30)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Appareil photo'), findsOneWidget);
+    expect(find.bySemanticsLabel('Appareil photo'), findsOneWidget);
     expect(find.text('Calendrier'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     session.dispose();
+    semantics.dispose();
   });
 }

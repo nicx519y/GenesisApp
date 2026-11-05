@@ -13,6 +13,8 @@ import '../../support/mini_phone_chat_backend.dart';
 import '../../support/mini_phone_memory_cache.dart';
 
 class _WorldSocketSnapshot implements WorldChatroomService {
+  @override
+  Stream<ChatroomPhotoResult> get photoResults => const Stream.empty();
   _WorldSocketSnapshot(bool connected)
     : state = WorldChatroomState(connected: connected, joining: true);
 

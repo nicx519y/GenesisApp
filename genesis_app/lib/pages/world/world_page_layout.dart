@@ -71,6 +71,8 @@ extension _WorldPageLayout on _WorldPageState {
   }
 
   Widget? _buildInitialTilemapPreview() {
+    // A saved hierarchy must be checked against detail before any map request.
+    if (!_tilemapViewReady || _savedTilemapView != null) return null;
     final locationId = widget.initialMapLocationId.trim();
     if (widget.initialDefinitionVersion != 2 || locationId.isEmpty) {
       return null;

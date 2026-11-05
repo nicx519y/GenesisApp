@@ -5113,9 +5113,9 @@
   "@miniPhoneCameraLivePhotoPrompt": {
     "description": "MiniPhone Camera: complete editable prompt inserted when the Live photo style is selected. This style produces a static still photo, not video or the Apple Live Photo feature. Preserve all constraints: only selected characters, spontaneous gesture, subtle sense of motion, unchanged appearance and outfits, setting from their world, and no extra people."
   },
-  "miniPhoneCameraPeopleLimit": "選択できるのは5人までです。",
+  "miniPhoneCameraPeopleLimit": "最大4人まで選べます。",
   "@miniPhoneCameraPeopleLimit": {
-    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+    "description": "MiniPhone Camera: toast when selecting a fifth character; a photo supports at most four characters."
   },
   "miniPhoneCameraFailureRefund": "生成に失敗しました。ジェムが差し引かれていた場合は返還されます。",
   "@miniPhoneCameraFailureRefund": {
@@ -5124,5 +5124,54 @@
   "miniPhoneCameraPreviewPostNotice": "プレビュー専用です。このサンプル写真は自分のワールドに投稿できません。",
   "@miniPhoneCameraPreviewPostNotice": {
     "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
+  },
+  "chatPhotoBasePrice": "基本料金：{price} ジェム",
+  "@chatPhotoBasePrice": {
+    "description": "LocationChat photo confirmation sheet: server base price; not a guarantee of the final charge.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPhotoPriceExplanation": "初回の写真は無料になる場合があります。無料の対象かどうかと実際の請求額はサーバーで判定されます。",
+  "@chatPhotoPriceExplanation": {
+    "description": "LocationChat photo confirmation sheet: the price endpoint does not return free eligibility."
+  },
+  "chatPhotoGenerate": "写真を生成",
+  "@chatPhotoGenerate": {
+    "description": "LocationChat photo confirmation sheet: submit a new photo generation request."
+  },
+  "chatPhotoRecover": "前のリクエストを確認",
+  "@chatPhotoRecover": {
+    "description": "LocationChat photo confirmation sheet: explicitly resend the identical uncertain request to recover its outcome."
+  },
+  "chatPhotoUncertain": "前の写真リクエストはまだ確認できていません。次の写真を撮る前に結果を確認してください。",
+  "@chatPhotoUncertain": {
+    "description": "LocationChat: submission timed out or its response was lost; this does not mean generation failed."
+  },
+  "chatPhotoGenerating": "写真を生成中…",
+  "@chatPhotoGenerating": {
+    "description": "Chat photo message: accepted generation is in progress."
+  },
+  "chatPhotoFailed": "写真を生成できませんでした。",
+  "@chatPhotoFailed": {
+    "description": "Chat photo message: fallback when a failed task has no user-facing failure message."
+  },
+  "chatPhotoUnavailable": "この写真は表示できなくなりました。",
+  "@chatPhotoUnavailable": {
+    "description": "LocationChat: an Inbox photo target could not be found in its original location."
+  },
+  "cameraFreeAvailable": "現在、初回の撮影は無料です。無料の対象かどうかは送信時に確定します。",
+  "@cameraFreeAvailable": {
+    "description": "MiniPhone Camera price explanation: current free eligibility is shared with chat photos and may change before submission; do not promise a free charge."
+  },
+  "cameraSubmissionUnconfirmed": "送信の確認が取れていません",
+  "@cameraSubmissionUnconfirmed": {
+    "description": "MiniPhone Photos task tile: HTTP submission has no confirmed receipt yet; this is not a generation failure."
+  },
+  "cameraRequestConflict": "このリクエストは以前の送信内容と競合しています。内容は変更できません。",
+  "@cameraRequestConflict": {
+    "description": "MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID."
   }
 }

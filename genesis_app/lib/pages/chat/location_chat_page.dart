@@ -1,3 +1,6 @@
+import '../../network/chatroom/chat_photo_request_store.dart';
+import 'location_chat_photo_visibility.dart';
+import '../../utils/api_error_message.dart';
 import '../../network/chatroom/location_chat_send_gate.dart';
 import '../world/history/world_history_controller.dart';
 import '../world/history/world_history_projection.dart';
@@ -12,7 +15,6 @@ import '../../components/chat/shared/chat_keyboard_inset_layout.dart';
 
 import '../../components/common/page_presentation_scope.dart';
 import '../mini_phone/mini_phone.dart';
-import '../mini_phone/camera_moment_confirmation.dart';
 import 'dart:ui' as ui;
 import 'dart:io';
 import '../../utils/network_availability.dart';
@@ -38,6 +40,7 @@ import '../../app/membership/chatroom_feature_quota_store.dart';
 import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
@@ -120,6 +123,7 @@ part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_message_viewport.dart';
 part 'location_chat_private_return.dart';
+part 'location_chat_photos.dart';
 part 'location_chat_shared.dart';
 part '../world/world_chat_history_section.dart';
 part '../world/world_chat_history_loader.dart';
@@ -804,6 +808,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _openingModelPage = false;
   bool _openingCharacterChat = false;
   bool _takingScenePhoto = false;
+  final _photoArrivalRequests = <String>{};
+  WorldChatroomService? _photoVisitService;
+  int _photoVisit = 0;
+  int? _photoVisitSessionRevision;
+  LocationChatPhotoVisibility _photoVisibility = LocationChatPhotoVisibility(
+    liveBaseline: 0,
+  );
+  ({int generation, String localId})? _photoReveal;
+  final _photoNavigationOwner = Object();
 
   Future<void> _openCharacterChat(ChatMessageVm message) async {
     if (_openingCharacterChat || !widget.active || message.isMe) return;
@@ -1013,6 +1026,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleViewportCoordinatorChanged() {
     if (!mounted) return;
+    if (_photoReveal != null &&
+        _photoReveal!.generation != _scrollCoordinator.commandGeneration) {
+      // Preserve the complete target-to-latest window while positioning. Once
+      // the user takes control, normal bounded history retention resumes.
+      _photoReveal = null;
+      _service?.releaseMessageWindow(_photoNavigationOwner);
+    }
     final visibleMessageLocalIds =
         _scrollCoordinator.messageLocalIdsIntersectingViewport;
     _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);
@@ -1160,6 +1180,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void dispose() {
+    _resetPhotoVisit();
     _pageSendReleases.clear();
     _replySendReleases.clear();
     _pageSendGate?.removeListener(_onSendGateChanged);
@@ -1205,6 +1226,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (state == AppLifecycleState.resumed && widget.active) {
       _pageSendGate?.reconcile();
       _service?.reconcileLocationStreamWait(widget.locationId);
+      unawaited(_service?.recoverPhotos(widget.locationId));
     }
   }
 
@@ -1256,6 +1278,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         oldWidget.locationId == widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
+    if (changedChatTarget || becameInactive) _resetPhotoVisit();
     if (becameActive) {
       _lastActiveOccupants = null;
       _exitRetainedOccupants = null;

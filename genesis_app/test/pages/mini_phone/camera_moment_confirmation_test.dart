@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show CheckedState;
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,10 @@ void main() {
     ValueChanged<bool> onResult, {
     String owner = scope,
     bool forceShow = false,
+    int? priceCent,
+    bool recovering = false,
+    bool? cameraFreeAvailable,
+    Future<int> Function()? loadPrice,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -31,6 +36,10 @@ void main() {
                   context,
                   preferenceScope: owner,
                   forceShow: forceShow,
+                  priceCent: priceCent,
+                  loadPrice: loadPrice,
+                  recovering: recovering,
+                  cameraFreeAvailable: cameraFreeAvailable,
                 ),
               ),
               child: const Text('open'),
@@ -42,6 +51,153 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('chat price loads only in sheet and never blocks Generate', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final price = Completer<int>();
+    var reads = 0;
+    bool? result;
+    Future<int> load() {
+      reads++;
+      return price.future;
+    }
+
+    await launch(tester, (v) => result = v, loadPrice: load);
+    expect(reads, 1);
+    expect(find.text('Base price: — Gems'), findsOneWidget);
+    await tester.tap(find.text('Generate photo'));
+    await tester.pumpAndSettle();
+    expect(result, true);
+    expect(price.isCompleted, false);
+    result = null;
+    await launch(tester, (v) => result = v, loadPrice: load);
+    expect(result, true);
+    expect(reads, 1);
+    expect(find.byType(BottomSheet), findsNothing);
+    price.completeError(Exception('late price failure'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'chat preserves an existing remembered confirmation without price lookup',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'chat-photo-confirmation-v1:$scope': 3000,
+      });
+      var reads = 0;
+      bool? result;
+      await launch(
+        tester,
+        (v) => result = v,
+        loadPrice: () async {
+          reads++;
+          return 5000;
+        },
+      );
+      expect(result, true);
+      expect(reads, 0);
+    },
+  );
+
+  testWidgets('chat price fills in after sheet opens', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final price = Completer<int>();
+    await launch(tester, (_) {}, loadPrice: () => price.future);
+    price.complete(1234);
+    await tester.pumpAndSettle();
+    expect(find.text('Base price: 12.3 Gems'), findsOneWidget);
+    await tester.tap(find.text('Generate photo'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'camera confirmation isolates chat preference and reconfirms free status',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        pref: true,
+        'chat-photo-confirmation-v1:$scope': 3000,
+      });
+      bool? confirmed;
+      await launch(
+        tester,
+        (v) => confirmed = v,
+        priceCent: 3000,
+        cameraFreeAvailable: true,
+      );
+      expect(confirmed, isNull);
+      expect(
+        find.text(
+          'Your first photo is currently free. Eligibility is confirmed when you submit.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Generate photo'));
+      await tester.pumpAndSettle();
+      expect(confirmed, true);
+      confirmed = null;
+      await launch(
+        tester,
+        (v) => confirmed = v,
+        priceCent: 3000,
+        cameraFreeAvailable: true,
+      );
+      expect(confirmed, true);
+      confirmed = null;
+      await launch(
+        tester,
+        (v) => confirmed = v,
+        priceCent: 3000,
+        cameraFreeAvailable: false,
+      );
+      expect(confirmed, isNull);
+      expect(find.text('Generate photo'), findsOneWidget);
+      await tester.tap(find.text('Generate photo'));
+      await tester.pumpAndSettle();
+      await launch(
+        tester,
+        (v) => confirmed = v,
+        priceCent: 3100,
+        cameraFreeAvailable: false,
+      );
+      expect(find.text('Base price: 31.0 Gems'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'live price confirmation ignores preview preference and reconfirms changes',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({pref: true});
+      bool? confirmed;
+      await launch(tester, (value) => confirmed = value, priceCent: 3000);
+      expect(find.text('Base price: 30.0 Gems'), findsOneWidget);
+      expect(find.text('Free trial'), findsNothing);
+      await tester.tap(find.text('Generate photo'));
+      await tester.pumpAndSettle();
+      expect(confirmed, isTrue);
+      confirmed = null;
+      await launch(tester, (value) => confirmed = value, priceCent: 3000);
+      expect(confirmed, isTrue);
+      await launch(tester, (value) => confirmed = value, priceCent: 3100);
+      expect(find.text('Base price: 31.0 Gems'), findsOneWidget);
+      await tester.tap(find.text('Generate photo'));
+      await tester.pumpAndSettle();
+      await launch(
+        tester,
+        (value) => confirmed = value,
+        priceCent: 3100,
+        recovering: true,
+      );
+      expect(find.text('Check previous request'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('camera-moment-remember')),
+        findsNothing,
+      );
+      expect((await SharedPreferences.getInstance()).getBool(pref), isTrue);
+    },
+  );
 
   testWidgets('camera can preview remembered explanation and revoke skip', (
     tester,
@@ -203,10 +359,10 @@ void main() {
         tester.getSemantics(row).flagsCollection.isChecked,
         CheckedState.isFalse,
       );
-      tester.getSemantics(row).owner!.performAction(
-        tester.getSemantics(row).id,
-        SemanticsAction.tap,
-      );
+      tester
+          .getSemantics(row)
+          .owner!
+          .performAction(tester.getSemantics(row).id, SemanticsAction.tap);
       await tester.pumpAndSettle();
       expect(
         tester.getSemantics(row).flagsCollection.isChecked,

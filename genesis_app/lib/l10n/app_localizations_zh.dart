@@ -3837,7 +3837,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get miniPhoneCameraPeopleLimit => 'Choose up to 5 people.';
+  String get miniPhoneCameraPeopleLimit => 'Choose up to 4 people.';
 
   @override
   String get miniPhoneCameraFailureRefund =>
@@ -3846,6 +3846,45 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get miniPhoneCameraPreviewPostNotice =>
       'Preview only. This sample photo cannot be published to your world.';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return 'Base price: $price Gems';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation =>
+      'Your first photo may be free. Eligibility and the final charge are determined by the server.';
+
+  @override
+  String get chatPhotoGenerate => 'Generate photo';
+
+  @override
+  String get chatPhotoRecover => 'Check previous request';
+
+  @override
+  String get chatPhotoUncertain =>
+      'The previous photo request has not been confirmed. Check it before taking another photo.';
+
+  @override
+  String get chatPhotoGenerating => 'Generating photo…';
+
+  @override
+  String get chatPhotoFailed => 'Couldn’t generate the photo.';
+
+  @override
+  String get chatPhotoUnavailable => 'This photo is no longer available.';
+
+  @override
+  String get cameraFreeAvailable =>
+      'Your first photo is currently free. Eligibility is confirmed when you submit.';
+
+  @override
+  String get cameraSubmissionUnconfirmed => 'Submission not confirmed';
+
+  @override
+  String get cameraRequestConflict =>
+      'This request conflicts with an earlier submission. Its details cannot be changed.';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -7484,11 +7523,46 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   }
 
   @override
-  String get miniPhoneCameraPeopleLimit => '最多可選擇 5 人。';
+  String get miniPhoneCameraPeopleLimit => '最多可選擇 4 人。';
 
   @override
   String get miniPhoneCameraFailureRefund => '生成失敗。若有扣除寶石，將予以退還。';
 
   @override
   String get miniPhoneCameraPreviewPostNotice => '僅供預覽。這張範例照片無法發布到你的世界。';
+
+  @override
+  String chatPhotoBasePrice({required String price}) {
+    return '基本價格：$price 寶石';
+  }
+
+  @override
+  String get chatPhotoPriceExplanation => '首張照片可能免費，資格與實際費用由伺服器判定。';
+
+  @override
+  String get chatPhotoGenerate => '生成照片';
+
+  @override
+  String get chatPhotoRecover => '確認上次請求';
+
+  @override
+  String get chatPhotoUncertain => '上次的照片請求尚未確認，請先確認結果再拍下一張。';
+
+  @override
+  String get chatPhotoGenerating => '正在生成照片…';
+
+  @override
+  String get chatPhotoFailed => '無法生成照片。';
+
+  @override
+  String get chatPhotoUnavailable => '這張照片已無法查看。';
+
+  @override
+  String get cameraFreeAvailable => '目前首次拍照可免費使用，資格將於提交時確認。';
+
+  @override
+  String get cameraSubmissionUnconfirmed => '尚未確認是否提交成功';
+
+  @override
+  String get cameraRequestConflict => '此請求與先前的提交內容衝突，無法變更其內容。';
 }

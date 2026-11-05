@@ -39,6 +39,50 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  for (final length in [3, 55]) {
+    test(
+      'restored history start respects the visible window ($length rows)',
+      () async {
+        final storage = MemoryMiniPhoneCacheStorage();
+        await seed(storage, length: length);
+        final cached = await storage.load(scope);
+        cached.historyStartIds[9] = 1;
+        await storage.save(scope, cached.toJson());
+        final backend = PhoneBackend()
+          ..respond = (_) => throw TimeoutException('Offline');
+        final store = backend.store(cacheStorage: storage);
+        addTearDown(store.dispose);
+        await store.localReady;
+        expect(store.messagesController.historyStartVisible('c'), length <= 50);
+        expect(store.hasMore['messages:9'], length > 50);
+        await store.ready;
+        await store.cacheSaved;
+      },
+    );
+  }
+
+  test('a completed history boundary survives reopening offline', () async {
+    final storage = MemoryMiniPhoneCacheStorage();
+    final backend = PhoneBackend()
+      ..respond = (r) => r.uri.path.endsWith('/messages')
+          ? ok(page([phoneMessage(3), phoneMessage(2), phoneMessage(1)]))
+          : null;
+    final store = backend.store(cacheStorage: storage);
+    await store.ready;
+    await store.refreshMessages('c');
+    await store.cacheSaved;
+    store.dispose();
+    final offline = PhoneBackend()
+      ..respond = (_) => throw TimeoutException('Offline');
+    final reopened = offline.store(cacheStorage: storage);
+    addTearDown(reopened.dispose);
+    await reopened.localReady;
+    expect(reopened.messagesController.historyStartVisible('c'), isTrue);
+    await reopened.ready;
+    expect(reopened.messagesController.historyStartVisible('c'), isTrue);
+    await reopened.cacheSaved;
+  });
+
   test(
     'local ready restores inbox and conversations before a blocked Home request',
     () async {

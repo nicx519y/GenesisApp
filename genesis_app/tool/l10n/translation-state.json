@@ -6180,10 +6180,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo. Traditional Chinese style labels match the user-provided filenames exactly."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "0c7a4da80bc0ceea20ab66c344bd18170d4ed138812daa2b111cc8d7514ad48f",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "9fd06d8b3312ce84831de85ac8ad71e96c5c32e6a662c13c1731a81757d2827d",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -6196,6 +6196,72 @@
           "text_hash": "3a700cf0c0a4ae6f6808c5cb06a2dbc6a8f4cc75e420a20d80209348ed02910c",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "418cb6816558677e6b6d7c7cd2bfea7df6d712da71e691ed42a779cb5220e8b4",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "3e95895125ffc407ae362b96335217f5756dd0ad13ccc244c99aa97fd614da41",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "2d5d012b7bf60293a8a872e8bea19c1b132c52012aa1da966134527d9042c5ca",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "d768071f9b39260452b575e90f69fc8141228322822b1fe757e2c6d7b121ce28",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "09f1b60cc52fb8b6cb3e3c2cc86185d2b0a019b4dfeb70c8da27919ee031e22a",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "696623a869bd8bf5239bc63ea4bb9a8cf68347e7a0872942eaa51477f0e879ba",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "33fbac453cd860c45747ff2ac3873a5fdd44b469d5dad945e49e8bd91d460f17",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "0eb5c6af3f0665bdfeb421397c8c6eeb55c79867ce3c7b9328718e2e5720cc28",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "5427895d57f19761aa13ef94bc1a830ed4040aa7047b253ab78830bcd9a889d7",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "8dc27a464a0e3b5c6f148b2c0b837d7eb850c83a06454a5775a78635322f1196",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "84ea7525adf70bc4d1d7c0ad6e499d4c9efd0c93592c85f784683810d921deaf",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -12377,10 +12443,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "cda3b22edf9ac77b316b40401a75cbfdb27992eeba37b5e04203df67c97340db",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "174b359a8c09dc2db81969cc316e326aa222b66f3f977213bc74cf2aa911f56e",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -12393,6 +12459,72 @@
           "text_hash": "b5f9189dc5d0bee8cbf95631c5fff5f4bd2517fbb736f995f36901ff0b9a230a",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "07760dc1c76fc3a234731d1a5bde111b8e0ecf6a1ccdcba3607919aee56efa50",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "95ab47b2d7c03c47d816e08be1dfd805f6a3b5783ddcee5e4eff13dba602445b",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "221dc72020725bf7c99660b5c56313c5a5a7c3a93dce94f29afce176aec0ae82",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "7aaed0c02dd27f56369a0079b8c9462834e78528c9b888ae2602a316687f9f83",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "a0fff1665cc7e49194ce996ca25e9dea1187da39cd605ec0fc25393f6bcd4cf7",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "9a82bad76e9f813588556a363710d8ca685f430450332362cc8701515f426955",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "f64f41f6676967f72b10d0d3950ea325e0462bb623b151ca577fcf655fe29a53",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "8d8c7b4c14d8b45c3156b8adadc317f612da09ca8840c28f77e8983d7284de2a",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "a322ee7af3bdbc89569149ab081f903f30392e117cf7a96053c443763f10f515",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "8d5d705af8cdf37e0ea6fa5d46fe1ce671c710f20d356c2d8e33410656c5dff6",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "4715cab3b8d2f6cc718485c3a09390151e287d060bf2ca63b68ec9099b8f84bc",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -18574,10 +18706,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "4ad880cb0430508032a89b45b6ce8410d46bac9d0acef3fd06dc434020e5506a",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "2d59fa3427cf2debbeda94dcb21dac866b4ea0e6e851f75636af62ed947a8148",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -18590,6 +18722,72 @@
           "text_hash": "516bba6afc8282eded1a9ae2607719bd9e55cb6667ca4f987d981d4cf2cebb0a",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "6e6eb2c207781096d092ed342f2122d5ccefb746b8aa307e9939d3ea0b15b579",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "cf20e63cd83bc990fdef293cc5f4972392c2bdaf3db14b5e570998638f2717e9",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "ad9c1e613c868c3b30bb99af40b508395803e8ed7f27dd1ded975a9df67305cf",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "59592b5a1fd79679bc05d37aa35b89f3eb6f591a1e410e9bf041a0059f6eaa06",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "b456735625878ede9f1cef3f373491ce4bfec9abe2fdc0965ebd6cd5efad2ac9",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "891f6b79c9a8afe29bed81a430536be10c4496961584632cbd35214d95d1ae0e",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "f62d7cd78e75c51b8702f118f4254788a42d2506b62882755aca74ebd2cb51e7",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "e647dab30919114492edbb4f6c73852d4085d44e51c3648cdc01968c09d6fec0",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "5213355b77ec30433802d736e040ba91dc522809f5fb25ca9f3465398bd8cb23",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "040c7a55db3586843769efddf703181b205eb1591694cfd4764d284881d2d770",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "bd3c62ec653fbe3072277f71cd7306176d27d8e57fe2fb5dfc35147a8087cd1b",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -24771,10 +24969,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "a9edfda03dd9077427f971a4856b0407097c910e601bd738f5ad68911c67571e",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "3329c0db3f6339969be82d4246832102482b88b49d33cbba8512bd9c2975cc3b",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -24787,6 +24985,72 @@
           "text_hash": "d2a9f07ea421effba193e04ffc3ff4246ffdfccf7985274d7675b54310a72e93",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "cfff8e7122ecd5391b726673ff83f2d49a57bd1205dbe9d8377fb5ef0095bd1c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "1863f8ae168156c3a5f5b3f7d32f359c07ea63e2cc7a4b3aef1067425f56df62",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "7b09b79e4c0598fe12eec5b1ac26c4463e9438b2548a4169398993ce5ba28491",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "da3d26bf505e35587951424999f5908c9509f9fb3061fcaa443412169e27588c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "e2177fb2b31e1ae661a433da3416c655d5543449e00d57e3f05f1d98b4cd298c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "a8b6accce1f7e7a491843201496cb12ff91dce767cc9d97cac753f8b588f1f56",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "7b653cc63a28538200f41e7684858e8e52f02dc626bbcd0129573dd424aa2c15",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "224ce08cb7616f437fa9f88559493f37f081dafd8fc654c539fb33aa1370fe40",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "44968d9c8cc22a1a7e5fe0c9c38922b586f62c93aa81e8315b5798de8031103c",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "1189ba636130a797138522c0bcc7c55d76a31c68b155d226a19b1ff0b26986df",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "e81d7936cb610453af6507845e7031344a7e74f7e734fd5b8698213923e79c3a",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -30968,10 +31232,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "fd1e95460322f3174011f2cfaba3f182d45ca95f241979922d056a23c89c70e9",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "0760f6fcda6af8f1234a35ccfe017be0ae8c4d7cca074cdd26d89fa2529066a2",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -30984,6 +31248,72 @@
           "text_hash": "9d03338a0f695fce81f7e8f9ed880c91f92bd207f29f1dbdb8edae509da29d18",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "9fa94a3b17c99abe738ce013c53fcf3160f5298c7f4ac3ec3bcab88a20a61288",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "9f15f351bd4e5ba6e19bc5f898aa343a507956af1039f8456c9f0c258a25512c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "4f1ab882c47f6e3763de02442d82071dd744dba06424fa35ad8e8b0959c9b96c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "1713094c120d9a82780e29c423b48c02dd18cb16a23936de3949daca3f6b6a0e",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "8f52ac447db003053b80e7b6fd9fc7321db515e9b96dfe30c0d9ca9a9149a595",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "57cbc2d24c4683e85882aface148dfba68c2c1a4070bcd2d028cf99217eef760",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "bde0fac8aba01213791cc57eafbdfb635241fd04704ca869cc9a73ee31e17b0c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "520547f284a0896f77685e5013eb2d0d8d21c78932103f92af740d300785d92a",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "962d6a80acb787f12cd6e60889f6c679ddfd2cd3136659ccc5dfd6fa00b10293",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "2946e47a5471633198d035d5bf96089c287af724aaf20e260d65a8a88f536ea1",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "0ec35302cea32f8b69e7bed86f4740b221213954d0da6e9bed0ef7f8c2dc3f65",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -37165,10 +37495,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "0db498855314cbf15ead8fbbdde61bdeb77d7c55105674fa9663693fbf163317",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "5f4f693773c46300b9b57578c3ea7b2ba7e8144a4148679f4e15bd67f5e36b9e",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -37181,6 +37511,72 @@
           "text_hash": "436ffb8f9205da0250bcf0342f1c92426895adfc392b65c67c2f7c4ec686b1ef",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "bc0f34de1d6019ace01baf5df8b37d2b15807ddf49c287e8b2dca20daa636b67",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "2b8af68918ed2f7012f27c4cb7b085ce350fa34bcddbebcce9e19aa01081467e",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "c0041f39bbc9bce9983fe915bff58c50785ba017b4e697393f70ea69dd4597c7",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "091f149ae6c01fd54f6445bebfebd66d9443a113d54aedb2e74628b6040cd663",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "8ca1e60ac9b6bf5d3245a13ebb25aafac560bf844d8e7b778dd57d24eb1b27ba",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "3eeb6eb5b733a2e314f812d27c715b17fa97a8aa8a8050945ed0fdc80ccf708c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "fe30dbf04cb97d3b5c816ed4189f77e5db972023d815a696aaac9ef82d5218e9",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "b6c2ee743b2034f540af1f56b721a8ce04c1b8a27fcae2eaf5e17714046c6ffa",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "c463d1900ee609e89f6fb2d087a675ee7eb553502ca7989573ad4033b7c55452",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "801ecaf3f72701656b3fd30e73d71cd2204d0e1c1a4f449f77a88e8f9faea90e",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "6cf99f3694fb088a11f78702bfc3ec9d9768974c063f8a87afaa7edcda740ff7",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -43362,10 +43758,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "b4f728eaefa5d4c3c0c8c59ccf5505428234ca3bc133c89311f8a4ee501442d1",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "7e2cf9fe66001ea1876a4a1bc3bc6ef2ac1578d612d36e685156250a1cab3fc7",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -43378,6 +43774,72 @@
           "text_hash": "cd624d400cab1133413af2ae11ce3bf7e234b4350bf5a15d983e248b4d7e3622",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "4654f69aa74c6f54693e7c26644272b9875f09662c8cb98684aced3bf3a974eb",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "893a66359c0e9a2d6ca84ff328fe3e08c7a4fb65cb2ce39a5cb84910c4e9129b",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "9aa6eac04239d931eac5deab60f0dd8f74a3bd79a89a4d5f1f944bf0fee819c5",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "a6425f8863c0cb156fb1540bdc664e4fab0bb26f03a60fc43810d99b03970ad5",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "2e0437bf6df850d48741e5e7dd904f36dcf29fea5389bb4925497d0ef47af755",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "7058610933a77d3b1fd5b56882a30cd0cf0ef2039ee7ff4b4e75549d07d58b30",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "d40dfff4039c44d6a34c46d8099d75577b536c1b1b1a87f81daf7e6bfb8db6cc",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "24717f2d039865085a02fcab04e22cee4adf4163b2490a7512ae4b0283c99272",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "867392c35b1e50eb405c9c850d31fcb8a23984bfaa7eefa5d17d697e8135612a",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "456d6c9aed072be967ab7820d98f28697e01f9d14b456b496f4aff946425043e",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "aa418be3f40c6ddd4eeb9eefb6f061833343c0950ad7248b0bc338b0eb5607a7",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     },
@@ -49559,10 +50021,10 @@
           "note": "AI translation following locale guidance; selected-character constraints preserved; Live photo denotes a static photo style, not video or Apple Live Photo."
         },
         "miniPhoneCameraPeopleLimit": {
-          "source_hash": "b70976b619d9702907d271ea4ed43ba5c72834f40f858619de33d141b9fe55ce",
-          "text_hash": "d676a8dc34e783db3678981349b66335573b5042d72d999aefa45a5485098b59",
+          "source_hash": "f0718cf2da446ced4e34273f180d914630a3ac44e97231c32b75e594419830b9",
+          "text_hash": "e3d3a45edb49eeab1d84d7f56fa3a0229b0a7a1f54afc28238564d11f20ad069",
           "status": "ai",
-          "note": "Preserves the fixed maximum of 5 people."
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         },
         "miniPhoneCameraFailureRefund": {
           "source_hash": "4afe345d9a73465d2f813a7a0d573d2f397911fed194fb1ca7aa9afca7d8d074",
@@ -49575,6 +50037,72 @@
           "text_hash": "a6db78375edf9e3971129e9df0b7bac63aae8d2e351493f96a526a857f476959",
           "status": "ai",
           "note": "Preserves preview-only sample photo and prohibition on publishing to the user’s World."
+        },
+        "chatPhotoBasePrice": {
+          "source_hash": "624d4b279d9b055800d1b86ed8e60542eee864f4d5ef3e1f07ec48d7f219d6ee",
+          "text_hash": "02dbc1d585796111015b6c03365c5614b6f98e4510f64807ae6eea7d89297709",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoPriceExplanation": {
+          "source_hash": "b824094edb46d9035d4313ca90e18a4b5235a9c1f3f581330d73fc0157eff339",
+          "text_hash": "021f5440e4ca4aedce3c64cf3eceb6d200a588176dc305994ac5e7a2aacfe49f",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerate": {
+          "source_hash": "415c0eca6446f237f18855f54046d6578ec913c0a57522454f1e2e122229ddc6",
+          "text_hash": "0a55ed8725388a2dfc50f9cf833fdeb1a0191ddd6714080eb7a9fda4798a351f",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoRecover": {
+          "source_hash": "879eeaf4aaef920159eba21f6d6e18ce0375198b09c1a8c84fa468624175bfb6",
+          "text_hash": "a6d7a036280d0325f62b4a69b8a70097eff5c96252862ceac1e50bfd23af7d58",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUncertain": {
+          "source_hash": "a093b032c93a6a08449ac5f34e641e33fa496ecd9411214f830e680b7768787b",
+          "text_hash": "35e54855d56ac07ebb0dc6f6f7719f2074d0693bf3f347e0ca300d4e6d97a306",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoGenerating": {
+          "source_hash": "265b15327f5d12c69d218970ccb573dede5578d3344d7dab86f8d79eaa02fb18",
+          "text_hash": "db3852b75098f66cee66f9592ac550f456da621faf1a98e7ee7691cbd00ca85c",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoFailed": {
+          "source_hash": "80c148da3c86b5b7a064db887851cd06ccc348b91006b9f10400814a3e8a6fc9",
+          "text_hash": "e63d02247d34df9232f90168d5bda98d78a67fc1f6bd2ffdf05ab61a7601274e",
+          "status": "ai",
+          "note": ""
+        },
+        "chatPhotoUnavailable": {
+          "source_hash": "af75edebf8a2bf0956aea5f254c8132785c4041fc3b1f3f32052ae71523a552e",
+          "text_hash": "1584038982d3f8b470f94f20198f29bb32a4123ef0a16d610ae0a5f23f44829b",
+          "status": "ai",
+          "note": ""
+        },
+        "cameraFreeAvailable": {
+          "source_hash": "2473d7a0171c8cb9623748e183d9e347722373547c7e70dd80b6a77af5370d8b",
+          "text_hash": "ac633244154402f93dfdf18774c6f87f31566ca102830932829d4301e88c9928",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraSubmissionUnconfirmed": {
+          "source_hash": "3366f9bdcd6641c985bc208707ee9e27b6910efd1fd53d424b39af7e7c551b94",
+          "text_hash": "ceb80c91d0a6700f38541019ecb7a83fa08a71ba2e1d24bcdda3ac7e093e6b5c",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "cameraRequestConflict": {
+          "source_hash": "ce11f74ec2b5d38ba36048a238e3d490eec72b780c5a958879f0a3f9814b76e3",
+          "text_hash": "dbe24cad2858e43426b8e02e50d8f41660c69e21a39061729bb034908dad8792",
+          "status": "ai",
+          "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
         }
       }
     }

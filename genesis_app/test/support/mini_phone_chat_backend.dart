@@ -163,6 +163,30 @@ class PhoneBackend implements HttpTransport {
 
   Object defaultResponse(TransportRequest r) {
     final suffix = r.uri.path.split('/phone/').last;
+    if (suffix == 'photo/options') {
+      return ok({
+        'world_id': r.uri.queryParameters['world_id'],
+        'price_cent': 3000,
+        'free_status': 'available',
+        'styles': [
+          {'name': 'Selfie', 'label': 'selfie', 'demo_image_url': ''},
+          {'name': 'Mirror', 'label': 'mirror_selfie', 'demo_image_url': ''},
+        ],
+      });
+    }
+    if (suffix == 'photo/create') {
+      return ok({
+        'source': 'camera',
+        'world_id': body(r)['world_id'],
+        'photo': {
+          'task_id': 'task-${body(r)['client_request_id']}',
+          'client_request_id': body(r)['client_request_id'],
+          'status': 'generating',
+          'image': null,
+          'failure': null,
+        },
+      });
+    }
     if (r.method == 'POST') return ok({});
     if (suffix == 'home') {
       return ok({

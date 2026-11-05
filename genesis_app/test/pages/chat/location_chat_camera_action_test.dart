@@ -112,6 +112,74 @@ void main() {
     expect(action, findsNothing);
   });
 
+  testWidgets('camera create is busy and disables every other reply icon', (
+    tester,
+  ) async {
+    Widget tree(bool submitting) => MaterialApp(
+      home: Scaffold(
+        body: LocationChatReplyActions(
+          style: kLocationChatStyle,
+          takingPhoto: submitting,
+          onTakePhoto: () {},
+          regenerateFeature: LocationChatRegenerateFeature(
+            state: LocationChatReplyActionState.idle,
+            onInvoke: () {},
+          ),
+          goOnFeature: LocationChatGoOnFeature(
+            state: LocationChatReplyActionState.idle,
+            onInvoke: () {},
+          ),
+          editFeature: LocationChatEditFeature(
+            state: LocationChatReplyActionState.idle,
+            onInvoke: () {},
+          ),
+          inspirationFeature: const LocationChatInspirationFeature(
+            state: LocationChatReplyActionState.idle,
+            messages: [],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(tree(true));
+    await tester.pump(const Duration(milliseconds: 300));
+    final buttons = tester
+        .widgetList<LocationChatReplyFeatureButton>(
+          find.byType(LocationChatReplyFeatureButton),
+        )
+        .toList();
+    expect(
+      buttons.where((b) => b.state == LocationChatReplyActionState.busy),
+      hasLength(1),
+    );
+    expect(
+      buttons.where((b) => b.state == LocationChatReplyActionState.disabled),
+      hasLength(4),
+    );
+    for (final button
+        in find.byType(LocationChatReplyFeatureButton).evaluate()) {
+      final gestures = find.descendant(
+        of: find.byWidget(button.widget),
+        matching: find.byType(GestureDetector),
+      );
+      expect(
+        tester
+            .widgetList<GestureDetector>(gestures)
+            .every((g) => g.onTap == null),
+        isTrue,
+      );
+    }
+    await tester.pumpWidget(tree(false));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widgetList<LocationChatReplyFeatureButton>(
+            find.byType(LocationChatReplyFeatureButton),
+          )
+          .every((b) => b.state == LocationChatReplyActionState.idle),
+      isTrue,
+    );
+  });
+
   for (final state in LocationChatReplyActionState.values) {
     testWidgets('camera follows regenerate availability: ${state.name}', (
       tester,

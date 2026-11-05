@@ -20,19 +20,16 @@ class _OriginCharactersSection extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(
           child: _SectionTitle(
-            title: GenesisL10n.current
-                .worldoDetailCharactersLength(
-                  length: (characters.length).toString(),
-                ),
+            title: GenesisL10n.current.worldoDetailCharactersLength(
+              length: (characters.length).toString(),
+            ),
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 14)),
         if (characters.isEmpty)
           SliverToBoxAdapter(
             child: Text(
-              GenesisL10n
-                  .current
-                  .chatNoCharacters,
+              GenesisL10n.current.chatNoCharacters,
               style: _mutedBodyTextStyle,
             ),
           )
@@ -120,10 +117,7 @@ class _OriginCharacterRow extends StatelessWidget {
               if (goal.isNotEmpty) ...[
                 const SizedBox(height: 5),
                 Text(
-                  GenesisL10n.current
-                      .worldDetailGoal(
-                        goal: (goal).toString(),
-                      ),
+                  GenesisL10n.current.worldDetailGoal(goal: (goal).toString()),
                   style: _characterBodyTextStyle,
                 ),
               ],
@@ -196,11 +190,21 @@ class _OriginCharacterPortrait extends StatelessWidget {
       ),
     );
     if (resolvedUrl.isEmpty) return portrait;
-    return GestureDetector(
+    return GenesisImageViewerSourceAnchor(
       key: ValueKey('origin-character-portrait-$characterId'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showGenesisImageViewer(
+      previewImageProvider: genesisImageViewerPreviewProvider(
         context,
+        imageUrl: resolvedUrl,
+        logicalWidth: _width,
+        fit: BoxFit.fitWidth,
+        maxDevicePixelRatio: devicePixelRatio,
+      ),
+      fit: BoxFit.fitWidth,
+      alignment: Alignment.topCenter,
+      borderRadius: BorderRadius.circular(_borderRadius),
+      onTap: (source) => showGenesisImageViewer(
+        context,
+        source: source,
         imageUrls: imageUrls,
         maxDevicePixelRatio: devicePixelRatio,
         previewImageProviders: [

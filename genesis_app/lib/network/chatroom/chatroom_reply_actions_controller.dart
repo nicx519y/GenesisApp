@@ -604,6 +604,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     _active[locationId] = {...activeRoundIds};
     final groups = <int, List<WorldChatroomMessage>>{};
     for (final message in messages) {
+      if (message.businessType == 'live_photo') continue;
       final round = message.conversationRoundNumber;
       if (message.locationId != locationId || round <= 0) continue;
       groups.putIfAbsent(round, () => []).add(message);

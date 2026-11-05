@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../../l10n/genesis_localizations.dart';
 import 'package:flutter/material.dart';
+import '../../../components/ai_content_disclaimer.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_store.dart';
 import '../shared/mini_phone_ui.dart';
@@ -113,31 +114,37 @@ class _MiniPhonePostFeedPageState extends State<MiniPhonePostFeedPage> {
             resetKey: (phone.accountGeneration, phone.authorFilter),
             active: widget.active && phone.foreground,
             itemBuilder: _livePostCard,
-            header: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                miniPageInset,
-                4,
-                miniPageInset,
-                16,
-              ),
-              child: MiniPhonePostAuthors(
-                authors: phone.authors,
-                me: phone.person(phone.uid ?? '', type: 1),
-                selectedId: phone.authorFilter,
-                onCreate: widget.onCreate,
-                onSelect: (id) {
-                  if (phone.authorFilter != id) {
-                    phone.analytics.event(
-                      'post_filter',
-                      target: id ?? 'all',
-                      stage: 'select',
-                      data: phone.analytics.context('posts'),
-                    );
-                  }
-                  phone.authorFilter = id;
-                  unawaited(phone.refreshPosts());
-                },
-              ),
+            header: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    miniPageInset,
+                    4,
+                    miniPageInset,
+                    16,
+                  ),
+                  child: MiniPhonePostAuthors(
+                    authors: phone.authors,
+                    me: phone.person(phone.uid ?? '', type: 1),
+                    selectedId: phone.authorFilter,
+                    onCreate: widget.onCreate,
+                    onSelect: (id) {
+                      if (phone.authorFilter != id) {
+                        phone.analytics.event(
+                          'post_filter',
+                          target: id ?? 'all',
+                          stage: 'select',
+                          data: phone.analytics.context('posts'),
+                        );
+                      }
+                      phone.authorFilter = id;
+                      unawaited(phone.refreshPosts());
+                    },
+                  ),
+                ),
+                const AiContentDisclaimer(),
+              ],
             ),
           ),
         ),

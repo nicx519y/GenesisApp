@@ -1,6 +1,5 @@
 import '../../../platform/session/user_session_store.dart';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../app/bootstrap/app_services_scope.dart';
 import '../../../network/models/music.dart';
@@ -13,7 +12,6 @@ import '../settings/mini_phone_model_settings.dart';
 import '../state/mini_phone_store.dart';
 import 'mini_phone_screen.dart';
 import '../camera/mini_phone_camera.dart';
-import '../camera/mini_phone_camera_preview_jobs.dart';
 
 /// Owned by a World route, shared by its map, location chats and MiniPhone route.
 class MiniPhoneSession {
@@ -43,6 +41,8 @@ class MiniPhoneSession {
               readUid: services.sessionStore.readLoginUid,
               loadWorld: () => services.api.getWorld(worldId),
               loadUser: services.api.getUser,
+              loadCameraNotices: (page) => services.api.v1.messages
+                  .notifications(block: 'world_apply', pn: page, rn: 100),
               accountRevision: services.sessionRevision,
             ),
       musicLease: worldId.isEmpty
@@ -65,10 +65,17 @@ class MiniPhoneSession {
   MiniPhonePostDraft? get activePostDraft =>
       composingCameraPhoto ? cameraPostDraft : postDraft;
 
-  void composeCameraPhoto(String asset) {
-    if (!kDebugMode || data == null || _disposed) return;
+  void composeCameraPhoto(
+    String asset, {
+    ImageProvider<Object>? previewImageProvider,
+  }) {
+    if (data == null || _disposed) return;
     cameraPostDraft?.dispose();
-    cameraPostDraft = MiniPhonePostDraft.cameraPreview(data!, asset);
+    cameraPostDraft = MiniPhonePostDraft.cameraPhoto(
+      data!,
+      asset,
+      previewImageProvider: previewImageProvider,
+    );
     composingCameraPhoto = true;
   }
 
@@ -77,6 +84,7 @@ class MiniPhoneSession {
       ? null
       : MiniPhoneCameraController(
           requests: data!.requests,
+          selections: data!.cameraTasks.selections,
           scope: MiniPhoneCameraScope(
             environment: data!.namespace,
             accountId: data!.uid ?? '',
@@ -84,29 +92,13 @@ class MiniPhoneSession {
           ),
         );
   final resume = MiniPhoneResume();
-  MiniPhoneCameraPreviewJobs? _cameraPreview;
-  MiniPhoneCameraPreviewJobs? get cameraPreview {
-    if (!kDebugMode || data == null || _disposed) return null;
-    if (_cameraPreview == null) {
-      _cameraPreview = MiniPhoneCameraPreviewJobs(
-        requests: data!.requests,
-        scope: _cameraPreviewScope,
-      );
-      data!.addListener(_syncCameraPreviewScope);
-    }
-    return _cameraPreview;
-  }
-
-  MiniPhoneCameraScope get _cameraPreviewScope => MiniPhoneCameraScope(
-    environment: data!.namespace,
-    accountId: data!.uid ?? '',
-    worldId: worldId,
-  );
-  void _syncCameraPreviewScope() =>
-      _cameraPreview?.bindScope(_cameraPreviewScope);
   final _routes = <Route<dynamic>, NavigatorState>{};
   bool _disposed = false;
   bool get isDisposed => _disposed;
+  bool presentationVisible = false;
+  bool get hasForegroundRoute =>
+      !_disposed &&
+      _routes.keys.any((r) => r.isCurrent || r.isActive && presentationVisible);
   MiniPhoneScreen modelReturnScreen = MiniPhoneScreen.chat;
   final modelSettings = MiniPhoneModelSettings();
 
@@ -137,8 +129,6 @@ class MiniPhoneSession {
       music.dispose();
     }
     camera?.dispose();
-    data?.removeListener(_syncCameraPreviewScope);
-    _cameraPreview?.dispose();
     postDraft?.dispose();
     cameraPostDraft?.dispose();
     data?.dispose();

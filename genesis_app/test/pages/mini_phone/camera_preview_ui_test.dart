@@ -16,7 +16,7 @@ const scope = MiniPhoneCameraScope(
   worldId: 'w',
 );
 const person = PhonePerson('p', 'Person', '');
-final sample = MiniPhoneCameraTemplate.povSelfie.assetPath;
+const sample = 'assets/mini_phone/camera-templates/selfie.webp';
 
 void main() {
   testWidgets(
@@ -201,12 +201,8 @@ void main() {
       );
       expect(tester.getRect(tile), before);
       expect(
-        tester
-            .widget<InkWell>(
-              find.descendant(of: tile, matching: find.byType(InkWell)),
-            )
-            .onTap,
-        isNull,
+        find.descendant(of: tile, matching: find.byType(InkWell)),
+        findsNothing,
       );
       await tester.tap(tile);
       await tester.pump();
@@ -217,6 +213,10 @@ void main() {
       expect(jobs.tasks.length, 3);
       expect(tester.getRect(tile), before);
       expect(tester.takeException(), isNull);
+      await tester.runAsync(
+        () => precacheImage(const AssetImage(sample), tester.element(tile)),
+      );
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('camera-preview-task-2')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('camera-photo-use-in-post')));

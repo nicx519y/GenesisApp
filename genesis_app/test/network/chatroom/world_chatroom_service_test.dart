@@ -3,11 +3,13 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_disconnect_monitor.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_queue_anomaly_monitor.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -24,8 +26,14 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 part 'world_chatroom_sync_test_cases.dart';
+part 'world_chatroom_photo_test_cases.dart';
+part 'world_chatroom_queue_monitor_test_cases.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+  _queueAnomalyServiceTests();
+  _photoServiceTests();
   test('late older waiting cannot steal a newer round deadline', () async {
     var now = DateTime(2026);
     final socket = _FakeChatroomSocket();
@@ -7005,6 +7013,7 @@ Future<WorldChatroomService> _service({
   bool refreshInitialSnapshotOnConnect = true,
   bool useV2Protocol = false,
   ChatroomDisconnectMonitor? disconnectMonitor,
+  ChatroomQueueAnomalyMonitor? queueAnomalyMonitor,
   DateTime Function()? sendGateClock,
   LocationChatSendGate? sendGate,
 }) async {
@@ -7035,6 +7044,7 @@ Future<WorldChatroomService> _service({
     client: client,
     messageStorage: messageStorage ?? MemoryChatroomMessageStorage(),
     disconnectMonitor: disconnectMonitor,
+    queueAnomalyMonitor: queueAnomalyMonitor,
     replyActionStorage: MemoryChatroomReplyActionStorage(),
     heartbeatInterval: heartbeatInterval,
     reconnectInterval: reconnectInterval,

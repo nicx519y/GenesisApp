@@ -150,6 +150,15 @@ class _AppLaunchTransitionHostState extends State<AppLaunchTransitionHost>
     return true;
   }
 
+  bool _setCloseSource(Object sourceId) {
+    if (!_controller.hasPage ||
+        _controller.status == AppLaunchTransitionStatus.closing) {
+      return false;
+    }
+    _launchSource = sourceId;
+    return true;
+  }
+
   bool _close(Object? fallback) {
     if (!_controller.hasPage ||
         _controller.status == AppLaunchTransitionStatus.closing) {

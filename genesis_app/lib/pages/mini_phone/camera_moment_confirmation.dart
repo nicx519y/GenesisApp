@@ -1,4 +1,7 @@
+import '../../utils/api_error_message.dart';
+import '../../components/common/genesis_center_toast.dart';
 import 'dart:math' as math;
+import '../../utils/gem_amount.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,12 +21,37 @@ Future<bool> confirmCameraMoment(
   BuildContext context, {
   required String preferenceScope,
   bool forceShow = false,
+  int? priceCent,
+  bool recovering = false,
+  bool? cameraFreeAvailable,
+  Future<int> Function()? loadPrice,
 }) async {
-  final key = 'camera-moment-confirmation:$preferenceScope';
+  final key = loadPrice != null
+      ? 'chat-photo-confirmation-v2:$preferenceScope'
+      : cameraFreeAvailable != null
+      ? 'phone-camera-confirmation-v1:$preferenceScope'
+      : priceCent == null
+      ? 'camera-moment-confirmation:$preferenceScope'
+      : 'chat-photo-confirmation-v1:$preferenceScope';
   SharedPreferences? preferences;
   try {
     preferences = await SharedPreferences.getInstance();
-    if (!forceShow && preferences.getBool(key) == true) return true;
+    if (!forceShow &&
+        (loadPrice != null || !recovering) &&
+        (loadPrice != null
+            ? preferences.getBool(key) == true ||
+                  (preferences.get(key) == null &&
+                      preferences.get(
+                            'chat-photo-confirmation-v1:$preferenceScope',
+                          )
+                          is int)
+            : cameraFreeAvailable != null
+            ? preferences.getString(key) == '$priceCent:$cameraFreeAvailable'
+            : priceCent == null
+            ? preferences.getBool(key) == true
+            : preferences.getInt(key) == priceCent)) {
+      return true;
+    }
   } catch (_) {
     // A preference read must not prevent the explanation from being shown.
   }
@@ -33,15 +61,32 @@ Future<bool> confirmCameraMoment(
     useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => const _CameraMomentConfirmation(),
+    builder: (_) => _CameraMomentConfirmation(
+      priceCent: priceCent,
+      loadPrice: loadPrice,
+      recovering: recovering,
+      cameraFreeAvailable: cameraFreeAvailable,
+    ),
   );
   if (result == null) return false;
   if (preferences != null) {
     try {
       if (result) {
-        await preferences.setBool(key, true);
+        if (loadPrice != null) {
+          await preferences.setBool(key, true);
+        } else if (cameraFreeAvailable != null) {
+          await preferences.setString(key, '$priceCent:$cameraFreeAvailable');
+        } else if (priceCent == null) {
+          await preferences.setBool(key, true);
+        } else if (!recovering) {
+          await preferences.setInt(key, priceCent);
+        }
       } else {
-        await preferences.remove(key);
+        if (loadPrice != null) {
+          await preferences.setBool(key, false);
+        } else {
+          await preferences.remove(key);
+        }
       }
     } catch (_) {
       // A failed preference save safely leaves confirmation enabled next time.
@@ -51,7 +96,16 @@ Future<bool> confirmCameraMoment(
 }
 
 class _CameraMomentConfirmation extends StatefulWidget {
-  const _CameraMomentConfirmation();
+  const _CameraMomentConfirmation({
+    this.priceCent,
+    this.loadPrice,
+    this.recovering = false,
+    this.cameraFreeAvailable,
+  });
+  final bool? cameraFreeAvailable;
+  final int? priceCent;
+  final Future<int> Function()? loadPrice;
+  final bool recovering;
   @override
   State<_CameraMomentConfirmation> createState() =>
       _CameraMomentConfirmationState();
@@ -59,6 +113,31 @@ class _CameraMomentConfirmation extends StatefulWidget {
 
 class _CameraMomentConfirmationState extends State<_CameraMomentConfirmation> {
   bool remember = true;
+  int? _loadedPrice;
+  bool get _realPrice => widget.priceCent != null || widget.loadPrice != null;
+  int? get _price => _loadedPrice ?? widget.priceCent;
+
+  @override
+  void initState() {
+    super.initState();
+    final load = widget.loadPrice;
+    if (load != null) _fetchPrice(load);
+  }
+
+  Future<void> _fetchPrice(Future<int> Function() load) async {
+    try {
+      final price = await load();
+      if (mounted) setState(() => _loadedPrice = price);
+    } catch (error) {
+      if (mounted) {
+        showGenesisToast(
+          context,
+          apiErrorMessage(error),
+          brightness: Brightness.dark,
+        );
+      }
+    }
+  }
 
   void _toggleRemember() => setState(() => remember = !remember);
 
@@ -102,11 +181,24 @@ class _CameraMomentConfirmationState extends State<_CameraMomentConfirmation> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  l10n.miniPhoneCameraMomentBody,
+                  widget.recovering
+                      ? l10n.chatPhotoUncertain
+                      : _realPrice
+                      ? l10n.chatPhotoPriceExplanation
+                      : l10n.miniPhoneCameraMomentBody,
                   textAlign: TextAlign.center,
                   style: miniStyle(12, FontWeight.w400, miniSecondary),
                 ),
               ),
+              if (widget.cameraFreeAvailable == true)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Text(
+                    l10n.cameraFreeAvailable,
+                    textAlign: TextAlign.center,
+                    style: miniStyle(12, FontWeight.w400, miniSecondary),
+                  ),
+                ),
               const SizedBox(height: 14),
               SizedBox(
                 height: 156,
@@ -171,29 +263,37 @@ class _CameraMomentConfirmationState extends State<_CameraMomentConfirmation> {
                   children: [
                     SvgPicture.asset(gemIconAsset, width: 14, height: 14),
                     const SizedBox(width: 6),
-                    GenesisLocalizedRichText(
-                      template: l10n.miniPhoneCameraFreePrice(
-                        originalPrice: GenesisLocalizedRichText.placeholder(
-                          'originalPrice',
+                    if (_realPrice)
+                      Text(
+                        l10n.chatPhotoBasePrice(
+                          price: _price == null ? '—' : formatGemCent(_price!),
                         ),
-                        price: GenesisLocalizedRichText.placeholder('price'),
-                      ),
-                      placeholders: const {
-                        'originalPrice': TextSpan(
-                          text: '30',
-                          style: TextStyle(
-                            color: miniTertiary,
-                            decoration: TextDecoration.lineThrough,
-                            decorationColor: miniTertiary,
+                        style: miniStyle(12, FontWeight.w600),
+                      )
+                    else
+                      GenesisLocalizedRichText(
+                        template: l10n.miniPhoneCameraFreePrice(
+                          originalPrice: GenesisLocalizedRichText.placeholder(
+                            'originalPrice',
                           ),
+                          price: GenesisLocalizedRichText.placeholder('price'),
                         ),
-                        'price': TextSpan(
-                          text: '0',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      },
-                      style: miniStyle(12, FontWeight.w400),
-                    ),
+                        placeholders: const {
+                          'originalPrice': TextSpan(
+                            text: '30',
+                            style: TextStyle(
+                              color: miniTertiary,
+                              decoration: TextDecoration.lineThrough,
+                              decorationColor: miniTertiary,
+                            ),
+                          ),
+                          'price': TextSpan(
+                            text: '0',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        },
+                        style: miniStyle(12, FontWeight.w400),
+                      ),
                   ],
                 ),
               ),
@@ -201,7 +301,11 @@ class _CameraMomentConfirmationState extends State<_CameraMomentConfirmation> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GenesisPrimaryButton(
-                  label: l10n.miniPhoneCameraFreeTrial,
+                  label: widget.recovering
+                      ? l10n.chatPhotoRecover
+                      : _realPrice
+                      ? l10n.chatPhotoGenerate
+                      : l10n.miniPhoneCameraFreeTrial,
                   leadingIcon: SvgPicture.asset(
                     cameraIconAsset,
                     width: 16,
@@ -219,58 +323,59 @@ class _CameraMomentConfirmationState extends State<_CameraMomentConfirmation> {
                 ),
               ),
               const SizedBox(height: 4),
-              Semantics(
-                key: const ValueKey('camera-moment-remember'),
-                label: l10n.miniPhoneCameraDontAskAgain,
-                checked: remember,
-                enabled: true,
-                onTap: _toggleRemember,
-                excludeSemantics: true,
-                child: InkWell(
+              if (!widget.recovering)
+                Semantics(
+                  key: const ValueKey('camera-moment-remember'),
+                  label: l10n.miniPhoneCameraDontAskAgain,
+                  checked: remember,
+                  enabled: true,
                   onTap: _toggleRemember,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            key: const ValueKey('camera-moment-checkbox'),
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: remember ? Colors.white : null,
-                              border: Border.all(color: Colors.white),
+                  excludeSemantics: true,
+                  child: InkWell(
+                    onTap: _toggleRemember,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              key: const ValueKey('camera-moment-checkbox'),
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: remember ? Colors.white : null,
+                                border: Border.all(color: Colors.white),
+                              ),
+                              child: remember
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 10,
+                                      color: miniBackground,
+                                    )
+                                  : null,
                             ),
-                            child: remember
-                                ? const Icon(
-                                    Icons.check,
-                                    size: 10,
-                                    color: miniBackground,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              l10n.miniPhoneCameraDontAskAgain,
-                              style: miniStyle(
-                                11,
-                                FontWeight.w400,
-                                miniSecondary,
-                              ).copyWith(height: 1.4),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                l10n.miniPhoneCameraDontAskAgain,
+                                style: miniStyle(
+                                  11,
+                                  FontWeight.w400,
+                                  miniSecondary,
+                                ).copyWith(height: 1.4),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

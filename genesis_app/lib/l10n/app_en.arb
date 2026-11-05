@@ -5096,20 +5096,26 @@
   "@miniPhoneCameraGeneratingCount": {
     "description": "MiniPhone Camera: compact caption on the Photos album entry showing how many concurrent local simulated photo tasks are currently generating. Count is an integer number of pending preview tasks, not real backend jobs or saved album assets; preserve the count and ongoing status.",
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "miniPhoneCameraFreePrice": "{originalPrice} {price} Gems / photo",
   "@miniPhoneCameraFreePrice": {
     "description": "Compact price chip above Free trial in the shared Camera explanation: originalPrice is crossed out (30 from the user's supplied reference image), followed by price (0). These are frontend preview figures, not server billing or granted trial entitlements. Preserve both rich-text placeholders and their localizable order.",
     "placeholders": {
-      "originalPrice": {"type": "String"},
-      "price": {"type": "String"}
+      "originalPrice": {
+        "type": "String"
+      },
+      "price": {
+        "type": "String"
+      }
     }
   },
-  "miniPhoneCameraPeopleLimit": "Choose up to 5 people.",
+  "miniPhoneCameraPeopleLimit": "Choose up to 4 people.",
   "@miniPhoneCameraPeopleLimit": {
-    "description": "MiniPhone Camera participant selector: toast when selecting a sixth person; the maximum is fixed at 5 people."
+    "description": "MiniPhone Camera: toast when selecting a fifth character; a photo supports at most four characters."
   },
   "miniPhoneCameraFailureRefund": "Generation failed. Any Gems charged will be refunded.",
   "@miniPhoneCameraFailureRefund": {
@@ -5118,5 +5124,54 @@
   "miniPhoneCameraPreviewPostNotice": "Preview only. This sample photo cannot be published to your world.",
   "@miniPhoneCameraPreviewPostNotice": {
     "description": "MiniPhone Camera local mock generated photo: footer in the Post composer opened from the sample photo. This is a preview only; publishing is not real and the sample photo cannot be published to the user’s World."
+  },
+  "chatPhotoBasePrice": "Base price: {price} Gems",
+  "@chatPhotoBasePrice": {
+    "description": "LocationChat photo confirmation sheet: server base price; not a guarantee of the final charge.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPhotoPriceExplanation": "Your first photo may be free. Eligibility and the final charge are determined by the server.",
+  "@chatPhotoPriceExplanation": {
+    "description": "LocationChat photo confirmation sheet: the price endpoint does not return free eligibility."
+  },
+  "chatPhotoGenerate": "Generate photo",
+  "@chatPhotoGenerate": {
+    "description": "LocationChat photo confirmation sheet: submit a new photo generation request."
+  },
+  "chatPhotoRecover": "Check previous request",
+  "@chatPhotoRecover": {
+    "description": "LocationChat photo confirmation sheet: explicitly resend the identical uncertain request to recover its outcome."
+  },
+  "chatPhotoUncertain": "The previous photo request has not been confirmed. Check it before taking another photo.",
+  "@chatPhotoUncertain": {
+    "description": "LocationChat: submission timed out or its response was lost; this does not mean generation failed."
+  },
+  "chatPhotoGenerating": "Generating photo…",
+  "@chatPhotoGenerating": {
+    "description": "Chat photo message: accepted generation is in progress."
+  },
+  "chatPhotoFailed": "Couldn’t generate the photo.",
+  "@chatPhotoFailed": {
+    "description": "Chat photo message: fallback when a failed task has no user-facing failure message."
+  },
+  "chatPhotoUnavailable": "This photo is no longer available.",
+  "@chatPhotoUnavailable": {
+    "description": "LocationChat: an Inbox photo target could not be found in its original location."
+  },
+  "cameraFreeAvailable": "Your first photo is currently free. Eligibility is confirmed when you submit.",
+  "@cameraFreeAvailable": {
+    "description": "MiniPhone Camera price explanation: current free eligibility is shared with chat photos and may change before submission; do not promise a free charge."
+  },
+  "cameraSubmissionUnconfirmed": "Submission not confirmed",
+  "@cameraSubmissionUnconfirmed": {
+    "description": "MiniPhone Photos task tile: HTTP submission has no confirmed receipt yet; this is not a generation failure."
+  },
+  "cameraRequestConflict": "This request conflicts with an earlier submission. Its details cannot be changed.",
+  "@cameraRequestConflict": {
+    "description": "MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID."
   }
 }

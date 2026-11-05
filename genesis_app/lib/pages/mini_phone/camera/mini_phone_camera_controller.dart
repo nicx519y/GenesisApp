@@ -5,16 +5,26 @@ import '../../../network/mini_phone/mini_phone_models.dart';
 import '../state/mini_phone_requests.dart';
 import 'mini_phone_camera_models.dart';
 import 'mini_phone_camera_templates.dart';
+import 'mini_phone_camera_selections.dart';
 
 /// Owns only the camera draft and presentation. The adapter owns generation,
 /// real request identities, retries and all message/album synchronization.
 class MiniPhoneCameraController extends ChangeNotifier {
-  static const maxPeople = 5;
+  static const maxPeople = 4;
   MiniPhoneCameraController({
     required this.requests,
     required MiniPhoneCameraScope scope,
+    this.selections,
   }) : _scope = scope,
-       _accountGeneration = requests.generation;
+       _accountGeneration = requests.generation {
+    selections?.addListener(_selectionsChanged);
+  }
+
+  final MiniPhoneCameraSelections? selections;
+
+  void _selectionsChanged() {
+    if (_contextCurrent) notifyListeners();
+  }
 
   final MiniPhoneRequests requests;
   MiniPhoneCameraScope _scope;
@@ -38,15 +48,19 @@ class MiniPhoneCameraController extends ChangeNotifier {
   }
 
   CameraPhotoRatio _photoRatio = CameraPhotoRatio.portrait;
-  CameraPhotoRatio get photoRatio => _photoRatio;
+  CameraPhotoRatio get photoRatio => selections?.photoRatio ?? _photoRatio;
   void setPhotoRatio(CameraPhotoRatio value) {
     if (!_contextCurrent ||
         _phase != MiniPhoneCameraPhase.compose ||
-        value == _photoRatio) {
+        value == photoRatio) {
       return;
     }
-    _photoRatio = value;
-    notifyListeners();
+    if (selections case final saved?) {
+      saved.selectRatio(value);
+    } else {
+      _photoRatio = value;
+      notifyListeners();
+    }
   }
 
   MiniPhoneCameraPhase _phase = MiniPhoneCameraPhase.compose;
@@ -77,8 +91,7 @@ class MiniPhoneCameraController extends ChangeNotifier {
   bool get canGenerate =>
       _contextCurrent &&
       _phase == MiniPhoneCameraPhase.compose &&
-      selectedPeople.isNotEmpty &&
-      _prompt.trim().isNotEmpty;
+      selectedPeople.isNotEmpty;
 
   /// Call on environment/account/World changes, including a refreshed account
   /// generation with the same UID. This clears all previous context's data.
@@ -134,7 +147,7 @@ class MiniPhoneCameraController extends ChangeNotifier {
       scope: _scope,
       participants: selectedPeople,
       prompt: _prompt.trim(),
-      photoRatio: _photoRatio,
+      photoRatio: photoRatio,
       templateId: _selectedTemplate?.name,
     );
     final cancellation = MiniPhoneCameraCancellation(
@@ -239,6 +252,7 @@ class MiniPhoneCameraController extends ChangeNotifier {
 
   @override
   void dispose() {
+    selections?.removeListener(_selectionsChanged);
     _invalidate();
     _clear();
     _disposed = true;

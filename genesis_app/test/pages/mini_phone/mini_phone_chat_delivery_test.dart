@@ -81,6 +81,40 @@ Future<void> closeChat(WidgetTester tester, MiniPhoneStore store) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('known history start renders on the first chat frame', (
+    tester,
+  ) async {
+    final backend = PhoneBackend()
+      ..respond = (r) =>
+          r.uri.path.endsWith('/messages') ? ok(page([phoneMessage(1)])) : null;
+    final store = (await tester.runAsync(() async {
+      final store = backend.store(namespace: 'first-frame:${_storeSequence++}');
+      await store.ready;
+      await store.refreshMessages('c');
+      return store;
+    }))!;
+    final pending = Completer<Object?>();
+    backend.respond = (r) =>
+        r.uri.path.endsWith('/messages') ? pending.future : null;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: MiniPhoneLiveChat(
+          store: store,
+          person: const PhonePerson('c', 'Character', ''),
+          header: const SizedBox(height: 56),
+        ),
+      ),
+    );
+    expect(timeline(tester).initialContentReady, isTrue);
+    expect(timeline(tester).oldestEdgeNotice, isNotEmpty);
+    expect(find.text(timeline(tester).oldestEdgeNotice!), findsOneWidget);
+    await tester.runAsync(() async {
+      pending.complete(ok(page([phoneMessage(1)])));
+    });
+    await closeChat(tester, store);
+  });
+
   testWidgets('generic Request failed stays a read error without a Toast', (
     tester,
   ) async {

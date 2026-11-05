@@ -16,6 +16,32 @@ const insufficient = GemBalanceAlert(
 const low = GemBalanceAlert(kind: GemBalanceAlertKind.low);
 
 void main() {
+  test(
+    'photo result presentation holds purchase prompts and releases idle waiters',
+    () async {
+      final store = MemoryUserSessionStore();
+      await store.saveUid('u');
+      await store.saveAuthToken('token');
+      final controller = GemBalancePromptController(sessionStore: store);
+      addTearDown(controller.dispose);
+      final release = controller.holdPresentation();
+      var finished = false;
+      final pending = controller
+          .reportAndWait(insufficient, 'token')
+          .then((_) => finished = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.beginPresentation(), isNull);
+      expect(finished, isFalse);
+      release();
+      release();
+      expect(controller.beginPresentation(), insufficient);
+      expect(finished, isFalse);
+      controller.endPresentation();
+      await pending;
+      expect(finished, isTrue);
+    },
+  );
+
   testWidgets(
     'root prompt follows services replaced after environment switch',
     (tester) async {
