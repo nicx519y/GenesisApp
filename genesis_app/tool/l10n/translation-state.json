@@ -2028,10 +2028,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "460721d4511ee03e810c4cd1f2f4df34fc60410784fc69261a4cbe03b30b34d8",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "1b35ee9067632b8cb35158248ec26c61e588968955675ab7a011fd99c1e1b059",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -8291,10 +8291,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "12165df7a7723970e2194eac7a4b9cdc6a33cea947cd79250b6db4e532712ea6",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "6e325cf7ed6ceb8fdf56b6fddbea75fa55184c0868ebd247bb5dfea669c561c9",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -14554,10 +14554,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "306ce24ebe6fec7aa6c5c5c92a5bc7876821c16ecde1025ad90d92257c86f8fb",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "0afe13f6f2f729499d672ce34d1c5e7922bb1b918e6dbdb8f3dd6c1f4b24c185",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -20817,10 +20817,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "b5cc717ef43b10d4b98bac3f3a985dec6a13e10430a00562643f484f9749ebc1",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "678950bc4ac8f1dcc8ba4c8340cc32c9e91585b525ae4a45447e5e0b30096c2b",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -27080,10 +27080,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "9b2aa3c2352d53382c67f1c67fdfeed16da9a8ce4b6f39693f3de5e7d8ab46a4",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "2d4b15ce412be7067a767de24ef56459a89ce42a2b987d89acb5dd40633dc332",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -33343,10 +33343,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "3a3a0379108fb7582ab3686bc12f137139384ee066fcd237a4bbc4ae62ebf0e0",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "81c471ef905c472144ceca67a5bee44e90cda28125853f375dbea4183d3353bf",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -39606,10 +39606,10 @@
           "note": "审校建议 R232（建议优化）：「役割」偏「职责」，选角色场景改用ロール（与 R788 ロールカード 一致）"
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "28eb9e1857173e795f17ad0f1ac6ea8bc218a1f9f462c61ec163b665062dc029",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "e6404b79ec110305870e3f3057ee60fe7a4251265f635040778388b38a67aedf",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",
@@ -45869,10 +45869,10 @@
           "note": ""
         },
         "worldoLaunchProfile": {
-          "source_hash": "df7db83f89ac3954b248b69c990670447e89006aad02a87c1ba064731cdaa503",
-          "text_hash": "7f50520e635ebc324b6ee5c6dcd4dfac46cf065befd7a812603eb712cc11c372",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "b1f10b4358e76ea2ec74dc99e5c13bf2520dd15de3bea235e01cf0718d20b7a9",
+          "text_hash": "afae593fb902b215f32fb5ec59395371979746f123157c97310eb2eec60fe27c",
+          "status": "ai",
+          "note": "Persona means the character the player plays in the story, not an account profile."
         },
         "worldoLaunchSuggested": {
           "source_hash": "8948230acaa0217bc4494f1751f95749fb790ef0a10a376f276307ce58dc2759",

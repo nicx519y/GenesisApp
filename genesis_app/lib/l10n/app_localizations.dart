@@ -2214,10 +2214,10 @@ abstract class AppLocalizations {
   /// **'Select Your Role'**
   String get worldoLaunchSelectRole;
 
-  /// 首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签
+  /// 首页 - Worldo → 开场页和地点页，玩家自己角色卡片的标签与角色编辑页的标题；名字为空时也作角色名兜底。Persona 指玩家在故事中扮演的人设，不是账号资料
   ///
   /// In en, this message translates to:
-  /// **'Your Profile'**
+  /// **'Your Persona'**
   String get worldoLaunchProfile;
 
   /// Worldo detail sheet: top-right button on the Your Profile card while inline editing. Confirms the role draft for this Worldo and exits editing; does not update the account profile. Keep this completion action short.

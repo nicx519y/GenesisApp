@@ -1273,7 +1273,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get worldoLaunchSelectRole => '自分のロールを選択';
 
   @override
-  String get worldoLaunchProfile => 'あなたのプロフィール';
+  String get worldoLaunchProfile => 'あなたのペルソナ';
 
   @override
   String get worldoLaunchDone => '完了';

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_scene_plate_tokens.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
@@ -171,6 +172,100 @@ void main() {
     );
   }
 
+  Widget describedPhoto(String description) => MaterialApp(
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: ChatImageMessage(
+          message: ChatMessageVm(
+            localId: 'photo',
+            senderId: '',
+            senderName: '',
+            isMe: false,
+            status: 'sent',
+            senderType: 'image',
+            text: '',
+            imageUrl: 'https://example.com/image.png',
+            photo: ChatPhoto(
+              taskId: 'task',
+              requestId: '',
+              status: ChatPhotoStatus.succeeded,
+              imageUrl: 'https://example.com/image.png',
+              description: description,
+            ),
+          ),
+          style: kLocationChatStyle,
+        ),
+      ),
+    ),
+  );
+
+  testWidgets('photo description is a centered plate under the image', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(describedPhoto('A quiet shot'));
+    await tester.pump();
+    final caption = find.text('「A quiet shot」');
+    final plate = find.byKey(const ValueKey<String>('chat-photo-description'));
+    expect(caption, findsOneWidget);
+    final text = tester.widget<Text>(caption);
+    expect(text.textAlign, TextAlign.center);
+    expect(text.style!.fontSize, 13);
+    expect(text.style!.height, closeTo(18 / 13, .001));
+    expect(text.style!.color, Colors.white.withValues(alpha: .95));
+    final decoration =
+        tester.widget<DecoratedBox>(plate).decoration as BoxDecoration;
+    expect(decoration.color, kChatNarratorBubbleColor);
+    expect(decoration.borderRadius, BorderRadius.circular(8));
+    final image = tester.getRect(find.byType(AspectRatio));
+    final plateRect = tester.getRect(plate);
+    expect(plateRect.top - image.bottom, 8);
+    expect(plateRect.center.dx, closeTo(image.center.dx, .5));
+    final textRect = tester.getRect(caption);
+    expect(textRect.left - plateRect.left, 12);
+    expect(textRect.top - plateRect.top, 6);
+
+    // A long description wraps inside the plate; nothing is cut off.
+    final long = List.filled(20, 'quiet').join(' ');
+    await tester.pumpWidget(describedPhoto(long));
+    await tester.pump();
+    expect(tester.getSize(plate).width, lessThanOrEqualTo(282));
+    expect(tester.getSize(plate).height, greaterThan(18 * 2));
+    final longText = tester.widget<Text>(find.text('「$long」'));
+    expect(longText.maxLines, isNull);
+    expect(longText.overflow, isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+  });
+
+  for (final entry in const {
+    '  “Already quoted”  ': '「Already quoted」',
+    '「已有括號」': '「已有括號」',
+    '"(Nested)"': '「Nested」',
+    'Ends with (a note)': '「Ends with (a note)」',
+    '(Starts) and (ends)': '「Starts) and (ends」',
+    '""': null,
+  }.entries) {
+    testWidgets('photo description brackets: ${entry.key}', (tester) async {
+      await tester.pumpWidget(describedPhoto(entry.key));
+      await tester.pump();
+      final plate = find.byKey(
+        const ValueKey<String>('chat-photo-description'),
+      );
+      if (entry.value == null) {
+        expect(plate, findsNothing);
+      } else {
+        expect(find.text(entry.value!), findsOneWidget);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    });
+  }
+
   testWidgets(
     'photo states keep image geometry and only success opens viewer',
     (tester) async {
@@ -229,7 +324,7 @@ void main() {
         );
         expect(find.byType(CircularProgressIndicator), findsNothing);
         expect(
-          find.text('Photo caption'),
+          find.text('「Photo caption」'),
           status == ChatPhotoStatus.succeeded ? findsOneWidget : findsNothing,
         );
         expect(

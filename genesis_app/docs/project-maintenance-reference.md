@@ -124,6 +124,8 @@ WebSocket 当前协议规则：
 
 ## 页面职责与世界会话边界
 
+玩家角色的编辑表单由 `_OriginRoleEditorHost` 统一承载：Opening 铺满地图上的浮窗（底色升到不透明），Location 预览铺满整页。编辑时输入在表单内滚动，页面和浮窗都不随键盘移动；左上角返回、系统返回和边缘滑动都等同 Cancel。卡片正面的 Identity 最多 3 行，点开详情后所有内容完整显示，在卡内滚动。
+
 ### 关键页面业务逻辑
 
 - `HomePage`：首页 feed 和我的 world 卡片入口，默认 App 首屏。列表/卡片展示字段来自 `GenesisApi` 对 v1/home 和 world/origin 数据的映射。

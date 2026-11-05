@@ -1313,7 +1313,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get worldoLaunchSelectRole => 'Elige tu personaje';
 
   @override
-  String get worldoLaunchProfile => 'Tu perfil';
+  String get worldoLaunchProfile => 'Tu persona';
 
   @override
   String get worldoLaunchDone => 'Listo';

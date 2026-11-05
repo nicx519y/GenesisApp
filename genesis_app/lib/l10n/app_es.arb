@@ -1825,9 +1825,9 @@
   "@worldoLaunchSelectRole": {
     "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色中显示的文字"
   },
-  "worldoLaunchProfile": "Tu perfil",
+  "worldoLaunchProfile": "Tu persona",
   "@worldoLaunchProfile": {
-    "description": "首页 - Worldo → Worldo Launch，Launch Worldo 时选择或编辑角色的按钮或标签"
+    "description": "首页 - Worldo → 开场页和地点页，玩家自己角色卡片的标签与角色编辑页的标题；名字为空时也作角色名兜底。Persona 指玩家在故事中扮演的人设，不是账号资料"
   },
   "worldoLaunchSuggested": "Sugerido",
   "@worldoLaunchSuggested": {

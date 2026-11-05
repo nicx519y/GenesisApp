@@ -1274,7 +1274,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get worldoLaunchSelectRole => '내 역할 선택';
 
   @override
-  String get worldoLaunchProfile => '내 프로필';
+  String get worldoLaunchProfile => '내 페르소나';
 
   @override
   String get worldoLaunchDone => '완료';
