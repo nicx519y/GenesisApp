@@ -148,7 +148,7 @@ void main() {
           expect(find.text('Get 150'), findsNothing);
           expect(find.text('Get 300'), bound ? findsOneWidget : findsNothing);
           expect(find.text('Check in'), findsOneWidget);
-          expect(find.text('Cancel'), bound ? findsNothing : findsOneWidget);
+          expect(find.text('Cancel'), findsNothing);
           expect(h.claimRequests, hasLength(1));
           if (bound) {
             expect(h.store.claims, isEmpty);
@@ -156,7 +156,11 @@ void main() {
           } else {
             expect(h.store.claims, hasLength(1));
           }
-          await tester.tap(find.text(bound ? 'Check in' : 'Cancel'));
+          if (bound) {
+            await tester.tap(find.text('Check in'));
+          } else {
+            await tester.tapAt(const Offset(1, 1));
+          }
           await tester.pumpAndSettle();
           expect(confirmed, bound);
         } finally {
@@ -219,10 +223,10 @@ void main() {
         afterBinding.complete(_wallet(member: true));
         await tester.pumpAndSettle();
         expect(find.text('Get 150'), findsNothing);
-        expect(find.text('Cancel'), findsOneWidget);
+        expect(find.text('Cancel'), findsNothing);
         expect(find.text('Check in'), findsOneWidget);
         expect(membership.state.value.isVip, isTrue);
-        await tester.tap(find.text('Cancel'));
+        await tester.tapAt(const Offset(1, 1));
         await tester.pumpAndSettle();
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());

@@ -2445,10 +2445,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Daily Check-in'), findsOneWidget);
         await tester.tap(
-          find.descendant(
-            of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-            matching: find.text('Check in'),
-          ),
+          find.byKey(const ValueKey('daily-check-in-confirm')),
         );
         await tester.pumpAndSettle();
         expect(reports, status == 'in_progress' ? 1 : 0);
@@ -2533,10 +2530,7 @@ void main() {
     await tester.tap(button);
     await tester.pumpAndSettle();
     await tester.tap(
-      find.descendant(
-        of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-        matching: find.text('Check in'),
-      ),
+      find.byKey(const ValueKey('daily-check-in-confirm')),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -2609,10 +2603,7 @@ void main() {
     expect(claimCalls, 0);
     await tester.pumpAndSettle();
     await tester.tap(
-      find.descendant(
-        of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-        matching: find.text('Check in'),
-      ),
+      find.byKey(const ValueKey('daily-check-in-confirm')),
     );
     await tester.pump();
     expect(claimCalls, 1);
@@ -2678,10 +2669,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Daily Check-in'), findsOneWidget);
         await tester.tap(
-          find.descendant(
-            of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-            matching: find.text('Check in'),
-          ),
+          find.byKey(const ValueKey('daily-check-in-confirm')),
         );
       }
       await tester.pump();
@@ -2727,10 +2715,7 @@ void main() {
     expect(find.text('Daily Check-in'), findsOneWidget);
     expect(find.text('Claim failed.'), findsNothing);
     await tester.tap(
-      find.descendant(
-        of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-        matching: find.text('Check in'),
-      ),
+      find.byKey(const ValueKey('daily-check-in-confirm')),
     );
     await tester.pump();
     expect(find.text('Claim failed.'), findsOneWidget);

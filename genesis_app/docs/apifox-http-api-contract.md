@@ -2684,7 +2684,7 @@ World：
 - `report=completed` 后登录用户刷新 wallet，游客保留待绑定证明；`report=rejected` 提示失败。购买 report 只接受这两种业务状态且不再补报；claim 独立处理，完成后刷新 wallet，不重新触发 report。
 - 商品权益仍由服务端返回并按当前套餐展示；title 保持现有固定页面标题行为，价格及权益不补本地数据。`enhanced/locked/included`、图标映射和加载表现保持现有样式。未登录仍隐藏 Buy Gems 和购买历史入口。
 - 普通 Gems 使用 `wallet.balance_cent`，会员 Blue Gems 使用 `membership.blue_gems_cent`，互不替换；原 Gems 购买、签到、补报逻辑不变。
-- 签到确认弹窗和成功弹窗的顶部奖励均取 `GET /api/v1/gem/tasks` 中 `daily_checkin.reward_gems_cent`。签到确认弹窗在游客订单绑定及钱包刷新后检查两个会员的有效状态。按 Premium、Deluxe 的顺序为当前无有效会员的组显示 Get 按钮，金额分别为 `reward_gems_cent + reward_gems_cent_premium` 和 `reward_gems_cent + reward_gems_cent_deluxe`，先按整数 cent 相加再换算展示。仅一种会员有效时只显示另一组按钮。两种都有效或状态无法确认时只显示 Check in 与 Cancel。两个新字段与原奖励字段并列，旧响应缺字段时隐藏对应按钮。按钮打开订阅弹层并定位相应会员，签到和领取继续按任务状态调用原接口。
+- 签到确认弹窗和成功弹窗的顶部奖励均取 `GET /api/v1/gem/tasks` 中 `daily_checkin.reward_gems_cent`。签到确认弹窗在游客订单绑定及钱包刷新后检查两个会员的有效状态。按 Premium、Deluxe 的顺序为当前无有效会员的组显示 Get 按钮，金额分别为 `reward_gems_cent + reward_gems_cent_premium` 和 `reward_gems_cent + reward_gems_cent_deluxe`，先按整数 cent 相加再换算展示。仅一种会员有效时只显示另一组按钮。两种都有效或状态无法确认时不显示订阅按钮，保留 Check in。两个新字段与原奖励字段并列，旧响应缺字段时隐藏对应按钮。按钮打开订阅弹层并定位相应会员，签到和领取继续按任务状态调用原接口。
 - 2026-09-18 登录后的自动签到先等待当前账号游客 claim 及绑定后的 wallet 刷新完成，再请求 `gem/tasks` 获取签到金额与任务状态；不能提前保存绑定前的 `reward_gems_cent` 后仅刷新会员按钮。金额完全使用任务接口返回值，不在客户端按会员身份翻倍或写死 100。绑定仍未确认、等待超时或请求失败时跳过本次自动提示，避免显示未确认奖励及主 Tab 立即重复调度；切换账号、离开可展示页面后忽略迟到结果。
 - 本地 mock 返回 `{data: {list: [], last_account_uuid: "", has_subscription_order: false}}`，不伪造商品、标题、价格和权益。
 - 仅 Debug 包在 Subscription 购买按钮上方原有间距内显示 `debug 订单 id：…`。读取当前会话最近一次主动购买回调的 `transactionId`（Google 商店订单号／Apple 交易 ID），取得前显示 `暂无`；不使用本地 request_id、report_id、商品 ID 或 purchase_token 代替。新购买及切换账号清空显示，旧订单的后台补报不覆盖新购买。只观察现有购买状态，不增加网络或商店查询，Profile/Release 不显示该行且保留原布局。

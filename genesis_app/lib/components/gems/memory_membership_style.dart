@@ -105,6 +105,9 @@ extension MemoryMembershipStyle on MemoryMembershipTier {
               : const [Color(0xFF1B1922), Color(0xFF221E2B)],
         );
 
+  LinearGradient? get cardSheen =>
+      this == MemoryMembershipTier.deluxe ? _pearlSheen : null;
+
   LinearGradient get buttonGradient => this == MemoryMembershipTier.premium
       ? const MemoryMembershipGradient(
           degrees: 100,

@@ -119,14 +119,28 @@ void main() {
           find.text('Get 300'),
           !noOffers && scenario != 'deluxe' ? findsOneWidget : findsNothing,
         );
-        expect(find.text('Cancel'), noOffers ? findsOneWidget : findsNothing);
+        expect(find.text('Cancel'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('daily-check-in-active-premium')),
+          ['monthly', 'yearly', 'both'].contains(scenario)
+              ? findsOneWidget
+              : findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('daily-check-in-active-deluxe')),
+          ['deluxe', 'both'].contains(scenario) ? findsOneWidget : findsNothing,
+        );
         if (!noOffers && !singleOffer) {
           expect(
             tester.getCenter(find.text('Get 150')).dy,
             lessThan(tester.getCenter(find.text('Get 300')).dy),
           );
         }
-        await tester.tap(find.text(noOffers ? 'Cancel' : 'Check in'));
+        if (noOffers) {
+          await tester.tapAt(const Offset(1, 1));
+        } else {
+          await tester.tap(find.text('Check in'));
+        }
         await tester.pumpAndSettle();
         expect(checkedIn, !noOffers);
         if (singleOffer) {
@@ -241,13 +255,14 @@ void main() {
             find.text('Get 300'),
             refreshFails ? findsNothing : findsOneWidget,
           );
-          expect(
-            find.text('Cancel'),
-            refreshFails ? findsOneWidget : findsNothing,
-          );
+          expect(find.text('Cancel'), findsNothing);
           expect(find.text('Check in'), findsOneWidget);
           expect(requests, 2);
-          await tester.tap(find.text(refreshFails ? 'Cancel' : 'Check in'));
+          if (refreshFails) {
+            await tester.tapAt(const Offset(1, 1));
+          } else {
+            await tester.tap(find.text('Check in'));
+          }
           await tester.pumpAndSettle();
           expect(checkedIn, !refreshFails);
           expect(find.byType(ProSubscriptionContent), findsNothing);
@@ -260,63 +275,79 @@ void main() {
     );
   }
 
-  testWidgets(
-    'daily check-in shows success and dismisses after three seconds',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          scrollBehavior: const GenesisScrollBehavior(),
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async {
-                final checkedIn = await showDailyCheckInDialog(
-                  context,
-                  status: DailyCheckInDialogStatus.checkIn,
-                );
-                if (checkedIn && context.mounted) {
-                  await showDailyCheckInSuccessDialog(context);
-                }
-              },
-              child: const Text('Open'),
+  for (final tiers in const [
+    <MembershipType>[],
+    [MembershipType.premium],
+    [MembershipType.deluxe],
+    [MembershipType.premium, MembershipType.deluxe],
+  ]) {
+    testWidgets(
+      'daily check-in success shows $tiers and dismisses after three seconds',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const GenesisScrollBehavior(),
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  final checkedIn = await showDailyCheckInDialog(
+                    context,
+                    status: DailyCheckInDialogStatus.checkIn,
+                  );
+                  if (checkedIn && context.mounted) {
+                    await showDailyCheckInSuccessDialog(
+                      context,
+                      memberships: tiers,
+                    );
+                  }
+                },
+                child: const Text('Open'),
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Daily Check-in'), findsOneWidget);
-      expect(find.text('+50'), findsOneWidget);
-      expect(
-        tester.widget<Text>(find.text('+50')).style?.color,
-        GenesisColors.darkTextSecondary,
-      );
-      expect(
-        find.byKey(const ValueKey<String>('gem-task-reward-icon')),
-        findsOneWidget,
-      );
-      expect(find.text('Check in'), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
-      expect(find.text('Get 150'), findsNothing);
+        expect(find.text('Daily Check-in'), findsOneWidget);
+        expect(find.text('+50'), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('+50')).style?.color,
+          GenesisColors.darkTextPrimary,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('gem-task-reward-icon')),
+          findsOneWidget,
+        );
+        expect(find.text('Check in'), findsOneWidget);
+        expect(find.text('Cancel'), findsNothing);
+        expect(find.text('Get 150'), findsNothing);
 
-      await tester.tap(find.text('Check in'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Check in'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Check in successful!'), findsOneWidget);
-      expect(find.text('+50'), findsOneWidget);
-      expect(
-        tester.widget<Text>(find.text('+50')).style?.color,
-        GenesisColors.darkTextSecondary,
-      );
+        expect(find.text('Check in successful!'), findsOneWidget);
+        expect(find.text('+50'), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('+50')).style?.color,
+          GenesisColors.darkTextPrimary,
+        );
 
-      await tester.pump(const Duration(milliseconds: 2999));
-      expect(find.text('Check in successful!'), findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 1));
-      await tester.pumpAndSettle();
-      expect(find.text('Check in successful!'), findsNothing);
-    },
-  );
+        for (final tier in MembershipType.values) {
+          expect(
+            find.byKey(ValueKey('daily-check-in-active-${tier.name}')),
+            tiers.contains(tier) ? findsOneWidget : findsNothing,
+          );
+        }
+        await tester.pump(const Duration(milliseconds: 2999));
+        expect(find.text('Check in successful!'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pumpAndSettle();
+        expect(find.text('Check in successful!'), findsNothing);
+      },
+    );
+  }
 
   testWidgets('Get 150 opens Subscription without performing check-in', (
     tester,
@@ -408,7 +439,7 @@ void main() {
     expect(find.text('Daily Check-in'), findsOneWidget);
     expect(checkedIn, isFalse);
 
-    await tester.tap(find.text('Cancel'));
+    await tester.tapAt(const Offset(1, 1));
     await tester.pumpAndSettle();
     expect(find.text('Daily Check-in'), findsNothing);
     expect(checkedIn, isFalse);
