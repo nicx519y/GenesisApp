@@ -2,6 +2,10 @@ import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_in
 import 'package:genesis_flutter_android/components/gems/memory_membership_style.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'dart:convert';
 import 'dart:async';
 
@@ -2024,6 +2028,51 @@ void main() {
     }
   }
 
+  testWidgets('subscription success quietly refreshes Buy Gems behind a sheet', (
+    tester,
+  ) async {
+    final wallet = GemWalletStore(
+      readUid: () async => 'u_test',
+      loadWallet: () async => const GemWallet(balanceCent: 0),
+    );
+    final services = _WalletSubscriptionServices(wallet);
+    addTearDown(wallet.dispose);
+    addTearDown(services.membership.dispose);
+    addTearDown(services.membershipPurchases.events.close);
+    var requests = 0;
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: GemWalletPage(
+            walletStore: wallet,
+            productsLoader: (_) async => [],
+            tasksLoader: (_) async {
+              requests++;
+              return _taskGroups();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    unawaited(
+      showModalBottomSheet<void>(
+        context: tester.element(find.byType(GemWalletPage)),
+        builder: (_) => const Text('Subscription overlay'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    services.membershipPurchases.emit(MembershipCheckoutState.canceled);
+    await tester.pumpAndSettle();
+    expect(requests, 1);
+    services.membershipPurchases.emit(MembershipCheckoutState.completed);
+    await tester.pumpAndSettle();
+    expect(requests, 2);
+    expect(find.text('Subscription overlay'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('billing success refreshes products tasks and wallet', (
     tester,
   ) async {
@@ -3065,6 +3114,41 @@ void _expectTaskClaimedEvent(
     'action': 'task_claimed',
     'object1': taskCode,
   });
+}
+
+class _WalletSubscriptionServices extends Fake implements AppServices {
+  _WalletSubscriptionServices(GemWalletStore wallet)
+    : membership = MembershipAccessStore(
+        wallet: wallet,
+        readLoginUid: () async => null,
+        serverNow: () => null,
+      );
+
+  @override
+  final MembershipAccessStore membership;
+  @override
+  final _CheckoutEvents membershipPurchases = _CheckoutEvents();
+  @override
+  final membershipCatalog = MembershipCatalog(
+    provider: null,
+    loadProducts: (_) async => throw StateError('Unexpected product request'),
+  );
+  @override
+  BillingService? get billing => null;
+  @override
+  AdjustDeviceRegistration? get adjustDeviceRegistration => null;
+  @override
+  void dispose() {}
+}
+
+class _CheckoutEvents extends Fake implements MembershipPurchaseService {
+  final events = StreamController<MembershipCheckoutEvent>.broadcast();
+  @override
+  Stream<MembershipCheckoutEvent> get checkoutEvents => events.stream;
+
+  void emit(MembershipCheckoutState state) {
+    events.add(MembershipCheckoutEvent(attemptId: 'subscription', state: state));
+  }
 }
 
 class _FakeBillingService implements BillingService {

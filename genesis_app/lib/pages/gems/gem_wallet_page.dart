@@ -22,6 +22,7 @@ import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_task_analytics.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/membership/membership_catalog.dart';
+import '../../app/membership/membership_purchase_service.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -166,6 +167,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   bool _primaryLoading = true;
   BillingService? _billingService;
   StreamSubscription<BillingUiEvent>? _billingEvents;
+  StreamSubscription<MembershipCheckoutEvent>? _membershipPurchaseEvents;
   PageRoute<dynamic>? _subscribedRoute;
   bool _checkingStorePrice = false;
   int _productsRequestGeneration = 0;
@@ -276,6 +278,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     WidgetsBinding.instance.removeObserver(this);
     genesisPageRouteObserver.unsubscribe(this);
     _billingEvents?.cancel();
+    _membershipPurchaseEvents?.cancel();
     _disposeBillingPurchaseDialogState();
     _idleBillingState.dispose();
     _purchaseTabs.removeListener(_visitCurrentTab);
@@ -288,8 +291,18 @@ class _GemWalletPageState extends State<GemWalletPage>
     super.didChangeDependencies();
     final services = AppServicesScope.maybeOf(context);
     if (!identical(services, _membershipServices)) {
+      _membershipPurchaseEvents?.cancel();
       _membershipServices = services;
       if (services != null) unawaited(services.membership.refresh());
+      _membershipPurchaseEvents = services?.membershipPurchases?.checkoutEvents
+          .listen((event) {
+            if (mounted &&
+                _gemsVisited &&
+                identical(services, _membershipServices) &&
+                event.state == MembershipCheckoutState.completed) {
+              unawaited(_refreshTasks(silent: true));
+            }
+          });
     }
     final route = ModalRoute.of(context);
     if (route is PageRoute<dynamic> && !identical(route, _subscribedRoute)) {
