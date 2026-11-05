@@ -247,6 +247,25 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _localProfileRoleOverride ??
       _cachedPrecharacterRole ??
       _cachedProfileRole;
+
+  void _refreshPrecharacterRole() {
+    final template = _origin?.precharacter;
+    final profile = _cachedProfileRole;
+    String resolveText(String text) =>
+        profile == null ? text : text.replaceAll('{{user}}', profile.name);
+    _cachedPrecharacterRole = template == null
+        ? null
+        : OriginCustomRoleDraft(
+            name: resolveText(template.name),
+            avatarUrl: template.avatar.trim().isEmpty
+                ? profile?.avatarUrl ?? ''
+                : template.avatar,
+            identity: resolveText(template.identity),
+            personality: resolveText(template.personality),
+            bio: resolveText(template.bio),
+          );
+  }
+
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
@@ -399,6 +418,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       // Clear account-owned values before any asynchronous profile reload.
       _profileRoleRevision += 1;
       _cachedProfileRole = null;
+      _refreshPrecharacterRole();
       _localProfileRoleOverride = null;
       _localRecommendedRoleOverride = null;
       _localRecommendedCharacterId = null;
@@ -452,7 +472,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         _precacheProfileRoleAvatar(nextRole);
       }
       if (_sameOriginProfileRole(_cachedProfileRole, nextRole)) return;
-      setState(() => _cachedProfileRole = nextRole);
+      setState(() {
+        _cachedProfileRole = nextRole;
+        _refreshPrecharacterRole();
+      });
     } catch (error, stackTrace) {
       debugPrint(
         '[OriginWorldPage] cached profile role preload failed: '
@@ -460,7 +483,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       );
       if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
       if (_cachedProfileRole != null) {
-        setState(() => _cachedProfileRole = null);
+        setState(() {
+          _cachedProfileRole = null;
+          _refreshPrecharacterRole();
+        });
       }
     }
   }
@@ -606,16 +632,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           _renderStage != _OriginWorldPageRenderStage.content;
       setState(() {
         _origin = origin;
-        final precharacter = origin.precharacter;
-        _cachedPrecharacterRole = precharacter == null
-            ? null
-            : OriginCustomRoleDraft(
-                name: precharacter.name,
-                avatarUrl: precharacter.avatar,
-                identity: precharacter.identity,
-                personality: precharacter.personality,
-                bio: precharacter.bio,
-              );
+        _refreshPrecharacterRole();
         _activeChatLocation = _refreshedLocationChatDescriptor(origin);
         _initialLoadError = null;
         if (shouldStageInitialContent) {

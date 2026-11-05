@@ -51,7 +51,9 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
     final awaitingGoOn =
         !tickSuperseded && acceptedGoOn != null && !goOnContentIsRendering;
     final operations = (
-      camera: _takingScenePhoto,
+      camera:
+          _takingScenePhoto ||
+          _replyConnectionAction == _LocationChatReplyConnectionAction.camera,
       regenerate:
           _replyConnectionAction ==
               _LocationChatReplyConnectionAction.regenerate ||
@@ -102,7 +104,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
           inspiration: inspirationState?.supportsInspiration ?? false,
         ),
         canInvoke: (
-          camera: replyState?.canTakePhoto ?? false,
+          camera: replyState?.canStartTakePhoto ?? false,
           regenerate: replyState?.canStartRegenerate ?? false,
           goOn: replyState?.canStartGoOn ?? false,
           edit: replyState?.canStartEdit ?? false,

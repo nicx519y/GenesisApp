@@ -4,13 +4,17 @@
 
 ## 协议与实现入口
 
-- `lib/network/chatroom/chatroom_http_api.dart`：GET `/aitown-chat/api/v1/message/photo/price` 返回整数 `price_cent`；POST `/aitown-chat/api/v1/message/photo/create` 新请求发送 `client_request_id/world_id/location_id/conversation_round_id/card_id`，轮次为十进制字符串、卡 ID 为整数；旧无卡 ID 请求仍按原参数恢复。复用认证、Gateway 签名、会话失效与余额错误拦截。
+- `lib/network/chatroom/chatroom_http_api.dart`：GET `/aitown-chat/api/v1/message/photo/price` 返回整数 `price_cent`；POST `/aitown-chat/api/v1/message/photo/create` 新请求发送 `client_request_id/world_id/location_id/conversation_round_id`，候选卡另带 `card_id`，正式回复省略 `card_id`；轮次为十进制字符串、卡 ID 为整数。未确认请求仍按原参数恢复。复用认证、Gateway 签名、会话失效与余额错误拦截。
 - `chat_photo.dart`：共享 photo/receipt/request/target 模型。创建响应 `data.photo`，V2/WS `payload.photo`，World History 顶层 `photo`。ID 只接受整数或十进制整数字符串，不经过浮点数。
 - `chat_photo_events.dart`、`world_chatroom_photos.dart`：独立 `live_photo` 消息和 `phone.photo.result`（仅 `source=chat`）。以地点消息 ID 合并，以 task ID 关联提前结果；请求键允许为空。终态不回退为 generating；候选 WS 依据 payload.card_id 只更新所属卡；正式 WS 才进入正式消息队列和游标。图片状态不改变文字生成状态或等待锁。
 - `chat_photo_request_store.dart`：按环境、账号、World、地点隔离未确认请求及活跃任务。原请求参数原样保存；候选请求按轮次与卡隔离，活跃任务保留卡片身份，独立于有界聊天缓存。受理后释放文字操作；同卡图片 generating 时禁止重复拍照，不同卡可独立提交。
 - `location_chat_photos.dart`：询价、确认、提交、失败展示周期、历史恢复与通知定位；`location_chat_photo_visibility.dart` 只控制显示，不删除记录、分页游标或去重身份。
 
 ## 拍照与错误处理
+
+点击相机只从当前本地状态解析目标，不前置查询 cards，也不创建卡组。无卡组的正式回复保留当前轮次并省略 `card_id`；已知候选卡使用当前查看的真实卡 ID，不能因候选身份未确定而回退到正式回复。新请求在确认弹窗返回及请求日志保存后重新校验轮次、查看卡、选卡限制和生成／操作状态；失效时不发送，保存后失效的未发送请求清除日志。超时等结果不明的旧请求继续复用原键和原参数，不按新目标重建。受理后的候选卡刷新、任务恢复及 Inbox 定位仍按需查询 cards。
+
+拍照与其他回复操作共用 `_submitReplyAction` 连接准备入口。业务条件满足时，连接未就绪不直接禁用相机；点击后相机 busy、其他可见按钮 disabled，先检查设备网络，再使用已有地点 join 流程，成功后才进入目标校验、确认与 create。Socket 已断开或网络/加入失败时沿用公共错误提示并结束本次操作，不新增专用自动重连或重发。确认弹层等待用户期间结束连接准备计时，后续仍校验原目标与请求参数。
 
 仅实际打开 Sheet 时异步请求 price 并通过 `formatGemCent` 填充数字；尚未返回时显示占位，不阻塞 Generate。询价失败走公共提示但不禁用生成。create 不带价格字段；首张免费和实际费用由服务端决定。聊天“记住”按环境、账号保存布尔偏好（兼容已有真实价格确认记录），以后直接提交，不弹 Sheet、不请求 price；与 MiniPhone 相机及旧预览偏好隔离。
 
@@ -58,7 +62,7 @@ LocalMock 的报价/创建/重复键及历史仅用于本地协议验证，不�
 
 ## 候选卡与 Regenerate
 
-拍照绑定当前查看的可操作卡，确认和网络重试期间保持目标不变；卡组确认后仅选中卡可拍照，相机能力不依赖 Regenerate 是否可用。2073 校准该卡生成状态，2072 校准卡片与正式历史后由用户重新提交。旧图任务可继续完成，但仅更新所属卡。Regenerate 复用整卡冻结与收起，文字和图片共同退出；新卡仅展示服务端返回内容，不复制旧图、不自动再次生图。末条消息类型不控制 Regenerate/Edit 显隐；操作栏继续使用公共状态；左侧四按钮隐藏后不占位，其余依次补齐，相机保持右对齐。照片不得通过文字 batch 编辑或删除，也不能代替至少一条文字。
+拍照使用当前正式回复或当前查看的可操作卡，确认和网络重试期间保持目标不变；卡组确认后仅选中卡可拍照，相机能力不依赖 Regenerate 是否可用。2073 校准该卡生成状态，2072 校准卡片与正式历史后由用户重新提交。旧图任务可继续完成，但仅更新所属卡。Regenerate 复用整卡冻结与收起，文字和图片共同退出；新卡仅展示服务端返回内容，不复制旧图、不自动再次生图。末条消息类型不控制 Regenerate/Edit 显隐；操作栏继续使用公共状态；左侧四按钮隐藏后不占位，其余依次补齐，相机保持右对齐。照片不得通过文字 batch 编辑或删除，也不能代替至少一条文字。
 
 LocalMock 识别新增请求字段，但与现有候选选卡一样不模拟候选生图运行时，明确返回未模拟错误；正式接入及受控 transport 测试覆盖新契约。
 
@@ -138,3 +142,9 @@ Camera 原先在公共渲染门槛之后直接读取最新能力；结束帧先�
 ### 左侧 action 隐藏不占位
 
 按最新交互要求，Regenerate、Go On、Edit、Inspiration 隐藏时移除其宽度和相邻间距，其余可见按钮按原顺序向左补齐；Camera 继续右对齐。仅调整公共渲染器的布局，整轮渲染门槛及提交期间冻结显示集合的规则继续沿用。覆盖 16 种左侧显隐组合、busy 位置稳定、相机与点击区域的定向回归 17 项通过，修改文件静态检查和差异检查通过。
+
+### 相机复用回复操作连接准备
+
+相机通过 `canStartTakePhoto` 保留连接准备入口，实际目标解析仍要求连接已就绪；复用其他四按钮的网络检查、地点 join、等待释放和错误反馈。恢复和 create 期间当前按钮 busy，其他可见按钮 disabled；重复点击不新增准备事务。连接失败不触发 create，确认等待沿用 Edit 的用户等待计时处理。
+
+相机连接恢复、失败分支、重复点击及卡片图片锁专项 6 项通过；五按钮公共连接检查、原回复操作恢复及整轮渲染回归 20 项通过，两组有重叠。修改文件静态检查和差异检查通过；未做真实设备或网络故障验收。

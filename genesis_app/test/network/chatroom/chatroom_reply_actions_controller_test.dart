@@ -439,6 +439,81 @@ void main() {
     }, conversationRoundId: _round);
   }
 
+  test('formal photo target keeps its round without querying cards', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    h.api.cardsError = StateError('Cards must not be queried');
+    expect(h.state.canTakePhoto, isTrue);
+    final target = await h.controller.preparePhotoTarget('l');
+    expect(target, (roundId: _round, cardId: null));
+    h.controller.validatePhotoTarget('l', target);
+    expect(h.api.calls, isEmpty);
+  });
+
+  test(
+    'photo confirmation rejects a changed round without querying cards',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      final target = await h.controller.preparePhotoTarget('l');
+      h.controller.observeMessages('l', [
+        _formal(),
+        _formal(round: _round + 1, id: _messageId + 2),
+      ]);
+      expect(
+        () => h.controller.validatePhotoTarget('l', target),
+        throwsStateError,
+      );
+      expect(h.api.calls, isEmpty);
+    },
+  );
+
+  test(
+    'photo confirmation rejects a changed card without querying cards',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101), _card(102, index: 2)]);
+      await h.controller.restoreLocationCards('l');
+      h.api.calls.clear();
+      h.api.cardsError = StateError('Cards must not be queried');
+      final target = await h.controller.preparePhotoTarget('l');
+      expect(target.cardId, 101);
+      await h.controller.browse('l', 1);
+      expect(
+        () => h.controller.validatePhotoTarget('l', target),
+        throwsStateError,
+      );
+      expect((await h.controller.preparePhotoTarget('l')).cardId, 102);
+      expect(h.api.calls, isEmpty);
+    },
+  );
+
+  test('photo confirmation rejects a new generation or Tick lock', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    final target = await h.controller.preparePhotoTarget('l');
+    h.locked = true;
+    expect(
+      () => h.controller.validatePhotoTarget('l', target),
+      throwsStateError,
+    );
+    h.locked = false;
+    final photo = withPhoto(101, 'generating').messages.last.message;
+    h.controller.observeMessages('l', [
+      _formal(),
+      WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromV2Message(photo),
+      ),
+    ]);
+    expect(h.state.canTakePhoto, isFalse);
+    expect(
+      () => h.controller.validatePhotoTarget('l', target),
+      throwsStateError,
+    );
+    expect(h.api.calls, isEmpty);
+  });
+
   for (final status in ['generating', 'succeeded', 'failed']) {
     test(
       'card photo $status participates in display but not text edit operations',
@@ -535,6 +610,26 @@ void main() {
       await h.controller.browse('l', -1);
       expect(h.state.viewedCardId, 101);
       expect(h.state.displayedMessages.last.photo!.status.name, 'succeeded');
+    },
+  );
+
+  test(
+    'photo can start connection recovery without bypassing card task locks',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([withPhoto(101, 'succeeded')]);
+      await h.controller.restoreLocationCards('l');
+      h.ready = false;
+      expect(h.state.canTakePhoto, isFalse);
+      expect(h.state.canStartTakePhoto, isTrue);
+      await expectLater(h.controller.preparePhotoTarget('l'), throwsStateError);
+      h.locked = true;
+      expect(h.state.canStartTakePhoto, isFalse);
+      h.locked = false;
+      h.api.cards = _cards([withPhoto(101, 'generating')]);
+      await h.controller.refreshPhotoCard('l', _round, 101);
+      expect(h.state.canStartTakePhoto, isFalse);
     },
   );
 

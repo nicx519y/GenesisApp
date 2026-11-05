@@ -32,6 +32,7 @@ import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.d
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
+import 'package:genesis_flutter_android/network/chatroom/chat_photo_request_store.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -368,69 +369,258 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('photo submission restores its toolbar without a scroll', (
+  testWidgets(
+    'formal photo submits without querying cards and restores its toolbar',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = _LocationChatReplyHttpTransport()
+        ..photoBarrier = Completer<void>();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+        modelWorldId: 'world-current',
+        sendInitialMessage: true,
+      );
+      expect(backend.cards, isEmpty);
+      final cardsBefore = backend.requests
+          .where((r) => r.uri.path.endsWith('/llm-messages/cards'))
+          .length;
+      expect(
+        tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .waitingPositionIdentity,
+        isNotNull,
+      );
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool(
+        'chat-photo-confirmation-v2:${Uri.encodeComponent(harness.services.config.chatroomHttpBaseUrl)}:user-1',
+        true,
+      );
+      final camera = find.byKey(const ValueKey('location-chat-take-photo'));
+      expect(camera.hitTestable(), findsOneWidget);
+      await tester.tap(camera);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => backend.photoRequests.isNotEmpty,
+      );
+      expect(backend.photoRequests, hasLength(1));
+      expect(backend.photoRequests.single['conversation_round_id'], '301');
+      expect(backend.photoRequests.single.containsKey('card_id'), isFalse);
+      expect(
+        backend.requests.where(
+          (r) => r.uri.path.endsWith('/llm-messages/cards'),
+        ),
+        hasLength(cardsBefore),
+      );
+      expect(
+        tester.widget<LocationChatReplyFeatureButton>(camera).state,
+        LocationChatReplyActionState.busy,
+      );
+      backend.photoBarrier!.complete();
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .messages
+            .any((message) => message.photo != null),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LocationChatReplyActions>(
+              find.byType(LocationChatReplyActions),
+            )
+            .actionsHidden,
+        isFalse,
+      );
+      expect(camera, findsOneWidget);
+      expect(tester.getSize(camera).height, 32);
+      expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
+      expect(find.bySemanticsLabel('Edit'), findsOneWidget);
+      await _disposeEnterConversationPanel(tester, harness.service);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('photo confirmation stops when a newer Tick replaces its reply', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 720));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+      modelWorldId: 'world-current',
+    );
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(
+      'chat-photo-confirmation-v2:${Uri.encodeComponent(harness.services.config.chatroomHttpBaseUrl)}:user-1',
+      false,
+    );
+    await tester.tap(find.byKey(const ValueKey('location-chat-take-photo')));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('Generate photo').evaluate().isNotEmpty,
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Generate photo'), findsOneWidget);
+    harness.socket.serverV2Tick(
+      messageId: 401,
+      locationMessageId: 401,
+      globalText: 'A newer Tick',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          harness.service.replyActions!.stateFor('location-current')?.roundId ==
+          401,
+    );
+    await tester.tap(find.text('Generate photo'));
+    await tester.pumpAndSettle();
+    expect(backend.photoRequests, isEmpty);
+    final store = ChatPhotoRequestStore(
+      harness.services.config.chatroomHttpBaseUrl,
+      'user-1',
+      'world-current',
+      'location-current',
+    );
+    expect(await store.read(), isNull);
+    await _disposeEnterConversationPanel(tester, harness.service);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'uncertain formal photo reuses its saved target without querying cards',
+    (tester) async {
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+        modelWorldId: 'world-current',
+      );
+      backend.cards.addAll([
+        backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+        backend._cardJson(502, 2, 'succeeded', 'Candidate reply.'),
+      ]);
+      final controller = harness.service.replyActions!;
+      await controller.restoreLocationCards('location-current');
+      await controller.browse('location-current', 1);
+      await tester.pumpAndSettle();
+      final store = ChatPhotoRequestStore(
+        harness.services.config.chatroomHttpBaseUrl,
+        'user-1',
+        'world-current',
+        'location-current',
+      );
+      const request = ChatPhotoRequest(
+        requestId: 'uncertain-formal-photo',
+        worldId: 'world-current',
+        locationId: 'location-current',
+        roundId: 301,
+      );
+      await store.save(request);
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool(
+        'chat-photo-confirmation-v2:${Uri.encodeComponent(harness.services.config.chatroomHttpBaseUrl)}:user-1',
+        true,
+      );
+      final cardsBefore = backend.requests
+          .where((r) => r.uri.path.endsWith('/llm-messages/cards'))
+          .length;
+      await tester.tap(find.byKey(const ValueKey('location-chat-take-photo')));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => backend.photoRequests.isNotEmpty,
+      );
+      await tester.pumpAndSettle();
+      expect(backend.photoRequests.single, request.toJson());
+      expect(await store.read(), isNull);
+      expect(controller.stateFor('location-current')!.viewedCardId, 502);
+      expect(
+        backend.requests.where(
+          (r) => r.uri.path.endsWith('/llm-messages/cards'),
+        ),
+        hasLength(cardsBefore),
+      );
+      await _disposeEnterConversationPanel(tester, harness.service);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Camera creates a photo only after shared connection recovery', (
+    tester,
+  ) async {
+    var networkChecks = 0;
     final backend = _LocationChatReplyHttpTransport()
       ..photoBarrier = Completer<void>();
     final harness = await _mountCompletedReplyActionPanel(
       tester,
       backend: backend,
       modelWorldId: 'world-current',
-      sendInitialMessage: true,
+      networkAvailabilityCheck: () async {
+        networkChecks++;
+        return true;
+      },
     );
     backend.cards.add(
       backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
     );
-    expect(
-      tester
-          .widget<LocationChatAnchoredMessageList>(
-            find.byType(LocationChatAnchoredMessageList),
-          )
-          .waitingPositionIdentity,
-      isNotNull,
+    await harness.service.replyActions!.restoreLocationCards(
+      'location-current',
     );
+    await tester.pumpAndSettle();
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(
       'chat-photo-confirmation-v2:${Uri.encodeComponent(harness.services.config.chatroomHttpBaseUrl)}:user-1',
       true,
     );
-    final camera = find.byKey(const ValueKey('location-chat-take-photo'));
-    expect(camera.hitTestable(), findsOneWidget);
-    await tester.tap(camera);
+    harness.socket.autoJoinAck = false;
+    await tester.runAsync(harness.service.leave);
+    await tester.pump();
+    final joins = harness.socket.replyActionFrames('join').length;
+    LocationChatAnchoredMessageList list() =>
+        tester.widget(find.byType(LocationChatAnchoredMessageList));
+    expect(list().cameraState, LocationChatReplyActionState.idle);
+    final invoke = list().onTakePhoto!;
+    invoke();
+    invoke(); // Repeated invocation shares the same preparation transaction.
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.replyActionFrames('join').length == joins + 1,
+    );
+    expect(networkChecks, 1);
+    expect(list().cameraState, LocationChatReplyActionState.busy);
+    for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+      expect(
+        tester
+            .widget<Semantics>(find.bySemanticsLabel(label))
+            .properties
+            .enabled,
+        isFalse,
+      );
+    }
+    expect(backend.photoRequests, isEmpty);
+    harness.socket.serverReplyActionAck('join', roundId: 301);
     await _pumpUntilLocationChatTest(
       tester,
       () => backend.photoRequests.isNotEmpty,
     );
-    expect(
-      tester.widget<LocationChatReplyFeatureButton>(camera).state,
-      LocationChatReplyActionState.busy,
-    );
+    expect(backend.photoRequests, hasLength(1));
+    expect(backend.photoRequests.single['card_id'], 501);
+    expect(backend.photoRequests.single['conversation_round_id'], '301');
+    expect(list().cameraState, LocationChatReplyActionState.busy);
     backend.photoBarrier!.complete();
     await _pumpUntilLocationChatTest(
       tester,
-      () => tester
-          .widget<LocationChatAnchoredMessageList>(
-            find.byType(LocationChatAnchoredMessageList),
-          )
-          .messages
-          .any((message) => message.photo != null),
+      () => list().cameraState != LocationChatReplyActionState.busy,
     );
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<LocationChatReplyActions>(
-            find.byType(LocationChatReplyActions),
-          )
-          .actionsHidden,
-      isFalse,
-    );
-    expect(camera, findsOneWidget);
-    expect(tester.getSize(camera).height, 32);
-    expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
-    expect(find.bySemanticsLabel('Edit'), findsOneWidget);
+    expect(list().cameraState, LocationChatReplyActionState.disabled);
+    expect(harness.socket.replyActionFrames('join'), hasLength(joins + 1));
     await _disposeEnterConversationPanel(tester, harness.service);
     expect(tester.takeException(), isNull);
   });
@@ -4490,7 +4680,13 @@ void main() {
     },
   );
 
-  for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+  for (final action in [
+    'Regenerate',
+    'Go on',
+    'Edit',
+    'Inspiration',
+    'Camera',
+  ]) {
     for (final failure in ['offline', 'socket', 'join']) {
       final hasNetwork = failure != 'offline';
       final socketFailure = failure == 'socket';
@@ -4566,6 +4762,7 @@ void main() {
           );
           expect(harness.socket.replyActionFrames('go_on'), isEmpty);
           expect(backend.inspirationRequests, hasLength(inspirationRequests));
+          expect(backend.photoRequests, isEmpty);
           expect(find.byType(LocationChatEditPage), findsNothing);
           expect(
             tester.widget<ChatComposer>(composerFinder).controller.text,
@@ -16815,6 +17012,9 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/message/photo/price')) {
+      return _ok({'price_cent': 2000});
+    }
     if (request.uri.path.endsWith('/message/photo/create')) {
       final body =
           jsonDecode(utf8.decode(request.bodyBytes!)) as Map<String, dynamic>;

@@ -14090,6 +14090,8 @@ void main() {
   for (final scenario in [
     'recommended',
     'precharacter',
+    'personalized',
+    'personalized-late',
     'empty',
     'profile',
     'anonymous',
@@ -14097,6 +14099,8 @@ void main() {
     testWidgets('Origin precharacter first role uses $scenario priority', (
       tester,
     ) async {
+      final personalized = scenario.startsWith('personalized');
+      const profileAvatar = 'https://cdn.example.com/profile.webp';
       const precharacterAvatar = 'https://cdn.example.com/precharacter.webp';
       debugGenesisStaticNetworkImageCompleter = (_) =>
           OneFrameImageStreamCompleter(
@@ -14112,10 +14116,16 @@ void main() {
             : scenario == 'empty'
             ? const {}
             : {
-                'name': 'Preset player',
-                'identity': 'Preset identity',
-                'personality': 'Preset personality',
-                'bio': 'Preset setting',
+                'name': personalized ? 'Adventurer {{user}}' : 'Preset player',
+                'identity': personalized
+                    ? '{{user}} identity'
+                    : 'Preset identity',
+                'personality': personalized
+                    ? '{{user}} personality'
+                    : 'Preset personality',
+                'bio': personalized
+                    ? '{{user}} meets {{user}}.\nSetting'
+                    : 'Preset setting',
                 'avatar': scenario == 'precharacter' ? precharacterAvatar : '',
               },
         originCharacters: [
@@ -14130,22 +14140,30 @@ void main() {
           },
         ],
       );
+      final delayedSession = scenario == 'personalized-late'
+          ? _DeferredOriginProfileSessionStore()
+          : null;
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: scenario == 'anonymous' ? null : 'u_mock',
+        initialAuthToken: scenario == 'anonymous' ? null : 'token',
+        initialUserInfo: scenario == 'anonymous'
+            ? null
+            : const {
+                'uid': 'u_mock',
+                'name': 'Profile player',
+                'avatar': profileAvatar,
+                'identity': 'Profile identity',
+                'bio': 'Profile personality',
+              },
+        sessionStoreOverride: delayedSession,
+      );
+      final delayedProfile = Completer<Map<String, dynamic>?>();
+      delayedSession?.heldProfileRead = delayedProfile;
       await tester.pumpWidget(
         AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: scenario == 'anonymous' ? null : 'u_mock',
-            initialAuthToken: scenario == 'anonymous' ? null : 'token',
-            initialUserInfo: scenario == 'anonymous'
-                ? null
-                : const {
-                    'uid': 'u_mock',
-                    'name': 'Profile player',
-                    'identity': 'Profile identity',
-                    'bio': 'Profile personality',
-                  },
-          ),
+          services: services,
           child: const MaterialApp(
             home: OriginWorldPage(
               oid: 'o_test_1',
@@ -14156,6 +14174,23 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      if (delayedSession != null) {
+        final dynamic pendingSheet = tester.widget(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType.toString() == '_OriginDetailDraggableSheet',
+          ),
+        );
+        final pendingRole = pendingSheet.profileRole as OriginCustomRoleDraft;
+        expect(pendingRole.name, 'Adventurer {{user}}');
+        expect(pendingRole.avatarUrl, isEmpty);
+        delayedSession.heldProfileRead = null;
+        delayedProfile.complete({
+          'name': 'Profile player',
+          'avatar': profileAvatar,
+        });
+        await tester.pumpAndSettle();
+      }
       final dynamic sheet = tester.widget(
         find.byWidgetPredicate(
           (widget) =>
@@ -14172,6 +14207,8 @@ void main() {
             ? ''
             : isProfile || isRecommended
             ? 'Profile player'
+            : personalized
+            ? 'Adventurer Profile player'
             : 'Preset player',
       );
       expect(
@@ -14182,6 +14219,8 @@ void main() {
             ? 'Template identity'
             : isProfile
             ? 'Profile identity'
+            : personalized
+            ? 'Profile player identity'
             : 'Preset identity',
       );
       expect(
@@ -14192,15 +14231,25 @@ void main() {
             ? 'Template personality'
             : isProfile
             ? 'Profile personality'
+            : personalized
+            ? 'Profile player personality'
             : 'Preset personality',
       );
       expect(
         role.bio,
-        emptyPreset || isProfile || isRecommended ? '' : 'Preset setting',
+        emptyPreset || isProfile || isRecommended
+            ? ''
+            : personalized
+            ? 'Profile player meets Profile player.\nSetting'
+            : 'Preset setting',
       );
       expect(
         role.avatarUrl,
-        scenario == 'precharacter' ? precharacterAvatar : '',
+        scenario == 'precharacter'
+            ? precharacterAvatar
+            : scenario == 'anonymous'
+            ? ''
+            : profileAvatar,
       );
       final id = isRecommended ? 'c_template' : 'current-user';
       expect(
@@ -14235,15 +14284,13 @@ void main() {
           entry.value,
         );
       }
-      if (scenario == 'precharacter') {
+      if (role.avatarUrl.isNotEmpty) {
         final upload = find.byKey(
-          const ValueKey<String>(
-            'origin-setup-role-inline-avatar-current-user',
-          ),
+          ValueKey<String>('origin-setup-role-inline-avatar-$id'),
         );
         expect(
           tester.widget<CreateUploadBox>(upload).controller.text,
-          precharacterAvatar,
+          role.avatarUrl,
         );
         final preview = tester.widget<GenesisStaticNetworkImage>(
           find.descendant(
@@ -14253,7 +14300,7 @@ void main() {
         );
         expect(
           preview.imageUrl,
-          '$precharacterAvatar?x-oss-process=image/resize,w_128/format,webp',
+          '${role.avatarUrl}?x-oss-process=image/resize,w_128/format,webp',
         );
       }
       if (emptyPreset) {
@@ -14652,6 +14699,14 @@ void main() {
       await tester.drag(scroll, const Offset(0, -100));
       await tester.pumpAndSettle();
       expect(controller.offset, greaterThan(beforeDrag));
+      expect(identityField.focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      final afterUpwardDrag = controller.offset;
+      await tester.drag(scroll, const Offset(0, 60));
+      await tester.pumpAndSettle();
+      expect(controller.offset, lessThan(afterUpwardDrag));
+      expect(identityField.focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
       expect(identityField.controller!.text, 'Scout');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -15021,6 +15076,144 @@ void main() {
       const Color(0x73FF2442),
     );
   });
+
+  testWidgets(
+    'Origin role editor keeps its sheet and keyboard while scrolling',
+    (WidgetTester tester) async {
+      _mockGenesisKeyboardAnimationEvents();
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      tester.view.systemGestureInsets = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+        originTicks: <Map<String, Object?>>[
+          <String, Object?>{
+            'tick_no': 1,
+            'tick_result': <String, Object?>{
+              'location_groups': <Map<String, Object?>>[
+                <String, Object?>{
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': List<Map<String, Object?>>.generate(
+                    12,
+                    (index) => <String, Object?>{
+                      'char_id': 'c_role_1',
+                      'char_name': 'Guide',
+                      'content': 'Role editor opening line $index',
+                    },
+                  ),
+                },
+              ],
+            },
+          },
+        ],
+        originCharacters: const [
+          {
+            'char_id': 'c_role_1',
+            'type': 'ai',
+            'name': 'Guide',
+            'identity': 'Local guide',
+            'avatar': '',
+            'initial_location_id': 'l_o_test_1',
+            'location_id': 'l_o_test_1',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            initialUserInfo: const {
+              'uid': 'u_profile',
+              'name': 'Profile Hero',
+              'avatar': '',
+              'identity': 'Explorer',
+              'bio': 'Curious',
+            },
+          ),
+          child: const MaterialApp(
+            home: GenesisBottomSystemBarBoundary(
+              child: OriginWorldPage(
+                oid: 'o_test_1',
+                originId: 0,
+                showOpeningSheetOnEntry: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final roleTestOpeningList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      final roleTestOpeningPosition = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: roleTestOpeningList,
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      roleTestOpeningPosition.jumpTo(roleTestOpeningPosition.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final editProfileRole = find.byKey(
+        const ValueKey<String>('origin-setup-role-edit-current-user'),
+      );
+      expect(editProfileRole, findsOneWidget);
+      tester.widget<InkWell>(editProfileRole).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(roleTestOpeningPosition.hasPixels, isTrue);
+      final openingController = tester
+          .widget<CustomScrollView>(roleTestOpeningList)
+          .controller!;
+      expect(openingController.positions, hasLength(1));
+      final editor = find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
+      );
+      expect(editor, findsOneWidget);
+      final field = tester.widget<TextField>(
+        find.descendant(of: editor, matching: find.byType(TextField)).first,
+      );
+      expect(field.focusNode!.hasFocus, isTrue);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final controller = tester
+          .widget<SingleChildScrollView>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-inline-editor-scroll-current-user',
+              ),
+            ),
+          )
+          .controller!;
+      final beforeDrag = controller.offset;
+      await tester.drag(editor, const Offset(0, -60));
+      await tester.pumpAndSettle();
+      expect(controller.offset, greaterThan(beforeDrag));
+      expect(field.focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      final afterUpwardDrag = controller.offset;
+      await tester.drag(editor, const Offset(0, 40));
+      await tester.pumpAndSettle();
+      expect(controller.offset, lessThan(afterUpwardDrag));
+      expect(field.focusNode!.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(openingController.positions, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'Origin profile keyboard hides composer and cancels editing on role swipe',

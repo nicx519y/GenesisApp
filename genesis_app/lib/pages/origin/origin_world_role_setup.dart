@@ -1039,7 +1039,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    final editor = ColoredBox(
       color: originWorldDetailSheetSurfaceColor,
       child: AbsorbPointer(
         absorbing: busy,
@@ -1048,6 +1048,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
             'origin-setup-role-inline-editor-scroll-$stableId',
           ),
           controller: scrollController,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
           physics: interactionLayoutFrozen
               ? const NeverScrollableScrollPhysics()
               : const ClampingScrollPhysics(),
@@ -1176,6 +1177,14 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
           ),
         ),
       ),
+    );
+    // Keep user scroll updates inside the editor so ancestor scroll views do
+    // not dismiss its keyboard. Start/end notifications still reach the sheet.
+    // Do not toggle the outer ScrollView's dismissal behavior: that reparents
+    // its Scrollable and can briefly attach two positions to the sheet controller.
+    return NotificationListener<ScrollUpdateNotification>(
+      onNotification: (notification) => notification.dragDetails != null,
+      child: editor,
     );
   }
 }
