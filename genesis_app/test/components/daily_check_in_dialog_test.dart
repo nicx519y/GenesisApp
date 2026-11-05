@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
+import 'package:genesis_flutter_android/network/models/membership_order_product.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/components/gems/daily_check_in_dialog.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
@@ -14,6 +15,8 @@ void main() {
   for (final scenario in [
     'monthly',
     'yearly',
+    'deluxe',
+    'both',
     'non_member',
     'expired_status',
     'expired_time',
@@ -24,7 +27,12 @@ void main() {
       tester,
     ) async {
       final now = DateTime.utc(2040);
-      final active = ['monthly', 'yearly'].contains(scenario);
+      final noOffers = [
+        'both',
+        'unknown',
+        'missing_membership',
+      ].contains(scenario);
+      final singleOffer = ['monthly', 'yearly', 'deluxe'].contains(scenario);
       var requests = 0;
       final response = Completer<GemWallet>();
       final wallet = GemWalletStore(
@@ -50,6 +58,8 @@ void main() {
                     context,
                     status: DailyCheckInDialogStatus.checkIn,
                     membershipAccess: membership,
+                    rewardGemsCentPremium: 10000,
+                    rewardGemsCentDeluxe: 25000,
                   );
                 },
                 child: const Text('Open'),
@@ -70,7 +80,7 @@ void main() {
             GemWallet(
               balanceCent: 5000,
               membership: GemWalletMembership(
-                status: scenario == 'non_member'
+                status: ['non_member', 'deluxe'].contains(scenario)
                     ? 0
                     : scenario == 'expired_status'
                     ? 2
@@ -82,6 +92,15 @@ void main() {
                 autoRenew: true,
                 blueGemsCent: 30000,
               ),
+              membershipDeluxe: ['deluxe', 'both'].contains(scenario)
+                  ? GemWalletMembership(
+                      status: 1,
+                      planCode: 'deluxe_monthly',
+                      expiresAt: DateTime.utc(2041),
+                      autoRenew: true,
+                      blueGemsCent: 0,
+                    )
+                  : null,
             ),
           );
         }
@@ -90,53 +109,49 @@ void main() {
         expect(find.text('+50'), findsOneWidget);
         expect(find.text('Check in'), findsOneWidget);
         expect(find.text('Claim'), findsNothing);
-        if (active) {
-          expect(find.text('Get 100'), findsNothing);
-          expect(find.text('Cancel'), findsOneWidget);
-          if (active) {
-            expect(
-              tester.getCenter(find.text('Cancel')).dy,
-              greaterThan(tester.getCenter(find.text('Check in')).dy),
-            );
-            expect(
-              tester.widget<Text>(find.text('Cancel')).style?.color,
-              GenesisColors.darkTextPrimary,
-            );
-            expect(
-              tester.widget<Text>(find.text('Check in')).style?.color,
-              GenesisColors.redSecondary,
-            );
-            expect(
-              tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-              FontWeight.w600,
-            );
-            expect(
-              find.byKey(const ValueKey('daily-check-in-subscription-gem')),
-              findsNothing,
-            );
-          }
-          await tester.tap(find.text('Cancel'));
+        expect(
+          find.text('Get 150'),
+          !noOffers && (!singleOffer || scenario == 'deluxe')
+              ? findsOneWidget
+              : findsNothing,
+        );
+        expect(
+          find.text('Get 300'),
+          !noOffers && scenario != 'deluxe' ? findsOneWidget : findsNothing,
+        );
+        expect(find.text('Cancel'), noOffers ? findsOneWidget : findsNothing);
+        if (!noOffers && !singleOffer) {
+          expect(
+            tester.getCenter(find.text('Get 150')).dy,
+            lessThan(tester.getCenter(find.text('Get 300')).dy),
+          );
+        }
+        await tester.tap(find.text(noOffers ? 'Cancel' : 'Check in'));
+        await tester.pumpAndSettle();
+        expect(checkedIn, !noOffers);
+        if (singleOffer) {
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          expect(requests, 1);
+          await tester.tap(
+            find.text(scenario == 'deluxe' ? 'Get 150' : 'Get 300'),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<ProSubscriptionContent>(
+                  find.byType(ProSubscriptionContent),
+                )
+                .initialMembershipType,
+            scenario == 'deluxe'
+                ? MembershipType.premium
+                : MembershipType.deluxe,
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('gem-purchase-sheet-close')),
+          );
           await tester.pumpAndSettle();
           expect(checkedIn, isFalse);
-          expect(find.byType(ProSubscriptionContent), findsNothing);
-          // Reopening with a valid snapshot must reuse the global cache.
-          if (active) {
-            await tester.tap(find.text('Open'));
-            await tester.pumpAndSettle();
-            expect(requests, 1);
-            await tester.tap(find.text('Check in'));
-            await tester.pumpAndSettle();
-            expect(checkedIn, isTrue);
-          }
-        } else {
-          expect(find.text('Get 100'), findsOneWidget);
-          expect(find.text('Cancel'), findsNothing);
-          if (scenario == 'unknown' || scenario == 'missing_membership') {
-            expect(membership.state.value.isVip, isNull);
-          }
-          await tester.tap(find.text('Check in'));
-          await tester.pumpAndSettle();
-          expect(checkedIn, isTrue);
         }
         expect(find.text('Daily Check-in'), findsNothing);
       } finally {
@@ -186,6 +201,8 @@ void main() {
                       context,
                       status: DailyCheckInDialogStatus.checkIn,
                       membershipAccess: membership,
+                      rewardGemsCentPremium: 10000,
+                      rewardGemsCentDeluxe: 25000,
                     );
                   },
                   child: const Text('Open'),
@@ -197,7 +214,7 @@ void main() {
           await tester.tap(find.text('Open'));
           await tester.pumpAndSettle();
           expect(find.text('Daily Check-in'), findsNothing);
-          expect(find.text('Get 100'), findsNothing);
+          expect(find.text('Get 150'), findsNothing);
           expect(checkedIn, isNull);
           expect(requests, 2);
 
@@ -221,18 +238,18 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('Daily Check-in'), findsOneWidget);
           expect(
-            find.text('Get 100'),
-            refreshFails ? findsOneWidget : findsNothing,
+            find.text('Get 300'),
+            refreshFails ? findsNothing : findsOneWidget,
           );
           expect(
             find.text('Cancel'),
-            refreshFails ? findsNothing : findsOneWidget,
+            refreshFails ? findsOneWidget : findsNothing,
           );
           expect(find.text('Check in'), findsOneWidget);
           expect(requests, 2);
-          await tester.tap(find.text(refreshFails ? 'Check in' : 'Cancel'));
+          await tester.tap(find.text(refreshFails ? 'Cancel' : 'Check in'));
           await tester.pumpAndSettle();
-          expect(checkedIn, refreshFails);
+          expect(checkedIn, !refreshFails);
           expect(find.byType(ProSubscriptionContent), findsNothing);
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
@@ -280,30 +297,8 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Check in'), findsOneWidget);
-      expect(find.text('Cancel'), findsNothing);
-      expect(find.text('Get 100'), findsOneWidget);
-      expect(
-        tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-        FontWeight.w400,
-      );
-      expect(
-        tester.widget<Text>(find.text('Get 100')).style?.color,
-        GenesisColors.redSecondary,
-      );
-      expect(
-        tester.widget<Text>(find.text('Check in')).style?.color,
-        GenesisColors.darkTextPrimary,
-      );
-      expect(
-        tester.getCenter(find.text('Get 100')).dy,
-        lessThan(tester.getCenter(find.text('Check in')).dy),
-      );
-      final gem = find.byKey(const ValueKey('daily-check-in-subscription-gem'));
-      expect(tester.getSize(gem).height, 16);
-      expect(
-        tester.getTopLeft(gem).dx - tester.getTopRight(find.text('Get 100')).dx,
-        4,
-      );
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Get 150'), findsNothing);
 
       await tester.tap(find.text('Check in'));
       await tester.pumpAndSettle();
@@ -323,9 +318,20 @@ void main() {
     },
   );
 
-  testWidgets('Get 100 opens Subscription without performing check-in', (
+  testWidgets('Get 150 opens Subscription without performing check-in', (
     tester,
   ) async {
+    final wallet = GemWalletStore(
+      readUid: () async => null,
+      loadWallet: () async => const GemWallet(balanceCent: 0),
+    );
+    final membership = MembershipAccessStore(
+      wallet: wallet,
+      readLoginUid: () async => null,
+      serverNow: () => DateTime.utc(2040),
+    );
+    addTearDown(membership.dispose);
+    addTearDown(wallet.dispose);
     bool? checkedIn;
     await tester.pumpWidget(
       MaterialApp(
@@ -336,6 +342,8 @@ void main() {
               checkedIn = await showDailyCheckInDialog(
                 context,
                 status: DailyCheckInDialogStatus.checkIn,
+                membershipAccess: membership,
+                rewardGemsCentPremium: 10000,
               );
             },
             child: const Text('Open'),
@@ -345,9 +353,15 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Get 100'));
+    await tester.tap(find.text('Get 150'));
     await tester.pumpAndSettle();
     expect(find.byType(ProSubscriptionContent), findsOneWidget);
+    expect(
+      tester
+          .widget<ProSubscriptionContent>(find.byType(ProSubscriptionContent))
+          .initialMembershipType,
+      MembershipType.premium,
+    );
     expect(find.text('Subscription'), findsOneWidget);
     expect(find.text('Buy Gems'), findsNothing);
     expect(find.text('Daily Check-in'), findsNothing);

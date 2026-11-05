@@ -2409,7 +2409,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meDailyCheck => 'デイリーチェックイン';
 
   @override
-  String get gemsDailyCheckInReward => '100獲得';
+  String gemsDailyCheckInReward({required String amount}) {
+    return '$amount獲得';
+  }
 
   @override
   String get meCheck => 'チェックイン';

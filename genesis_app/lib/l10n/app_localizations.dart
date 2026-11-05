@@ -4210,11 +4210,11 @@ abstract class AppLocalizations {
   /// **'Daily Check-in'**
   String get meDailyCheck;
 
-  /// 首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗
+  /// Daily Check-in dialog: button showing the Gem reward associated with a subscription offer. Opens the relevant subscription tier.
   ///
   /// In en, this message translates to:
-  /// **'Get 100'**
-  String get gemsDailyCheckInReward;
+  /// **'Get {amount}'**
+  String gemsDailyCheckInReward({required String amount});
 
   /// 首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗
   ///

@@ -105,6 +105,8 @@ void main() {
                       context,
                       status: DailyCheckInDialogStatus.checkIn,
                       membershipAccess: membership,
+                      rewardGemsCentPremium: 10000,
+                      rewardGemsCentDeluxe: 25000,
                       membershipPurchases: h.service,
                     );
                   },
@@ -117,7 +119,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(h.claimRequests, hasLength(1));
           expect(find.text('Daily Check-in'), findsNothing);
-          expect(find.text('Get 100'), findsNothing);
+          expect(find.text('Get 150'), findsNothing);
 
           if (outcome == 'claim_error') {
             claimResponse.completeError(StateError('claim offline'));
@@ -142,37 +144,21 @@ void main() {
             await tester.pumpAndSettle();
           }
           expect(find.text('Daily Check-in'), findsOneWidget);
-          final showNonMemberFallback = outcome != 'completed';
-          expect(
-            find.text('Get 100'),
-            showNonMemberFallback ? findsOneWidget : findsNothing,
-          );
+          final bound = outcome == 'completed';
+          expect(find.text('Get 150'), findsNothing);
+          expect(find.text('Get 300'), bound ? findsOneWidget : findsNothing);
           expect(find.text('Check in'), findsOneWidget);
-          expect(
-            find.text('Cancel'),
-            showNonMemberFallback ? findsNothing : findsOneWidget,
-          );
-          expect(
-            find.byKey(const ValueKey('daily-check-in-subscription-gem')),
-            showNonMemberFallback ? findsOneWidget : findsNothing,
-          );
+          expect(find.text('Cancel'), bound ? findsNothing : findsOneWidget);
           expect(h.claimRequests, hasLength(1));
-          if (outcome == 'completed') {
-            // Member actions keep the shared Cancel row at the bottom.
-            expect(
-              tester.getCenter(find.text('Cancel')).dy,
-              greaterThan(tester.getCenter(find.text('Check in')).dy),
-            );
+          if (bound) {
             expect(h.store.claims, isEmpty);
             expect(membership.state.value.isVip, isTrue);
           } else {
             expect(h.store.claims, hasLength(1));
           }
-          await tester.tap(
-            find.text(showNonMemberFallback ? 'Check in' : 'Cancel'),
-          );
+          await tester.tap(find.text(bound ? 'Check in' : 'Cancel'));
           await tester.pumpAndSettle();
-          expect(confirmed, showNonMemberFallback);
+          expect(confirmed, bound);
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
           h.service.dispose();
@@ -232,7 +218,7 @@ void main() {
         expect(find.text('Daily Check-in'), findsNothing);
         afterBinding.complete(_wallet(member: true));
         await tester.pumpAndSettle();
-        expect(find.text('Get 100'), findsNothing);
+        expect(find.text('Get 150'), findsNothing);
         expect(find.text('Cancel'), findsOneWidget);
         expect(find.text('Check in'), findsOneWidget);
         expect(membership.state.value.isVip, isTrue);

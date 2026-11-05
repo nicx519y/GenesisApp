@@ -2873,6 +2873,8 @@ class _MockState {
               'title': 'Daily check-in',
               'description': 'Check in every day to collect gems.',
               'reward_gems_cent': 2000,
+              'reward_gems_cent_premium': 10000,
+              'reward_gems_cent_deluxe': 20000,
               'reward_valid_days': 30,
               'cycle_type': 'daily',
               'cycle_key': 'today',

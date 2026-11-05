@@ -187,6 +187,8 @@ extension _GemWalletDataActions on _GemWalletPageState {
         context,
         status: DailyCheckInDialogStatus.checkIn,
         rewardGemsCent: task.rewardGemsCent,
+        rewardGemsCentPremium: task.rewardGemsCentPremium,
+        rewardGemsCentDeluxe: task.rewardGemsCentDeluxe,
       );
     } finally {
       _endTaskAction(taskCode);

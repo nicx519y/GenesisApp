@@ -2479,7 +2479,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meDailyCheck => 'Daily Check-in';
 
   @override
-  String get gemsDailyCheckInReward => 'Get 100';
+  String gemsDailyCheckInReward({required String amount}) {
+    return 'Get $amount';
+  }
 
   @override
   String get meCheck => 'Check in';

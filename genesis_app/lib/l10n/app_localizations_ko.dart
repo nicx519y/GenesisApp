@@ -2415,7 +2415,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meDailyCheck => '매일 체크인';
 
   @override
-  String get gemsDailyCheckInReward => '100 받기';
+  String gemsDailyCheckInReward({required String amount}) {
+    return '$amount 받기';
+  }
 
   @override
   String get meCheck => '체크인';

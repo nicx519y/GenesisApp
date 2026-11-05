@@ -54,6 +54,8 @@ class GemTask {
     required this.title,
     required this.description,
     required this.rewardGemsCent,
+    this.rewardGemsCentPremium,
+    this.rewardGemsCentDeluxe,
     required this.rewardValidDays,
     required this.cycleType,
     required this.cycleKey,
@@ -73,6 +75,12 @@ class GemTask {
         json['reward_gems_cent'],
         fieldName: 'reward_gems_cent',
       ),
+      rewardGemsCentPremium: _optionalRewardCent(
+        json['reward_gems_cent_premium'],
+      ),
+      rewardGemsCentDeluxe: _optionalRewardCent(
+        json['reward_gems_cent_deluxe'],
+      ),
       rewardValidDays: asInt(json['reward_valid_days']),
       cycleType: asString(json['cycle_type']),
       cycleKey: asString(json['cycle_key']),
@@ -88,6 +96,8 @@ class GemTask {
   final String title;
   final String description;
   final int rewardGemsCent;
+  final int? rewardGemsCentPremium;
+  final int? rewardGemsCentDeluxe;
   final int rewardValidDays;
   final String cycleType;
   final String cycleKey;
@@ -101,6 +111,9 @@ class GemTask {
   bool get isClaimed => status == 'claimed';
   bool get isClaimable => status == 'claimable';
 }
+
+int? _optionalRewardCent(Object? value) =>
+    value is int && value >= 0 ? value : null;
 
 int? _countdownSeconds(dynamic value) =>
     value is int && value >= 1 && value <= 86400 ? value : null;

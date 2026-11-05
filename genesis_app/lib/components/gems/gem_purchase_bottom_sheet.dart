@@ -14,6 +14,7 @@ import '../../app/gems/gem_wallet_store.dart';
 import '../../app/gems/gem_store_catalog.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/models/gem_product.dart';
+import '../../network/models/membership_order_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
@@ -91,6 +92,7 @@ Future<void> showGemPurchaseBottomSheet(
 Future<void> showSubscriptionPurchaseBottomSheet(
   BuildContext context, {
   SubscriptionSource source = SubscriptionSource.unknown,
+  MembershipType? initialMembershipType,
 }) async {
   final services = AppServicesScope.maybeRead(context);
   final billingService = services?.billing;
@@ -114,6 +116,7 @@ Future<void> showSubscriptionPurchaseBottomSheet(
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
           initialTab: PurchaseSheetTab.subscription,
+          initialMembershipType: initialMembershipType,
           analyticsPageId: analyticsPageId,
           subscriptionSource: source,
           subscriptionTracking: subscriptionTracking,

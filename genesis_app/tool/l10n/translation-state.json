@@ -3996,9 +3996,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "e7765e607383ec6868cef0aacd837af63f7320d2fad8c0e5665fca5469e070dd",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "42121430b80e53ea1b25e603c9bd848545eeec7f2c6190c187394e5b75ce67b5",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -10067,9 +10067,9 @@
           "note": "审校建议 R647（必改）：Registrarse 是「注册账号」，Registro 读起来像注册成功；签到统一用 check-in"
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "791e679ef81779a1d5e7f7c595d8b4462ce2f76033bf718fb947506bad70e781",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "982d433f191a19d9128cc633c0f3e9f04c0347fb8bb6605b795b9ea9ee992513",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -16138,9 +16138,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "b0a401c1e20f4aca0aa022ebe859d4329b0bdb18820ac241a60aa90f0545dc82",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "addb57edbfd1dea42a41ba69648a5db8b7e431b2cf825ef66d4639a43cfa432b",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -22209,9 +22209,9 @@
           "note": "审校建议 R647（建议优化）：签到用 Pointage(上班打卡)不自然，统一为 check-in"
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "71897a85c5ff140447310a97c9a2a8347c68b37e2596fec523e89eab8dd28428",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "c2ee6723d056412168ab0ccc69f9dc848b0ef6a8e03e3aaf4476f434e573e7ca",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -28280,9 +28280,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "6b9de75434e5417d6665dafa95f72ae1c8d4316da34d42016b2e6dcb47d2e613",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "c9c1681d0b66363c899c5f06ade30954717cefbebf40125cd2267d8a6e9c3f18",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -34351,9 +34351,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "2b60a7a702a51e811a4edbddf56974b709421f62e25ecf9670bc9ceb3fbe2e4b",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "c354446a10f1d252ab78cae7a9faa5cc5bc20d20e2a5e48937706d06d046141e",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -40422,9 +40422,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "f794bcb3dfcdb2f3ea5365cd98cc910fb1b57f880a3a6903dcfe9823029dc87d",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "a0b22ce2a9cff3849418d5e4cb48c8ee7317aaa964a276b9cfedcb90d08c1dc9",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -46493,9 +46493,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "4e72d0538b05d07bb149fb871f1c5dfe28438c1d7bb607d6b905760a184ec8ed",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "9821e7348905b18f58216b07032e50d5a0506c4a44f1216581ea0a6b67f8b6fe",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {

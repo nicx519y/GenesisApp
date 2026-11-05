@@ -113,6 +113,8 @@ Future<void> runDailyCheckInFlow(
       context,
       status: DailyCheckInDialogStatus.checkIn,
       rewardGemsCent: task.rewardGemsCent,
+      rewardGemsCentPremium: task.rewardGemsCentPremium,
+      rewardGemsCentDeluxe: task.rewardGemsCentDeluxe,
     );
     if (!shouldAct || !context.mounted) return;
 
@@ -156,12 +158,8 @@ Future<void> runDailyCheckInFlow(
       showGenesisToast(
         context,
         status == _DailyTaskStatus.claimable
-            ? GenesisL10n
-                  .current
-                  .gemsClaimFailed
-            : GenesisL10n
-                  .current
-                  .gemsCheckFailed,
+            ? GenesisL10n.current.gemsClaimFailed
+            : GenesisL10n.current.gemsCheckFailed,
       );
       return;
     }

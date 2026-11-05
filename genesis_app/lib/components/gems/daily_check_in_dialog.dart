@@ -8,6 +8,8 @@ import '../../app/membership/subscription_analytics.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_purchase_service.dart';
+import '../../network/models/membership_order_product.dart';
+import '../../utils/gem_amount.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -20,12 +22,14 @@ const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
 
 enum DailyCheckInDialogStatus { checkIn, claimed }
 
-enum _DailyCheckInAction { subscribe, checkIn }
+enum _DailyCheckInAction { premium, deluxe, checkIn }
 
 Future<bool> showDailyCheckInDialog(
   BuildContext context, {
   required DailyCheckInDialogStatus status,
   int rewardGemsCent = dailyCheckInPreviewRewardCent,
+  int? rewardGemsCentPremium,
+  int? rewardGemsCentDeluxe,
   MembershipAccessStore? membershipAccess,
   MembershipPurchaseService? membershipPurchases,
 }) async {
@@ -35,15 +39,14 @@ Future<bool> showDailyCheckInDialog(
   final route = ModalRoute.of(context);
   final membership = membershipAccess ?? services?.membership;
   final purchases = membershipPurchases ?? services?.membershipPurchases;
-  bool? isVip = false;
+  var guestClaimSettled = true;
   if (!claimed && purchases != null) {
     try {
-      final settled = await purchases.waitForGuestClaim().timeout(
+      guestClaimSettled = await purchases.waitForGuestClaim().timeout(
         membership?.requestTimeout ?? const Duration(seconds: 20),
       );
-      if (!settled) isVip = null;
     } catch (_) {
-      isVip = null;
+      guestClaimSettled = false;
     }
     if (!context.mounted ||
         route?.isCurrent == false ||
@@ -52,10 +55,9 @@ Future<bool> showDailyCheckInDialog(
       return false;
     }
   }
-  if (!claimed && membership != null && isVip != null) {
-    final result = Completer<bool?>();
-    membership.checkVip(result.complete);
-    isVip = await result.future;
+  ({bool premium, bool deluxe})? activeTiers;
+  if (!claimed && membership != null && guestClaimSettled) {
+    activeTiers = await membership.checkActiveTiers();
     if (!context.mounted ||
         route?.isCurrent == false ||
         !identical(services, AppServicesScope.maybeRead(context)) ||
@@ -63,40 +65,47 @@ Future<bool> showDailyCheckInDialog(
       return false;
     }
   }
-  // Unknown membership uses the non-member dialog as a presentation fallback.
-  final showSubscriptionOffer =
-      status == DailyCheckInDialogStatus.checkIn && isVip != true;
+  final offers = <(_DailyCheckInAction, int)>[];
+  if (activeTiers != null) {
+    final premium = rewardGemsCentPremium;
+    final deluxe = rewardGemsCentDeluxe;
+    if (!activeTiers.premium && premium != null) {
+      offers.add((_DailyCheckInAction.premium, rewardGemsCent + premium));
+    }
+    if (!activeTiers.deluxe && deluxe != null) {
+      offers.add((_DailyCheckInAction.deluxe, rewardGemsCent + deluxe));
+    }
+  }
   final action = await showGenesisActionBox<_DailyCheckInAction>(
     context: context,
-    title: GenesisL10n
-        .current
-        .meDailyCheck,
+    title: GenesisL10n.current.meDailyCheck,
     titleContent: GemTaskReward(
       rewardGemsCent: rewardGemsCent,
       showWholeReward: true,
     ),
     titleContentSpacing: 10,
     actions: [
-      if (showSubscriptionOffer)
+      for (final (tier, amount) in offers)
         GenesisActionBoxAction<_DailyCheckInAction>(
-          label: GenesisL10n
-              .current
-              .gemsDailyCheckInReward,
-          value: _DailyCheckInAction.subscribe,
+          label: GenesisL10n.current.gemsDailyCheckInReward(
+            amount: amount % gemCentPerGem == 0
+                ? formatWholeGemCent(amount)
+                : formatGemCent(amount),
+          ),
+          value: tier,
           color: GenesisColors.redSecondary,
+          fontWeight: FontWeight.w600,
           trailing: SvgPicture.asset(
             gemIconAsset,
-            key: const ValueKey('daily-check-in-subscription-gem'),
+            key: ValueKey('daily-check-in-subscription-gem-${tier.name}'),
             width: gemSmallIconSize,
             height: gemSmallIconSize,
             excludeFromSemantics: true,
           ),
         ),
-      if (showSubscriptionOffer)
+      if (offers.isNotEmpty)
         GenesisActionBoxAction<_DailyCheckInAction>(
-          label: GenesisL10n
-              .current
-              .meCheck,
+          label: GenesisL10n.current.meCheck,
           value: _DailyCheckInAction.checkIn,
           color: GenesisColors.darkTextPrimary,
           fontWeight: FontWeight.w400,
@@ -104,26 +113,26 @@ Future<bool> showDailyCheckInDialog(
       else
         GenesisActionBoxAction<_DailyCheckInAction>(
           label: switch (status) {
-            DailyCheckInDialogStatus.checkIn =>
-              GenesisL10n
-                  .current
-                  .meCheck,
-            DailyCheckInDialogStatus.claimed =>
-              GenesisL10n
-                  .current
-                  .gemsClaimed,
+            DailyCheckInDialogStatus.checkIn => GenesisL10n.current.meCheck,
+            DailyCheckInDialogStatus.claimed => GenesisL10n.current.gemsClaimed,
           },
           value: _DailyCheckInAction.checkIn,
           enabled: !claimed,
         ),
     ],
     cancelLabel: GenesisL10n.current.searchCancel,
-    showCancel: !showSubscriptionOffer,
+    showCancel: offers.isEmpty,
   );
-  if (action == _DailyCheckInAction.subscribe && context.mounted) {
+  final tier = switch (action) {
+    _DailyCheckInAction.premium => MembershipType.premium,
+    _DailyCheckInAction.deluxe => MembershipType.deluxe,
+    _ => null,
+  };
+  if (tier != null && context.mounted) {
     await showSubscriptionPurchaseBottomSheet(
       context,
       source: SubscriptionSource.dailyCheckIn,
+      initialMembershipType: tier,
     );
   }
   return action == _DailyCheckInAction.checkIn;
@@ -136,9 +145,7 @@ Future<void> showDailyCheckInSuccessDialog(
 }) async {
   return showGemTaskSuccessDialog(
     context,
-    title: GenesisL10n
-        .current
-        .meCheckSuccessful,
+    title: GenesisL10n.current.meCheckSuccessful,
     rewardGemsCent: rewardGemsCent,
     duration: duration,
   );

@@ -2527,7 +2527,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get meDailyCheck => 'Täglicher Check-in';
 
   @override
-  String get gemsDailyCheckInReward => '100 erhalten';
+  String gemsDailyCheckInReward({required String amount}) {
+    return '$amount erhalten';
+  }
 
   @override
   String get meCheck => 'Einchecken';

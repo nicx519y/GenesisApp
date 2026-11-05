@@ -25,6 +25,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
     super.key,
     required this.gemsBuilder,
     this.initialTab = PurchaseSheetTab.buyGems,
+    this.initialMembershipType,
     this.showBuyGems = true,
     this.membershipProductsLoader,
     this.subscriptionBuilder,
@@ -40,6 +41,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
   final WidgetBuilder gemsBuilder;
   final BillingPurchaseSource gemsSource;
   final PurchaseSheetTab initialTab;
+  final MemoryMembershipTier? initialMembershipType;
   final bool showBuyGems;
   final MembershipCatalogLoader? membershipProductsLoader;
   final WidgetBuilder? subscriptionBuilder;
@@ -177,6 +179,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
               tabs: WalletPurchaseTabs(
                 controller: _tabs,
                 membershipColor: _membershipColor,
+                initialMembershipType: widget.initialMembershipType,
                 membershipCatalog: AppServicesScope.maybeOf(
                   context,
                 )?.membershipCatalog,
@@ -197,6 +200,8 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                       child: _subscriptionVisited
                           ? widget.subscriptionBuilder?.call(context) ??
                                 ProSubscriptionContent(
+                                  initialMembershipType:
+                                      widget.initialMembershipType,
                                   onMembershipTypeChanged: (type) {
                                     if (mounted &&
                                         _membershipColor != type.accent) {

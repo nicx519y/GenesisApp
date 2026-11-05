@@ -3398,9 +3398,15 @@
   "@meDailyCheck": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
   },
-  "gemsDailyCheckInReward": "Get 100",
+  "gemsDailyCheckInReward": "Get {amount}",
   "@gemsDailyCheckInReward": {
-    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+    "description": "Daily Check-in dialog: button showing the Gem reward associated with a subscription offer. Opens the relevant subscription tier.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "100"
+      }
+    }
   },
   "meCheck": "Check in",
   "@meCheck": {

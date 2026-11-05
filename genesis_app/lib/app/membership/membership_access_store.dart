@@ -123,6 +123,37 @@ class MembershipAccessStore with WidgetsBindingObserver {
     );
   }
 
+  /// Resolves both tiers using the same cache and wallet lookup as checkVip.
+  /// Null means at least one tier could not be confirmed.
+  Future<({bool premium, bool deluxe})?> checkActiveTiers() async {
+    if (_disposed) return null;
+    final forced = _debugOverride();
+    if (forced != null) {
+      return (
+        premium: forced.activeFor(MembershipType.premium),
+        deluxe: forced.activeFor(MembershipType.deluxe),
+      );
+    }
+    final session = _session;
+    final status = await _ensureFresh();
+    if (_disposed ||
+        session != _session ||
+        status == MembershipAccessStatus.unknown) {
+      return null;
+    }
+    if (_ownerUid == null) return (premium: false, deluxe: false);
+    final premium = _groupStatus(_membership);
+    final deluxe = _groupStatus(_membershipDeluxe, optional: true);
+    if (premium == MembershipAccessStatus.unknown ||
+        deluxe == MembershipAccessStatus.unknown) {
+      return null;
+    }
+    return (
+      premium: premium == MembershipAccessStatus.active,
+      deluxe: deluxe == MembershipAccessStatus.active,
+    );
+  }
+
   String? _ownerUid;
   bool _sessionKnown = false;
   GemWalletMembership? _membership;
