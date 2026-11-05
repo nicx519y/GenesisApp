@@ -306,8 +306,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       purchase,
       attemptId: resolvedAttempt.id,
       productId: resolvedAttempt.product.productId,
-      priceAmountMicros: resolvedAttempt.priceAmountMicros,
-      priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
     );
 
     final processingKey = '${purchase.provider.name}:$token';

@@ -37,7 +37,6 @@ class AppEventReport {
   // Derived at send time so already queued events use the current report
   // contract when retried without a local database migration.
   bool get reportFirebase =>
-      AppEventReporting.transactionEvents.contains(event) ||
       AppEventReporting.firebaseForwardedOnceEvents.contains(event);
 }
 
@@ -87,7 +86,7 @@ class SqfliteAppEventReportStore implements AppEventReportStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: (database, _) => database.execute('''
 CREATE TABLE app_event_reports (
   sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,7 +135,7 @@ END
 WHERE business_id IS NOT NULL
 ''');
           }
-          if (oldVersion < 5) {
+          if (oldVersion < 6) {
             final retainedEvents = AppEventReporting.supportedEvents.toList();
             await database.delete(
               'app_event_reports',
@@ -231,54 +230,13 @@ class AppEventReporting {
        _maximumRetryDelay = maximumRetryDelay,
        _retryDelay = initialRetryDelay;
 
-  static const Set<String> supportedEvents = <String>{
-    'login_first',
-    'message_sent_first',
-    'message_sent_10_first',
-    'message_sent_20_first',
-    'purchase',
-    'purchase_first',
-    'purchase_day0',
-    'purchase_first_day0',
-    'gems',
-    'gems_first',
-    'gems_day0',
-    'gems_first_day0',
-    'subscription',
-    'subscription_first',
-    'subscription_day0',
-    'subscription_first_day0',
-  };
+  static const Set<String> supportedEvents = firebaseForwardedOnceEvents;
 
   static const Set<String> firebaseForwardedOnceEvents = <String>{
     'login_first',
     'message_sent_first',
     'message_sent_10_first',
     'message_sent_20_first',
-  };
-
-  static const Set<String> transactionEvents = <String>{
-    'purchase',
-    'purchase_first',
-    'purchase_day0',
-    'purchase_first_day0',
-    'gems',
-    'gems_first',
-    'gems_day0',
-    'gems_first_day0',
-    'subscription',
-    'subscription_first',
-    'subscription_day0',
-    'subscription_first_day0',
-  };
-
-  static const Set<String> firstPurchaseEvents = <String>{
-    'purchase_first',
-    'purchase_first_day0',
-    'gems_first',
-    'gems_first_day0',
-    'subscription_first',
-    'subscription_first_day0',
   };
 
   final AppEventReportSender _sender;
@@ -295,8 +253,6 @@ class AppEventReporting {
     required String event,
     required int occurredAtSeconds,
     required Map<String, Object> parameters,
-    String? transactionId,
-    String? transactionDeduplicationId,
     bool requireEnqueueSuccess = false,
   }) async {
     if (_disposed || !supportedEvents.contains(event)) {
@@ -310,16 +266,6 @@ class AppEventReporting {
         'must be a positive UTC Unix timestamp in seconds',
       );
     }
-    final normalizedTransactionId = transactionId?.trim() ?? '';
-    if (transactionEvents.contains(event) && normalizedTransactionId.isEmpty) {
-      debugPrint(
-        '[Telemetry][EventReport] $event skipped: missing transaction_id',
-      );
-      return;
-    }
-    final effectiveTransactionId = transactionEvents.contains(event)
-        ? normalizedTransactionId
-        : null;
     final params = <String, String>{
       for (final entry in parameters.entries)
         entry.key: _parameterValue(entry.value),
@@ -331,20 +277,9 @@ class AppEventReporting {
         '$environment',
       );
     }
-    final deduplicationId = transactionDeduplicationId?.trim() ?? '';
-    final reportIdentity = firstPurchaseEvents.contains(event)
-        ? ''
-        : effectiveTransactionId == null
-        ? ''
-        : deduplicationId.isNotEmpty
-        ? deduplicationId
-        : effectiveTransactionId;
+    // Keep the legacy empty identity for events already recorded once.
     final reportKey = sha256
-        .convert(
-          utf8.encode(
-            jsonEncode(<Object?>[environment, event, reportIdentity]),
-          ),
-        )
+        .convert(utf8.encode(jsonEncode(<Object?>[environment, event, ''])))
         .toString();
     try {
       await _store.enqueue(
@@ -354,7 +289,6 @@ class AppEventReporting {
           occurredAtSeconds: occurredAtSeconds,
           params: params,
           reportKey: reportKey,
-          transactionId: effectiveTransactionId,
         ),
       );
       unawaited(_flushAfterEnqueue());
