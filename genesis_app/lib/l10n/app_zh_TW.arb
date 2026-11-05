@@ -5047,5 +5047,9 @@
   "meWorldoDeluxeSubscription": "你的 Worldo Deluxe 訂閱已生效。",
   "@meWorldoDeluxeSubscription": {
     "description": "Deluxe subscription purchase success dialog: confirmation shown only after the server confirms the purchase."
+  },
+  "meSignUpClaimDeluxe": "註冊以領取 Deluxe",
+  "@meSignUpClaimDeluxe": {
+    "description": "Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name."
   }
 }

@@ -3334,6 +3334,10 @@
   "@meContinueApple": {
     "description": "首页 - Me → 登录/注册页，登录注册页的登录方式按钮"
   },
+  "meSignUpClaimDeluxe": "Sign up to claim Deluxe",
+  "@meSignUpClaimDeluxe": {
+    "description": "Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name."
+  },
   "meSignUpClaimPremium": "Sign up to claim Premium",
   "@meSignUpClaimPremium": {
     "description": "首页 - Me → 登录弹窗，登录弹窗"

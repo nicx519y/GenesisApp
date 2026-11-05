@@ -2476,6 +2476,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get meContinueApple => 'Mit Apple fortfahren';
 
   @override
+  String get meSignUpClaimDeluxe => 'Registriere dich, um Deluxe zu erhalten';
+
+  @override
   String get meSignUpClaimPremium => 'Registrieren und Premium erhalten';
 
   @override

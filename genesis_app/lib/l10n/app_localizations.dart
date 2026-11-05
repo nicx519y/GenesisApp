@@ -4114,6 +4114,12 @@ abstract class AppLocalizations {
   /// **'Continue with Apple'**
   String get meContinueApple;
 
+  /// Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up to claim Deluxe'**
+  String get meSignUpClaimDeluxe;
+
   /// 首页 - Me → 登录弹窗，登录弹窗
   ///
   /// In en, this message translates to:

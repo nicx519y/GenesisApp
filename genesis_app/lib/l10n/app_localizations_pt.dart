@@ -2465,6 +2465,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get meContinueApple => 'Continuar com Apple';
 
   @override
+  String get meSignUpClaimDeluxe => 'Cadastre-se para obter Deluxe';
+
+  @override
   String get meSignUpClaimPremium => 'Cadastre-se para obter Premium';
 
   @override

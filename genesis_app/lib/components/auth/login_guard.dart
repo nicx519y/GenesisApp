@@ -29,6 +29,11 @@ Future<bool> ensureGenesisLogin(
     context: loginContext,
     isDismissible: isDismissible,
     linkPurchasedMembership: linkPurchasedMembership,
+    purchasedMembershipType: linkPurchasedMembership
+        ? AppServicesScope.read(
+            loginContext,
+          ).membershipPurchases?.guestLoginMembershipType
+        : null,
     onLogin: (provider) {
       return loginGenesisWithProvider(loginContext, provider, source: source);
     },

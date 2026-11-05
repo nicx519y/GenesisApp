@@ -2470,6 +2470,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get meContinueApple => 'Continuer avec Apple';
 
   @override
+  String get meSignUpClaimDeluxe => 'Inscrivez-vous pour obtenir Deluxe';
+
+  @override
   String get meSignUpClaimPremium => 'Inscrivez-vous pour obtenir Premium';
 
   @override

@@ -2361,6 +2361,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meContinueApple => 'Appleで続行';
 
   @override
+  String get meSignUpClaimDeluxe => '登録してDeluxeを受け取る';
+
+  @override
   String get meSignUpClaimPremium => '登録してPremiumを受け取る';
 
   @override

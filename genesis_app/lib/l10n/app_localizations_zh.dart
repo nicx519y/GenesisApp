@@ -2430,6 +2430,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meContinueApple => 'Continue with Apple';
 
   @override
+  String get meSignUpClaimDeluxe => 'Sign up to claim Deluxe';
+
+  @override
   String get meSignUpClaimPremium => 'Sign up to claim Premium';
 
   @override
@@ -6111,6 +6114,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get meContinueApple => '使用 Apple 繼續';
+
+  @override
+  String get meSignUpClaimDeluxe => '註冊以領取 Deluxe';
 
   @override
   String get meSignUpClaimPremium => '註冊以領取 Premium';

@@ -2367,6 +2367,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meContinueApple => 'Apple로 계속';
 
   @override
+  String get meSignUpClaimDeluxe => '가입하고 Deluxe 받기';
+
+  @override
   String get meSignUpClaimPremium => '가입하고 Premium 받기';
 
   @override

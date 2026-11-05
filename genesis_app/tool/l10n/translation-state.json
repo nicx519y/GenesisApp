@@ -6070,6 +6070,12 @@
           "text_hash": "1a89e6b819560470c0da40bba3d6900be1def4b29a1ec3d4e64517ae4017a915",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "5e9d4ece2db68af5eed422eaa8c51602c1a5ed3c02340f4435d853bef3ea4689",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -12141,6 +12147,12 @@
           "text_hash": "18e33cebdad0d8722fc1af23b395c76d964f084d89bbbe9f33fd626390371e55",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "7d09c46b58e70b602a499f1e5a402ffa75fa62b72cfb7acc9bebd07be4b02512",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -18212,6 +18224,12 @@
           "text_hash": "bba26ed505cd478ff0e1f6a0af97d7fab74e29b4f2071b23ae4e69c0a43b8e76",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "f59f1241d0af00b9ba9fe458630c0889f2c298077841a1cd18515ebeb2ccb11c",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -24283,6 +24301,12 @@
           "text_hash": "5e47be9ac9f7116a0d29e53ff4666f9a42d95cfde29fe11fe5940f861a643461",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "41c2c402f6eb20e98eff71030dfc1db88ccf22bba7f216ea54806530ee2978df",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -30354,6 +30378,12 @@
           "text_hash": "9a08efed830129e1929895a9acd274fc8839ffbb0b338b8354933b4ebaeeedcc",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "b3c737c4cb4490e83b872931ebe67123e8909c615c951a1a17367b07530fdffd",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -36425,6 +36455,12 @@
           "text_hash": "ae0bf9bffc9f11204d2b92b83437596ec89286d53171cda3c661272548fc5b7b",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "c44952861e6322b3e7c98af4b18baaa0fb15a6f2e2562992a4c1c97b36f5ea46",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -42496,6 +42532,12 @@
           "text_hash": "0cae34a7b93caf9a57a8756b18f987a4c964431f6ea75dafb56aa14c8a62233d",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "866d0a58e77cd1dd75eea3983d92fbdca8024bcc77eab199b29faa45f06696c6",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     },
@@ -48567,6 +48609,12 @@
           "text_hash": "2daec6ab1d4a8ebb8c10c8c070f569cdf54a1bd9662d98389a5031e45d23cf50",
           "status": "ai",
           "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "7e1fe827cdabc73f3fb6331ed08c90f122cf39dd92cc8347be278506af2c50d2",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
         }
       }
     }

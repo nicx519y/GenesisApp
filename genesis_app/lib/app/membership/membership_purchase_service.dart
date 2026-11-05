@@ -151,6 +151,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   // This stays in memory across login and is not a report retry queue.
   final Map<String, MembershipPurchaseRequest> _guestPurchaseRequests = {};
   final ValueNotifier<String?> guestLoginRequestId = ValueNotifier(null);
+  MembershipType? get guestLoginMembershipType => _guestLoginMembershipType();
   final Set<String> _presentedAttempts = {};
   final Map<String, MembershipGuestClaimRecord> _guestClaims = {};
   final Set<String> _pendingGuestClaimWrites = {};

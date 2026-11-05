@@ -1,6 +1,7 @@
 import 'auth/login_submission_state.dart';
 import 'auth/login_route_completion.dart';
 import '../l10n/genesis_l10n.dart';
+import '../l10n/genesis_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +11,7 @@ import 'common/genesis_modal_routes.dart';
 import 'login_provider_button.dart';
 import 'gems/pro_membership_badge.dart';
 import '../app/telemetry/genesis_telemetry.dart';
+import '../network/models/membership_order_product.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
 import '../ui/tokens/genesis_colors.dart';
@@ -24,12 +26,14 @@ class LoginSheet extends StatefulWidget {
     required this.onLogin,
     this.isDismissible = true,
     this.linkPurchasedMembership = false,
+    this.purchasedMembershipType,
     this.useSharedLoginSubmission = true,
   });
 
   final Future<bool> Function(IdentityProvider provider) onLogin;
   final bool isDismissible;
   final bool linkPurchasedMembership;
+  final MembershipType? purchasedMembershipType;
 
   /// Developer simulations must not publish a real app login result.
   final bool useSharedLoginSubmission;
@@ -103,6 +107,11 @@ class _LoginSheetState extends State<LoginSheet>
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height - media.padding.top - 18;
     final targetHeight = maxHeight < 342 ? maxHeight : 342.0;
+    final isDeluxe = widget.purchasedMembershipType == MembershipType.deluxe;
+    final l10n = context.l10n;
+    final claimTitle = isDeluxe
+        ? l10n.meSignUpClaimDeluxe
+        : l10n.meSignUpClaimPremium;
 
     return PopScope(
       canPop: widget.isDismissible,
@@ -117,13 +126,16 @@ class _LoginSheetState extends State<LoginSheet>
             ),
             child: GenesisBottomSheetPanel(
               title: widget.linkPurchasedMembership
-                  ? GenesisL10n.current.meSignUpClaimPremium
+                  ? claimTitle
                   : GenesisL10n.current.meSignUpContinue,
               height: targetHeight,
               header: widget.linkPurchasedMembership
                   ? GenesisActionSheetHeader(
-                      title: GenesisL10n.current.meSignUpClaimPremium,
-                      leading: ProMembershipBadge.beside(fontSize: 18),
+                      title: claimTitle,
+                      leading: ProMembershipBadge.beside(
+                        fontSize: 18,
+                        deluxe: isDeluxe,
+                      ),
                     )
                   : null,
               trailing: widget.isDismissible
@@ -176,6 +188,7 @@ Future<bool> showLoginSheet({
   required Future<bool> Function(IdentityProvider provider) onLogin,
   bool isDismissible = true,
   bool linkPurchasedMembership = false,
+  MembershipType? purchasedMembershipType,
 }) async {
   // Forget the field's focus before pushing the route so closing login cannot
   // restore it and briefly reopen the keyboard.
@@ -191,6 +204,7 @@ Future<bool> showLoginSheet({
       onLogin: onLogin,
       isDismissible: isDismissible,
       linkPurchasedMembership: linkPurchasedMembership,
+      purchasedMembershipType: purchasedMembershipType,
     ),
   );
   return loggedIn == true;
